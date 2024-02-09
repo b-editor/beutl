@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 
@@ -46,19 +47,26 @@ public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thi
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is Vector4Editor<float> editor)
+        if (visitor is Vector4Editor<float> editor && !Disposables.IsDisposed)
         {
-            editor[!Vector4Editor<float>.FirstValueProperty] = FirstValue.ToBinding();
-            editor[!Vector4Editor<float>.SecondValueProperty] = SecondValue.ToBinding();
-            editor[!Vector4Editor<float>.ThirdValueProperty] = ThirdValue.ToBinding();
-            editor[!Vector4Editor<float>.FourthValueProperty] = FourthValue.ToBinding();
-            editor[!Vector4Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
+            editor.Bind(Vector4Editor<float>.FirstValueProperty, FirstValue.ToBinding())
+                .DisposeWith(Disposables);
+            editor.Bind(Vector4Editor<float>.SecondValueProperty, SecondValue.ToBinding())
+                .DisposeWith(Disposables);
+            editor.Bind(Vector4Editor<float>.ThirdValueProperty, ThirdValue.ToBinding())
+                .DisposeWith(Disposables);
+            editor.Bind(Vector4Editor<float>.FourthValueProperty, FourthValue.ToBinding())
+                .DisposeWith(Disposables);
+            editor.Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                .DisposeWith(Disposables);
             editor.FirstHeader = Strings.Left;
             editor.SecondHeader = Strings.Top;
             editor.ThirdHeader = Strings.Right;
             editor.FourthHeader = Strings.Bottom;
-            editor.ValueConfirmed += OnValueConfirmed;
-            editor.ValueChanged += OnValueChanged;
+            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                .DisposeWith(Disposables);
+            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+                .DisposeWith(Disposables);
         }
     }
 

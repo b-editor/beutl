@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
@@ -10,10 +11,12 @@ public sealed class AlignmentYEditorViewModel(IAbstractProperty<AlignmentY> prop
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is AlignmentYEditor view)
+        if (visitor is AlignmentYEditor view && !Disposables.IsDisposed)
         {
-            view[!AlignmentYEditor.ValueProperty] = Value.ToBinding();
-            view.ValueConfirmed += OnValueConfirmed;
+            view.Bind(AlignmentYEditor.ValueProperty, Value.ToBinding())
+                .DisposeWith(Disposables);
+            view.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                .DisposeWith(Disposables);
         }
     }
 

@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
@@ -10,10 +11,12 @@ public sealed class FontFamilyEditorViewModel(IAbstractProperty<FontFamily?> pro
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is FontFamilyEditor editor)
+        if (visitor is FontFamilyEditor editor && !Disposables.IsDisposed)
         {
-            editor[!FontFamilyEditor.ValueProperty] = Value.ToBinding();
-            editor.ValueConfirmed += OnValueConfirmed;
+            editor.Bind(FontFamilyEditor.ValueProperty, Value.ToBinding())
+                .DisposeWith(Disposables);
+            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                .DisposeWith(Disposables);
         }
     }
 

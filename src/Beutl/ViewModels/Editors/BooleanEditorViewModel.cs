@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 
@@ -9,10 +10,12 @@ public sealed class BooleanEditorViewModel(IAbstractProperty<bool> property) : V
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is BooleanEditor view)
+        if (visitor is BooleanEditor view && !Disposables.IsDisposed)
         {
-            view[!BooleanEditor.ValueProperty] = Value.ToBinding();
-            view.ValueConfirmed += OnValueConfirmed;
+            view.Bind(BooleanEditor.ValueProperty, Value.ToBinding())
+                .DisposeWith(Disposables);
+            view.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                .DisposeWith(Disposables);
         }
     }
 

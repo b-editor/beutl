@@ -2,6 +2,7 @@
 using System.Collections.Specialized;
 
 using Avalonia;
+using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 
@@ -56,11 +57,13 @@ public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : ValueEditorVie
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is EnumEditor editor)
+        if (visitor is EnumEditor editor && !Disposables.IsDisposed)
         {
             editor.Items = _choices;
-            editor[!EnumEditor.SelectedIndexProperty] = SelectedIndex.ToBinding();
-            editor.ValueConfirmed += OnValueConfirmed;
+            editor.Bind(EnumEditor.SelectedIndexProperty, SelectedIndex.ToBinding())
+                .DisposeWith(Disposables);
+            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                .DisposeWith(Disposables);
         }
     }
 

@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 
 using Avalonia;
+using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 
@@ -12,11 +13,14 @@ public sealed class NumberEditorViewModel<T>(IAbstractProperty<T> property) : Va
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is NumberEditor<T> editor)
+        if (visitor is NumberEditor<T> editor && !Disposables.IsDisposed)
         {
-            editor[!NumberEditor<T>.ValueProperty] = Value.ToBinding();
-            editor.ValueChanged += OnValueChanged;
-            editor.ValueConfirmed += OnValueConfirmed;
+            editor.Bind(NumberEditor<T>.ValueProperty, Value.ToBinding())
+                .DisposeWith(Disposables);
+            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+                .DisposeWith(Disposables);
+            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                .DisposeWith(Disposables);
         }
     }
 

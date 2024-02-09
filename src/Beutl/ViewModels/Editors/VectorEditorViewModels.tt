@@ -28,6 +28,7 @@
     };
 #>
 using Avalonia;
+using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
@@ -64,7 +65,7 @@ namespace Beutl.ViewModels.Editors
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
             base.Accept(visitor);
-            if (visitor is Vector2Editor<<#= t.Element #>> editor)
+            if (visitor is Vector2Editor<<#= t.Element #>> editor && !Disposables.IsDisposed)
             {
 <# if (t.IsSize) { #>
                 editor.FirstHeader = Strings.Width;
@@ -73,11 +74,16 @@ namespace Beutl.ViewModels.Editors
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
 <# } #>
-                editor[!Vector2Editor<<#= t.Element #>>.FirstValueProperty] = FirstValue.ToBinding();
-                editor[!Vector2Editor<<#= t.Element #>>.SecondValueProperty] = SecondValue.ToBinding();
-                editor[!Vector2Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
-                editor.ValueConfirmed += OnValueConfirmed;
-                editor.ValueChanged += ValueChanged;
+                editor.Bind(Vector2Editor<<#= t.Element #>>.FirstValueProperty, FirstValue.ToBinding())
+                    .DisposeWith(Disposables);
+                editor.Bind(Vector2Editor<<#= t.Element #>>.SecondValueProperty, SecondValue.ToBinding())
+                    .DisposeWith(Disposables);
+                editor.Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                    .DisposeWith(Disposables);
+                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                    .DisposeWith(Disposables);
+                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
+                    .DisposeWith(Disposables);
             }
         }
 
@@ -132,24 +138,30 @@ namespace Beutl.ViewModels.Editors
         public ReadOnlyReactivePropertySlim<<#= t.Element #>> SecondValue { get; }
 
         public ReadOnlyReactivePropertySlim<<#= t.Element #>> ThirdValue { get; }
-        
+
         public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
             base.Accept(visitor);
-            if (visitor is Vector3Editor<<#= t.Element #>> editor)
+            if (visitor is Vector3Editor<<#= t.Element #>> editor && !Disposables.IsDisposed)
             {
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
                 editor.ThirdHeader = "Z";
 
-                editor[!Vector3Editor<<#= t.Element #>>.FirstValueProperty] = FirstValue.ToBinding();
-                editor[!Vector3Editor<<#= t.Element #>>.SecondValueProperty] = SecondValue.ToBinding();
-                editor[!Vector3Editor<<#= t.Element #>>.ThirdValueProperty] = ThirdValue.ToBinding();
-                editor[!Vector3Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
-                editor.ValueConfirmed += OnValueConfirmed;
-                editor.ValueChanged += ValueChanged;
+                editor.Bind(Vector3Editor<<#= t.Element #>>.FirstValueProperty, FirstValue.ToBinding())
+                    .DisposeWith(Disposables);
+                editor.Bind(Vector3Editor<<#= t.Element #>>.SecondValueProperty, SecondValue.ToBinding())
+                    .DisposeWith(Disposables);
+                editor.Bind(Vector3Editor<<#= t.Element #>>.ThirdValueProperty, ThirdValue.ToBinding())
+                    .DisposeWith(Disposables);
+                editor.Bind(Vector3Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                    .DisposeWith(Disposables);
+                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                    .DisposeWith(Disposables);
+                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
+                    .DisposeWith(Disposables);
             }
         }
 
@@ -212,13 +224,13 @@ namespace Beutl.ViewModels.Editors
         public ReadOnlyReactivePropertySlim<<#= t.Element #>> ThirdValue { get; }
 
         public ReadOnlyReactivePropertySlim<<#= t.Element #>> FourthValue { get; }
-        
+
         public ReactivePropertySlim<bool> IsUniformEditorEnabled { get; } = new();
 
         public override void Accept(IPropertyEditorContextVisitor visitor)
         {
             base.Accept(visitor);
-            if (visitor is Vector4Editor<<#= t.Element #>> editor)
+            if (visitor is Vector4Editor<<#= t.Element #>> editor && !Disposables.IsDisposed)
             {
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
@@ -230,13 +242,20 @@ namespace Beutl.ViewModels.Editors
                 editor.FourthHeader = "W";
 <# } #>
 
-                editor[!Vector4Editor<<#= t.Element #>>.FirstValueProperty] = FirstValue.ToBinding();
-                editor[!Vector4Editor<<#= t.Element #>>.SecondValueProperty] = SecondValue.ToBinding();
-                editor[!Vector4Editor<<#= t.Element #>>.ThirdValueProperty] = ThirdValue.ToBinding();
-                editor[!Vector4Editor<<#= t.Element #>>.FourthValueProperty] = FourthValue.ToBinding();
-                editor[!Vector4Editor.IsUniformProperty] = IsUniformEditorEnabled.ToBinding();
-                editor.ValueConfirmed += OnValueConfirmed;
-                editor.ValueChanged += OnValueChanged;
+                editor.Bind(Vector4Editor<<#= t.Element #>>.FirstValueProperty, FirstValue.ToBinding())
+                    .DisposeWith(Disposables);
+                editor.Bind(Vector4Editor<<#= t.Element #>>.SecondValueProperty, SecondValue.ToBinding())
+                    .DisposeWith(Disposables);
+                editor.Bind(Vector4Editor<<#= t.Element #>>.ThirdValueProperty, ThirdValue.ToBinding())
+                    .DisposeWith(Disposables);
+                editor.Bind(Vector4Editor<<#= t.Element #>>.FourthValueProperty, FourthValue.ToBinding())
+                    .DisposeWith(Disposables);
+                editor.Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                    .DisposeWith(Disposables);
+                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                    .DisposeWith(Disposables);
+                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+                    .DisposeWith(Disposables);
             }
         }
 

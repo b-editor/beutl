@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 
@@ -21,10 +22,12 @@ public sealed class StorageFileEditorViewModel : BaseEditorViewModel<FileInfo>
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is StorageFileEditor editor)
+        if (visitor is StorageFileEditor editor && !Disposables.IsDisposed)
         {
-            editor[!StorageFileEditor.ValueProperty] = Value.ToBinding();
-            editor.ValueConfirmed += OnValueConfirmed;
+            editor.Bind(StorageFileEditor.ValueProperty, Value.ToBinding())
+                .DisposeWith(Disposables);
+            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                .DisposeWith(Disposables);
         }
     }
 

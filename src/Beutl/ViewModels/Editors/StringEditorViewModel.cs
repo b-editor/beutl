@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 using Avalonia;
+using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 
@@ -11,7 +12,7 @@ public sealed class StringEditorViewModel(IAbstractProperty<string?> property) :
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is StringEditor editor)
+        if (visitor is StringEditor editor && !Disposables.IsDisposed)
         {
             CoreProperty? prop = WrappedProperty.GetCoreProperty();
             bool multiline = false;
@@ -21,9 +22,12 @@ public sealed class StringEditorViewModel(IAbstractProperty<string?> property) :
                 multiline = metadata.Attributes.Any(v => v is DataTypeAttribute { DataType: DataType.MultilineText });
             }
 
-            editor[!StringEditor.TextProperty] = Value.ToBinding();
-            editor.ValueChanged += OnValueChanged;
-            editor.ValueConfirmed += OnValueConfirmed;
+            editor.Bind(StringEditor.TextProperty, Value.ToBinding())
+                .DisposeWith(Disposables);
+            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+                .DisposeWith(Disposables);
+            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                .DisposeWith(Disposables);
             editor.Classes.Set("multiline", multiline);
         }
     }

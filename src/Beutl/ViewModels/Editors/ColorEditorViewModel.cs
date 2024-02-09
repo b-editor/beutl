@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
@@ -28,12 +29,16 @@ public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>, IConfigu
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is ColorEditor editor)
+        if (visitor is ColorEditor editor && !Disposables.IsDisposed)
         {
-            editor[!ColorEditor.ValueProperty] = Value2.ToBinding();
-            editor[!ColorEditor.IsLivePreviewEnabledProperty] = IsLivePreviewEnabled.ToBinding();
-            editor.ValueConfirmed += OnValueConfirmed;
-            editor.ValueChanged += OnValueChanged;
+            editor.Bind(ColorEditor.ValueProperty, Value2.ToBinding())
+                .DisposeWith(Disposables);
+            editor.Bind(ColorEditor.IsLivePreviewEnabledProperty, IsLivePreviewEnabled.ToBinding())
+                .DisposeWith(Disposables);
+            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                .DisposeWith(Disposables);
+            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+                .DisposeWith(Disposables);
         }
     }
 

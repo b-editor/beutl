@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 
@@ -10,10 +11,12 @@ public sealed class EnumEditorViewModel<T>(IAbstractProperty<T> property) : Valu
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
-        if (visitor is EnumEditor<T> editor)
+        if (visitor is EnumEditor<T> editor && !Disposables.IsDisposed)
         {
-            editor[!EnumEditor<T>.SelectedValueProperty] = Value.ToBinding();
-            editor.ValueConfirmed += OnValueConfirmed;
+            editor.Bind(EnumEditor<T>.SelectedValueProperty, Value.ToBinding())
+                .DisposeWith(Disposables);
+            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                .DisposeWith(Disposables);
         }
     }
 
