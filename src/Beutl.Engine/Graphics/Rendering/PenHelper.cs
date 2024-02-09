@@ -88,7 +88,7 @@ internal static class PenHelper
                 dashesArray[i] = (float)srcDashes[i % srcDashes.Count] * thickness;
             }
 
-            float offset = (float)(pen.DashOffset * thickness);
+            float offset = (float)((pen.DashOffset / 100f) * thickness);
 
             var pe = SKPathEffect.CreateDash(dashesArray, offset);
 
