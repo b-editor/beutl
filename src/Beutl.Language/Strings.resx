@@ -1039,4 +1039,67 @@ and b-editor maintains the download URL.</value>
   <data name="RightClickToOperateCache" xml:space="preserve">
     <value>Right-click to operate cache</value>
   </data>
+  <data name="Brush" xml:space="preserve">
+    <value>Brush</value>
+  </data>
+  <data name="Pen_DashArray" xml:space="preserve">
+    <value>Dashes and spaces</value>
+  </data>
+  <data name="Pen_DashOffset" xml:space="preserve">
+    <value>Dashed offset</value>
+  </data>
+  <data name="Pen_MiterLimit" xml:space="preserve">
+    <value>Miter Limit</value>
+  </data>
+  <data name="Pen_StrokeCap" xml:space="preserve">
+    <value>Cap style</value>
+  </data>
+  <data name="StrokeCap_Flat" xml:space="preserve">
+    <value>Flat</value>
+  </data>
+  <data name="StrokeCap_Round" xml:space="preserve">
+    <value>Round</value>
+  </data>
+  <data name="StrokeCap_Square" xml:space="preserve">
+    <value>Square</value>
+  </data>
+  <data name="Pen_StrokeJoin" xml:space="preserve">
+    <value>Join style</value>
+  </data>
+  <data name="StrokeJoin_Miter" xml:space="preserve">
+    <value>Mitered join</value>
+  </data>
+  <data name="StrokeJoin_Round" xml:space="preserve">
+    <value>Circular join</value>
+  </data>
+  <data name="StrokeJoin_Bevel" xml:space="preserve">
+    <value>Beveled join</value>
+  </data>
+  <data name="Pen_StrokeAlignment" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="StrokeAlignment_Center" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="StrokeAlignment_Inside" xml:space="preserve">
+    <value>Inside</value>
+  </data>
+  <data name="StrokeAlignment_Outside" xml:space="preserve">
+    <value>Outside</value>
+  </data>
+  <data name="Stroke" xml:space="preserve">
+    <value>Stroke</value>
+  </data>
+  <data name="HueRange" xml:space="preserve">
+    <value>Hue Range</value>
+  </data>
+  <data name="SaturationRange" xml:space="preserve">
+    <value>Saturation Range</value>
+  </data>
+  <data name="BrightnessRange" xml:space="preserve">
+    <value>Brightness Range</value>
+  </data>
+  <data name="Length" xml:space="preserve">
+    <value>Length</value>
+  </data>
 </root>

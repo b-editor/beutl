@@ -1,6 +1,8 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Rendering;
@@ -33,12 +35,14 @@ public class ColorKey : FilterEffect
         AffectsRender<ColorKey>(ColorProperty, RangeProperty);
     }
 
+    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
     public Color Color
     {
         get => _color;
         set => SetAndRaise(ColorProperty, ref _color, value);
     }
 
+    [Display(Name = nameof(Strings.BrightnessRange), ResourceType = typeof(Strings))]
     public float Range
     {
         get => _range;

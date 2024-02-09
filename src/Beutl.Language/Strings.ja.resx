@@ -1039,4 +1039,67 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="RightClickToOperateCache" xml:space="preserve">
     <value>右クリックでキャッシュを操作</value>
   </data>
+  <data name="Brush" xml:space="preserve">
+    <value>ブラシ</value>
+  </data>
+  <data name="Pen_DashArray" xml:space="preserve">
+    <value>破線と空白</value>
+  </data>
+  <data name="Pen_DashOffset" xml:space="preserve">
+    <value>破線の始点</value>
+  </data>
+  <data name="Pen_MiterLimit" xml:space="preserve">
+    <value>鋭角の厚み上限</value>
+  </data>
+  <data name="Pen_StrokeCap" xml:space="preserve">
+    <value>キャップ</value>
+  </data>
+  <data name="StrokeCap_Flat" xml:space="preserve">
+    <value>フラット</value>
+  </data>
+  <data name="StrokeCap_Round" xml:space="preserve">
+    <value>ラウンド</value>
+  </data>
+  <data name="StrokeCap_Square" xml:space="preserve">
+    <value>スクエア</value>
+  </data>
+  <data name="Pen_StrokeJoin" xml:space="preserve">
+    <value>結合部</value>
+  </data>
+  <data name="StrokeJoin_Miter" xml:space="preserve">
+    <value>マイター結合</value>
+  </data>
+  <data name="StrokeJoin_Round" xml:space="preserve">
+    <value>円形結合</value>
+  </data>
+  <data name="StrokeJoin_Bevel" xml:space="preserve">
+    <value>斜めの結合</value>
+  </data>
+  <data name="Pen_StrokeAlignment" xml:space="preserve">
+    <value>位置</value>
+  </data>
+  <data name="StrokeAlignment_Center" xml:space="preserve">
+    <value>中央</value>
+  </data>
+  <data name="StrokeAlignment_Inside" xml:space="preserve">
+    <value>内側</value>
+  </data>
+  <data name="StrokeAlignment_Outside" xml:space="preserve">
+    <value>外側</value>
+  </data>
+  <data name="Stroke" xml:space="preserve">
+    <value>ストローク</value>
+  </data>
+  <data name="HueRange" xml:space="preserve">
+    <value>色相範囲</value>
+  </data>
+  <data name="SaturationRange" xml:space="preserve">
+    <value>彩度範囲</value>
+  </data>
+  <data name="BrightnessRange" xml:space="preserve">
+    <value>輝度範囲</value>
+  </data>
+  <data name="Length" xml:space="preserve">
+    <value>長さ</value>
+  </data>
 </root>

@@ -1,8 +1,10 @@
 ﻿using System.Collections.Specialized;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 
 using Beutl.Animation;
 using Beutl.Collections;
+using Beutl.Language;
 using Beutl.Media.Immutable;
 
 namespace Beutl.Media;
@@ -66,48 +68,57 @@ public sealed class Pen : Animatable, IMutablePen, IEquatable<IPen?>
             .Register();
     }
 
+    [Display(Name = nameof(Strings.Brush), ResourceType = typeof(Strings))]
     public IBrush? Brush
     {
         get => _brush;
         set => SetAndRaise(BrushProperty, ref _brush, value);
     }
 
+    [Display(Name = nameof(Strings.Pen_DashArray), ResourceType = typeof(Strings))]
     public CoreList<float>? DashArray
     {
         get => _dashArray;
         set => SetAndRaise(DashArrayProperty, ref _dashArray, value);
     }
 
+    [Display(Name = nameof(Strings.Pen_DashOffset), ResourceType = typeof(Strings))]
     public float DashOffset
     {
         get => _dashOffset;
         set => SetAndRaise(DashOffsetProperty, ref _dashOffset, value);
     }
 
+    [Display(Name = nameof(Strings.Thickness), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
     public float Thickness
     {
         get => _thickness;
         set => SetAndRaise(ThicknessProperty, ref _thickness, value);
     }
 
+    [Display(Name = nameof(Strings.Pen_MiterLimit), ResourceType = typeof(Strings))]
     public float MiterLimit
     {
         get => _miterLimit;
         set => SetAndRaise(MiterLimitProperty, ref _miterLimit, value);
     }
 
+    [Display(Name = nameof(Strings.Pen_StrokeCap), ResourceType = typeof(Strings))]
     public StrokeCap StrokeCap
     {
         get => _strokeCap;
         set => SetAndRaise(StrokeCapProperty, ref _strokeCap, value);
     }
 
+    [Display(Name = nameof(Strings.Pen_StrokeJoin), ResourceType = typeof(Strings))]
     public StrokeJoin StrokeJoin
     {
         get => _strokeJoin;
         set => SetAndRaise(StrokeJoinProperty, ref _strokeJoin, value);
     }
 
+    [Display(Name = nameof(Strings.Pen_StrokeAlignment), ResourceType = typeof(Strings))]
     public StrokeAlignment StrokeAlignment
     {
         get => _strokeAlignment;

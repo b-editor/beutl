@@ -49,6 +49,7 @@ public class StrokeEffect : FilterEffect
         Pen = new Pen();
     }
 
+    [Display(Name = nameof(Strings.Stroke), ResourceType = typeof(Strings))]
     public IPen? Pen
     {
         get => _pen;

@@ -132,7 +132,7 @@ public class TextBlock : Drawable
         set => SetAndRaise(TextProperty, ref _text, value);
     }
 
-    [Display(GroupName = "Pen")]
+    [Display(Name = nameof(Strings.Stroke), GroupName = nameof(Strings.Stroke), ResourceType = typeof(Strings))]
     public IPen? Pen
     {
         get => _pen;

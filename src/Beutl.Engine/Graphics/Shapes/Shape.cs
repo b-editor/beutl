@@ -70,7 +70,7 @@ public abstract class Shape : Drawable
         set => SetAndRaise(StretchProperty, ref _stretch, value);
     }
 
-    [Display(GroupName = "Pen")]
+    [Display(Name = nameof(Strings.Stroke), GroupName = nameof(Strings.Stroke), ResourceType = typeof(Strings))]
     public IPen? Pen
     {
         get => _pen;

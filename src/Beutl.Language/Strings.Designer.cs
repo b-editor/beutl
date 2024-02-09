@@ -367,11 +367,29 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Brightness Range に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string BrightnessRange {
+            get {
+                return ResourceManager.GetString("BrightnessRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Bring to the top に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string BringToTop {
             get {
                 return ResourceManager.GetString("BringToTop", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Brush に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Brush {
+            get {
+                return ResourceManager.GetString("Brush", resourceCulture);
             }
         }
         
@@ -1349,6 +1367,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Hue Range に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string HueRange {
+            get {
+                return ResourceManager.GetString("HueRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Hue Rotate に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string HueRotate {
@@ -1498,6 +1525,15 @@ namespace Beutl.Language {
         public static string Left {
             get {
                 return ResourceManager.GetString("Left", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Length に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Length {
+            get {
+                return ResourceManager.GetString("Length", resourceCulture);
             }
         }
         
@@ -1907,6 +1943,60 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Dashes and spaces に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Pen_DashArray {
+            get {
+                return ResourceManager.GetString("Pen_DashArray", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Dashed offset に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Pen_DashOffset {
+            get {
+                return ResourceManager.GetString("Pen_DashOffset", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Miter Limit に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Pen_MiterLimit {
+            get {
+                return ResourceManager.GetString("Pen_MiterLimit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Location に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Pen_StrokeAlignment {
+            get {
+                return ResourceManager.GetString("Pen_StrokeAlignment", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Cap style に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Pen_StrokeCap {
+            get {
+                return ResourceManager.GetString("Pen_StrokeCap", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Join style に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Pen_StrokeJoin {
+            get {
+                return ResourceManager.GetString("Pen_StrokeJoin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Pick Font に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string PickFont {
@@ -2200,6 +2290,15 @@ namespace Beutl.Language {
         public static string Saturate {
             get {
                 return ResourceManager.GetString("Saturate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Saturation Range に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SaturationRange {
+            get {
+                return ResourceManager.GetString("SaturationRange", resourceCulture);
             }
         }
         
@@ -2548,9 +2647,99 @@ namespace Beutl.Language {
         /// <summary>
         ///   Stroke に類似しているローカライズされた文字列を検索します。
         /// </summary>
+        public static string Stroke {
+            get {
+                return ResourceManager.GetString("Stroke", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Center に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string StrokeAlignment_Center {
+            get {
+                return ResourceManager.GetString("StrokeAlignment_Center", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Inside に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string StrokeAlignment_Inside {
+            get {
+                return ResourceManager.GetString("StrokeAlignment_Inside", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Outside に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string StrokeAlignment_Outside {
+            get {
+                return ResourceManager.GetString("StrokeAlignment_Outside", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Flat に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string StrokeCap_Flat {
+            get {
+                return ResourceManager.GetString("StrokeCap_Flat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Round に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string StrokeCap_Round {
+            get {
+                return ResourceManager.GetString("StrokeCap_Round", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Square に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string StrokeCap_Square {
+            get {
+                return ResourceManager.GetString("StrokeCap_Square", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Stroke に類似しているローカライズされた文字列を検索します。
+        /// </summary>
         public static string StrokeEffect {
             get {
                 return ResourceManager.GetString("StrokeEffect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Beveled join に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string StrokeJoin_Bevel {
+            get {
+                return ResourceManager.GetString("StrokeJoin_Bevel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Mitered join に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string StrokeJoin_Miter {
+            get {
+                return ResourceManager.GetString("StrokeJoin_Miter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Circular join に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string StrokeJoin_Round {
+            get {
+                return ResourceManager.GetString("StrokeJoin_Round", resourceCulture);
             }
         }
         

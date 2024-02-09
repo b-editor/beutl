@@ -1,4 +1,7 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel.DataAnnotations;
+
+using Beutl.Animation;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Utilities;
@@ -46,24 +49,28 @@ public class FlatShadow : FilterEffect
         Brush = new SolidColorBrush(Colors.Gray);
     }
 
+    [Display(Name = nameof(Strings.Angle), ResourceType = typeof(Strings))]
     public float Angle
     {
         get => _angle;
         set => SetAndRaise(AngleProperty, ref _angle, value);
     }
 
+    [Display(Name = nameof(Strings.Length), ResourceType = typeof(Strings))]
     public float Length
     {
         get => _length;
         set => SetAndRaise(LengthProperty, ref _length, value);
     }
 
+    [Display(Name = nameof(Strings.Brush), ResourceType = typeof(Strings))]
     public IBrush? Brush
     {
         get => _brush;
         set => SetAndRaise(BrushProperty, ref _brush, value);
     }
 
+    [Display(Name = nameof(Strings.ShadowOnly), ResourceType = typeof(Strings))]
     public bool ShadowOnly
     {
         get => _shadowOnly;

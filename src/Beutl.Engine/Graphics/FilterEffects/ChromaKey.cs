@@ -1,6 +1,8 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Rendering;
@@ -38,18 +40,21 @@ public class ChromaKey : FilterEffect
         AffectsRender<ChromaKey>(ColorProperty, HueRangeProperty, SaturationRangeProperty);
     }
 
+    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
     public Color Color
     {
         get => _color;
         set => SetAndRaise(ColorProperty, ref _color, value);
     }
 
+    [Display(Name = nameof(Strings.HueRange), ResourceType = typeof(Strings))]
     public float HueRange
     {
         get => _hueRange;
         set => SetAndRaise(HueRangeProperty, ref _hueRange, value);
     }
 
+    [Display(Name = nameof(Strings.SaturationRange), ResourceType = typeof(Strings))]
     public float SaturationRange
     {
         get => _saturationRange;
