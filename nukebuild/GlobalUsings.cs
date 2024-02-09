@@ -16,3 +16,4 @@ global using static Nuke.Common.IO.FileSystemTasks;
 global using static Nuke.Common.IO.PathConstruction;
 global using static Nuke.Common.Tools.DotNet.DotNetTasks;
 global using static Nuke.Common.Tools.MSBuild.MSBuildTasks;
+global using static Nuke.Common.Tooling.ProcessTasks;
