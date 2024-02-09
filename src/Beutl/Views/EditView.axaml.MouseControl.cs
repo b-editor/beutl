@@ -441,7 +441,7 @@ public partial class EditView
                 using Bitmap<Bgra8888> frame = await renderTask;
                 using Bitmap<Bgra8888> croped = CropFrame(frame, rect);
 
-                await WindowsClipboard.CopyImage(croped);
+                WindowsClipboard.CopyImage(croped);
             }
             catch (Exception ex)
             {

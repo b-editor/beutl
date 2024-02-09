@@ -4,77 +4,34 @@ using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 
+#if WINDOWS
+using FormsDataObject = System.Windows.Forms.DataObject;
+using FormsDataFormats = System.Windows.Forms.DataFormats;
+using FormsClipboard = System.Windows.Forms.Clipboard;
+using GdiBitmap = System.Drawing.Bitmap;
+#endif
+
 namespace Beutl.Helpers;
 
 public static class WindowsClipboard
 {
-    private const string CopyImagePowerShellCode = """
-        Add-Type -AssemblyName System.Drawing
-        Add-Type -AssemblyName System.Windows.Forms
-
-        $data = New-Object Windows.Forms.DataObject
-        $pngstream = New-Object System.IO.MemoryStream
-        $dibstream = [System.IO.File]::OpenRead("{0}")
-        $image = New-Object System.Drawing.Bitmap("{1}")
-        $image.Save($pngstream, [System.Drawing.Imaging.ImageFormat]::Png)
-
-        $data.SetImage($image)
-        $data.SetData("PNG", $False, $pngstream)
-        $data.SetData([Windows.Forms.DataFormats]::Dib, $dibstream)
-
-        [Windows.Forms.Clipboard]::SetDataObject($data, $True)
-
-        $image.Dispose()
-        $pngstream.Dispose()
-        $dibstream.Dispose()
-        """;
-
-    public static async Task CopyImage(Bitmap<Bgra8888> image)
+    public static void CopyImage(Bitmap<Bgra8888> image)
     {
-        // pngファイルを作成
-        string pngFile = Path.GetTempFileName();
-        pngFile = Path.ChangeExtension(pngFile, "png");
-        string dibFile = Path.GetTempFileName();
-        string ps1File = Path.ChangeExtension(Path.GetTempFileName(), "ps1");
+#if WINDOWS
+        var data = new FormsDataObject();
+        using var pngstream = new MemoryStream();
+        image.Save(pngstream, EncodedImageFormat.Png);
 
-        try
-        {
-            image.Save(pngFile, EncodedImageFormat.Png);
+        using var dibstream = new MemoryStream(ConvertToDib(image));
 
-            // dibファイルを作成
-            await File.WriteAllBytesAsync(dibFile, ConvertToDib(image));
+        using var gdiBitmap = new GdiBitmap(pngstream);
 
-            // ps1ファイルを作成
-            File.WriteAllText(ps1File, string.Format(CopyImagePowerShellCode, dibFile, pngFile));
+        data.SetImage(gdiBitmap);
+        data.SetData("PNG", false, pngstream);
+        data.SetData(FormsDataFormats.Dib, dibstream);
 
-
-            var startInfo = new ProcessStartInfo()
-            {
-                FileName = "powershell.exe",
-                Arguments = $"-NoProfile -ExecutionPolicy ByPass -File \"{ps1File}\"",
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            Process proc = Process.Start(startInfo) ?? throw new Exception("Failed to launch 'powershell.exe'.");
-            await proc.WaitForExitAsync();
-        }
-        finally
-        {
-            TryDeleteFile(pngFile);
-            TryDeleteFile(dibFile);
-            TryDeleteFile(ps1File);
-        }
-    }
-
-    private static void TryDeleteFile(string file)
-    {
-        try
-        {
-            File.Delete(file);
-        }
-        catch
-        {
-        }
+        FormsClipboard.SetDataObject(data, true);
+#endif
     }
 
     public static byte[] ConvertToDib(Bitmap<Bgra8888> image)
