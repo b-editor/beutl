@@ -10,8 +10,14 @@ namespace Beutl.Api.Services;
 
 internal static class CoreLibraries
 {
-    private static FrozenDictionary<string, string>? s_runtimeMap;
-    private static FrozenDictionary<string, string>? s_pkgMap;
+    private static readonly Lazy<FrozenDictionary<string, string[]>> s_runtimeMap
+        = new(() => CollectRuntimeDependencies()
+            .GroupBy(i => i.Name, i => i.Version)
+            .ToFrozenDictionary(x => x.Key, x => x.ToArray()));
+    private static readonly Lazy<FrozenDictionary<string, string[]>> s_pkgMap
+        = new(() => CollectPackageDependencies()
+            .GroupBy(i => i.Name, i => i.Version)
+            .ToFrozenDictionary(x => x.Key, x => x.ToArray()));
     private static List<PackageIdentity>? s_preferredVersions;
 
     public static IEnumerable<PackageIdentity> GetPreferredVersions()
@@ -99,20 +105,23 @@ internal static class CoreLibraries
         return library;
     }
 
-    private static FrozenDictionary<string, string> RuntimeDepsMap => s_runtimeMap ??= CollectRuntimeDependencies().ToFrozenDictionary(x => x.Name, x => x.Version);
+    private static FrozenDictionary<string, string[]> RuntimeDepsMap => s_runtimeMap.Value;
 
-    private static FrozenDictionary<string, string> PackageDepsMap => s_pkgMap ??= CollectPackageDependencies().ToFrozenDictionary(x => x.Name, x => x.Version);
+    private static FrozenDictionary<string, string[]> PackageDepsMap => s_pkgMap.Value;
 
     public static bool IncludedInRuntimeDependencies(string name, Version? version)
     {
-        if (RuntimeDepsMap.TryGetValue(name, out string? versionStr))
+        if (RuntimeDepsMap.TryGetValue(name, out string[]? versions))
         {
             if (version == null)
                 return true;
 
-            if (Version.TryParse(versionStr, out Version? installedVersion))
+            foreach (string v in versions)
             {
-                return installedVersion >= version;
+                if (Version.TryParse(v, out Version? installedVersion))
+                {
+                    return installedVersion >= version;
+                }
             }
         }
 
@@ -121,11 +130,13 @@ internal static class CoreLibraries
 
     public static bool IncludedInPackageDependencies(string name, NuGetVersion version)
     {
-        if (PackageDepsMap.TryGetValue(name, out string? installedVersionStr))
+        if (PackageDepsMap.TryGetValue(name, out string[]? installedVersions))
         {
-            var installedVersion = new NuGetVersion(installedVersionStr);
-            return installedVersion >= version;
-
+            foreach (string v in installedVersions)
+            {
+                var installedVersion = new NuGetVersion(v);
+                return installedVersion >= version;
+            }
         }
 
         return false;
@@ -133,11 +144,14 @@ internal static class CoreLibraries
 
     public static bool IncludedInPackageDependencies(string name, VersionRange versionRange)
     {
-        if (PackageDepsMap.TryGetValue(name, out string? versionStr))
+        if (PackageDepsMap.TryGetValue(name, out string[]? installedVersions))
         {
-            var version = new NuGetVersion(versionStr);
+            foreach (string v in installedVersions)
+            {
+                var version = new NuGetVersion(v);
 
-            return versionRange.Satisfies(version);
+                return versionRange.Satisfies(version);
+            }
         }
 
         return false;
