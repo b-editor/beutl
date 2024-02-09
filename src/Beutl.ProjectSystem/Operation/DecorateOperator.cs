@@ -34,6 +34,11 @@ public sealed class DecorateOperator : SourceStyler
 
                 if (instance is { Target: DrawableDecorator decorator })
                 {
+                    while (renderable.BatchUpdate)
+                    {
+                        renderable.EndBatchUpdate();
+                    }
+
                     ApplyStyle(instance, renderable, clock);
                     value[i] = decorator;
                 }

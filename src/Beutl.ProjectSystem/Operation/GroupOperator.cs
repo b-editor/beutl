@@ -42,7 +42,15 @@ public sealed class GroupOperator : StyledSourcePublisher
             Instance.Apply(clock);
             Instance.End();
 
-            renderable!.Children.Replace(value.OfType<Drawable>().ToArray());
+            Drawable[] items = value.OfType<Drawable>().ToArray();
+            foreach (Drawable item in items)
+            {
+                while (item.BatchUpdate)
+                {
+                    item.EndBatchUpdate();
+                }
+            }
+            renderable!.Children.Replace(items);
         }
 
         OnAfterApplying();
