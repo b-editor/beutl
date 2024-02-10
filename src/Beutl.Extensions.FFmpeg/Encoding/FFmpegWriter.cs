@@ -246,7 +246,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         int sampleRate = AudioConfig.SampleRate;
         int channels = AudioConfig.Channels;
         int bitrate = AudioConfig.Bitrate;
-        using (Process process1 = Process.Start(new ProcessStartInfo(
+        using (ProcessWrapper process1 = ProcessWrapper.Start(new ProcessStartInfo(
             ffmpegPath,
             $"-nostdin -f f32le -ar {_inputSampleRate} -ac 2 -i \"{_pcmfile}\" " +
             $"-sample_fmt {sampleFormat} -ar {sampleRate} -ac {channels} -ab {bitrate} -f {_formatName} -c {codec} -y \"{audiofile}\"")
@@ -255,7 +255,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             RedirectStandardError = true
         })!)
         {
-            process1.WaitForExit();
+            process1.Process.WaitForExit();
             CheckProcessError(process1);
         }
 
@@ -264,16 +264,15 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         File.Copy(_outputFile, tmpvideo);
         File.Delete(_outputFile);
 
-        using (Process process2 = Process.Start(new ProcessStartInfo(
+        using (ProcessWrapper process2 = ProcessWrapper.Start(new ProcessStartInfo(
             ffmpegPath,
             $"-nostdin -i \"{tmpvideo}\" -i \"{audiofile}\" -c:v copy -c:a copy -map 0:v:0 -map 1:a:0 \"{_outputFile}\"")
         {
             CreateNoWindow = true,
-            //Todo: 何故かWaitForExitで終了しなくなる
-            //RedirectStandardError = true
+            RedirectStandardError = true
         })!)
         {
-            process2.WaitForExit();
+            process2.Process.WaitForExit();
             CheckProcessError(process2);
         }
 
@@ -282,12 +281,17 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         File.Delete(_pcmfile);
     }
 
-    private static void CheckProcessError(Process process)
+
+
+    private static void CheckProcessError(ProcessWrapper process)
     {
-        if (process.ExitCode != 0)
+        if (process.Process.ExitCode != 0)
         {
-            throw new Exception($"FFmpeg exited with exit code {process.ExitCode}.\n\n{process.StandardError.ReadToEnd()}");
+            throw new Exception(
+                $"FFmpeg exited with exit code {process.Process.ExitCode}.\n\n{process.GetError()}");
         }
+
+        var err = process.GetError();
     }
 
     private void FlushEncoder(AVCodecContext* codecContext, AVStream* stream, AVPacket* packet)
