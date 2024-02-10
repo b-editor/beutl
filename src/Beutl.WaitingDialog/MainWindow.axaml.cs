@@ -6,8 +6,10 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Styling;
 using Avalonia.Threading;
 
+using FluentAvalonia.Styling;
 using FluentAvalonia.UI.Windowing;
 
 using Symbol = FluentIcons.Common.Symbol;
@@ -33,6 +35,7 @@ public partial class MainWindow : AppWindow
         var contentOption = new Option<string?>("--content", () => null);
         var progressOption = new Option<bool>("--progress", () => false);
         var closableOption = new Option<bool>("--closable", () => false);
+        var themeOption = new Option<string?>("--theme", () => null);
         var parentProcecss = new Option<int?>("--parent", () => null);
         var command = new RootCommand()
         {
@@ -42,7 +45,8 @@ public partial class MainWindow : AppWindow
             contentOption,
             progressOption,
             closableOption,
-            parentProcecss
+            parentProcecss,
+            themeOption
         };
 
         string[] args = ((ClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!).Args!;
@@ -77,6 +81,18 @@ public partial class MainWindow : AppWindow
         if (content != null)
         {
             contentPresenter.Content = content;
+        }
+
+        string? theme = result.GetValueForOption(themeOption);
+        if (theme != null)
+        {
+            Application.Current.RequestedThemeVariant = theme switch
+            {
+                "light" => ThemeVariant.Light,
+                "dark" => ThemeVariant.Dark,
+                "highcontrast" => FluentAvaloniaTheme.HighContrastTheme,
+                _ => ThemeVariant.Default,
+            };
         }
 
         if (result.GetValueForOption(progressOption))

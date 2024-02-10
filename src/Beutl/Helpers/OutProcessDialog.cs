@@ -1,4 +1,6 @@
-﻿using DynamicData;
+﻿using Beutl.Configuration;
+
+using DynamicData;
 
 namespace Beutl.Helpers;
 
@@ -34,6 +36,19 @@ public static class OutProcessDialog
 
         if (closable)
             startInfo.ArgumentList.Add("--closable");
+
+        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        if (viewConfig.Theme != ViewConfig.ViewTheme.System)
+        {
+            startInfo.ArgumentList.AddRange(["--theme",
+                viewConfig.Theme switch
+                {
+                    ViewConfig.ViewTheme.Light => "light",
+                    ViewConfig.ViewTheme.Dark => "dark",
+                    ViewConfig.ViewTheme.HighContrast => "highcontrast",
+                    ViewConfig.ViewTheme.System or _ => "auto",
+                }]);
+        }
 
         var process = Process.Start(startInfo);
 
