@@ -5,6 +5,7 @@ using Avalonia.Media;
 using Avalonia.ReactiveUI;
 
 using Beutl.Configuration;
+using Beutl.Helpers;
 using Beutl.Rendering;
 using Beutl.Services;
 
@@ -47,29 +48,22 @@ internal static class Program
         Process[] processes = Process.GetProcessesByName("Beutl.PackageTools");
         if (processes.Length > 0)
         {
-            var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "Beutl.WaitingDialog"))
+            using (OutProcessDialog.Show(
+                Message.OpeningBeutl,
+                Message.Changes_to_the_package_are_in_progress,
+                Message.To_open_Beutl_close_Beutl_PackageTools,
+                icon: "Info",
+                progress: true))
             {
-                ArgumentList =
-                {
-                    "--title", Message.OpeningBeutl,
-                    "--subtitle", Message.Changes_to_the_package_are_in_progress,
-                    "--content", Message.To_open_Beutl_close_Beutl_PackageTools,
-                    "--icon", "Info",
-                    "--progress"
-                }
-            };
 
-            var process = Process.Start(startInfo);
-
-            foreach (Process item in processes)
-            {
-                if (!item.HasExited)
+                foreach (Process item in processes)
                 {
-                    item.WaitForExit();
+                    if (!item.HasExited)
+                    {
+                        item.WaitForExit();
+                    }
                 }
             }
-
-            process?.Kill();
         }
     }
 
