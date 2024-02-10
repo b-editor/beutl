@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -37,18 +38,30 @@ public class FontFamily(string familyname) : IEquatable<FontFamily?>
     {
         if (OperatingSystem.IsLinux())
         {
-            using Process process = Process.Start(new ProcessStartInfo("/usr/bin/fc-match", "--format %{family}")
+            var output = new StringBuilder();
+            using Process process = Process.Start(new ProcessStartInfo("/usr/bin/fc-match", "--format %{file}")
             {
                 RedirectStandardOutput = true
             })!;
+            process.OutputDataReceived += (sender, e) =>
+            {
+                if (e.Data != null)
+                    output.Append(e.Data);
+            };
+            process.BeginOutputReadLine();
             process.WaitForExit();
 
-            return process.StandardOutput.ReadToEnd();
+            process.CancelOutputRead();
+
+            string file = output.ToString();
+            using SKTypeface? sktypeface = SKTypeface.FromFile(file);
+            if (sktypeface != null)
+            {
+                return sktypeface.FamilyName;
+            }
         }
-        else
-        {
-            return SKTypeface.Default.FamilyName;
-        }
+
+        return SKTypeface.Default.FamilyName;
     }
 
     public static bool operator ==(FontFamily? left, FontFamily? right)

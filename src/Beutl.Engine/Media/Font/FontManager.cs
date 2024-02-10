@@ -2,6 +2,7 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 
 using Beutl.Configuration;
 
@@ -21,28 +22,38 @@ public sealed class FontManager
         {
             if (OperatingSystem.IsLinux())
             {
+                var output = new StringBuilder();
                 using Process process = Process.Start(new ProcessStartInfo("/usr/bin/fc-match", "--format %{file}")
                 {
                     RedirectStandardOutput = true
                 })!;
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (e.Data != null)
+                        output.Append(e.Data);
+                };
+                process.BeginOutputReadLine();
                 process.WaitForExit();
 
-                string file = process.StandardOutput.ReadToEnd();
-                SKTypeface sktypeface = SKTypeface.FromFile(file);
-                Typeface typeface = sktypeface.ToTypeface();
-                bool isAdded = AddFont(sktypeface);
-                if (!isAdded)
+                process.CancelOutputRead();
+
+                string file = output.ToString();
+                SKTypeface? sktypeface = SKTypeface.FromFile(file);
+                if (sktypeface != null)
                 {
-                    sktypeface.Dispose();
+                    Typeface typeface = sktypeface.ToTypeface();
+                    bool isAdded = AddFont(sktypeface);
+                    if (!isAdded)
+                    {
+                        sktypeface.Dispose();
+                    }
+                    return typeface;
                 }
-                return typeface;
             }
-            else
-            {
-                SKTypeface sk = SKTypeface.Default;
-                AddFont(sk);
-                return sk.ToTypeface();
-            }
+
+            SKTypeface sk = SKTypeface.Default;
+            AddFont(sk);
+            return sk.ToTypeface();
         }
 
         _fontDirs = [.. GlobalConfiguration.Instance.FontConfig.FontDirectories];
