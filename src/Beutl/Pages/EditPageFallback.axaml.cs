@@ -159,10 +159,10 @@ public partial class EditPageFallback : UserControl
             IDisposable? closeDialog = null;
             timer = TimeProvider.System.CreateTimer(_ =>
             {
+                timer?.Dispose();
                 closeDialog = ShowWaitDialog(fileName);
                 activity?.AddEvent(new("WaitDialogShown"));
-                timer?.Dispose();
-            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(3));
+            }, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
 
             try
             {
