@@ -1,5 +1,6 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Rendering;
 
@@ -43,11 +44,14 @@ public static class UnhandledExceptionHandler
 
             string exePath = Path.Combine(
                 AppContext.BaseDirectory,
-                OperatingSystem.IsWindows() ? "Beutl.ExceptionHandler.exe" : "Beutl.ExceptionHandler");
-            Process.Start(new ProcessStartInfo(exePath)
+                "Beutl.ExceptionHandler");
+
+            var startInfo = new ProcessStartInfo()
             {
                 UseShellExecute = true
-            });
+            };
+            DotNetProcess.Configure(startInfo, exePath);
+            Process.Start(startInfo);
         }
         catch
         {
