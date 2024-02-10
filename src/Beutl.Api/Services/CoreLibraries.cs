@@ -79,6 +79,7 @@ internal static class CoreLibraries
                             case "Beutl.Controls":
                             case "Beutl.Core":
                             case "Beutl.Embedding.FFmpeg":
+                            case "Beutl.Embedding.MediaFoundation" when OperatingSystem.IsWindows():
                             case "Beutl.Engine":
                             case "Beutl.Extensibility":
                             case "Beutl.Language":
