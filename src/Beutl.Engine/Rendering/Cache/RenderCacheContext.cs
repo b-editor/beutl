@@ -204,7 +204,7 @@ public record RenderCacheOptions(
     RenderCacheRules Rules = new())
 {
     public static readonly RenderCacheOptions Default = new();
-    public static readonly RenderCacheOptions Disabled = new();
+    public static readonly RenderCacheOptions Disabled = new(false);
 }
 
 public readonly record struct RenderCacheRules(
