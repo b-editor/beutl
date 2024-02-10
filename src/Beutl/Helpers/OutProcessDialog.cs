@@ -1,7 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Controls.ApplicationLifetimes;
-
-using DynamicData;
+﻿using DynamicData;
 
 namespace Beutl.Helpers;
 
@@ -15,7 +12,9 @@ public static class OutProcessDialog
         bool progress = false,
         bool closable = false)
     {
-        var startInfo = new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "Beutl.WaitingDialog"));
+        var startInfo = new ProcessStartInfo();
+        DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.WaitingDialog"));
+
         startInfo.ArgumentList.AddRange(["--parent", Environment.ProcessId.ToString()]);
 
         if (!string.IsNullOrWhiteSpace(title))
