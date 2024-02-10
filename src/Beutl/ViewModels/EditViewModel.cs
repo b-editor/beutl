@@ -572,7 +572,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 }
             }
 
-            if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out TimeSpan currentTime))
+            if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out string? currentTimeStr)
+                && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime))
             {
                 CurrentTime.Value = currentTime;
             }
