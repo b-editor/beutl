@@ -1,10 +1,12 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Parsing;
 using System.ComponentModel;
+using System.Diagnostics;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 
 using FluentAvalonia.UI.Windowing;
 
@@ -14,7 +16,8 @@ namespace Beutl.WaitingDialog;
 
 public partial class MainWindow : AppWindow
 {
-    private readonly bool _closable;
+    private bool _closable;
+    private Process? _parentProcess;
 
     public MainWindow()
     {
@@ -30,6 +33,7 @@ public partial class MainWindow : AppWindow
         var contentOption = new Option<string?>("--content", () => null);
         var progressOption = new Option<bool>("--progress", () => false);
         var closableOption = new Option<bool>("--closable", () => false);
+        var parentProcecss = new Option<int?>("--parent", () => null);
         var command = new RootCommand()
         {
             titleOption,
@@ -37,7 +41,8 @@ public partial class MainWindow : AppWindow
             iconOption,
             contentOption,
             progressOption,
-            closableOption
+            closableOption,
+            parentProcecss
         };
 
         string[] args = ((ClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!).Args!;
@@ -81,6 +86,32 @@ public partial class MainWindow : AppWindow
         }
 
         _closable = result.GetValueForOption(closableOption);
+
+        int? parent = result.GetValueForOption(parentProcecss);
+        if (parent.HasValue)
+        {
+            try
+            {
+                _parentProcess = Process.GetProcessById(parent.Value);
+                _parentProcess.EnableRaisingEvents = true;
+                _parentProcess.Exited += OnParentExited;
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private void OnParentExited(object? sender, EventArgs e)
+    {
+        _parentProcess?.Dispose();
+        _parentProcess = null;
+
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            _closable = true;
+            Close();
+        });
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
