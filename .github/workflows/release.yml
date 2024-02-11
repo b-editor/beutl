@@ -45,6 +45,32 @@ jobs:
       - name: Publish
         run: ./build.cmd Publish --runtime ${{matrix.rid}} --skip Restore
 
+      - if: ${{ matrix.rid == 'linux_x64' }}
+        name: Download libOpenCvSharpExtern.so
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $TFM = dotnet msbuild --getProperty:TargetFramework src/Beutl/Beutl.csproj
+          $Packages = dotnet list src/Beutl.Engine/Beutl.Engine.csproj package --framework $TFM --format json
+          
+          #4.9.0.2024
+          $OpenCvSharpVersion = (echo $Packages | jq -r '.projects[0].frameworks[0].topLevelPackages | map(select(.id == "OpenCvSharp4"))[0].requestedVersion')
+          
+          #4.9.0
+          $OpenCvVersion = [System.String]::Join('.', [System.Linq.Enumerable]::Take($OpenCvSharpVersion.Split('.'), 3))
+
+          #GitのタグとNuGetのバージョンが違う場合があるので
+          $Filter = 'map(select(.tag_name | startswith("'+$OpenCvVersion+'")))[0].tag_name'
+          $OpenCvSharpTag = (gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/shimat/opencvsharp/releases | jq $Filter)
+
+          #ダウンロード
+          $Release = (gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/tags/$OpenCvSharpTag)
+          $AssetId = (echo $Release | jq '.assets | map(select(.name == "libOpenCvSharpExtern.so")).id')
+
+          cd output/Beutl
+          gh api -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/assets/$AssetId > libOpenCvSharpExtern.so
+
       - name: Zip
         run: ./build.cmd Zip --runtime ${{matrix.rid}} --skip Publish
 
