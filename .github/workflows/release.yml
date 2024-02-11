@@ -152,13 +152,19 @@ jobs:
         run: |
           cd packages/ubuntu22.04_amd64
           mkdir usr/bin
-          ln -s usr/lib/beutl/Beutl usr/bin/beutl
-          ln -s usr/lib/beutl/Beutl.PackageTools usr/bin/beutl.pkg
+          ln -s /usr/lib/beutl/Beutl usr/bin/beutl
+          ln -s /usr/lib/beutl/Beutl.PackageTools usr/bin/beutl-pkg
 
-      - name: Set version
+      - name: Set Version
         run: |
            cd packages/ubuntu22.04_amd64/DEBIAN
            echo "Version: ${{needs.determine-version.outputs.simpleVer}}-${{needs.determine-version.outputs.revision}}ubuntu22.04" >> control
+
+      - name: Set Installed-Size
+        run: |
+           SizeInKiloBytes=`du -s -k ubuntu22.04_amd64 | awk '{print $1}'`
+           cd packages/ubuntu22.04_amd64/DEBIAN
+           echo "Installed-Size: $SizeInKiloBytes" >> control
 
       - name: Build package
         run: |
