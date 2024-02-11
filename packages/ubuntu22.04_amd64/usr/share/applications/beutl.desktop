@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Beutl
+Comment=video editor
+Exec=/usr/bin/beutl
+Icon=/usr/share/pixmaps/beutl_icon.png
+Terminal=false
+Type=Application
+Categories=GNOME;Utility

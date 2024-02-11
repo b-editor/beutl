@@ -10,6 +10,8 @@ jobs:
     runs-on: windows-latest
     outputs:
       semVer: ${{ steps.nbgv.outputs.SemVer2 }}
+      simpleVer: ${{ steps.nbgv.outputs.SimpleVersion }}
+      revision: ${{ steps.nbgv.outputs.VersionRevision }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -86,6 +88,62 @@ jobs:
         with:
           name: beutl-setup
           path: ./artifacts/beutl-setup.exe
+  
+  build-debian-package:
+    needs: [determine-version, build-executable]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          global-json-file: global.json
+          
+      - uses: actions/download-artifact@v3
+        with:
+          name: beutl-linux_x64-${{needs.determine-version.outputs.semVer}}
+          path: artifacts
+
+      - name: Extract zip
+        run: |
+          cd packages/ubuntu22.04_amd64/usr
+          mkdir -p lib/beutl
+          cd lib/beutl
+          unzip ${{ github.workspace }}/artifacts/beutl-linux-x64-${{needs.determine-version.outputs.semVer}}.zip
+
+      - name: Change mode
+        run: |
+          cd packages/ubuntu22.04_amd64/usr/lib/beutl
+          chmod +x Beutl
+          chmod +x Beutl.ExceptionHandler
+          chmod +x Beutl.PackageTools
+          chmod +x Beutl.WaitingDialog
+
+      - name: Symbolic Link
+        run: |
+          cd packages/ubuntu22.04_amd64
+          mkdir usr/bin
+          ln -s usr/lib/beutl/Beutl usr/bin/beutl
+          ln -s usr/lib/beutl/Beutl.PackageTools usr/bin/beutl.pkg
+
+      - name: Set version
+        run: |
+           cd packages/ubuntu22.04_amd64/DEBIAN
+           echo "Version: ${{needs.determine-version.outputs.simpleVer}}-${{needs.determine-version.outputs.revision}}ubuntu22.04" >> control
+
+      - name: Build package
+        run: |
+          cd packages
+          fakeroot dpkg-deb --build ubuntu22.04_amd64 .
+
+      - name: Save package
+        uses: actions/upload-artifact@v3
+        with:
+          name: beutl-setup
+          path: ./packages/beutl_${{needs.determine-version.outputs.simpleVer}}-${{needs.determine-version.outputs.revision}}ubuntu22.04_amd64.deb
 
   build-nuget:
     needs: [determine-version]
@@ -125,7 +183,7 @@ jobs:
       - uses: ncipollo/release-action@v1
         id: create_release
         with:
-          artifacts: "artifacts/**/*.zip,artifacts/**/*.nupkg,artifacts/beutl-setup.exe"
+          artifacts: "artifacts/**/*.zip,artifacts/**/*.nupkg,artifacts/**/*.deb,artifacts/beutl-setup.exe"
           draft: true
           makeLatest: true
           generateReleaseNotes: true

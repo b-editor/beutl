@@ -1,0 +1,9 @@
+Package: beutl
+Maintainer: Yuto Terada <contact@mail.beditor.net>
+Architecture: amd64
+#Version: 1.0.0-1ubuntu22.04 ビルドスクリプトから設定
+Depends: dotnet-runtime-8.0, libopenexr25, libtesseract4, libgtk2.0-0, libdc1394-25, libtheora0, libvorbisenc2, libvorbisfile3, libxvidcore4, x264, libopenal1
+Description: Cross-platform video editing (compositing) software.
+ You can edit videos using keyframe functions and effects.
+Homepage: https://github.com/b-editor/beutl
+Vcs-Browser: https://github.com/b-editor/beutl

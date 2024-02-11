@@ -353,5 +353,8 @@ MigrationBackup/
 tools/*
 !tools/packages.config
 
-!packages/BeUtl.Sdk/
+!packages/Beutl.Sdk/
+!packages/ubuntu22.04_amd64/
+packages/ubuntu22.04_amd64/usr/lib/
+packages/ubuntu22.04_amd64/usr/bin/
 /output

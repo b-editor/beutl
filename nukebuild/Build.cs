@@ -117,7 +117,7 @@ partial class Build : NukeBuild
                     .SetProject(SourceDirectory / item / $"{item}.csproj")
                     .SetOutput(output));
 
-                output.GlobFiles($"**/{item}.*")
+                output.GlobFiles($"**/{item}*")
                     .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
                     .ForEach(t => CopyFile(t.Source, t.Target));
             }
