@@ -75,7 +75,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                         _queue.InstallQueue(packageId);
                         NotificationService.ShowInformation(
                             title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, packageId));
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, packageId.Id));
                     }
                 }
                 catch (Exception e)
@@ -110,7 +110,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                         _queue.InstallQueue(packageId);
                         NotificationService.ShowInformation(
                             title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId));
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
                     }
                 }
                 catch (Exception e)
@@ -139,7 +139,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                         _queue.UninstallQueue(item);
                         NotificationService.ShowInformation(
                             title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, item));
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, item.Id));
                     }
                 }
                 catch (Exception e)
