@@ -5,7 +5,10 @@ using System.Reflection;
 
 using Beutl.Api.Objects;
 using Beutl.Extensibility;
+using Beutl.Logging;
 using Beutl.Reactive;
+
+using Microsoft.Extensions.Logging;
 
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -20,6 +23,7 @@ public sealed class PackageManager(
     ExtensionProvider extensionProvider,
     BeutlApiApplication apiApplication) : PackageLoader
 {
+    private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentBag<LocalPackage> _loadedPackage = [];
     private readonly ExtensionSettingsStore _settingsStore = new();
     private readonly Subject<(PackageIdentity Package, bool Loaded)> _subject = new();
@@ -107,8 +111,9 @@ public sealed class PackageManager(
                         }
                     }
                 }
-                catch
+                catch(Exception ex)
                 {
+                    _logger.LogError(ex, "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
                 }
             }
 

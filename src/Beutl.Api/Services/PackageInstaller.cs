@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using Beutl.Api.Objects;
-
+using Beutl.Logging;
 using Beutl.Reactive;
 
 using NuGet.Common;
@@ -21,6 +21,7 @@ namespace Beutl.Api.Services;
 
 public partial class PackageInstaller : IBeutlApiResource
 {
+    private readonly Microsoft.Extensions.Logging.ILogger _logger = Log.CreateLogger<PackageInstaller>();
     private readonly HttpClient _httpClient;
     private readonly InstalledPackageRepository _installedPackageRepository;
 
@@ -37,6 +38,7 @@ public partial class PackageInstaller : IBeutlApiResource
     private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
   <packageSources>
+    <clear />
     <add key=""Beutl Local Packages"" value=""{0}"" />
     <add key=""nuget.org"" value=""https://api.nuget.org/v3/index.json"" protocolVersion=""3"" />
   </packageSources>
@@ -56,6 +58,22 @@ public partial class PackageInstaller : IBeutlApiResource
         _installedPackageRepository = installedPackageRepository;
 
         string configPath = Path.Combine(Helper.AppRoot, "nuget.config");
+        if (File.Exists(configPath))
+        {
+            using (StreamReader reader = File.OpenText(configPath))
+            {
+                while (reader.ReadLine() is string line)
+                {
+                    if (line.Contains("<clear"))
+                    {
+                        goto LoadSettings;
+                    }
+                }
+            }
+
+            File.Delete(configPath);
+        }
+
         if (!File.Exists(configPath))
         {
             using (StreamWriter writer = File.CreateText(configPath))
@@ -64,7 +82,8 @@ public partial class PackageInstaller : IBeutlApiResource
             }
         }
 
-        _settings = Settings.LoadDefaultSettings(Helper.AppRoot);
+    LoadSettings:
+        //_settings = Settings.LoadDefaultSettings(Helper.AppRoot);
         _settings = new Settings(Helper.AppRoot);
         _packageSourceProvider = new PackageSourceProvider(_settings);
 

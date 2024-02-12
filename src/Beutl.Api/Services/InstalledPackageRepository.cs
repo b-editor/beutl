@@ -1,7 +1,10 @@
 ﻿using System.Reactive.Subjects;
 using System.Text.Json;
 
+using Beutl.Logging;
 using Beutl.Reactive;
+
+using Microsoft.Extensions.Logging;
 
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -11,6 +14,7 @@ namespace Beutl.Api.Services;
 
 public class InstalledPackageRepository : IBeutlApiResource
 {
+    private readonly ILogger _logger = Log.CreateLogger<InstalledPackageRepository>();
     private readonly HashSet<PackageIdentity> _packages = [];
     private readonly Subject<(PackageIdentity Package, bool Exists)> _subject = new();
     private const string FileName = "installedPackages.json";
@@ -161,9 +165,9 @@ public class InstalledPackageRepository : IBeutlApiResource
                         _packages.AddRange(packages.Select(x => new PackageIdentity(x.Name, new NuGetVersion(x.Version))));
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-
+                    _logger.LogError(ex, "Failed to restore file.");
                 }
             }
         }

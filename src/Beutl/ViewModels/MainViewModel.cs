@@ -181,6 +181,7 @@ public sealed class MainViewModel : BasePageViewModel
 
             startInfo.ArgumentList.Add("--verbose");
             startInfo.ArgumentList.Add("--stay-open");
+            startInfo.ArgumentList.AddRange(["--session-id", Telemetry.Instance._sessionId]);
 
             if (Debugger.IsAttached)
                 startInfo.ArgumentList.Add("--launch-debugger");

@@ -1,12 +1,14 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Invocation;
 
+using Beutl.Logging;
 using Beutl.PackageTools.Properties;
 
 namespace Beutl.PackageTools;
 
 public sealed class UninstallCommand : Command
 {
+    private readonly ILogger _logger = Log.CreateLogger<UninstallCommand>();
     private readonly Argument<string[]> _uninstalls;
     private readonly Option<bool> _verbose;
     private readonly Option<bool> _clean;
@@ -52,7 +54,7 @@ public sealed class UninstallCommand : Command
             }
             else
             {
-                commands.UninstallPackages(uninstallItems, verbose, clean);
+                commands.UninstallPackages(uninstallItems, verbose, clean, _logger);
                 if (clean)
                 {
                     commands.CleanPackages();
@@ -68,7 +70,7 @@ public sealed class UninstallCommand : Command
 
 public partial class InstallerCommands
 {
-    public void UninstallPackages(HashSet<(PackageIdentity, Release?)> items, bool verbose, bool clean)
+    public void UninstallPackages(HashSet<(PackageIdentity, Release?)> items, bool verbose, bool clean, ILogger logger)
     {
         foreach ((PackageIdentity package, Release? release) in items)
         {
@@ -106,6 +108,11 @@ public partial class InstallerCommands
                 {
                     foreach (string installed in installeds)
                     {
+                        logger.LogInformation(
+                            "Uninstall the package. ({PackageId}/{Version})",
+                            package.Id,
+                            release?.Version?.Value ?? package.Version.ToString());
+
                         PackageUninstallContext context = _installer.PrepareForUninstall(installed, clean, _cancellationToken);
 
                         Console.WriteLine(Resources.UninstallingXXX, context.Id);
@@ -137,6 +144,12 @@ public partial class InstallerCommands
                 {
                     Console.Error.WriteLine(ex);
                 }
+
+                logger.LogError(
+                    ex,
+                    "An exception occurred during package uninstallation. ({PackageId}/{Version})",
+                    package.Id,
+                    release?.Version?.Value ?? package.Version.ToString());
             }
         }
     }

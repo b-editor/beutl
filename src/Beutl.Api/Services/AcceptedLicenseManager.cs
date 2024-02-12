@@ -1,5 +1,9 @@
 ﻿using System.Text.Json;
 
+using Beutl.Logging;
+
+using Microsoft.Extensions.Logging;
+
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Packaging.Licenses;
@@ -9,6 +13,7 @@ namespace Beutl.Api.Services;
 
 public class AcceptedLicenseManager : IBeutlApiResource
 {
+    private readonly ILogger _logger = Log.CreateLogger<AcceptedLicenseManager>();
     private readonly Dictionary<PackageIdentity, LicenseMetadata> _accepted = [];
     private const string FileName = "accepted-licenses.json";
 
@@ -60,9 +65,9 @@ public class AcceptedLicenseManager : IBeutlApiResource
                             new KeyValuePair<PackageIdentity, LicenseMetadata>(x.Package.ToIdentity(), x.License.ToMetadata())));
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-
+                    _logger.LogError(ex, "Failed to restore file.");
                 }
             }
         }

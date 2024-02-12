@@ -1,4 +1,6 @@
-﻿using NuGet.Packaging;
+﻿using Microsoft.Extensions.Logging;
+
+using NuGet.Packaging;
 using NuGet.Packaging.Core;
 
 namespace Beutl.Api.Services;
@@ -62,8 +64,9 @@ public partial class PackageInstaller
                     totalSize += fi.Length;
                     fi.Delete();
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger.LogError(ex, "Failed to remove files contained in package. (FileName: {FileName})", Path.GetFileName(file));
                     hasAnyFailtures = true;
                 }
 
@@ -74,8 +77,9 @@ public partial class PackageInstaller
             {
                 Directory.Delete(directory, true);
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "Failed to remove package directory. (PackageId: {PackageId})", package.Id);
                 hasAnyFailtures = true;
             }
 

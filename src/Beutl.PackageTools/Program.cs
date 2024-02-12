@@ -1,14 +1,20 @@
 ﻿using System.CommandLine;
-using System.Diagnostics;
+using System.CommandLine.Parsing;
 
+using Beutl.Configuration;
+using Beutl.Logging;
 using Beutl.PackageTools;
 using Beutl.PackageTools.Properties;
+using Beutl.Services;
 
 if (WaitForProcessExited.PackageToolsCount != 0)
 {
     Console.WriteLine(Resources.PleaseTerminateOtherInstances);
     return;
 }
+
+GlobalConfiguration config = GlobalConfiguration.Instance;
+config.Restore(GlobalConfiguration.DefaultFilePath);
 
 var apiApp = new BeutlApiApplication(new HttpClient());
 
@@ -28,39 +34,67 @@ var launchDebugger = new Option<bool>("--launch-debugger", () => false)
 {
     IsHidden = true,
 };
-
-var rootCommand = new RunCommand(apiApp, verbose, clean);
-rootCommand.AddGlobalOption(verbose);
-rootCommand.AddGlobalOption(clean);
-rootCommand.AddGlobalOption(stayOpen);
-rootCommand.AddGlobalOption(launchDebugger);
-rootCommand.AddCommand(new InstallCommand(apiApp, verbose, clean));
-rootCommand.AddCommand(new UninstallCommand(apiApp, verbose, clean));
-rootCommand.AddCommand(new UpdateCommand(apiApp, verbose, clean));
-rootCommand.AddCommand(new CleanCommand(apiApp));
-rootCommand.AddCommand(new ListCommand(apiApp, verbose));
-
-bool stayOpenValue = rootCommand.Parse(args).GetValueForOption(stayOpen);
-bool launchDebuggerValue = rootCommand.Parse(args).GetValueForOption(launchDebugger);
-
-#if DEBUG
-if (!Debugger.IsAttached && launchDebuggerValue)
+var sessionId = new Option<string?>("--session-id", () => null)
 {
-    while (true)
-    {
-        Thread.Sleep(100);
+    IsHidden = true,
+};
 
-        if (Debugger.Launch())
-            break;
+string? GetSessionId()
+{
+    int idx = Array.IndexOf(args, "--session-id");
+    if (idx >= 0 && idx + 1 < args.Length)
+    {
+        return args[idx + 1];
+    }
+    else
+    {
+        return null;
     }
 }
+
+using IDisposable _ = Telemetry.GetDisposable(GetSessionId());
+
+try
+{
+    var rootCommand = new RunCommand(apiApp, verbose, clean);
+    rootCommand.AddGlobalOption(verbose);
+    rootCommand.AddGlobalOption(clean);
+    rootCommand.AddGlobalOption(stayOpen);
+    rootCommand.AddGlobalOption(launchDebugger);
+    rootCommand.AddGlobalOption(sessionId);
+    rootCommand.AddCommand(new InstallCommand(apiApp, verbose, clean));
+    rootCommand.AddCommand(new UninstallCommand(apiApp, verbose, clean));
+    rootCommand.AddCommand(new UpdateCommand(apiApp, verbose, clean));
+    rootCommand.AddCommand(new CleanCommand(apiApp));
+    rootCommand.AddCommand(new ListCommand(apiApp, verbose));
+
+    ParseResult parseResult = rootCommand.Parse(args);
+    bool stayOpenValue = parseResult.GetValueForOption(stayOpen);
+    bool launchDebuggerValue = parseResult.GetValueForOption(launchDebugger);
+
+#if DEBUG
+    if (!Debugger.IsAttached && launchDebuggerValue)
+    {
+        while (true)
+        {
+            Thread.Sleep(100);
+
+            if (Debugger.Launch())
+                break;
+        }
+    }
 #endif
 
+    await rootCommand.InvokeAsync(args);
 
-await rootCommand.InvokeAsync(args);
-
-if (stayOpenValue)
+    if (stayOpenValue)
+    {
+        Console.WriteLine(Resources.ToCloseThisWindowPressAnyKey);
+        Console.ReadKey();
+    }
+}
+catch (Exception ex)
 {
-    Console.WriteLine(Resources.ToCloseThisWindowPressAnyKey);
-    Console.ReadKey();
+    Log.CreateLogger<Program>().LogCritical(ex, "An unhandled exception occurred.");
+    throw;
 }

@@ -19,28 +19,31 @@ using Serilog;
 
 namespace Beutl.Services;
 
-internal static class Telemetry
+internal class Telemetry : IDisposable
 {
-    private static TracerProvider? s_tracerProvider;
-    private static readonly Lazy<ResourceBuilder> s_resourceBuilder = new(() =>
-    {
-        return ResourceBuilder.CreateDefault()
-            .AddService("Beutl", serviceVersion: GitVersionInformation.NuGetVersion, serviceInstanceId: s_sessionId);
-    });
+    private readonly TracerProvider? _tracerProvider;
+    private readonly Lazy<ResourceBuilder> _resourceBuilder;
+    internal readonly string _sessionId;
     private const string Instrumentation = "b8cc7df1-1367-41f5-a819-5c95a10075cb";
-    private static readonly string s_sessionId;
 
-    static Telemetry()
+    public Telemetry(string? sessionId = null)
     {
-        s_sessionId = Guid.NewGuid().ToString();
-        s_tracerProvider = CreateTracer();
+        _sessionId = sessionId ?? Guid.NewGuid().ToString();
+        _resourceBuilder = new(() =>
+        {
+            return ResourceBuilder.CreateEmpty()
+                .AddService("Beutl", serviceVersion: GitVersionInformation.NuGetVersion, serviceInstanceId: _sessionId);
+        });
+        _tracerProvider = CreateTracer();
 
         SetupLogger();
     }
 
     public static ActivitySource Applilcation { get; } = new("Beutl.Application", GitVersionInformation.SemVer);
 
-    private static TracerProvider? CreateTracer()
+    public static Telemetry Instance { get; private set; } = null!;
+
+    private TracerProvider? CreateTracer()
     {
         TelemetryConfig t = GlobalConfiguration.Instance.TelemetryConfig;
         var list = new List<string>(4);
@@ -60,22 +63,17 @@ internal static class Telemetry
         else
         {
             return Sdk.CreateTracerProviderBuilder()
-                .SetResourceBuilder(s_resourceBuilder.Value)
+                .SetResourceBuilder(_resourceBuilder.Value)
                 .AddSource([.. list])
                 .AddAzureMonitorTraceExporter(b => b.ConnectionString = $"InstrumentationKey={Instrumentation}")
                 .Build();
         }
     }
 
-    public static IDisposable GetDisposable()
+    public static IDisposable GetDisposable(string? sessionId = null)
     {
-        return new Disposable();
-    }
-
-    public static void RecreateTracer()
-    {
-        s_tracerProvider?.Dispose();
-        s_tracerProvider = CreateTracer();
+        Instance = new Telemetry(sessionId);
+        return Instance;
     }
 
     public static Activity? StartActivity([CallerMemberName] string name = "", ActivityKind kind = ActivityKind.Internal)
@@ -83,16 +81,13 @@ internal static class Telemetry
         return Applilcation.StartActivity(name, kind);
     }
 
-    private sealed class Disposable : IDisposable
+    public void Dispose()
     {
-        public void Dispose()
-        {
-            s_tracerProvider?.Dispose();
-            Logging.Log.LoggerFactory.Dispose();
-        }
+        _tracerProvider?.Dispose();
+        Logging.Log.LoggerFactory.Dispose();
     }
 
-    private static void SetupLogger()
+    private void SetupLogger()
     {
         string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
         int pid = Environment.ProcessId;
@@ -103,7 +98,7 @@ internal static class Telemetry
         LoggerConfiguration config = new LoggerConfiguration()
             .Enrich.FromLogContext();
 
-#if DEBUG
+#if DEBUG && !Beutl_PackageTools
         config = config.MinimumLevel.Verbose()
             .WriteTo.Debug(outputTemplate: OutputTemplate);
 #else
@@ -120,7 +115,7 @@ internal static class Telemetry
             if (GlobalConfiguration.Instance.TelemetryConfig.Beutl_Logging == true)
             {
                 builder.AddOpenTelemetry(o => o
-                    .SetResourceBuilder(s_resourceBuilder.Value)
+                    .SetResourceBuilder(_resourceBuilder.Value)
                     .AddAzureMonitorLogExporter(az => az.ConnectionString = $"InstrumentationKey={Instrumentation}"));
             }
         });

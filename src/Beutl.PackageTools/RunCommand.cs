@@ -1,12 +1,14 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Invocation;
 
+using Beutl.Logging;
 using Beutl.PackageTools.Properties;
 
 namespace Beutl.PackageTools;
 
 public sealed class RunCommand : RootCommand
 {
+    private readonly ILogger _logger = Log.CreateLogger<RunCommand>();
     private readonly Option<string[]> _installs;
     private readonly Option<string[]> _uninstalls;
     private readonly Option<string[]> _updates;
@@ -70,9 +72,9 @@ public sealed class RunCommand : RootCommand
             }
             else
             {
-                await commands.InstallPackages(installItems, verbose);
-                await commands.UpdatePackages(updateItems, verbose);
-                commands.UninstallPackages(uninstallItems, verbose, clean);
+                await commands.InstallPackages(installItems, verbose, _logger);
+                await commands.UpdatePackages(updateItems, verbose, _logger);
+                commands.UninstallPackages(uninstallItems, verbose, clean, _logger);
                 if (clean)
                 {
                     commands.CleanPackages();

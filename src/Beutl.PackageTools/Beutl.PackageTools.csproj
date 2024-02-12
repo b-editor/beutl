@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
     <NeutralLanguage>en</NeutralLanguage>
     <SelfContained>false</SelfContained>
+    <DefineConstants>$(DefineConstants);Beutl_PackageTools</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,10 +14,20 @@
     <PackageReference Include="Sharprompt" />
     <PackageReference Include="System.CommandLine" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Serilog.Sinks.Async" />
+    <PackageReference Include="Serilog.Sinks.File" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
+    <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Compile Include="..\Beutl\Services\Telemetry.cs" />
+    <Compile Include="..\Beutl\GitVersionInformation.cs" />
   </ItemGroup>
 
   <ItemGroup>

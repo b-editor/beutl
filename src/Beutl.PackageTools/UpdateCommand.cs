@@ -1,6 +1,7 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Invocation;
 
+using Beutl.Logging;
 using Beutl.PackageTools.Properties;
 
 using NuGet.Packaging;
@@ -9,6 +10,7 @@ namespace Beutl.PackageTools;
 
 public sealed class UpdateCommand : Command
 {
+    private readonly ILogger _logger = Log.CreateLogger<UpdateCommand>();
     private readonly Argument<string[]> _updates;
     private readonly Option<bool> _verbose;
     private readonly Option<bool> _clean;
@@ -87,7 +89,7 @@ public sealed class UpdateCommand : Command
             }
             else
             {
-                await commands.UpdatePackages(updateItems, verbose);
+                await commands.UpdatePackages(updateItems, verbose, _logger);
                 if (clean)
                 {
                     commands.CleanPackages();
@@ -103,10 +105,15 @@ public sealed class UpdateCommand : Command
 
 public partial class InstallerCommands
 {
-    public async Task UpdatePackages(HashSet<(PackageIdentity, Release?)> items, bool verbose)
+    public async Task UpdatePackages(HashSet<(PackageIdentity, Release?)> items, bool verbose, ILogger logger)
     {
         foreach ((PackageIdentity package, Release? release) in items)
         {
+            logger.LogInformation(
+                "Update the package. ({PackageId}/{Version})",
+                package.Id,
+                release?.Version?.Value ?? package.Version.ToString());
+
             Console.WriteLine();
             string? nupkgPath = null;
 
@@ -138,6 +145,12 @@ public partial class InstallerCommands
                     {
                         Console.Error.WriteLine(Chalk.BrightRed[Resources.InvalidHashValue]);
                         Console.Error.WriteLine(Chalk.BrightRed[Resources.ThisPackageFileMayHaveBeenTamperedWith]);
+
+                        logger.LogWarning(
+                            "Verify failed. ({PackageId}/{Version})",
+                            package.Id,
+                            release?.Version?.Value ?? package.Version.ToString());
+
                         if (!Prompt.Confirm(Resources.AreYouSureYouWantToContinueWithTheInstallation, false))
                         {
                             return;
@@ -183,6 +196,12 @@ public partial class InstallerCommands
                 {
                     Console.Error.WriteLine(ex);
                 }
+
+                logger.LogError(
+                    ex,
+                    "An exception occurred while updating the package. ({PackageId}/{Version})",
+                    package.Id,
+                    release?.Version?.Value ?? package.Version.ToString());
             }
             finally
             {
