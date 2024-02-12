@@ -62,7 +62,7 @@ jobs:
 
           #GitのタグとNuGetのバージョンが違う場合があるので
           $Filter = 'map(select(.tag_name | startswith("'+$OpenCvVersion+'")))[0].tag_name'
-          $OpenCvSharpTag = (gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/shimat/opencvsharp/releases | jq $Filter)
+          $OpenCvSharpTag = (gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/shimat/opencvsharp/releases | jq -r $Filter)
 
           #ダウンロード
           $Release = (gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/tags/$OpenCvSharpTag)
