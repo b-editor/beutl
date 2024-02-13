@@ -6,7 +6,7 @@ public static class TimeSpanExtensions
     {
         return Math.Round(ts.ToFrameNumber(rate), MidpointRounding.AwayFromZero).ToTimeSpan(rate);
     }
-    
+
     public static TimeSpan FloorToRate(this TimeSpan ts, double rate)
     {
         return Math.Floor(ts.ToFrameNumber(rate)).ToTimeSpan(rate);
@@ -16,14 +16,19 @@ public static class TimeSpanExtensions
     {
         return ts.TotalSeconds * rate;
     }
+    
+    public static double ToFrameNumber(this TimeSpan ts, int rate)
+    {
+        return ts.TotalSeconds * rate;
+    }
 
     public static TimeSpan ToTimeSpan(this double f, double rate)
     {
         return TimeSpan.FromSeconds(f / rate);
     }
 
-    //private static int TicksPerFrame(int rate)
-    //{
-    //    return 10000000 / rate;
-    //}
+    public static TimeSpan ToTimeSpan(this int f, int rate)
+    {
+        return TimeSpan.FromTicks(TimeSpan.TicksPerSecond * f / rate);
+    }
 }

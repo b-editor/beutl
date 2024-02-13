@@ -227,7 +227,7 @@ public partial class GraphEditorView : UserControl
             PointerPoint pointerPt = e.GetCurrentPoint(graphPanel);
 
             int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
-            _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale).FloorToRate(rate);
+            _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
 
             if (_pointerFrame >= viewModel.Scene.Duration)
             {
