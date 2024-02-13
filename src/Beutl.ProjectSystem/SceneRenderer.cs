@@ -28,8 +28,6 @@ public sealed class SceneRenderer(Scene scene) : Renderer(scene.FrameSize.Width,
         foreach (Element item in exited)
         {
             ExitSourceOperators(item);
-            RenderLayer layer = RenderScene[item.ZIndex];
-            layer.ClearAllNodeCache(GetCacheContext());
         }
 
         foreach (Element item in entered)
