@@ -138,7 +138,7 @@ jobs:
           cd packages/ubuntu22.04_amd64/usr
           mkdir -p lib/beutl
           cd lib/beutl
-          unzip ${{ github.workspace }}/artifacts/beutl-linux-x64-${{needs.determine-version.outputs.semVer}}.zip
+          unzip ${{ github.workspace }}/artifacts/Beutl-linux-x64-${{needs.determine-version.outputs.semVer}}.zip
 
       - name: Change mode
         run: |
