@@ -43,7 +43,7 @@ internal static class CoreLibraries
         }
 
 #if DEBUG
-        library.Add(new("Beutl.Sdk", "1.0.0-preview4"));
+        library.Add(new("Beutl.Sdk", "1.0.0-preview5"));
 #else
         library.Add(new("Beutl.Sdk", GitVersionInformation.NuGetVersionV2));
 #endif
