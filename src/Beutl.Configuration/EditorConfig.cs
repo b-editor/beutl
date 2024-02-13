@@ -43,6 +43,9 @@ public sealed class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<double> FrameCacheMaxSizeProperty;
     public static readonly CoreProperty<FrameCacheConfigScale> FrameCacheScaleProperty;
     public static readonly CoreProperty<FrameCacheConfigColorType> FrameCacheColorTypeProperty;
+    public static readonly CoreProperty<bool> IsNodeCacheEnabledProperty;
+    public static readonly CoreProperty<int> NodeCacheMaxPixelsProperty;
+    public static readonly CoreProperty<int> NodeCacheMinPixelsProperty;
 
     static EditorConfig()
     {
@@ -79,6 +82,19 @@ public sealed class EditorConfig : ConfigurationBase
         FrameCacheColorTypeProperty = ConfigureProperty<FrameCacheConfigColorType, EditorConfig>(nameof(FrameCacheColorType))
             .DefaultValue(FrameCacheConfigColorType.RGBA)
             .Register();
+
+        IsNodeCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsNodeCacheEnabled))
+            .DefaultValue(true)
+            .Register();
+
+        NodeCacheMaxPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMaxPixels))
+            .DefaultValue(1000 * 1000)
+            .Register();
+
+        NodeCacheMinPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMinPixels))
+            .DefaultValue(1)
+            .Register();
+
     }
 
     public EditorConfig()
@@ -126,6 +142,24 @@ public sealed class EditorConfig : ConfigurationBase
     {
         get => GetValue(FrameCacheColorTypeProperty);
         set => SetValue(FrameCacheColorTypeProperty, value);
+    }
+
+    public bool IsNodeCacheEnabled
+    {
+        get => GetValue(IsNodeCacheEnabledProperty);
+        set => SetValue(IsNodeCacheEnabledProperty, value);
+    }
+    
+    public int NodeCacheMaxPixels
+    {
+        get => GetValue(NodeCacheMaxPixelsProperty);
+        set => SetValue(NodeCacheMaxPixelsProperty, value);
+    }
+    
+    public int NodeCacheMinPixels
+    {
+        get => GetValue(NodeCacheMinPixelsProperty);
+        set => SetValue(NodeCacheMinPixelsProperty, value);
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()

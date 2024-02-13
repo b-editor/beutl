@@ -241,6 +241,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Enable node cache に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EnableNodeCache {
+            get {
+                return ResourceManager.GetString("EnableNodeCache", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Enable pointer lock に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string EnablePointerLockInProperty {
@@ -399,6 +408,33 @@ namespace Beutl.Language {
         public static string MakePublic {
             get {
                 return ResourceManager.GetString("MakePublic", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Node Cache に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NodeCache {
+            get {
+                return ResourceManager.GetString("NodeCache", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Maximum pixels に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NodeCacheMaxPixels {
+            get {
+                return ResourceManager.GetString("NodeCacheMaxPixels", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Minimum pixels に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NodeCacheMinPixels {
+            get {
+                return ResourceManager.GetString("NodeCacheMinPixels", resourceCulture);
             }
         }
         

@@ -898,9 +898,6 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Unsupported" xml:space="preserve">
     <value>非対応</value>
   </data>
-  <data name="EnableRenderingCache" xml:space="preserve">
-    <value>描画キャッシュを有効化</value>
-  </data>
   <data name="TimelineZoom" xml:space="preserve">
     <value>拡大率</value>
   </data>

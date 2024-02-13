@@ -47,12 +47,10 @@ public class Scene : ProjectItem, IAffectsRender
     public static readonly CoreProperty<PixelSize> FrameSizeProperty;
     public static readonly CoreProperty<Elements> ChildrenProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
-    public static readonly CoreProperty<RenderCacheOptions> CacheOptionsProperty;
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly List<string> _excludeElements = [];
     private readonly Elements _children;
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
-    private RenderCacheOptions _cacheOptions = RenderCacheOptions.Default;
     private PixelSize _frameSize;
 
     public Scene()
@@ -83,11 +81,6 @@ public class Scene : ProjectItem, IAffectsRender
         DurationProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
             .Register();
-
-        CacheOptionsProperty = ConfigureProperty<RenderCacheOptions, Scene>(nameof(CacheOptions))
-            .Accessor(o => o.CacheOptions, (o, v) => o.CacheOptions = v)
-            .DefaultValue(RenderCacheOptions.Default)
-            .Register();
     }
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
@@ -116,12 +109,6 @@ public class Scene : ProjectItem, IAffectsRender
     {
         get => _children;
         set => _children.Replace(value);
-    }
-
-    public RenderCacheOptions CacheOptions
-    {
-        get => _cacheOptions;
-        set => SetAndRaise(CacheOptionsProperty, ref _cacheOptions, value);
     }
 
     // element.FileNameが既に設定されている状態

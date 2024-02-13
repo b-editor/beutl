@@ -60,13 +60,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         CurrentTime = new ReactivePropertySlim<TimeSpan>()
             .DisposeWith(_disposables);
         Renderer = scene.GetObservable(Scene.FrameSizeProperty).Select(_ => new SceneRenderer(Scene))
-            .Do(r =>
-            {
-                if (r.GetCacheContext() is { } ctx)
-                {
-                    ctx.CacheOptions = scene.CacheOptions;
-                }
-            })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
@@ -74,15 +67,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
-        scene.GetObservable(Scene.CacheOptionsProperty)
-            .Subscribe(options =>
-            {
-                if (Renderer.Value.GetCacheContext() is { } ctx)
-                {
-                    ctx.CacheOptions = options;
-                }
-            })
-            .DisposeWith(_disposables);
 
         Library = new LibraryViewModel(this)
             .DisposeWith(_disposables);
@@ -157,6 +141,16 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 if (!config.IsFrameCacheEnabled)
                 {
                     FrameCacheManager.Value.Clear();
+                }
+            }
+            else if (e.PropertyName is nameof(EditorConfig.IsNodeCacheEnabled)
+                or nameof(EditorConfig.NodeCacheMaxPixels)
+                or nameof(EditorConfig.NodeCacheMinPixels))
+            {
+                Rendering.Cache.RenderCacheContext? cacheContext = Renderer.Value.GetCacheContext();
+                if (cacheContext != null)
+                {
+                    cacheContext.CacheOptions = Rendering.Cache.RenderCacheOptions.CreateFromGlobalConfiguration();
                 }
             }
         }

@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 
+using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -17,7 +18,7 @@ public sealed class RenderCacheContext : IDisposable
 {
     private readonly ILogger<RenderCacheContext> _logger = BeutlApplication.Current.LoggerFactory.CreateLogger<RenderCacheContext>();
     private readonly ConditionalWeakTable<IGraphicNode, RenderCache> _table = [];
-    private RenderCacheOptions _cacheOptions = new();
+    private RenderCacheOptions _cacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
 
     public RenderCacheOptions CacheOptions
     {
@@ -141,17 +142,17 @@ public sealed class RenderCacheContext : IDisposable
 
     private void MakeCacheCore(IGraphicNode node, RenderCache cache, IImmediateCanvasFactory factory)
     {
-        // nodeの子要素のキャッシュをすべて削除
-        ClearCache(node, cache);
-
-        // nodeをキャッシュ
         Rect bounds = (node as ISupportRenderCache)?.TransformBoundsForCache(cache) ?? node.Bounds;
         //bounds = bounds.Inflate(5);
         PixelRect boundsInPixels = PixelRect.FromRect(bounds);
         PixelSize size = boundsInPixels.Size;
-        if (size.Width <= 0 || size.Height <= 0)
+        if (!_cacheOptions.Rules.Match(size))
             return;
 
+        // nodeの子要素のキャッシュをすべて削除
+        ClearCache(node, cache);
+
+        // nodeをキャッシュ
         SKSurface? surface = factory.CreateRenderTarget(size.Width, size.Height);
         if (surface == null)
         {
@@ -199,23 +200,27 @@ public sealed class RenderCacheContext : IDisposable
 }
 
 [JsonSerializable(typeof(RenderCacheOptions))]
-public record RenderCacheOptions(
-    bool IsEnabled = true,
-    RenderCacheRules Rules = new())
+public record RenderCacheOptions(bool IsEnabled, RenderCacheRules Rules)
 {
-    public static readonly RenderCacheOptions Default = new();
-    public static readonly RenderCacheOptions Disabled = new(false);
+    public static readonly RenderCacheOptions Default = new(true, RenderCacheRules.Default);
+    public static readonly RenderCacheOptions Disabled = new(false, RenderCacheRules.Default);
+
+    public static RenderCacheOptions CreateFromGlobalConfiguration()
+    {
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        return new RenderCacheOptions(
+            config.IsNodeCacheEnabled,
+            new RenderCacheRules(config.NodeCacheMaxPixels, config.NodeCacheMinPixels));
+    }
 }
 
-public readonly record struct RenderCacheRules(
-    int MaxWidth = int.MaxValue,
-    int MaxHeight = int.MaxValue,
-    int MinWidth = 0,
-    int MinHeight = 0)
+public readonly record struct RenderCacheRules(int MaxPixels, int MinPixels)
 {
+    public static readonly RenderCacheRules Default = new(1000 * 1000, 1);
+
     public bool Match(PixelSize size)
     {
-        return (size.Width <= MaxWidth && size.Height <= MaxHeight)
-            || (size.Width >= MinWidth && size.Height >= MinHeight);
+        int count = size.Width * size.Height;
+        return MinPixels <= count && count <= MaxPixels;
     }
 }

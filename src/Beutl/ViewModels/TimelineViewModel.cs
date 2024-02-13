@@ -73,14 +73,6 @@ public sealed class TimelineViewModel : IToolContext
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        IsCacheEnabled = editViewModel.Scene.GetObservable(Scene.CacheOptionsProperty)
-            .Select(v => v.IsEnabled)
-            .ToReactiveProperty()
-            .AddTo(_disposables);
-        IsCacheEnabled.Skip(1)
-            .Subscribe(v => Scene.CacheOptions = Scene.CacheOptions with { IsEnabled = v })
-            .AddTo(_disposables);
-
         AddElement.Subscribe(editViewModel.AddElement).AddTo(_disposables);
 
         TimelineOptions options = editViewModel.Options.Value;
@@ -221,8 +213,6 @@ public sealed class TimelineViewModel : IToolContext
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 
-    public ReactiveProperty<bool> IsCacheEnabled { get; }
-
     public ReadOnlyReactivePropertySlim<Thickness> SeekBarMargin { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
@@ -230,12 +220,26 @@ public sealed class TimelineViewModel : IToolContext
     public ReactiveCommand<ElementDescription> AddElement { get; } = new();
 
     [Obsolete("Use AddElement property instead.")]
-    public ReactiveCommand<ElementDescription> AddLayer => AddElement;
+    public ReactiveCommand<ElementDescription> AddLayer
+    {
+        get
+        {
+            Debug.Fail("Use AddElement property instead.");
+            return AddElement;
+        }
+    }
 
     public CoreList<ElementViewModel> Elements { get; } = [];
 
     [Obsolete("Use Elements property instead.")]
-    public CoreList<ElementViewModel> Layers => Elements;
+    public CoreList<ElementViewModel> Layers
+    {
+        get
+        {
+            Debug.Fail("Use Elements property instead.");
+            return Elements;
+        }
+    }
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = [];
 

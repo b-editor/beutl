@@ -998,15 +998,6 @@ namespace Beutl.Language {
         }
         
         /// <summary>
-        ///   Enable rendering cache に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string EnableRenderingCache {
-            get {
-                return ResourceManager.GetString("EnableRenderingCache", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Encode に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Encode {

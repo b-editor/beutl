@@ -495,47 +495,36 @@ public sealed class OutputViewModel : IOutputContext
     private void OutputVideo(double frames, double frameRate, SceneRenderer renderer, MediaWriter writer)
     {
         RenderCacheContext? cacheContext = renderer.GetCacheContext();
-        RenderCacheOptions? restoreCacheOptions = null;
 
         if (cacheContext != null)
         {
-            restoreCacheOptions = cacheContext.CacheOptions;
             cacheContext.CacheOptions = RenderCacheOptions.Disabled;
         }
-        try
+
+        for (double i = 0; i < frames; i++)
         {
-            for (double i = 0; i < frames; i++)
+            if (_lastCts!.IsCancellationRequested)
+                break;
+
+            var ts = TimeSpan.FromSeconds(i / frameRate);
+            int retry = 0;
+        Retry:
+            if (!renderer.Render(ts))
             {
-                if (_lastCts!.IsCancellationRequested)
-                    break;
+                if (retry > 3)
+                    throw new Exception("Renderer.RenderがFalseでした。他にこのシーンを使用していないか確認してください。");
 
-                var ts = TimeSpan.FromSeconds(i / frameRate);
-                int retry = 0;
-            Retry:
-                if (!renderer.Render(ts))
-                {
-                    if (retry > 3)
-                        throw new Exception("Renderer.RenderがFalseでした。他にこのシーンを使用していないか確認してください。");
-
-                    retry++;
-                    goto Retry;
-                }
-                using (Bitmap<Bgra8888> result = renderer.Snapshot())
-                {
-                    writer.AddVideo(result);
-                }
-
-                ProgressValue.Value++;
-                _progress.Value = ProgressValue.Value / ProgressMax.Value;
-                ProgressText.Value = $"{Strings.OutputtingVideo}: {ts:hh\\:mm\\:ss\\.ff}";
+                retry++;
+                goto Retry;
             }
-        }
-        finally
-        {
-            if (cacheContext != null && restoreCacheOptions != null)
+            using (Bitmap<Bgra8888> result = renderer.Snapshot())
             {
-                cacheContext.CacheOptions = restoreCacheOptions;
+                writer.AddVideo(result);
             }
+
+            ProgressValue.Value++;
+            _progress.Value = ProgressValue.Value / ProgressMax.Value;
+            ProgressText.Value = $"{Strings.OutputtingVideo}: {ts:hh\\:mm\\:ss\\.ff}";
         }
     }
 

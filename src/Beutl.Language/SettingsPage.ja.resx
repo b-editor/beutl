@@ -334,4 +334,16 @@
   <data name="EnableFrameCache" xml:space="preserve">
     <value>フレームキャッシュを有効化</value>
   </data>
+  <data name="NodeCache" xml:space="preserve">
+    <value>ノードキャッシュ</value>
+  </data>
+  <data name="EnableNodeCache" xml:space="preserve">
+    <value>ノードキャッシュを有効化</value>
+  </data>
+  <data name="NodeCacheMaxPixels" xml:space="preserve">
+    <value>最大ピクセル数</value>
+  </data>
+  <data name="NodeCacheMinPixels" xml:space="preserve">
+    <value>最小ピクセル数</value>
+  </data>
 </root>

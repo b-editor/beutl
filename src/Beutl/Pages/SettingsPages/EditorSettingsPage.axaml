@@ -95,6 +95,37 @@
                 </ctrls:OptionsDisplayItem>
 
                 <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:SettingsPage.NodeCache}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.EnableNodeCache}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding IsNodeCacheEnabled.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.NodeCacheMaxPixels}" IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <NumericUpDown MinWidth="250"
+                                       FormatString="F0"
+                                       Minimum="{Binding NodeCacheMinPixels.Value}"
+                                       Value="{Binding NodeCacheMaxPixels.Value}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.NodeCacheMinPixels}" IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <NumericUpDown MinWidth="250"
+                                       FormatString="F0"
+                                       Maximum="{Binding NodeCacheMaxPixels.Value}"
+                                       Minimum="1"
+                                       Value="{Binding NodeCacheMinPixels.Value}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <TextBlock Margin="0,16,0,0"
                            Text="{x:Static lang:SettingsPage.PropertyEditor}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 

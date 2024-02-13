@@ -334,4 +334,16 @@ Enabling this setting may make the border invisible.</value>
   <data name="EnableFrameCache" xml:space="preserve">
     <value>Enable frame cache</value>
   </data>
+  <data name="NodeCache" xml:space="preserve">
+    <value>Node Cache</value>
+  </data>
+  <data name="EnableNodeCache" xml:space="preserve">
+    <value>Enable node cache</value>
+  </data>
+  <data name="NodeCacheMaxPixels" xml:space="preserve">
+    <value>Maximum pixels</value>
+  </data>
+  <data name="NodeCacheMinPixels" xml:space="preserve">
+    <value>Minimum pixels</value>
+  </data>
 </root>
