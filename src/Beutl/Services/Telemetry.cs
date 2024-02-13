@@ -1,6 +1,5 @@
 ﻿#pragma warning disable CS0436
 
-using System.Collections;
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
 
@@ -23,19 +22,42 @@ namespace Beutl.Services;
 
 internal class Telemetry : IDisposable
 {
-    private static readonly KeyValuePair<string, object?> s_versionAttribute = new("service.version", GitVersionInformation.NuGetVersion);
+    private static readonly KeyValuePair<string, object>[] s_attributes;
     private readonly TracerProvider? _tracerProvider;
     private readonly Lazy<ResourceBuilder> _resourceBuilder;
     internal readonly string _sessionId;
     private const string Instrumentation = "b8cc7df1-1367-41f5-a819-5c95a10075cb";
+
+    static Telemetry()
+    {
+        static string GetSystemType()
+        {
+            if (OperatingSystem.IsWindows()) return "windows";
+            else if (OperatingSystem.IsLinux()) return "linux";
+            else if (OperatingSystem.IsMacOS()) return "macos";
+            else return Environment.OSVersion.Platform.ToString();
+        }
+
+        s_attributes =
+        [
+            new("service.version", GitVersionInformation.NuGetVersion),
+            new("os.type", GetSystemType()),
+            new("os.description", Environment.OSVersion.VersionString),
+            new("os.name", OperatingSystem.IsLinux() ? LinuxDistro.Id
+                         : OperatingSystem.IsWindows() ? "Windows"
+                         : OperatingSystem.IsMacOS() ? "Mac OS X"
+                         : "Unknown"),
+        ];
+    }
 
     public Telemetry(string? sessionId = null)
     {
         _sessionId = sessionId ?? Guid.NewGuid().ToString();
         _resourceBuilder = new(() =>
         {
-            return ResourceBuilder.CreateEmpty()
-                .AddService("Beutl", serviceVersion: GitVersionInformation.NuGetVersion, serviceInstanceId: _sessionId);
+            return ResourceBuilder.CreateDefault()
+                .AddService("Beutl", serviceVersion: GitVersionInformation.NuGetVersion, serviceInstanceId: _sessionId)
+                .AddAttributes(s_attributes);
         });
         _tracerProvider = CreateTracer();
 
@@ -210,7 +232,10 @@ internal class Telemetry : IDisposable
         public override void OnEnd(Activity data)
         {
             base.OnEnd(data);
-            data.SetTag(s_versionAttribute.Key, s_versionAttribute.Value);
+            foreach (KeyValuePair<string, object> item in s_attributes)
+            {
+                data.SetTag(item.Key, item.Value);
+            }
         }
     }
 
@@ -219,44 +244,13 @@ internal class Telemetry : IDisposable
         public override void OnEnd(LogRecord data)
         {
             base.OnEnd(data);
-            data.Attributes = new AppendVersionAttribute(data.Attributes);
-        }
-
-        private sealed class AppendVersionAttribute(IReadOnlyList<KeyValuePair<string, object?>>? source) : IReadOnlyList<KeyValuePair<string, object?>>
-        {
-            public KeyValuePair<string, object?> this[int index]
+            if (data.Attributes != null)
             {
-                get
-                {
-                    ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, Count);
-
-                    if (index < source?.Count)
-                    {
-                        return source[index];
-                    }
-
-                    return s_versionAttribute;
-                }
+                data.Attributes = data.Attributes!.Concat(s_attributes).ToArray()!;
             }
-
-            public int Count => (source?.Count ?? 0) + 1;
-
-            public IEnumerator<KeyValuePair<string, object?>> GetEnumerator()
+            else
             {
-                if (source != null)
-                {
-                    return source.Append(s_versionAttribute)
-                        .GetEnumerator();
-                }
-                else
-                {
-                    return Enumerable.Repeat(s_versionAttribute, 1).GetEnumerator();
-                }
-            }
-
-            IEnumerator IEnumerable.GetEnumerator()
-            {
-                return GetEnumerator();
+                data.Attributes = s_attributes!;
             }
         }
     }
