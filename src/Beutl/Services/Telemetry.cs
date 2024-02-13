@@ -1,5 +1,6 @@
 ﻿#pragma warning disable CS0436
 
+using System.Collections;
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
 
@@ -12,6 +13,7 @@ using Beutl.Configuration;
 using Microsoft.Extensions.Logging;
 
 using OpenTelemetry;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
@@ -21,6 +23,7 @@ namespace Beutl.Services;
 
 internal class Telemetry : IDisposable
 {
+    private static readonly KeyValuePair<string, object?> s_versionAttribute = new("service.version", GitVersionInformation.NuGetVersion);
     private readonly TracerProvider? _tracerProvider;
     private readonly Lazy<ResourceBuilder> _resourceBuilder;
     internal readonly string _sessionId;
@@ -64,6 +67,7 @@ internal class Telemetry : IDisposable
         {
             return Sdk.CreateTracerProviderBuilder()
                 .SetResourceBuilder(_resourceBuilder.Value)
+                .AddProcessor(new AddVersionActivityProcessor())
                 .AddSource([.. list])
                 .AddAzureMonitorTraceExporter(b => b.ConnectionString = $"InstrumentationKey={Instrumentation}")
                 .Build();
@@ -116,6 +120,7 @@ internal class Telemetry : IDisposable
             {
                 builder.AddOpenTelemetry(o => o
                     .SetResourceBuilder(_resourceBuilder.Value)
+                    .AddProcessor(new AddVersionLogProcessor())
                     .AddAzureMonitorLogExporter(az => az.ConnectionString = $"InstrumentationKey={Instrumentation}"));
             }
         });
@@ -197,6 +202,62 @@ internal class Telemetry : IDisposable
         }
         catch
         {
+        }
+    }
+
+    internal class AddVersionActivityProcessor : BaseProcessor<Activity>
+    {
+        public override void OnEnd(Activity data)
+        {
+            base.OnEnd(data);
+            data.SetTag(s_versionAttribute.Key, s_versionAttribute.Value);
+        }
+    }
+
+    internal class AddVersionLogProcessor : BaseProcessor<LogRecord>
+    {
+        public override void OnEnd(LogRecord data)
+        {
+            base.OnEnd(data);
+            data.Attributes = new AppendVersionAttribute(data.Attributes);
+        }
+
+        private sealed class AppendVersionAttribute(IReadOnlyList<KeyValuePair<string, object?>>? source) : IReadOnlyList<KeyValuePair<string, object?>>
+        {
+            public KeyValuePair<string, object?> this[int index]
+            {
+                get
+                {
+                    ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, Count);
+
+                    if (index < source?.Count)
+                    {
+                        return source[index];
+                    }
+
+                    return s_versionAttribute;
+                }
+            }
+
+            public int Count => (source?.Count ?? 0) + 1;
+
+            public IEnumerator<KeyValuePair<string, object?>> GetEnumerator()
+            {
+                if (source != null)
+                {
+                    return source.Append(s_versionAttribute)
+                        .GetEnumerator();
+                }
+                else
+                {
+                    return Enumerable.Repeat(s_versionAttribute, 1).GetEnumerator();
+                }
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
         }
     }
 }
