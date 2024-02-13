@@ -181,6 +181,19 @@ public class FormattedText : IEquatable<FormattedText>
         return _textBlob!;
     }
 
+    internal SKFont ToSKFont()
+    {
+        var typeface = new Typeface(Font, Style, Weight);
+        var font = new SKFont(typeface.ToSkia(), Size)
+        {
+            Edging = SKFontEdging.Antialias,
+            Subpixel = true,
+            Hinting = SKFontHinting.Full
+        };
+
+        return font;
+    }
+
     private void Measure()
     {
         using SKFont font = this.ToSKFont();

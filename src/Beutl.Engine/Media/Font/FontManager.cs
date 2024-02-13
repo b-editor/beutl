@@ -41,7 +41,7 @@ public sealed class FontManager
                 SKTypeface? sktypeface = SKTypeface.FromFile(file);
                 if (sktypeface != null)
                 {
-                    Typeface typeface = sktypeface.ToTypeface();
+                    Typeface typeface = Typeface.FromSKTypeface(sktypeface);
                     bool isAdded = AddFont(sktypeface);
                     if (!isAdded)
                     {
@@ -53,7 +53,7 @@ public sealed class FontManager
 
             SKTypeface sk = SKTypeface.Default;
             AddFont(sk);
-            return sk.ToTypeface();
+            return Typeface.FromSKTypeface(sk);
         }
 
         _fontDirs = [.. GlobalConfiguration.Instance.FontConfig.FontDirectories];
@@ -109,7 +109,7 @@ public sealed class FontManager
 
         if (exists)
         {
-            var tf = typeface.ToTypeface();
+            var tf = Typeface.FromSKTypeface(typeface);
 
             if (!value!.ContainsKey(tf))
             {
@@ -157,7 +157,7 @@ internal static class TypefaceCollection
         var list = new List<KeyValuePair<Typeface, SKTypeface>>(typefaces.Length);
         foreach (SKTypeface typeface in typefaces)
         {
-            list.Add(new(typeface.ToTypeface(), typeface));
+            list.Add(new(Typeface.FromSKTypeface(typeface), typeface));
         }
 
         return list.ToFrozenDictionary();

@@ -4,7 +4,7 @@ using Beutl.Graphics.Transformation;
 namespace Beutl.Media.Immutable;
 
 public class ImmutableSolidColorBrush(
-    Color color, float opacity = 100, ImmutableTransform? transform = null, RelativePoint origin = default)
+    Color color, float opacity = 100, ITransform? transform = null, RelativePoint origin = default)
     : ISolidColorBrush, IEquatable<ISolidColorBrush?>
 {
     public ImmutableSolidColorBrush(uint color)
@@ -13,7 +13,7 @@ public class ImmutableSolidColorBrush(
     }
 
     public ImmutableSolidColorBrush(ISolidColorBrush source)
-        : this(source.Color, source.Opacity, source.Transform?.ToImmutable())
+        : this(source.Color, source.Opacity, source.Transform)
     {
     }
 
@@ -21,7 +21,7 @@ public class ImmutableSolidColorBrush(
 
     public float Opacity { get; } = opacity;
 
-    public ITransform? Transform { get; } = transform;
+    public ITransform? Transform { get; } = (transform as IMutableTransform)?.ToImmutable() ?? transform;
 
     public RelativePoint TransformOrigin { get; } = origin;
 

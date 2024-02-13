@@ -10,7 +10,7 @@ public abstract class ImmutableTileBrush : ITileBrush
         AlignmentY alignmentY,
         RelativeRect destinationRect,
         float opacity,
-        ImmutableTransform? transform,
+        ITransform? transform,
         RelativePoint transformOrigin,
         RelativeRect sourceRect,
         Stretch stretch,
@@ -21,7 +21,7 @@ public abstract class ImmutableTileBrush : ITileBrush
         AlignmentY = alignmentY;
         DestinationRect = destinationRect;
         Opacity = opacity;
-        Transform = transform;
+        Transform = (transform as IMutableTransform)?.ToImmutable() ?? transform;
         TransformOrigin = transformOrigin;
         SourceRect = sourceRect;
         Stretch = stretch;
@@ -35,7 +35,7 @@ public abstract class ImmutableTileBrush : ITileBrush
               source.AlignmentY,
               source.DestinationRect,
               source.Opacity,
-              source.Transform?.ToImmutable(),
+              source.Transform,
               source.TransformOrigin,
               source.SourceRect,
               source.Stretch,

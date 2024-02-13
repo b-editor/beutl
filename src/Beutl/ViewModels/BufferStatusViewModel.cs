@@ -41,7 +41,7 @@ public sealed class BufferStatusViewModel : IDisposable
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         Dispatcher.UIThread.InvokeAsync(
-            () => CacheBlocks.Value = obj.SelectArray(v => new CacheBlock(_editViewModel.Player.GetFrameRate(), v.Start, v.Length, v.IsLocked)),
+            () => CacheBlocks.Value = obj.Select(v => new CacheBlock(_editViewModel.Player.GetFrameRate(), v.Start, v.Length, v.IsLocked)).ToArray(),
             DispatcherPriority.Background,
             _cts.Token);
     }

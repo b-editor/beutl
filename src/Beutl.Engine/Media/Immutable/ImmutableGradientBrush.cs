@@ -8,13 +8,13 @@ public abstract class ImmutableGradientBrush : IGradientBrush
     protected ImmutableGradientBrush(
         IReadOnlyList<ImmutableGradientStop> gradientStops,
         float opacity,
-        ImmutableTransform? transform,
+        ITransform? transform,
         RelativePoint? transformOrigin,
         GradientSpreadMethod spreadMethod)
     {
         GradientStops = gradientStops;
         Opacity = opacity;
-        Transform = transform;
+        Transform = (transform as IMutableTransform)?.ToImmutable() ?? transform;
         TransformOrigin = transformOrigin ?? RelativePoint.TopLeft;
         SpreadMethod = spreadMethod;
     }
@@ -22,7 +22,7 @@ public abstract class ImmutableGradientBrush : IGradientBrush
     protected ImmutableGradientBrush(IGradientBrush source)
         : this((IReadOnlyList<ImmutableGradientStop>)((source.GradientStops as GradientStops)?.ToImmutable() ?? source.GradientStops),
               source.Opacity,
-              source.Transform?.ToImmutable(),
+              source.Transform,
               source.TransformOrigin,
               source.SpreadMethod)
     {

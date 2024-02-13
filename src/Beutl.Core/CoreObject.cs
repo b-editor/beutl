@@ -139,7 +139,7 @@ public abstract class CoreObject : ICoreObject
             CoreProperty? property = PropertyRegistry.FindRegistered(this, propertyName);
             if (property != null && _errors.TryGetValue(property.Id, out string? message))
             {
-                return new OnceEnumerable<string>(message);
+                return Enumerable.Repeat(message, 1);
             }
             else
             {

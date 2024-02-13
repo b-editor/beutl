@@ -53,8 +53,8 @@ public readonly struct BrushConstructor(Size targetSize, IBrush? brush, BlendMod
     private void ConfigureGradientBrush(SKPaint paint, IGradientBrush gradientBrush)
     {
         var tileMode = gradientBrush.SpreadMethod.ToSKShaderTileMode();
-        SKColor[] stopColors = gradientBrush.GradientStops.SelectArray(s => s.Color.ToSKColor());
-        float[] stopOffsets = gradientBrush.GradientStops.SelectArray(s => s.Offset);
+        SKColor[] stopColors = gradientBrush.GradientStops.Select(s => s.Color.ToSKColor()).ToArray();
+        float[] stopOffsets = gradientBrush.GradientStops.Select(s => s.Offset).ToArray();
 
         switch (gradientBrush)
         {

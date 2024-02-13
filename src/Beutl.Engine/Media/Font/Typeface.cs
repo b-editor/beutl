@@ -1,6 +1,9 @@
 ﻿using System.Text.Json.Serialization;
 
 using Beutl.Converters;
+using Beutl.Graphics;
+
+using SkiaSharp;
 
 namespace Beutl.Media;
 
@@ -25,6 +28,16 @@ public readonly struct Typeface(
     /// Gets the font weight.
     /// </summary>
     public FontWeight Weight { get; } = weight;
+
+    internal static Typeface FromSKTypeface(SKTypeface typeface)
+    {
+        return new Typeface(new FontFamily(typeface.FamilyName), typeface.FontSlant.ToFontStyle(), (FontWeight)typeface.FontWeight);
+    }
+
+    internal SKTypeface ToSkia()
+    {
+        return FontManager.Instance._fonts[FontFamily].Get(this);
+    }
 
     public override bool Equals(object? obj)
     {

@@ -1,5 +1,4 @@
-﻿
-using Beutl.Media;
+﻿using Beutl.Media;
 
 using SkiaSharp;
 
