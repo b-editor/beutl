@@ -162,7 +162,7 @@ jobs:
 
       - name: Set Installed-Size
         run: |
-           SizeInKiloBytes=`du -s -k ubuntu22.04_amd64 | awk '{print $1}'`
+           SizeInKiloBytes=`du -s -k packages/ubuntu22.04_amd64 | awk '{print $1}'`
            cd packages/ubuntu22.04_amd64/DEBIAN
            echo "Installed-Size: $SizeInKiloBytes" >> control
 
