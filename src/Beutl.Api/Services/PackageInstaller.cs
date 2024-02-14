@@ -57,7 +57,8 @@ public partial class PackageInstaller : IBeutlApiResource
         _httpClient = httpClient;
         _installedPackageRepository = installedPackageRepository;
 
-        string configPath = Path.Combine(Helper.AppRoot, "nuget.config");
+        const string ConfigFileName = "nuget.config";
+        string configPath = Path.Combine(Helper.AppRoot, ConfigFileName);
         if (File.Exists(configPath))
         {
             using (StreamReader reader = File.OpenText(configPath))
@@ -84,7 +85,7 @@ public partial class PackageInstaller : IBeutlApiResource
 
     LoadSettings:
         //_settings = Settings.LoadDefaultSettings(Helper.AppRoot);
-        _settings = new Settings(Helper.AppRoot);
+        _settings = new Settings(Helper.AppRoot, ConfigFileName);
         _packageSourceProvider = new PackageSourceProvider(_settings);
 
         _sourceRepositoryProvider = new SourceRepositoryProvider(_packageSourceProvider, Repository.Provider.GetCoreV3());
