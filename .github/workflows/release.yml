@@ -14,13 +14,13 @@ jobs:
       revision: ${{ steps.nbgv.outputs.VersionRevision }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Nerdbank.GitVersioning
         id: nbgv
-        uses: dotnet/nbgv@v0.4.1
+        uses: dotnet/nbgv@v0.4.2
 
   build-executable:
     needs: [determine-version]
@@ -31,11 +31,11 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
@@ -75,7 +75,7 @@ jobs:
         run: ./build.cmd Zip --runtime ${{matrix.rid}} --skip Publish
 
       - name: Save
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: beutl-${{matrix.rid}}-${{needs.determine-version.outputs.semVer}}
           path: ./artifacts/*.zip
@@ -86,16 +86,16 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
           
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: beutl-win_x64-${{needs.determine-version.outputs.semVer}}
           path: artifacts
@@ -110,7 +110,7 @@ jobs:
         run: ./build.cmd BuildInstaller --skip Publish
 
       - name: Save installer
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: beutl-setup
           path: ./artifacts/beutl-setup.exe
@@ -121,14 +121,14 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
           
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: beutl-linux_x64-${{needs.determine-version.outputs.semVer}}
           path: artifacts
@@ -172,9 +172,9 @@ jobs:
           fakeroot dpkg-deb --build ubuntu22.04_amd64 .
 
       - name: Save package
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: beutl-setup
+          name: beutl_${{needs.determine-version.outputs.simpleVer}}-${{needs.determine-version.outputs.revision}}ubuntu22.04_amd64.deb
           path: ./packages/beutl_${{needs.determine-version.outputs.simpleVer}}-${{needs.determine-version.outputs.revision}}ubuntu22.04_amd64.deb
 
   build-nuget:
@@ -183,11 +183,11 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
@@ -199,7 +199,7 @@ jobs:
         working-directory: ./packages/Beutl.Sdk
 
       - name: Save
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Beutl.Sdk.${{needs.determine-version.outputs.semVer}}
           path: ./artifacts/Beutl.Sdk.${{needs.determine-version.outputs.semVer}}.nupkg
@@ -208,7 +208,7 @@ jobs:
     needs: [build-executable, build-windows-installer, build-debian-package, build-nuget]
     runs-on: windows-latest
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
 
