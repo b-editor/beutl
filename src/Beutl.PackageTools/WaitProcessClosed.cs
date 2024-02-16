@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-
-using Beutl.PackageTools.Properties;
+﻿using Beutl.PackageTools.Properties;
 
 namespace Beutl.PackageTools;
 
@@ -11,8 +9,18 @@ public static class WaitForProcessExited
 
     static WaitForProcessExited()
     {
-        s_beutlProcesses = Process.GetProcessesByName("Beutl");
-        s_bptProcesses = Process.GetProcessesByName("Beutl.PackageTools");
+        s_beutlProcesses =
+        [
+            .. Process.GetProcessesByName("Beutl"),
+            .. Process.GetProcessesByName("beutl")
+        ];
+
+        s_bptProcesses =
+        [
+            ..Process.GetProcessesByName("Beutl.PackageTools"),
+            ..Process.GetProcessesByName("Beutl.PackageTools.UI"),
+            ..Process.GetProcessesByName("beutl-pkg"),
+        ];
     }
 
     public static int Count => s_beutlProcesses.Length;

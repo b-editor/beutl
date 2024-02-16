@@ -1,0 +1,71 @@
+<UserControl x:Class="Beutl.PackageTools.UI.Views.DownloadTask"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:models="using:Beutl.PackageTools.UI.Models"
+             xmlns:res="using:Beutl.PackageTools.UI.Resources"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             d:DesignHeight="450"
+             d:DesignWidth="320"
+             x:DataType="models:DownloadTaskModel"
+             mc:Ignorable="d">
+    <Grid ColumnDefinitions="16,8,*">
+        <Grid HorizontalAlignment="Center" RowDefinitions="Auto,*">
+            <ui:InfoBadge Classes="step"
+                          Classes.Critical="{Binding Failed.Value, FallbackValue=False}"
+                          Classes.Informational="{Binding !IsRunning.Value, FallbackValue=True}"
+                          Classes.Success="{Binding Succeeded.Value, FallbackValue=False}"
+                          Value="1" />
+            <Border Grid.Row="1"
+                    Width="2"
+                    Background="Gray"
+                    IsVisible="{Binding ShowDetails.Value, FallbackValue=False}" />
+        </Grid>
+        <Grid Grid.Column="2" RowDefinitions="Auto,Auto">
+            <TextBlock Classes.tip="{Binding, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       PointerPressed="OnTaskNamePointerPressed"
+                       PointerReleased="OnTaskNamePointerReleased"
+                       Text="{x:Static res:Strings.Download}" />
+
+            <StackPanel Grid.Row="1"
+                        Margin="0,6,0,0"
+                        IsVisible="{Binding ShowDetails.Value, FallbackValue=False}"
+                        Spacing="8">
+                <Grid IsVisible="{Binding Conflict}" RowDefinitions="Auto,Auto,8,Auto">
+                    <TextBlock Text="{x:Static res:Strings.Package_with_same_ID_found_in_local_source}" />
+                    <TextBlock Grid.Row="1" Text="{x:Static res:Strings.Do_you_want_to_use_this_package}" />
+                    <Grid Grid.Row="3" ColumnDefinitions="*,8,*">
+                        <ToggleButton HorizontalAlignment="Stretch"
+                                      Command="{Binding SetPreferLocalSource}"
+                                      CommandParameter="{x:False}"
+                                      Content="{x:Static res:Strings.No}"
+                                      IsHitTestVisible="{Binding !IsLocalSourcePreferred.Value.HasValue}" />
+                        <ToggleButton Grid.Column="2"
+                                      HorizontalAlignment="Stretch"
+                                      Command="{Binding SetPreferLocalSource}"
+                                      CommandParameter="{x:True}"
+                                      Content="{x:Static res:Strings.Yes}"
+                                      IsHitTestVisible="{Binding !IsLocalSourcePreferred.Value.HasValue}" />
+                    </Grid>
+                </Grid>
+
+                <Grid IsVisible="{Binding IsProgressBarVisible.Value}" RowDefinitions="Auto,8,Auto">
+                    <TextBlock Text="{Binding DownloadMessage.Value}" TextWrapping="WrapWithOverflow" />
+                    <ProgressBar Grid.Row="2"
+                                 IsIndeterminate="{Binding IsIndeterminate.Value}"
+                                 Value="{Binding Progress.Value}" />
+                </Grid>
+
+                <TextBlock IsVisible="{Binding DownloadSkipped.Value}"
+                           Text="{x:Static res:Strings.Skipped_downloading_to_use_local_source}"
+                           TextWrapping="WrapWithOverflow" />
+
+                <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           IsVisible="{Binding ErrorMessage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Text="{Binding ErrorMessage.Value}"
+                           TextWrapping="WrapWithOverflow" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

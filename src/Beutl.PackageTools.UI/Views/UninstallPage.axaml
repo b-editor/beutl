@@ -1,0 +1,79 @@
+<local:PackageToolPage x:Class="Beutl.PackageTools.UI.Views.UninstallPage"
+                       xmlns="https://github.com/avaloniaui"
+                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                       xmlns:asyncImageLoader="using:AsyncImageLoader"
+                       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                       xmlns:local="using:Beutl.PackageTools.UI.Views"
+                       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                       xmlns:ui="using:FluentAvalonia.UI.Controls"
+                       xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+                       xmlns:viewModels="using:Beutl.PackageTools.UI.ViewModels"
+                       d:DesignHeight="450"
+                       d:DesignWidth="320"
+                       x:DataType="viewModels:UninstallViewModel"
+                       mc:Ignorable="d">
+    <Grid Margin="18,9" RowDefinitions="Auto,*">
+        <TextBlock Text="{Binding Title}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+        <ScrollViewer x:Name="Scroll"
+                      Grid.Row="1"
+                      Margin="0,8,-12,0"
+                      Padding="0,0,12,0">
+            <StackPanel Margin="0,6" Spacing="6">
+                <Grid ColumnDefinitions="Auto,12,*">
+                    <Border Width="64"
+                            Height="64"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                            CornerRadius="8"
+                            IsVisible="{Binding LogoUrl, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+
+                    <asyncImageLoader:AdvancedImage Width="64"
+                                                    Height="64"
+                                                    VerticalAlignment="Center"
+                                                    ImageClipping.CornerRadius="8"
+                                                    IsVisible="{Binding LogoUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                    RenderOptions.BitmapInterpolationMode="HighQuality"
+                                                    Source="{Binding LogoUrl}" />
+
+                    <Grid Grid.Column="2"
+                          VerticalAlignment="Top"
+                          RowDefinitions="Auto,Auto,Auto">
+                        <Grid ColumnDefinitions="*,6,Auto">
+                            <TextBlock FontSize="20"
+                                       Text="{Binding DisplayName}"
+                                       TextTrimming="CharacterEllipsis"
+                                       TextWrapping="NoWrap"
+                                       Theme="{StaticResource BaseTextBlockStyle}" />
+                            <TextBlock Grid.Column="2"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding Version}" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="1"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   Text="{Binding Publisher}" />
+
+                        <TextBlock Grid.Row="2"
+                                   Margin="0,8,0,0"
+                                   Text="{Binding Description}"
+                                   TextTrimming="{x:Static TextTrimming.CharacterEllipsis}" />
+                    </Grid>
+                </Grid>
+
+                <Separator />
+
+                <StackPanel Spacing="8">
+                    <ProgressBar Value="{Binding Progress.Value}" />
+
+                    <SelectableTextBlock Text="{Binding Message.Value}" TextWrapping="WrapWithOverflow" />
+
+                    <SelectableTextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                                         IsVisible="{Binding ErrorMessage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                         Text="{Binding ErrorMessage.Value}"
+                                         TextWrapping="WrapWithOverflow" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</local:PackageToolPage>

@@ -111,7 +111,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "nukebuild\_build.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XamlPreview", "tests\XamlPreview\XamlPreview.csproj", "{AC7E6F97-061C-47DA-B264-04A4EAE666B9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.Extensions.MediaFoundation", "src\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj", "{8C77D39D-CF39-4C7D-92FF-012D9A18E132}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Extensions.MediaFoundation", "src\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj", "{8C77D39D-CF39-4C7D-92FF-012D9A18E132}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.PackageTools.UI", "src\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj", "{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -383,6 +385,14 @@ Global
 		{8C77D39D-CF39-4C7D-92FF-012D9A18E132}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8C77D39D-CF39-4C7D-92FF-012D9A18E132}.Release|x64.ActiveCfg = Release|Any CPU
 		{8C77D39D-CF39-4C7D-92FF-012D9A18E132}.Release|x64.Build.0 = Release|Any CPU
+		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Debug|x64.Build.0 = Debug|Any CPU
+		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Release|x64.ActiveCfg = Release|Any CPU
+		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

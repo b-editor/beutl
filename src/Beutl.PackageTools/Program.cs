@@ -16,8 +16,6 @@ if (WaitForProcessExited.PackageToolsCount != 0)
 GlobalConfiguration config = GlobalConfiguration.Instance;
 config.Restore(GlobalConfiguration.DefaultFilePath);
 
-var apiApp = new BeutlApiApplication(new HttpClient());
-
 var verbose = new Option<bool>(["--verbose", "-v"], () => false)
 {
     Description = Resources.VerboseDescription,
@@ -53,6 +51,17 @@ string? GetSessionId()
 }
 
 using IDisposable _ = Telemetry.GetDisposable(GetSessionId());
+ILogger<Program> logger = Log.CreateLogger<Program>();
+
+var apiApp = new BeutlApiApplication(new HttpClient());
+try
+{
+    await apiApp.RestoreUserAsync(null);
+}
+catch (Exception ex)
+{
+    logger.LogError(ex, "An error occurred during authentication");
+}
 
 try
 {
@@ -95,6 +104,6 @@ try
 }
 catch (Exception ex)
 {
-    Log.CreateLogger<Program>().LogCritical(ex, "An unhandled exception occurred.");
+    logger.LogCritical(ex, "An unhandled exception occurred.");
     throw;
 }

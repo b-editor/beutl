@@ -1,0 +1,72 @@
+<UserControl x:Class="Beutl.PackageTools.UI.Views.VerifyTask"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:models="using:Beutl.PackageTools.UI.Models"
+             xmlns:res="using:Beutl.PackageTools.UI.Resources"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             d:DesignHeight="450"
+             d:DesignWidth="320"
+             x:DataType="models:VerifyTaskModel"
+             mc:Ignorable="d">
+    <Grid ColumnDefinitions="16,8,*">
+        <Grid HorizontalAlignment="Center" RowDefinitions="Auto,*">
+            <ui:InfoBadge Classes="step"
+                          Classes.Critical="{Binding Failed.Value, FallbackValue=False}"
+                          Classes.Informational="{Binding !IsRunning.Value, FallbackValue=True}"
+                          Classes.Success="{Binding Succeeded.Value, FallbackValue=False}"
+                          Value="2" />
+            <Border Grid.Row="1"
+                    Width="2"
+                    Background="Gray"
+                    IsVisible="{Binding ShowDetails.Value, FallbackValue=False}" />
+        </Grid>
+        <Grid Grid.Column="2" RowDefinitions="Auto,Auto">
+            <TextBlock Classes.tip="{Binding, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       PointerPressed="OnTaskNamePointerPressed"
+                       PointerReleased="OnTaskNamePointerReleased"
+                       Text="{x:Static res:Strings.Verify}" />
+
+            <StackPanel Grid.Row="1"
+                        Margin="0,6,0,0"
+                        IsVisible="{Binding ShowDetails.Value, FallbackValue=False}"
+                        Spacing="8">
+                <Grid IsVisible="{Binding IsProgressBarVisible.Value}" RowDefinitions="Auto,8,Auto">
+                    <TextBlock Text="{Binding VerifyMessage.Value}" TextWrapping="WrapWithOverflow" />
+                    <ProgressBar Grid.Row="2"
+                                 IsIndeterminate="{Binding IsIndeterminate.Value}"
+                                 Value="{Binding Progress.Value}" />
+                </Grid>
+
+                <Grid IsVisible="{Binding FailedToVerify.Value}" RowDefinitions="Auto,Auto,8,Auto">
+                    <TextBlock Text="{x:Static res:Strings.Hash_code_verification_failed}" />
+                    <TextBlock Grid.Row="1" Text="{x:Static res:Strings.Do_you_really_want_to_continue_with_the_installation}" />
+                    <Grid Grid.Row="3" ColumnDefinitions="*,8,*">
+                        <ToggleButton HorizontalAlignment="Stretch"
+                                      Classes="accent"
+                                      Command="{Binding Continue}"
+                                      CommandParameter="{x:False}"
+                                      Content="{x:Static res:Strings.No}"
+                                      IsHitTestVisible="{Binding !IsContinued.Value.HasValue}" />
+                        <ToggleButton Grid.Column="2"
+                                      HorizontalAlignment="Stretch"
+                                      Command="{Binding Continue}"
+                                      CommandParameter="{x:True}"
+                                      Content="{x:Static res:Strings.Yes}"
+                                      IsHitTestVisible="{Binding !IsContinued.Value.HasValue}" />
+                    </Grid>
+                </Grid>
+
+                <TextBlock IsVisible="{Binding Skipped.Value}"
+                           Text="{x:Static res:Strings.Skipped_verification_because_local_source_is_used}"
+                           TextWrapping="WrapWithOverflow" />
+
+                <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           IsVisible="{Binding ErrorMessage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Text="{Binding ErrorMessage.Value}"
+                           TextWrapping="WrapWithOverflow" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

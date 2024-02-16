@@ -1,0 +1,53 @@
+<Application x:Class="Beutl.PackageTools.UI.App"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:asyncImageLoader="using:AsyncImageLoader"
+             xmlns:sty="using:FluentAvalonia.Styling"
+             xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <Application.Styles>
+        <sty:FluentAvaloniaTheme />
+        <StyleInclude Source="avares://AsyncImageLoader.Avalonia/AdvancedImage.axaml" />
+        <StyleInclude Source="avares://Beutl.Controls/Styling/Placeholder.axaml" />
+
+        <Style Selector="asyncImageLoader|AdvancedImage">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid>
+                        <!--  CurrentImage will be rendered with codebehind, just as it is done in the Image  -->
+                        <Border HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                Classes.placeholder="{TemplateBinding IsLoading}"
+                                IsVisible="{TemplateBinding IsLoading}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="ui|InfoBadge.step">
+            <Setter Property="Margin" Value="0,2,0,6" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+
+        <Style Selector="TextBlock.tip">
+            <Setter Property="ToolTip.Tip" Value="ダブルクリックで詳細表示を切り替え" />
+        </Style>
+    </Application.Styles>
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://Beutl.Controls/Styling/ButtonStyles.axaml" />
+                <ResourceInclude Source="avares://Beutl.Controls/Styling/ProgressRing.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <ControlTheme x:Key="{x:Type SelectableTextBlock}" TargetType="SelectableTextBlock">
+                <Setter Property="SelectionBrush" Value="{DynamicResource TextControlSelectionHighlightColor}" />
+
+                <Style Selector="^[IsEnabled=true]">
+                    <Setter Property="Cursor" Value="IBeam" />
+                    <!--  Defined in TextBoxStyles  -->
+                    <Setter Property="ContextFlyout" Value="{StaticResource DefaultTextBoxContextFlyout}" />
+                </Style>
+            </ControlTheme>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
