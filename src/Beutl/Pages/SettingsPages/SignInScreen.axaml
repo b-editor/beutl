@@ -25,7 +25,7 @@
                     HorizontalContentAlignment="Center"
                     Command="{CompiledBinding SignInWithGoogle}">
                 <Grid ColumnDefinitions="48,*">
-                    <Svg Height="48" Path="/Assets/social/btn_google_light_normal_ios.svg" />
+                    <Svg Height="48" Path="avares://Beutl.Controls/Assets/social/btn_google_light_normal_ios.svg" />
 
                     <TextBlock Grid.Column="1"
                                VerticalAlignment="Center"
@@ -42,11 +42,11 @@
                     <Image x:Name="githubLightLogo"
                            Height="24"
                            IsVisible="False"
-                           Source="/Assets/social/GitHub-Mark-120px-plus.png" />
+                           Source="avares://Beutl.Controls/Assets/social/GitHub-Mark-120px-plus.png" />
                     <Image x:Name="githubDarkLogo"
                            Height="24"
                            IsVisible="False"
-                           Source="/Assets/social/GitHub-Mark-Light-120px-plus.png" />
+                           Source="avares://Beutl.Controls/Assets/social/GitHub-Mark-Light-120px-plus.png" />
 
                     <TextBlock Grid.Column="1"
                                VerticalAlignment="Center"

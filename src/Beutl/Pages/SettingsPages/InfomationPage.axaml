@@ -23,7 +23,7 @@
                        Height="78"
                        DockPanel.Dock="Left"
                        RenderOptions.BitmapInterpolationMode="HighQuality"
-                       Source="/Assets/logo.png">
+                       Source="avares://Beutl.Controls/Assets/logo.png">
                     <Image.Clip>
                         <EllipseGeometry RadiusX="39"
                                          RadiusY="39"
