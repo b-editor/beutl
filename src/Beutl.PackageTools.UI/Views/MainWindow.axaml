@@ -6,10 +6,11 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
-        Name="Root"
-        Title="Beutl.PackageTools.UI"
+        Title="Beutl PackageTools"
         Width="320"
         Height="450"
+        Icon="avares://Beutl.Controls/Assets/logo.png"
+        WindowStartupLocation="CenterScreen"
         mc:Ignorable="d">
     <Grid RowDefinitions="*,Auto">
         <ui:Frame x:Name="frame" />
