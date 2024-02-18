@@ -75,7 +75,6 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
         finally
         {
             CurrentRunningTask.Value = null;
-            _changesModel.Done(Model);
             string? file = Download.Value?.Context?.NuGetPackageFile;
             if (File.Exists(file))
             {

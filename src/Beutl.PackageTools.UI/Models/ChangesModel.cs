@@ -4,23 +4,11 @@ namespace Beutl.PackageTools.UI.Models;
 
 public class ChangesModel
 {
-    private readonly List<PackageChangeModel> _order = [];
-
     public ReactiveCollection<PackageChangeModel> InstallItems { get; } = [];
 
     public ReactiveCollection<PackageChangeModel> UninstallItems { get; } = [];
 
     public ReactiveCollection<PackageChangeModel> UpdateItems { get; } = [];
-
-    public void Done(PackageChangeModel model)
-    {
-        _order.Remove(model);
-    }
-
-    public PackageChangeModel? Next()
-    {
-        return _order.FirstOrDefault();
-    }
 
     public async Task Load(
         BeutlApiApplication apiApp,
@@ -58,9 +46,5 @@ public class ChangesModel
                 UninstallItems.Add(itemViewModel);
             }
         }
-
-        _order.AddRange(InstallItems);
-        _order.AddRange(UpdateItems);
-        _order.AddRange(UninstallItems);
     }
 }

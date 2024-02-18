@@ -91,10 +91,6 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
             ErrorMessage.Value = ex.Message;
             Failed.Value = true;
         }
-        finally
-        {
-            _changesModel.Done(Model);
-        }
     }
 
     void IProgress<double>.Report(double value)
