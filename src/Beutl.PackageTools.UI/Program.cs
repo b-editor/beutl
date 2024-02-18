@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 
+using Beutl.Logging;
 using Beutl.Services;
 
 namespace Beutl.PackageTools.UI;
@@ -23,9 +24,17 @@ internal class Program
         }
 
         using IDisposable _ = Telemetry.GetDisposable(GetSessionId());
+        ILogger<Program> logger = Log.CreateLogger<Program>();
 
-        BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+        try
+        {
+            BuildAvaloniaApp()
+                .StartWithClassicDesktopLifetime(args);
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex, "An unhandled exception occurred.");
+        }
     }
 
     public static AppBuilder BuildAvaloniaApp()
