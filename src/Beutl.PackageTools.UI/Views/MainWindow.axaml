@@ -1,0 +1,23 @@
+<Window x:Class="Beutl.PackageTools.UI.Views.MainWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="using:Beutl.PackageTools.UI.Views"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ui="using:FluentAvalonia.UI.Controls"
+        xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+        Title="Beutl PackageTools"
+        Width="320"
+        Height="450"
+        Icon="avares://Beutl.Controls/Assets/logo.png"
+        WindowStartupLocation="CenterScreen"
+        mc:Ignorable="d">
+    <Grid RowDefinitions="*,Auto">
+        <ui:Frame x:Name="frame" />
+
+        <Border Grid.Row="1"
+                Padding="{StaticResource TaskDialogButtonHostMargin}"
+                Background="{DynamicResource TaskDialogButtonAreaBackground}"
+                Child="{Binding #frame.((local:PackageToolPage)Content).ButtonsContainer}" />
+    </Grid>
+</Window>

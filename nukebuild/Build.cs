@@ -104,6 +104,7 @@ partial class Build : NukeBuild
             [
                 "Beutl.ExceptionHandler",
                 "Beutl.PackageTools",
+                "Beutl.PackageTools.UI",
                 "Beutl.WaitingDialog",
             ];
             foreach (string item in subProjects)

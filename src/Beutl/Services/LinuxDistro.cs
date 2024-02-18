@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Beutl.Services;
+﻿namespace Beutl.Services;
 
 // https://github.com/dotnet/core-setup/blob/dev/release/2.0.0/src/managed/Microsoft.DotNet.PlatformAbstractions/Native/PlatformApis.cs
 public static class LinuxDistro

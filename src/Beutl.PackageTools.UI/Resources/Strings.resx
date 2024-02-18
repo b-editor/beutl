@@ -1,0 +1,242 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+		Microsoft ResX Schema
+
+		Version 1.3
+
+		The primary goals of this format is to allow a simple XML format 
+		that is mostly human readable. The generation and parsing of the 
+		various data types are done through the TypeConverter classes 
+		associated with the data types.
+
+		Example:
+
+		... ado.net/XML headers & schema ...
+		<resheader name="resmimetype">text/microsoft-resx</resheader>
+		<resheader name="version">1.3</resheader>
+		<resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+		<resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+		<data name="Name1">this is my long string</data>
+		<data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+		<data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+			[base64 mime encoded serialized .NET Framework object]
+		</data>
+		<data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+			[base64 mime encoded string representing a byte array form of the .NET Framework object]
+		</data>
+
+		There are any number of "resheader" rows that contain simple 
+		name/value pairs.
+
+		Each data row contains a name, and value. The row also contains a 
+		type or mimetype. Type corresponds to a .NET class that support 
+		text/value conversion through the TypeConverter architecture. 
+		Classes that don't support this are serialized and stored with the 
+		mimetype set.
+
+		The mimetype is used for serialized objects, and tells the 
+		ResXResourceReader how to depersist the object. This is currently not 
+		extensible. For a given mimetype the value must be set accordingly:
+
+		Note - application/x-microsoft.net.object.binary.base64 is the format 
+		that the ResXResourceWriter will generate, however the reader can 
+		read any of the formats listed below.
+
+		mimetype: application/x-microsoft.net.object.binary.base64
+		value   : The object must be serialized with 
+			: System.Serialization.Formatters.Binary.BinaryFormatter
+			: and then encoded with base64 encoding.
+
+		mimetype: application/x-microsoft.net.object.soap.base64
+		value   : The object must be serialized with 
+			: System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+			: and then encoded with base64 encoding.
+
+		mimetype: application/x-microsoft.net.object.bytearray.base64
+		value   : The object must be serialized into a byte array 
+			: using a System.ComponentModel.TypeConverter
+			: and then encoded with base64 encoding.
+	-->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Verify" xml:space="preserve">
+    <value>Verify</value>
+  </data>
+  <data name="Hash_code_verification_failed" xml:space="preserve">
+    <value>Hash code verification failed.
+This package file may have been tampered with.</value>
+  </data>
+  <data name="Do_you_really_want_to_continue_with_the_installation" xml:space="preserve">
+    <value>Do you really want to continue with the installation?</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="Skipped_verification_because_local_source_is_used" xml:space="preserve">
+    <value>Skipped verification because local source is used.</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="ShowDetails" xml:space="preserve">
+    <value>Show Details</value>
+  </data>
+  <data name="Result" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>Uninstall</value>
+  </data>
+  <data name="ResolveDependencies" xml:space="preserve">
+    <value>Resolve dependencies</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="Package_with_same_ID_found_in_local_source" xml:space="preserve">
+    <value>Package with same ID found in local source.</value>
+  </data>
+  <data name="Do_you_want_to_use_this_package" xml:space="preserve">
+    <value>Do you want to use this package?</value>
+  </data>
+  <data name="Skipped_downloading_to_use_local_source" xml:space="preserve">
+    <value>Skipped downloading to use local source.</value>
+  </data>
+  <data name="Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="Changes" xml:space="preserve">
+    <value>Changes</value>
+  </data>
+  <data name="This_package_has_already_been_uninstalled" xml:space="preserve">
+    <value>This package has already been uninstalled.</value>
+  </data>
+  <data name="Deleting_files" xml:space="preserve">
+    <value>Deleting files...</value>
+  </data>
+  <data name="Uninstalled_XXX" xml:space="preserve">
+    <value>Uninstalled '{0}'.</value>
+  </data>
+  <data name="Acceptance_of_License" xml:space="preserve">
+    <value>Acceptance of License</value>
+  </data>
+  <data name="Please_accept_the_following_license" xml:space="preserve">
+    <value>Please accept the following license.</value>
+  </data>
+  <data name="AcceptAll" xml:space="preserve">
+    <value>Accept all</value>
+  </data>
+  <data name="There_are_no_licenses_that_require_acceptance" xml:space="preserve">
+    <value>There are no licenses that require acceptance.</value>
+  </data>
+  <data name="These_packages_were_not_deleted_successfully" xml:space="preserve">
+    <value>These packages were not deleted successfully.</value>
+  </data>
+  <data name="VerifyingHashCode" xml:space="preserve">
+    <value>Verifying hash code...</value>
+  </data>
+  <data name="Verified" xml:space="preserve">
+    <value>Verified</value>
+  </data>
+  <data name="Downloading_XXX" xml:space="preserve">
+    <value>Downloading '{0}'...</value>
+  </data>
+  <data name="Downloaded_XXX" xml:space="preserve">
+    <value>Downloaded '{0}'.</value>
+  </data>
+  <data name="Operation_canceled" xml:space="preserve">
+    <value>Operation canceled.</value>
+  </data>
+  <data name="Close_this_window_because_other_Beutl_PackageTools_processes_are_running" xml:space="preserve">
+    <value>Close this window because other Beutl.PackageTools processes are running.</value>
+  </data>
+  <data name="Waiting_for_all_Beutl_processes_to_terminate" xml:space="preserve">
+    <value>Waiting for all Beutl processes to terminate...</value>
+  </data>
+  <data name="Deleted_unnecessary_packages" xml:space="preserve">
+    <value>Deleted unnecessary packages.</value>
+  </data>
+  <data name="Deleting_unnecessary_packages" xml:space="preserve">
+    <value>Deleting unnecessary packages...</value>
+  </data>
+  <data name="Delete_unnecessary_packages" xml:space="preserve">
+    <value>Delete unnecessary packages</value>
+  </data>
+  <data name="Select_the_packages_to_be_deleted" xml:space="preserve">
+    <value>Select the packages to be deleted.</value>
+  </data>
+  <data name="XXX_will_be_released" xml:space="preserve">
+    <value>{0} will be released.</value>
+  </data>
+  <data name="Clean" xml:space="preserve">
+    <value>Clean</value>
+  </data>
+  <data name="XXX_has_been_released" xml:space="preserve">
+    <value>{0} has been released.</value>
+  </data>
+  <data name="Canceled" xml:space="preserve">
+    <value>Canceled</value>
+  </data>
+  <data name="Succeeded" xml:space="preserve">
+    <value>Succeeded</value>
+  </data>
+  <data name="Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+</root>

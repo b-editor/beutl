@@ -159,7 +159,7 @@ public sealed class MainViewModel : BasePageViewModel
             {
                 UseShellExecute = true,
             };
-            DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools"));
+            DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
 
             if (installs.Length > 0)
             {
@@ -179,8 +179,6 @@ public sealed class MainViewModel : BasePageViewModel
                 }
             }
 
-            startInfo.ArgumentList.Add("--verbose");
-            startInfo.ArgumentList.Add("--stay-open");
             startInfo.ArgumentList.AddRange(["--session-id", Telemetry.Instance._sessionId]);
 
             if (Debugger.IsAttached)

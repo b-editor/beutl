@@ -1,0 +1,134 @@
+<local:PackageToolPage x:Class="Beutl.PackageTools.UI.Views.DisplayPackagesPage"
+                       xmlns="https://github.com/avaloniaui"
+                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                       xmlns:asyncImageLoader="using:AsyncImageLoader"
+                       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                       xmlns:local="using:Beutl.PackageTools.UI.Views"
+                       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                       xmlns:models="using:Beutl.PackageTools.UI.Models"
+                       xmlns:res="using:Beutl.PackageTools.UI.Resources"
+                       xmlns:ui="using:FluentAvalonia.UI.Controls"
+                       xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+                       xmlns:viewModels="using:Beutl.PackageTools.UI.ViewModels"
+                       d:DesignHeight="450"
+                       d:DesignWidth="320"
+                       x:DataType="viewModels:MainViewModel"
+                       mc:Ignorable="d">
+    <local:PackageToolPage.Resources>
+        <DataTemplate x:Key="PackageItemDataTemplate" DataType="models:PackageChangeModel">
+            <Grid Margin="0,6" ColumnDefinitions="Auto,12,*">
+
+                <Border Width="32"
+                        Height="32"
+                        VerticalAlignment="Center"
+                        Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                        CornerRadius="4"
+                        IsVisible="{Binding LogoUrl, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+
+                <asyncImageLoader:AdvancedImage Width="32"
+                                                Height="32"
+                                                VerticalAlignment="Center"
+                                                ImageClipping.CornerRadius="4"
+                                                IsVisible="{Binding LogoUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                RenderOptions.BitmapInterpolationMode="HighQuality"
+                                                Source="{Binding LogoUrl}" />
+
+                <Grid Grid.Column="2"
+                      VerticalAlignment="Center"
+                      ColumnDefinitions="*,6,Auto"
+                      RowDefinitions="Auto,Auto">
+                    <Grid HorizontalAlignment="Left" ColumnDefinitions="*,6,Auto">
+                        <TextBlock Text="{Binding Id}" TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="Folder">
+                                <ui:SymbolIcon.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                                        <Binding Converter="{x:Static BoolConverters.Not}" Path="IsRemote" />
+                                        <Binding Path="Conflict" />
+                                    </MultiBinding>
+                                </ui:SymbolIcon.IsVisible>
+                            </ui:SymbolIcon>
+                            <ui:SymbolIcon IsVisible="{Binding IsRemote}" Symbol="Cloud" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Grid.Column="2"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Top"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="{Binding Publisher}" />
+
+                    <TextBlock Grid.Row="1"
+                               Grid.ColumnSpan="3"
+                               FontSize="16"
+                               Text="{Binding DisplayName}"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap"
+                               Theme="{StaticResource BaseTextBlockStyle}" />
+                </Grid>
+            </Grid>
+        </DataTemplate>
+    </local:PackageToolPage.Resources>
+    <local:PackageToolPage.ButtonsContainer>
+        <uip:TaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
+            <uip:TaskDialogButtonHost Classes="accent"
+                                      Click="OnNextClick"
+                                      Content="{x:Static res:Strings.Start}"
+                                      IsEnabled="{Binding !IsBusy.Value}" />
+        </uip:TaskDialogButtonsPanel>
+    </local:PackageToolPage.ButtonsContainer>
+
+    <Grid Margin="18,9" RowDefinitions="Auto,*">
+        <TextBlock Text="{x:Static res:Strings.Changes}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel>
+                <TextBlock Margin="0,16,0,0"
+                           IsVisible="{Binding InstallItems.Count}"
+                           Text="{x:Static res:Strings.Install}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ListBox IsVisible="{Binding InstallItems.Count}"
+                         ItemTemplate="{StaticResource PackageItemDataTemplate}"
+                         ItemsSource="{Binding InstallItems}"
+                         SelectedItem="{Binding SelectedItem.Value}" />
+
+                <TextBlock Margin="0,16,0,0"
+                           IsVisible="{Binding UpdateItems.Count}"
+                           Text="{x:Static res:Strings.Update}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ListBox IsVisible="{Binding UpdateItems.Count}"
+                         ItemTemplate="{StaticResource PackageItemDataTemplate}"
+                         ItemsSource="{Binding UpdateItems}"
+                         SelectedItem="{Binding SelectedItem.Value}" />
+
+                <TextBlock Margin="0,16,0,0"
+                           IsVisible="{Binding UninstallItems.Count}"
+                           Text="{x:Static res:Strings.Uninstall}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ListBox IsVisible="{Binding UninstallItems.Count}"
+                         ItemTemplate="{StaticResource PackageItemDataTemplate}"
+                         ItemsSource="{Binding UninstallItems}"
+                         SelectedItem="{Binding SelectedItem.Value}" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <ProgressRing Grid.RowSpan="2"
+                      IsIndeterminate="{Binding IsBusy.Value}"
+                      IsVisible="{Binding IsBusy.Value}" />
+
+        <TextBlock Grid.Row="1"
+                   VerticalAlignment="Center"
+                   IsVisible="{Binding AreOthersRunning.Value}"
+                   Text="{x:Static res:Strings.Close_this_window_because_other_Beutl_PackageTools_processes_are_running}"
+                   TextWrapping="WrapWithOverflow" />
+
+        <TextBlock Grid.Row="1"
+                   VerticalAlignment="Center"
+                   IsVisible="{Binding IsWaitingForTermination.Value}"
+                   Text="{x:Static res:Strings.Waiting_for_all_Beutl_processes_to_terminate}"
+                   TextWrapping="WrapWithOverflow" />
+    </Grid>
+</local:PackageToolPage>

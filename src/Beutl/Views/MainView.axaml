@@ -39,7 +39,7 @@
                    Margin="8,0"
                    VerticalAlignment="Center"
                    RenderOptions.BitmapInterpolationMode="HighQuality"
-                   Source="/Assets/logo.ico">
+                   Source="avares://Beutl.Controls/Assets/logo.ico">
                 <Image.Clip>
                     <EllipseGeometry RadiusX="12"
                                      RadiusY="12"

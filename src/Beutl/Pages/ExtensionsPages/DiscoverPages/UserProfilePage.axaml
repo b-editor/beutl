@@ -105,7 +105,7 @@
                                 IsVisible="{Binding YouTubeUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                 Tag="YouTube"
                                 ToolTip.Tip="{Binding YouTubeUrl.Value}">
-                            <Image Source="/Assets/social/youtube_social_icon_red.png" />
+                            <Image Source="avares://Beutl.Controls/Assets/social/youtube_social_icon_red.png" />
                         </Button>
                         <Button Click="OpenSocial_Click"
                                 IsVisible="{Binding BlogUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"

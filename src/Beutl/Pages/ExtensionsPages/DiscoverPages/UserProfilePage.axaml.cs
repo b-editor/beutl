@@ -36,13 +36,13 @@ public partial class UserProfilePage : UserControl
         }
 
         SetImage(
-            darkTheme: "avares://Beutl/Assets/social/GitHub-Mark-Light-120px-plus.png",
-            lightTheme: "avares://Beutl/Assets/social/GitHub-Mark-120px-plus.png",
+            darkTheme: "avares://Beutl.Controls/Assets/social/GitHub-Mark-Light-120px-plus.png",
+            lightTheme: "avares://Beutl.Controls/Assets/social/GitHub-Mark-120px-plus.png",
             image: githubLogo);
 
         SetImage(
-            darkTheme: "avares://Beutl/Assets/social/x-logo-white.png",
-            lightTheme: "avares://Beutl/Assets/social/x-logo-black.png",
+            darkTheme: "avares://Beutl.Controls/Assets/social/x-logo-white.png",
+            lightTheme: "avares://Beutl.Controls/Assets/social/x-logo-black.png",
             image: xLogo);
     }
 

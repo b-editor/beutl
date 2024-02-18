@@ -1,0 +1,159 @@
+<local:PackageToolPage x:Class="Beutl.PackageTools.UI.Views.ResultPage"
+                       xmlns="https://github.com/avaloniaui"
+                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                       xmlns:asyncImageLoader="using:AsyncImageLoader"
+                       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                       xmlns:interaction="using:Avalonia.Xaml.Interactions.Core"
+                       xmlns:local="using:Beutl.PackageTools.UI.Views"
+                       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                       xmlns:res="using:Beutl.PackageTools.UI.Resources"
+                       xmlns:ui="using:FluentAvalonia.UI.Controls"
+                       xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+                       xmlns:viewModels="using:Beutl.PackageTools.UI.ViewModels"
+                       d:DesignHeight="450"
+                       d:DesignWidth="320"
+                       x:DataType="viewModels:ResultViewModel"
+                       mc:Ignorable="d">
+    <local:PackageToolPage.ButtonsContainer>
+        <uip:TaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
+            <uip:TaskDialogButtonHost Click="OnCloseButtonClick" Content="{x:Static res:Strings.Close}" />
+        </uip:TaskDialogButtonsPanel>
+    </local:PackageToolPage.ButtonsContainer>
+    <local:PackageToolPage.Resources>
+        <DataTemplate x:Key="PackageItemDataTemplate" DataType="viewModels:ActionViewModel">
+            <Grid Margin="0,6"
+                  ColumnDefinitions="Auto,12,*"
+                  RowDefinitions="Auto,Auto">
+                <Panel>
+                    <Border Width="32"
+                            Height="32"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                            CornerRadius="4"
+                            IsVisible="{Binding LogoUrl, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+
+                    <asyncImageLoader:AdvancedImage Width="32"
+                                                    Height="32"
+                                                    VerticalAlignment="Center"
+                                                    ImageClipping.CornerRadius="4"
+                                                    IsVisible="{Binding LogoUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                    RenderOptions.BitmapInterpolationMode="HighQuality"
+                                                    Source="{Binding LogoUrl}" />
+
+                    <ui:InfoBadge HorizontalAlignment="Right"
+                                  VerticalAlignment="Bottom"
+                                  Classes="Icon"
+                                  Classes.Caution="{Binding Canceled.Value}"
+                                  Classes.Critical="{Binding Failed.Value}"
+                                  Classes.Success="{Binding Succeeded.Value}" />
+                </Panel>
+
+                <Grid Grid.Column="2"
+                      VerticalAlignment="Center"
+                      ColumnDefinitions="*,6,Auto"
+                      RowDefinitions="Auto,Auto">
+                    <Grid HorizontalAlignment="Left" ColumnDefinitions="*,6,Auto">
+                        <TextBlock Text="{Binding Model.Id}" TextTrimming="CharacterEllipsis" />
+                    </Grid>
+
+                    <TextBlock Grid.Column="2"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Top"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="{Binding Publisher}" />
+
+                    <TextBlock Grid.Row="1"
+                               Grid.ColumnSpan="3"
+                               FontSize="16"
+                               Text="{Binding DisplayName}"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap"
+                               Theme="{StaticResource BaseTextBlockStyle}" />
+                </Grid>
+
+
+                <Button Grid.Row="1"
+                        Grid.Column="2"
+                        Margin="0,2,0,0"
+                        Click="ShowDetailsClick"
+                        Content="{x:Static res:Strings.ShowDetails}"
+                        Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                        IsVisible="{Binding $parent[ListBoxItem].IsSelected}"
+                        Theme="{StaticResource LiteButtonStyle}" />
+            </Grid>
+        </DataTemplate>
+    </local:PackageToolPage.Resources>
+    <Grid Margin="18,9" RowDefinitions="Auto,*">
+        <TextBlock Text="{x:Static res:Strings.Result}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel>
+                <TextBlock Margin="0,16,0,0"
+                           IsVisible="{Binding Install.Length}"
+                           Text="{x:Static res:Strings.Install}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ListBox IsVisible="{Binding Install.Length}"
+                         ItemTemplate="{StaticResource PackageItemDataTemplate}"
+                         ItemsSource="{Binding Install}"
+                         SelectedItem="{Binding SelectedItem.Value}" />
+
+                <TextBlock Margin="0,16,0,0"
+                           IsVisible="{Binding Update.Length}"
+                           Text="{x:Static res:Strings.Update}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ListBox IsVisible="{Binding Update.Length}"
+                         ItemTemplate="{StaticResource PackageItemDataTemplate}"
+                         ItemsSource="{Binding Update}"
+                         SelectedItem="{Binding SelectedItem.Value}" />
+
+                <TextBlock Margin="0,16,0,0"
+                           IsVisible="{Binding Uninstall.Length}"
+                           Text="{x:Static res:Strings.Uninstall}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ListBox IsVisible="{Binding Uninstall.Length}"
+                         ItemTemplate="{StaticResource PackageItemDataTemplate}"
+                         ItemsSource="{Binding Uninstall}"
+                         SelectedItem="{Binding SelectedItem.Value}" />
+
+                <TextBlock Margin="0,16,0,0"
+                           IsVisible="{Binding Clean, Converter={x:Static ObjectConverters.IsNotNull}}"
+                           Text="{x:Static res:Strings.Clean}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ListBoxItem DataContext="{Binding Clean}" IsVisible="{Binding $self.DataContext, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <StackPanel Spacing="4">
+                        <StackPanel IsVisible="{Binding Succeeded.Value}"
+                                    Orientation="Horizontal"
+                                    Spacing="4">
+                            <ui:InfoBadge Classes="Success Icon" />
+                            <TextBlock Text="{x:Static res:Strings.Succeeded}" />
+                        </StackPanel>
+                        <StackPanel IsVisible="{Binding Failed.Value}"
+                                    Orientation="Horizontal"
+                                    Spacing="4">
+                            <ui:InfoBadge Classes="Critical Icon" />
+                            <TextBlock Text="{x:Static res:Strings.Failed}" />
+                        </StackPanel>
+                        <StackPanel IsVisible="{Binding Canceled.Value}"
+                                    Orientation="Horizontal"
+                                    Spacing="4">
+                            <ui:InfoBadge Classes="Caution Icon" />
+                            <TextBlock Text="{x:Static res:Strings.Canceled}" />
+                        </StackPanel>
+
+                        <TextBlock IsVisible="{Binding Succeeded.Value}" Text="{Binding SizeToBeReleasedString.Value, StringFormat={x:Static res:Strings.XXX_has_been_released}}" />
+
+                        <Button Margin="0,2,0,0"
+                                Click="ShowDetailsClick"
+                                Content="{x:Static res:Strings.ShowDetails}"
+                                Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                Theme="{StaticResource LiteButtonStyle}" />
+                    </StackPanel>
+                </ListBoxItem>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</local:PackageToolPage>

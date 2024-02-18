@@ -8,7 +8,7 @@
     <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
     <DefineConstants Condition="'$(MFBuildIn)'=='True'">$(DefineConstants);MF_BUILD_IN</DefineConstants>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
+    <ApplicationIcon>..\Beutl.Controls\Assets\logo.ico</ApplicationIcon>
   </PropertyGroup>
 
   <PropertyGroup Condition="$(TargetFramework.Contains('windows'))">
@@ -16,16 +16,8 @@
   </PropertyGroup>
 
   <ItemGroup Condition="$(TargetFramework.Contains('windows'))">
-    <Using Remove="System.Drawing"/>
-    <Using Remove="System.Windows.Forms"/>
-  </ItemGroup>
-
-  <ItemGroup>
-    <AvaloniaResource Include="Assets\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="Assets\logo.ico" />
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
   </ItemGroup>
 
   <ItemGroup>
@@ -68,6 +60,7 @@
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
     <ProjectReference Condition="'$(NukePublish)'!='True'" Include="..\Beutl.PackageTools\Beutl.PackageTools.csproj" />
+    <ProjectReference Condition="'$(NukePublish)'!='True'" Include="..\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj" />
     <ProjectReference Condition="'$(NukePublish)'!='True'" Include="..\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
     <ProjectReference Condition="'$(NukePublish)'!='True'" Include="..\Beutl.ExceptionHandler\Beutl.ExceptionHandler.csproj" />
   </ItemGroup>

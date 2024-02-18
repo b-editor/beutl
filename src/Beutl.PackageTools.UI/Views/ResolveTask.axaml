@@ -1,0 +1,45 @@
+<UserControl x:Class="Beutl.PackageTools.UI.Views.ResolveTask"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:models="using:Beutl.PackageTools.UI.Models"
+             xmlns:res="using:Beutl.PackageTools.UI.Resources"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             d:DesignHeight="450"
+             d:DesignWidth="320"
+             x:DataType="models:ResolveTaskModel"
+             mc:Ignorable="d">
+    <Grid ColumnDefinitions="16,8,*">
+        <Grid HorizontalAlignment="Center" RowDefinitions="Auto,*">
+            <ui:InfoBadge Classes="step"
+                          Classes.Critical="{Binding Failed.Value, FallbackValue=False}"
+                          Classes.Informational="{Binding !IsRunning.Value, FallbackValue=True}"
+                          Classes.Success="{Binding Succeeded.Value, FallbackValue=False}"
+                          Value="3" />
+            <Border Grid.Row="1"
+                    Width="2"
+                    Background="Gray"
+                    IsVisible="{Binding ShowDetails.Value, FallbackValue=False}" />
+        </Grid>
+        <Grid Grid.Column="2" RowDefinitions="Auto,Auto">
+            <TextBlock Classes.tip="{Binding, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       PointerPressed="OnTaskNamePointerPressed"
+                       PointerReleased="OnTaskNamePointerReleased"
+                       Text="{x:Static res:Strings.ResolveDependencies}" />
+
+            <StackPanel Grid.Row="1"
+                        Margin="0,6,0,0"
+                        IsVisible="{Binding ShowDetails.Value, FallbackValue=False}"
+                        Spacing="8">
+                <ProgressBar IsIndeterminate="{Binding IsProgressBarVisible.Value}" IsVisible="{Binding IsProgressBarVisible.Value}" />
+                <SelectableTextBlock Text="{Binding Message.Value}" TextWrapping="WrapWithOverflow" />
+
+                <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           IsVisible="{Binding ErrorMessage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Text="{Binding ErrorMessage.Value}"
+                           TextWrapping="WrapWithOverflow" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

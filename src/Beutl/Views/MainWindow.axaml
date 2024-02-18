@@ -9,7 +9,7 @@
                Title="{Binding WindowTitle.Value}"
                d:DesignHeight="720"
                d:DesignWidth="1280"
-               Icon="/Assets/logo.png"
+               Icon="avares://Beutl.Controls/Assets/logo.png"
                mc:Ignorable="d">
 
     <local:MainView x:Name="mainView" />
