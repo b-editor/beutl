@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 
+using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Services;
 
@@ -22,6 +23,10 @@ internal class Program
                 return null;
             }
         }
+
+        // Restore config
+        GlobalConfiguration config = GlobalConfiguration.Instance;
+        config.Restore(GlobalConfiguration.DefaultFilePath);
 
         using IDisposable _ = Telemetry.GetDisposable(GetSessionId());
         ILogger<Program> logger = Log.CreateLogger<Program>();
