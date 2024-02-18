@@ -37,7 +37,7 @@ public partial class DisplayPackagesPage : PackageToolPage
 
         if (DataContext is MainViewModel viewModel)
         {
-            object? nextViewModel = viewModel.Next();
+            object? nextViewModel = viewModel.Next(null, default);
             frame.NavigateFromObject(nextViewModel);
         }
     }

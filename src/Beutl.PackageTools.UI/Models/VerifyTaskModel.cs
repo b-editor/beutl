@@ -102,7 +102,7 @@ public class VerifyTaskModel : IProgress<double>
         {
             ErrorMessage.Value = Strings.Operation_canceled;
             Failed.Value = true;
-            return false;
+            throw;
         }
         catch (Exception ex)
         {

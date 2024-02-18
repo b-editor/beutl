@@ -109,7 +109,7 @@ public class AcceptLicenseTaskModel
         catch (OperationCanceledException)
         {
             Failed.Value = true;
-            return false;
+            throw;
         }
         catch (Exception ex)
         {

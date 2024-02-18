@@ -206,4 +206,37 @@ This package file may have been tampered with.</value>
   <data name="Waiting_for_all_Beutl_processes_to_terminate" xml:space="preserve">
     <value>Waiting for all Beutl processes to terminate...</value>
   </data>
+  <data name="Deleted_unnecessary_packages" xml:space="preserve">
+    <value>Deleted unnecessary packages.</value>
+  </data>
+  <data name="Deleting_unnecessary_packages" xml:space="preserve">
+    <value>Deleting unnecessary packages...</value>
+  </data>
+  <data name="Delete_unnecessary_packages" xml:space="preserve">
+    <value>Delete unnecessary packages</value>
+  </data>
+  <data name="Select_the_packages_to_be_deleted" xml:space="preserve">
+    <value>Select the packages to be deleted.</value>
+  </data>
+  <data name="XXX_will_be_released" xml:space="preserve">
+    <value>{0} will be released.</value>
+  </data>
+  <data name="Clean" xml:space="preserve">
+    <value>Clean</value>
+  </data>
+  <data name="XXX_has_been_released" xml:space="preserve">
+    <value>{0} has been released.</value>
+  </data>
+  <data name="Canceled" xml:space="preserve">
+    <value>Canceled</value>
+  </data>
+  <data name="Succeeded" xml:space="preserve">
+    <value>Succeeded</value>
+  </data>
+  <data name="Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
 </root>

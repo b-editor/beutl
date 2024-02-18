@@ -44,5 +44,9 @@ public partial class ResultPage : PackageToolPage
         {
             frame.NavigateFromObject(item);
         }
+        else if (sender is StyledElement { DataContext: CleanViewModel clean })
+        {
+            frame.NavigateFromObject(clean);
+        }
     }
 }

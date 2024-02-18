@@ -206,4 +206,37 @@
   <data name="Waiting_for_all_Beutl_processes_to_terminate" xml:space="preserve">
     <value>すべてのBeutlプロセスの終了を待機しています...</value>
   </data>
+  <data name="Deleted_unnecessary_packages" xml:space="preserve">
+    <value>不要なパッケージを削除しました。</value>
+  </data>
+  <data name="Deleting_unnecessary_packages" xml:space="preserve">
+    <value>不要なパッケージを削除しています...</value>
+  </data>
+  <data name="Delete_unnecessary_packages" xml:space="preserve">
+    <value>不要なパッケージを削除</value>
+  </data>
+  <data name="Select_the_packages_to_be_deleted" xml:space="preserve">
+    <value>削除するパッケージを選択してください。</value>
+  </data>
+  <data name="XXX_will_be_released" xml:space="preserve">
+    <value>{0}が解放されます。</value>
+  </data>
+  <data name="Clean" xml:space="preserve">
+    <value>クリーン</value>
+  </data>
+  <data name="XXX_has_been_released" xml:space="preserve">
+    <value>{0}が解放されました。</value>
+  </data>
+  <data name="Canceled" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="Succeeded" xml:space="preserve">
+    <value>成功</value>
+  </data>
+  <data name="Failed" xml:space="preserve">
+    <value>失敗</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>不明</value>
+  </data>
 </root>

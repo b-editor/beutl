@@ -43,6 +43,7 @@
                     <ui:InfoBadge HorizontalAlignment="Right"
                                   VerticalAlignment="Bottom"
                                   Classes="Icon"
+                                  Classes.Caution="{Binding Canceled.Value}"
                                   Classes.Critical="{Binding Failed.Value}"
                                   Classes.Success="{Binding Succeeded.Value}" />
                 </Panel>
@@ -116,6 +117,42 @@
                          ItemTemplate="{StaticResource PackageItemDataTemplate}"
                          ItemsSource="{Binding Uninstall}"
                          SelectedItem="{Binding SelectedItem.Value}" />
+
+                <TextBlock Margin="0,16,0,0"
+                           IsVisible="{Binding Clean, Converter={x:Static ObjectConverters.IsNotNull}}"
+                           Text="{x:Static res:Strings.Clean}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ListBoxItem DataContext="{Binding Clean}" IsVisible="{Binding $self.DataContext, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <StackPanel Spacing="4">
+                        <StackPanel IsVisible="{Binding Succeeded.Value}"
+                                    Orientation="Horizontal"
+                                    Spacing="4">
+                            <ui:InfoBadge Classes="Success Icon" />
+                            <TextBlock Text="{x:Static res:Strings.Succeeded}" />
+                        </StackPanel>
+                        <StackPanel IsVisible="{Binding Failed.Value}"
+                                    Orientation="Horizontal"
+                                    Spacing="4">
+                            <ui:InfoBadge Classes="Critical Icon" />
+                            <TextBlock Text="{x:Static res:Strings.Failed}" />
+                        </StackPanel>
+                        <StackPanel IsVisible="{Binding Canceled.Value}"
+                                    Orientation="Horizontal"
+                                    Spacing="4">
+                            <ui:InfoBadge Classes="Caution Icon" />
+                            <TextBlock Text="{x:Static res:Strings.Canceled}" />
+                        </StackPanel>
+
+                        <TextBlock IsVisible="{Binding Succeeded.Value}" Text="{Binding SizeToBeReleasedString.Value, StringFormat={x:Static res:Strings.XXX_has_been_released}}" />
+
+                        <Button Margin="0,2,0,0"
+                                Click="ShowDetailsClick"
+                                Content="{x:Static res:Strings.ShowDetails}"
+                                Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                Theme="{StaticResource LiteButtonStyle}" />
+                    </StackPanel>
+                </ListBoxItem>
             </StackPanel>
         </ScrollViewer>
     </Grid>

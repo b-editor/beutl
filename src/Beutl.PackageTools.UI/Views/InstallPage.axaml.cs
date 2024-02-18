@@ -7,7 +7,6 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
-using Beutl.PackageTools.UI.Resources;
 using Beutl.PackageTools.UI.Models;
 using Beutl.PackageTools.UI.ViewModels;
 
@@ -121,7 +120,7 @@ public partial class InstallPage : PackageToolPage
 
         if (DataContext is InstallViewModel viewModel)
         {
-            if (viewModel.Succeeded.Value || viewModel.Failed.Value)
+            if (viewModel.Finished.Value)
             {
                 ButtonsContainer = _buttons.Value;
             }
@@ -130,11 +129,12 @@ public partial class InstallPage : PackageToolPage
                 ButtonsContainer = _cancelButton.Value;
                 _cts?.Cancel();
                 _cts = new CancellationTokenSource();
-                await Task.Run(async () => await viewModel.Run(_cts.Token));
+                CancellationToken token = _cts.Token;
+                await Task.Run(async () => await viewModel.Run(token));
                 Frame? frame = this.FindAncestorOfType<Frame>();
                 if (frame is { DataContext: MainViewModel main })
                 {
-                    object? nextViewModel = main.Next();
+                    object? nextViewModel = main.Next(viewModel, token);
                     frame.NavigateFromObject(nextViewModel);
                 }
             }

@@ -106,9 +106,14 @@ public class DownloadTaskModel : IProgress<double>
         }
         catch (OperationCanceledException)
         {
+            if (File.Exists(Context?.NuGetPackageFile))
+            {
+                File.Delete(Context.NuGetPackageFile);
+            }
+
             ErrorMessage.Value = Strings.Operation_canceled;
             Failed.Value = true;
-            return false;
+            throw;
         }
         catch (Exception ex)
         {

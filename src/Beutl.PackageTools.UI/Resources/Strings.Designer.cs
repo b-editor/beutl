@@ -97,11 +97,29 @@ namespace Beutl.PackageTools.UI.Resources {
         }
         
         /// <summary>
+        ///   Canceled に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Canceled {
+            get {
+                return ResourceManager.GetString("Canceled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Changes に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Changes {
             get {
                 return ResourceManager.GetString("Changes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Clean に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Clean {
+            get {
+                return ResourceManager.GetString("Clean", resourceCulture);
             }
         }
         
@@ -124,11 +142,38 @@ namespace Beutl.PackageTools.UI.Resources {
         }
         
         /// <summary>
+        ///   Delete unnecessary packages に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Delete_unnecessary_packages {
+            get {
+                return ResourceManager.GetString("Delete_unnecessary_packages", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Deleted unnecessary packages. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Deleted_unnecessary_packages {
+            get {
+                return ResourceManager.GetString("Deleted_unnecessary_packages", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Deleting files... に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Deleting_files {
             get {
                 return ResourceManager.GetString("Deleting_files", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Deleting unnecessary packages... に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Deleting_unnecessary_packages {
+            get {
+                return ResourceManager.GetString("Deleting_unnecessary_packages", resourceCulture);
             }
         }
         
@@ -174,6 +219,15 @@ namespace Beutl.PackageTools.UI.Resources {
         public static string Downloading_XXX {
             get {
                 return ResourceManager.GetString("Downloading_XXX", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Failed に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Failed {
+            get {
+                return ResourceManager.GetString("Failed", resourceCulture);
             }
         }
         
@@ -251,6 +305,15 @@ namespace Beutl.PackageTools.UI.Resources {
         }
         
         /// <summary>
+        ///   Select the packages to be deleted. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Select_the_packages_to_be_deleted {
+            get {
+                return ResourceManager.GetString("Select_the_packages_to_be_deleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Show Details に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ShowDetails {
@@ -283,6 +346,15 @@ namespace Beutl.PackageTools.UI.Resources {
         public static string Start {
             get {
                 return ResourceManager.GetString("Start", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Succeeded に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Succeeded {
+            get {
+                return ResourceManager.GetString("Succeeded", resourceCulture);
             }
         }
         
@@ -332,6 +404,15 @@ namespace Beutl.PackageTools.UI.Resources {
         }
         
         /// <summary>
+        ///   Unknown に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Unknown {
+            get {
+                return ResourceManager.GetString("Unknown", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Update に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Update {
@@ -373,6 +454,24 @@ namespace Beutl.PackageTools.UI.Resources {
         public static string Waiting_for_all_Beutl_processes_to_terminate {
             get {
                 return ResourceManager.GetString("Waiting_for_all_Beutl_processes_to_terminate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} has been released. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string XXX_has_been_released {
+            get {
+                return ResourceManager.GetString("XXX_has_been_released", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} will be released. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string XXX_will_be_released {
+            get {
+                return ResourceManager.GetString("XXX_will_be_released", resourceCulture);
             }
         }
         

@@ -1,0 +1,53 @@
+<local:PackageToolPage x:Class="Beutl.PackageTools.UI.Views.CleanPage"
+                       xmlns="https://github.com/avaloniaui"
+                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                       xmlns:asyncImageLoader="using:AsyncImageLoader"
+                       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                       xmlns:local="using:Beutl.PackageTools.UI.Views"
+                       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                       xmlns:res="using:Beutl.PackageTools.UI.Resources"
+                       xmlns:ui="using:FluentAvalonia.UI.Controls"
+                       xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+                       xmlns:viewModels="using:Beutl.PackageTools.UI.ViewModels"
+                       d:DesignHeight="450"
+                       d:DesignWidth="320"
+                       x:DataType="viewModels:CleanViewModel"
+                       mc:Ignorable="d">
+    <Grid Margin="18,9" RowDefinitions="Auto,*">
+        <TextBlock Text="{x:Static res:Strings.Delete_unnecessary_packages}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+
+        <ScrollViewer x:Name="Scroll"
+                      Grid.Row="1"
+                      Margin="0,8,-12,0"
+                      Padding="0,0,12,0">
+            <StackPanel Margin="0,6" Spacing="6">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{x:Static res:Strings.Select_the_packages_to_be_deleted}" />
+                    <TextBlock Text="{Binding SizeToBeReleasedString.Value, StringFormat={x:Static res:Strings.XXX_will_be_released}}" />
+                    <ListBox IsHitTestVisible="{Binding !Finished.Value}" ItemsSource="{Binding Items}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type viewModels:CleanPackage}">
+                                <Grid ColumnDefinitions="Auto,*" ToolTip.Tip="{Binding Package}">
+                                    <CheckBox IsChecked="{Binding Condition.Value}" />
+                                    <TextBlock Grid.Column="1"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding Package}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <ProgressBar Value="{Binding Progress.Value}" />
+
+                    <SelectableTextBlock Text="{Binding Message.Value}" TextWrapping="WrapWithOverflow" />
+
+                    <SelectableTextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                                         IsVisible="{Binding ErrorMessage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                         Text="{Binding ErrorMessage.Value}"
+                                         TextWrapping="WrapWithOverflow" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</local:PackageToolPage>

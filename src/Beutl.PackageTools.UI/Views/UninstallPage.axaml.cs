@@ -81,7 +81,7 @@ public partial class UninstallPage : PackageToolPage
 
         if (DataContext is UninstallViewModel viewModel)
         {
-            if (viewModel.Succeeded.Value || viewModel.Failed.Value)
+            if (viewModel.Finished.Value)
             {
                 ButtonsContainer = _buttons.Value;
             }
@@ -90,11 +90,12 @@ public partial class UninstallPage : PackageToolPage
                 ButtonsContainer = _cancelButton.Value;
                 _cts?.Cancel();
                 _cts = new CancellationTokenSource();
-                await Task.Run(() => viewModel.Run(_cts.Token));
+                CancellationToken token = _cts.Token;
+                await Task.Run(() => viewModel.Run(token));
                 Frame? frame = this.FindAncestorOfType<Frame>();
                 if (frame is { DataContext: MainViewModel main })
                 {
-                    object? nextViewModel = main.Next();
+                    object? nextViewModel = main.Next(viewModel, token);
                     frame.NavigateFromObject(nextViewModel);
                 }
             }

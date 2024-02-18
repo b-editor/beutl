@@ -83,7 +83,7 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
         catch (OperationCanceledException)
         {
             ErrorMessage.Value = Strings.Operation_canceled;
-            Failed.Value = true;
+            Canceled.Value = true;
         }
         catch (Exception ex)
         {

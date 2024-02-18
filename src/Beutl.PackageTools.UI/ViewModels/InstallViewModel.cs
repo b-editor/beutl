@@ -65,7 +65,7 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
         }
         catch (OperationCanceledException)
         {
-            Failed.Value = true;
+            Canceled.Value = true;
         }
         catch (Exception ex)
         {

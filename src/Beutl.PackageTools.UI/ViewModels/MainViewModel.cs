@@ -14,7 +14,9 @@ public class MainViewModel
     private readonly ChangesModel _model;
     private readonly BeutlApiApplication _app;
 
-    private readonly List<ActionViewModel> _createdViewModel = [];
+    private readonly List<ActionViewModel> _viewModels = [];
+
+    private CleanViewModel? _cleanViewModel;
 
     private readonly Process[] _beutlProcesses;
     private readonly Process[] _pkgProcesses;
@@ -67,6 +69,11 @@ public class MainViewModel
             try
             {
                 await _model.Load(_app, installItems, uninstallItems, updateItems);
+
+                _viewModels.AddRange(InstallItems.Concat(UpdateItems)
+                    .Concat(UninstallItems)
+                    .Select(i => i.CreateViewModel(_app, _model))
+                    .Where(i => i != null)!);
             }
             finally
             {
@@ -82,7 +89,7 @@ public class MainViewModel
     public ReactiveCollection<PackageChangeModel> UpdateItems => _model.UpdateItems;
 
     public ReactiveProperty<bool> IsBusy { get; } = new();
-    
+
     public ReactiveProperty<bool> IsWaitingForTermination { get; } = new();
 
     public ReactiveProperty<bool> AreOthersRunning { get; } = new();
@@ -163,20 +170,42 @@ public class MainViewModel
         return (installItems, uninstallItems, updateItems, launchDebuggerValue);
     }
 
-    public object? Next()
+    public object? Next(ActionViewModel? current, CancellationToken cancellationToken)
     {
-        ActionViewModel? vm = _model.Next()?.CreateViewModel(_app, _model);
-        if (vm != null)
+        if (!cancellationToken.IsCancellationRequested)
         {
-            _createdViewModel.Add(vm);
-            return vm;
+            ActionViewModel? vm = null;
+            int index = current != null ? _viewModels.IndexOf(current) : -1;
+
+            if (index + 1 < _viewModels.Count)
+            {
+                vm = _viewModels[index + 1];
+            }
+
+            if (vm != null)
+            {
+                return vm;
+            }
+
+            if (_cleanViewModel == null)
+            {
+                _cleanViewModel = new CleanViewModel(_app);
+                if (_cleanViewModel.Items.Length > 0)
+                {
+                    return _cleanViewModel;
+                }
+            }
         }
-        else
-        {
-            return new ResultViewModel(
-                install: [.. _createdViewModel.Where(x => x is { Model.Action: PackageChangeAction.Install })],
-                uninstall: [.. _createdViewModel.Where(x => x is { Model.Action: PackageChangeAction.Uninstall })],
-                update: [.. _createdViewModel.Where(x => x is { Model.Action: PackageChangeAction.Update })]);
-        }
+
+        return Result();
+    }
+
+    public ResultViewModel Result()
+    {
+        return new ResultViewModel(
+            install: [.. _viewModels.Where(x => x is { Model.Action: PackageChangeAction.Install })],
+            uninstall: [.. _viewModels.Where(x => x is { Model.Action: PackageChangeAction.Uninstall })],
+            update: [.. _viewModels.Where(x => x is { Model.Action: PackageChangeAction.Update })],
+            clean: _cleanViewModel?.Items?.Length > 0 ? _cleanViewModel : null);
     }
 }

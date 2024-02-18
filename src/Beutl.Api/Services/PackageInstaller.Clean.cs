@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 
-using NuGet.Common;
 using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;

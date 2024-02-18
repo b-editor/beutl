@@ -49,7 +49,7 @@ public class ResolveTaskModel : NuGet.Common.LoggerBase
         {
             ErrorMessage.Value = Strings.Operation_canceled;
             Failed.Value = true;
-            return false;
+            throw;
         }
         catch (Exception ex)
         {

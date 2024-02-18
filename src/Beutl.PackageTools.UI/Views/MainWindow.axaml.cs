@@ -39,6 +39,7 @@ public partial class MainWindow : Window
                 InstallViewModel => new InstallPage() { DataContext = target },
                 UninstallViewModel => new UninstallPage() { DataContext = target },
                 ResultViewModel => new ResultPage() { DataContext = target },
+                CleanViewModel => new CleanPage() { DataContext = target },
                 _ => null!
             };
         }
