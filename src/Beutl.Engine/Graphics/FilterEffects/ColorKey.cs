@@ -51,7 +51,7 @@ public class ColorKey : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        var colorNtsc = 
+        var colorNtsc =
             (_color.R * 0.11448f) +
             (_color.G * 0.58661f) +
             (_color.B * 0.29891f);
@@ -83,13 +83,15 @@ public class ColorKey : FilterEffect
 
     private unsafe void OnApplyTo((float colorNtsc, float range) data, FilterEffectCustomOperationContext context)
     {
-        if (context.Target.Surface?.Value is { } surface)
+        for (int i = 0; i < context.Targets.Count; i++)
         {
+            var target = context.Targets[i];
+            var surface = target.Surface!.Value;
             Accelerator accelerator = SharedGPUContext.Accelerator;
             var kernel = accelerator.LoadAutoGroupedStreamKernel<
                 Index1D, ArrayView<Bgra8888>, float, float>(EffectKernel);
 
-            var size = PixelSize.FromSize(context.Target.Size, 1);
+            var size = PixelSize.FromSize(target.Bounds.Size, 1);
             var imgInfo = new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888);
 
             using var source = accelerator.Allocate1D<Bgra8888>(size.Width * size.Height);
@@ -119,7 +121,7 @@ public class ColorKey : FilterEffect
 
         ntsc = IntrinsicMath.Clamp(ntsc, 0, 255);
         ntsc = XMath.Round(ntsc);
-        
+
         if (IntrinsicMath.Abs(colorNtsc - ntsc) < range)
         {
             src[index] = default;

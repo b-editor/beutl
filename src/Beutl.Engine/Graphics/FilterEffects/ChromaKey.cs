@@ -88,13 +88,15 @@ public class ChromaKey : FilterEffect
 
     private unsafe void OnApplyTo((Hsv hsv, float hueRange, float satRange) data, FilterEffectCustomOperationContext context)
     {
-        if (context.Target.Surface?.Value is { } surface)
+        for (int i = 0; i < context.Targets.Count; i++)
         {
+            var target = context.Targets[i];
+            var surface = target.Surface!.Value;
             Accelerator accelerator = SharedGPUContext.Accelerator;
             var kernel = accelerator.LoadAutoGroupedStreamKernel<
                 Index1D, ArrayView<Bgra8888>, Hsv, float, float>(EffectKernel);
 
-            var size = PixelSize.FromSize(context.Target.Size, 1);
+            var size = PixelSize.FromSize(target.Bounds.Size, 1);
             var imgInfo = new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888);
 
             using var source = accelerator.Allocate1D<Bgra8888>(size.Width * size.Height);

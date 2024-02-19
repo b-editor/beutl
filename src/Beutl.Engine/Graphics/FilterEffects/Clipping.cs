@@ -44,25 +44,29 @@ public sealed class Clipping : FilterEffect
 
     private void Apply(Thickness thickness, FilterEffectCustomOperationContext context)
     {
-        if (context.Target.Surface?.Value is SKSurface surface)
+        for (int i = 0; i < context.Targets.Count; i++)
         {
-            Rect originalRect = new(context.Target.Size);
+            var target = context.Targets[i];
+            var surface = target.Surface!.Value;
+            Rect originalRect = target.Bounds;
             Rect clipRect = originalRect.Deflate(thickness).Normalize();
 
             Rect intersect = originalRect.Intersect(clipRect);
 
             if (intersect.IsEmpty || clipRect.Width == 0 || clipRect.Height == 0)
             {
-                context.ReplaceTarget(EffectTarget.Empty);
+                context.Targets.RemoveAt(i);
+                i--;
             }
             else
             {
                 using SKImage skimage = surface.Snapshot(SKRectI.Floor(intersect.ToSKRect()));
-                using EffectTarget target = context.CreateTarget((int)clipRect.Width, (int)clipRect.Height);
+                EffectTarget newtarget = context.CreateTarget(clipRect);
 
-                target.Surface?.Value?.Canvas?.DrawImage(skimage, intersect.X - clipRect.X, intersect.Y - clipRect.Y);
+                newtarget.Surface?.Value?.Canvas?.DrawImage(skimage, intersect.X - clipRect.X, intersect.Y - clipRect.Y);
 
-                context.ReplaceTarget(target);
+                target.Dispose();
+                context.Targets[i] = newtarget;
             }
         }
     }

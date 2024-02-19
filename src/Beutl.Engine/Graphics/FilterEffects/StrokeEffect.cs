@@ -130,41 +130,46 @@ public class StrokeEffect : FilterEffect
             return skpath;
         }
 
-        if (context.Target.Surface is { } srcSurface
-            && data.Pen is IPen pen)
+        if (data.Pen is IPen pen)
         {
-            using SKImage skimage = srcSurface.Value.Snapshot();
-            using var src = skimage.ToBitmap();
-
-            // 縁取りのパスを作成
-            using SKPath borderPath = CreateBorderPath(src);
-
-            var rect = new Rect(0, 0, src.Width, src.Height);
-            Rect transformedBounds = TransformBounds(data, rect);
-            float thickness = PenHelper.GetRealThickness(pen.StrokeAlignment, pen.Thickness);
-            var origin = Matrix.CreateTranslation(
-                thickness - Math.Min(data.Offset.X, thickness),
-                thickness - Math.Min(data.Offset.Y, thickness));
-
-            using (EffectTarget newTarget = context.CreateTarget((int)transformedBounds.Width, (int)transformedBounds.Height))
-            using (ImmediateCanvas newCanvas = context.Open(newTarget))
-            using (newCanvas.PushTransform(origin))
+            for (int i = 0; i < context.Targets.Count; i++)
             {
-                // 縁取りの後ろに描画
-                if (data.Style == Border.BorderStyles.Background)
-                    newCanvas.DrawSurface(srcSurface.Value, default);
+                EffectTarget target = context.Targets[i];
+                Media.Source.Ref<SKSurface> srcSurface = target.Surface!;
+                using SKImage skimage = srcSurface.Value.Snapshot();
+                using var src = skimage.ToBitmap();
 
-                // 縁取り描画
-                using (newCanvas.PushTransform(Matrix.CreateTranslation(data.Offset.X, data.Offset.Y)))
+                // 縁取りのパスを作成
+                using SKPath borderPath = CreateBorderPath(src);
+
+                Rect transformedBounds = TransformBounds(data, target.Bounds);
+                float thickness = PenHelper.GetRealThickness(pen.StrokeAlignment, pen.Thickness);
+                var origin = Matrix.CreateTranslation(
+                    thickness - Math.Min(data.Offset.X, thickness),
+                    thickness - Math.Min(data.Offset.Y, thickness));
+
+                EffectTarget newTarget = context.CreateTarget(transformedBounds);
+                using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                using (newCanvas.PushTransform(origin))
                 {
-                    newCanvas.DrawSKPath(borderPath, true, null, pen);
+                    // 縁取りの後ろに描画
+                    if (data.Style == Border.BorderStyles.Background)
+                        newCanvas.DrawSurface(srcSurface.Value, default);
+
+                    // 縁取り描画
+                    using (newCanvas.PushTransform(Matrix.CreateTranslation(data.Offset.X, data.Offset.Y)))
+                    {
+                        newCanvas.DrawSKPath(borderPath, true, null, pen);
+                    }
+
+                    // 縁取りの表に描画
+                    if (data.Style == Border.BorderStyles.Foreground)
+                        newCanvas.DrawSurface(srcSurface.Value, default);
+
                 }
 
-                // 縁取りの表に描画
-                if (data.Style == Border.BorderStyles.Foreground)
-                    newCanvas.DrawSurface(srcSurface.Value, default);
-
-                context.ReplaceTarget(newTarget);
+                target.Dispose();
+                context.Targets[i] = newTarget;
             }
         }
     }
