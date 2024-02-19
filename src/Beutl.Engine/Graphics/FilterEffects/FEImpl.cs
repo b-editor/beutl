@@ -7,11 +7,11 @@ internal interface IFEItem
     Rect TransformBounds(Rect bounds);
 }
 
-internal abstract record FEItem<T>(T Data, Func<T, Rect, Rect> TransformBounds) : IFEItem
+internal abstract record FEItem<T>(T Data, Func<T, Rect, Rect>? TransformBounds) : IFEItem
 {
     Rect IFEItem.TransformBounds(Rect bounds)
     {
-        return TransformBounds(Data, bounds);
+        return TransformBounds?.Invoke(Data, bounds) ?? Rect.Invalid;
     }
 }
 
@@ -41,7 +41,7 @@ internal interface IFEItem_Skia
 }
 
 internal record FEItem_Custom<T>(
-    T Data, Action<T, FilterEffectCustomOperationContext> Action, Func<T, Rect, Rect> TransformBounds)
+    T Data, Action<T, FilterEffectCustomOperationContext> Action, Func<T, Rect, Rect>? TransformBounds)
     : FEItem<T>(Data, TransformBounds), IFEItem_Custom
 {
     public void Accepts(FilterEffectCustomOperationContext context)

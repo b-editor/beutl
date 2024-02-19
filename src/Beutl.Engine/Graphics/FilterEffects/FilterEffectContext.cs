@@ -29,6 +29,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
 {
     private readonly PooledList<(FilterEffect FE, int Version)> _versions;
     internal readonly PooledList<IFEItem> _items;
+    internal readonly PooledList<FilterEffect> _renderTimeItems;
 
     internal static readonly ObjectPool<byte[]> s_lutPool;
     internal static readonly ObjectPool<float[]> s_colorMatPool;
@@ -51,10 +52,11 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         OriginalBounds = obj.OriginalBounds;
         Bounds = obj.Bounds;
         _versions = new PooledList<(FilterEffect, int)>(obj._versions.Span, ClearMode.Always);
+        _renderTimeItems = new PooledList<FilterEffect>(obj._renderTimeItems);
         _items = new PooledList<IFEItem>(obj._items);
     }
 
-    public Rect Bounds { get; private set; }
+    public Rect Bounds { get; internal set; }
 
     public Rect OriginalBounds { get; }
 
@@ -541,15 +543,31 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         Bounds = transformBounds.Invoke(data, Bounds);
     }
 
+    public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action)
+    {
+        _items.Add(new FEItem_Custom<T>(data, action, null));
+        Bounds = Rect.Invalid;
+    }
+
     public void Apply(FilterEffect? filterEffect)
     {
         if (filterEffect != null)
         {
-            _versions.Add((filterEffect, filterEffect.Version));
-
-            if (filterEffect is { IsEnabled: true })
+            if (Bounds.IsInvalid)
             {
-                filterEffect.ApplyTo(this);
+                if (filterEffect is { IsEnabled: true })
+                {
+                    _renderTimeItems.Add(filterEffect);
+                }
+            }
+            else
+            {
+                _versions.Add((filterEffect, filterEffect.Version));
+
+                if (filterEffect is { IsEnabled: true })
+                {
+                    filterEffect.ApplyTo(this);
+                }
             }
         }
     }
@@ -572,6 +590,9 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         Rect rect = OriginalBounds;
         foreach (IFEItem item in _items.Span[range])
         {
+            if (rect.IsInvalid)
+                break;
+
             rect = item.TransformBounds(rect);
         }
 
@@ -601,12 +622,26 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     {
         if (other == null
             || _items.Count != other._items.Count
+            || _renderTimeItems.Count != other._renderTimeItems.Count
             || Bounds != other.Bounds)
             return false;
 
         Span<IFEItem> items = _items.Span;
         Span<IFEItem> otherItems = other._items.Span;
-        return items.SequenceEqual(otherItems);
+        if (!items.SequenceEqual(otherItems))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < _renderTimeItems.Count; i++)
+        {
+            if (_renderTimeItems[i].Version != other._renderTimeItems[i].Version)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public override bool Equals(object? obj)
@@ -629,5 +664,6 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     {
         _versions.Dispose();
         _items.Dispose();
+        _renderTimeItems.Dispose();
     }
 }

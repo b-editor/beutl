@@ -35,6 +35,11 @@ public readonly struct Rect
     public static readonly Rect Empty;
 
     /// <summary>
+    /// All values are NaN rectangles.
+    /// </summary>
+    public static readonly Rect Invalid = new(float.NaN, float.NaN, float.NaN, float.NaN);
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="Rect"/> structure.
     /// </summary>
     /// <param name="x">The X position.</param>
@@ -166,6 +171,11 @@ public readonly struct Rect
     /// Gets a value that indicates whether the rectangle is empty.
     /// </summary>
     public bool IsEmpty => Width == 0 && Height == 0;
+
+    /// <summary>
+    /// Gets the value of whether any of the properties are NaN.
+    /// </summary>
+    public bool IsInvalid => float.IsNaN(Width) || float.IsNaN(Height) || float.IsNaN(X) || float.IsNaN(Y);
 
     static int ITupleConvertible<Rect, float>.TupleLength => 4;
 
