@@ -44,6 +44,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     {
         Bounds = OriginalBounds = bounds;
         _versions = new PooledList<(FilterEffect, int)>(ClearMode.Always);
+        _renderTimeItems = new();
         _items = [];
     }
 
@@ -175,33 +176,37 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
             data: (position, sigma, color),
             action: (data, context) =>
             {
-                EffectTarget target = context.Target;
-                if (target.Surface != null)
+                for (int i = 0; i < context.Targets.Count; i++)
                 {
-                    using SKImage skimage = target.Surface.Value.Snapshot();
-                    using EffectTarget newTarget = context.CreateTarget((int)target.Size.Width, (int)target.Size.Height);
-                    using (ImmediateCanvas canvas = context.Open(newTarget))
+                    var target = context.Targets[i];
+                    if (target.Surface is { } srcSurface)
                     {
-                        using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
-                        using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
-                        using var filter = SKImageFilter.CreateColorFilter(blend, blur);
-                        using var paint = new SKPaint
+                        using SKImage skimage = target.Surface.Value.Snapshot();
+                        EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                        using (ImmediateCanvas canvas = context.Open(newTarget))
                         {
-                            ImageFilter = filter
-                        };
+                            using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
+                            using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
+                            using var filter = SKImageFilter.CreateColorFilter(blend, blur);
+                            using var paint = new SKPaint
+                            {
+                                ImageFilter = filter
+                            };
 
-                        using (canvas.PushPaint(paint))
-                        {
-                            canvas.DrawSurface(target.Surface.Value, data.position);
+                            using (canvas.PushPaint(paint))
+                            {
+                                canvas.DrawSurface(target.Surface.Value, data.position);
+                            }
+
+                            using (canvas.PushBlendMode(Graphics.BlendMode.DstATop))
+                            {
+                                canvas.DrawSurface(target.Surface.Value, default);
+                            }
                         }
 
-                        using (canvas.PushBlendMode(Graphics.BlendMode.DstATop))
-                        {
-                            canvas.DrawSurface(target.Surface.Value, default);
-                        }
+                        target.Dispose();
+                        context.Targets[i] = newTarget;
                     }
-
-                    context.ReplaceTarget(newTarget);
                 }
             },
             transformBounds: (_, bounds) => bounds);
@@ -219,33 +224,37 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
             data: (position, sigma, color),
             action: (data, context) =>
             {
-                EffectTarget target = context.Target;
-                if (target.Surface != null)
+                for (int i = 0; i < context.Targets.Count; i++)
                 {
-                    using SKImage skimage = target.Surface.Value.Snapshot();
-                    using EffectTarget newTarget = context.CreateTarget((int)target.Size.Width, (int)target.Size.Height);
-                    using (ImmediateCanvas canvas = context.Open(newTarget))
+                    var target = context.Targets[i];
+                    if (target.Surface is { } srcSurface)
                     {
-                        using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
-                        using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
-                        using var filter = SKImageFilter.CreateColorFilter(blend, blur);
-                        using var paint = new SKPaint
+                        using SKImage skimage = target.Surface.Value.Snapshot();
+                        EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                        using (ImmediateCanvas canvas = context.Open(newTarget))
                         {
-                            ImageFilter = filter
-                        };
+                            using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
+                            using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
+                            using var filter = SKImageFilter.CreateColorFilter(blend, blur);
+                            using var paint = new SKPaint
+                            {
+                                ImageFilter = filter
+                            };
 
-                        using (canvas.PushPaint(paint))
-                        {
-                            canvas.DrawSurface(target.Surface.Value, data.position);
+                            using (canvas.PushPaint(paint))
+                            {
+                                canvas.DrawSurface(target.Surface.Value, data.position);
+                            }
+
+                            using (canvas.PushBlendMode(Graphics.BlendMode.DstIn))
+                            {
+                                canvas.DrawSurface(target.Surface.Value, default);
+                            }
                         }
 
-                        using (canvas.PushBlendMode(Graphics.BlendMode.DstIn))
-                        {
-                            canvas.DrawSurface(target.Surface.Value, default);
-                        }
+                        target.Dispose();
+                        context.Targets[i] = newTarget;
                     }
-
-                    context.ReplaceTarget(newTarget);
                 }
             },
             transformBounds: (_, bounds) => bounds);
@@ -511,25 +520,30 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
             (color, blendMode),
             (data, _) => SKColorFilter.CreateBlendMode(data.color.ToSKColor(), (SKBlendMode)data.blendMode));
     }
-    
+
     public void BlendMode(IBrush? brush, BlendMode blendMode)
     {
         static void ApplyCore((IBrush? Brush, BlendMode BlendMode) data, FilterEffectCustomOperationContext context)
         {
-            if (context.Target.Surface is { } srcSurface)
+            for (int i = 0; i < context.Targets.Count; i++)
             {
-                Size size = context.Target.Size;
-                using EffectTarget newTarget = context.CreateTarget((int)size.Width, (int)size.Height);
-                using ImmediateCanvas newCanvas = context.Open(newTarget);
+                var target = context.Targets[i];
+                if (target.Surface is { } srcSurface)
+                {
+                    Size size = target.OriginalBounds.Size;
+                    using EffectTarget newTarget = context.CreateTarget(target.OriginalBounds);
+                    using ImmediateCanvas newCanvas = context.Open(newTarget);
 
-                var c = new BrushConstructor(newTarget.Size, data.Brush, data.BlendMode, newCanvas);
-                using var brushPaint = new SKPaint();
-                c.ConfigurePaint(brushPaint);
+                    var c = new BrushConstructor(size, data.Brush, data.BlendMode, newCanvas);
+                    using var brushPaint = new SKPaint();
+                    c.ConfigurePaint(brushPaint);
 
-                newCanvas.DrawSurface(srcSurface.Value, default);
-                newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Size.ToSKSize()), brushPaint);
+                    newCanvas.DrawSurface(srcSurface.Value, default);
+                    newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
 
-                context.ReplaceTarget(newTarget);
+                    target.Dispose();
+                    context.Targets[i] = newTarget;
+                }
             }
         }
 

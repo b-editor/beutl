@@ -9,6 +9,7 @@ namespace Beutl.Graphics.Rendering;
 public sealed class FilterEffectNode(FilterEffect filterEffect) : ContainerNode, ISupportRenderCache
 {
     private FilterEffectContext? _prevContext;
+    private Rect _rect = Rect.Invalid;
 
     public FilterEffect FilterEffect { get; } = filterEffect;
 
@@ -38,7 +39,17 @@ public sealed class FilterEffectNode(FilterEffect filterEffect) : ContainerNode,
 
     protected override Rect TransformBounds(Rect bounds)
     {
-        return FilterEffect.TransformBounds(bounds);
+        Rect r = _rect;
+        if (r.IsInvalid)
+        {
+            r = FilterEffect.TransformBounds(bounds);
+        }
+        if (r.IsInvalid)
+        {
+            r = bounds;
+        }
+
+        return r;
     }
 
     private FilterEffectContext GetOrCreateContext()
@@ -59,17 +70,16 @@ public sealed class FilterEffectNode(FilterEffect filterEffect) : ContainerNode,
     private void RenderCore(
         ImmediateCanvas canvas,
         Range range,
-        EffectTarget effectTarget,
-        Rect originalBounds)
+        EffectTargets effectTargets)
     {
         FilterEffectContext context = GetOrCreateContext();
 
         using (var builder = new SKImageFilterBuilder())
-        using (var activator = new FilterEffectActivator(originalBounds, effectTarget, builder, canvas))
+        using (var activator = new FilterEffectActivator(effectTargets, builder, canvas))
         {
             activator.Apply(context, range);
 
-#if true
+
             if (builder.HasFilter())
             {
                 using (var paint = new SKPaint())
@@ -77,37 +87,42 @@ public sealed class FilterEffectNode(FilterEffect filterEffect) : ContainerNode,
                     paint.BlendMode = (SKBlendMode)canvas.BlendMode;
                     paint.ImageFilter = builder.GetFilter();
 
-                    using (canvas.PushBlendMode(BlendMode.SrcOver))
-                    using (canvas.PushTransform(Matrix.CreateTranslation(activator.Bounds.X - activator.OriginalBounds.X, activator.Bounds.Y - activator.OriginalBounds.Y)))
-                    using (canvas.PushPaint(paint))
+                    foreach (var t in activator.CurrentTargets)
                     {
-                        activator.CurrentTarget.Draw(canvas);
+                        using (canvas.PushBlendMode(BlendMode.SrcOver))
+                        using (canvas.PushTransform(Matrix.CreateTranslation(t.Bounds.X - t.OriginalBounds.X, t.Bounds.Y - t.OriginalBounds.Y)))
+                        using (canvas.PushPaint(paint))
+                        {
+                            t.Draw(canvas);
+                        }
                     }
                 }
             }
             else
-#else
-            // 上のコードは、フレームバッファごと回転してしまうことがあった
-            // (SaveLayerでlilmitを指定しても)
-            activator.Flush(false);
-#endif
-            if (activator.CurrentTarget.Surface != null)
             {
-                canvas.DrawSurface(activator.CurrentTarget.Surface.Value, activator.Bounds.Position);
+                foreach (var t in activator.CurrentTargets)
+                {
+                    if (t.Surface != null)
+                    {
+                        canvas.DrawSurface(t.Surface.Value, t.Bounds.Position);
+                    }
+                    else if (t.Node == this
+                        || t != EffectTarget.Empty)
+                    {
+                        base.Render(canvas);
+                    }
+                }
             }
-            else if (activator.CurrentTarget.Node == this
-                || activator.CurrentTarget != EffectTarget.Empty)
-            {
-                base.Render(canvas);
-            }
+
+            _rect = activator.CurrentTargets.Aggregate<EffectTarget, Rect>(default, (x, y) => x.Union(y.Bounds));
         }
     }
 
     public override void Render(ImmediateCanvas canvas)
     {
-        using (var target = new EffectTarget(this))
+        using (EffectTargets targets = [new EffectTarget(this)])
         {
-            RenderCore(canvas, Range.All, target, OriginalBounds);
+            RenderCore(canvas, Range.All, targets);
         }
     }
 
@@ -136,9 +151,9 @@ public sealed class FilterEffectNode(FilterEffect filterEffect) : ContainerNode,
     void ISupportRenderCache.RenderForCache(ImmediateCanvas canvas, RenderCache cache)
     {
         int minNumber = cache.GetMinNumber();
-        using (var target = new EffectTarget(this))
+        using (EffectTargets targets = [new EffectTarget(this)])
         {
-            RenderCore(canvas, 0..minNumber, target, OriginalBounds);
+            RenderCore(canvas, 0..minNumber, targets);
         }
     }
 
@@ -155,9 +170,9 @@ public sealed class FilterEffectNode(FilterEffect filterEffect) : ContainerNode,
             }
             else
             {
-                using (var target = new EffectTarget(surface, cacheBounds.Size))
+                using (EffectTargets targets = [new EffectTarget(surface, cacheBounds)])
                 {
-                    RenderCore(canvas, minNumber.., target, cacheBounds);
+                    RenderCore(canvas, minNumber.., targets);
                 }
             }
         }
