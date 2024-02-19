@@ -14,20 +14,24 @@ public sealed class EffectTarget : IDisposable
     public EffectTarget(FilterEffectNode node)
     {
         _target = node;
-        Size = node.Bounds.Size;
+        OriginalBounds = node.OriginalBounds;
+        Bounds = node.OriginalBounds;
     }
 
-    public EffectTarget(Ref<SKSurface> surface, Size size)
+    public EffectTarget(Ref<SKSurface> surface, Rect originalBounds)
     {
         _target = surface.Clone();
-        Size = size;
+        OriginalBounds = originalBounds;
+        Bounds = originalBounds;
     }
 
     public EffectTarget()
     {
     }
 
-    public Size Size { get; private set; }
+    public Rect OriginalBounds { get; set; }
+
+    public Rect Bounds { get; set; }
 
     public FilterEffectNode? Node => _target as FilterEffectNode;
 
@@ -41,7 +45,10 @@ public sealed class EffectTarget : IDisposable
         }
         else if (Surface != null)
         {
-            return new EffectTarget(Surface, Size);
+            return new EffectTarget(Surface, OriginalBounds)
+            {
+                Bounds = Bounds
+            };
         }
         else
         {
@@ -53,7 +60,7 @@ public sealed class EffectTarget : IDisposable
     {
         Surface?.Dispose();
         _target = null;
-        Size = default;
+        OriginalBounds = default;
     }
 
     public void Draw(ImmediateCanvas canvas)
