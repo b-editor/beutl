@@ -79,7 +79,6 @@ public sealed class FilterEffectNode(FilterEffect filterEffect) : ContainerNode,
         {
             activator.Apply(context, range);
 
-
             if (builder.HasFilter())
             {
                 using (var paint = new SKPaint())
@@ -114,7 +113,7 @@ public sealed class FilterEffectNode(FilterEffect filterEffect) : ContainerNode,
                 }
             }
 
-            _rect = activator.CurrentTargets.Aggregate<EffectTarget, Rect>(default, (x, y) => x.Union(y.Bounds));
+            _rect = activator.CurrentTargets.CalculateBounds();
         }
     }
 

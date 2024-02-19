@@ -24,8 +24,13 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
 
     public bool IsReadOnly => ((ICollection<EffectTarget>)_targets).IsReadOnly;
 
+    public Rect CalculateBounds()
+    {
+        return this.Aggregate<EffectTarget, Rect>(default, (x, y) => x.Union(y.Bounds));
+    }
     public EffectTargets Clone() => new(this);
     public void Add(EffectTarget item) => ((ICollection<EffectTarget>)_targets).Add(item);
+    public void AddRange(IEnumerable<EffectTarget> collection) => _targets.AddRange(collection);
     public void Clear() => ((ICollection<EffectTarget>)_targets).Clear();
     public bool Contains(EffectTarget item) => ((ICollection<EffectTarget>)_targets).Contains(item);
     public void CopyTo(EffectTarget[] array, int arrayIndex) => ((ICollection<EffectTarget>)_targets).CopyTo(array, arrayIndex);

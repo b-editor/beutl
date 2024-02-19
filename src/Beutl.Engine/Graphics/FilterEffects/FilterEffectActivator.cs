@@ -1,4 +1,7 @@
-﻿using Beutl.Media.Source;
+﻿using System.Diagnostics;
+
+using Beutl.Collections.Pooled;
+using Beutl.Media.Source;
 
 using SkiaSharp;
 
@@ -101,25 +104,100 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
         if (context._renderTimeItems.Count > 0)
         {
             Flush(false);
+
+            IFEItem_Custom? deferral = null;
+            FilterEffect[]? deferralItems = null;
+            bool deferred = false;
+
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
                 EffectTarget t = CurrentTargets[i];
 
                 using (var ctx = new FilterEffectContext(t.Bounds))
-                using (var builder = new SKImageFilterBuilder())
-                using (var activator = new FilterEffectActivator([t], builder, _canvas))
                 {
                     foreach (FilterEffect fe in context._renderTimeItems)
                     {
                         ctx.Apply(fe);
                     }
 
-                    activator.Apply(ctx, Range.All);
-                    activator.Flush(true);
+                    if (i == 0)
+                    {
+                        deferred = ctx.Bounds.IsInvalid;
+                    }
 
-                    CurrentTargets.RemoveAt(i);
-                    CurrentTargets.InsertRange(i, activator.CurrentTargets);
-                    i += activator.CurrentTargets.Count - 1;
+                    Debug.Assert(deferred == ctx.Bounds.IsInvalid);
+
+                    if (ctx.Bounds.IsInvalid)
+                    {
+                        deferral = (IFEItem_Custom)ctx._items[^1];
+                        deferralItems = ctx._renderTimeItems.ToArray();
+
+                        // boundsが無効な場合
+                        // 無効になる手前まで、エフェクトを適用する
+                        Rect b = t.Bounds;
+                        for (int ii = 0; ii < ctx._items.Count - 1; ii++)
+                        {
+                            b = ctx._items[ii].TransformBounds(b);
+                        }
+
+                        using (FilterEffectContext safeContext = ctx.Clone())
+                        using (var builder = new SKImageFilterBuilder())
+                        using (var activator = new FilterEffectActivator([t], builder, _canvas))
+                        {
+                            safeContext.Bounds = b;
+                            safeContext._items.RemoveAt(safeContext._items.Count - 1);
+                            safeContext._renderTimeItems.Clear();
+
+                            activator.Apply(safeContext, Range.All);
+                            activator.Flush(false);
+
+                            CurrentTargets.RemoveAt(i);
+                            CurrentTargets.InsertRange(i, activator.CurrentTargets);
+                            i += activator.CurrentTargets.Count - 1;
+                        }
+                    }
+                    else
+                    {
+                        using (var builder = new SKImageFilterBuilder())
+                        using (var activator = new FilterEffectActivator([t], builder, _canvas))
+                        {
+                            activator.Apply(ctx, Range.All);
+                            activator.Flush(false);
+
+                            CurrentTargets.RemoveAt(i);
+                            CurrentTargets.InsertRange(i, activator.CurrentTargets);
+                            i += activator.CurrentTargets.Count - 1;
+                        }
+                    }
+                }
+            }
+
+            if (deferred)
+            {
+                Flush(false);
+                var customContext = new FilterEffectCustomOperationContext(_canvas, CurrentTargets);
+                deferral!.Accepts(customContext);
+                foreach (EffectTarget t in CurrentTargets)
+                {
+                    //t.Bounds = item.TransformBounds(t.Bounds);
+                    t.OriginalBounds = t.Bounds.WithX(0).WithY(0);
+                }
+
+                using (var builder = new SKImageFilterBuilder())
+                using (var activator = new FilterEffectActivator(CurrentTargets, builder, _canvas))
+                using (var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds()))
+                {
+                    foreach (FilterEffect fe in deferralItems!)
+                    {
+                        ctx.Apply(fe);
+                    }
+
+                    activator.Apply(ctx, Range.All);
+                    activator.Flush(false);
+
+                    // `activator.CurrentTargets` と `this.CurrentTargets` は同じインスタンス
+                    //CurrentTargets.Clear();
+                    //CurrentTargets.AddRange(activator.CurrentTargets);
                 }
             }
         }

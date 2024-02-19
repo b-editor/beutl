@@ -122,7 +122,7 @@ public class SplitEffect : FilterEffect
                     t.Dispose();
                     context.Targets.RemoveAt(i);
                     context.Targets.InsertRange(i, newTargets);
-                    i += newTargets.Length;
+                    i += newTargets.Length - 1;
                 }
             }
         });
