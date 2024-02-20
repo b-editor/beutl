@@ -106,7 +106,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
             Flush(false);
 
             IFEItem_Custom? deferral = null;
-            FilterEffect[]? deferralItems = null;
+            object[]? deferralItems = null;
             bool deferred = false;
 
             for (int i = 0; i < CurrentTargets.Count; i++)
@@ -115,9 +115,16 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
                 using (var ctx = new FilterEffectContext(t.Bounds))
                 {
-                    foreach (FilterEffect fe in context._renderTimeItems)
+                    foreach (object item in context._renderTimeItems)
                     {
-                        ctx.Apply(fe);
+                        if (item is FilterEffect fe)
+                        {
+                            ctx.Apply(fe);
+                        }
+                        else if (item is IFEItem feitem)
+                        {
+                            ctx._items.Add(feitem);
+                        }
                     }
 
                     if (i == 0)
@@ -187,9 +194,16 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                 using (var activator = new FilterEffectActivator(CurrentTargets, builder, _canvas))
                 using (var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds()))
                 {
-                    foreach (FilterEffect fe in deferralItems!)
+                    foreach (object item in deferralItems!)
                     {
-                        ctx.Apply(fe);
+                        if (item is FilterEffect fe)
+                        {
+                            ctx.Apply(fe);
+                        }
+                        else if (item is IFEItem feitem)
+                        {
+                            ctx._items.Add(feitem);
+                        }
                     }
 
                     activator.Apply(ctx, Range.All);

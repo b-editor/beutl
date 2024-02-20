@@ -9,6 +9,8 @@ using Microsoft.Extensions.ObjectPool;
 
 using SkiaSharp;
 
+using FilterEffectOrFEItem = object;
+
 namespace Beutl.Graphics.Effects;
 
 internal sealed class ArrayPooledObjectPolicy<T>(int length) : IPooledObjectPolicy<T[]>
@@ -29,7 +31,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
 {
     private readonly PooledList<(FilterEffect FE, int Version)> _versions;
     internal readonly PooledList<IFEItem> _items;
-    internal readonly PooledList<FilterEffect> _renderTimeItems;
+    internal readonly PooledList<FilterEffectOrFEItem> _renderTimeItems;
 
     internal static readonly ObjectPool<byte[]> s_lutPool;
     internal static readonly ObjectPool<float[]> s_colorMatPool;
@@ -53,7 +55,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         OriginalBounds = obj.OriginalBounds;
         Bounds = obj.Bounds;
         _versions = new PooledList<(FilterEffect, int)>(obj._versions.Span, ClearMode.Always);
-        _renderTimeItems = new PooledList<FilterEffect>(obj._renderTimeItems);
+        _renderTimeItems = new PooledList<FilterEffectOrFEItem>(obj._renderTimeItems);
         _items = new PooledList<IFEItem>(obj._items);
     }
 
@@ -72,11 +74,23 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         return new FilterEffectContext(Bounds);
     }
 
+    private void AddItem(IFEItem item)
+    {
+        if (!Bounds.IsInvalid)
+        {
+            _items.Add(item);
+        }
+        else
+        {
+            _renderTimeItems.Add(item);
+        }
+    }
+
     [EditorBrowsable(EditorBrowsableState.Never)]
     public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory, Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {
-        _items.Add(new FEItem_Skia<T>(data, factory, transformBounds));
+        AddItem(new FEItem_Skia<T>(data, factory, transformBounds));
         Bounds = transformBounds.Invoke(data, Bounds);
     }
 
@@ -84,7 +98,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     public void AppendSKColorFilter<T>(T data, Func<T, FilterEffectActivator, SKColorFilter?> factory)
         where T : IEquatable<T>
     {
-        _items.Add(new FEItem_SKColorFilter<T>(data, factory));
+        AddItem(new FEItem_SKColorFilter<T>(data, factory));
     }
 
     public void DropShadowOnly(Point position, Size sigma, Color color)
@@ -553,13 +567,13 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action, Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {
-        _items.Add(new FEItem_Custom<T>(data, action, transformBounds));
+        AddItem(new FEItem_Custom<T>(data, action, transformBounds));
         Bounds = transformBounds.Invoke(data, Bounds);
     }
 
     public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action)
     {
-        _items.Add(new FEItem_Custom<T>(data, action, null));
+        AddItem(new FEItem_Custom<T>(data, action, null));
         Bounds = Rect.Invalid;
     }
 
@@ -649,7 +663,23 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
 
         for (int i = 0; i < _renderTimeItems.Count; i++)
         {
-            if (_renderTimeItems[i].Version != other._renderTimeItems[i].Version)
+            FilterEffectOrFEItem x = _renderTimeItems[i];
+            FilterEffectOrFEItem y = other._renderTimeItems[i];
+            if (x is IFEItem xx && y is IFEItem yy)
+            {
+                if (!xx.Equals(yy))
+                {
+                    return false;
+                }
+            }
+            else if (x is FilterEffect xxx && y is FilterEffect yyy)
+            {
+                if (xxx.Version != yyy.Version)
+                {
+                    return false;
+                }
+            }
+            else
             {
                 return false;
             }
