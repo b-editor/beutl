@@ -9,7 +9,7 @@ using Microsoft.Extensions.ObjectPool;
 
 using SkiaSharp;
 
-using FilterEffectOrFEItem = object;
+using FilterEffectOrFEItemWrapper = object;
 
 namespace Beutl.Graphics.Effects;
 
@@ -27,11 +27,38 @@ internal sealed class ArrayPooledObjectPolicy<T>(int length) : IPooledObjectPoli
     }
 }
 
+internal record FEItemWrapper(
+    IFEItem Item,
+    FilterEffect? FilterEffect,
+    int Version,
+    // このIFEItemがTransformBoundsする前のBounds
+    Rect SourceBounds,
+
+    // SplitImageなど一つのEffectTargetから複数のEffectTargetを作成する処理で
+    //   このIFEItemが継承されたものかを判別するために使う
+    // (0) ───┐
+    // (1)    ├────
+    // (1)    └──┬─
+    // (2)       └─
+    // Todo: 後で削除
+    int InheritanceCount = 0)
+{
+    public FEItemWrapper Inherit()
+    {
+        return this with
+        {
+            InheritanceCount = InheritanceCount + 1
+        };
+    }
+}
+
 public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectContext>
 {
     private readonly PooledList<(FilterEffect FE, int Version)> _versions;
-    internal readonly PooledList<IFEItem> _items;
-    internal readonly PooledList<FilterEffectOrFEItem> _renderTimeItems;
+    internal readonly PooledList<FEItemWrapper> _items;
+    internal readonly PooledList<FilterEffectOrFEItemWrapper> _renderTimeItems;
+
+    internal FilterEffect? _current;
 
     internal static readonly ObjectPool<byte[]> s_lutPool;
     internal static readonly ObjectPool<float[]> s_colorMatPool;
@@ -55,8 +82,8 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         OriginalBounds = obj.OriginalBounds;
         Bounds = obj.Bounds;
         _versions = new PooledList<(FilterEffect, int)>(obj._versions.Span, ClearMode.Always);
-        _renderTimeItems = new PooledList<FilterEffectOrFEItem>(obj._renderTimeItems);
-        _items = new PooledList<IFEItem>(obj._items);
+        _renderTimeItems = new PooledList<FilterEffectOrFEItemWrapper>(obj._renderTimeItems);
+        _items = new PooledList<FEItemWrapper>(obj._items);
     }
 
     public Rect Bounds { get; internal set; }
@@ -78,11 +105,11 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     {
         if (!Bounds.IsInvalid)
         {
-            _items.Add(item);
+            _items.Add(new FEItemWrapper(item, _current, _current?.Version ?? 0, Bounds));
         }
         else
         {
-            _renderTimeItems.Add(item);
+            _renderTimeItems.Add(new FEItemWrapper(item, _current, _current?.Version ?? 0, Bounds));
         }
     }
 
@@ -590,11 +617,21 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
             }
             else
             {
-                _versions.Add((filterEffect, filterEffect.Version));
-
-                if (filterEffect is { IsEnabled: true })
+                var tmp = _current;
+                try
                 {
-                    filterEffect.ApplyTo(this);
+                    _current = filterEffect;
+
+                    _versions.Add((filterEffect, filterEffect.Version));
+
+                    if (filterEffect is { IsEnabled: true })
+                    {
+                        filterEffect.ApplyTo(this);
+                    }
+                }
+                finally
+                {
+                    _current = tmp;
                 }
             }
         }
@@ -654,8 +691,8 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
             || Bounds != other.Bounds)
             return false;
 
-        Span<IFEItem> items = _items.Span;
-        Span<IFEItem> otherItems = other._items.Span;
+        Span<FEItemWrapper> items = _items.Span;
+        Span<FEItemWrapper> otherItems = other._items.Span;
         if (!items.SequenceEqual(otherItems))
         {
             return false;
@@ -663,9 +700,9 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
 
         for (int i = 0; i < _renderTimeItems.Count; i++)
         {
-            FilterEffectOrFEItem x = _renderTimeItems[i];
-            FilterEffectOrFEItem y = other._renderTimeItems[i];
-            if (x is IFEItem xx && y is IFEItem yy)
+            FilterEffectOrFEItemWrapper x = _renderTimeItems[i];
+            FilterEffectOrFEItemWrapper y = other._renderTimeItems[i];
+            if (x is FEItemWrapper xx && y is FEItemWrapper yy)
             {
                 if (!xx.Equals(yy))
                 {
@@ -696,7 +733,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     public override int GetHashCode()
     {
         var hash = new HashCode();
-        foreach (IFEItem? item in _items.Span)
+        foreach (FEItemWrapper item in _items.Span)
         {
             hash.Add(item.GetHashCode());
         }

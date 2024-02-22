@@ -174,9 +174,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
             RenderCache cache = context.GetCache(node);
             if (node is ISupportRenderCache supportCache)
             {
-                supportCache.Accepts(cache);
-
-                if (cache.CanCache() && cache.SameChildren())
+                if (cache.CanCacheBoundary() && cache.SameChildren())
                 {
                     if (cache.IsCached)
                     {
@@ -187,28 +185,26 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
             }
             else
             {
-                cache.IncrementRenderCount();
                 if (cache.IsCached)
                 {
-                    void AcceptsAll(IGraphicNode node)
-                    {
-                        RenderCache cache = context!.GetCache(node);
-                        (node as ISupportRenderCache)?.Accepts(cache);
-                        if (node is ContainerNode c)
-                        {
-                            foreach (IGraphicNode item in c.Children)
-                            {
-                                AcceptsAll(item);
-                            }
-                        }
-                    }
-                    AcceptsAll(node);
-
                     if (context.CanCacheRecursive(node))
                     {
-                        using (Ref<SKSurface> surface = cache.UseCache(out Rect bounds))
+                        if (cache.CacheCount == 1)
                         {
-                            DrawSurface(surface.Value, bounds.Position);
+                            using (Ref<SKSurface> surface = cache.UseCache(out Rect bounds))
+                            {
+                                DrawSurface(surface.Value, bounds.Position);
+                            }
+                        }
+                        else
+                        {
+                            foreach ((Ref<SKSurface> Surface, Rect Bounds) item in cache.UseCache())
+                            {
+                                using (item.Surface)
+                                {
+                                    DrawSurface(item.Surface.Value, item.Bounds.Position);
+                                }
+                            }
                         }
 
                         return;

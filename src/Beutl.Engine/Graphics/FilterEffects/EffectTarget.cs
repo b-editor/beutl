@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Collections.Pooled;
+using Beutl.Graphics.Rendering;
 using Beutl.Media.Source;
 
 using SkiaSharp;
@@ -7,9 +8,12 @@ namespace Beutl.Graphics.Effects;
 
 public sealed class EffectTarget : IDisposable
 {
+    [Obsolete("Use a constructor with no parameters.")]
     public static readonly EffectTarget Empty = new();
 
     private object? _target;
+
+    internal readonly PooledList<FEItemWrapper> _history = [];
 
     public EffectTarget(FilterEffectNode node)
     {
@@ -37,6 +41,8 @@ public sealed class EffectTarget : IDisposable
 
     public Ref<SKSurface>? Surface => _target as Ref<SKSurface>;
 
+    public bool IsEmpty => _target == null;
+
     public EffectTarget Clone()
     {
         if (Node != null)
@@ -45,10 +51,12 @@ public sealed class EffectTarget : IDisposable
         }
         else if (Surface != null)
         {
-            return new EffectTarget(Surface, OriginalBounds)
+            var obj = new EffectTarget(Surface, OriginalBounds)
             {
                 Bounds = Bounds
             };
+            obj._history.AddRange(_history.Select(v => v.Inherit()));
+            return obj;
         }
         else
         {
@@ -61,6 +69,7 @@ public sealed class EffectTarget : IDisposable
         Surface?.Dispose();
         _target = null;
         OriginalBounds = default;
+        _history.Dispose();
     }
 
     public void Draw(ImmediateCanvas canvas)
@@ -78,4 +87,3 @@ public sealed class EffectTarget : IDisposable
         }
     }
 }
-

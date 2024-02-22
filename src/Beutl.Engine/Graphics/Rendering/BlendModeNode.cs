@@ -34,12 +34,12 @@ public sealed class BlendModeNode(BlendMode blendMode) : ContainerNode, ISupport
         }
     }
 
-    void ISupportRenderCache.RenderForCache(ImmediateCanvas canvas, RenderCache cache)
+    void ISupportRenderCache.CreateCache(IImmediateCanvasFactory factory, RenderCache cache, RenderCacheContext context)
     {
         if (BlendMode != BlendMode.SrcOver)
             throw new InvalidOperationException("SrcOver以外のブレンドモードはキャッシュ用に描画できません");
 
-        Render(canvas);
+        context.CreateDefaultCache(this, cache, factory);
     }
 
     void ISupportRenderCache.RenderWithCache(ImmediateCanvas canvas, RenderCache cache)
@@ -51,10 +51,5 @@ public sealed class BlendModeNode(BlendMode blendMode) : ContainerNode, ISupport
                 canvas.DrawSurface(surface.Value, cacheBounds.Position);
             }
         }
-    }
-
-    Rect ISupportRenderCache.TransformBoundsForCache(RenderCache cache)
-    {
-        return Bounds;
     }
 }

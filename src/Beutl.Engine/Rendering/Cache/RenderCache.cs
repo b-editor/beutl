@@ -14,8 +14,7 @@ namespace Beutl.Rendering.Cache;
 public sealed class RenderCache(IGraphicNode node) : IDisposable
 {
     private readonly WeakReference<IGraphicNode> _node = new(node);
-    private Ref<SKSurface>? _cache;
-    private Rect _cacheBounds;
+    private readonly List<(Ref<SKSurface>, Rect)> _cache = new(1);
 
     private int _count;
 
@@ -33,7 +32,9 @@ public sealed class RenderCache(IGraphicNode node) : IDisposable
 
     private FixedArrayAccessor Accessor => _accessor ??= new();
 
-    public bool IsCached => _cache != null;
+    public bool IsCached => _cache.Count != 0;
+
+    public int CacheCount => _cache.Count;
 
     public DateTime LastAccessedTime { get; private set; }
 
@@ -174,15 +175,17 @@ public sealed class RenderCache(IGraphicNode node) : IDisposable
     {
         RenderThread.Dispatcher.CheckAccess();
 #if DEBUG
-        if (_cache != null)
+        if (_cache.Count != 0)
         {
             Debug.WriteLine($"[RenderCache:Invalildated] '{(_node.TryGetTarget(out IGraphicNode? node) ? node : null)}'");
         }
 #endif
 
-        _cache?.Dispose();
-        _cache = null;
-        _cacheBounds = Rect.Empty;
+        foreach ((Ref<SKSurface>, Rect) item in _cache)
+        {
+            item.Item1.Dispose();
+        }
+        _cache.Clear();
         _cachedAt = -1;
     }
 
@@ -190,13 +193,18 @@ public sealed class RenderCache(IGraphicNode node) : IDisposable
     {
         void DisposeOnRenderThread()
         {
-            if (_cache != null)
+            if (_cache.Count != 0)
             {
-                Ref<SKSurface> tmp = _cache;
-                _cache = null;
-                _cacheBounds = Rect.Empty;
+                (Ref<SKSurface>, Rect)[] tmp = [.. _cache];
+                _cache.Clear();
 
-                RenderThread.Dispatcher.Dispatch(tmp.Dispose, DispatchPriority.Low);
+                RenderThread.Dispatcher.Dispatch(() =>
+                {
+                    foreach ((Ref<SKSurface>, Rect) item in tmp)
+                    {
+                        item.Item1.Dispose();
+                    }
+                }, DispatchPriority.Low);
             }
 
             IsDisposed = true;
@@ -206,9 +214,11 @@ public sealed class RenderCache(IGraphicNode node) : IDisposable
         {
             if (RenderThread.Dispatcher.CheckAccess())
             {
-                _cache?.Dispose();
-                _cache = null;
-                _cacheBounds = Rect.Empty;
+                foreach ((Ref<SKSurface>, Rect) item in _cache)
+                {
+                    item.Item1.Dispose();
+                }
+                _cache.Clear();
                 IsDisposed = true;
             }
             else
@@ -222,27 +232,55 @@ public sealed class RenderCache(IGraphicNode node) : IDisposable
 
     public Ref<SKSurface> UseCache(out Rect bounds)
     {
-        if (_cache == null)
+        if (_cache.Count == 0)
         {
             throw new Exception("キャッシュはありません");
         }
 
-        bounds = _cacheBounds;
+        (Ref<SKSurface>, Rect) c = _cache[0];
+        bounds = c.Item2;
         LastAccessedTime = DateTime.UtcNow;
-        return _cache.Clone();
+        return c.Item1.Clone();
     }
 
     public void StoreCache(Ref<SKSurface> surface, Rect bounds)
     {
         Invalidate();
 
-        _cache = surface.Clone();
-        _cacheBounds = bounds;
+        _cache.Add((surface.Clone(), bounds));
 
         if (_accessor != null)
         {
             const int Count = FixedArray.Count;
-            _cachedAt = (_accessor.Index + (Count - 1)) % Count;
+            _cachedAt = _accessor.Get((_accessor.Index + (Count - 1)) % Count);
+        }
+        else
+        {
+            _cachedAt = 0;
+        }
+
+        LastAccessedTime = DateTime.UtcNow;
+    }
+
+    public (Ref<SKSurface> Surface, Rect Bounds)[] UseCache()
+    {
+        LastAccessedTime = DateTime.UtcNow;
+        return _cache.Select(i => (i.Item1.Clone(), i.Item2)).ToArray();
+    }
+
+    public void StoreCache(ReadOnlySpan<(Ref<SKSurface> Surface, Rect Bounds)> items)
+    {
+        Invalidate();
+
+        foreach ((Ref<SKSurface> surface, Rect bounds) in items)
+        {
+            _cache.Add((surface.Clone(), bounds));
+        }
+
+        if (_accessor != null)
+        {
+            const int Count = FixedArray.Count;
+            _cachedAt = _accessor.Get((_accessor.Index + (Count - 1)) % Count);
         }
         else
         {
