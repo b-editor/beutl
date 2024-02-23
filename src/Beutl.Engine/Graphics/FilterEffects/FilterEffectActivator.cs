@@ -77,6 +77,8 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
     // 最小単位である'IFEItem'の数がわからないので 'count'は'nullable'
     public void Apply(FilterEffectContext context, int offset, int? count)
     {
+        if (CurrentTargets.Count == 0) return;
+
         int takeCount;
         if (count.HasValue)
         {
@@ -101,6 +103,8 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
             else if (item.Item is IFEItem_Custom custom)
             {
                 Flush(true);
+                if (CurrentTargets.Count == 0) return;
+
                 var customContext = new FilterEffectCustomOperationContext(
                     _factory,
                     CurrentTargets,
@@ -131,6 +135,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
         if (context._renderTimeItems.Count > 0)
         {
             Flush(false);
+            if (CurrentTargets.Count == 0) return;
 
             FEItemWrapper? deferral = null;
             object[]? deferralItems = null;
@@ -247,7 +252,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
             offset = offset_;
             count = count_;
 
-            if (deferred && (!count.HasValue || count > 0))
+            if (deferred && (!count.HasValue || count > 0) && CurrentTargets.Count > 0)
             {
                 if (offset == 0)
                 {
