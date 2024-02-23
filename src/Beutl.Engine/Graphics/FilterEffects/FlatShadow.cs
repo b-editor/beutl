@@ -85,7 +85,7 @@ public class FlatShadow : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((Angle, Length, Brush, ShadowOnly), Apply, TransformBounds);
+        context.Custom((Angle, Length, (Brush as IMutableBrush)?.ToImmutable(), ShadowOnly), Apply, TransformBounds);
     }
 
     public override Rect TransformBounds(Rect bounds)

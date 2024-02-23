@@ -84,7 +84,7 @@ public class StrokeEffect : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((Offset, Pen, Style), Apply, TransformBounds);
+        context.Custom((Offset, (Pen as IMutablePen)?.ToImmutable(), Style), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((Point Offset, IPen? Pen, Border.BorderStyles Style) data, Rect rect)
