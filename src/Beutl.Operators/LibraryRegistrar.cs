@@ -21,6 +21,11 @@ public static class LibraryRegistrar
             );
         
         LibraryService.Current
+            .AddMultiple("PartsSplitEffect", m => m
+                .BindFilterEffect<PartsSplitEffect>()
+            );
+        
+        LibraryService.Current
             .AddMultiple(Strings.Ellipse, m => m
                 .BindSourceOperator<Source.EllipseOperator>()
                 .BindDrawable<Graphics.Shapes.EllipseShape>()
