@@ -32,29 +32,17 @@ internal record FEItemWrapper(
     FilterEffect? FilterEffect,
     int Version,
     // このIFEItemがTransformBoundsする前のBounds
-    Rect SourceBounds,
-
-    // SplitImageなど一つのEffectTargetから複数のEffectTargetを作成する処理で
-    //   このIFEItemが継承されたものかを判別するために使う
-    // (0) ───┐
-    // (1)    ├────
-    // (1)    └──┬─
-    // (2)       └─
-    // Todo: 後で削除
-    int InheritanceCount = 0)
+    Rect SourceBounds)
 {
+    // Todo: 後で削除
     public FEItemWrapper Inherit()
     {
-        return this with
-        {
-            InheritanceCount = InheritanceCount + 1
-        };
+        return this;
     }
 }
 
-public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectContext>
+public sealed class FilterEffectContext : IDisposable
 {
-    private readonly PooledList<(FilterEffect FE, int Version)> _versions;
     internal readonly PooledList<FEItemWrapper> _items;
     internal readonly PooledList<FilterEffectOrFEItemWrapper> _renderTimeItems;
 
@@ -72,8 +60,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     public FilterEffectContext(Rect bounds)
     {
         Bounds = OriginalBounds = bounds;
-        _versions = new PooledList<(FilterEffect, int)>(ClearMode.Always);
-        _renderTimeItems = new();
+        _renderTimeItems = [];
         _items = [];
     }
 
@@ -81,7 +68,6 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     {
         OriginalBounds = obj.OriginalBounds;
         Bounds = obj.Bounds;
-        _versions = new PooledList<(FilterEffect, int)>(obj._versions.Span, ClearMode.Always);
         _renderTimeItems = new PooledList<FilterEffectOrFEItemWrapper>(obj._renderTimeItems);
         _items = new PooledList<FEItemWrapper>(obj._items);
     }
@@ -622,8 +608,6 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
                 {
                     _current = filterEffect;
 
-                    _versions.Add((filterEffect, filterEffect.Version));
-
                     if (filterEffect is { IsEnabled: true })
                     {
                         filterEffect.ApplyTo(this);
@@ -637,113 +621,13 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         }
     }
 
-    public int FirstVersion()
-    {
-        if (_versions.Count == 0)
-            throw new InvalidOperationException("有効なエフェクトバージョンがありません");
-
-        return _versions[0].Version;
-    }
-
     public int CountItems()
     {
         return _items.Count;
     }
 
-    public Rect TransformBounds(Range range)
-    {
-        Rect rect = OriginalBounds;
-        foreach (IFEItem item in _items.Span[range])
-        {
-            if (rect.IsInvalid)
-                break;
-
-            rect = item.TransformBounds(rect);
-        }
-
-        return rect;
-    }
-
-    public int CountEquals(FilterEffectContext? other)
-    {
-        if (other == null)
-            return 0;
-        //if (other.OriginalBounds != OriginalBounds)
-        //    return -1;
-
-        int minLength = Math.Min(other._items.Count, _items.Count);
-        for (int i = 0; i < minLength; i++)
-        {
-            if (!_items[i].Equals(other._items[i]))
-            {
-                return i;
-            }
-        }
-
-        return 0;
-    }
-
-    public bool Equals(FilterEffectContext? other)
-    {
-        if (other == null
-            || _items.Count != other._items.Count
-            || _renderTimeItems.Count != other._renderTimeItems.Count
-            || Bounds != other.Bounds)
-            return false;
-
-        Span<FEItemWrapper> items = _items.Span;
-        Span<FEItemWrapper> otherItems = other._items.Span;
-        if (!items.SequenceEqual(otherItems))
-        {
-            return false;
-        }
-
-        for (int i = 0; i < _renderTimeItems.Count; i++)
-        {
-            FilterEffectOrFEItemWrapper x = _renderTimeItems[i];
-            FilterEffectOrFEItemWrapper y = other._renderTimeItems[i];
-            if (x is FEItemWrapper xx && y is FEItemWrapper yy)
-            {
-                if (!xx.Equals(yy))
-                {
-                    return false;
-                }
-            }
-            else if (x is FilterEffect xxx && y is FilterEffect yyy)
-            {
-                if (xxx.Version != yyy.Version)
-                {
-                    return false;
-                }
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    public override bool Equals(object? obj)
-    {
-        return Equals(obj as FilterEffectContext);
-    }
-
-    public override int GetHashCode()
-    {
-        var hash = new HashCode();
-        foreach (FEItemWrapper item in _items.Span)
-        {
-            hash.Add(item.GetHashCode());
-        }
-
-        return hash.ToHashCode();
-    }
-
     public void Dispose()
     {
-        _versions.Dispose();
         _items.Dispose();
         _renderTimeItems.Dispose();
     }
