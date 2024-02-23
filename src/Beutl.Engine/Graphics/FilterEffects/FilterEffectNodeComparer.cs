@@ -71,8 +71,9 @@ public class FilterEffectNodeComparer
                             }
                             else
                             {
+                                // エフェクトが追加されたとき
                                 d = CountEquals(_current, context._items);
-                                cache.ReportSameNumber(d, context._items.Count);
+                                cache.ReportSameNumber(d, context._items.Count + 1);
                                 _prevVersion = Node.FilterEffect.Version;
                                 return;
                             }
