@@ -8,6 +8,7 @@ namespace Beutl.Graphics.Effects;
 
 public class FilterEffectNodeComparer
 {
+    // Todo: すべてのEffectTargetのhistoryを記録
     private ImmutableArray<FEItemWrapper> _current = [];
     private int? _prevVersion;
 

@@ -1,17 +1,10 @@
-﻿using System.Collections.Immutable;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
-using Beutl.Collections.Pooled;
 using Beutl.Media.Source;
 
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
-
-/*
- * 本当にひどいコードです。
- * 読む際は注意してください。
- */
 
 public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBuilder builder, IImmediateCanvasFactory factory) : IDisposable
 {
@@ -125,13 +118,9 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
         {
             count = count.Value - takeCount;
         }
-        //if (takeCount > 0)
-        {
-            offset = Math.Max(offset - context._items.Count, 0);
-        }
-        //offset -= takeCount;
 
-        // NOTE: 一旦ノードキャッシュ無しで考えるので、rangeは無視
+        offset = Math.Max(offset - context._items.Count, 0);
+
         if (context._renderTimeItems.Count > 0)
         {
             Flush(false);

@@ -79,6 +79,7 @@ public abstract class Drawable : Renderable
             BlendModeProperty);
     }
 
+    // DrawableBrushで使われる
     public Rect Bounds { get; protected set; }
 
     [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings), GroupName = nameof(Strings.ImageFilter))]
