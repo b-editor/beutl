@@ -226,12 +226,18 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
                             if (i == 0)
                             {
-                                int takeCount_ = count ?? ctx._items.Count - offset;
-                                if (count_.HasValue)
+                                int takeCount_;
+                                if (count.HasValue)
                                 {
-                                    count_ = count_.Value - takeCount_;
+                                    takeCount_ = Math.Min(count.Value, ctx._items.Count);
+                                    count_ = count.Value - takeCount_;
                                 }
-                                offset_ -= takeCount_;
+                                else
+                                {
+                                    takeCount_ = Math.Max(ctx._items.Count - offset, 0);
+                                }
+
+                                offset_ = Math.Max(offset - ctx._items.Count, 0);
                             }
                         }
                     }
@@ -269,7 +275,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
                 using (var builder = new SKImageFilterBuilder())
                 using (var activator = new FilterEffectActivator(CurrentTargets, builder, _factory))
-                using (var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds()))
+                using (var ctx = new FilterEffectContext(Rect.Invalid))
                 {
                     foreach (object item in deferralItems!)
                     {
