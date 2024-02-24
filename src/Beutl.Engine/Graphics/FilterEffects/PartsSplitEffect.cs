@@ -28,16 +28,19 @@ public class PartsSplitEffect : FilterEffect
             alphaMat.FindContours(
                 out Cv.Point[][] points,
                 out Cv.HierarchyIndex[] h,
-                Cv.RetrievalModes.List,
+                Cv.RetrievalModes.Tree,
                 Cv.ContourApproximationModes.ApproxSimple);
 
             var newTargets = new EffectTargets();
 
             try
             {
-                using var skpath = new SKPath();
-                foreach (Cv.Point[] inner in points)
+                var pathes = new List<(SKPath, int Parent, int Index)>(h.Length);
+                for (int i1 = 0; i1 < points.Length; i1++)
                 {
+                    Cv.Point[] inner = points[i1];
+                    int parent = h[i1].Parent;
+                    var skpath = new SKPath();
                     bool first = true;
                     foreach (Cv.Point item in inner)
                     {
@@ -53,7 +56,37 @@ public class PartsSplitEffect : FilterEffect
                     }
 
                     skpath.Close();
+                    pathes.Add((skpath, parent, i1));
+                }
 
+                for (int j = 0; j < pathes.Count; j++)
+                {
+                    (SKPath Path, int Parent, int Index) item = pathes[j];
+                    if (0 <= item.Parent)
+                    {
+                        int parentIndex = pathes.FindIndex(v => v.Index == item.Parent);
+                        if (parentIndex >= 0)
+                        {
+                            (SKPath, int Parent, int Index) parent = pathes[parentIndex];
+                            SKPath newPath = parent.Item1.Op(item.Path, SKPathOp.Xor);
+                            if (newPath != null)
+                            {
+                                item.Path.Dispose();
+                                parent.Item1.Dispose();
+                                pathes[parentIndex] = (newPath, parent.Parent, parent.Index);
+
+                                pathes.RemoveAt(j);
+                                if (parentIndex < j)
+                                {
+                                    j--;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                foreach ((SKPath skpath, _, _) in pathes)
+                {
                     SKRect pathBounds = skpath.TightBounds;
                     var bounds = new Rect(
                         target.Bounds.X + pathBounds.Left,
@@ -71,7 +104,7 @@ public class PartsSplitEffect : FilterEffect
 
                     newTargets.Add(newTarget);
 
-                    skpath.Reset();
+                    skpath.Dispose();
                 }
 
                 srcSurface.Dispose();
