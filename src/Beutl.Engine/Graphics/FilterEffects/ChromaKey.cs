@@ -63,7 +63,7 @@ public class ChromaKey : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((Color.ToHsv(), HueRange, SaturationRange), OnApplyTo, (_, r) => r);
+        context.CustomEffect((Color.ToHsv(), HueRange, SaturationRange), OnApplyTo, (_, r) => r);
     }
 
     private static unsafe void CopyFromCPU(MemoryBuffer1D<Bgra8888, Stride1D.Dense> source, SKSurface surface, SKImageInfo imageInfo)
@@ -86,7 +86,7 @@ public class ChromaKey : FilterEffect
         source.View.CopyToCPU(ref Unsafe.AsRef<Bgra8888>((void*)bitmap.GetPixels()), source.Length);
     }
 
-    private unsafe void OnApplyTo((Hsv hsv, float hueRange, float satRange) data, FilterEffectCustomOperationContext context)
+    private unsafe void OnApplyTo((Hsv hsv, float hueRange, float satRange) data, CustomFilterEffectContext context)
     {
         for (int i = 0; i < context.Targets.Count; i++)
         {

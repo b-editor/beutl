@@ -48,7 +48,7 @@ public class MedianBlur : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((KernelSize, FixImageSize), Apply, TransformBounds);
+        context.CustomEffect((KernelSize, FixImageSize), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((int KernelSize, bool FixImageSize) data, Rect rect)
@@ -65,7 +65,7 @@ public class MedianBlur : FilterEffect
         return rect;
     }
 
-    private static void Apply((int KernelSize, bool FixImageSize) data, FilterEffectCustomOperationContext context)
+    private static void Apply((int KernelSize, bool FixImageSize) data, CustomFilterEffectContext context)
     {
         for (int i = 0; i < context.Targets.Count; i++)
         {

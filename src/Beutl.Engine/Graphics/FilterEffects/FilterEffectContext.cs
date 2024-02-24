@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Reactive;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 using Beutl.Collections.Pooled;
@@ -199,7 +200,7 @@ public sealed class FilterEffectContext : IDisposable
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
     public void InnerShadow(Point position, Size sigma, Color color)
     {
-        Custom(
+        CustomEffect(
             data: (position, sigma, color),
             action: (data, context) =>
             {
@@ -247,7 +248,7 @@ public sealed class FilterEffectContext : IDisposable
 
     public void InnerShadowOnly(Point position, Size sigma, Color color)
     {
-        Custom(
+        CustomEffect(
             data: (position, sigma, color),
             action: (data, context) =>
             {
@@ -550,7 +551,7 @@ public sealed class FilterEffectContext : IDisposable
 
     public void BlendMode(IBrush? brush, BlendMode blendMode)
     {
-        static void ApplyCore((IBrush? Brush, BlendMode BlendMode) data, FilterEffectCustomOperationContext context)
+        static void ApplyCore((IBrush? Brush, BlendMode BlendMode) data, CustomFilterEffectContext context)
         {
             for (int i = 0; i < context.Targets.Count; i++)
             {
@@ -574,9 +575,10 @@ public sealed class FilterEffectContext : IDisposable
             }
         }
 
-        Custom((brush, blendMode), ApplyCore, (_, r) => r);
+        CustomEffect((brush, blendMode), ApplyCore, (_, r) => r);
     }
 
+    [Obsolete("Use CustomEffect")]
     public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action, Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {
@@ -584,9 +586,16 @@ public sealed class FilterEffectContext : IDisposable
         Bounds = transformBounds.Invoke(data, Bounds);
     }
 
-    public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action)
+    public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action, Func<T, Rect, Rect> transformBounds)
+        where T : IEquatable<T>
     {
-        AddItem(new FEItem_Custom<T>(data, action, null));
+        AddItem(new FEItem_CustomEffect<T>(data, action, transformBounds));
+        Bounds = transformBounds.Invoke(data, Bounds);
+    }
+
+    public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action)
+    {
+        AddItem(new FEItem_CustomEffect<T>(data, action, null));
         Bounds = Rect.Invalid;
     }
 

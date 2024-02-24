@@ -1,4 +1,6 @@
-﻿using Beutl.Collections.Pooled;
+﻿using System.ComponentModel;
+
+using Beutl.Collections.Pooled;
 using Beutl.Graphics.Rendering;
 using Beutl.Media.Source;
 
@@ -36,6 +38,10 @@ public sealed class EffectTarget : IDisposable
     public Rect OriginalBounds { get; set; }
 
     public Rect Bounds { get; set; }
+
+    [Obsolete()]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public Size Size => Bounds.Size;
 
     public FilterEffectNode? Node => _target as FilterEffectNode;
 

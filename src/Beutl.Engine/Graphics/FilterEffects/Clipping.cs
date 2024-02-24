@@ -29,7 +29,7 @@ public sealed class Clipping : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom(Thickness, Apply, TransformBounds);
+        context.CustomEffect(Thickness, Apply, TransformBounds);
     }
 
     public override Rect TransformBounds(Rect bounds)
@@ -42,7 +42,7 @@ public sealed class Clipping : FilterEffect
         return rect.Deflate(thickness).Normalize();
     }
 
-    private void Apply(Thickness thickness, FilterEffectCustomOperationContext context)
+    private void Apply(Thickness thickness, CustomFilterEffectContext context)
     {
         for (int i = 0; i < context.Targets.Count; i++)
         {

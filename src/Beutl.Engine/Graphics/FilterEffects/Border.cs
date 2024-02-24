@@ -134,7 +134,7 @@ public class Border : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((Offset, Thickness, Color, MaskType, Style), Apply, TransformBounds);
+        context.CustomEffect((Offset, Thickness, Color, MaskType, Style), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((Point Offset, int Thickness, Color Color, MaskTypes MaskType, BorderStyles Style) data, Rect rect)
@@ -142,7 +142,7 @@ public class Border : FilterEffect
         return rect.Union(rect.Translate(new Vector(data.Offset.X, data.Offset.Y)).Inflate(data.Thickness / 2)).Inflate(8);
     }
 
-    private static void Apply((Point Offset, int Thickness, Color Color, MaskTypes MaskType, BorderStyles Style) data, FilterEffectCustomOperationContext context)
+    private static void Apply((Point Offset, int Thickness, Color Color, MaskTypes MaskType, BorderStyles Style) data, CustomFilterEffectContext context)
     {
         Point offset = data.Offset;
         Color color = data.Color;

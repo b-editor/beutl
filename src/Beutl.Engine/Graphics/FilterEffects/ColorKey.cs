@@ -58,7 +58,7 @@ public class ColorKey : FilterEffect
         colorNtsc = Math.Clamp(colorNtsc, 0, 255);
         colorNtsc = MathF.Round(colorNtsc);
 
-        context.Custom((colorNtsc, Range), OnApplyTo, (_, r) => r);
+        context.CustomEffect((colorNtsc, Range), OnApplyTo, (_, r) => r);
     }
 
     private static unsafe void CopyFromCPU(MemoryBuffer1D<Bgra8888, Stride1D.Dense> source, SKSurface surface, SKImageInfo imageInfo)
@@ -81,7 +81,7 @@ public class ColorKey : FilterEffect
         source.View.CopyToCPU(ref Unsafe.AsRef<Bgra8888>((void*)bitmap.GetPixels()), source.Length);
     }
 
-    private unsafe void OnApplyTo((float colorNtsc, float range) data, FilterEffectCustomOperationContext context)
+    private unsafe void OnApplyTo((float colorNtsc, float range) data, CustomFilterEffectContext context)
     {
         for (int i = 0; i < context.Targets.Count; i++)
         {

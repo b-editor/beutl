@@ -49,7 +49,7 @@ public class Blur : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((KernelSize, FixImageSize), Apply, TransformBounds);
+        context.CustomEffect((KernelSize, FixImageSize), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((PixelSize KernelSize, bool FixImageSize) data, Rect rect)
@@ -71,7 +71,7 @@ public class Blur : FilterEffect
         return rect;
     }
 
-    private static void Apply((PixelSize KernelSize, bool FixImageSize) data, FilterEffectCustomOperationContext context)
+    private static void Apply((PixelSize KernelSize, bool FixImageSize) data, CustomFilterEffectContext context)
     {
         for (int i = 0; i < context.Targets.Count; i++)
         {

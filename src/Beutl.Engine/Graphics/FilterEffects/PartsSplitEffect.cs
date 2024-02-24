@@ -10,10 +10,10 @@ public class PartsSplitEffect : FilterEffect
 {
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom(Unit.Default, ApplyCore);
+        context.CustomEffect(Unit.Default, ApplyCore);
     }
 
-    private void ApplyCore(Unit unit, FilterEffectCustomOperationContext context)
+    private void ApplyCore(Unit unit, CustomFilterEffectContext context)
     {
         for (int i = 0; i < context.Targets.Count; i++)
         {

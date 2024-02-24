@@ -70,7 +70,7 @@ public class SplitEffect : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((HorizontalDivisions, VerticalDivisions, HorizontalSpacing, VerticalSpacing), (d, context) =>
+        context.CustomEffect((HorizontalDivisions, VerticalDivisions, HorizontalSpacing, VerticalSpacing), (d, context) =>
         {
             for (int i = 0; i < context.Targets.Count; i++)
             {

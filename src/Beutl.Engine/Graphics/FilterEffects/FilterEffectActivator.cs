@@ -98,7 +98,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                 Flush(true);
                 if (CurrentTargets.Count == 0) return;
 
-                var customContext = new FilterEffectCustomOperationContext(
+                var customContext = new CustomFilterEffectContext(
                     _factory,
                     CurrentTargets,
                     [.. CurrentTargets[0]._history.Select(v => v.Inherit())]);
@@ -247,7 +247,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                 {
                     Flush(false);
 
-                    var customContext = new FilterEffectCustomOperationContext(
+                    var customContext = new CustomFilterEffectContext(
                         _factory,
                         CurrentTargets,
                         [.. CurrentTargets[0]._history.Select(v => v.Inherit())]);

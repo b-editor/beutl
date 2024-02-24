@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.ComponentModel;
 
 using Beutl.Media.Source;
 
@@ -6,30 +7,47 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[EditorBrowsable(EditorBrowsableState.Advanced)]
+[Obsolete("Use CustomFilterEffectContext")]
 public class FilterEffectCustomOperationContext
 {
     private readonly IImmediateCanvasFactory _factory;
     private readonly ImmutableArray<FEItemWrapper> _history;
+    private EffectTarget _target;
 
     internal FilterEffectCustomOperationContext(
         IImmediateCanvasFactory canvas,
-        EffectTargets targets,
+        EffectTarget target,
         ImmutableArray<FEItemWrapper> history)
     {
-        Targets = targets;
+        _target = target.Clone();
         _factory = canvas;
         _history = history;
     }
 
-    public EffectTargets Targets { get; }
-
-    public EffectTarget CreateTarget(Rect bounds)
+    public EffectTarget Target
     {
-        SKSurface? surface = _factory.CreateRenderTarget((int)bounds.Width, (int)bounds.Height);
+        get => _target;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            _target = value;
+        }
+    }
+
+    public void ReplaceTarget(EffectTarget target)
+    {
+        Target.Dispose();
+        Target = target.Clone();
+    }
+
+    public EffectTarget CreateTarget(int width, int height)
+    {
+        SKSurface? surface = _factory.CreateRenderTarget(width, height);
         if (surface != null)
         {
             using var surfaceRef = Ref<SKSurface>.Create(surface);
-            var obj = new EffectTarget(surfaceRef, bounds);
+            var obj = new EffectTarget(surfaceRef, new Rect(_target.Bounds.X, _target.Bounds.Y, width, height));
 
             obj._history.AddRange(_history);
             return obj;

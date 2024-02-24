@@ -85,7 +85,7 @@ public class FlatShadow : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((Angle, Length, (Brush as IMutableBrush)?.ToImmutable(), ShadowOnly), Apply, TransformBounds);
+        context.CustomEffect((Angle, Length, (Brush as IMutableBrush)?.ToImmutable(), ShadowOnly), Apply, TransformBounds);
     }
 
     public override Rect TransformBounds(Rect bounds)
@@ -108,7 +108,7 @@ public class FlatShadow : FilterEffect
         return new Rect(rect.X - (xAbs - x) / 2, rect.Y - (yAbs - y) / 2, width, height);
     }
 
-    private static void Apply((float Angle, float Length, IBrush? Brush, bool ShadowOnly) data, FilterEffectCustomOperationContext context)
+    private static void Apply((float Angle, float Length, IBrush? Brush, bool ShadowOnly) data, CustomFilterEffectContext context)
     {
         static Cv.Point[][] FindPoints(Bitmap<Bgra8888> src)
         {

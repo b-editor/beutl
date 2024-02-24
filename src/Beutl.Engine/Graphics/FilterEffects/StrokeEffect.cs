@@ -84,7 +84,7 @@ public class StrokeEffect : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((Offset, (Pen as IMutablePen)?.ToImmutable(), Style), Apply, TransformBounds);
+        context.CustomEffect((Offset, (Pen as IMutablePen)?.ToImmutable(), Style), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((Point Offset, IPen? Pen, Border.BorderStyles Style) data, Rect rect)
@@ -93,7 +93,7 @@ public class StrokeEffect : FilterEffect
         return rect.Union(borderBounds.Translate(new Vector(data.Offset.X, data.Offset.Y)));
     }
 
-    private static void Apply((Point Offset, IPen? Pen, Border.BorderStyles Style) data, FilterEffectCustomOperationContext context)
+    private static void Apply((Point Offset, IPen? Pen, Border.BorderStyles Style) data, CustomFilterEffectContext context)
     {
         static SKPath CreateBorderPath(Bitmap<Bgra8888> src)
         {

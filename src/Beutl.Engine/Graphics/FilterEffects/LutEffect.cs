@@ -95,12 +95,12 @@ public sealed class LutEffect : FilterEffect
             }
             else
             {
-                context.Custom((_cube, _strength / 100), OnApply3DLUT_GPU, (_, r) => r);
+                context.CustomEffect((_cube, _strength / 100), OnApply3DLUT_GPU, (_, r) => r);
             }
         }
     }
 
-    private unsafe void OnApply3DLUT_GPU((CubeFile, float) data, FilterEffectCustomOperationContext context)
+    private unsafe void OnApply3DLUT_GPU((CubeFile, float) data, CustomFilterEffectContext context)
     {
         for (int i = 0; i < context.Targets.Count; i++)
         {

@@ -65,7 +65,7 @@ public class GaussianBlur : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((KernelSize, Sigma, FixImageSize), Apply, TransformBounds);
+        context.CustomEffect((KernelSize, Sigma, FixImageSize), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((PixelSize KernelSize, Size Sigma, bool FixImageSize) data, Rect rect)
@@ -87,7 +87,7 @@ public class GaussianBlur : FilterEffect
         return rect;
     }
 
-    private static void Apply((PixelSize KernelSize, Size Sigma, bool FixImageSize) data, FilterEffectCustomOperationContext context)
+    private static void Apply((PixelSize KernelSize, Size Sigma, bool FixImageSize) data, CustomFilterEffectContext context)
     {
         for (int i = 0; i < context.Targets.Count; i++)
         {
