@@ -129,6 +129,9 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
             }
 
             _rect = activator.CurrentTargets.CalculateBounds();
+
+            // Todo: [0..1]までキャッシュされていたが、[0..2]までキャッシュできるようになったとき、キャッシュされない。
+            // なので、FilterEffectNodeComparer._currentから、キャッシュされた部分までのhistoryを付け加えたものを記録する。
             if (offset == 0 && !count.HasValue)
             {
                 _comparer.OnRender(activator);
@@ -169,11 +172,11 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
             context.ClearCache(this, cache);
 
             cache.StoreCache([.. activator.CurrentTargets
-                .Select(i => (i.Surface?.Clone(), i.Bounds))
+                .Select(i => (i.Surface, i.Bounds))
                 .Where(i => i.Item1 != null)]);
         }
 
-        Debug.WriteLine($"[RenderCache:Created] '{this}'");
+        Debug.WriteLine($"[RenderCache:Created] '{this}[0..{minNumber}]'");
     }
 
     void ISupportRenderCache.RenderWithCache(ImmediateCanvas canvas, RenderCache cache)
@@ -186,9 +189,18 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
         {
             using (var targets = new EffectTargets())
             {
-                targets.AddRange(cacheItems.Select(i => new EffectTarget(i.Surface, i.Bounds)
+                targets.AddRange(cacheItems.Select(i =>
                 {
-                    OriginalBounds = i.Bounds.WithX(0).WithY(0)
+                    SKSurface srcSurface = i.Surface.Value;
+                    SKRectI rect = srcSurface.Canvas.DeviceClipBounds;
+                    SKSurface newSurface = canvas.CreateRenderTarget(rect.Width, rect.Height)!;
+                    newSurface.Canvas.DrawSurface(srcSurface, default);
+
+                    using var surfaceRef = Ref<SKSurface>.Create(newSurface);
+                    return new EffectTarget(surfaceRef, i.Bounds)
+                    {
+                        OriginalBounds = i.Bounds.WithX(0).WithY(0)
+                    };
                 }));
 
                 RenderCore(canvas, minNumber, null, targets);
