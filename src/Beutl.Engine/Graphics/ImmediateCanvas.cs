@@ -172,51 +172,37 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         if (GetCacheContext() is { } context)
         {
             RenderCache cache = context.GetCache(node);
-            if (node is ISupportRenderCache supportCache)
+            // RenderLayer.Renderでキャッシュの有効性を確認しているのでチェックを省く
+            if (cache.IsCached)
             {
-                if (cache.CanCacheBoundary() && cache.SameChildren())
+                if (node is ISupportRenderCache supportCache)
                 {
-                    if (cache.IsCached)
-                    {
-                        supportCache.RenderWithCache(this, cache);
-                        return;
-                    }
+                    supportCache.RenderWithCache(this, cache);
+                    return;
                 }
-            }
-            else
-            {
-                if (cache.IsCached)
+                else
                 {
-                    if (context.CanCacheRecursive(node))
+                    if (cache.CacheCount == 1)
                     {
-                        if (cache.CacheCount == 1)
+                        using (Ref<SKSurface> surface = cache.UseCache(out Rect bounds))
                         {
-                            using (Ref<SKSurface> surface = cache.UseCache(out Rect bounds))
-                            {
-                                DrawSurface(surface.Value, bounds.Position);
-                            }
+                            DrawSurface(surface.Value, bounds.Position);
                         }
-                        else
-                        {
-                            foreach ((Ref<SKSurface> Surface, Rect Bounds) item in cache.UseCache())
-                            {
-                                using (item.Surface)
-                                {
-                                    DrawSurface(item.Surface.Value, item.Bounds.Position);
-                                }
-                            }
-                        }
-
-                        return;
                     }
                     else
                     {
-                        cache.Invalidate();
+                        foreach ((Ref<SKSurface> Surface, Rect Bounds) item in cache.UseCache())
+                        {
+                            using (item.Surface)
+                            {
+                                DrawSurface(item.Surface.Value, item.Bounds.Position);
+                            }
+                        }
                     }
+
+                    return;
                 }
             }
-
-            cache.CaptureChildren();
         }
 
         node.Render(this);

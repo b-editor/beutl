@@ -126,13 +126,24 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
                 void AcceptsAll(IGraphicNode node)
                 {
                     RenderCache cache = cacheContext.GetCache(node);
-                    if (node is ISupportRenderCache sp)
+
+                    if (node is ISupportRenderCache supportCache)
                     {
-                        sp.Accepts(cache);
+                        supportCache.Accepts(cache);
+                        if (cache.IsCached
+                            && !(cache.CanCacheBoundary()
+                            && cacheContext.CanCacheRecursiveChildrenOnly(node)))
+                        {
+                            cache.Invalidate();
+                        }
                     }
                     else
                     {
                         cache.IncrementRenderCount();
+                        if (cache.IsCached && !cacheContext.CanCacheRecursive(node))
+                        {
+                            cache.Invalidate();
+                        }
                     }
 
                     if (node is ContainerNode c)
@@ -141,6 +152,8 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
                         {
                             AcceptsAll(item);
                         }
+
+                        cache.CaptureChildren();
                     }
                 }
 
