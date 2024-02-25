@@ -72,7 +72,7 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
         if (context == null
            || _prevVersion != FilterEffect.Version)
         {
-            context = new FilterEffectContext(OriginalBounds);
+            context = new FilterEffectContext(Children.Count == 1 ? OriginalBounds : Rect.Invalid);
             context.Apply(FilterEffect);
             _prevContext?.Dispose();
             _prevContext = context;
@@ -136,7 +136,7 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
 
     public override void Render(ImmediateCanvas canvas)
     {
-        using (EffectTargets targets = [new EffectTarget(this)])
+        using (EffectTargets targets = [.. Children.Select(v => new EffectTarget(v))])
         {
             RenderCore(canvas, 0, null, targets);
         }
@@ -153,7 +153,7 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
 
         FilterEffectContext fecontext = GetOrCreateContext();
 
-        using (EffectTargets targets = [new EffectTarget(this)])
+        using (EffectTargets targets = [.. Children.Select(v => new EffectTarget(v))])
         using (var builder = new SKImageFilterBuilder())
         using (var activator = new FilterEffectActivator(targets, builder, factory))
         {

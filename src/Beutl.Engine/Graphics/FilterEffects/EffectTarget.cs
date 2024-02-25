@@ -17,11 +17,11 @@ public sealed class EffectTarget : IDisposable
 
     internal readonly PooledList<FEItemWrapper> _history = [];
 
-    public EffectTarget(FilterEffectNode node)
+    public EffectTarget(IGraphicNode node)
     {
         _target = node;
-        OriginalBounds = node.OriginalBounds;
-        Bounds = node.OriginalBounds;
+        OriginalBounds = node.Bounds;
+        Bounds = node.Bounds;
     }
 
     public EffectTarget(Ref<SKSurface> surface, Rect originalBounds)
@@ -43,7 +43,7 @@ public sealed class EffectTarget : IDisposable
     [EditorBrowsable(EditorBrowsableState.Never)]
     public Size Size => Bounds.Size;
 
-    public FilterEffectNode? Node => _target as FilterEffectNode;
+    public IGraphicNode? Node => _target as IGraphicNode;
 
     public Ref<SKSurface>? Surface => _target as Ref<SKSurface>;
 
@@ -82,10 +82,7 @@ public sealed class EffectTarget : IDisposable
     {
         if (Node != null)
         {
-            foreach (IGraphicNode item in Node.Children)
-            {
-                canvas.DrawNode(item);
-            }
+            canvas.DrawNode(Node);
         }
         else if (Surface != null)
         {

@@ -80,7 +80,7 @@ public class FilterEffectNodeComparer
     {
         if (_prevVersion != Node.FilterEffect.Version)
         {
-            using (var context = new FilterEffectContext(Node.OriginalBounds))
+            using (var context = new FilterEffectContext(Node.Children.Count == 1 ? Node.OriginalBounds : Rect.Invalid))
             {
                 context.Apply(Node.FilterEffect);
 
