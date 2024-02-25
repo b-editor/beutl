@@ -217,7 +217,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
         VerifyAccess();
         var size = new Size(bmp.Width, bmp.Height);
-        ConfigureFillPaint(size, fill);
+        ConfigureFillPaint(new(size), fill);
         ConfigureStrokePaint(new Rect(size), pen);
 
         if (bmp is Bitmap<Bgra8888>)
@@ -265,7 +265,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     public void DrawEllipse(Rect rect, IBrush? fill, IPen? pen)
     {
         VerifyAccess();
-        ConfigureFillPaint(rect.Size, fill);
+        ConfigureFillPaint(rect, fill);
         Canvas.DrawOval(rect.ToSKRect(), _sharedFillPaint);
 
         if (pen != null && pen.Thickness != 0)
@@ -289,7 +289,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     public void DrawRectangle(Rect rect, IBrush? fill, IPen? pen)
     {
         VerifyAccess();
-        ConfigureFillPaint(rect.Size, fill);
+        ConfigureFillPaint(rect, fill);
         Canvas.DrawRect(rect.ToSKRect(), _sharedFillPaint);
 
         if (pen != null && pen.Thickness != 0)
@@ -327,7 +327,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         SKPath filled = text.GetFillPath()!;
 
         // draw filled
-        ConfigureFillPaint(text.Bounds.Size, fill);
+        ConfigureFillPaint(text.Bounds, fill);
         Canvas.DrawPath(filled, _sharedFillPaint);
 
         // draw stroke
@@ -343,7 +343,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
         if (!strokeOnly)
         {
-            ConfigureFillPaint(rect.Size, fill);
+            ConfigureFillPaint(rect, fill);
             Canvas.DrawPath(skPath, _sharedFillPaint);
         }
 
@@ -361,10 +361,9 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     {
         VerifyAccess();
         SKPath skPath = geometry.GetNativeObject();
+        Rect rect = geometry.Bounds;
 
-        Rect rect = skPath.Bounds.ToGraphicsRect();
-
-        ConfigureFillPaint(rect.Size, fill);
+        ConfigureFillPaint(geometry.Bounds, fill);
         Canvas.DrawPath(skPath, _sharedFillPaint);
 
         if (pen != null && pen.Thickness > 0)
@@ -477,7 +476,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         var paint = new SKPaint();
 
         int count = Canvas.SaveLayer(paint);
-        new BrushConstructor(bounds.Size, mask, (BlendMode)paint.BlendMode, this).ConfigurePaint(paint);
+        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, this).ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
@@ -525,28 +524,29 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         _dispatcher?.VerifyAccess();
     }
 
-    private void ConfigureStrokePaint(Rect rect, IPen? pen)
+    private void ConfigureStrokePaint(Rect bounds, IPen? pen)
     {
         _sharedStrokePaint.Reset();
 
         if (pen != null && pen.Thickness != 0)
         {
+            Rect original = bounds;
             float thickness = pen.Thickness;
 
             switch (pen.StrokeAlignment)
             {
                 case StrokeAlignment.Center:
-                    rect = rect.Inflate(thickness / 2);
+                    bounds = bounds.Inflate(thickness / 2);
                     break;
 
                 case StrokeAlignment.Outside:
-                    rect = rect.Inflate(thickness);
+                    bounds = bounds.Inflate(thickness);
                     thickness *= 2;
                     break;
 
                 case StrokeAlignment.Inside:
                     thickness *= 2;
-                    float maxAspect = Math.Max(rect.Width, rect.Height);
+                    float maxAspect = Math.Max(bounds.Width, bounds.Height);
                     thickness = Math.Min(thickness, maxAspect);
                     break;
 
@@ -579,13 +579,13 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
                 _sharedStrokePaint.PathEffect = pe;
             }
 
-            new BrushConstructor(rect.Size, pen.Brush, BlendMode, this).ConfigurePaint(_sharedStrokePaint);
+            new BrushConstructor(original, pen.Brush, BlendMode, this).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
-    private void ConfigureFillPaint(Size targetSize, IBrush? brush)
+    private void ConfigureFillPaint(Rect bounds, IBrush? brush)
     {
         _sharedFillPaint.Reset();
-        new BrushConstructor(targetSize, brush, BlendMode, this).ConfigurePaint(_sharedFillPaint);
+        new BrushConstructor(bounds, brush, BlendMode, this).ConfigurePaint(_sharedFillPaint);
     }
 }

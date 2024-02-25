@@ -17,7 +17,7 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush,IE
     public static readonly CoreProperty<float> RadiusProperty;
     private RelativePoint _center = RelativePoint.Center;
     private RelativePoint _gradientOrigin = RelativePoint.Center;
-    private float _radius = 0.5f;
+    private float _radius = 50;
 
     static RadialGradientBrush()
     {
@@ -33,7 +33,7 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush,IE
 
         RadiusProperty = ConfigureProperty<float, RadialGradientBrush>(nameof(Radius))
             .Accessor(o => o.Radius, (o, v) => o.Radius = v)
-            .DefaultValue(0.5f)
+            .DefaultValue(50)
             .Register();
 
         AffectsRender<RadialGradientBrush>(CenterProperty, GradientOriginProperty, RadiusProperty);

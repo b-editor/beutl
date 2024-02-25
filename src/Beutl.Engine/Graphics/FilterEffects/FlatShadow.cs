@@ -184,7 +184,7 @@ public class FlatShadow : FilterEffect
                 Style = SKPaintStyle.Fill,
             };
 
-            var c = new BrushConstructor(newTarget.Bounds.Size, brush, BlendMode.SrcIn, newCanvas);
+            var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, newCanvas);
             using var brushPaint = new SKPaint();
             c.ConfigurePaint(brushPaint);
 

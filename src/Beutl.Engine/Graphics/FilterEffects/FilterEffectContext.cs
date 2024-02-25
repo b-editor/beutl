@@ -562,7 +562,7 @@ public sealed class FilterEffectContext : IDisposable
                     using EffectTarget newTarget = context.CreateTarget(target.OriginalBounds);
                     using ImmediateCanvas newCanvas = context.Open(newTarget);
 
-                    var c = new BrushConstructor(size, data.Brush, data.BlendMode, newCanvas);
+                    var c = new BrushConstructor(new(size), data.Brush, data.BlendMode, newCanvas);
                     using var brushPaint = new SKPaint();
                     c.ConfigurePaint(brushPaint);
 
