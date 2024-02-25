@@ -127,6 +127,16 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
                 {
                     RenderCache cache = cacheContext.GetCache(node);
 
+                    if (node is ContainerNode c)
+                    {
+                        foreach (IGraphicNode item in c.Children)
+                        {
+                            AcceptsAll(item);
+                        }
+
+                        cache.CaptureChildren();
+                    }
+
                     if (node is ISupportRenderCache supportCache)
                     {
                         supportCache.Accepts(cache);
@@ -144,16 +154,6 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
                         {
                             cache.Invalidate();
                         }
-                    }
-
-                    if (node is ContainerNode c)
-                    {
-                        foreach (IGraphicNode item in c.Children)
-                        {
-                            AcceptsAll(item);
-                        }
-
-                        cache.CaptureChildren();
                     }
                 }
 
