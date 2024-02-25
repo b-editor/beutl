@@ -1,7 +1,9 @@
 ﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Media.Immutable;
 using Beutl.Reactive;
 
 using SkiaSharp;
@@ -26,6 +28,7 @@ public class FormattedText : IEquatable<FormattedText>
     private SKTextBlob? _textBlob;
     private SKPath? _fillPath;
     private SKPath? _strokePath;
+    private List<SKPathGeometry> _pathList = [];
 
     public FormattedText()
     {
@@ -194,9 +197,15 @@ public class FormattedText : IEquatable<FormattedText>
         return font;
     }
 
+    internal IReadOnlyList<Geometry> ToGeometies()
+    {
+        MeasureAndSetField();
+        return _pathList;
+    }
+
     private void Measure()
     {
-        using SKFont font = this.ToSKFont();
+        using SKFont font = ToSKFont();
 
         using var shaper = new SKShaper(font.Typeface);
         using var buffer = new HarfBuzzSharp.Buffer();
@@ -217,6 +226,8 @@ public class FormattedText : IEquatable<FormattedText>
         var fillPath = new SKPath();
         Span<ushort> glyphs = run.GetGlyphSpan();
         Span<SKPoint> positions = run.GetPositionSpan();
+        CollectionsMarshal.SetCount(_pathList, result.Codepoints.Length);
+        Span<SKPathGeometry> pathList = CollectionsMarshal.AsSpan(_pathList);
         for (int i = 0; i < result.Codepoints.Length; i++)
         {
             glyphs[i] = (ushort)result.Codepoints[i];
@@ -225,8 +236,14 @@ public class FormattedText : IEquatable<FormattedText>
             point.X += i * Spacing;
             positions[i] = point;
 
-            using SKPath tmp = font.GetGlyphPath(glyphs[i]);
+            SKPath tmp = font.GetGlyphPath(glyphs[i]);
             fillPath.AddPath(tmp, point.X, point.Y);
+
+            tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
+
+            ref SKPathGeometry? exist = ref pathList[i]!;
+            exist ??= new SKPathGeometry();
+            exist.SetSKPath(tmp, false);
         }
 
         SKPath? strokePath = null;

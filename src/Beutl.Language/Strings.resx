@@ -352,7 +352,7 @@
     <value>Font Weight</value>
   </data>
   <data name="CharactorSpacing" xml:space="preserve">
-    <value>Charactor Spacing</value>
+    <value>Character Spacing</value>
   </data>
   <data name="Margin" xml:space="preserve">
     <value>Margin</value>
@@ -1116,5 +1116,8 @@ and b-editor maintains the download URL.</value>
   </data>
   <data name="VerticalSpacing" xml:space="preserve">
     <value>Vertical spacing</value>
+  </data>
+  <data name="SplitByCharacters" xml:space="preserve">
+    <value>Split by characters</value>
   </data>
 </root>

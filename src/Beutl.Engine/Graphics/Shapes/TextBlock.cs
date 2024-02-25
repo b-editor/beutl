@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 
@@ -21,6 +22,7 @@ public class TextBlock : Drawable
     public static readonly CoreProperty<float> SpacingProperty;
     public static readonly CoreProperty<string?> TextProperty;
     public static readonly CoreProperty<IPen?> PenProperty;
+    public static readonly CoreProperty<bool> SplitByCharactersProperty;
     public static readonly CoreProperty<TextElements?> ElementsProperty;
     private FontFamily? _fontFamily = FontFamily.Default;
     private FontWeight _fontWeight = FontWeight.Regular;
@@ -29,6 +31,7 @@ public class TextBlock : Drawable
     private float _spacing;
     private string? _text = string.Empty;
     private IPen? _pen = null;
+    private bool _splitByCharacters = false;
     private TextElements? _elements;
     private bool _isDirty;
 
@@ -68,6 +71,10 @@ public class TextBlock : Drawable
             .Accessor(o => o.Pen, (o, v) => o.Pen = v)
             .Register();
 
+        SplitByCharactersProperty = ConfigureProperty<bool, TextBlock>(nameof(SplitByCharacters))
+            .Accessor(o => o.SplitByCharacters, (o, v) => o.SplitByCharacters = v)
+            .Register();
+
         ElementsProperty = ConfigureProperty<TextElements?, TextBlock>(nameof(Elements))
             .Accessor(o => o.Elements, (o, v) => o.Elements = v)
             .Register();
@@ -80,6 +87,7 @@ public class TextBlock : Drawable
             SpacingProperty,
             TextProperty,
             PenProperty,
+            SplitByCharactersProperty,
             ElementsProperty);
     }
 
@@ -137,6 +145,13 @@ public class TextBlock : Drawable
     {
         get => _pen;
         set => SetAndRaise(PenProperty, ref _pen, value);
+    }
+
+    [Display(Name = nameof(Strings.SplitByCharacters), ResourceType = typeof(Strings))]
+    public bool SplitByCharacters
+    {
+        get => _splitByCharacters;
+        set => SetAndRaise(SplitByCharactersProperty, ref _splitByCharacters, value);
     }
 
     [NotAutoSerialized]
@@ -222,8 +237,23 @@ public class TextBlock : Drawable
         OnUpdateText();
         if (_elements != null)
         {
+            if (SplitByCharacters)
+            {
+                DrawSplitted(canvas, _elements);
+            }
+            else
+            {
+                DrawGrouped(canvas, _elements);
+            }
+        }
+    }
+
+    private void DrawGrouped(ICanvas canvas, TextElements elements)
+    {
+        using (canvas.Push())
+        {
             float prevBottom = 0;
-            foreach (Span<FormattedText> line in _elements.Lines)
+            foreach (Span<FormattedText> line in elements.Lines)
             {
                 Size lineBounds = MeasureLine(line);
                 float ascent = MinAscent(line);
@@ -263,10 +293,89 @@ public class TextBlock : Drawable
         }
     }
 
+    private void DrawSplitted(ICanvas canvas, TextElements elements)
+    {
+        float prevBottom = 0;
+        foreach (Span<FormattedText> line in elements.Lines)
+        {
+            Size lineBounds = MeasureLine(line);
+            float ascent = MinAscent(line);
+            float descent = MinDescent(line);
+            float yPosition = prevBottom - ascent - descent;
+
+            float prevRight = 0;
+            foreach (FormattedText item in line)
+            {
+                if (item.Text.Length > 0)
+                {
+                    Rect elementBounds = item.Bounds;
+
+                    if (prevRight == 0)
+                    {
+                        prevRight -= elementBounds.Left;
+                    }
+
+                    foreach (Geometry geometry in item.ToGeometies())
+                    {
+                        using (canvas.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition)))
+                        {
+                            canvas.DrawGeometry(geometry, item.Brush ?? Fill, item.Pen ?? Pen);
+                        }
+                    }
+
+                    prevRight += elementBounds.Width + item.Spacing;
+
+                    if (prevRight != 0)
+                    {
+                        prevRight += elementBounds.Left;
+                    }
+                }
+            }
+
+            prevBottom += lineBounds.Height;
+            yPosition = prevBottom - ascent - descent;
+        }
+    }
+
     private void OnInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        if (e.PropertyName is not nameof(Elements))
+        if (ReferenceEquals(e.Sender, this)
+            && e.PropertyName is nameof(FontStyle)
+                or nameof(FontFamily)
+                or nameof(FontWeight)
+                or nameof(Text)
+                or nameof(Size)
+                or nameof(Fill)
+                or nameof(Spacing)
+                or nameof(Pen))
+        {
             _isDirty = true;
+        }
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args is CorePropertyChangedEventArgs e)
+        {
+            if (e.Property == FillProperty || e.Property == PenProperty)
+            {
+                void OnBrushOrPenInvalidated(object? sender, RenderInvalidatedEventArgs e)
+                {
+                    _isDirty = true;
+                }
+
+                if (e.OldValue is IAffectsRender oldValue)
+                {
+                    oldValue.Invalidated -= OnBrushOrPenInvalidated;
+                }
+
+                if (e.NewValue is IAffectsRender newValue)
+                {
+                    newValue.Invalidated += OnBrushOrPenInvalidated;
+                }
+            }
+        }
     }
 
     private void OnUpdateText()

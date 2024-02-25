@@ -1117,4 +1117,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="VerticalSpacing" xml:space="preserve">
     <value>垂直方向の間隔</value>
   </data>
+  <data name="SplitByCharacters" xml:space="preserve">
+    <value>文字ごとに分割</value>
+  </data>
 </root>

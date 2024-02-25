@@ -502,7 +502,7 @@ namespace Beutl.Language {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Charactor Spacing.
+        ///   Looks up a localized string similar to Character Spacing.
         /// </summary>
         public static string CharactorSpacing {
             get {
@@ -2578,6 +2578,15 @@ namespace Beutl.Language {
         public static string Split {
             get {
                 return ResourceManager.GetString("Split", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Split by characters.
+        /// </summary>
+        public static string SplitByCharacters {
+            get {
+                return ResourceManager.GetString("SplitByCharacters", resourceCulture);
             }
         }
         

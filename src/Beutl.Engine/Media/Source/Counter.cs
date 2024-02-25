@@ -9,7 +9,6 @@ internal sealed class Counter<T>
 
     // Todo: Ref<SKSurface>がファイナライザーでDisposeされるとき、AccessViolationExceptionが発生したことがある。
     // なのでどこで作成されたかの情報が欲しい。
-    // 可能性として考えられるのは、ImmediateCanvasにそのままのSKSurfaceを渡している点
 #if DEBUG
 #pragma warning disable IDE0052 // 読み取られていないプライベート メンバーを削除
     private readonly string _stackTrace;

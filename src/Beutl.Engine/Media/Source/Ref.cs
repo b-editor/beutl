@@ -6,8 +6,19 @@ public sealed class Ref<T> : IDisposable
     private readonly Counter<T> _counter;
     private readonly object _lock = new();
 
+    // Todo: Ref<SKSurface>がファイナライザーでDisposeされるとき、AccessViolationExceptionが発生したことがある。
+    // なのでどこで作成されたかの情報が欲しい。
+#if DEBUG
+#pragma warning disable IDE0052 // 読み取られていないプライベート メンバーを削除
+    private readonly string _stackTrace;
+#pragma warning restore IDE0052 // 読み取られていないプライベート メンバーを削除
+#endif
+
     private Ref(T value, Counter<T> counter)
     {
+#if DEBUG
+        _stackTrace = Environment.StackTrace;
+#endif
         Value = value;
         _counter = counter;
     }
