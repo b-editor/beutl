@@ -543,8 +543,11 @@ public sealed class PlayerViewModel : IDisposable
         if (_editViewModel.Renderer.Value.IsGraphicsRendering)
             return;
 
-        void RenderOnRenderThread()
+        void RenderOnRenderThread(CancellationToken token)
         {
+            if (token.IsCancellationRequested)
+                return;
+
             RenderThread.Dispatcher.Dispatch(() =>
             {
                 try
@@ -608,14 +611,14 @@ public sealed class PlayerViewModel : IDisposable
                     NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
                     _logger.LogError(ex, "An exception occurred while drawing the frame.");
                 }
-            });
+            }, ct: token);
         }
 
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
 
         Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
-            RenderOnRenderThread,
+            () => RenderOnRenderThread(_cts.Token),
             Avalonia.Threading.DispatcherPriority.Background,
             _cts.Token);
     }
