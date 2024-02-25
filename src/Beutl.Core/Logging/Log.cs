@@ -20,6 +20,16 @@ public class Log
 
     public static ILogger<T> CreateLogger<T>()
     {
-        return LoggerFactory.CreateLogger<T>();
+#if DEBUG
+        if (s_loggerFactory == null)
+        {
+            var tmp = new LoggerFactory();
+            return tmp.CreateLogger<T>();
+        }
+        else
+#endif
+        {
+            return LoggerFactory.CreateLogger<T>();
+        }
     }
 }
