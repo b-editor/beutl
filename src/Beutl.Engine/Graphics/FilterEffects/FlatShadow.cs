@@ -85,7 +85,7 @@ public class FlatShadow : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((Angle, Length, Brush, ShadowOnly), Apply, TransformBounds);
+        context.CustomEffect((Angle, Length, (Brush as IMutableBrush)?.ToImmutable(), ShadowOnly), Apply, TransformBounds);
     }
 
     public override Rect TransformBounds(Rect bounds)
@@ -108,7 +108,7 @@ public class FlatShadow : FilterEffect
         return new Rect(rect.X - (xAbs - x) / 2, rect.Y - (yAbs - y) / 2, width, height);
     }
 
-    private static void Apply((float Angle, float Length, IBrush? Brush, bool ShadowOnly) data, FilterEffectCustomOperationContext context)
+    private static void Apply((float Angle, float Length, IBrush? Brush, bool ShadowOnly) data, CustomFilterEffectContext context)
     {
         static Cv.Point[][] FindPoints(Bitmap<Bgra8888> src)
         {
@@ -153,8 +153,10 @@ public class FlatShadow : FilterEffect
         float length = data.Length;
         float radian = MathUtilities.Deg2Rad(data.Angle);
 
-        if (context.Target.Surface is { } srcSurface)
+        for (int ii = 0; ii < context.Targets.Count; ii++)
         {
+            var target = context.Targets[ii];
+            var srcSurface = target.Surface!;
             using SKImage skImage = srcSurface.Value.Snapshot();
             using var srcBitmap = skImage.ToBitmap();
             Cv.Point[][] points = FindPoints(srcBitmap);
@@ -166,8 +168,13 @@ public class FlatShadow : FilterEffect
             float x2Abs = Math.Abs(x2);
             float y2Abs = Math.Abs(y2);
 
-            Size size = context.Target.Size;
-            using EffectTarget newTarget = context.CreateTarget((int)(size.Width + x2Abs), (int)(size.Height + y2Abs));
+            Size size = target.Bounds.Size;
+            EffectTarget newTarget = context.CreateTarget(
+                new Rect(
+                    target.Bounds.X - (x2Abs - x2) / 2,
+                    target.Bounds.Y - (y2Abs - y2) / 2,
+                    (size.Width + x2Abs),
+                    (size.Height + y2Abs)));
             using ImmediateCanvas newCanvas = context.Open(newTarget);
 
             using var paint = new SKPaint
@@ -177,7 +184,7 @@ public class FlatShadow : FilterEffect
                 Style = SKPaintStyle.Fill,
             };
 
-            var c = new BrushConstructor(newTarget.Size, brush, BlendMode.SrcIn, newCanvas);
+            var c = new BrushConstructor(newTarget.Bounds.Size, brush, BlendMode.SrcIn, newCanvas);
             using var brushPaint = new SKPaint();
             c.ConfigurePaint(brushPaint);
 
@@ -195,12 +202,13 @@ public class FlatShadow : FilterEffect
                 }
             }
 
-            newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Size.ToSKSize()), brushPaint);
+            newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Size.ToSKSize()), brushPaint);
 
             if (!data.ShadowOnly)
                 newCanvas.DrawSurface(srcSurface.Value, new((x2Abs - x2) / 2, (y2Abs - y2) / 2));
 
-            context.ReplaceTarget(newTarget);
+            target.Dispose();
+            context.Targets[ii] = newTarget;
         }
     }
 }

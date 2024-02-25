@@ -49,24 +49,35 @@ public class Blur : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((KernelSize, FixImageSize), Apply, TransformBounds);
+        context.CustomEffect((KernelSize, FixImageSize), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((PixelSize KernelSize, bool FixImageSize) data, Rect rect)
     {
         if (!data.FixImageSize)
         {
-            int halfWidth = data.KernelSize.Width / 2;
-            int halfHeight = data.KernelSize.Height / 2;
+            int kwidth = data.KernelSize.Width;
+            int kheight = data.KernelSize.Height;
+
+            if (kwidth % 2 == 0)
+                kwidth++;
+            if (kheight % 2 == 0)
+                kheight++;
+
+            int halfWidth = kwidth / 2;
+            int halfHeight = kheight / 2;
             rect = rect.Inflate(new Thickness(halfWidth, halfHeight));
         }
         return rect;
     }
 
-    private static void Apply((PixelSize KernelSize, bool FixImageSize) data, FilterEffectCustomOperationContext context)
+    private static void Apply((PixelSize KernelSize, bool FixImageSize) data, CustomFilterEffectContext context)
     {
-        if (context.Target.Surface is { } surface)
+        for (int i = 0; i < context.Targets.Count; i++)
         {
+            var target = context.Targets[i];
+            var surface = target.Surface!;
+
             int kwidth = data.KernelSize.Width;
             int kheight = data.KernelSize.Height;
             if (kwidth <= 0 || kheight <= 0)
@@ -97,9 +108,10 @@ public class Blur : FilterEffect
                 using var mat = dst.ToMat();
                 Cv2.Blur(mat, mat, new(kwidth, kheight));
 
-                using EffectTarget target = context.CreateTarget(dst.Width, dst.Height);
-                target.Surface!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
-                context.ReplaceTarget(target);
+                EffectTarget newtarget = context.CreateTarget(TransformBounds(data, target.Bounds));
+                newtarget.Surface!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
+                target.Dispose();
+                context.Targets[i] = newtarget;
             }
             finally
             {

@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Reactive;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 using Beutl.Collections.Pooled;
@@ -8,6 +9,8 @@ using Beutl.Media;
 using Microsoft.Extensions.ObjectPool;
 
 using SkiaSharp;
+
+using FilterEffectOrFEItemWrapper = object;
 
 namespace Beutl.Graphics.Effects;
 
@@ -25,10 +28,26 @@ internal sealed class ArrayPooledObjectPolicy<T>(int length) : IPooledObjectPoli
     }
 }
 
-public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectContext>
+internal record FEItemWrapper(
+    IFEItem Item,
+    FilterEffect? FilterEffect,
+    int Version,
+    // このIFEItemがTransformBoundsする前のBounds
+    Rect SourceBounds)
 {
-    private readonly PooledList<(FilterEffect FE, int Version)> _versions;
-    internal readonly PooledList<IFEItem> _items;
+    // Todo: 後で削除
+    public FEItemWrapper Inherit()
+    {
+        return this;
+    }
+}
+
+public sealed class FilterEffectContext : IDisposable
+{
+    internal readonly PooledList<FEItemWrapper> _items;
+    internal readonly PooledList<FilterEffectOrFEItemWrapper> _renderTimeItems;
+
+    internal FilterEffect? _current;
 
     internal static readonly ObjectPool<byte[]> s_lutPool;
     internal static readonly ObjectPool<float[]> s_colorMatPool;
@@ -42,7 +61,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     public FilterEffectContext(Rect bounds)
     {
         Bounds = OriginalBounds = bounds;
-        _versions = new PooledList<(FilterEffect, int)>(ClearMode.Always);
+        _renderTimeItems = [];
         _items = [];
     }
 
@@ -50,11 +69,11 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     {
         OriginalBounds = obj.OriginalBounds;
         Bounds = obj.Bounds;
-        _versions = new PooledList<(FilterEffect, int)>(obj._versions.Span, ClearMode.Always);
-        _items = new PooledList<IFEItem>(obj._items);
+        _renderTimeItems = new PooledList<FilterEffectOrFEItemWrapper>(obj._renderTimeItems);
+        _items = new PooledList<FEItemWrapper>(obj._items);
     }
 
-    public Rect Bounds { get; private set; }
+    public Rect Bounds { get; internal set; }
 
     public Rect OriginalBounds { get; }
 
@@ -69,11 +88,23 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         return new FilterEffectContext(Bounds);
     }
 
+    private void AddItem(IFEItem item)
+    {
+        if (!Bounds.IsInvalid)
+        {
+            _items.Add(new FEItemWrapper(item, _current, _current?.Version ?? 0, Bounds));
+        }
+        else
+        {
+            _renderTimeItems.Add(new FEItemWrapper(item, _current, _current?.Version ?? 0, Bounds));
+        }
+    }
+
     [EditorBrowsable(EditorBrowsableState.Never)]
     public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory, Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {
-        _items.Add(new FEItem_Skia<T>(data, factory, transformBounds));
+        AddItem(new FEItem_Skia<T>(data, factory, transformBounds));
         Bounds = transformBounds.Invoke(data, Bounds);
     }
 
@@ -81,7 +112,7 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     public void AppendSKColorFilter<T>(T data, Func<T, FilterEffectActivator, SKColorFilter?> factory)
         where T : IEquatable<T>
     {
-        _items.Add(new FEItem_SKColorFilter<T>(data, factory));
+        AddItem(new FEItem_SKColorFilter<T>(data, factory));
     }
 
     public void DropShadowOnly(Point position, Size sigma, Color color)
@@ -169,37 +200,41 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
     public void InnerShadow(Point position, Size sigma, Color color)
     {
-        Custom(
+        CustomEffect(
             data: (position, sigma, color),
             action: (data, context) =>
             {
-                EffectTarget target = context.Target;
-                if (target.Surface != null)
+                for (int i = 0; i < context.Targets.Count; i++)
                 {
-                    using SKImage skimage = target.Surface.Value.Snapshot();
-                    using EffectTarget newTarget = context.CreateTarget((int)target.Size.Width, (int)target.Size.Height);
-                    using (ImmediateCanvas canvas = context.Open(newTarget))
+                    var target = context.Targets[i];
+                    if (target.Surface is { } srcSurface)
                     {
-                        using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
-                        using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
-                        using var filter = SKImageFilter.CreateColorFilter(blend, blur);
-                        using var paint = new SKPaint
+                        using SKImage skimage = target.Surface.Value.Snapshot();
+                        EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                        using (ImmediateCanvas canvas = context.Open(newTarget))
                         {
-                            ImageFilter = filter
-                        };
+                            using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
+                            using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
+                            using var filter = SKImageFilter.CreateColorFilter(blend, blur);
+                            using var paint = new SKPaint
+                            {
+                                ImageFilter = filter
+                            };
 
-                        using (canvas.PushPaint(paint))
-                        {
-                            canvas.DrawSurface(target.Surface.Value, data.position);
+                            using (canvas.PushPaint(paint))
+                            {
+                                canvas.DrawSurface(target.Surface.Value, data.position);
+                            }
+
+                            using (canvas.PushBlendMode(Graphics.BlendMode.DstATop))
+                            {
+                                canvas.DrawSurface(target.Surface.Value, default);
+                            }
                         }
 
-                        using (canvas.PushBlendMode(Graphics.BlendMode.DstATop))
-                        {
-                            canvas.DrawSurface(target.Surface.Value, default);
-                        }
+                        target.Dispose();
+                        context.Targets[i] = newTarget;
                     }
-
-                    context.ReplaceTarget(newTarget);
                 }
             },
             transformBounds: (_, bounds) => bounds);
@@ -213,37 +248,41 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
 
     public void InnerShadowOnly(Point position, Size sigma, Color color)
     {
-        Custom(
+        CustomEffect(
             data: (position, sigma, color),
             action: (data, context) =>
             {
-                EffectTarget target = context.Target;
-                if (target.Surface != null)
+                for (int i = 0; i < context.Targets.Count; i++)
                 {
-                    using SKImage skimage = target.Surface.Value.Snapshot();
-                    using EffectTarget newTarget = context.CreateTarget((int)target.Size.Width, (int)target.Size.Height);
-                    using (ImmediateCanvas canvas = context.Open(newTarget))
+                    var target = context.Targets[i];
+                    if (target.Surface is { } srcSurface)
                     {
-                        using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
-                        using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
-                        using var filter = SKImageFilter.CreateColorFilter(blend, blur);
-                        using var paint = new SKPaint
+                        using SKImage skimage = target.Surface.Value.Snapshot();
+                        EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                        using (ImmediateCanvas canvas = context.Open(newTarget))
                         {
-                            ImageFilter = filter
-                        };
+                            using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
+                            using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
+                            using var filter = SKImageFilter.CreateColorFilter(blend, blur);
+                            using var paint = new SKPaint
+                            {
+                                ImageFilter = filter
+                            };
 
-                        using (canvas.PushPaint(paint))
-                        {
-                            canvas.DrawSurface(target.Surface.Value, data.position);
+                            using (canvas.PushPaint(paint))
+                            {
+                                canvas.DrawSurface(target.Surface.Value, data.position);
+                            }
+
+                            using (canvas.PushBlendMode(Graphics.BlendMode.DstIn))
+                            {
+                                canvas.DrawSurface(target.Surface.Value, default);
+                            }
                         }
 
-                        using (canvas.PushBlendMode(Graphics.BlendMode.DstIn))
-                        {
-                            canvas.DrawSurface(target.Surface.Value, default);
-                        }
+                        target.Dispose();
+                        context.Targets[i] = newTarget;
                     }
-
-                    context.ReplaceTarget(newTarget);
                 }
             },
             transformBounds: (_, bounds) => bounds);
@@ -509,57 +548,86 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
             (color, blendMode),
             (data, _) => SKColorFilter.CreateBlendMode(data.color.ToSKColor(), (SKBlendMode)data.blendMode));
     }
-    
+
     public void BlendMode(IBrush? brush, BlendMode blendMode)
     {
-        static void ApplyCore((IBrush? Brush, BlendMode BlendMode) data, FilterEffectCustomOperationContext context)
+        static void ApplyCore((IBrush? Brush, BlendMode BlendMode) data, CustomFilterEffectContext context)
         {
-            if (context.Target.Surface is { } srcSurface)
+            for (int i = 0; i < context.Targets.Count; i++)
             {
-                Size size = context.Target.Size;
-                using EffectTarget newTarget = context.CreateTarget((int)size.Width, (int)size.Height);
-                using ImmediateCanvas newCanvas = context.Open(newTarget);
+                var target = context.Targets[i];
+                if (target.Surface is { } srcSurface)
+                {
+                    Size size = target.OriginalBounds.Size;
+                    using EffectTarget newTarget = context.CreateTarget(target.OriginalBounds);
+                    using ImmediateCanvas newCanvas = context.Open(newTarget);
 
-                var c = new BrushConstructor(newTarget.Size, data.Brush, data.BlendMode, newCanvas);
-                using var brushPaint = new SKPaint();
-                c.ConfigurePaint(brushPaint);
+                    var c = new BrushConstructor(size, data.Brush, data.BlendMode, newCanvas);
+                    using var brushPaint = new SKPaint();
+                    c.ConfigurePaint(brushPaint);
 
-                newCanvas.DrawSurface(srcSurface.Value, default);
-                newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Size.ToSKSize()), brushPaint);
+                    newCanvas.DrawSurface(srcSurface.Value, default);
+                    newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
 
-                context.ReplaceTarget(newTarget);
+                    target.Dispose();
+                    context.Targets[i] = newTarget;
+                }
             }
         }
 
-        Custom((brush, blendMode), ApplyCore, (_, r) => r);
+        CustomEffect((brush, blendMode), ApplyCore, (_, r) => r);
     }
 
+    [Obsolete("Use CustomEffect")]
     public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action, Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {
-        _items.Add(new FEItem_Custom<T>(data, action, transformBounds));
+        AddItem(new FEItem_Custom<T>(data, action, transformBounds));
         Bounds = transformBounds.Invoke(data, Bounds);
+    }
+
+    public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action, Func<T, Rect, Rect> transformBounds)
+        where T : IEquatable<T>
+    {
+        AddItem(new FEItem_CustomEffect<T>(data, action, transformBounds));
+        Bounds = transformBounds.Invoke(data, Bounds);
+    }
+
+    public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action)
+    {
+        AddItem(new FEItem_CustomEffect<T>(data, action, null));
+        Bounds = Rect.Invalid;
     }
 
     public void Apply(FilterEffect? filterEffect)
     {
         if (filterEffect != null)
         {
-            _versions.Add((filterEffect, filterEffect.Version));
-
-            if (filterEffect is { IsEnabled: true })
+            if (Bounds.IsInvalid)
             {
-                filterEffect.ApplyTo(this);
+                if (filterEffect is { IsEnabled: true })
+                {
+                    _renderTimeItems.Add(filterEffect);
+                }
+            }
+            else
+            {
+                var tmp = _current;
+                try
+                {
+                    _current = filterEffect;
+
+                    if (filterEffect is { IsEnabled: true })
+                    {
+                        filterEffect.ApplyTo(this);
+                    }
+                }
+                finally
+                {
+                    _current = tmp;
+                }
             }
         }
-    }
-
-    public int FirstVersion()
-    {
-        if (_versions.Count == 0)
-            throw new InvalidOperationException("有効なエフェクトバージョンがありません");
-
-        return _versions[0].Version;
     }
 
     public int CountItems()
@@ -567,67 +635,9 @@ public sealed class FilterEffectContext : IDisposable, IEquatable<FilterEffectCo
         return _items.Count;
     }
 
-    public Rect TransformBounds(Range range)
-    {
-        Rect rect = OriginalBounds;
-        foreach (IFEItem item in _items.Span[range])
-        {
-            rect = item.TransformBounds(rect);
-        }
-
-        return rect;
-    }
-
-    public int CountEquals(FilterEffectContext? other)
-    {
-        if (other == null)
-            return 0;
-        //if (other.OriginalBounds != OriginalBounds)
-        //    return -1;
-
-        int minLength = Math.Min(other._items.Count, _items.Count);
-        for (int i = 0; i < minLength; i++)
-        {
-            if (!_items[i].Equals(other._items[i]))
-            {
-                return i;
-            }
-        }
-
-        return 0;
-    }
-
-    public bool Equals(FilterEffectContext? other)
-    {
-        if (other == null
-            || _items.Count != other._items.Count
-            || Bounds != other.Bounds)
-            return false;
-
-        Span<IFEItem> items = _items.Span;
-        Span<IFEItem> otherItems = other._items.Span;
-        return items.SequenceEqual(otherItems);
-    }
-
-    public override bool Equals(object? obj)
-    {
-        return Equals(obj as FilterEffectContext);
-    }
-
-    public override int GetHashCode()
-    {
-        var hash = new HashCode();
-        foreach (IFEItem? item in _items.Span)
-        {
-            hash.Add(item.GetHashCode());
-        }
-
-        return hash.ToHashCode();
-    }
-
     public void Dispose()
     {
-        _versions.Dispose();
         _items.Dispose();
+        _renderTimeItems.Dispose();
     }
 }

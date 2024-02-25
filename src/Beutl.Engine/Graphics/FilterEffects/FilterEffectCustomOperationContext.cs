@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Immutable;
+using System.ComponentModel;
 
 using Beutl.Media.Source;
 
@@ -6,21 +7,27 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[EditorBrowsable(EditorBrowsableState.Advanced)]
+[Obsolete("Use CustomFilterEffectContext")]
 public class FilterEffectCustomOperationContext
 {
-    private readonly ImmediateCanvas _canvas;
+    private readonly IImmediateCanvasFactory _factory;
+    private readonly ImmutableArray<FEItemWrapper> _history;
     private EffectTarget _target;
 
-    public FilterEffectCustomOperationContext(ImmediateCanvas canvas, EffectTarget target)
+    internal FilterEffectCustomOperationContext(
+        IImmediateCanvasFactory canvas,
+        EffectTarget target,
+        ImmutableArray<FEItemWrapper> history)
     {
-        Target = target.Clone();
-        _canvas = canvas;
+        _target = target.Clone();
+        _factory = canvas;
+        _history = history;
     }
 
     public EffectTarget Target
     {
         get => _target;
-        [MemberNotNull(nameof(_target))]
         set
         {
             ArgumentNullException.ThrowIfNull(value);
@@ -30,21 +37,27 @@ public class FilterEffectCustomOperationContext
 
     public void ReplaceTarget(EffectTarget target)
     {
-        _target.Dispose();
+        Target.Dispose();
         Target = target.Clone();
     }
 
     public EffectTarget CreateTarget(int width, int height)
     {
-        SKSurface? surface = _canvas.CreateRenderTarget(width, height);
+        SKSurface? surface = _factory.CreateRenderTarget(width, height);
         if (surface != null)
         {
             using var surfaceRef = Ref<SKSurface>.Create(surface);
-            return new EffectTarget(surfaceRef, new Size(width, height));
+            var obj = new EffectTarget(surfaceRef, new Rect(_target.Bounds.X, _target.Bounds.Y, width, height));
+
+            obj._history.AddRange(_history);
+            return obj;
         }
         else
         {
-            return EffectTarget.Empty;
+            var obj = new EffectTarget();
+
+            obj._history.AddRange(_history);
+            return obj;
         }
     }
 
@@ -55,6 +68,6 @@ public class FilterEffectCustomOperationContext
             throw new InvalidOperationException("無効なEffectTarget");
         }
 
-        return _canvas.CreateCanvas(target.Surface.Value, true);
+        return _factory.CreateCanvas(target.Surface.Value, true);
     }
 }

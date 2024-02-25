@@ -1,4 +1,6 @@
-﻿using SkiaSharp;
+﻿using System.Collections.Immutable;
+
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -7,11 +9,11 @@ internal interface IFEItem
     Rect TransformBounds(Rect bounds);
 }
 
-internal abstract record FEItem<T>(T Data, Func<T, Rect, Rect> TransformBounds) : IFEItem
+internal abstract record FEItem<T>(T Data, Func<T, Rect, Rect>? TransformBounds) : IFEItem
 {
     Rect IFEItem.TransformBounds(Rect bounds)
     {
-        return TransformBounds(Data, bounds);
+        return TransformBounds?.Invoke(Data, bounds) ?? Rect.Invalid;
     }
 }
 
@@ -40,11 +42,32 @@ internal interface IFEItem_Skia
     void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder);
 }
 
+[Obsolete]
 internal record FEItem_Custom<T>(
     T Data, Action<T, FilterEffectCustomOperationContext> Action, Func<T, Rect, Rect> TransformBounds)
     : FEItem<T>(Data, TransformBounds), IFEItem_Custom
 {
-    public void Accepts(FilterEffectCustomOperationContext context)
+    public void Accepts(CustomFilterEffectContext context)
+    {
+        context.ForEach((_, target) =>
+        {
+            using (target)
+            {
+                var innerContext = new FilterEffectCustomOperationContext(context._factory, target, [.. target._history]);
+                Action.Invoke(Data, innerContext);
+
+                innerContext.Target.Bounds = TransformBounds!(Data, innerContext.Target.Bounds);
+                return innerContext.Target;
+            }
+        });
+    }
+}
+
+internal record FEItem_CustomEffect<T>(
+    T Data, Action<T, CustomFilterEffectContext> Action, Func<T, Rect, Rect>? TransformBounds)
+    : FEItem<T>(Data, TransformBounds), IFEItem_Custom
+{
+    public void Accepts(CustomFilterEffectContext context)
     {
         Action.Invoke(Data, context);
     }
@@ -52,5 +75,5 @@ internal record FEItem_Custom<T>(
 
 internal interface IFEItem_Custom
 {
-    void Accepts(FilterEffectCustomOperationContext context);
+    void Accepts(CustomFilterEffectContext context);
 }

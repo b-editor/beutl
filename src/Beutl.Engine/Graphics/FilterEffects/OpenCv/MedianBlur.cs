@@ -48,24 +48,29 @@ public class MedianBlur : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((KernelSize, FixImageSize), Apply, TransformBounds);
+        context.CustomEffect((KernelSize, FixImageSize), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((int KernelSize, bool FixImageSize) data, Rect rect)
     {
         if (!data.FixImageSize)
         {
-            int halfWidth = data.KernelSize / 2;
-            int halfHeight = data.KernelSize / 2;
-            rect = rect.Inflate(new Thickness(halfWidth, halfHeight));
+            int ksize = data.KernelSize;
+            if (ksize % 2 == 0)
+                ksize++;
+
+            int half = ksize / 2;
+            rect = rect.Inflate(half);
         }
         return rect;
     }
 
-    private static void Apply((int KernelSize, bool FixImageSize) data, FilterEffectCustomOperationContext context)
+    private static void Apply((int KernelSize, bool FixImageSize) data, CustomFilterEffectContext context)
     {
-        if (context.Target.Surface is { } surface)
+        for (int i = 0; i < context.Targets.Count; i++)
         {
+            var target = context.Targets[i];
+            var surface = target.Surface!;
             int ksize = data.KernelSize;
             if (ksize % 2 == 0)
                 ksize++;
@@ -90,9 +95,10 @@ public class MedianBlur : FilterEffect
                 using var mat = dst.ToMat();
                 Cv2.MedianBlur(mat, mat, ksize);
 
-                using EffectTarget target = context.CreateTarget(dst.Width, dst.Height);
-                target.Surface!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
-                context.ReplaceTarget(target);
+                EffectTarget newtarget = context.CreateTarget(TransformBounds(data, target.Bounds));
+                newtarget.Surface!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
+                target.Dispose();
+                context.Targets[i] = newtarget;
             }
             finally
             {

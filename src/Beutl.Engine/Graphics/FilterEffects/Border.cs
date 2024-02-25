@@ -134,7 +134,7 @@ public class Border : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Custom((Offset, Thickness, Color, MaskType, Style), Apply, TransformBounds);
+        context.CustomEffect((Offset, Thickness, Color, MaskType, Style), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((Point Offset, int Thickness, Color Color, MaskTypes MaskType, BorderStyles Style) data, Rect rect)
@@ -142,7 +142,7 @@ public class Border : FilterEffect
         return rect.Union(rect.Translate(new Vector(data.Offset.X, data.Offset.Y)).Inflate(data.Thickness / 2)).Inflate(8);
     }
 
-    private static void Apply((Point Offset, int Thickness, Color Color, MaskTypes MaskType, BorderStyles Style) data, FilterEffectCustomOperationContext context)
+    private static void Apply((Point Offset, int Thickness, Color Color, MaskTypes MaskType, BorderStyles Style) data, CustomFilterEffectContext context)
     {
         Point offset = data.Offset;
         Color color = data.Color;
@@ -177,16 +177,17 @@ public class Border : FilterEffect
             return border;
         }
 
-        if (context.Target.Surface != null)
+        for (int i = 0; i < context.Targets.Count; i++)
         {
-            using SKImage skimage = context.Target.Surface.Value.Snapshot();
+            EffectTarget target = context.Targets[i];
+            using SKImage skimage = target.Surface!.Value.Snapshot();
             using var src = skimage.ToBitmap();
             using var srcRef = Ref<IBitmap>.Create(src);
             using var srcBitmapSource = new BitmapSource(srcRef, "Temp");
 
             // 縁取りの画像を生成
             using Bitmap<Bgra8888> border = RenderBorderBitmap(src);
-            var rect = new Rect(0, 0, src.Width, src.Height);
+            var rect = target.Bounds;
             Rect borderBounds = rect.Translate(offset).Inflate(thicknessHalf);
             Rect canvasRect = rect.Union(borderBounds).Inflate(8);
             var borderRect = new Rect(0, 0, border.Width, border.Height);
@@ -197,7 +198,7 @@ public class Border : FilterEffect
                 maskBrush = new ImmutableImageBrush(srcBitmapSource, stretch: Stretch.None);
             }
 
-            using EffectTarget newTarget = context.CreateTarget((int)canvasRect.Width, (int)canvasRect.Height);
+            EffectTarget newTarget = context.CreateTarget(canvasRect);
             using (ImmediateCanvas canvas = context.Open(newTarget))
             using (canvas.PushTransform(Matrix.CreateTranslation(8, 8)))
             {
@@ -224,9 +225,10 @@ public class Border : FilterEffect
                     using (canvas.PushTransform(srcTranslate))
                         canvas.DrawBitmap(src, Brushes.White, null);
                 }
-
-                context.ReplaceTarget(newTarget);
             }
+
+            target.Dispose();
+            context.Targets[i] = newTarget;
         }
     }
     /* Contours to SKPath

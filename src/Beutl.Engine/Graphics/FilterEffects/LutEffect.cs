@@ -95,20 +95,22 @@ public sealed class LutEffect : FilterEffect
             }
             else
             {
-                context.Custom((_cube, _strength / 100), OnApply3DLUT_GPU, (_, r) => r);
+                context.CustomEffect((_cube, _strength / 100), OnApply3DLUT_GPU, (_, r) => r);
             }
         }
     }
 
-    private unsafe void OnApply3DLUT_GPU((CubeFile, float) data, FilterEffectCustomOperationContext context)
+    private unsafe void OnApply3DLUT_GPU((CubeFile, float) data, CustomFilterEffectContext context)
     {
-        if (context.Target.Surface?.Value is { } surface)
+        for (int i = 0; i < context.Targets.Count; i++)
         {
+            var target= context.Targets[i];
+            var surface = target.Surface!.Value;
             Accelerator accelerator = SharedGPUContext.Accelerator;
             var kernel = accelerator.LoadAutoGroupedStreamKernel<
                 Index1D, ArrayView<Vec4b>, ArrayView<Vector3>, int, float>(Apply3DLUTKernel);
 
-            var size = PixelSize.FromSize(context.Target.Size, 1);
+            var size = PixelSize.FromSize(target.Bounds.Size, 1);
             var imgInfo = new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888);
 
             using var source = accelerator.Allocate1D<Vec4b>(size.Width * size.Height);

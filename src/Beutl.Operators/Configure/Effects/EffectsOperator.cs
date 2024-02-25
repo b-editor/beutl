@@ -148,3 +148,18 @@ public sealed class FlatShadowOperator : FilterEffectOperator<FlatShadow>
 
     public Setter<bool> ShadowOnly { get; set; } = new(FlatShadow.ShadowOnlyProperty);
 }
+
+public sealed class SplitEffectOperator : FilterEffectOperator<SplitEffect>
+{
+    public Setter<int> HorizontalDivisions { get; set; } = new(SplitEffect.HorizontalDivisionsProperty, 2);
+
+    public Setter<int> VerticalDivisions { get; set; } = new(SplitEffect.VerticalDivisionsProperty, 2);
+
+    public Setter<float> HorizontalSpacing { get; set; } = new(SplitEffect.HorizontalSpacingProperty);
+
+    public Setter<float> VerticalSpacing { get; set; } = new(SplitEffect.VerticalSpacingProperty);
+}
+
+public sealed class PartsSplitEffectOperator : FilterEffectOperator<PartsSplitEffect>
+{
+}

@@ -140,9 +140,9 @@ public sealed class RenderCacheContext : IDisposable
         }
     }
 
-    private void MakeCacheCore(IGraphicNode node, RenderCache cache, IImmediateCanvasFactory factory)
+    public void CreateDefaultCache(IGraphicNode node, RenderCache cache, IImmediateCanvasFactory factory)
     {
-        Rect bounds = (node as ISupportRenderCache)?.TransformBoundsForCache(cache) ?? node.Bounds;
+        Rect bounds = node.Bounds;
         //bounds = bounds.Inflate(5);
         PixelRect boundsInPixels = PixelRect.FromRect(bounds);
         PixelSize size = boundsInPixels.Size;
@@ -164,14 +164,7 @@ public sealed class RenderCacheContext : IDisposable
         {
             using (canvas.PushTransform(Matrix.CreateTranslation(-boundsInPixels.X, -boundsInPixels.Y)))
             {
-                if (node is ISupportRenderCache supportRenderCache)
-                {
-                    supportRenderCache.RenderForCache(canvas, cache);
-                }
-                else
-                {
-                    node.Render(canvas);
-                }
+                node.Render(canvas);
             }
         }
 
@@ -181,6 +174,18 @@ public sealed class RenderCacheContext : IDisposable
         }
 
         Debug.WriteLine($"[RenderCache:Created] '{node}'");
+    }
+
+    private void MakeCacheCore(IGraphicNode node, RenderCache cache, IImmediateCanvasFactory factory)
+    {
+        if (node is ISupportRenderCache supportRenderCache)
+        {
+            supportRenderCache.CreateCache(factory, cache, this);
+        }
+        else
+        {
+            CreateDefaultCache(node, cache, factory);
+        }
     }
 
     public void Dispose()
