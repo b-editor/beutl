@@ -87,7 +87,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         IsEnabled.Skip(1)
             .Subscribe(v =>
             {
-                if (Value.Value is FilterEffect filter)
+                if (Value.Value is FilterEffect filter && filter.IsEnabled != v)
                 {
                     CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
                     RecordableCommands.Edit(filter, FilterEffect.IsEnabledProperty, v)

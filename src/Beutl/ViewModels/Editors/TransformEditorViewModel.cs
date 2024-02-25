@@ -123,7 +123,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
         IsEnabled.Skip(1)
             .Subscribe(v =>
             {
-                if (Value.Value is Transform transform)
+                if (Value.Value is Transform transform && transform.IsEnabled != v)
                 {
                     CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
                     RecordableCommands.Edit(transform, Transform.IsEnabledProperty, v, !v)

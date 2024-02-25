@@ -27,10 +27,13 @@ public class AlignmentYEditor : PropertyEditor
     private const string BottomSelected = ":bottom-selected";
     private readonly CompositeDisposable _disposables = [];
     private AlignmentY _value;
+    private RadioButton _topButton;
+    private RadioButton _centerButton;
+    private RadioButton _bottomButton;
 
     public AlignmentYEditor()
     {
-        UpdatePseudoClasses();
+        UpdatePseudoClassesAndCheckState();
     }
 
     public AlignmentY Value
@@ -40,7 +43,7 @@ public class AlignmentYEditor : PropertyEditor
         {
             if (SetAndRaise(ValueProperty, ref _value, value))
             {
-                UpdatePseudoClasses();
+                UpdatePseudoClassesAndCheckState();
             }
         }
     }
@@ -50,14 +53,14 @@ public class AlignmentYEditor : PropertyEditor
         _disposables.Clear();
 
         base.OnApplyTemplate(e);
-        Button topBtn = e.NameScope.Get<Button>("PART_TopRadioButton");
-        Button centerBtn = e.NameScope.Get<Button>("PART_CenterRadioButton");
-        Button bottomBtn = e.NameScope.Get<Button>("PART_BottomRadioButton");
-        topBtn.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
+        _topButton = e.NameScope.Get<RadioButton>("PART_TopRadioButton");
+        _centerButton = e.NameScope.Get<RadioButton>("PART_CenterRadioButton");
+        _bottomButton = e.NameScope.Get<RadioButton>("PART_BottomRadioButton");
+        _topButton.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
             .DisposeWith(_disposables);
-        centerBtn.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
+        _centerButton.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
             .DisposeWith(_disposables);
-        bottomBtn.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
+        _bottomButton.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
             .DisposeWith(_disposables);
     }
 
@@ -105,22 +108,40 @@ public class AlignmentYEditor : PropertyEditor
         }
     }
 
-    private void UpdatePseudoClasses()
+    private void UpdatePseudoClassesAndCheckState()
     {
         PseudoClasses.Remove(TopSelected);
         PseudoClasses.Remove(CenterSelected);
         PseudoClasses.Remove(BottomSelected);
-        string add = Value switch
-        {
-            AlignmentY.Top => TopSelected,
-            AlignmentY.Center => CenterSelected,
-            AlignmentY.Bottom => BottomSelected,
-            _ => null,
-        };
+        string pseudoClass = null;
+        RadioButton radioButton = null;
 
-        if (add != null)
+        switch (Value)
         {
-            PseudoClasses.Add(add);
+            case AlignmentY.Top:
+                pseudoClass = TopSelected;
+                radioButton = _topButton;
+                break;
+
+            case AlignmentY.Center:
+                pseudoClass = CenterSelected;
+                radioButton = _centerButton;
+                break;
+
+            case AlignmentY.Bottom:
+                pseudoClass = BottomSelected;
+                radioButton = _bottomButton;
+                break;
+        }
+
+        if (radioButton != null)
+        {
+            radioButton.IsChecked = true;
+        }
+
+        if (pseudoClass != null)
+        {
+            PseudoClasses.Add(pseudoClass);
         }
     }
 }

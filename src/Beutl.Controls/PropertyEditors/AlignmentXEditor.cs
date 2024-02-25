@@ -6,6 +6,7 @@ using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 using Beutl.Media;
 using Beutl.Reactive;
@@ -27,10 +28,13 @@ public class AlignmentXEditor : PropertyEditor
     private const string RightSelected = ":right-selected";
     private readonly CompositeDisposable _disposables = [];
     private AlignmentX _value;
+    private RadioButton _leftButton;
+    private RadioButton _centerButton;
+    private RadioButton _rightButton;
 
     public AlignmentXEditor()
     {
-        UpdatePseudoClasses();
+        UpdatePseudoClassesAndCheckState();
     }
 
     public AlignmentX Value
@@ -40,7 +44,7 @@ public class AlignmentXEditor : PropertyEditor
         {
             if (SetAndRaise(ValueProperty, ref _value, value))
             {
-                UpdatePseudoClasses();
+                UpdatePseudoClassesAndCheckState();
             }
         }
     }
@@ -48,16 +52,16 @@ public class AlignmentXEditor : PropertyEditor
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _disposables.Clear();
-
         base.OnApplyTemplate(e);
-        Button leftBtn = e.NameScope.Get<Button>("PART_LeftRadioButton");
-        Button centerBtn = e.NameScope.Get<Button>("PART_CenterRadioButton");
-        Button rightBtn = e.NameScope.Get<Button>("PART_RightRadioButton");
-        leftBtn.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
+        _leftButton = e.NameScope.Get<RadioButton>("PART_LeftRadioButton");
+        _centerButton = e.NameScope.Get<RadioButton>("PART_CenterRadioButton");
+        _rightButton = e.NameScope.Get<RadioButton>("PART_RightRadioButton");
+
+        _leftButton.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
             .DisposeWith(_disposables);
-        centerBtn.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
+        _centerButton.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
             .DisposeWith(_disposables);
-        rightBtn.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
+        _rightButton.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
             .DisposeWith(_disposables);
     }
 
@@ -105,22 +109,40 @@ public class AlignmentXEditor : PropertyEditor
         }
     }
 
-    private void UpdatePseudoClasses()
+    private void UpdatePseudoClassesAndCheckState()
     {
         PseudoClasses.Remove(LeftSelected);
         PseudoClasses.Remove(CenterSelected);
         PseudoClasses.Remove(RightSelected);
-        string add = Value switch
-        {
-            AlignmentX.Left => LeftSelected,
-            AlignmentX.Center => CenterSelected,
-            AlignmentX.Right => RightSelected,
-            _ => null,
-        };
+        string pseudoClass = null;
+        RadioButton radioButton = null;
 
-        if (add != null)
+        switch (Value)
         {
-            PseudoClasses.Add(add);
+            case AlignmentX.Left:
+                pseudoClass = LeftSelected;
+                radioButton=_leftButton;
+                break;
+
+            case AlignmentX.Center:
+                pseudoClass = CenterSelected;
+                radioButton = _centerButton;
+                break;
+
+            case AlignmentX.Right:
+                pseudoClass = RightSelected;
+                radioButton = _rightButton;
+                break;
+        }
+
+        if (radioButton != null)
+        {
+            radioButton.IsChecked = true;
+        }
+
+        if (pseudoClass != null)
+        {
+            PseudoClasses.Add(pseudoClass);
         }
     }
 }

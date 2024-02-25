@@ -24,7 +24,7 @@ public sealed class EnumEditorViewModel<T>(IAbstractProperty<T> property) : Valu
     {
         if (e is PropertyEditorValueChangedEventArgs<T> args)
         {
-            SetValue(args.OldValue, args.NewValue);
+            SetValue(Value.Value, args.NewValue);
         }
     }
 }
