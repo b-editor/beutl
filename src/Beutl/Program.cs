@@ -19,6 +19,8 @@ internal static class Program
         // Restore config
         GlobalConfiguration config = GlobalConfiguration.Instance;
         config.Restore(GlobalConfiguration.DefaultFilePath);
+        ViewConfig view = config.ViewConfig;
+        CultureInfo.CurrentUICulture = view.UICulture;
 
         using IDisposable _ = Telemetry.GetDisposable();
 

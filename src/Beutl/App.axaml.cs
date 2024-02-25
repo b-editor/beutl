@@ -43,7 +43,6 @@ public sealed class App : Application
 
         GlobalConfiguration config = GlobalConfiguration.Instance;
         ViewConfig view = config.ViewConfig;
-        CultureInfo.CurrentUICulture = view.UICulture;
 
         AvaloniaXamlLoader.Load(this);
         Resources["PaletteColors"] = AppHelpers.GetPaletteColors();
