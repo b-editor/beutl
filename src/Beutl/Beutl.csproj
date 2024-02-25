@@ -4,7 +4,7 @@
     <OutputType>WinExe</OutputType>
 
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
-    <MFBuildIn Condition="'$(MFBuildIn)' == ''">True</MFBuildIn>
+    <MFBuildIn Condition="'$(MFBuildIn)' == '' And $(TargetFramework.Contains('windows'))">True</MFBuildIn>
     <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
     <DefineConstants Condition="'$(MFBuildIn)'=='True'">$(DefineConstants);MF_BUILD_IN</DefineConstants>
     <ApplicationManifest>app.manifest</ApplicationManifest>
