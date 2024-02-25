@@ -558,8 +558,8 @@ public sealed class FilterEffectContext : IDisposable
                 var target = context.Targets[i];
                 if (target.Surface is { } srcSurface)
                 {
-                    Size size = target.OriginalBounds.Size;
-                    using EffectTarget newTarget = context.CreateTarget(target.OriginalBounds);
+                    Size size = target.Bounds.Size;
+                    EffectTarget newTarget = context.CreateTarget(target.Bounds);
                     using ImmediateCanvas newCanvas = context.Open(newTarget);
 
                     var c = new BrushConstructor(new(size), data.Brush, data.BlendMode, newCanvas);
