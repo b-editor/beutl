@@ -6,6 +6,8 @@ using System.Reactive;
 using System.Text;
 using System.Threading.Tasks;
 
+using Beutl.Language;
+
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -43,6 +45,7 @@ public class SplitEffect : FilterEffect
     }
 
     [Range(1, int.MaxValue)]
+    [Display(Name = nameof(Strings.HorizontalDivisions), ResourceType = typeof(Strings))]
     public int HorizontalDivisions
     {
         get => GetValue(HorizontalDivisionsProperty);
@@ -50,18 +53,21 @@ public class SplitEffect : FilterEffect
     }
 
     [Range(1, int.MaxValue)]
+    [Display(Name = nameof(Strings.VerticalDivisions), ResourceType = typeof(Strings))]
     public int VerticalDivisions
     {
         get => GetValue(VerticalDivisionsProperty);
         set => SetValue(VerticalDivisionsProperty, value);
     }
 
+    [Display(Name = nameof(Strings.HorizontalSpacing), ResourceType = typeof(Strings))]
     public float HorizontalSpacing
     {
         get => GetValue(HorizontalSpacingProperty);
         set => SetValue(HorizontalSpacingProperty, value);
     }
 
+    [Display(Name = nameof(Strings.VerticalSpacing), ResourceType = typeof(Strings))]
     public float VerticalSpacing
     {
         get => GetValue(VerticalSpacingProperty);

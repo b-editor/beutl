@@ -1099,4 +1099,22 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Length" xml:space="preserve">
     <value>長さ</value>
   </data>
+  <data name="SplitEquallyEffect" xml:space="preserve">
+    <value>均等に分割</value>
+  </data>
+  <data name="SplitByPartsEffect" xml:space="preserve">
+    <value>パーツごとに分割</value>
+  </data>
+  <data name="HorizontalDivisions" xml:space="preserve">
+    <value>水平分割数</value>
+  </data>
+  <data name="VerticalDivisions" xml:space="preserve">
+    <value>垂直分割数</value>
+  </data>
+  <data name="HorizontalSpacing" xml:space="preserve">
+    <value>水平方向の間隔</value>
+  </data>
+  <data name="VerticalSpacing" xml:space="preserve">
+    <value>垂直方向の間隔</value>
+  </data>
 </root>

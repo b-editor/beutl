@@ -14,17 +14,7 @@ namespace Beutl.Operators;
 public static class LibraryRegistrar
 {
     public static void RegisterAll()
-    {
-        LibraryService.Current
-            .AddMultiple("SplitEffect", m => m
-                .BindFilterEffect<SplitEffect>()
-            );
-        
-        LibraryService.Current
-            .AddMultiple("PartsSplitEffect", m => m
-                .BindFilterEffect<PartsSplitEffect>()
-            );
-        
+    {   
         LibraryService.Current
             .AddMultiple(Strings.Ellipse, m => m
                 .BindSourceOperator<Source.EllipseOperator>()
@@ -236,6 +226,16 @@ public static class LibraryRegistrar
                 .AddMultiple(Strings.ColorKey, m => m
                     .BindSourceOperator<Configure.Effects.ColorKeyOperator>()
                     .BindFilterEffect<ColorKey>()
+                )
+
+                .AddMultiple(Strings.SplitEquallyEffect, m => m
+                    .BindSourceOperator<Configure.Effects.SplitEffectOperator>()
+                    .BindFilterEffect<SplitEffect>()
+                )
+
+                .AddMultiple(Strings.SplitByPartsEffect, m => m
+                    .BindSourceOperator<Configure.Effects.PartsSplitEffectOperator>()
+                    .BindFilterEffect<PartsSplitEffect>()
                 )
 
                 .AddMultiple(Strings.Transform, m => m

@@ -1099,4 +1099,22 @@ and b-editor maintains the download URL.</value>
   <data name="Length" xml:space="preserve">
     <value>Length</value>
   </data>
+  <data name="SplitEquallyEffect" xml:space="preserve">
+    <value>Split equally</value>
+  </data>
+  <data name="SplitByPartsEffect" xml:space="preserve">
+    <value>Split by parts</value>
+  </data>
+  <data name="HorizontalDivisions" xml:space="preserve">
+    <value>Horizontal divisions</value>
+  </data>
+  <data name="VerticalDivisions" xml:space="preserve">
+    <value>Vertical divisions</value>
+  </data>
+  <data name="HorizontalSpacing" xml:space="preserve">
+    <value>Horizontal spacing</value>
+  </data>
+  <data name="VerticalSpacing" xml:space="preserve">
+    <value>Vertical spacing</value>
+  </data>
 </root>
