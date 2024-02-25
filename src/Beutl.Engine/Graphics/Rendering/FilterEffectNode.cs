@@ -101,7 +101,7 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
                     paint.BlendMode = (SKBlendMode)canvas.BlendMode;
                     paint.ImageFilter = builder.GetFilter();
 
-                    foreach (var t in activator.CurrentTargets)
+                    foreach (EffectTarget t in activator.CurrentTargets)
                     {
                         using (canvas.PushBlendMode(BlendMode.SrcOver))
                         using (canvas.PushTransform(Matrix.CreateTranslation(t.Bounds.X - t.OriginalBounds.X, t.Bounds.Y - t.OriginalBounds.Y)))
@@ -130,12 +130,7 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
 
             _rect = activator.CurrentTargets.CalculateBounds();
 
-            // Todo: [0..1]までキャッシュされていたが、[0..2]までキャッシュできるようになったとき、キャッシュされない。
-            // なので、FilterEffectNodeComparer._currentから、キャッシュされた部分までのhistoryを付け加えたものを記録する。
-            if (offset == 0 && !count.HasValue)
-            {
-                _comparer.OnRender(activator);
-            }
+            _comparer.OnRender(activator, offset, count);
         }
     }
 

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Diagnostics;
 
 using Beutl.Collections;
 using Beutl.Graphics.Rendering;
@@ -39,6 +40,35 @@ public class FilterEffectNodeComparer
         {
             var captured = activator.CurrentTargets[0]._history.ToImmutableArray();
             _current = captured;
+        }
+        else
+        {
+            _current = [];
+        }
+    }
+
+    public void OnRender(FilterEffectActivator activator, int offset, int? count)
+    {
+        if (activator.CurrentTargets.Count > 0)
+        {
+            if (!count.HasValue)
+            {
+                if (offset == 0)
+                {
+                    _current = [.. activator.CurrentTargets[0]._history];
+                }
+                else
+                {
+                    if (_current.Length < offset)
+                    {
+                        Debug.Fail("_current.Length < offset");
+                        return;
+                    }
+
+                    ReadOnlySpan<FEItemWrapper> old = _current.AsSpan().Slice(0, offset);
+                    _current = [.. old, .. activator.CurrentTargets[0]._history];
+                }
+            }
         }
         else
         {
