@@ -1,0 +1,96 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <Design.PreviewWith>
+        <local:SimpleColorPicker Width="220" InputType="Rgb" />
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:SimpleColorPicker}" TargetType="local:SimpleColorPicker">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel>
+                    <ui:ColorSpectrum Name="Spectrum"
+                                      Height="200"
+                                      BorderBrush="{DynamicResource ColorRampBorderBrush}"
+                                      BorderThickness="{DynamicResource ColorRampBorderThickness}" />
+
+                    <Grid Margin="6,8"
+                          ColumnDefinitions="Auto,*"
+                          RowDefinitions="20,8,20">
+
+                        <ui:ColorRamp Name="ThirdComponentRamp"
+                                      Grid.Row="0"
+                                      Grid.Column="1"
+                                      Height="{DynamicResource ColorPickerColorRampSize}"
+                                      BorderBrush="{DynamicResource ColorRampBorderBrush}"
+                                      BorderThickness="{DynamicResource ColorRampBorderThickness}"
+                                      Component="Hue"
+                                      CornerRadius="{DynamicResource OverlayCornerRadius}"
+                                      Orientation="Horizontal" />
+
+                        <ui:ColorRamp Name="SpectrumAlphaRamp"
+                                      Grid.Row="2"
+                                      Grid.Column="1"
+                                      Height="{DynamicResource ColorPickerColorRampSize}"
+                                      BorderBrush="{DynamicResource ColorRampBorderBrush}"
+                                      BorderThickness="{DynamicResource ColorRampBorderThickness}"
+                                      Component="Alpha"
+                                      CornerRadius="8"
+                                      Orientation="Horizontal" />
+
+                    </Grid>
+
+                    <Grid Margin="6,0,6,8"
+                          ColumnDefinitions="*,4,Auto"
+                          RowDefinitions="Auto,6,Auto">
+                        <ComboBox Name="ColorType"
+                                  Grid.ColumnSpan="2"
+                                  Padding="6,5,0,7"
+                                  SelectedIndex="0"
+                                  Theme="{StaticResource LiteComboBoxStyle}">
+                            <ComboBoxItem Content="Hex" />
+                            <ComboBoxItem Content="RGB" />
+                            <ComboBoxItem Content="HSV" />
+                        </ComboBox>
+
+                        <ToggleButton Name="ColorDropperButton"
+                                      Grid.Column="2"
+                                      Width="32"
+                                      Height="32"
+                                      Padding="0"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Center"
+                                      HorizontalContentAlignment="Center"
+                                      VerticalContentAlignment="Center"
+                                      IsVisible="False"
+                                      Theme="{StaticResource TransparentToggleButton}">
+                            <ui:FontIcon HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                         Glyph="&#xEF3C;" />
+                        </ToggleButton>
+
+                        <local:ColorComponentsEditor Name="ColorComponentsBox"
+                                                     Grid.Row="2"
+                                                     Grid.Column="0"
+                                                     HorizontalAlignment="Stretch"
+                                                     IsVisible="False"
+                                                     Theme="{StaticResource ColorComponentsEditorStyle}" />
+
+                        <TextBox Name="HexBox"
+                                 Grid.Row="2"
+                                 Grid.Column="0"
+                                 IsVisible="False" />
+
+                        <TextBox Name="OpacityBox"
+                                 Grid.Row="2"
+                                 Grid.Column="2"
+                                 Width="56"
+                                 MinWidth="56" />
+                    </Grid>
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+</ResourceDictionary>

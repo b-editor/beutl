@@ -43,6 +43,8 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/StorageFileEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyPicker.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/ColorComponentsEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/SimpleColorPicker.axaml" />
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
