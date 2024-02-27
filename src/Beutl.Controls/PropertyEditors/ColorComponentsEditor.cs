@@ -84,15 +84,15 @@ public class ColorComponentsEditor : Vector3Editor<int>
     {
         if (Rgb)
         {
-            FirstHeader = "R";
-            SecondHeader = "G";
-            ThirdHeader = "B";
+            FirstHeader = "赤";
+            SecondHeader = "緑";
+            ThirdHeader = "青";
         }
         else
         {
-            FirstHeader = "Hue";
-            SecondHeader = "Saturation";
-            ThirdHeader = "Value";
+            FirstHeader = "色相";
+            SecondHeader = "彩度";
+            ThirdHeader = "明度";
         }
     }
 
