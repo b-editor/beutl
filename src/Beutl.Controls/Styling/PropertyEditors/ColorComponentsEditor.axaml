@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:Beutl.Controls"
                     xmlns:icons="using:FluentIcons.FluentAvalonia"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
@@ -30,6 +31,7 @@
 
                         <TextBox x:Name="PART_InnerFirstTextBox"
                                  Grid.Column="0"
+                                 controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
                                  IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                  Text="{TemplateBinding FirstText, Mode=TwoWay}"
                                  Theme="{StaticResource VectorElementTextBox}"
@@ -39,6 +41,7 @@
 
                         <TextBox x:Name="PART_InnerSecondTextBox"
                                  Grid.Column="2"
+                                 controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
                                  IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                  Text="{TemplateBinding SecondText, Mode=TwoWay}"
                                  Theme="{StaticResource VectorElementTextBox}"
@@ -48,6 +51,7 @@
 
                         <TextBox x:Name="PART_InnerThirdTextBox"
                                  Grid.Column="4"
+                                 controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
                                  IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                  Text="{TemplateBinding ThirdText, Mode=TwoWay}"
                                  Theme="{StaticResource VectorElementTextBox}"

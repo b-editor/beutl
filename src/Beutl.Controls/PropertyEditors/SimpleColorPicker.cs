@@ -55,6 +55,8 @@ public class SimpleColorPicker : TemplatedControl
     private CancellationTokenSource? _cts;
 #endif
 
+    public event TypedEventHandler<SimpleColorPicker, (Color2 OldValue, Color2 NewValue)>? ColorChanged;
+
     public Color2 Color
     {
         get => GetValue(ColorProperty);
@@ -426,6 +428,7 @@ public class SimpleColorPicker : TemplatedControl
         try
         {
             _ignoreColorChange = true;
+            Color2 oldColor = Color;
             Color = color;
             HsvColor hsv = HsvColor.FromHsv(color.Hue, color.Saturationf, color.Valuef);
 
@@ -461,6 +464,8 @@ public class SimpleColorPicker : TemplatedControl
 
             if (_opacityBox != null && !ignoreOpacity)
                 _opacityBox.Text = color.Af.ToString("P0");
+
+            ColorChanged?.Invoke(this, (oldColor, color));
         }
         finally
         {

@@ -45,6 +45,7 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyPicker.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ColorComponentsEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/SimpleColorPicker.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/DraggablePickerFlyoutPresenter.axaml" />
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">

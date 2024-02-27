@@ -30,15 +30,32 @@
                                    Text="{TemplateBinding Header}"
                                    TextTrimming="CharacterEllipsis" />
 
-                        <ui:ColorPickerButton x:Name="PART_ColorPickerButton"
-                                              Grid.Column="1"
-                                              Margin="4,2"
-                                              HorizontalAlignment="Right"
-                                              CustomPaletteColors="{DynamicResource PaletteColors}"
-                                              IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                              ShowAcceptDismissButtons="{TemplateBinding IsLivePreviewEnabled, Converter={x:Static BoolConverters.Not}}"
-                                              UseColorPalette="True"
-                                              Color="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                        <Button Name="PART_ColorPickerButton"
+                                Grid.Column="1"
+                                Margin="4,2"
+                                Padding="0"
+                                HorizontalAlignment="Right"
+                                HorizontalContentAlignment="Stretch"
+                                CornerRadius="{DynamicResource ControlCornerRadius}"
+                                IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Border MinWidth="23"
+                                        MinHeight="23"
+                                        Margin="8,6,4,6"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Background="{Binding Value, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource ColorBrushConv}}"
+                                        BorderBrush="{DynamicResource ColorPickerButtonOutline}"
+                                        BorderThickness="1"
+                                        CornerRadius="{DynamicResource ControlCornerRadius}" />
+
+                                <ui:SymbolIcon Grid.Column="1"
+                                               Margin="4,6,8,6"
+                                               HorizontalAlignment="Right"
+                                               FontSize="18"
+                                               Symbol="ChevronDown" />
+                            </Grid>
+                        </Button>
 
                         <StackPanel Name="LeftRightButtons"
                                     Grid.Column="2"

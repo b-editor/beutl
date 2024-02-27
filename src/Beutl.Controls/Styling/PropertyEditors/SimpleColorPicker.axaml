@@ -9,6 +9,9 @@
     </Design.PreviewWith>
 
     <ControlTheme x:Key="{x:Type local:SimpleColorPicker}" TargetType="local:SimpleColorPicker">
+        <Setter Property="MinWidth" Value="240" />
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="IsTabStop" Value="False" />
         <Setter Property="Template">
             <ControlTemplate>
                 <StackPanel Name="Root">
