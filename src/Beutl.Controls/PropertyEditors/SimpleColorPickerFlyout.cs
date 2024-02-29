@@ -20,8 +20,7 @@ public sealed class SimpleColorPickerFlyout : PickerFlyoutBase
 
     protected override Control CreatePresenter()
     {
-        ColorPicker.Margin = new Avalonia.Thickness(0, 40, 0, 0);
-        var pfp = new DraggablePickerFlyoutPresenter()
+        var pfp = new SimpleColorPickerFlyoutPresenter()
         {
             Content = ColorPicker
         };
@@ -69,7 +68,7 @@ public sealed class SimpleColorPickerFlyout : PickerFlyoutBase
 
         if (Popup.Child is DraggablePickerFlyoutPresenter pfp)
         {
-            pfp.ShowHideButtons(ShouldShowConfirmationButtons());
+            pfp.ShowHideButtons = ShouldShowConfirmationButtons();
         }
 
         Popup.IsLightDismissEnabled = false;

@@ -6,6 +6,8 @@ using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
+using Avalonia.VisualTree;
 
 using Beutl.Reactive;
 
@@ -18,6 +20,9 @@ namespace Beutl.Controls.PropertyEditors;
 // PickerFlyoutPresenter.cs
 public class DraggablePickerFlyoutPresenter : ContentControl
 {
+    public static readonly StyledProperty<bool> ShowHideButtonsProperty =
+        AvaloniaProperty.Register<DraggablePickerFlyoutPresenter, bool>(nameof(ShowHideButtons));
+
     private readonly CompositeDisposable _disposables = [];
     private Panel? _dragArea;
     private Button? _closebutton;
@@ -35,7 +40,6 @@ public class DraggablePickerFlyoutPresenter : ContentControl
 
     public DraggablePickerFlyoutPresenter()
     {
-        PseudoClasses.Add(AcceptDismiss);
     }
 
     public event TypedEventHandler<DraggablePickerFlyoutPresenter, EventArgs>? Confirmed;
@@ -43,6 +47,12 @@ public class DraggablePickerFlyoutPresenter : ContentControl
     public event TypedEventHandler<DraggablePickerFlyoutPresenter, EventArgs>? Dismissed;
 
     public event TypedEventHandler<DraggablePickerFlyoutPresenter, EventArgs>? CloseClicked;
+
+    public bool ShowHideButtons
+    {
+        get => GetValue(ShowHideButtonsProperty);
+        set => SetValue(ShowHideButtonsProperty, value);
+    }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -84,6 +94,15 @@ public class DraggablePickerFlyoutPresenter : ContentControl
         return base.RegisterContentPresenter(presenter);
     }
 
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == ShowHideButtonsProperty)
+        {
+            PseudoClasses.Set(AcceptDismiss, ShowHideButtons);
+        }
+    }
+
     private void OnDismissClick(object? sender, RoutedEventArgs e)
     {
         Dismissed?.Invoke(this, EventArgs.Empty);
@@ -92,11 +111,6 @@ public class DraggablePickerFlyoutPresenter : ContentControl
     private void OnAcceptClick(object? sender, RoutedEventArgs e)
     {
         Confirmed?.Invoke(this, EventArgs.Empty);
-    }
-
-    internal void ShowHideButtons(bool show)
-    {
-        PseudoClasses.Set(AcceptDismiss, show);
     }
 
     private void OnCloseClick(object? sender, RoutedEventArgs e)
@@ -122,7 +136,7 @@ public class DraggablePickerFlyoutPresenter : ContentControl
         Point point = pointer.Position;
         Point delta = point - _point;
 
-        if (TopLevel.GetTopLevel(this) is PopupRoot { Parent: Popup popup })
+        if (this.FindLogicalAncestorOfType<Popup>() is { } popup)
         {
             popup.HorizontalOffset += delta.X;
             popup.VerticalOffset += delta.Y;

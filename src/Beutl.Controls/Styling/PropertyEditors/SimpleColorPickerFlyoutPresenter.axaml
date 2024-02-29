@@ -1,0 +1,159 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:behaviors="using:Beutl.Controls.Behaviors"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+                    x:CompileBindings="True">
+    <Design.PreviewWith>
+        <Border Height="600" Padding="50">
+            <local:SimpleColorPickerFlyoutPresenter VerticalAlignment="Center">
+                <local:SimpleColorPicker />
+            </local:SimpleColorPickerFlyoutPresenter>
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:SimpleColorPickerFlyoutPresenter}" TargetType="local:SimpleColorPickerFlyoutPresenter">
+        <Setter Property="Width" Value="240" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Background" Value="{DynamicResource FlyoutPresenterBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource FlyoutBorderThemeBrush}" />
+        <Setter Property="BorderThickness" Value="{StaticResource FlyoutBorderThemeThickness}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
+        <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ui:FABorder Padding="{DynamicResource FlyoutBorderThemePadding}"
+                             Background="{TemplateBinding Background}"
+                             BorderBrush="{TemplateBinding BorderBrush}"
+                             BorderThickness="{TemplateBinding BorderThickness}"
+                             CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid RowDefinitions="Auto,Auto,Auto">
+                        <Grid Name="DragArea"
+                              Height="40"
+                              VerticalAlignment="Top"
+                              Background="Transparent"
+                              ColumnDefinitions="*,Auto">
+                            <WrapPanel Name="TabLayout" Margin="4,4,0,4">
+                                <RadioButton Name="SpectrumTabButton">
+                                    <ui:FontIcon Glyph="&#xE76D;" />
+                                </RadioButton>
+                                <RadioButton Name="PaletteTabButton">
+                                    <ui:FontIcon Glyph="&#xF0E2;" />
+                                </RadioButton>
+                            </WrapPanel>
+
+                            <Button Name="CloseButton"
+                                    Grid.Column="1"
+                                    Width="32"
+                                    Height="32"
+                                    Margin="4"
+                                    Padding="0"
+                                    HorizontalAlignment="Right"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Theme="{StaticResource TransparentButton}">
+                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
+                            </Button>
+                        </Grid>
+
+                        <Border Grid.Row="2"
+                                BorderBrush="{DynamicResource PickerFlyoutPresenterDivider}"
+                                BorderThickness="0,1,0,0">
+
+                            <Panel Name="AcceptDismissContainer"
+                                   Height="{DynamicResource PickerAcceptDismissRegionHeight}"
+                                   IsVisible="False">
+                                <Grid ColumnDefinitions="*,*">
+                                    <Button Name="AcceptButton"
+                                            Margin="4,4,2,4"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            Theme="{StaticResource FlyoutAcceptDismiss}">
+                                        <ui:SymbolIcon FontSize="18" Symbol="Checkmark" />
+                                    </Button>
+                                    <Button Name="DismissButton"
+                                            Grid.Column="1"
+                                            Margin="2,4,4,4"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            Theme="{StaticResource FlyoutAcceptDismiss}">
+                                        <ui:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                    </Button>
+                                </Grid>
+
+                            </Panel>
+                        </Border>
+
+                        <ContentPresenter Name="ContentPresenter"
+                                          Grid.Row="1"
+                                          Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+
+                        <Panel Name="PaletteContent"
+                               Grid.Row="1"
+                               MaxHeight="450"
+                               IsVisible="False">
+                            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                <ItemsRepeater Margin="5" ItemsSource="{DynamicResource PaletteColors}">
+                                    <ItemsRepeater.Layout>
+                                        <UniformGridLayout ItemsStretch="Fill"
+                                                           MaximumRowsOrColumns="10"
+                                                           Orientation="Horizontal" />
+                                    </ItemsRepeater.Layout>
+                                    <ItemsRepeater.ItemTemplate>
+                                        <DataTemplate x:DataType="Color">
+                                            <ui:ColorPaletteItem Height="{Binding $self.Bounds.Width}"
+                                                                 Margin="{DynamicResource ColorPaletteItemMargin}"
+                                                                 BorderBrushPointerOver="{DynamicResource ColorPickerColorPaletteItemBorderBrushPointerOver}"
+                                                                 BorderThicknessPointerOver="1"
+                                                                 Color="{Binding}">
+                                                <Interaction.Behaviors>
+                                                    <behaviors:ColorPaletteItemBehavior />
+                                                </Interaction.Behaviors>
+                                            </ui:ColorPaletteItem>
+                                        </DataTemplate>
+                                    </ItemsRepeater.ItemTemplate>
+                                </ItemsRepeater>
+                            </ScrollViewer>
+                        </Panel>
+                    </Grid>
+                </ui:FABorder>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:acceptdismiss /template/ Panel#AcceptDismissContainer">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:acceptdismiss /template/ Button#CloseButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <Style Selector="^:palette /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:palette /template/ Panel#PaletteContent">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^ /template/ WrapPanel#TabLayout">
+            <Style Selector="^ > RadioButton">
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="Margin" Value="0,0,4,0" />
+                <Setter Property="Theme" Value="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" />
+
+                <Style Selector="^ > ui|FontIcon">
+                    <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
+                </Style>
+            </Style>
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

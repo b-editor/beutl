@@ -72,6 +72,8 @@ public class ColorEditor : PropertyEditor
 
     private void OnButtonClick(object sender, RoutedEventArgs e)
     {
+        _flyout.Hide();
+
         Color color = Value;
         _flyout.ColorPicker.Color = color;
 
@@ -84,7 +86,7 @@ public class ColorEditor : PropertyEditor
             _flyout.ColorPicker.ColorChanged += OnColorPickerColorChanged;
         }
 
-        _flyout.ShowAt(TopLevel.GetTopLevel(this), true);
+        _flyout.ShowAt(this, true);
 
         _flyoutActive = true;
 
