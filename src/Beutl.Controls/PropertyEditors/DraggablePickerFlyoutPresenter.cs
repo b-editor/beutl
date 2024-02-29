@@ -152,6 +152,10 @@ public class DraggablePickerFlyoutPresenter : ContentControl
         {
             _pressed = true;
             _point = pointer.Position;
+            if (this.FindAncestorOfType<PopupRoot>() is { } root)
+            {
+                root.Activate();
+            }
         }
     }
 }
