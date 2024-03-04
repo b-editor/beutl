@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              Padding="4,0"
@@ -17,56 +18,13 @@
                    VerticalAlignment="Top"
                    Text="{Binding Header}" />
 
-        <Border x:Name="border"
-                Grid.Row="1"
-                Height="20"
-                Margin="4,0"
-                CornerRadius="10">
-            <Border.Background>
-                <LinearGradientBrush GradientStops="{Binding Stops}" StartPoint="0%,50%" EndPoint="100%,50%" />
-            </Border.Background>
-        </Border>
-        <ItemsControl x:Name="items"
-                      Grid.Row="1"
-                      Height="20"
-                      Margin="4,0"
-                      ClipToBounds="False"
-                      IsEnabled="{Binding CanEdit.Value}"
-                      ItemsSource="{Binding Stops}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <Panel />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-
-                    <Border HorizontalAlignment="Left"
-                            Background="{Binding Color, Converter={StaticResource ColorToBrush}}"
-                            BorderBrush="{Binding Color, Converter={StaticResource ColorToBorderBrush}}"
-                            BorderThickness="3"
-                            PointerExited="Item_PointerExited"
-                            PointerMoved="Item_PointerMoved"
-                            PointerPressed="Item_PointerPressed"
-                            PointerReleased="Item_PointerReleased">
-                        <Border.RenderTransform>
-                            <MultiBinding Converter="{StaticResource GradientStopToTransform}">
-                                <Binding Path="Offset" />
-                                <Binding ElementName="items" Path="Bounds.Width" />
-                            </MultiBinding>
-                        </Border.RenderTransform>
-                        <Border.Styles>
-                            <Style Selector="Border">
-                                <Setter Property="Width" Value="20" />
-                                <Setter Property="Height" Value="20" />
-                                <Setter Property="CornerRadius" Value="10" />
-                                <Setter Property="Margin" Value="-10,0,0,0" />
-                            </Style>
-                        </Border.Styles>
-                    </Border>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <pe:GradientStopsSlider Name="slider"
+                                Grid.Row="1"
+                                Height="20"
+                                Margin="4,0"
+                                IsEnabled="{Binding CanEdit.Value}"
+                                SelectedStop="{Binding SelectedItem.Value, Mode=TwoWay}"
+                                Stops="{Binding Stops.Value}" />
 
         <local:PropertyEditorMenu Grid.Row="1" Grid.Column="1" />
 
