@@ -592,6 +592,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Conical.
+        /// </summary>
+        public static string Conical {
+            get {
+                return ResourceManager.GetString("Conical", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Content Type.
         /// </summary>
         public static string ContentType {
@@ -1583,6 +1592,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Linear.
+        /// </summary>
+        public static string Linear {
+            get {
+                return ResourceManager.GetString("Linear", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Link.
         /// </summary>
         public static string Link {
@@ -2092,6 +2110,15 @@ namespace Beutl.Language {
         public static string Queue {
             get {
                 return ResourceManager.GetString("Queue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Radial.
+        /// </summary>
+        public static string Radial {
+            get {
+                return ResourceManager.GetString("Radial", resourceCulture);
             }
         }
         

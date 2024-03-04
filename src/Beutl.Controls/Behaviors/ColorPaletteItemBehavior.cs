@@ -41,7 +41,15 @@ public class ColorPaletteItemBehavior : Behavior<ColorPaletteItem>
             SimpleColorPickerFlyoutPresenter fp = AssociatedObject.FindAncestorOfType<SimpleColorPickerFlyoutPresenter>();
             if (fp?.Content is SimpleColorPicker cp)
             {
-                cp.Color = AssociatedObject.Color;
+                cp.SetColor(AssociatedObject.Color);
+                e.Handled = true;
+                return;
+            }
+
+            BrushEditorFlyoutPresenter fp2 = AssociatedObject.FindAncestorOfType<BrushEditorFlyoutPresenter>();
+            if (fp2 != null)
+            {
+                fp2.SetColorPaletteItem(AssociatedObject.Color);
                 e.Handled = true;
             }
         }

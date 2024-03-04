@@ -1120,4 +1120,13 @@ and b-editor maintains the download URL.</value>
   <data name="SplitByCharacters" xml:space="preserve">
     <value>Split by characters</value>
   </data>
+  <data name="Linear" xml:space="preserve">
+    <value>Linear</value>
+  </data>
+  <data name="Conical" xml:space="preserve">
+    <value>Conical</value>
+  </data>
+  <data name="Radial" xml:space="preserve">
+    <value>Radial</value>
+  </data>
 </root>

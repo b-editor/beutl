@@ -47,6 +47,7 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/SimpleColorPicker.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/DraggablePickerFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/SimpleColorPickerFlyoutPresenter.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/BrushEditorFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/GradientStopsSlider.axaml" />
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>

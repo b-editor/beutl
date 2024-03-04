@@ -14,102 +14,108 @@
         <Setter Property="IsTabStop" Value="False" />
         <Setter Property="Template">
             <ControlTemplate>
-                <StackPanel Name="Root">
-                    <ColorSpectrum Name="Spectrum"
-                                   Width="{Binding #Root.Bounds.Width}"
-                                   Height="{Binding #Root.Bounds.Width}"
-                                   BorderBrush="{DynamicResource ColorRampBorderBrush}"
-                                   BorderThickness="{DynamicResource ColorRampBorderThickness}"
-                                   Components="SaturationValue"
-                                   Shape="Box" />
+                <Panel>
+                    <StackPanel Name="Root">
+                        <ColorSpectrum Name="Spectrum"
+                                       Width="{Binding #Root.Bounds.Width}"
+                                       Height="{Binding #Root.Bounds.Width}"
+                                       BorderBrush="{DynamicResource ColorRampBorderBrush}"
+                                       BorderThickness="{DynamicResource ColorRampBorderThickness}"
+                                       Components="SaturationValue"
+                                       Shape="Box" />
 
-                    <ColorSpectrum Name="RingSpectrum"
-                                   Width="{Binding #Root.Bounds.Width}"
-                                   Height="{Binding #Root.Bounds.Width}"
-                                   BorderBrush="{DynamicResource ColorRampBorderBrush}"
-                                   BorderThickness="{DynamicResource ColorRampBorderThickness}"
-                                   Components="HueSaturation"
-                                   IsVisible="False"
-                                   Shape="Ring" />
+                        <ColorSpectrum Name="RingSpectrum"
+                                       Width="{Binding #Root.Bounds.Width}"
+                                       Height="{Binding #Root.Bounds.Width}"
+                                       BorderBrush="{DynamicResource ColorRampBorderBrush}"
+                                       BorderThickness="{DynamicResource ColorRampBorderThickness}"
+                                       Components="HueSaturation"
+                                       IsVisible="False"
+                                       Shape="Ring" />
 
-                    <ColorPreviewer Name="Previewer"
-                                    Margin="6,0"
-                                    IsVisible="False" />
+                        <ColorPreviewer Name="Previewer"
+                                        Margin="6,0"
+                                        IsVisible="False" />
 
-                    <StackPanel Margin="6,8" Spacing="8">
+                        <StackPanel Margin="6,8" Spacing="8">
 
-                        <ColorSlider Name="Component1Slider"
-                                     ColorComponent="Component1"
-                                     ColorModel="Rgba"
-                                     IsVisible="False" />
+                            <ColorSlider Name="Component1Slider"
+                                         ColorComponent="Component1"
+                                         ColorModel="Rgba"
+                                         IsVisible="False" />
 
-                        <ColorSlider Name="Component2Slider"
-                                     ColorComponent="Component2"
-                                     ColorModel="Rgba"
-                                     IsVisible="False" />
+                            <ColorSlider Name="Component2Slider"
+                                         ColorComponent="Component2"
+                                         ColorModel="Rgba"
+                                         IsVisible="False" />
 
-                        <ColorSlider Name="Component3Slider"
-                                     ColorComponent="Component3"
-                                     ColorModel="Rgba"
-                                     IsVisible="False" />
+                            <ColorSlider Name="Component3Slider"
+                                         ColorComponent="Component3"
+                                         ColorModel="Rgba"
+                                         IsVisible="False" />
 
-                        <ColorSlider Name="ThirdComponentSlider"
-                                     ColorComponent="Component1"
-                                     ColorModel="Hsva" />
+                            <ColorSlider Name="ThirdComponentSlider"
+                                         ColorComponent="Component1"
+                                         ColorModel="Hsva" />
 
-                        <ColorSlider Name="SpectrumAlphaSlider" ColorComponent="Alpha" />
+                            <ColorSlider Name="SpectrumAlphaSlider" ColorComponent="Alpha" />
 
-                    </StackPanel>
-
-                    <Grid Margin="6,0,6,8"
-                          ColumnDefinitions="*,4,Auto"
-                          RowDefinitions="Auto,6,Auto">
-                        <ComboBox Name="ColorType"
-                                  Grid.ColumnSpan="2"
-                                  Padding="6,5,0,7"
-                                  SelectedIndex="0"
-                                  Theme="{StaticResource LiteComboBoxStyle}">
-                            <ComboBoxItem Content="Hex" />
-                            <ComboBoxItem Content="RGB" />
-                            <ComboBoxItem Content="HSV" />
-                        </ComboBox>
-
-                        <StackPanel Name="ButtonsLayout"
-                                    Grid.Column="0"
-                                    Grid.ColumnSpan="3"
-                                    HorizontalAlignment="Right"
-                                    Orientation="Horizontal"
-                                    Spacing="4">
-                            <ToggleButton Name="ToggleDetailsButton" ToolTip.Tip="スライダーを表示">
-                                <ui:FontIcon Glyph="&#xE9E9;" />
-                            </ToggleButton>
-                            <ToggleButton Name="ToggleSpectrumShapeButton" ToolTip.Tip="リングを表示">
-                                <ui:FontIcon Glyph="&#xEA3A;" />
-                            </ToggleButton>
-                            <ToggleButton Name="ColorDropperButton" IsVisible="False">
-                                <ui:FontIcon Glyph="&#xEF3C;" />
-                            </ToggleButton>
                         </StackPanel>
 
-                        <local:ColorComponentsEditor Name="ColorComponentsBox"
-                                                     Grid.Row="2"
-                                                     Grid.Column="0"
-                                                     HorizontalAlignment="Stretch"
-                                                     IsVisible="False"
-                                                     Theme="{StaticResource ColorComponentsEditorStyle}" />
+                        <Grid Margin="6,0,6,8"
+                              ColumnDefinitions="*,4,Auto"
+                              RowDefinitions="Auto,6,Auto">
+                            <ComboBox Name="ColorType"
+                                      Grid.ColumnSpan="2"
+                                      Padding="6,5,0,7"
+                                      SelectedIndex="0"
+                                      Theme="{StaticResource LiteComboBoxStyle}">
+                                <ComboBoxItem Content="Hex" />
+                                <ComboBoxItem Content="RGB" />
+                                <ComboBoxItem Content="HSV" />
+                            </ComboBox>
 
-                        <TextBox Name="HexBox"
-                                 Grid.Row="2"
-                                 Grid.Column="0"
-                                 IsVisible="False" />
+                            <StackPanel Name="ButtonsLayout"
+                                        Grid.Column="0"
+                                        Grid.ColumnSpan="3"
+                                        HorizontalAlignment="Right"
+                                        Orientation="Horizontal"
+                                        Spacing="4">
+                                <ToggleButton Name="ToggleDetailsButton" ToolTip.Tip="スライダーを表示">
+                                    <ui:FontIcon Glyph="&#xE9E9;" />
+                                </ToggleButton>
+                                <ToggleButton Name="ToggleSpectrumShapeButton" ToolTip.Tip="リングを表示">
+                                    <ui:FontIcon Glyph="&#xEA3A;" />
+                                </ToggleButton>
+                                <ToggleButton Name="ColorDropperButton" IsVisible="False">
+                                    <ui:FontIcon Glyph="&#xEF3C;" />
+                                </ToggleButton>
+                            </StackPanel>
 
-                        <TextBox Name="OpacityBox"
-                                 Grid.Row="2"
-                                 Grid.Column="2"
-                                 Width="56"
-                                 MinWidth="56" />
-                    </Grid>
-                </StackPanel>
+                            <local:ColorComponentsEditor Name="ColorComponentsBox"
+                                                         Grid.Row="2"
+                                                         Grid.Column="0"
+                                                         HorizontalAlignment="Stretch"
+                                                         IsVisible="False"
+                                                         Theme="{StaticResource ColorComponentsEditorStyle}" />
+
+                            <TextBox Name="HexBox"
+                                     Grid.Row="2"
+                                     Grid.Column="0"
+                                     IsVisible="False" />
+
+                            <TextBox Name="OpacityBox"
+                                     Grid.Row="2"
+                                     Grid.Column="2"
+                                     Width="56"
+                                     MinWidth="56" />
+                        </Grid>
+                    </StackPanel>
+
+                    <Border Name="Smoke"
+                            Background="{DynamicResource ContentDialogSmokeFill}"
+                            IsVisible="False" />
+                </Panel>
             </ControlTemplate>
         </Setter>
 
@@ -157,6 +163,10 @@
                     <Setter Property="ColorModel" Value="Hsva" />
                 </Style>
             </Style>
+        </Style>
+
+        <Style Selector="^:disabled /template/ Border#Smoke">
+            <Setter Property="IsVisible" Value="True" />
         </Style>
 
     </ControlTheme>

@@ -1120,4 +1120,13 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="SplitByCharacters" xml:space="preserve">
     <value>文字ごとに分割</value>
   </data>
+  <data name="Linear" xml:space="preserve">
+    <value>線形</value>
+  </data>
+  <data name="Conical" xml:space="preserve">
+    <value>円錐型</value>
+  </data>
+  <data name="Radial" xml:space="preserve">
+    <value>放射状</value>
+  </data>
 </root>

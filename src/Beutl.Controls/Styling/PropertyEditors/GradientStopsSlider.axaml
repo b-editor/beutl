@@ -13,47 +13,29 @@
     </Design.PreviewWith>
 
     <ControlTheme x:Key="GradientStopSliderThumbStyle" TargetType="Thumb">
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Background" Value="{DynamicResource SliderThumbBackground}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource SliderThumbBorderBrush}" />
-        <Setter Property="ClipToBounds" Value="False" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SliderOuterThumbBackground}" />
+        <!--TODO: <Setter Property="BorderBrush" Value="{DynamicResource ColorControlDefaultSelectorBrush}" />-->
+        <Setter Property="BorderThickness" Value="3" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ColorSliderCornerRadius}" />
+        <Setter Property="Width" Value="20" />
+        <Setter Property="Height" Value="20" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate>
-                    <Border Margin="-2"
-                            Background="{DynamicResource SliderOuterThumbBackground}"
+                    <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{DynamicResource SliderThumbCornerRadius}">
-                        <Ellipse Name="SliderInnerThumb"
-                                 Width="{DynamicResource SliderInnerThumbWidth}"
-                                 Height="{DynamicResource SliderInnerThumbHeight}"
-                                 Fill="{TemplateBinding Background}"
-                                 RenderTransform="scaleX(0.86) scaleY(0.86)">
-                            <Ellipse.Transitions>
-                                <Transitions>
-                                    <TransformOperationsTransition Easing="0,0 0,1"
-                                                                   Property="RenderTransform"
-                                                                   Duration="00:00:00.167" />
-                                </Transitions>
-                            </Ellipse.Transitions>
-                        </Ellipse>
-                    </Border>
+                            CornerRadius="{TemplateBinding CornerRadius}" />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="Opacity" Value="0.75" />
+        </Style>
 
-        <Style Selector="^.selected /template/ Ellipse#SliderInnerThumb">
-            <Setter Property="RenderTransform" Value="scaleX(1.167) scaleY(1.167)" />
-        </Style>
-        <Style Selector="^:pointerover /template/ Ellipse#SliderInnerThumb">
-            <Setter Property="RenderTransform" Value="scaleX(1.167) scaleY(1.167)" />
-        </Style>
-        <Style Selector="^:pressed /template/ Ellipse#SliderInnerThumb">
-            <Setter Property="RenderTransform" Value="scaleX(0.71) scaleY(0.71)" />
-        </Style>
-        <Style Selector="^:disabled /template/ Ellipse#SliderInnerThumb">
-            <Setter Property="RenderTransform" Value="scaleX(1.167) scaleY(1.167)" />
+        <Style Selector="^.selected">
+            <Setter Property="BorderThickness" Value="2" />
         </Style>
     </ControlTheme>
 
@@ -72,9 +54,9 @@
                             Margin="2,0"
                             Background="Transparent">
                         <Rectangle Name="BackgroundElement"
-                                   Height="18"
-                                   RadiusX="9"
-                                   RadiusY="9">
+                                   Height="20"
+                                   RadiusX="10"
+                                   RadiusY="10">
                             <!--<Rectangle.Fill>
                                 <LinearGradientBrush GradientStops="{Binding Stops, RelativeSource={RelativeSource TemplatedParent}}" StartPoint="0%,50%" EndPoint="100%,50%" />
                             </Rectangle.Fill>-->
@@ -84,8 +66,7 @@
                     <ItemsControl Name="ItemsControl"
                                   Margin="2,0"
                                   Background="Transparent"
-                                  ClipToBounds="False"
-                                  ItemsSource="{TemplateBinding Stops}">
+                                  ClipToBounds="False">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <Canvas ClipToBounds="False" />
@@ -93,8 +74,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="GradientStop">
-                                <Thumb Width="{DynamicResource SliderHorizontalThumbWidth}"
-                                       Height="{DynamicResource SliderHorizontalThumbHeight}"
+                                <Thumb Margin="0,2"
                                        VerticalAlignment="Center"
                                        Theme="{StaticResource GradientStopSliderThumbStyle}" />
                             </DataTemplate>
