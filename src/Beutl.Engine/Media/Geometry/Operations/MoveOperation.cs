@@ -16,6 +16,10 @@ public sealed class MoveOperation : PathOperation
         AffectsRender<MoveOperation>(PointProperty);
     }
 
+    public MoveOperation()
+    {
+    }
+    
     public MoveOperation(Point point)
     {
         Point = point;

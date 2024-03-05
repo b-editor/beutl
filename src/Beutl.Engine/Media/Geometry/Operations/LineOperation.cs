@@ -16,6 +16,10 @@ public sealed class LineOperation : PathOperation
         AffectsRender<LineOperation>(PointProperty);
     }
 
+    public LineOperation()
+    {
+    }
+    
     public LineOperation(Point point)
     {
         Point = point;
