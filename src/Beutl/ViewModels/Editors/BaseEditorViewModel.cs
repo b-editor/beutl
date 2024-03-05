@@ -273,7 +273,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         if (serviceType.IsAssignableTo(typeof(IAbstractProperty)))
             return WrappedProperty;
 
-        return _parentServices?.GetService(serviceType);
+        return _parentServices?.GetService(serviceType) ?? _editViewModel?.GetService(serviceType);
     }
 
     public void InvalidateFrameCache()

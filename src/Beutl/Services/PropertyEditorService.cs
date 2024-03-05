@@ -425,9 +425,19 @@ public static class PropertyEditorService
                     }
                 }
 
-                if (TryCreateControlCore(context, out Control? control1) && control1 is IListItemEditor control2)
+                if (TryCreateControlCore(context, out Control? control1))
                 {
-                    control = control2;
+                    if (control1 is IListItemEditor control2)
+                    {
+                        control = control2;
+                    }
+                    else
+                    {
+                        var control3 = new ListItemEditorHost();
+                        control3.SetChild(control1);
+                        control = control3;
+                    }
+
                     return true;
                 }
                 else

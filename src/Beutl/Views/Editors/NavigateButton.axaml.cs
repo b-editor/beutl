@@ -63,7 +63,7 @@ public sealed class NavigateButton<T> : NavigateButton
                 = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>()
                     ?? new ObjectPropertyEditorViewModel(editViewModel);
 
-            objViewModel.NavigateCore(viewModel.Value.Value, false);
+            objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);
             editViewModel.OpenToolTab(objViewModel);
         }
     }
