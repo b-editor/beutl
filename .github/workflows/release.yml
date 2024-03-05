@@ -51,8 +51,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $TFM = dotnet msbuild --getProperty:TargetFramework src/Beutl/Beutl.csproj
-          $Packages = dotnet list src/Beutl.Engine/Beutl.Engine.csproj package --framework $TFM --format json
+          $Packages = dotnet list src/Beutl.Engine/Beutl.Engine.csproj package --framework net8.0 --format json
           
           #4.9.0.2024
           $OpenCvSharpVersion = (echo $Packages | jq -r '.projects[0].frameworks[0].topLevelPackages | map(select(.id == "OpenCvSharp4"))[0].requestedVersion')
@@ -195,7 +194,7 @@ jobs:
         run: ./build.cmd Restore
   
       - name: Build & Pack
-        run: dotnet pack --no-restore -c Release --output ../../artifacts
+        run: dotnet pack --no-restore -f net8.0 -c Release --output ../../artifacts
         working-directory: ./packages/Beutl.Sdk
 
       - name: Save

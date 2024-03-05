@@ -26,7 +26,7 @@ jobs:
       run: dotnet restore
 
     - name: Build
-      run: dotnet build --no-restore
+      run: dotnet build --no-restore -f net8.0
 
     - name: Test
-      run: dotnet test Beutl.sln --no-build --verbosity normal
+      run: dotnet test Beutl.sln --no-build --verbosity normal -f net8.0
