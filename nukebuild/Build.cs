@@ -95,6 +95,7 @@ partial class Build : NukeBuild
                 .EnableNoRestore()
                 .When(Runtime != null, s => s.SetRuntime(Runtime).SetSelfContained(SelfContained))
                 .When(Runtime == DotNetRuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
+                .When(Runtime != DotNetRuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
                 .SetConfiguration(Configuration)
                 .SetProject(mainProj)
                 .SetOutput(mainOutput)
@@ -113,6 +114,7 @@ partial class Build : NukeBuild
                 DotNetPublish(s => s
                     .When(Runtime != null, s => s.SetRuntime(Runtime).SetSelfContained(SelfContained))
                     .When(Runtime == DotNetRuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
+                    .When(Runtime != DotNetRuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
                     .EnableNoRestore()
                     .SetConfiguration(Configuration)
                     .SetProject(SourceDirectory / item / $"{item}.csproj")
