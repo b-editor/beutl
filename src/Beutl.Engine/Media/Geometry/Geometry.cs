@@ -106,12 +106,6 @@ public abstract class Geometry : Animatable, IAffectsRender
 
     public virtual void ApplyTo(IGeometryContext context)
     {
-        if (Transform?.IsEnabled == true)
-        {
-            context.Transform(Transform.Value);
-        }
-
-        context.FillType = _fillType;
     }
 
     private void OnInvalidated(object? sender, RenderInvalidatedEventArgs e)
@@ -126,6 +120,13 @@ public abstract class Geometry : Animatable, IAffectsRender
         {
             _context.Clear();
             ApplyTo(_context);
+            if (Transform?.IsEnabled == true)
+            {
+                _context.Transform(Transform.Value);
+            }
+
+            _context.FillType = _fillType;
+
             _isDirty = false;
             unchecked
             {
