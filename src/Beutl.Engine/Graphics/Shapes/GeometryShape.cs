@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Animation;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
@@ -25,5 +26,11 @@ public sealed class GeometryShape : Shape
     protected override Geometry? CreateGeometry()
     {
         return _data;
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        (Data as IAnimatable)?.ApplyAnimations(clock);
     }
 }

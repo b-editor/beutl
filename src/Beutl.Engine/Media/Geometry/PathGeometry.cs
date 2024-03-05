@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Animation;
+using Beutl.Graphics;
 
 using SkiaSharp;
 
@@ -126,6 +127,15 @@ public sealed class PathGeometry : Geometry
         foreach (PathOperation item in Operations.GetMarshal().Value)
         {
             item.ApplyTo(context);
+        }
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        foreach (PathOperation item in Operations)
+        {
+            item.ApplyAnimations(clock);
         }
     }
 }

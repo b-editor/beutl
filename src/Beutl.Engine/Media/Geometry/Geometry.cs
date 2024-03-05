@@ -204,6 +204,12 @@ public abstract class Geometry : Animatable, IAffectsRender
         }
     }
 
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        (Transform as IAnimatable)?.ApplyAnimations(clock);
+    }
+
     private struct PathCache
     {
         private IPen? _cachedPen;
