@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Graphics;
+using Beutl.Serialization;
 
 using SkiaSharp;
 
@@ -27,6 +28,21 @@ public sealed class PathGeometry : Geometry
     {
         get => _operations;
         set => _operations.Replace(value);
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(Operations), Operations);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if (context.GetValue<PathOperations>(nameof(Operations)) is { } operations)
+        {
+            Operations = operations;
+        }
     }
 
     public static PathGeometry Parse(string svg)
