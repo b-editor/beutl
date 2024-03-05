@@ -322,6 +322,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Blue.
+        /// </summary>
+        public static string Blue {
+            get {
+                return ResourceManager.GetString("Blue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Blur.
         /// </summary>
         public static string Blur {
@@ -588,6 +597,15 @@ namespace Beutl.Language {
         public static string Configure {
             get {
                 return ResourceManager.GetString("Configure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Conical.
+        /// </summary>
+        public static string Conical {
+            get {
+                return ResourceManager.GetString("Conical", resourceCulture);
             }
         }
         
@@ -1313,6 +1331,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Green.
+        /// </summary>
+        public static string Green {
+            get {
+                return ResourceManager.GetString("Green", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Group.
         /// </summary>
         public static string Group {
@@ -1372,6 +1399,15 @@ namespace Beutl.Language {
         public static string HorizontalSpacing {
             get {
                 return ResourceManager.GetString("HorizontalSpacing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Hue.
+        /// </summary>
+        public static string Hue {
+            get {
+                return ResourceManager.GetString("Hue", resourceCulture);
             }
         }
         
@@ -1579,6 +1615,15 @@ namespace Beutl.Language {
         public static string Lighting {
             get {
                 return ResourceManager.GetString("Lighting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Linear.
+        /// </summary>
+        public static string Linear {
+            get {
+                return ResourceManager.GetString("Linear", resourceCulture);
             }
         }
         
@@ -2096,6 +2141,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Radial.
+        /// </summary>
+        public static string Radial {
+            get {
+                return ResourceManager.GetString("Radial", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Radius.
         /// </summary>
         public static string Radius {
@@ -2155,6 +2209,15 @@ namespace Beutl.Language {
         public static string Rectangle {
             get {
                 return ResourceManager.GetString("Rectangle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Red.
+        /// </summary>
+        public static string Red {
+            get {
+                return ResourceManager.GetString("Red", resourceCulture);
             }
         }
         
@@ -2299,6 +2362,15 @@ namespace Beutl.Language {
         public static string Saturate {
             get {
                 return ResourceManager.GetString("Saturate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Saturation.
+        /// </summary>
+        public static string Saturation {
+            get {
+                return ResourceManager.GetString("Saturation", resourceCulture);
             }
         }
         
@@ -2488,6 +2560,24 @@ namespace Beutl.Language {
         public static string ShowPreview {
             get {
                 return ResourceManager.GetString("ShowPreview", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Show ring.
+        /// </summary>
+        public static string ShowRing {
+            get {
+                return ResourceManager.GetString("ShowRing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Show sliders.
+        /// </summary>
+        public static string ShowSliders {
+            get {
+                return ResourceManager.GetString("ShowSliders", resourceCulture);
             }
         }
         

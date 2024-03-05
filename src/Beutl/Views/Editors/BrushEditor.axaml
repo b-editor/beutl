@@ -3,9 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:intv="using:Avalonia.Xaml.Interactivity"
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pe="using:Beutl.Controls.Styling.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              x:Name="root"
@@ -13,52 +15,72 @@
              d:DesignWidth="300"
              x:CompileBindings="True"
              x:DataType="vm:BrushEditorViewModel"
+             Brush="{Binding AvaloniaBrush.Value}"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
+                      Classes="center-fill"
                       Content="{Binding Header, FallbackValue=Brush}"
                       FontWeight="DemiBold"
                       IsChecked="{Binding IsExpanded.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.Tag>
-                <Button Padding="0"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Classes="size-24x24"
-                        Click="Menu_Click"
-                        Theme="{StaticResource TransparentButton}">
-                    <Button.ContextFlyout>
-                        <ui:FAMenuFlyout>
-                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
-                                                    Tag="Solid"
-                                                    Text="{x:Static lang:Strings.Brush_Solid}" />
-                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding IsLinearGradient.Value, Mode=OneWay}"
-                                                    Tag="LinearGradient"
-                                                    Text="{x:Static lang:Strings.Brush_LinearGradient}" />
-                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding IsConicGradient.Value, Mode=OneWay}"
-                                                    Tag="ConicGradient"
-                                                    Text="{x:Static lang:Strings.Brush_ConicalGradient}" />
-                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding IsRadialGradient.Value, Mode=OneWay}"
-                                                    Tag="RadialGradient"
-                                                    Text="{x:Static lang:Strings.Brush_RadialGradient}" />
-                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding IsPerlinNoise.Value, Mode=OneWay}"
-                                                    Tag="PerlinNoise"
-                                                    Text="{x:Static lang:Strings.Brush_PerlinNoise}" />
-                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
-                                                    IsChecked="{Binding !Value.Value, Mode=OneWay}"
-                                                    Tag="Null"
-                                                    Text="Null" />
-                        </ui:FAMenuFlyout>
-                    </Button.ContextFlyout>
-                    <icons:SymbolIcon Symbol="Compose" />
-                </Button>
+                <Grid ColumnDefinitions="*,4,Auto">
+                    <Button Width="80"
+                            Height="24"
+                            Padding="1"
+                            HorizontalAlignment="Right"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            Click="OpenFlyout_Click"
+                            Theme="{StaticResource TransparentButton}">
+                        <Panel>
+                            <Border Background="{StaticResource ColorControlCheckeredBackgroundBrush}" CornerRadius="3.5" />
+                            <Border Background="{Binding AvaloniaBrush.Value}" CornerRadius="3.5" />
+                        </Panel>
+                    </Button>
+
+                    <Button Grid.Column="2"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Classes="size-24x24"
+                            Click="Menu_Click"
+                            Theme="{StaticResource TransparentButton}">
+                        <Button.ContextFlyout>
+                            <ui:FAMenuFlyout>
+                                <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                        IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
+                                                        Tag="Solid"
+                                                        Text="{x:Static lang:Strings.Brush_Solid}" />
+                                <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                        IsChecked="{Binding IsLinearGradient.Value, Mode=OneWay}"
+                                                        Tag="LinearGradient"
+                                                        Text="{x:Static lang:Strings.Brush_LinearGradient}" />
+                                <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                        IsChecked="{Binding IsConicGradient.Value, Mode=OneWay}"
+                                                        Tag="ConicGradient"
+                                                        Text="{x:Static lang:Strings.Brush_ConicalGradient}" />
+                                <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                        IsChecked="{Binding IsRadialGradient.Value, Mode=OneWay}"
+                                                        Tag="RadialGradient"
+                                                        Text="{x:Static lang:Strings.Brush_RadialGradient}" />
+                                <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                        IsChecked="{Binding IsPerlinNoise.Value, Mode=OneWay}"
+                                                        Tag="PerlinNoise"
+                                                        Text="{x:Static lang:Strings.Brush_PerlinNoise}" />
+                                <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                        IsChecked="{Binding !Value.Value, Mode=OneWay}"
+                                                        Tag="Null"
+                                                        Text="Null" />
+                            </ui:FAMenuFlyout>
+                        </Button.ContextFlyout>
+                        <icons:SymbolIcon Symbol="Compose" />
+                    </Button>
+                </Grid>
             </ToggleButton.Tag>
+
         </ToggleButton>
 
         <Panel x:Name="content"

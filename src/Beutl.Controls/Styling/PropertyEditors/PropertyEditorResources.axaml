@@ -237,6 +237,57 @@
             </ControlTemplate>
         </Setter>
 
+        <Style Selector="^.center-fill">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Name="PART_Grid"
+                          Background="{TemplateBinding Background}"
+                          ColumnDefinitions="Auto,*,Auto">
+                        <ContentPresenter Name="ContentPresenter"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Foreground="{TemplateBinding Foreground}" />
+
+                        <ContentPresenter Name="TagContentPresenter"
+                                          Grid.Column="1"
+                                          Margin="4,0,4,0"
+                                          Content="{TemplateBinding Tag}">
+                            <intv:Interaction.Behaviors>
+                                <local:MiniExpanderToggleButtonBehavior />
+                            </intv:Interaction.Behaviors>
+                        </ContentPresenter>
+
+                        <Border Name="PART_Root"
+                                Grid.Column="2"
+                                Width="24"
+                                Height="24"
+                                Padding="0"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}">
+                            <TextBlock x:Name="PART_ExpandCollapseChevron"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                       FontSize="{TemplateBinding FontSize}"
+                                       FontWeight="Normal"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       RenderTransform="none"
+                                       Text="{StaticResource ExpanderChevronDownGlyph}">
+                                <TextBlock.Transitions>
+                                    <Transitions>
+                                        <TransformOperationsTransition Property="RenderTransform" Duration="00:00:00.167" />
+                                    </Transitions>
+                                </TextBlock.Transitions>
+                            </TextBlock>
+                        </Border>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
         <Style Selector="^:checked /template/ TextBlock#PART_ExpandCollapseChevron">
             <Setter Property="RenderTransform" Value="rotate(180deg)" />
         </Style>

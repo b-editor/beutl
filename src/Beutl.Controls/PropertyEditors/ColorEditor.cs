@@ -2,9 +2,10 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 
-using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -19,6 +20,11 @@ public class ColorEditor : PropertyEditor
 
     public static readonly StyledProperty<bool> IsLivePreviewEnabledProperty =
         AvaloniaProperty.Register<ColorEditor, bool>(nameof(IsLivePreviewEnabled));
+
+    private SimpleColorPickerFlyout _flyout;
+
+    private bool _flyoutActive;
+    private Button _button;
 
     private Color _oldValue;
     private Color _value;
@@ -37,46 +43,86 @@ public class ColorEditor : PropertyEditor
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
+        if (_button != null)
+        {
+            _button.Click -= OnButtonClick;
+        }
         base.OnApplyTemplate(e);
-        ColorPickerButton button = e.NameScope.Get<ColorPickerButton>("PART_ColorPickerButton");
-        button.ColorChanged += OnColorChanged;
-        button.FlyoutOpened += OnFlyoutOpened;
-        button.FlyoutClosed += OnFlyoutClosed;
-        button.FlyoutConfirmed += OnFlyoutConfirmed;
+        _button = e.NameScope.Get<Button>("PART_ColorPickerButton");
+        if (_button != null)
+        {
+            _button.Click += OnButtonClick;
+        }
     }
 
-    private void OnFlyoutOpened(ColorPickerButton sender, EventArgs args)
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        base.OnAttachedToVisualTree(e);
+        _flyout ??= new SimpleColorPickerFlyout();
+        _flyout.Closed += OnFlyoutClosed;
+        _flyout.Confirmed += OnFlyoutConfirmed;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _flyout.Closed -= OnFlyoutClosed;
+        _flyout.Confirmed -= OnFlyoutConfirmed;
+    }
+
+    private void OnButtonClick(object sender, RoutedEventArgs e)
+    {
+        _flyout.Hide();
+
+        Color color = Value;
+        _flyout.ColorPicker.Color = color;
+
+        _flyout.Placement = PlacementMode.Bottom;
+
+        _flyout.ShowHideButtons(!IsLivePreviewEnabled);
+
+        if (IsLivePreviewEnabled)
+        {
+            _flyout.ColorPicker.ColorChanged += OnColorPickerColorChanged;
+        }
+
+        _flyout.ShowAt(this, true);
+
+        _flyoutActive = true;
+
         if (IsLivePreviewEnabled)
             _oldValue = _value;
     }
 
-    private void OnFlyoutClosed(ColorPickerButton sender, EventArgs args)
+    private void OnColorPickerColorChanged(SimpleColorPicker sender, (Color2 OldValue, Color2 NewValue) args)
     {
         if (IsLivePreviewEnabled)
         {
+            Value = args.NewValue;
+            RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
+                args.NewValue, args.OldValue, ValueChangedEvent));
+        }
+    }
+
+    private void OnFlyoutConfirmed(SimpleColorPickerFlyout sender, object args)
+    {
+        if (_flyoutActive)
+        {
+            Value = _flyout.ColorPicker.Color;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
                 Value, _oldValue, ValueConfirmedEvent));
         }
     }
 
-    private void OnFlyoutConfirmed(ColorPickerButton sender, ColorButtonColorChangedEventArgs args)
-    {
-        if (!IsLivePreviewEnabled)
-        {
-            Value = args.NewColor.GetValueOrDefault();
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
-                Value, args.OldColor.GetValueOrDefault(), ValueConfirmedEvent));
-        }
-    }
-
-    private void OnColorChanged(ColorPickerButton sender, ColorButtonColorChangedEventArgs args)
+    private void OnFlyoutClosed(object sender, EventArgs e)
     {
         if (IsLivePreviewEnabled)
         {
-            Value = args.NewColor.GetValueOrDefault();
+            _flyout.ColorPicker.ColorChanged -= OnColorPickerColorChanged;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
-                args.NewColor.GetValueOrDefault(), args.OldColor.GetValueOrDefault(), ValueChangedEvent));
+                Value, _oldValue, ValueConfirmedEvent));
         }
+
+        _flyoutActive = false;
     }
 }

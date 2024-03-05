@@ -1,0 +1,86 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:Beutl.Controls"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <Design.PreviewWith>
+        <Border Width="200">
+            <StackPanel>
+                <local:Vector3Editor FirstText="0"
+                                     SecondText="0"
+                                     Theme="{DynamicResource ColorComponentsEditorStyle}"
+                                     ThirdText="0" />
+            </StackPanel>
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="ColorComponentsEditorStyle" TargetType="local:Vector3Editor">
+        <!--<Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />-->
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <DataValidationErrors Grid.Row="2">
+                    <Grid ColumnDefinitions="*,1,*,1,*">
+                        <Border Name="PART_BackgroundBorder"
+                                Grid.ColumnSpan="5"
+                                Background="{DynamicResource TextControlBackground}"
+                                BorderBrush="{DynamicResource TextControlBorderBrush}"
+                                BorderThickness="{DynamicResource TextControlBorderThemeThickness}"
+                                CornerRadius="{DynamicResource ControlCornerRadius}" />
+
+                        <TextBox x:Name="PART_InnerFirstTextBox"
+                                 Grid.Column="0"
+                                 controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
+                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                 Text="{TemplateBinding FirstText, Mode=TwoWay}"
+                                 Theme="{StaticResource VectorElementTextBox}"
+                                 ToolTip.Tip="{Binding FirstHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
+
+                        <Separator Grid.Column="1" Theme="{StaticResource VectorComponentSeparator}" />
+
+                        <TextBox x:Name="PART_InnerSecondTextBox"
+                                 Grid.Column="2"
+                                 controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
+                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                 Text="{TemplateBinding SecondText, Mode=TwoWay}"
+                                 Theme="{StaticResource VectorElementTextBox}"
+                                 ToolTip.Tip="{Binding SecondHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
+
+                        <Separator Grid.Column="3" Theme="{StaticResource VectorComponentSeparator}" />
+
+                        <TextBox x:Name="PART_InnerThirdTextBox"
+                                 Grid.Column="4"
+                                 controls:TextBoxAttachment.EnterDownBehavior="LostFocus"
+                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
+                                 Text="{TemplateBinding ThirdText, Mode=TwoWay}"
+                                 Theme="{StaticResource VectorElementTextBox}"
+                                 ToolTip.Tip="{Binding ThirdHeader, RelativeSource={RelativeSource AncestorType={x:Type local:Vector3Editor}}}" />
+                    </Grid>
+                </DataValidationErrors>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:border-pointerover /template/ Border#PART_BackgroundBorder">
+            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushPointerOver}" />
+            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundPointerOver}" />
+        </Style>
+
+        <Style Selector="^[IsReadOnly=True] /template/ Border#PART_BackgroundBorder">
+            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundDisabled}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushDisabled}" />
+        </Style>
+
+        <Style Selector="^:focus-any-textbox /template/ Border#PART_BackgroundBorder">
+            <Setter Property="Background" Value="{DynamicResource TextControlBackgroundFocused}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushFocused}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource TextControlBorderThemeThicknessFocused}" />
+        </Style>
+
+        <Style Selector="^:error /template/ Border#PART_BackgroundBorder">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </Style>
+
+    </ControlTheme>
+
+</ResourceDictionary>

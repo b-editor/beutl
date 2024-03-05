@@ -1,10 +1,23 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:icons="clr-namespace:FluentIcons.FluentAvalonia;assembly=FluentIcons.FluentAvalonia"
+                    xmlns:ui="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
                     x:CompileBindings="True">
     <Design.PreviewWith>
         <Border>
-            <ToggleButton Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />
+            <!--<ToggleButton Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />-->
+
+            <StackPanel Orientation="Horizontal">
+                <RadioButton Theme="{DynamicResource ColorPickerTypeTransparentToggleButtonStyle}">
+                    <ui:SymbolIcon Symbol="Accept" />
+                </RadioButton>
+                <RadioButton Theme="{DynamicResource ColorPickerTypeTransparentToggleButtonStyle}">
+                    <ui:SymbolIcon Symbol="Accept" />
+                </RadioButton>
+                <RadioButton Theme="{DynamicResource ColorPickerTypeTransparentToggleButtonStyle}">
+                    <ui:SymbolIcon Symbol="Accept" />
+                </RadioButton>
+            </StackPanel>
         </Border>
     </Design.PreviewWith>
 
@@ -119,5 +132,49 @@
         <Style Selector="^:disabled /template/ TextBlock#PART_ExpandCollapseChevron">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
         </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="ColorPickerTypeTransparentToggleButtonStyle" TargetType="ToggleButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ColorPickerColorTypeButtonBorderBrush}" />
+        <Setter Property="Padding" Value="7 5" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Name="ContentPresenter"
+                                  Padding="{TemplateBinding Padding}"
+                                  HorizontalContentAlignment="Center"
+                                  VerticalContentAlignment="Center"
+                                  Background="{TemplateBinding Background}"
+                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                  Content="{TemplateBinding Content}"
+                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                  TextElement.FontSize="16" />
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPointerOver}" />
+        </Style>
+        <Style Selector="^:pressed /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPressed}" />
+        </Style>
+        <Style Selector="^:checked">
+            <Style Selector="^ /template/ ContentPresenter#ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundIndeterminate}" />
+                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundIndeterminate}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+            <Style Selector="^:pointerover /template/ ContentPresenter#ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundIndeterminatePointerOver}" />
+                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundIndeterminatePointerOver}" />
+            </Style>
+            <Style Selector="^:pressed /template/ ContentPresenter#ContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundIndeterminatePressed}" />
+                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundIndeterminatePressed}" />
+            </Style>
+        </Style>
+
     </ControlTheme>
 </ResourceDictionary>
