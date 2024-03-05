@@ -71,9 +71,9 @@ partial class Build : NukeBuild
     private string GetTFM()
     {
         AbsolutePath mainProj = SourceDirectory / "Beutl" / "Beutl.csproj";
-        using IProcess proc = StartProcess(DotNetPath, $"msbuild --getProperty:TargetFramework {mainProj}");
+        using IProcess proc = StartProcess(DotNetPath, $"msbuild --getProperty:TargetFrameworks {mainProj}");
         proc.WaitForExit();
-        return proc.Output.First().Text;
+        return proc.Output.First().Text.Split(';')[0];
     }
 
     Target Publish => _ => _

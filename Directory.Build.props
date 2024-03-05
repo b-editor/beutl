@@ -17,10 +17,6 @@
     <Optimize>false</Optimize>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)'==''">
-    <TargetFramework>net8.0</TargetFramework>
-  </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all" />
   </ItemGroup>
