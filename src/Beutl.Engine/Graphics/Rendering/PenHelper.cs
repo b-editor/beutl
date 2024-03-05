@@ -116,6 +116,8 @@ internal static class PenHelper
                     while (maxAspect < thickness)
                     {
                         using SKPath tmp = paint.GetFillPath(first ? fillPath : strokePath);
+                        if (tmp == null) break;
+
                         if (!first)
                         {
                             using (var copy = new SKPath(strokePath))
@@ -134,8 +136,11 @@ internal static class PenHelper
                     {
                         paint.StrokeWidth = thickness;
                         using SKPath tmp2 = paint.GetFillPath(strokePath);
-                        using var copy = new SKPath(strokePath);
-                        tmp2.Op(copy, SKPathOp.Union, strokePath);
+                        if (tmp2 != null)
+                        {
+                            using var copy = new SKPath(strokePath);
+                            tmp2.Op(copy, SKPathOp.Union, strokePath);
+                        }
                     }
                 }
                 else
