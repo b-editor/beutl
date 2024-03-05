@@ -1,5 +1,7 @@
 ﻿using Avalonia;
 
+using Beutl.Language;
+
 using FluentAvalonia.UI.Media;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -84,15 +86,15 @@ public class ColorComponentsEditor : Vector3Editor<int>
     {
         if (Rgb)
         {
-            FirstHeader = "赤";
-            SecondHeader = "緑";
-            ThirdHeader = "青";
+            FirstHeader = Strings.Red;
+            SecondHeader = Strings.Green;
+            ThirdHeader = Strings.Blue;
         }
         else
         {
-            FirstHeader = "色相";
-            SecondHeader = "彩度";
-            ThirdHeader = "明度";
+            FirstHeader = Strings.Hue;
+            SecondHeader = Strings.Saturation;
+            ThirdHeader = Strings.Brightness;
         }
     }
 

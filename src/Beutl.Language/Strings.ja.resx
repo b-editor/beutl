@@ -836,7 +836,7 @@ b-editorがダウンロードURLを管理します。</value>
     <value>フィルタエフェクト</value>
   </data>
   <data name="Brightness" xml:space="preserve">
-    <value>明るさ</value>
+    <value>輝度</value>
   </data>
   <data name="Gamma" xml:space="preserve">
     <value>ガンマ</value>
@@ -1128,5 +1128,26 @@ b-editorがダウンロードURLを管理します。</value>
   </data>
   <data name="Radial" xml:space="preserve">
     <value>放射状</value>
+  </data>
+  <data name="Red" xml:space="preserve">
+    <value>赤</value>
+  </data>
+  <data name="Green" xml:space="preserve">
+    <value>緑</value>
+  </data>
+  <data name="Blue" xml:space="preserve">
+    <value>青</value>
+  </data>
+  <data name="Hue" xml:space="preserve">
+    <value>色相</value>
+  </data>
+  <data name="Saturation" xml:space="preserve">
+    <value>彩度</value>
+  </data>
+  <data name="ShowSliders" xml:space="preserve">
+    <value>スライダーを表示</value>
+  </data>
+  <data name="ShowRing" xml:space="preserve">
+    <value>リングを表示</value>
   </data>
 </root>

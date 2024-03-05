@@ -1129,4 +1129,25 @@ and b-editor maintains the download URL.</value>
   <data name="Radial" xml:space="preserve">
     <value>Radial</value>
   </data>
+  <data name="Red" xml:space="preserve">
+    <value>Red</value>
+  </data>
+  <data name="Green" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="Blue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="Hue" xml:space="preserve">
+    <value>Hue</value>
+  </data>
+  <data name="Saturation" xml:space="preserve">
+    <value>Saturation</value>
+  </data>
+  <data name="ShowSliders" xml:space="preserve">
+    <value>Show sliders</value>
+  </data>
+  <data name="ShowRing" xml:space="preserve">
+    <value>Show ring</value>
+  </data>
 </root>

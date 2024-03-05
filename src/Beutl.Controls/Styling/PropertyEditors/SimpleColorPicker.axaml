@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Design.PreviewWith>
@@ -81,10 +82,10 @@
                                         HorizontalAlignment="Right"
                                         Orientation="Horizontal"
                                         Spacing="4">
-                                <ToggleButton Name="ToggleDetailsButton" ToolTip.Tip="スライダーを表示">
+                                <ToggleButton Name="ToggleDetailsButton" ToolTip.Tip="{x:Static lang:Strings.ShowSliders}">
                                     <ui:FontIcon Glyph="&#xE9E9;" />
                                 </ToggleButton>
-                                <ToggleButton Name="ToggleSpectrumShapeButton" ToolTip.Tip="リングを表示">
+                                <ToggleButton Name="ToggleSpectrumShapeButton" ToolTip.Tip="{x:Static lang:Strings.ShowRing}">
                                     <ui:FontIcon Glyph="&#xEA3A;" />
                                 </ToggleButton>
                                 <ToggleButton Name="ColorDropperButton" IsVisible="False">
