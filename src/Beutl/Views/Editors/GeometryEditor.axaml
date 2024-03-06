@@ -32,6 +32,15 @@
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
                 <StackPanel Orientation="Horizontal" Spacing="4">
+
+                    <Button Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Classes="size-24x24"
+                            Click="Edit_Click"
+                            Theme="{StaticResource TransparentButton}">
+                        <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xEDFB;" />
+                    </Button>
                     <Button Padding="0"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"

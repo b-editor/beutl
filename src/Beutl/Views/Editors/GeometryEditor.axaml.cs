@@ -7,9 +7,12 @@ using Avalonia.Interactivity;
 
 using Beutl.Media;
 using Beutl.Services;
+using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
 
@@ -55,6 +58,15 @@ public partial class GeometryEditor : UserControl
             {
                 //expandToggle.ContextFlyout?.ShowAt(expandToggle);
             }
+        }
+    }
+
+    private void Edit_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is GeometryEditorViewModel viewModel)
+        {
+            EditViewModel? editViewModel = viewModel.GetService<EditViewModel>();
+            editViewModel?.Player.PathEditor.StartEdit(viewModel);
         }
     }
 
