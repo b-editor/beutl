@@ -11,9 +11,9 @@
     <Window.Resources>
         <ControlTheme x:Key="ControlPointThumb" TargetType="Thumb">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Gray" />
+            <Setter Property="BorderBrush" Value="Black" />
             <Setter Property="BorderThickness" Value="3" />
-            <Setter Property="CornerRadius" Value="{DynamicResource ColorSliderCornerRadius}" />
+            <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Width" Value="16" />
             <Setter Property="Height" Value="16" />
             <Setter Property="Margin" Value="-8,-8,0,0" />
@@ -34,6 +34,14 @@
 
             <Style Selector="^:pressed">
                 <Setter Property="Opacity" Value="0.75" />
+            </Style>
+
+            <Style Selector="^.control">
+                <Setter Property="Margin" Value="-4,-4,0,0" />
+                <Setter Property="Width" Value="8" />
+                <Setter Property="Height" Value="8" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="BorderThickness" Value="1.5" />
             </Style>
         </ControlTheme>
     </Window.Resources>

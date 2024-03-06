@@ -64,12 +64,14 @@ public partial class MainWindow : Window
             case CubicBezierOperation cubic:
                 {
                     Thumb c1 = CreateThumb();
+                    c1.Classes.Add("control");
                     c1.Tag = "ControlPoint1";
                     c1.DataContext = obj;
                     c1.Bind(Canvas.LeftProperty, GetObservable(c1, CubicBezierOperation.ControlPoint1Property).Select(v => v.X).ToBinding());
                     c1.Bind(Canvas.TopProperty, GetObservable(c1, CubicBezierOperation.ControlPoint1Property).Select(v => v.Y).ToBinding());
 
                     Thumb c2 = CreateThumb();
+                    c2.Classes.Add("control");
                     c2.Tag = "ControlPoint2";
                     c2.DataContext = obj;
                     c2.Bind(Canvas.LeftProperty, GetObservable(c2, CubicBezierOperation.ControlPoint2Property).Select(v => v.X).ToBinding());
@@ -113,6 +115,7 @@ public partial class MainWindow : Window
                 {
                     Thumb c1 = CreateThumb();
                     c1.Tag = "ControlPoint";
+                    c1.Classes.Add("control");
                     c1.DataContext = obj;
                     c1.Bind(Canvas.LeftProperty, GetObservable(c1, QuadraticBezierOperation.ControlPointProperty).Select(v => v.X).ToBinding());
                     c1.Bind(Canvas.TopProperty, GetObservable(c1, QuadraticBezierOperation.ControlPointProperty).Select(v => v.Y).ToBinding());
@@ -212,19 +215,46 @@ public partial class MainWindow : Window
     {
         if (sender is MenuItem item)
         {
+            int index = _geometry.Operations.Count;
+            Beutl.Graphics.Point lastPoint = default;
+            if (index > 0)
+            {
+                PathOperation lastOp = _geometry.Operations[index - 1];
+                lastPoint = lastOp switch
+                {
+                    ArcOperation arc => arc.Point,
+                    CubicBezierOperation cub => cub.EndPoint,
+                    LineOperation line => line.Point,
+                    MoveOperation move => move.Point,
+                    QuadraticBezierOperation quad => quad.EndPoint,
+                    _ => default
+                };
+            }
+
+            var point = _clickPoint.ToBtlPoint();
             PathOperation? obj = item.Header switch
             {
-                "Arc" => new ArcOperation() { Point = _clickPoint.ToBtlPoint() },
+                "Arc" => new ArcOperation() { Point = point },
                 "Close" => new CloseOperation(),
-                "Cubic" => new CubicBezierOperation() { EndPoint = _clickPoint.ToBtlPoint() },
-                "Line" => new LineOperation() { Point = _clickPoint.ToBtlPoint() },
-                "Move" => new MoveOperation() { Point = _clickPoint.ToBtlPoint() },
-                "Quad" => new QuadraticBezierOperation() { EndPoint = _clickPoint.ToBtlPoint() },
+                "Cubic" => new CubicBezierOperation()
+                {
+                    EndPoint = point,
+                    ControlPoint1 = new(float.Lerp(point.X, lastPoint.X, 0.66f), float.Lerp(point.Y, lastPoint.Y, 0.66f)),
+                    ControlPoint2 = new(float.Lerp(point.X, lastPoint.X, 0.33f), float.Lerp(point.Y, lastPoint.Y, 0.33f)),
+                },
+                "Line" => new LineOperation() { Point = point },
+                "Move" => new MoveOperation() { Point = point },
+                "Quad" => new QuadraticBezierOperation()
+                {
+                    EndPoint = point,
+                    ControlPoint = new(float.Lerp(point.X, lastPoint.X, 0.5f), float.Lerp(point.Y, lastPoint.Y, 0.5f))
+                },
                 _ => null,
             };
 
             if (obj != null)
             {
+
                 _geometry.Operations.Add(obj);
             }
         }
