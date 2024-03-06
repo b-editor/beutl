@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 using Beutl.Animation;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -126,7 +127,7 @@ public abstract class Shape : Drawable
         RaiseInvalidated(new RenderInvalidatedEventArgs(this, nameof(CreatedGeometry)));
     }
 
-    private static Vector CalculateScale(Size requestedSize, Rect shapeBounds, Stretch stretch)
+    internal static Vector CalculateScale(Size requestedSize, Rect shapeBounds, Stretch stretch)
     {
         var shapeSize = shapeBounds.Size;
         float desiredX = requestedSize.Width;
@@ -215,13 +216,7 @@ public abstract class Shape : Drawable
 
     private static float ActualThickness(IPen pen)
     {
-        return pen.StrokeAlignment switch
-        {
-            StrokeAlignment.Center => pen.Thickness / 2,
-            StrokeAlignment.Inside => 0,
-            StrokeAlignment.Outside => pen.Thickness,
-            _ => 0,
-        };
+        return PenHelper.GetRealThickness(pen.StrokeAlignment, pen.Thickness);
     }
 
     protected abstract Geometry? CreateGeometry();
@@ -235,21 +230,7 @@ public abstract class Shape : Drawable
         var requestedSize = new Size(Width, Height);
         Rect shapeBounds = geometry.Bounds;
         Vector scale = CalculateScale(requestedSize, shapeBounds, Stretch);
-        float posX = AlignmentX switch
-        {
-            AlignmentX.Left => 0,
-            AlignmentX.Center => -shapeBounds.Position.X / 2,
-            AlignmentX.Right => -shapeBounds.Position.X,
-            _ => 0,
-        };
-        float posY = AlignmentY switch
-        {
-            AlignmentY.Top => 0,
-            AlignmentY.Center => -shapeBounds.Position.Y / 2,
-            AlignmentY.Bottom => -shapeBounds.Position.Y,
-            _ => 0,
-        };
-        Matrix matrix = Matrix.CreateTranslation(posX, posY);
+        Matrix matrix = Matrix.CreateTranslation(-shapeBounds.Position);
 
         if (Pen != null)
         {
