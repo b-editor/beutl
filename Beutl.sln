@@ -113,7 +113,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XamlPreview", "tests\XamlPr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Extensions.MediaFoundation", "src\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj", "{8C77D39D-CF39-4C7D-92FF-012D9A18E132}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.PackageTools.UI", "src\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj", "{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.PackageTools.UI", "src\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj", "{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Lab", "Lab", "{614B2D29-5D86-41B2-A144-A6759FE61DBB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PathEditor", "lab\PathEditor\PathEditor.csproj", "{A5F2B309-2694-44F0-A261-AF16F4CA2AD3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -393,6 +397,14 @@ Global
 		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Release|x64.ActiveCfg = Release|Any CPU
 		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Release|x64.Build.0 = Release|Any CPU
+		{A5F2B309-2694-44F0-A261-AF16F4CA2AD3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A5F2B309-2694-44F0-A261-AF16F4CA2AD3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A5F2B309-2694-44F0-A261-AF16F4CA2AD3}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A5F2B309-2694-44F0-A261-AF16F4CA2AD3}.Debug|x64.Build.0 = Debug|Any CPU
+		{A5F2B309-2694-44F0-A261-AF16F4CA2AD3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A5F2B309-2694-44F0-A261-AF16F4CA2AD3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A5F2B309-2694-44F0-A261-AF16F4CA2AD3}.Release|x64.ActiveCfg = Release|Any CPU
+		{A5F2B309-2694-44F0-A261-AF16F4CA2AD3}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -415,6 +427,7 @@ Global
 		{456F3A49-7881-4793-966D-FF647190F5CB} = {D2E28768-5899-48B0-B35C-41BABE9D9536}
 		{EED4AB04-13CD-4382-BD1A-64D7A258957F} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 		{AC7E6F97-061C-47DA-B264-04A4EAE666B9} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
+		{A5F2B309-2694-44F0-A261-AF16F4CA2AD3} = {614B2D29-5D86-41B2-A144-A6759FE61DBB}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {CC3F8F37-EB22-4418-978D-C844095F8C4D}

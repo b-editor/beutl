@@ -1,4 +1,6 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel;
+
+using Beutl.Animation;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
@@ -210,6 +212,12 @@ public abstract class Geometry : Animatable, IAffectsRender
         base.ApplyAnimations(clock);
         (Transform as IAnimatable)?.ApplyAnimations(clock);
     }
+
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public int GetVersion() => Version;
+
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public SKPath GetNativeObjectPublic() => GetNativeObject();
 
     private struct PathCache
     {
