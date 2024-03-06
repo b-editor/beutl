@@ -139,6 +139,7 @@ public sealed class PathGeometry : Geometry
     public override void ApplyTo(IGeometryContext context)
     {
         base.ApplyTo(context);
+        context.MoveTo(default);
 
         foreach (PathOperation item in Operations.GetMarshal().Value)
         {
