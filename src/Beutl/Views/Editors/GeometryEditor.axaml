@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Views.Editors.FilterEffectEditor"
+<UserControl x:Class="Beutl.Views.Editors.GeometryEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -11,7 +11,7 @@
              x:Name="root"
              d:DesignHeight="450"
              d:DesignWidth="800"
-             x:DataType="viewModel:FilterEffectEditorViewModel"
+             x:DataType="viewModel:GeometryEditorViewModel"
              Background="Transparent"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
@@ -32,12 +32,6 @@
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                    <ToggleButton Padding="0"
-                                  Classes="size-24x24"
-                                  IsChecked="{Binding IsEnabled.Value}"
-                                  IsVisible="{Binding !IsGroupOrNull.Value}"
-                                  Theme="{StaticResource VisibilityToggleButtonStyle}" />
-
                     <Button Padding="0"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
@@ -54,20 +48,42 @@
                                 </Style>
                             </icons:SymbolIcon.Styles>
                         </icons:SymbolIcon>
+                        <Button.ContextFlyout>
+                            <ui:FAMenuFlyout>
+                                <ui:MenuFlyoutItem Click="AddClick"
+                                                   Tag="Arc"
+                                                   Text="Arc" />
+                                <ui:MenuFlyoutItem Click="AddClick"
+                                                   Tag="Close"
+                                                   Text="Close" />
+                                <ui:MenuFlyoutItem Click="AddClick"
+                                                   Tag="CubicBezier"
+                                                   Text="CubicBezier" />
+                                <ui:MenuFlyoutItem Click="AddClick"
+                                                   Tag="Line"
+                                                   Text="Line" />
+                                <ui:MenuFlyoutItem Click="AddClick"
+                                                   Tag="Move"
+                                                   Text="Move" />
+                                <ui:MenuFlyoutItem Click="AddClick"
+                                                   Tag="QuadraticBezier"
+                                                   Text="QuadraticBezier" />
+                            </ui:FAMenuFlyout>
+                        </Button.ContextFlyout>
                     </Button>
                 </StackPanel>
             </ToggleButton.Tag>
             <WrapPanel Orientation="Horizontal">
                 <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Filter}" />
-                <TextBlock Margin="8,0,0,0"
+                <!--<TextBlock Margin="8,0,0,0"
                            IsVisible="{Binding !IsGroupOrNull.Value}"
-                           Text="{Binding FilterName.Value}" />
+                           Text="{Binding FilterName.Value}" />-->
             </WrapPanel>
         </ToggleButton>
 
-        <Panel x:Name="content"
-               Grid.Row="1"
-               MinHeight="32">
+        <StackPanel x:Name="content"
+                    Grid.Row="1"
+                    MinHeight="32">
             <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
 
             <local:PropertiesEditor Margin="16,0,0,0"
@@ -83,6 +99,6 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-        </Panel>
+        </StackPanel>
     </Grid>
 </UserControl>

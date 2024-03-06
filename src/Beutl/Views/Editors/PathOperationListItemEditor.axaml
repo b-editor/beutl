@@ -1,0 +1,43 @@
+<UserControl x:Class="Beutl.Views.Editors.PathOperationListItemEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModel="using:Beutl.ViewModels.Editors"
+             x:Name="root"
+             d:DesignHeight="450"
+             d:DesignWidth="400"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto">
+            <ToggleButton x:Name="reorderHandle"
+                          Content="{Binding OpName.Value}"
+                          Cursor="SizeNorthSouth"
+                          IsChecked="{Binding IsExpanded.Value}"
+                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}" />
+
+            <Button Grid.Column="1"
+                    Margin="4,0,8,0"
+                    Padding="0"
+                    Classes="size-24x24"
+                    Click="DeleteClick"
+                    Theme="{StaticResource TransparentButton}">
+                <icons:SymbolIcon Symbol="Delete" />
+            </Button>
+        </Grid>
+
+        <Panel x:Name="content"
+               Grid.Row="1"
+               Margin="16,0,0,0">
+            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
+
+            <local:PropertiesEditor Padding="0"
+                                    DataContext="{Binding Properties.Value}"
+                                    IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
+                                                                  Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </Panel>
+    </Grid>
+</UserControl>
