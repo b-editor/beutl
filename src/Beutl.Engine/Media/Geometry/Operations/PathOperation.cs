@@ -9,6 +9,8 @@ public abstract class PathOperation : Animatable, IAffectsRender
 
     public abstract void ApplyTo(IGeometryContext context);
 
+    public abstract bool TryGetEndPoint(out Point point);
+
     protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : PathOperation
     {

@@ -40,4 +40,10 @@ public sealed class LineOperation : PathOperation
     {
         context.LineTo(Point);
     }
+
+    public override bool TryGetEndPoint(out Point point)
+    {
+        point = Point;
+        return true;
+    }
 }

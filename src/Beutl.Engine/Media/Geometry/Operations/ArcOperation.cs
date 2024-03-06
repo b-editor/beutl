@@ -75,4 +75,10 @@ public sealed class ArcOperation : PathOperation
     {
         context.ArcTo(Radius, RotationAngle, IsLargeArc, SweepClockwise, Point);
     }
+
+    public override bool TryGetEndPoint(out Point point)
+    {
+        point = Point;
+        return true;
+    }
 }

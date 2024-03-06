@@ -48,4 +48,10 @@ public sealed class QuadraticBezierOperation : PathOperation
     {
         context.QuadraticTo(ControlPoint, EndPoint);
     }
+
+    public override bool TryGetEndPoint(out Point point)
+    {
+        point = EndPoint;
+        return true;
+    }
 }
