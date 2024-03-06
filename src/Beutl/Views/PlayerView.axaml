@@ -1,0 +1,60 @@
+<UserControl x:Class="Beutl.Views.PlayerView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:Beutl.Converters;assembly=Beutl"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="vm:PlayerViewModel"
+             mc:Ignorable="d">
+    <Player x:Name="Player"
+            CurrentTime="{Binding CurrentFrame.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
+            EndButtonCommand="{Binding End}"
+            IsPlaying="{Binding IsPlaying.Value, Mode=TwoWay}"
+            Maximum="{Binding Duration.Value, Converter={x:Static converters:TimeSpanToDoubleConverter.Instance}}"
+            NextButtonCommand="{Binding Next}"
+            PlayButtonCommand="{Binding PlayPause}"
+            PreviousButtonCommand="{Binding Previous}"
+            StartButtonCommand="{Binding Start}"
+            Value="{Binding CurrentFrame.Value, Converter={x:Static converters:TimeSpanToDoubleConverter.Instance}}"
+            Duration="{Binding Duration.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}">
+        <Player.InnerLeftContent>
+            <StackPanel Margin="4,4,0,0">
+                <StackPanel.Styles>
+                    <Style Selector="RadioButton">
+                        <Setter Property="Theme" Value="{StaticResource LiteNavVerticalRadioButton}" />
+                        <Setter Property="Padding" Value="7,6,5,6" />
+                    </Style>
+                </StackPanel.Styles>
+                <RadioButton IsChecked="{Binding IsMoveMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Move}">
+                    <icons:SymbolIcon FontSize="16" Symbol="Cursor" />
+                </RadioButton>
+                <RadioButton IsChecked="{Binding IsHandMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Hand}">
+                    <icons:SymbolIcon FontSize="16" Symbol="HandLeft" />
+                </RadioButton>
+                <!--  Todo: ローカライズ  -->
+                <RadioButton IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="範囲選択">
+                    <icons:SymbolIcon FontSize="16" Symbol="Crop" />
+                </RadioButton>
+            </StackPanel>
+        </Player.InnerLeftContent>
+        <Player.Content>
+            <Panel Name="framePanel"
+                   Margin="0"
+                   Background="Transparent">
+                <Border Width="{Binding #image.Bounds.Width}"
+                        Height="{Binding #image.Bounds.Height}"
+                        Background="Black"
+                        ClipToBounds="True" />
+
+                <Image Name="image"
+                       RenderOptions.BitmapInterpolationMode="HighQuality"
+                       Source="{Binding PreviewImage.Value, Mode=OneWay}" />
+            </Panel>
+        </Player.Content>
+    </Player>
+</UserControl>

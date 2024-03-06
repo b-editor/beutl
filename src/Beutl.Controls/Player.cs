@@ -11,8 +11,8 @@ namespace Beutl.Controls;
 
 public class Player : RangeBase
 {
-    public static readonly StyledProperty<IImage> SourceProperty = Image.SourceProperty.AddOwner<Player>();
     public static readonly StyledProperty<string> DurationProperty = AvaloniaProperty.Register<Player, string>(nameof(Duration));
+    public static readonly StyledProperty<object> ContentProperty = AvaloniaProperty.Register<Player, object>(nameof(InnerLeftContent));
     public static readonly StyledProperty<object> InnerLeftContentProperty = AvaloniaProperty.Register<Player, object>(nameof(InnerLeftContent));
     public static readonly StyledProperty<object> InnerRightContentProperty = AvaloniaProperty.Register<Player, object>(nameof(InnerRightContent));
     public static readonly DirectProperty<Player, string> CurrentTimeProperty =
@@ -63,26 +63,25 @@ public class Player : RangeBase
     private RepeatButton _previousButton;
     private Button _endButton;
     private Button _startButton;
-    private Image _image;
     private Slider _slider;
-    private Panel _framePanel;
     private ContentPresenter _innerLeftPresenter;
+    private ContentPresenter _contentPresenter;
     private ICommand _playButtonCommand;
     private ICommand _nextButtonCommand;
     private ICommand _previousButtonCommand;
     private ICommand _endButtonCommand;
     private ICommand _startButtonCommand;
 
-    public IImage Source
-    {
-        get => GetValue(SourceProperty);
-        set => SetValue(SourceProperty, value);
-    }
-
     public string Duration
     {
         get => GetValue(DurationProperty);
         set => SetValue(DurationProperty, value);
+    }
+    
+    public object Content
+    {
+        get => GetValue(ContentProperty);
+        set => SetValue(ContentProperty, value);
     }
     
     public object InnerLeftContent
@@ -139,16 +138,6 @@ public class Player : RangeBase
         set => SetAndRaise(StartButtonCommandProperty, ref _startButtonCommand, value);
     }
 
-    public Image GetImage()
-    {
-        return _image;
-    }
-    
-    public Panel GetFramePanel()
-    {
-        return _framePanel;
-    }
-
     public void SetSeekBarOpacity(double opacity)
     {
         if (_slider != null)
@@ -165,10 +154,9 @@ public class Player : RangeBase
         _previousButton = e.NameScope.Find<RepeatButton>("PART_PreviousButton");
         _endButton = e.NameScope.Find<Button>("PART_EndButton");
         _startButton = e.NameScope.Find<Button>("PART_StartButton");
-        _image = e.NameScope.Find<Image>("PART_Image");
         _slider = e.NameScope.Find<Slider>("PART_Slider");
-        _framePanel = e.NameScope.Find<Panel>("PART_FramePanel");
         _innerLeftPresenter = e.NameScope.Find<ContentPresenter>("InnerLeftPresenter");
+        _contentPresenter = e.NameScope.Find<ContentPresenter>("ContentPresenter");
 
         _playButton.Click += (s, e) => PlayButtonCommand?.Execute(null);
         _nextButton.Click += (s, e) => NextButtonCommand?.Execute(null);
@@ -181,6 +169,6 @@ public class Player : RangeBase
 
     private void OnInnerLeftBoundsChanged(Rect rect)
     {
-        _framePanel.Margin = new Thickness(rect.Width, 0);
+        _contentPresenter.Margin = new Thickness(rect.Width, 0);
     }
 }
