@@ -103,6 +103,9 @@ public sealed class PlayerViewModel : IDisposable
         Duration = Scene.GetObservable(Scene.DurationProperty)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
+
+        PathEditor = new PathEditorViewModel(_editViewModel)
+            .DisposeWith(_disposables);
     }
 
     private void OnSceneInvalidated(object? sender, RenderInvalidatedEventArgs e)
@@ -192,6 +195,8 @@ public sealed class PlayerViewModel : IDisposable
     public Rect LastSelectedRect { get; set; }
 
     public EditViewModel EditViewModel => _editViewModel;
+
+    public PathEditorViewModel PathEditor { get; }
 
     public void Play()
     {

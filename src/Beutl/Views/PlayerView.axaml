@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="450"
@@ -54,6 +55,10 @@
                 <Image Name="image"
                        RenderOptions.BitmapInterpolationMode="HighQuality"
                        Source="{Binding PreviewImage.Value, Mode=OneWay}" />
+
+                <local:PathEditorView Width="{Binding #image.Bounds.Width}"
+                                      Height="{Binding #image.Bounds.Height}"
+                                      DataContext="{Binding PathEditor}" />
             </Panel>
         </Player.Content>
     </Player>

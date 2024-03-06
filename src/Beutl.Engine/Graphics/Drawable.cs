@@ -154,7 +154,12 @@ public abstract class Drawable : Renderable
 
     protected abstract Size MeasureCore(Size availableSize);
 
-    private Matrix GetTransformMatrix(Size availableSize, Size coreBounds)
+    internal Size MeasureCoreInternal(Size availableSize)
+    {
+        return MeasureCore(availableSize);
+    }
+
+    internal Matrix GetTransformMatrix(Size availableSize, Size coreBounds)
     {
         Vector pt = CalculateTranslate(coreBounds, availableSize);
         Vector origin = TransformOrigin.ToPixels(coreBounds);

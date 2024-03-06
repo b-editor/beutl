@@ -68,12 +68,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
 
-        Library = new LibraryViewModel(this)
-            .DisposeWith(_disposables);
-        Player = new PlayerViewModel(this)
-            .DisposeWith(_disposables);
-        Commands = new KnownCommandsImpl(scene, this);
-        CommandRecorder = new CommandRecorder();
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
 
         FrameCacheManager = scene.GetObservable(Scene.FrameSizeProperty)
@@ -91,11 +85,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         Scale = Options.Select(o => o.Scale);
         Offset = Options.Select(o => o.Offset);
-        BufferStatus = new BufferStatusViewModel(this)
-            .DisposeWith(_disposables);
-
-        RestoreState();
-
         SelectedObject.CombineWithPrevious()
             .Subscribe(v =>
             {
@@ -112,9 +101,20 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             .Switch()
             .ToReadOnlyReactivePropertySlim();
 
+        Library = new LibraryViewModel(this)
+            .DisposeWith(_disposables);
+        Player = new PlayerViewModel(this)
+            .DisposeWith(_disposables);
+        Commands = new KnownCommandsImpl(scene, this);
+        CommandRecorder = new CommandRecorder();
+        BufferStatus = new BufferStatusViewModel(this)
+            .DisposeWith(_disposables);
+
         KeyBindings = CreateKeyBindings();
 
         CommandRecorder.Executed += OnCommandRecorderExecuted;
+
+        RestoreState();
     }
 
     private static FrameCacheOptions CreateFrameCacheOptions()

@@ -14,7 +14,9 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Grid RowDefinitions="*,Auto">
-                    <ContentPresenter Name="ContentPresenter" Content="{TemplateBinding Content}" />
+                    <ContentPresenter Name="ContentPresenter"
+                                      ClipToBounds="True"
+                                      Content="{TemplateBinding Content}" />
 
                     <ContentPresenter Name="InnerLeftPresenter"
                                       HorizontalAlignment="Left"

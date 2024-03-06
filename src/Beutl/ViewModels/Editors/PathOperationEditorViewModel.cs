@@ -3,6 +3,8 @@
 using Beutl.Media;
 using Beutl.Services;
 
+using FluentAvalonia.UI.Controls;
+
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
@@ -29,6 +31,9 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathOper
                 }
             })
             .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsExpanded.Subscribe(_ => ProgrammaticallyExpanded = false)
             .DisposeWith(Disposables);
 
         IsExpanded.SkipWhile(v => !v)
@@ -61,6 +66,8 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathOper
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
+
+    public bool ProgrammaticallyExpanded { get; set; }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
