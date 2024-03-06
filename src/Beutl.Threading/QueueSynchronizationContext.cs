@@ -36,7 +36,10 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher) : Synch
     {
         HasShutdownStarted = true;
         _running = false;
-        _waitToken?.Cancel();
+        lock (this)
+        {
+            _waitToken?.Cancel();
+        }
 
         ShutdownStarted?.Invoke(dispatcher, EventArgs.Empty);
     }
@@ -70,13 +73,20 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher) : Synch
         if (!_running)
             return;
 
-        _waitToken = new CancellationTokenSource();
+        lock (this)
+        {
+            _waitToken = new CancellationTokenSource();
 
-        if (_timerQueue.Next is DateTime next)
-            _waitToken.CancelAfter(next - DateTime.UtcNow);
+            if (_timerQueue.Next is DateTime next)
+                _waitToken.CancelAfter(next - DateTime.UtcNow);
+        }
 
         _waitToken.Token.WaitHandle.WaitOne();
-        _waitToken = null;
+
+        lock (this)
+        {
+            _waitToken = null;
+        }
     }
 
     public override void Send(SendOrPostCallback d, object? state)
@@ -106,19 +116,28 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher) : Synch
     internal void Post(DispatchPriority priority, Action operation, CancellationToken ct)
     {
         _operationQueue.Enqueue(new(operation, priority, ct));
-        _waitToken?.Cancel();
+        lock (this)
+        {
+            _waitToken?.Cancel();
+        }
     }
 
     internal void Post(DispatcherOperation operation)
     {
         _operationQueue.Enqueue(operation);
-        _waitToken?.Cancel();
+        lock (this)
+        {
+            _waitToken?.Cancel();
+        }
     }
 
     internal void PostDelayed(DateTime dateTime, DispatchPriority priority, Action action, CancellationToken ct)
     {
         _timerQueue.Enqueue(dateTime, priority, action, ct);
-        _waitToken?.Cancel();
+        lock (this)
+        {
+            _waitToken?.Cancel();
+        }
     }
 
     internal bool HasQueuedTasks(DispatchPriority priority)
