@@ -16,24 +16,23 @@ using AvaPoint = Avalonia.Point;
 
 namespace Beutl.Views;
 
-public partial class EditView
+public partial class PlayerView
 {
     // Todo: Refactor
     private async void OnFrameDrop(object? sender, DragEventArgs e)
     {
-        if (DataContext is not EditViewModel viewModel) return;
-        Scene scene = viewModel.Scene;
-        TimeSpan frame = viewModel.CurrentTime.Value;
+        if (DataContext is not PlayerViewModel { Scene: { } scene, EditViewModel: { } editViewModel } viewModel) return;
+        TimeSpan frame = viewModel.CurrentFrame.Value;
 
-        AvaPoint position = e.GetPosition(Image);
-        double scaleX = Image.Bounds.Size.Width / viewModel.Scene.FrameSize.Width;
+        AvaPoint position = e.GetPosition(image);
+        double scaleX = image.Bounds.Size.Width / scene.FrameSize.Width;
         Point scaledPosition = (position / scaleX).ToBtlPoint();
         Point centerePosition = scaledPosition - new Point(scene.FrameSize.Width / 2, scene.FrameSize.Height / 2);
 
         if (e.Data.Contains(KnownLibraryItemFormats.FilterEffect)
             || e.Data.Contains(KnownLibraryItemFormats.Transform))
         {
-            Drawable? drawable = viewModel.Renderer.Value.HitTest(new((float)scaledPosition.X, (float)scaledPosition.Y));
+            Drawable? drawable = editViewModel.Renderer.Value.HitTest(new((float)scaledPosition.X, (float)scaledPosition.Y));
 
             if (drawable != null)
             {
@@ -46,21 +45,21 @@ public partial class EditView
 
                 if (element != null)
                 {
-                    viewModel.SelectedObject.Value = element;
+                    editViewModel.SelectedObject.Value = element;
                 }
 
                 if (e.Data.Get(KnownLibraryItemFormats.FilterEffect) is Type feType
                     && Activator.CreateInstance(feType) is FilterEffect newFe)
                 {
                     FilterEffect? fe = drawable.FilterEffect;
-                    AddOrSetHelper.AddOrSet(ref fe, newFe, [element], viewModel.CommandRecorder);
+                    AddOrSetHelper.AddOrSet(ref fe, newFe, [element], editViewModel.CommandRecorder);
                     drawable.FilterEffect = fe;
                 }
                 else if (e.Data.Get(KnownLibraryItemFormats.Transform) is Type traType
                     && Activator.CreateInstance(traType) is ITransform newTra)
                 {
                     ITransform? tra = drawable.Transform;
-                    AddOrSetHelper.AddOrSet(ref tra, newTra, [element], viewModel.CommandRecorder);
+                    AddOrSetHelper.AddOrSet(ref tra, newTra, [element], editViewModel.CommandRecorder);
                     drawable.Transform = tra;
                 }
 
@@ -86,7 +85,7 @@ public partial class EditView
                 if (e.KeyModifiers == KeyModifiers.Control)
                 {
                     var desc = new ElementDescription(frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centerePosition);
-                    var dialogViewModel = new AddElementDialogViewModel(scene, desc, viewModel.CommandRecorder);
+                    var dialogViewModel = new AddElementDialogViewModel(scene, desc, editViewModel.CommandRecorder);
                     var dialog = new AddElementDialog
                     {
                         DataContext = dialogViewModel
@@ -95,7 +94,7 @@ public partial class EditView
                 }
                 else
                 {
-                    viewModel.AddElement(new ElementDescription(
+                    editViewModel.AddElement(new ElementDescription(
                         frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centerePosition));
                 }
             }
@@ -106,7 +105,7 @@ public partial class EditView
             {
                 int zindex = CalculateZIndex(scene);
 
-                viewModel.AddElement(new ElementDescription(
+                editViewModel.AddElement(new ElementDescription(
                     frame, TimeSpan.FromSeconds(5), zindex, FileName: fileName, Position: centerePosition));
 
                 e.Handled = true;

@@ -15,7 +15,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Views;
 
-public partial class EditView
+public partial class PlayerView
 {
     private MenuItem? _saveElementAsImage;
     private MenuItem? _saveFrameAsImage;
@@ -58,9 +58,9 @@ public partial class EditView
 
     private void OnResetZoomClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is EditViewModel viewModel)
+        if (DataContext is PlayerViewModel viewModel)
         {
-            viewModel.Player.FrameMatrix.Value = Matrix.Identity;
+            viewModel.FrameMatrix.Value = Matrix.Identity;
         }
     }
 
@@ -94,12 +94,12 @@ public partial class EditView
     private async void OnSaveElementAsImageClick(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this)?.StorageProvider is { } storage
-            && DataContext is EditViewModel { Scene: Scene scene } viewModel
+            && DataContext is PlayerViewModel { Scene: Scene scene } viewModel
             && _lastSelected.TryGetTarget(out Drawable? drawable))
         {
             try
             {
-                Task<Bitmap<Bgra8888>> renderTask = viewModel.Player.DrawSelectedDrawable(drawable);
+                Task<Bitmap<Bgra8888>> renderTask = viewModel.DrawSelectedDrawable(drawable);
 
                 FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
                 Type type = drawable.GetType();
@@ -123,11 +123,11 @@ public partial class EditView
     private async void OnSaveFrameAsImageClick(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this)?.StorageProvider is { } storage
-            && DataContext is EditViewModel { Scene: Scene scene } viewModel)
+            && DataContext is PlayerViewModel { Scene: Scene scene } viewModel)
         {
             try
             {
-                Task<Bitmap<Bgra8888>> renderTask = viewModel.Player.DrawFrame();
+                Task<Bitmap<Bgra8888>> renderTask = viewModel.DrawFrame();
 
                 FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
                 string addtional = Path.GetFileNameWithoutExtension(scene.FileName);

@@ -27,7 +27,7 @@ using AvaRect = Avalonia.Rect;
 
 namespace Beutl.Views;
 
-public partial class EditView
+public partial class PlayerView
 {
     private static double Length(AvaPoint point)
     {
@@ -74,17 +74,17 @@ public partial class EditView
         private bool _pressed;
         private AvaPoint _position;
 
-        public required Player Player { get; init; }
+        public required PlayerView View { get; init; }
 
-        public required AvaImage Image { get; init; }
+        public required PlayerViewModel ViewModel { get; init; }
 
-        public required EditViewModel viewModel { get; init; }
+        private Player Player => View.Player;
 
         public void OnWheelChanged(PointerWheelEventArgs e)
         {
             const float ZoomSpeed = 1.2f;
 
-            AvaPoint pos = e.GetPosition(Image);
+            AvaPoint pos = e.GetPosition(View.framePanel);
             float x = (float)pos.X;
             float y = (float)pos.Y;
             float delta = (float)e.Delta.Y;
@@ -93,7 +93,7 @@ public partial class EditView
             float ratio = MathF.Pow(ZoomSpeed, realDelta);
 
             var a = new Matrix(ratio, 0, 0, ratio, x - (ratio * x), y - (ratio * y));
-            viewModel.Player.FrameMatrix.Value = a * viewModel.Player.FrameMatrix.Value;
+            ViewModel.FrameMatrix.Value = a * ViewModel.FrameMatrix.Value;
 
             e.Handled = true;
         }
@@ -104,7 +104,7 @@ public partial class EditView
             {
                 AvaPoint position = e.GetPosition(Player);
                 AvaPoint delta = position - _position;
-                viewModel.Player.FrameMatrix.Value *= Matrix.CreateTranslation((float)delta.X, (float)delta.Y);
+                ViewModel.FrameMatrix.Value *= Matrix.CreateTranslation((float)delta.X, (float)delta.Y);
 
                 _position = position;
 
@@ -116,7 +116,7 @@ public partial class EditView
         {
             if (_pressed)
             {
-                Player.GetFramePanel().Cursor = Cursors.Hand;
+                View.framePanel.Cursor = Cursors.Hand;
                 _pressed = false;
             }
         }
@@ -128,7 +128,7 @@ public partial class EditView
             _position = pointerPoint.Position;
             if (_pressed)
             {
-                Player.GetFramePanel().Cursor = Cursors.HandGrab;
+                View.framePanel.Cursor = Cursors.HandGrab;
 
                 e.Handled = true;
             }
@@ -145,13 +145,17 @@ public partial class EditView
         private KeyFrameState? _xKeyFrame;
         private KeyFrameState? _yKeyFrame;
 
-        public required AvaImage Image { get; init; }
+        public required PlayerView View { get; init; }
 
-        public required EditViewModel viewModel { get; init; }
+        public required PlayerViewModel ViewModel { get; init; }
+
+        public EditViewModel EditViewModel => ViewModel.EditViewModel;
 
         public Drawable? Drawable { get; private set; }
 
         public Element? Element { get; private set; }
+
+        private AvaImage Image => View.image;
 
         private (TranslateTransform?, Matrix) FindOrCreateTranslation(Drawable drawable)
         {
@@ -180,7 +184,7 @@ public partial class EditView
                         transformGroup.Children.BeginRecord<ITransform>()
                             .Insert(0, obj)
                             .ToCommand([Element])
-                            .DoAndRecord(viewModel.CommandRecorder);
+                            .DoAndRecord(EditViewModel.CommandRecorder);
 
                         return (obj, Matrix.Identity);
                     }
@@ -203,8 +207,8 @@ public partial class EditView
 
         private KeyFrameState? FindKeyFramePairOrNull(CoreProperty<float> property)
         {
-            int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-            TimeSpan globalkeyTime = viewModel.CurrentTime.Value;
+            int rate = EditViewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            TimeSpan globalkeyTime = EditViewModel.CurrentTime.Value;
             TimeSpan localKeyTime = Element != null ? globalkeyTime - Element.Start : globalkeyTime;
 
             if (_translateTransform!.Animations.FirstOrDefault(v => v.Property == property) is KeyFrameAnimation<float> animation)
@@ -227,12 +231,12 @@ public partial class EditView
         {
             if (_imagePressed && Drawable != null)
             {
-                if (!viewModel.Player.IsMoveMode.Value)
+                if (!ViewModel.IsMoveMode.Value)
                     return;
 
                 PointerPoint pointerPoint = e.GetCurrentPoint(Image);
                 AvaPoint imagePosition = pointerPoint.Position;
-                double scaleX = Image.Bounds.Size.Width / viewModel.Scene.FrameSize.Width;
+                double scaleX = Image.Bounds.Size.Width / EditViewModel.Scene.FrameSize.Width;
                 AvaPoint scaledPosition = imagePosition / scaleX;
                 AvaPoint delta = scaledPosition - _scaledStartPosition;
                 if (_translateTransform == null && Length(delta) >= 1)
@@ -271,11 +275,11 @@ public partial class EditView
                 _scaledStartPosition = scaledPosition;
                 if (Element != null)
                 {
-                    int rate = viewModel.Player.GetFrameRate();
+                    int rate = EditViewModel.Player.GetFrameRate();
                     int st = (int)Element.Start.ToFrameNumber(rate);
                     int ed = (int)Math.Ceiling(Element.Range.End.ToFrameNumber(rate));
 
-                    viewModel.FrameCacheManager.Value.DeleteAndUpdateBlocks(new[] { (st, ed) });
+                    EditViewModel.FrameCacheManager.Value.DeleteAndUpdateBlocks(new[] { (st, ed) });
                 }
                 e.Handled = true;
             }
@@ -331,7 +335,7 @@ public partial class EditView
                 ImmutableArray<IStorable?> storables = [Element];
                 IRecordableCommand? command = CreateTranslationCommand(storables)
                     .Append((_xKeyFrame?.CreateCommand(storables)).Append(_yKeyFrame?.CreateCommand(storables)));
-                command?.DoAndRecord(viewModel.CommandRecorder);
+                command?.DoAndRecord(EditViewModel.CommandRecorder);
 
                 Element = null;
                 _translateTransform = null;
@@ -344,19 +348,19 @@ public partial class EditView
 
         public void OnPressed(PointerPressedEventArgs e)
         {
-            Scene scene = viewModel.Scene;
+            Scene scene = EditViewModel.Scene;
             PointerPoint pointerPoint = e.GetCurrentPoint(Image);
             _imagePressed = pointerPoint.Properties.IsLeftButtonPressed;
             AvaPoint imagePosition = pointerPoint.Position;
             double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
             _scaledStartPosition = imagePosition / scaleX;
 
-            Drawable = viewModel.Renderer.Value.HitTest(new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y));
+            Drawable = EditViewModel.Renderer.Value.HitTest(new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y));
 
             if (Drawable != null)
             {
                 int zindex = (Drawable as DrawableDecorator)?.OriginalZIndex ?? Drawable.ZIndex;
-                TimeSpan time = viewModel.CurrentTime.Value;
+                TimeSpan time = EditViewModel.CurrentTime.Value;
 
                 Element = scene.Children.FirstOrDefault(v =>
                     v.ZIndex == zindex
@@ -365,7 +369,7 @@ public partial class EditView
 
                 if (Element != null)
                 {
-                    viewModel.SelectedObject.Value = Element;
+                    EditViewModel.SelectedObject.Value = Element;
                 }
             }
 
@@ -383,18 +387,20 @@ public partial class EditView
         private AvaPoint _positionInPanel;
         private Border? _border;
 
-        public required Player Player { get; init; }
+        public required PlayerView View { get; init; }
 
-        public required AvaImage Image { get; init; }
+        public required PlayerViewModel ViewModel { get; init; }
 
-        public required EditViewModel ViewModel { get; init; }
+        private Player Player => View.Player;
+
+        private AvaImage Image => View.image;
 
         public void OnMoved(PointerEventArgs e)
         {
             if (_pressed)
             {
                 _position = e.GetPosition(Image);
-                _positionInPanel = e.GetPosition(Player.GetFramePanel());
+                _positionInPanel = e.GetPosition(View.framePanel);
                 if (_border != null)
                 {
                     AvaRect rect = new AvaRect(_startInPanel, _positionInPanel).Normalize();
@@ -432,9 +438,8 @@ public partial class EditView
         {
             try
             {
-                EditViewModel viewModel = ViewModel;
-                Scene scene = ViewModel.Scene;
-                Task<Bitmap<Bgra8888>> renderTask = viewModel.Player.DrawFrame();
+                Scene scene = ViewModel.Scene!;
+                Task<Bitmap<Bgra8888>> renderTask = ViewModel.DrawFrame();
 
                 FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
 
@@ -454,10 +459,10 @@ public partial class EditView
         {
             if (_pressed)
             {
-                float scale = ViewModel.Scene.FrameSize.Width / (float)Image.Bounds.Width;
+                float scale = ViewModel.Scene!.FrameSize.Width / (float)Image.Bounds.Width;
                 Rect rect = new Rect(_start.ToBtlPoint() * scale, _position.ToBtlPoint() * scale).Normalize();
 
-                if (ViewModel.Player.TcsForCrop == null)
+                if (ViewModel.TcsForCrop == null)
                 {
                     var copyAsString = new MenuFlyoutItem()
                     {
@@ -488,9 +493,8 @@ public partial class EditView
                         {
                             try
                             {
-                                EditViewModel viewModel = ViewModel;
-                                Scene scene = ViewModel.Scene;
-                                Task<Bitmap<Bgra8888>> renderTask = viewModel.Player.DrawFrame();
+                                Scene scene = ViewModel.Scene!;
+                                Task<Bitmap<Bgra8888>> renderTask = ViewModel.DrawFrame();
 
                                 FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
                                 string addtional = Path.GetFileNameWithoutExtension(scene.FileName);
@@ -538,14 +542,14 @@ public partial class EditView
                 }
                 else
                 {
-                    ViewModel.Player.TcsForCrop?.SetResult(rect);
+                    ViewModel.TcsForCrop?.SetResult(rect);
                 }
 
-                ViewModel.Player.LastSelectedRect = rect;
+                ViewModel.LastSelectedRect = rect;
 
                 if (_border != null)
                 {
-                    Player.GetFramePanel().Children.Remove(_border);
+                    View.framePanel.Children.Remove(_border);
                     _border = null;
                 }
 
@@ -558,7 +562,7 @@ public partial class EditView
             PointerPoint pointerPoint = e.GetCurrentPoint(Image);
             _pressed = pointerPoint.Properties.IsLeftButtonPressed;
             _start = pointerPoint.Position;
-            Panel panel = Player.GetFramePanel();
+            Panel panel = View.framePanel;
             _startInPanel = e.GetCurrentPoint(panel).Position;
             if (_pressed)
             {
@@ -587,7 +591,7 @@ public partial class EditView
 
     private void OnFramePointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        if (DataContext is EditViewModel viewModel)
+        if (DataContext is PlayerViewModel viewModel)
         {
             CreateMouseHandler(viewModel).OnWheelChanged(e);
         }
@@ -604,39 +608,37 @@ public partial class EditView
         _mouseState = null;
     }
 
-    private IMouseControlHandler CreateMouseHandler(EditViewModel viewModel)
+    private IMouseControlHandler CreateMouseHandler(PlayerViewModel viewModel)
     {
-        if (viewModel.Player.IsMoveMode.Value)
+        if (viewModel.IsMoveMode.Value)
         {
             return new MouseControlMove
             {
-                Image = Image,
-                viewModel = viewModel
+                ViewModel = viewModel,
+                View = this
             };
         }
-        else if (viewModel.Player.IsHandMode.Value)
+        else if (viewModel.IsHandMode.Value)
         {
             return new MouseControlHand
             {
-                Player = Player,
-                Image = Image,
-                viewModel = viewModel
+                ViewModel = viewModel,
+                View = this
             };
         }
         else
         {
             return new MouseControlCrop
             {
-                Player = Player,
-                Image = Image,
-                ViewModel = viewModel
+                ViewModel = viewModel,
+                View = this
             };
         }
     }
 
     private void OnFramePointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (DataContext is EditViewModel viewModel)
+        if (DataContext is PlayerViewModel viewModel)
         {
             _mouseState = CreateMouseHandler(viewModel);
 

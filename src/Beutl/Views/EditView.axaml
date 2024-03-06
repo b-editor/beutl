@@ -101,40 +101,9 @@
 
                 <GridSplitter Grid.Column="1" Classes="EditViewSplitter" />
 
-                <Player x:Name="Player"
-                        Grid.Column="2"
-                        CurrentTime="{CompiledBinding Player.CurrentFrame.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
-                        EndButtonCommand="{CompiledBinding Player.End}"
-                        IsPlaying="{CompiledBinding Player.IsPlaying.Value, Mode=TwoWay}"
-                        Maximum="{CompiledBinding Player.Duration.Value, Converter={x:Static converters:TimeSpanToDoubleConverter.Instance}}"
-                        NextButtonCommand="{CompiledBinding Player.Next}"
-                        PlayButtonCommand="{CompiledBinding Player.PlayPause}"
-                        PreviousButtonCommand="{CompiledBinding Player.Previous}"
-                        Source="{CompiledBinding Player.PreviewImage.Value, Mode=OneWay}"
-                        StartButtonCommand="{CompiledBinding Player.Start}"
-                        Value="{CompiledBinding Player.CurrentFrame.Value, Converter={x:Static converters:TimeSpanToDoubleConverter.Instance}}"
-                        Duration="{CompiledBinding Player.Duration.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}">
-                    <Player.InnerLeftContent>
-                        <StackPanel Margin="4,4,0,0">
-                            <StackPanel.Styles>
-                                <Style Selector="RadioButton">
-                                    <Setter Property="Theme" Value="{StaticResource LiteNavVerticalRadioButton}" />
-                                    <Setter Property="Padding" Value="7,6,5,6" />
-                                </Style>
-                            </StackPanel.Styles>
-                            <RadioButton IsChecked="{Binding Player.IsMoveMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Move}">
-                                <icons:SymbolIcon FontSize="16" Symbol="Cursor" />
-                            </RadioButton>
-                            <RadioButton IsChecked="{Binding Player.IsHandMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Hand}">
-                                <icons:SymbolIcon FontSize="16" Symbol="HandLeft" />
-                            </RadioButton>
-                            <!--  Todo: ローカライズ  -->
-                            <RadioButton IsChecked="{Binding Player.IsCropMode.Value}" ToolTip.Tip="範囲選択">
-                                <icons:SymbolIcon FontSize="16" Symbol="Crop" />
-                            </RadioButton>
-                        </StackPanel>
-                    </Player.InnerLeftContent>
-                </Player>
+                <local:PlayerView x:Name="Player"
+                                  Grid.Column="2"
+                                  DataContext="{Binding Player}" />
             </Grid>
 
             <GridSplitter Grid.Row="1" Classes="EditViewSplitter" />
