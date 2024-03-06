@@ -123,6 +123,7 @@ public abstract class Shape : Drawable
     public void InvalidateGeometry()
     {
         CreatedGeometry = null;
+        RaiseInvalidated(new RenderInvalidatedEventArgs(this, nameof(CreatedGeometry)));
     }
 
     private static Vector CalculateScale(Size requestedSize, Rect shapeBounds, Stretch stretch)
@@ -234,7 +235,21 @@ public abstract class Shape : Drawable
         var requestedSize = new Size(Width, Height);
         Rect shapeBounds = geometry.Bounds;
         Vector scale = CalculateScale(requestedSize, shapeBounds, Stretch);
-        Matrix matrix = Matrix.CreateTranslation(-(Vector)shapeBounds.Position);
+        float posX = AlignmentX switch
+        {
+            AlignmentX.Left => 0,
+            AlignmentX.Center => -shapeBounds.Position.X / 2,
+            AlignmentX.Right => -shapeBounds.Position.X,
+            _ => 0,
+        };
+        float posY = AlignmentY switch
+        {
+            AlignmentY.Top => 0,
+            AlignmentY.Center => -shapeBounds.Position.Y / 2,
+            AlignmentY.Bottom => -shapeBounds.Position.Y,
+            _ => 0,
+        };
+        Matrix matrix = Matrix.CreateTranslation(posX, posY);
 
         if (Pen != null)
         {
