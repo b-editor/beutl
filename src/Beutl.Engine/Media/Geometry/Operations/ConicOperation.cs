@@ -61,4 +61,10 @@ public sealed class ConicOperation : PathOperation
     {
         context.ConicTo(ControlPoint, EndPoint, Weight);
     }
+
+    public override bool TryGetEndPoint(out Point point)
+    {
+        point = EndPoint;
+        return true;
+    }
 }
