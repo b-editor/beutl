@@ -54,6 +54,24 @@ public sealed class PathEditorViewModel : IDisposable
         AvaMatrix = Matrix.Select(v => v.ToAvaMatrix())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+
+        editViewModel.SelectedObject.Subscribe(obj =>
+        {
+            if (!ReferenceEquals(obj, Element.Value))
+            {
+                Context.Value = null;
+            }
+        }).DisposeWith(_disposables);
+
+        IsVisible = editViewModel.CurrentTime
+            .CombineLatest(Element
+                .Select(e => e?.GetObservable(ProjectSystem.Element.StartProperty)
+                    .CombineLatest(e.GetObservable(ProjectSystem.Element.LengthProperty))
+                    .Select(t => new TimeRange(t.First, t.Second)) ?? Observable.Return<TimeRange>(default))
+                .Switch())
+            .Select(t => t.Second.Contains(t.First))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
     }
 
     private Matrix CalculateMatrix(Drawable drawable)
@@ -107,6 +125,8 @@ public sealed class PathEditorViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<int> SceneWidth { get; }
 
     public ReactiveProperty<PathOperation?> SelectedOperation { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> IsVisible { get; }
 
     public void StartEdit(GeometryEditorViewModel context)
     {
