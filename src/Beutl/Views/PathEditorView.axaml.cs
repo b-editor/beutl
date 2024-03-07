@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.ReactiveUI;
 using Avalonia.Styling;
+using Avalonia.Xaml.Interactivity;
 
 using Beutl.Media;
 using Beutl.ViewModels;
@@ -18,6 +19,9 @@ using FluentAvalonia.UI.Controls;
 using Reactive.Bindings.Extensions;
 
 using ReactiveUI;
+
+using BtlPoint = Beutl.Graphics.Point;
+using BtlVector = Beutl.Graphics.Vector;
 
 namespace Beutl.Views;
 
@@ -154,15 +158,15 @@ public partial class PathEditorView : UserControl
             .Do(t => t.DataContext = null));
     }
 
-    private static IObservable<Point> GetObservable(Thumb obj, CoreProperty<Graphics.Point> p)
+    private static IObservable<Point> GetObservable(Thumb obj, CoreProperty<BtlPoint> p)
     {
         return obj.GetObservable(DataContextProperty)
-            .Select(v => (v as PathSegment)?.GetObservable(p) ?? Observable.Return((Graphics.Point)default))
+            .Select(v => (v as PathSegment)?.GetObservable(p) ?? Observable.Return((BtlPoint)default))
             .Switch()
             .Select(v => v.ToAvaPoint());
     }
 
-    private static void Bind(Thumb t, CoreProperty<Graphics.Point> p)
+    private static void Bind(Thumb t, CoreProperty<BtlPoint> p)
     {
         var parent = ControlLocator.Track(t, 0, typeof(PathEditorView)).Select(v => v as PathEditorView);
         IObservable<double> scale = parent
@@ -290,15 +294,10 @@ public partial class PathEditorView : UserControl
 
     private Thumb CreateThumb()
     {
-        //ControlPointThumb
         var thumb = new Thumb()
         {
             Theme = this.FindResource("ControlPointThumb") as ControlTheme
         };
-        thumb.DragDelta += OnThumbDragDelta;
-        thumb.DragStarted += OnThumbDragStarted;
-        thumb.DragCompleted += OnThumbDragCompleted;
-        thumb.AddHandler(PointerReleasedEvent, OnThumbPointerReleased, handledEventsToo: true);
         var flyout = new FAMenuFlyout();
         var delete = new MenuFlyoutItem
         {
@@ -313,16 +312,9 @@ public partial class PathEditorView : UserControl
 
         thumb.ContextFlyout = flyout;
 
-        return thumb;
-    }
+        Interaction.GetBehaviors(thumb).Add(new ThumbDragBehavior());
 
-    private void OnThumbPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (e.InitialPressMouseButton == MouseButton.Right
-            && sender is Thumb { ContextFlyout: { } flyout } thumb)
-        {
-            flyout.ShowAt(thumb);
-        }
+        return thumb;
     }
 
     private void OnDeleteClicked(object? sender, RoutedEventArgs e)
@@ -336,40 +328,7 @@ public partial class PathEditorView : UserControl
         }
     }
 
-    private void OnThumbDragCompleted(object? sender, VectorEventArgs e)
-    {
-
-    }
-
-    private void OnThumbDragStarted(object? sender, VectorEventArgs e)
-    {
-        if (sender is Thumb { DataContext: PathSegment op } t
-            && DataContext is PathEditorViewModel { Context.Value.Group.Value: { } group } viewModel)
-        {
-            foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
-            {
-                if (item.Context is PathOperationEditorViewModel itemvm)
-                {
-                    if (ReferenceEquals(itemvm.Value.Value, op))
-                    {
-                        itemvm.IsExpanded.Value = true;
-                        itemvm.ProgrammaticallyExpanded = true;
-                    }
-                    else if (itemvm.ProgrammaticallyExpanded)
-                    {
-                        itemvm.IsExpanded.Value = false;
-                    }
-                }
-            }
-
-            if (!t.Classes.Contains("control"))
-            {
-                viewModel.SelectedOperation.Value = op;
-            }
-        }
-    }
-
-    private static CoreProperty<Graphics.Point>? GetProperty(Thumb t)
+    private static CoreProperty<BtlPoint>? GetProperty(Thumb t)
     {
         switch (t.DataContext)
         {
@@ -419,7 +378,7 @@ public partial class PathEditorView : UserControl
         return null;
     }
 
-    private static CoreProperty<Graphics.Point>[] GetControlPointProperty(object datacontext)
+    private static CoreProperty<BtlPoint>[] GetControlPointProperty(object datacontext)
     {
         return datacontext switch
         {
@@ -428,45 +387,6 @@ public partial class PathEditorView : UserControl
             QuadraticBezierSegment => [QuadraticBezierSegment.ControlPointProperty],
             _ => [],
         };
-    }
-
-    // KeyModifier
-    private void OnThumbDragDelta(object? sender, VectorEventArgs e)
-    {
-        if (sender is Thumb { DataContext: PathSegment op } t
-            && DataContext is PathEditorViewModel { PathGeometry.Value: { } geometry } viewModel)
-        {
-            var delta = new Graphics.Vector((float)(e.Vector.X / Scale), (float)(e.Vector.Y / Scale));
-            CoreProperty<Graphics.Point>? prop = GetProperty(t);
-            if (prop != null)
-            {
-                Graphics.Point point = op.GetValue(prop);
-                op.SetValue(prop, point + delta);
-                if (!t.Classes.Contains("control"))
-                {
-                    CoreProperty<Graphics.Point>[] props = GetControlPointProperty(t.DataContext);
-                    if (props.Length > 0)
-                    {
-                        var prop2 = props[^1];
-                        op.SetValue(prop2, op.GetValue(prop2) + delta);
-                    }
-
-                    int index = geometry.Segments.IndexOf(op);
-                    int nextIndex = (index + 1) % geometry.Segments.Count;
-
-                    if (0 <= nextIndex && nextIndex < geometry.Segments.Count)
-                    {
-                        var nextOp = geometry.Segments[nextIndex];
-                        props = GetControlPointProperty(nextOp);
-                        if (props.Length > 0)
-                        {
-                            var prop2 = props[0];
-                            nextOp.SetValue(prop2, nextOp.GetValue(prop2) + delta);
-                        }
-                    }
-                }
-            }
-        }
     }
 
     private void OnCanvasPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -488,7 +408,7 @@ public partial class PathEditorView : UserControl
             })
         {
             int index = geometry.Segments.Count;
-            Graphics.Point lastPoint = default;
+            BtlPoint lastPoint = default;
             if (index > 0)
             {
                 PathSegment lastOp = geometry.Segments[index - 1];
@@ -504,7 +424,7 @@ public partial class PathEditorView : UserControl
                 };
             }
 
-            Graphics.Point point = (_clickPoint / Scale).ToBtlPoint();
+            BtlPoint point = (_clickPoint / Scale).ToBtlPoint();
             if (Matrix.TryInvert(out var mat))
             {
                 point = mat.ToBtlMatrix().Transform(point);
@@ -536,6 +456,148 @@ public partial class PathEditorView : UserControl
             if (obj != null)
             {
                 group.AddItem(obj);
+            }
+        }
+    }
+
+    private sealed class ThumbDragBehavior : Behavior<Thumb>
+    {
+        private Point? _lastPoint;
+
+        protected override void OnAttached()
+        {
+            base.OnAttached();
+            if (AssociatedObject is { })
+            {
+                AssociatedObject.AddHandler(PointerPressedEvent, OnThumbPointerPressed, handledEventsToo: true);
+                AssociatedObject.AddHandler(PointerReleasedEvent, OnThumbPointerReleased, handledEventsToo: true);
+                AssociatedObject.AddHandler(PointerMovedEvent, OnThumbPointerMoved, handledEventsToo: true);
+                AssociatedObject.AddHandler(PointerCaptureLostEvent, OnThumbPointerCaptureLost, handledEventsToo: true);
+            }
+        }
+
+        protected override void OnDetaching()
+        {
+            base.OnDetaching();
+            if (AssociatedObject is { })
+            {
+                AssociatedObject.RemoveHandler(PointerPressedEvent, OnThumbPointerPressed);
+                AssociatedObject.RemoveHandler(PointerReleasedEvent, OnThumbPointerReleased);
+                AssociatedObject.RemoveHandler(PointerMovedEvent, OnThumbPointerMoved);
+                AssociatedObject.RemoveHandler(PointerCaptureLostEvent, OnThumbPointerCaptureLost);
+            }
+        }
+
+        private void OnThumbPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+        {
+            if (_lastPoint.HasValue)
+            {
+                e.Handled = true;
+
+                var vector = _lastPoint.Value;
+            }
+
+            _lastPoint = null;
+        }
+
+        private void OnThumbPointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (e.InitialPressMouseButton == MouseButton.Right
+                && AssociatedObject is { ContextFlyout: { } flyout })
+            {
+                flyout.ShowAt(AssociatedObject);
+            }
+
+            if (e.InitialPressMouseButton == MouseButton.Left && _lastPoint.HasValue)
+            {
+                e.Handled = true;
+
+                var vector = e.GetPosition(AssociatedObject);
+            }
+
+            _lastPoint = null;
+        }
+
+        private void OnThumbPointerMoved(object? sender, PointerEventArgs e)
+        {
+            PathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<PathEditorView>();
+            if (AssociatedObject is not { DataContext: PathSegment op }
+                || parent is not { DataContext: PathEditorViewModel { PathGeometry.Value: { } geometry } }
+                || !_lastPoint.HasValue)
+            {
+                return;
+            }
+
+            Point vector = e.GetPosition(AssociatedObject) - _lastPoint.Value;
+
+            var delta = new BtlVector((float)(vector.X / parent.Scale), (float)(vector.Y / parent.Scale));
+            CoreProperty<BtlPoint>? prop = GetProperty(AssociatedObject);
+            if (prop != null)
+            {
+                BtlPoint point = op.GetValue(prop);
+                op.SetValue(prop, point + delta);
+                if (!AssociatedObject.Classes.Contains("control"))
+                {
+                    CoordinateControlPoint(geometry, op, delta);
+                }
+            }
+        }
+
+        private void CoordinateControlPoint(PathGeometry geometry, PathSegment segment, BtlVector delta)
+        {
+            CoreProperty<BtlPoint>[] props = GetControlPointProperty(segment);
+            if (props.Length > 0)
+            {
+                CoreProperty<BtlPoint> prop2 = props[^1];
+                segment.SetValue(prop2, segment.GetValue(prop2) + delta);
+            }
+
+            int index = geometry.Segments.IndexOf(segment);
+            int nextIndex = (index + 1) % geometry.Segments.Count;
+
+            if (0 <= nextIndex && nextIndex < geometry.Segments.Count)
+            {
+                PathSegment nextSegment = geometry.Segments[nextIndex];
+                props = GetControlPointProperty(nextSegment);
+                if (props.Length > 0)
+                {
+                    CoreProperty<BtlPoint> prop2 = props[0];
+                    nextSegment.SetValue(prop2, nextSegment.GetValue(prop2) + delta);
+                }
+            }
+        }
+
+        private void OnThumbPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            PathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<PathEditorView>();
+            if (AssociatedObject is not { DataContext: PathSegment segment }
+                || parent is not { DataContext: PathEditorViewModel { Context.Value.Group.Value: { } group } viewModel })
+            {
+                return;
+            }
+
+            e.Handled = true;
+            _lastPoint = e.GetPosition(AssociatedObject);
+
+            foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
+            {
+                if (item.Context is PathOperationEditorViewModel itemvm)
+                {
+                    if (ReferenceEquals(itemvm.Value.Value, segment))
+                    {
+                        itemvm.IsExpanded.Value = true;
+                        itemvm.ProgrammaticallyExpanded = true;
+                    }
+                    else if (itemvm.ProgrammaticallyExpanded)
+                    {
+                        itemvm.IsExpanded.Value = false;
+                    }
+                }
+            }
+
+            if (!AssociatedObject.Classes.Contains("control"))
+            {
+                viewModel.SelectedOperation.Value = segment;
             }
         }
     }
