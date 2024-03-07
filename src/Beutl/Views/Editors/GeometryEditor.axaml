@@ -63,9 +63,6 @@
                                                    Tag="Arc"
                                                    Text="Arc" />
                                 <ui:MenuFlyoutItem Click="AddClick"
-                                                   Tag="Close"
-                                                   Text="Close" />
-                                <ui:MenuFlyoutItem Click="AddClick"
                                                    Tag="Conic"
                                                    Text="Conic" />
                                 <ui:MenuFlyoutItem Click="AddClick"
@@ -74,9 +71,6 @@
                                 <ui:MenuFlyoutItem Click="AddClick"
                                                    Tag="Line"
                                                    Text="Line" />
-                                <ui:MenuFlyoutItem Click="AddClick"
-                                                   Tag="Move"
-                                                   Text="Move" />
                                 <ui:MenuFlyoutItem Click="AddClick"
                                                    Tag="QuadraticBezier"
                                                    Text="QuadraticBezier" />

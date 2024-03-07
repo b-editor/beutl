@@ -36,13 +36,16 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
 
                     if (v is PathGeometry group)
                     {
-                        var prop = new CorePropertyImpl<PathOperations>(PathGeometry.OperationsProperty, group);
-                        Group.Value = new ListEditorViewModel<PathOperation>(prop)
+                        var prop = new CorePropertyImpl<PathSegments>(PathGeometry.OperationsProperty, group);
+                        Group.Value = new ListEditorViewModel<PathSegment>(prop)
                         {
                             IsExpanded = { Value = true }
                         };
 
-                        Properties.Value = new PropertiesEditorViewModel(group, (p, m) => p == Geometry.FillTypeProperty);
+                        Properties.Value = new PropertiesEditorViewModel(group,
+                            (p, m) => p == Geometry.FillTypeProperty
+                                   || p == PathGeometry.StartPointProperty
+                                   || p == PathGeometry.IsClosedProperty);
                     }
                     else if (v is Geometry geometry)
                     {
@@ -69,7 +72,7 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
-    public ReactivePropertySlim<ListEditorViewModel<PathOperation>?> Group { get; } = new();
+    public ReactivePropertySlim<ListEditorViewModel<PathSegment>?> Group { get; } = new();
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -102,10 +105,10 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
     public void AddItem(Type type)
     {
         if (Value.Value is PathGeometry group
-            && Activator.CreateInstance(type) is PathOperation instance)
+            && Activator.CreateInstance(type) is PathSegment instance)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            group.Operations.BeginRecord<PathOperation>()
+            group.Segments.BeginRecord<PathSegment>()
                 .Add(instance)
                 .ToCommand(GetStorables())
                 .DoAndRecord(recorder);

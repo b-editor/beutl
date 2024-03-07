@@ -21,8 +21,8 @@ public class PathGeometryControl : Control
     public static readonly StyledProperty<PathGeometry?> GeometryProperty =
         AvaloniaProperty.Register<PathGeometryControl, PathGeometry?>(nameof(Geometry));
 
-    public static readonly StyledProperty<PathOperation?> SelectedOperationProperty =
-        AvaloniaProperty.Register<PathGeometryControl, PathOperation?>(nameof(SelectedOperation));
+    public static readonly StyledProperty<PathSegment?> SelectedOperationProperty =
+        AvaloniaProperty.Register<PathGeometryControl, PathSegment?>(nameof(SelectedOperation));
 
     public static readonly StyledProperty<AvaMatrix> MatrixProperty =
         AvaloniaProperty.Register<PathGeometryControl, AvaMatrix>(nameof(Matrix), AvaMatrix.Identity);
@@ -35,7 +35,7 @@ public class PathGeometryControl : Control
         AffectsRender<PathGeometryControl>(GeometryProperty, MatrixProperty, ScaleProperty, SelectedOperationProperty);
     }
 
-    public PathOperation? SelectedOperation
+    public PathSegment? SelectedOperation
     {
         get => GetValue(SelectedOperationProperty);
         set => SetValue(SelectedOperationProperty, value);
@@ -88,7 +88,7 @@ public class PathGeometryControl : Control
         {
             context.Custom(new PathDrawOperation(
                 Geometry, Matrix, Geometry.Bounds.ToAvaRect(),
-                Scale, Geometry.Operations.IndexOf(SelectedOperation)));
+                Scale, Geometry.Segments.IndexOf(SelectedOperation)));
         }
     }
 
@@ -139,20 +139,20 @@ public class PathGeometryControl : Control
                         paint.ImageFilter = filter;
                     }
 
-                    if (Geometry.Operations.Count > 0 && index >= 0)
+                    if (Geometry.Segments.Count > 0 && index >= 0)
                     {
-                        void DrawLine(PathOperation op, int index, bool c1, bool c2)
+                        void DrawLine(PathSegment op, int index, bool c1, bool c2)
                         {
                             SKPoint lastPoint = default;
-                            if (0 <= index - 1 && index - 1 < Geometry.Operations.Count)
+                            if (0 <= index - 1 && index - 1 < Geometry.Segments.Count)
                             {
-                                if (Geometry.Operations[index - 1].TryGetEndPoint(out Graphics.Point tmp))
+                                if (Geometry.Segments[index - 1].TryGetEndPoint(out Graphics.Point tmp))
                                     lastPoint = tmp.ToSKPoint();
                             }
 
                             switch (op)
                             {
-                                case ConicOperation conic:
+                                case ConicSegment conic:
                                     if (c1)
                                     {
                                         skapi.SkCanvas.DrawLine(
@@ -170,7 +170,7 @@ public class PathGeometryControl : Control
                                     }
                                     break;
 
-                                case CubicBezierOperation cubic:
+                                case CubicBezierSegment cubic:
                                     if (c1)
                                     {
                                         skapi.SkCanvas.DrawLine(
@@ -188,7 +188,7 @@ public class PathGeometryControl : Control
                                     }
                                     break;
 
-                                case QuadraticBezierOperation quad:
+                                case QuadraticBezierSegment quad:
                                     if (c1)
                                     {
                                         skapi.SkCanvas.DrawLine(
@@ -208,17 +208,17 @@ public class PathGeometryControl : Control
                             }
                         }
 
-                        DrawLine(Geometry.Operations[index], index, false, true);
+                        DrawLine(Geometry.Segments[index], index, false, true);
                         //int prevIndex = (index - 1 + Geometry.Operations.Count) % Geometry.Operations.Count;
-                        int nextIndex = (index + 1) % Geometry.Operations.Count;
+                        int nextIndex = (index + 1) % Geometry.Segments.Count;
 
                         //if (0 <= prevIndex && prevIndex < Geometry.Operations.Count)
                         //{
                         //    DrawLine(Geometry.Operations[prevIndex], prevIndex, false, false);
                         //}
-                        if (0 <= nextIndex && nextIndex < Geometry.Operations.Count)
+                        if (0 <= nextIndex && nextIndex < Geometry.Segments.Count)
                         {
-                            DrawLine(Geometry.Operations[nextIndex], nextIndex, true, false);
+                            DrawLine(Geometry.Segments[nextIndex], nextIndex, true, false);
                         }
                     }
                 }

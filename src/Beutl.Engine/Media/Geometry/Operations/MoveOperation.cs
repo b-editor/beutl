@@ -2,7 +2,8 @@
 
 namespace Beutl.Media;
 
-public sealed class MoveOperation : PathOperation
+[Obsolete("Use 'PathGeometry.StartPoint'.")]
+public sealed class MoveOperation : PathSegment
 {
     public static readonly CoreProperty<Point> PointProperty;
     private Point _point;

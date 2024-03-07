@@ -8,14 +8,28 @@ namespace Beutl.Media;
 
 public sealed class PathGeometry : Geometry
 {
-    public static readonly CoreProperty<PathOperations> OperationsProperty;
-    private readonly PathOperations _operations = [];
+    public static readonly CoreProperty<Point> StartPointProperty;
+    public static readonly CoreProperty<bool> IsClosedProperty;
+    public static readonly CoreProperty<PathSegments> OperationsProperty;
+    private Point _startPoint;
+    private bool _isClosed;
+    private readonly PathSegments _operations = [];
 
     static PathGeometry()
     {
-        OperationsProperty = ConfigureProperty<PathOperations, PathGeometry>(nameof(Operations))
-            .Accessor(o => o.Operations, (o, v) => o.Operations = v)
+        StartPointProperty = ConfigureProperty<Point, PathGeometry>(nameof(StartPoint))
+            .Accessor(o => o.StartPoint, (o, v) => o.StartPoint = v)
             .Register();
+
+        IsClosedProperty = ConfigureProperty<bool, PathGeometry>(nameof(IsClosed))
+            .Accessor(o => o.IsClosed, (o, v) => o.IsClosed = v)
+            .Register();
+
+        OperationsProperty = ConfigureProperty<PathSegments, PathGeometry>(nameof(Segments))
+            .Accessor(o => o.Segments, (o, v) => o.Segments = v)
+            .Register();
+
+        AffectsRender<PathGeometry>(StartPointProperty, IsClosedProperty);
     }
 
     public PathGeometry()
@@ -23,8 +37,20 @@ public sealed class PathGeometry : Geometry
         _operations.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
+    public Point StartPoint
+    {
+        get => _startPoint;
+        set => SetAndRaise(StartPointProperty, ref _startPoint, value);
+    }
+
+    public bool IsClosed
+    {
+        get => _isClosed;
+        set => SetAndRaise(IsClosedProperty, ref _isClosed, value);
+    }
+
     [NotAutoSerialized]
-    public PathOperations Operations
+    public PathSegments Segments
     {
         get => _operations;
         set => _operations.Replace(value);
@@ -33,15 +59,15 @@ public sealed class PathGeometry : Geometry
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue(nameof(Operations), Operations);
+        context.SetValue(nameof(Segments), Segments);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        if (context.GetValue<PathOperations>(nameof(Operations)) is { } operations)
+        if (context.GetValue<PathSegments>(nameof(Segments)) is { } operations)
         {
-            Operations = operations;
+            Segments = operations;
         }
     }
 
@@ -53,41 +79,63 @@ public sealed class PathGeometry : Geometry
         var result = new PathGeometry();
         Span<SKPoint> points = stackalloc SKPoint[4];
         SKPathVerb pathVerb;
+        Point? startPoint = null;
+        bool? isClosed = null;
 
         do
         {
             pathVerb = it.Next(points);
-            PathOperation? operation;
+            PathSegment? operation;
+
+            if (pathVerb == SKPathVerb.Move)
+            {
+                if (startPoint.HasValue)
+                    throw new InvalidOperationException("PathGeometryは単一の図形のみ対応します");
+
+                startPoint = points[0].ToGraphicsPoint();
+            }
+            else if (pathVerb == SKPathVerb.Close)
+            {
+                if (isClosed.HasValue)
+                    throw new InvalidOperationException("PathGeometryは単一の図形のみ対応します");
+
+                isClosed = true;
+            }
 
             operation = pathVerb switch
             {
-                SKPathVerb.Move => new MoveOperation(points[0].ToGraphicsPoint()),
-                SKPathVerb.Line => new LineOperation(points[1].ToGraphicsPoint()),
-                SKPathVerb.Quad => new QuadraticBezierOperation(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint()),
-                SKPathVerb.Conic => new ConicOperation(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint(), it.ConicWeight()),
-                SKPathVerb.Cubic => new CubicBezierOperation(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint(), points[3].ToGraphicsPoint()),
-                SKPathVerb.Close => new CloseOperation(),
+                SKPathVerb.Line => new LineSegment(points[1].ToGraphicsPoint()),
+                SKPathVerb.Quad => new QuadraticBezierSegment(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint()),
+                SKPathVerb.Conic => new ConicSegment(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint(), it.ConicWeight()),
+                SKPathVerb.Cubic => new CubicBezierSegment(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint(), points[3].ToGraphicsPoint()),
                 SKPathVerb.Done or _ => null,
             };
 
             if (operation != null)
             {
-                result.Operations.Add(operation);
+                result.Segments.Add(operation);
             }
 
         } while (pathVerb != SKPathVerb.Done);
 
+        if (startPoint.HasValue)
+            result.StartPoint = startPoint.Value;
+        
+        if (isClosed.HasValue)
+            result.IsClosed = isClosed.Value;
+
         return result;
     }
 
+    [Obsolete("Use 'StartPoint'.")]
     public void MoveTo(Point point)
     {
-        Operations.Add(new MoveOperation(point));
+        Segments.Add(new MoveOperation(point));
     }
 
     public void ArcTo(Size radius, float angle, bool isLargeArc, bool sweepClockwise, Point point)
     {
-        Operations.Add(new ArcOperation()
+        Segments.Add(new ArcSegment()
         {
             Radius = radius,
             RotationAngle = angle,
@@ -99,7 +147,7 @@ public sealed class PathGeometry : Geometry
 
     public void ConicTo(Point controlPoint, Point endPoint, float weight)
     {
-        Operations.Add(new ConicOperation()
+        Segments.Add(new ConicSegment()
         {
             ControlPoint = controlPoint,
             EndPoint = endPoint,
@@ -109,7 +157,7 @@ public sealed class PathGeometry : Geometry
 
     public void CubicTo(Point controlPoint1, Point controlPoint2, Point endPoint)
     {
-        Operations.Add(new CubicBezierOperation()
+        Segments.Add(new CubicBezierSegment()
         {
             ControlPoint1 = controlPoint1,
             ControlPoint2 = controlPoint2,
@@ -119,38 +167,42 @@ public sealed class PathGeometry : Geometry
 
     public void LineTo(Point point)
     {
-        Operations.Add(new LineOperation(point));
+        Segments.Add(new LineSegment(point));
     }
 
     public void QuadraticTo(Point controlPoint, Point endPoint)
     {
-        Operations.Add(new QuadraticBezierOperation()
+        Segments.Add(new QuadraticBezierSegment()
         {
             ControlPoint = controlPoint,
             EndPoint = endPoint
         });
     }
 
+    [Obsolete("Use 'IsClosed'.")]
     public void Close()
     {
-        Operations.Add(new CloseOperation());
+        Segments.Add(new CloseOperation());
     }
 
     public override void ApplyTo(IGeometryContext context)
     {
         base.ApplyTo(context);
-        context.MoveTo(default);
+        context.MoveTo(StartPoint);
 
-        foreach (PathOperation item in Operations.GetMarshal().Value)
+        foreach (PathSegment item in Segments.GetMarshal().Value)
         {
             item.ApplyTo(context);
         }
+
+        if (IsClosed)
+            context.Close();
     }
 
     public override void ApplyAnimations(IClock clock)
     {
         base.ApplyAnimations(clock);
-        foreach (PathOperation item in Operations)
+        foreach (PathSegment item in Segments)
         {
             item.ApplyAnimations(clock);
         }

@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography.Xml;
+﻿#pragma warning disable CS0618
 
 using Avalonia;
 using Avalonia.Controls;
@@ -6,7 +6,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Styling;
 
 using Beutl.Media;
@@ -48,7 +47,7 @@ public partial class PathEditorView : UserControl
                     .Do(t => t.DataContext = null));
 
                 _disposable?.Dispose();
-                _disposable = geo?.Operations.ForEachItem(
+                _disposable = geo?.Segments.ForEachItem(
                     OnOperationAttached,
                     OnOperationDetached,
                     () => canvas.Children.RemoveAll(canvas.Children
@@ -58,7 +57,7 @@ public partial class PathEditorView : UserControl
 
         this.GetObservable(DataContextProperty)
             .Select(v => (v as PathEditorViewModel)?.SelectedOperation
-                ?? Observable.Return<PathOperation?>(default))
+                ?? Observable.Return<PathSegment?>(default))
             .Switch()
             .Subscribe(_ => UpdateControlPointVisibility());
     }
@@ -76,8 +75,8 @@ public partial class PathEditorView : UserControl
             if (viewModel.SelectedOperation.Value is { } op
                 && viewModel.PathGeometry.Value is { } geometry)
             {
-                int index = geometry.Operations.IndexOf(op);
-                int nextIndex = (index + 1) % geometry.Operations.Count;
+                int index = geometry.Segments.IndexOf(op);
+                int nextIndex = (index + 1) % geometry.Segments.Count;
 
                 foreach (var item in controlPoints.Where(v => v.DataContext == op))
                 {
@@ -87,9 +86,9 @@ public partial class PathEditorView : UserControl
                     }
                 }
 
-                if (0 <= nextIndex && nextIndex < geometry.Operations.Count)
+                if (0 <= nextIndex && nextIndex < geometry.Segments.Count)
                 {
-                    var next = geometry.Operations[nextIndex];
+                    var next = geometry.Segments[nextIndex];
                     foreach (var item in controlPoints.Where(v => v.DataContext == next))
                     {
                         if (Equals(item.Tag, "ControlPoint1") || Equals(item.Tag, "ControlPoint"))
@@ -134,7 +133,7 @@ public partial class PathEditorView : UserControl
         }
     }
 
-    private void OnOperationDetached(int index, PathOperation obj)
+    private void OnOperationDetached(int index, PathSegment obj)
     {
         canvas.Children.RemoveAll(canvas.Children
             .Where(c => c is Thumb t && t.DataContext == obj)
@@ -144,7 +143,7 @@ public partial class PathEditorView : UserControl
     private static IObservable<Point> GetObservable(Thumb obj, CoreProperty<Graphics.Point> p)
     {
         return obj.GetObservable(DataContextProperty)
-            .Select(v => (v as PathOperation)?.GetObservable(p) ?? Observable.Return((Graphics.Point)default))
+            .Select(v => (v as PathSegment)?.GetObservable(p) ?? Observable.Return((Graphics.Point)default))
             .Switch()
             .Select(v => v.ToAvaPoint());
     }
@@ -176,56 +175,56 @@ public partial class PathEditorView : UserControl
             .ToBinding());
     }
 
-    private void OnOperationAttached(int index, PathOperation obj)
+    private void OnOperationAttached(int index, PathSegment obj)
     {
         switch (obj)
         {
-            case ArcOperation:
+            case ArcSegment:
                 {
                     Thumb t = CreateThumb();
                     t.DataContext = obj;
-                    Bind(t, ArcOperation.PointProperty);
+                    Bind(t, ArcSegment.PointProperty);
 
                     canvas.Children.Add(t);
                 }
                 break;
 
-            case ConicOperation:
+            case ConicSegment:
                 {
                     Thumb c1 = CreateThumb();
                     c1.Tag = "ControlPoint";
                     c1.Classes.Add("control");
                     c1.DataContext = obj;
-                    Bind(c1, ConicOperation.ControlPointProperty);
+                    Bind(c1, ConicSegment.ControlPointProperty);
 
                     Thumb e = CreateThumb();
                     e.Tag = "EndPoint";
                     e.DataContext = obj;
-                    Bind(e, ConicOperation.EndPointProperty);
+                    Bind(e, ConicSegment.EndPointProperty);
 
                     canvas.Children.Add(e);
                     canvas.Children.Add(c1);
                 }
                 break;
 
-            case CubicBezierOperation:
+            case CubicBezierSegment:
                 {
                     Thumb c1 = CreateThumb();
                     c1.Classes.Add("control");
                     c1.Tag = "ControlPoint1";
                     c1.DataContext = obj;
-                    Bind(c1, CubicBezierOperation.ControlPoint1Property);
+                    Bind(c1, CubicBezierSegment.ControlPoint1Property);
 
                     Thumb c2 = CreateThumb();
                     c2.Classes.Add("control");
                     c2.Tag = "ControlPoint2";
                     c2.DataContext = obj;
-                    Bind(c2, CubicBezierOperation.ControlPoint2Property);
+                    Bind(c2, CubicBezierSegment.ControlPoint2Property);
 
                     Thumb e = CreateThumb();
                     e.Tag = "EndPoint";
                     e.DataContext = obj;
-                    Bind(e, CubicBezierOperation.EndPointProperty);
+                    Bind(e, CubicBezierSegment.EndPointProperty);
 
                     canvas.Children.Add(e);
                     canvas.Children.Add(c2);
@@ -233,11 +232,11 @@ public partial class PathEditorView : UserControl
                 }
                 break;
 
-            case LineOperation:
+            case LineSegment:
                 {
                     Thumb t = CreateThumb();
                     t.DataContext = obj;
-                    Bind(t, LineOperation.PointProperty);
+                    Bind(t, LineSegment.PointProperty);
 
                     canvas.Children.Add(t);
                 }
@@ -253,18 +252,18 @@ public partial class PathEditorView : UserControl
                 }
                 break;
 
-            case QuadraticBezierOperation:
+            case QuadraticBezierSegment:
                 {
                     Thumb c1 = CreateThumb();
                     c1.Tag = "ControlPoint";
                     c1.Classes.Add("control");
                     c1.DataContext = obj;
-                    Bind(c1, QuadraticBezierOperation.ControlPointProperty);
+                    Bind(c1, QuadraticBezierSegment.ControlPointProperty);
 
                     Thumb e = CreateThumb();
                     e.Tag = "EndPoint";
                     e.DataContext = obj;
-                    Bind(e, QuadraticBezierOperation.EndPointProperty);
+                    Bind(e, QuadraticBezierSegment.EndPointProperty);
 
                     canvas.Children.Add(e);
                     canvas.Children.Add(c1);
@@ -314,7 +313,7 @@ public partial class PathEditorView : UserControl
 
     private void OnDeleteClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem { DataContext: PathOperation op }
+        if (sender is MenuFlyoutItem { DataContext: PathSegment op }
             && DataContext is PathEditorViewModel { Context.Value.Group.Value: { } group })
         {
             int index = group.List.Value?.IndexOf(op) ?? -1;
@@ -330,10 +329,10 @@ public partial class PathEditorView : UserControl
 
     private void OnThumbDragStarted(object? sender, VectorEventArgs e)
     {
-        if (sender is Thumb { DataContext: PathOperation op } t
+        if (sender is Thumb { DataContext: PathSegment op } t
             && DataContext is PathEditorViewModel { Context.Value.Group.Value: { } group } viewModel)
         {
-            foreach (ListItemEditorViewModel<PathOperation> item in group.Items)
+            foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
             {
                 if (item.Context is PathOperationEditorViewModel itemvm)
                 {
@@ -360,45 +359,45 @@ public partial class PathEditorView : UserControl
     {
         switch (t.DataContext)
         {
-            case ArcOperation:
-                return ArcOperation.PointProperty;
+            case ArcSegment:
+                return ArcSegment.PointProperty;
 
-            case ConicOperation:
+            case ConicSegment:
                 switch (t.Tag)
                 {
                     case "ControlPoint":
-                        return ConicOperation.ControlPointProperty;
+                        return ConicSegment.ControlPointProperty;
                     case "EndPoint":
-                        return ConicOperation.EndPointProperty;
+                        return ConicSegment.EndPointProperty;
                 }
                 break;
 
-            case CubicBezierOperation:
+            case CubicBezierSegment:
                 switch (t.Tag)
                 {
                     case "ControlPoint1":
-                        return CubicBezierOperation.ControlPoint1Property;
+                        return CubicBezierSegment.ControlPoint1Property;
 
                     case "ControlPoint2":
-                        return CubicBezierOperation.ControlPoint2Property;
+                        return CubicBezierSegment.ControlPoint2Property;
                     case "EndPoint":
-                        return CubicBezierOperation.EndPointProperty;
+                        return CubicBezierSegment.EndPointProperty;
                 }
                 break;
 
-            case LineOperation:
-                return LineOperation.PointProperty;
+            case LineSegment:
+                return LineSegment.PointProperty;
 
             case MoveOperation:
                 return MoveOperation.PointProperty;
 
-            case QuadraticBezierOperation:
+            case QuadraticBezierSegment:
                 switch (t.Tag)
                 {
                     case "ControlPoint":
-                        return QuadraticBezierOperation.ControlPointProperty;
+                        return QuadraticBezierSegment.ControlPointProperty;
                     case "EndPoint":
-                        return QuadraticBezierOperation.EndPointProperty;
+                        return QuadraticBezierSegment.EndPointProperty;
                 }
                 break;
         }
@@ -410,9 +409,9 @@ public partial class PathEditorView : UserControl
     {
         return datacontext switch
         {
-            ConicOperation => [ConicOperation.ControlPointProperty],
-            CubicBezierOperation => [CubicBezierOperation.ControlPoint1Property, CubicBezierOperation.ControlPoint2Property],
-            QuadraticBezierOperation => [QuadraticBezierOperation.ControlPointProperty],
+            ConicSegment => [ConicSegment.ControlPointProperty],
+            CubicBezierSegment => [CubicBezierSegment.ControlPoint1Property, CubicBezierSegment.ControlPoint2Property],
+            QuadraticBezierSegment => [QuadraticBezierSegment.ControlPointProperty],
             _ => [],
         };
     }
@@ -420,7 +419,7 @@ public partial class PathEditorView : UserControl
     // KeyModifier
     private void OnThumbDragDelta(object? sender, VectorEventArgs e)
     {
-        if (sender is Thumb { DataContext: PathOperation op } t
+        if (sender is Thumb { DataContext: PathSegment op } t
             && DataContext is PathEditorViewModel { PathGeometry.Value: { } geometry } viewModel)
         {
             var delta = new Graphics.Vector((float)(e.Vector.X / Scale), (float)(e.Vector.Y / Scale));
@@ -438,12 +437,12 @@ public partial class PathEditorView : UserControl
                         op.SetValue(prop2, op.GetValue(prop2) + delta);
                     }
 
-                    int index = geometry.Operations.IndexOf(op);
-                    int nextIndex = (index + 1) % geometry.Operations.Count;
+                    int index = geometry.Segments.IndexOf(op);
+                    int nextIndex = (index + 1) % geometry.Segments.Count;
 
-                    if (0 <= nextIndex && nextIndex < geometry.Operations.Count)
+                    if (0 <= nextIndex && nextIndex < geometry.Segments.Count)
                     {
-                        var nextOp = geometry.Operations[nextIndex];
+                        var nextOp = geometry.Segments[nextIndex];
                         props = GetControlPointProperty(nextOp);
                         if (props.Length > 0)
                         {
@@ -474,19 +473,19 @@ public partial class PathEditorView : UserControl
                 Context.Value.Group.Value: { } group
             })
         {
-            int index = geometry.Operations.Count;
+            int index = geometry.Segments.Count;
             Graphics.Point lastPoint = default;
             if (index > 0)
             {
-                PathOperation lastOp = geometry.Operations[index - 1];
+                PathSegment lastOp = geometry.Segments[index - 1];
                 lastPoint = lastOp switch
                 {
-                    ArcOperation arc => arc.Point,
-                    CubicBezierOperation cub => cub.EndPoint,
-                    ConicOperation con => con.EndPoint,
-                    LineOperation line => line.Point,
+                    ArcSegment arc => arc.Point,
+                    CubicBezierSegment cub => cub.EndPoint,
+                    ConicSegment con => con.EndPoint,
+                    LineSegment line => line.Point,
                     MoveOperation move => move.Point,
-                    QuadraticBezierOperation quad => quad.EndPoint,
+                    QuadraticBezierSegment quad => quad.EndPoint,
                     _ => default
                 };
             }
@@ -497,24 +496,22 @@ public partial class PathEditorView : UserControl
                 point = mat.ToBtlMatrix().Transform(point);
             }
 
-            PathOperation? obj = item.Tag switch
+            PathSegment? obj = item.Tag switch
             {
-                "Arc" => new ArcOperation() { Point = point },
-                "Close" => new CloseOperation(),
-                "Conic" => new ConicOperation()
+                "Arc" => new ArcSegment() { Point = point },
+                "Conic" => new ConicSegment()
                 {
                     EndPoint = point,
                     ControlPoint = new(float.Lerp(point.X, lastPoint.X, 0.5f), float.Lerp(point.Y, lastPoint.Y, 0.5f))
                 },
-                "Cubic" => new CubicBezierOperation()
+                "Cubic" => new CubicBezierSegment()
                 {
                     EndPoint = point,
                     ControlPoint1 = new(float.Lerp(point.X, lastPoint.X, 0.66f), float.Lerp(point.Y, lastPoint.Y, 0.66f)),
                     ControlPoint2 = new(float.Lerp(point.X, lastPoint.X, 0.33f), float.Lerp(point.Y, lastPoint.Y, 0.33f)),
                 },
-                "Line" => new LineOperation() { Point = point },
-                "Move" => new MoveOperation() { Point = point },
-                "Quad" => new QuadraticBezierOperation()
+                "Line" => new LineSegment() { Point = point },
+                "Quad" => new QuadraticBezierSegment()
                 {
                     EndPoint = point,
                     ControlPoint = new(float.Lerp(point.X, lastPoint.X, 0.5f), float.Lerp(point.Y, lastPoint.Y, 0.5f))

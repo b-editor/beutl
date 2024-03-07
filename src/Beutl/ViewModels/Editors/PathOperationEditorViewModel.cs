@@ -13,9 +13,9 @@ using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathOperation?>
+public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegment?>
 {
-    public PathOperationEditorViewModel(IAbstractProperty<PathOperation?> property)
+    public PathOperationEditorViewModel(IAbstractProperty<PathSegment?> property)
         : base(property)
     {
         OpName = Value.Select(v =>
@@ -44,7 +44,7 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathOper
                     Properties.Value?.Dispose();
                     Properties.Value = null;
 
-                    if (v is PathOperation obj)
+                    if (v is PathSegment obj)
                     {
                         Properties.Value = new PropertiesEditorViewModel(obj, (p, m) => m.Browsable);
                     }
@@ -90,7 +90,7 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathOper
 
     public void ChangeType(Type type)
     {
-        if (Activator.CreateInstance(type) is PathOperation instance)
+        if (Activator.CreateInstance(type) is PathSegment instance)
         {
             SetValue(Value.Value, instance);
         }

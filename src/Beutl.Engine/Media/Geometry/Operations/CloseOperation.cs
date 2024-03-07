@@ -2,7 +2,8 @@
 
 namespace Beutl.Media;
 
-public sealed class CloseOperation : PathOperation
+[Obsolete("Use 'PathGeometry.IsClosed'.")]
+public sealed class CloseOperation : PathSegment
 {
     public override void ApplyTo(IGeometryContext context)
     {

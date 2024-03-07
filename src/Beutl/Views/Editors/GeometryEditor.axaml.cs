@@ -81,13 +81,11 @@ public partial class GeometryEditor : UserControl
                 {
                     Type? type = item.Tag switch
                     {
-                        "Arc" => typeof(ArcOperation),
-                        "Close" => typeof(CloseOperation),
-                        "Conic" => typeof(ConicOperation),
-                        "CubicBezier" => typeof(CubicBezierOperation),
-                        "Line" => typeof(LineOperation),
-                        "Move" => typeof(MoveOperation),
-                        "QuadraticBezier" => typeof(QuadraticBezierOperation),
+                        "Arc" => typeof(ArcSegment),
+                        "Conic" => typeof(ConicSegment),
+                        "CubicBezier" => typeof(CubicBezierSegment),
+                        "Line" => typeof(LineSegment),
+                        "QuadraticBezier" => typeof(QuadraticBezierSegment),
                         _ => null,
                     };
                     if (type != null)
