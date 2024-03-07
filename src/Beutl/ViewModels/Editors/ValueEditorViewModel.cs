@@ -15,9 +15,9 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
             .Select(x => x ?? WrappedProperty.GetObservable())
             //https://qiita.com/hiki_neet_p/items/4a8873920b566568d63b
             .Switch()
-            .ToReadOnlyReactivePropertySlim()
+            .ToReadOnlyReactiveProperty()
             .AddTo(Disposables)!;
     }
 
-    public ReadOnlyReactivePropertySlim<T> Value { get; }
+    public ReadOnlyReactiveProperty<T> Value { get; }
 }

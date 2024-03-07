@@ -104,9 +104,7 @@ public class PathGeometryControl : Control
 
         public bool Equals(ICustomDrawOperation? other)
         {
-            return other is PathDrawOperation o
-                && o.Geometry == Geometry
-                && o.Geometry.GetVersion() == Geometry.GetVersion();
+            return false;
         }
 
         public bool HitTest(AvaPoint p)

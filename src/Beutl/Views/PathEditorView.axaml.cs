@@ -14,6 +14,7 @@ using Avalonia.Xaml.Interactivity;
 
 using Beutl.Animation;
 using Beutl.Media;
+using Beutl.Rendering;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 
@@ -72,7 +73,7 @@ public partial class PathEditorView : UserControl
             .Select(v => v?.SelectedOperation.CombineLatest(v.IsClosed).ToUnit()
                 ?? Observable.Return<Unit>(default))
             .Switch()
-            .ObserveOn(AvaloniaScheduler.Instance)
+            .ObserveOnUIDispatcher()
             .Subscribe(_ => UpdateControlPointVisibility());
     }
 
@@ -166,7 +167,8 @@ public partial class PathEditorView : UserControl
         return obj.GetObservable(DataContextProperty)
             .Select(v => (v as PathSegment)?.GetObservable(p) ?? Observable.Return((BtlPoint)default))
             .Switch()
-            .Select(v => v.ToAvaPoint());
+            .Select(v => v.ToAvaPoint())
+            .ObserveOnUIDispatcher();
     }
 
     private static void Bind(Thumb t, CoreProperty<BtlPoint> p)
@@ -502,6 +504,7 @@ public partial class PathEditorView : UserControl
         private ThumbDragState? _dragState;
         private ThumbDragState[]? _coordDragStates;
         private Point? _lastPoint;
+        private CancellationTokenSource? _cts;
 
         protected override void OnAttached()
         {
@@ -625,7 +628,9 @@ public partial class PathEditorView : UserControl
             var delta = new BtlVector((float)(vector.X / parent.Scale), (float)(vector.Y / parent.Scale));
             if (_dragState != null)
             {
-                _dragState.Move(delta);
+                _cts?.Cancel();
+                _cts = new CancellationTokenSource();
+                _dragState.Move(delta, _cts.Token);
 
                 if (_coordDragStates != null)
                 {
@@ -659,7 +664,7 @@ public partial class PathEditorView : UserControl
 
                                         float x = MathF.Cos(angle) * length;
                                         float y = MathF.Sin(angle) * length;
-                                        c.SetValue(endpoint + new BtlPoint(x, -y));
+                                        c.SetValue(endpoint + new BtlPoint(x, -y), _cts.Token);
                                     }
                                 }
                             }
@@ -669,7 +674,7 @@ public partial class PathEditorView : UserControl
                     {
                         foreach (ThumbDragState item in _coordDragStates)
                         {
-                            item.Move(delta);
+                            item.Move(delta, _cts.Token);
                         }
                     }
                 }
@@ -911,33 +916,39 @@ public partial class PathEditorView : UserControl
             }
         }
 
-        public void SetValue(BtlPoint point)
+        public void SetValue(BtlPoint point, CancellationToken ct)
         {
-            if (Previous == null && Next == null)
+            RenderThread.Dispatcher.Dispatch(() =>
             {
-                Target.SetValue(Property, point);
-            }
-            else
-            {
-                CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
+                if (Previous == null && Next == null)
+                {
+                    Target.SetValue(Property, point);
+                }
+                else
+                {
+                    CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
 
-                Next?.SetValue(prop, point);
-            }
+                    Next?.SetValue(prop, point);
+                }
+            }, ct: ct);
         }
 
-        public void Move(BtlVector delta)
+        public void Move(BtlVector delta, CancellationToken ct)
         {
-            if (Previous == null && Next == null)
+            RenderThread.Dispatcher.Dispatch(() =>
             {
-                Target.SetValue(Property, Target.GetValue(Property) + delta);
-            }
-            else
-            {
-                CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
-                Previous?.SetValue(prop, Previous.GetValue(prop) + delta);
+                if (Previous == null && Next == null)
+                {
+                    Target.SetValue(Property, Target.GetValue(Property) + delta);
+                }
+                else
+                {
+                    CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
+                    Previous?.SetValue(prop, Previous.GetValue(prop) + delta);
 
-                Next?.SetValue(prop, Next.GetValue(prop) + delta);
-            }
+                    Next?.SetValue(prop, Next.GetValue(prop) + delta);
+                }
+            }, ct: ct);
         }
 
         public IRecordableCommand? CreateCommand(ImmutableArray<IStorable?> storables)
