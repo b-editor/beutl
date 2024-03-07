@@ -66,6 +66,9 @@
                                                    Tag="Close"
                                                    Text="Close" />
                                 <ui:MenuFlyoutItem Click="AddClick"
+                                                   Tag="Conic"
+                                                   Text="Conic" />
+                                <ui:MenuFlyoutItem Click="AddClick"
                                                    Tag="CubicBezier"
                                                    Text="CubicBezier" />
                                 <ui:MenuFlyoutItem Click="AddClick"
