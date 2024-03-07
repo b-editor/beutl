@@ -97,7 +97,7 @@ public sealed class App : Application
             LibraryRegistrar.RegisterAll,
             NodesRegistrar.RegisterAll);
 
-        ReactivePropertyScheduler.SetDefault(ImmediateScheduler.Instance);
+        ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
     }
 
     public override void OnFrameworkInitializationCompleted()

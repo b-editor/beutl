@@ -43,6 +43,7 @@ public sealed class PathEditorViewModel : IDisposable
             .DisposeWith(_disposables);
 
         Matrix = Drawable
+            .ObserveOn(RenderThread.Scheduler)
             .Select(d => d != null
                 ? Observable.FromEventPattern<RenderInvalidatedEventArgs>(h => d.Invalidated += h, h => d.Invalidated -= h)
                     .Select(_ => CalculateMatrix(d))
@@ -81,34 +82,31 @@ public sealed class PathEditorViewModel : IDisposable
 
     private Matrix CalculateMatrix(Drawable drawable)
     {
-        return RenderThread.Dispatcher.Invoke(() =>
+        Size frameSize = EditViewModel.Scene.FrameSize.ToSize(1);
+        Size size = drawable.MeasureCoreInternal(frameSize);
+        Matrix mat = drawable.GetTransformMatrix(frameSize, size);
+
+        // Shape.cs
+        if (drawable is Shape shape && PathGeometry.Value is { } geometry)
         {
-            Size frameSize = EditViewModel.Scene.FrameSize.ToSize(1);
-            Size size = drawable.MeasureCoreInternal(frameSize);
-            Matrix mat = drawable.GetTransformMatrix(frameSize, size);
+            var requestedSize = new Size(shape.Width, shape.Height);
+            Rect shapeBounds = geometry.Bounds;
+            Vector scale = Shape.CalculateScale(requestedSize, shapeBounds, shape.Stretch);
+            Matrix matrix = Graphics.Matrix.CreateTranslation(-shapeBounds.Position);
 
-            // Shape.cs
-            if (drawable is Shape shape && PathGeometry.Value is { } geometry)
+            if (shape.Pen != null)
             {
-                var requestedSize = new Size(shape.Width, shape.Height);
-                Rect shapeBounds = geometry.Bounds;
-                Vector scale = Shape.CalculateScale(requestedSize, shapeBounds, shape.Stretch);
-                Matrix matrix = Graphics.Matrix.CreateTranslation(-shapeBounds.Position);
+                float thickness = PenHelper.GetRealThickness(shape.Pen.StrokeAlignment, shape.Pen.Thickness);
 
-                if (shape.Pen != null)
-                {
-                    float thickness = PenHelper.GetRealThickness(shape.Pen.StrokeAlignment, shape.Pen.Thickness);
-
-                    matrix *= Graphics.Matrix.CreateTranslation(thickness, thickness);
-                }
-
-                matrix *= Graphics.Matrix.CreateScale(scale);
-
-                mat = matrix * mat;
+                matrix *= Graphics.Matrix.CreateTranslation(thickness, thickness);
             }
 
-            return mat;
-        });
+            matrix *= Graphics.Matrix.CreateScale(scale);
+
+            mat = matrix * mat;
+        }
+
+        return mat;
     }
 
     public EditViewModel EditViewModel { get; }
