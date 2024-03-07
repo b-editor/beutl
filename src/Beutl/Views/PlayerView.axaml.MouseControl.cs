@@ -638,7 +638,8 @@ public partial class PlayerView
 
     private void OnFramePointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (DataContext is PlayerViewModel viewModel)
+        var point = e.GetCurrentPoint(null);
+        if (DataContext is PlayerViewModel viewModel && point.Properties.IsLeftButtonPressed)
         {
             _mouseState = CreateMouseHandler(viewModel);
 

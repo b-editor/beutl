@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels"
              x:Name="root"
              d:DesignHeight="450"
@@ -61,25 +62,38 @@
         </ControlTheme>
     </UserControl.Resources>
     <Canvas Name="canvas" Background="Transparent">
-        <Canvas.ContextMenu>
-            <ContextMenu>
-                <MenuItem Click="AddOpClicked"
-                          Header="3次ベジェ曲線"
-                          Tag="Cubic" />
-                <MenuItem Click="AddOpClicked"
-                          Header="2次ベジェ曲線"
-                          Tag="Quad" />
-                <MenuItem Click="AddOpClicked"
-                          Header="直線"
-                          Tag="Line" />
-                <MenuItem Click="AddOpClicked"
-                          Header="円弧"
-                          Tag="Arc" />
-                <MenuItem Click="AddOpClicked"
-                          Header="円錐"
-                          Tag="Conic" />
-            </ContextMenu>
-        </Canvas.ContextMenu>
+        <Canvas.ContextFlyout>
+            <ui:FAMenuFlyout>
+                <ui:MenuFlyoutItem Click="AddOpClicked"
+                                   Tag="Cubic"
+                                   Text="3次ベジェ曲線" />
+                <ui:MenuFlyoutItem Click="AddOpClicked"
+                                   Tag="Quad"
+                                   Text="2次ベジェ曲線" />
+                <ui:MenuFlyoutItem Click="AddOpClicked"
+                                   Tag="Line"
+                                   Text="直線" />
+                <ui:MenuFlyoutItem Click="AddOpClicked"
+                                   Tag="Arc"
+                                   Text="円弧" />
+                <ui:MenuFlyoutItem Click="AddOpClicked"
+                                   Tag="Conic"
+                                   Text="円錐" />
+                <ui:MenuFlyoutSeparator />
+                <ui:RadioMenuFlyoutItem Click="ToggleDragModeClick"
+                                        IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
+                                        Tag="Symmetry"
+                                        Text="対称" />
+                <ui:RadioMenuFlyoutItem Click="ToggleDragModeClick"
+                                        IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
+                                        Tag="Asymmetry"
+                                        Text="非対称" />
+                <ui:RadioMenuFlyoutItem Click="ToggleDragModeClick"
+                                        IsChecked="{Binding Separately.Value, Mode=OneWay}"
+                                        Tag="Separately"
+                                        Text="別々" />
+            </ui:FAMenuFlyout>
+        </Canvas.ContextFlyout>
 
         <local:PathGeometryControl x:Name="view"
                                    Geometry="{Binding PathGeometry.Value}"
