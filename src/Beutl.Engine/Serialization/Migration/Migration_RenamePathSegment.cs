@@ -28,33 +28,7 @@ internal static class Migration_RenamePathSegment
                 {
                     if (itemObj.TryGetPropertyValueAsJsonValue("$type", out string? oldTypeName))
                     {
-                        if (oldTypeName == "[Beutl.Engine]Beutl.Media:MoveOperation")
-                        {
-                            try
-                            {
-                                pathGeometry["StartPoint"] = itemObj["Point"]?.DeepClone();
-
-                                if (pathGeometry["Animations"] is { } anm
-                                    && itemObj["Animations"]?["Point"] is { } ptAnm)
-                                {
-                                    ptAnm["Property"] = new JsonObject
-                                    {
-                                        ["Name"] = "StartPoint",
-                                        ["Owner"] = "[Beutl.Engine]Beutl.Media:PathGeometry",
-                                    };
-
-                                    anm["StartPoint"] = ptAnm.DeepClone();
-                                }
-
-                                segments.RemoveAt(i);
-                                i--;
-                                continue;
-                            }
-                            catch
-                            {
-                            }
-                        }
-                        else if (oldTypeName == "[Beutl.Engine]Beutl.Media:CloseOperation")
+                        if (oldTypeName == "[Beutl.Engine]Beutl.Media:CloseOperation")
                         {
                             try
                             {
@@ -68,7 +42,7 @@ internal static class Migration_RenamePathSegment
                             }
                         }
 
-                        var newTypeName = RewriteTypeName(oldTypeName);
+                        string? newTypeName = RewriteTypeName(oldTypeName);
                         itemObj["$type"] = newTypeName;
 
                         if (itemObj["Animations"] is JsonObject anms)

@@ -83,9 +83,9 @@ public partial class GeometryEditor : UserControl
                     {
                         "Arc" => typeof(ArcSegment),
                         "Conic" => typeof(ConicSegment),
-                        "CubicBezier" => typeof(CubicBezierSegment),
+                        "Cubic" => typeof(CubicBezierSegment),
                         "Line" => typeof(LineSegment),
-                        "QuadraticBezier" => typeof(QuadraticBezierSegment),
+                        "Quad" => typeof(QuadraticBezierSegment),
                         _ => null,
                     };
                     if (type != null)

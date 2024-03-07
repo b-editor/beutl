@@ -141,12 +141,20 @@ public class PathGeometryControl : Control
 
                     if (Geometry.Segments.Count > 0 && index >= 0)
                     {
+                        bool isClosed = Geometry.IsClosed;
+
                         void DrawLine(PathSegment op, int index, bool c1, bool c2)
                         {
-                            SKPoint lastPoint = default;
-                            if (0 <= index - 1 && index - 1 < Geometry.Segments.Count)
+                            if (!isClosed && index == 0)
                             {
-                                if (Geometry.Segments[index - 1].TryGetEndPoint(out Graphics.Point tmp))
+                                return;
+                            }
+
+                            int prevIndex = (index - 1 + Geometry.Segments.Count) % Geometry.Segments.Count;
+                            SKPoint lastPoint = default;
+                            if (0 <= prevIndex && prevIndex < Geometry.Segments.Count)
+                            {
+                                if (Geometry.Segments[prevIndex].TryGetEndPoint(out Graphics.Point tmp))
                                     lastPoint = tmp.ToSKPoint();
                             }
 
@@ -209,13 +217,8 @@ public class PathGeometryControl : Control
                         }
 
                         DrawLine(Geometry.Segments[index], index, false, true);
-                        //int prevIndex = (index - 1 + Geometry.Operations.Count) % Geometry.Operations.Count;
                         int nextIndex = (index + 1) % Geometry.Segments.Count;
 
-                        //if (0 <= prevIndex && prevIndex < Geometry.Operations.Count)
-                        //{
-                        //    DrawLine(Geometry.Operations[prevIndex], prevIndex, false, false);
-                        //}
                         if (0 <= nextIndex && nextIndex < Geometry.Segments.Count)
                         {
                             DrawLine(Geometry.Segments[nextIndex], nextIndex, true, false);

@@ -72,6 +72,11 @@ public sealed class PathEditorViewModel : IDisposable
             .Select(t => t.Second.Contains(t.First))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+
+        IsClosed = PathGeometry.Select(g => g?.GetObservable(Media.PathGeometry.IsClosedProperty) ?? Observable.Return(false))
+            .Switch()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
     }
 
     private Matrix CalculateMatrix(Drawable drawable)
@@ -127,6 +132,8 @@ public sealed class PathEditorViewModel : IDisposable
     public ReactiveProperty<PathSegment?> SelectedOperation { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> IsVisible { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsClosed { get; }
 
     public void StartEdit(GeometryEditorViewModel context)
     {

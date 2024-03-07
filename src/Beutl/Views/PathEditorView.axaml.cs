@@ -6,6 +6,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.ReactiveUI;
 using Avalonia.Styling;
 
 using Beutl.Media;
@@ -13,6 +14,8 @@ using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;
+
+using Reactive.Bindings.Extensions;
 
 using ReactiveUI;
 
@@ -55,10 +58,14 @@ public partial class PathEditorView : UserControl
                         .Do(t => t.DataContext = null)));
             });
 
+        // 選択されているアンカーまたは、PathGeometry.IsClosedが変更されたとき、
+        // アンカーの可視性を変更する
         this.GetObservable(DataContextProperty)
-            .Select(v => (v as PathEditorViewModel)?.SelectedOperation
-                ?? Observable.Return<PathSegment?>(default))
+            .Select(v => v as PathEditorViewModel)
+            .Select(v => v?.SelectedOperation.CombineLatest(v.IsClosed).ToUnit()
+                ?? Observable.Return<Unit>(default))
             .Switch()
+            .ObserveOn(AvaloniaScheduler.Instance)
             .Subscribe(_ => UpdateControlPointVisibility());
     }
 
@@ -75,24 +82,31 @@ public partial class PathEditorView : UserControl
             if (viewModel.SelectedOperation.Value is { } op
                 && viewModel.PathGeometry.Value is { } geometry)
             {
+                bool isClosed = geometry.IsClosed;
                 int index = geometry.Segments.IndexOf(op);
                 int nextIndex = (index + 1) % geometry.Segments.Count;
 
-                foreach (var item in controlPoints.Where(v => v.DataContext == op))
+                if (isClosed || index != 0)
                 {
-                    if (Equals(item.Tag, "ControlPoint2") || Equals(item.Tag, "ControlPoint"))
+                    foreach (var item in controlPoints.Where(v => v.DataContext == op))
                     {
-                        item.IsVisible = true;
+                        if (Equals(item.Tag, "ControlPoint2") || Equals(item.Tag, "ControlPoint"))
+                        {
+                            item.IsVisible = true;
+                        }
                     }
                 }
 
-                if (0 <= nextIndex && nextIndex < geometry.Segments.Count)
+                if (isClosed || nextIndex != 0)
                 {
-                    var next = geometry.Segments[nextIndex];
-                    foreach (var item in controlPoints.Where(v => v.DataContext == next))
+                    if (0 <= nextIndex && nextIndex < geometry.Segments.Count)
                     {
-                        if (Equals(item.Tag, "ControlPoint1") || Equals(item.Tag, "ControlPoint"))
-                            item.IsVisible = true;
+                        var next = geometry.Segments[nextIndex];
+                        foreach (var item in controlPoints.Where(v => v.DataContext == next))
+                        {
+                            if (Equals(item.Tag, "ControlPoint1") || Equals(item.Tag, "ControlPoint"))
+                                item.IsVisible = true;
+                        }
                     }
                 }
             }

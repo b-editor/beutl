@@ -60,20 +60,20 @@
                         <Button.ContextFlyout>
                             <ui:FAMenuFlyout>
                                 <ui:MenuFlyoutItem Click="AddClick"
-                                                   Tag="Arc"
-                                                   Text="Arc" />
+                                                   Tag="Cubic"
+                                                   Text="3次ベジェ曲線" />
                                 <ui:MenuFlyoutItem Click="AddClick"
-                                                   Tag="Conic"
-                                                   Text="Conic" />
-                                <ui:MenuFlyoutItem Click="AddClick"
-                                                   Tag="CubicBezier"
-                                                   Text="CubicBezier" />
+                                                   Tag="Quad"
+                                                   Text="2次ベジェ曲線" />
                                 <ui:MenuFlyoutItem Click="AddClick"
                                                    Tag="Line"
-                                                   Text="Line" />
+                                                   Text="直線" />
                                 <ui:MenuFlyoutItem Click="AddClick"
-                                                   Tag="QuadraticBezier"
-                                                   Text="QuadraticBezier" />
+                                                   Tag="Arc"
+                                                   Text="円弧" />
+                                <ui:MenuFlyoutItem Click="AddClick"
+                                                   Tag="Conic"
+                                                   Text="円錐" />
                             </ui:FAMenuFlyout>
                         </Button.ContextFlyout>
                     </Button>
