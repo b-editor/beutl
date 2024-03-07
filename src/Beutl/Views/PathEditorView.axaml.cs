@@ -1,5 +1,7 @@
 ﻿#pragma warning disable CS0618
 
+using System.Collections.Immutable;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -10,6 +12,7 @@ using Avalonia.ReactiveUI;
 using Avalonia.Styling;
 using Avalonia.Xaml.Interactivity;
 
+using Beutl.Animation;
 using Beutl.Media;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
@@ -389,6 +392,17 @@ public partial class PathEditorView : UserControl
         };
     }
 
+    private static CoreProperty<BtlPoint>? GetControlPointProperty(object datacontext, int i)
+    {
+        return datacontext switch
+        {
+            ConicSegment => ConicSegment.ControlPointProperty,
+            CubicBezierSegment => i == 0 ? CubicBezierSegment.ControlPoint1Property : CubicBezierSegment.ControlPoint2Property,
+            QuadraticBezierSegment => QuadraticBezierSegment.ControlPointProperty,
+            _ => null,
+        };
+    }
+
     private void OnCanvasPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPoint pt = e.GetCurrentPoint(canvas);
@@ -398,9 +412,32 @@ public partial class PathEditorView : UserControl
         }
     }
 
+    private void ToggleDragModeClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is RadioMenuFlyoutItem button && DataContext is PathEditorViewModel viewModel)
+        {
+            viewModel.Symmetry.Value = false;
+            viewModel.Asymmetry.Value = false;
+            viewModel.Separately.Value = false;
+
+            switch (button.Tag)
+            {
+                case "Symmetry":
+                    viewModel.Symmetry.Value = true;
+                    break;
+                case "Asymmetry":
+                    viewModel.Asymmetry.Value = true;
+                    break;
+                case "Separately":
+                    viewModel.Separately.Value = true;
+                    break;
+            }
+        }
+    }
+
     private void AddOpClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem item
+        if (sender is MenuFlyoutItem item
             && DataContext is PathEditorViewModel
             {
                 PathGeometry.Value: { } geometry,
@@ -462,6 +499,8 @@ public partial class PathEditorView : UserControl
 
     private sealed class ThumbDragBehavior : Behavior<Thumb>
     {
+        private ThumbDragState? _dragState;
+        private ThumbDragState[]? _coordDragStates;
         private Point? _lastPoint;
 
         protected override void OnAttached()
@@ -512,17 +551,70 @@ public partial class PathEditorView : UserControl
             {
                 e.Handled = true;
 
-                var vector = e.GetPosition(AssociatedObject);
+                PathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<PathEditorView>();
+                if (parent is { DataContext: PathEditorViewModel { Element.Value: { } element } viewModel })
+                {
+                    IRecordableCommand? command = _dragState?.CreateCommand([]);
+                    if (_coordDragStates?.Length > 0)
+                    {
+                        command = _coordDragStates.Aggregate(command, (a, b) => a.Append(b.CreateCommand([])));
+                    }
+
+                    if (command != null)
+                    {
+                        command = command.WithStoables([element]);
+
+                        command.DoAndRecord(viewModel.EditViewModel.CommandRecorder);
+                    }
+                }
+
             }
 
+            _coordDragStates = null;
+            _dragState = null;
             _lastPoint = null;
+        }
+
+        // 戻り値: PathSegmentがCubicBezierSegmentの場合、intはどちらの制御点かを表す
+        private static (PathSegment, int)[] GetAnchors(PathEditorViewModel viewModel, PathGeometry geometry, PathSegment segment, object? tag)
+        {
+            if (tag is not string s || geometry.Segments.Count <= 1) return [];
+
+            int index = geometry.Segments.IndexOf(segment);
+            int previndex = (index - 1 + geometry.Segments.Count) % geometry.Segments.Count;
+            if (s == "ControlPoint1")
+            {
+                PathSegment prev = geometry.Segments[previndex];
+                return [(prev, 1)];
+            }
+            else if (s == "ControlPoint2")
+            {
+                return [(segment, 0)];
+            }
+            else if (s == "ControlPoint")
+            {
+                PathSegment? selected = viewModel.SelectedOperation.Value;
+                if (selected != segment)
+                {
+                    PathSegment prev = geometry.Segments[previndex];
+                    return [(prev, 1)];
+                }
+                else
+                {
+                    return [(segment, 0)];
+                }
+            }
+            else
+            {
+                return [];
+            }
         }
 
         private void OnThumbPointerMoved(object? sender, PointerEventArgs e)
         {
             PathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<PathEditorView>();
-            if (AssociatedObject is not { DataContext: PathSegment op }
-                || parent is not { DataContext: PathEditorViewModel { PathGeometry.Value: { } geometry } }
+            if (AssociatedObject is not { DataContext: PathSegment segment }
+                || parent is not { DataContext: PathEditorViewModel { PathGeometry.Value: { } geometry } viewModel }
                 || !_lastPoint.HasValue)
             {
                 return;
@@ -531,25 +623,132 @@ public partial class PathEditorView : UserControl
             Point vector = e.GetPosition(AssociatedObject) - _lastPoint.Value;
 
             var delta = new BtlVector((float)(vector.X / parent.Scale), (float)(vector.Y / parent.Scale));
-            CoreProperty<BtlPoint>? prop = GetProperty(AssociatedObject);
-            if (prop != null)
+            if (_dragState != null)
             {
-                BtlPoint point = op.GetValue(prop);
-                op.SetValue(prop, point + delta);
-                if (!AssociatedObject.Classes.Contains("control"))
+                _dragState.Move(delta);
+
+                if (_coordDragStates != null)
                 {
-                    CoordinateControlPoint(geometry, op, delta);
+                    if (AssociatedObject.Classes.Contains("control"))
+                    {
+                        if (viewModel.Symmetry.Value || viewModel.Asymmetry.Value)
+                        {
+                            // ControlPointからAnchor(複数)を取得
+                            // つながっているAnchorの反対側ごとに、角度、長さを計算
+                            BtlPoint point = _dragState.GetSampleValue();
+                            foreach ((PathSegment, int) item in GetAnchors(viewModel, geometry, segment, AssociatedObject.Tag))
+                            {
+                                if (item.Item1.TryGetEndPoint(out BtlPoint endpoint))
+                                {
+                                    BtlPoint d = endpoint - point;
+                                    float angle = MathF.Atan2(d.X, d.Y);
+                                    angle -= MathF.PI / 2;
+
+                                    foreach (ThumbDragState c in _coordDragStates)
+                                    {
+                                        float length;
+                                        if (viewModel.Symmetry.Value)
+                                        {
+                                            length = MathF.Sqrt((d.X * d.X) + (d.Y * d.Y));
+                                        }
+                                        else
+                                        {
+                                            BtlPoint d2 = endpoint - c.GetSampleValue();
+                                            length = MathF.Sqrt((d2.X * d2.X) + (d2.Y * d2.Y));
+                                        }
+
+                                        float x = MathF.Cos(angle) * length;
+                                        float y = MathF.Sin(angle) * length;
+                                        c.SetValue(endpoint + new BtlPoint(x, -y));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        foreach (ThumbDragState item in _coordDragStates)
+                        {
+                            item.Move(delta);
+                        }
+                    }
                 }
             }
         }
 
-        private void CoordinateControlPoint(PathGeometry geometry, PathSegment segment, BtlVector delta)
+        private void SetSelectedOperation(PathEditorViewModel viewModel, PathSegment segment)
+        {
+            if (AssociatedObject != null
+                && viewModel is { Context.Value.Group.Value: { } group })
+            {
+                if (!AssociatedObject.Classes.Contains("control"))
+                    foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
+                    {
+                        if (item.Context is PathOperationEditorViewModel itemvm)
+                        {
+                            if (ReferenceEquals(itemvm.Value.Value, segment))
+                            {
+                                itemvm.IsExpanded.Value = true;
+                                itemvm.ProgrammaticallyExpanded = true;
+                            }
+                            else if (itemvm.ProgrammaticallyExpanded)
+                            {
+                                itemvm.IsExpanded.Value = false;
+                            }
+                        }
+                    }
+
+                if (!AssociatedObject.Classes.Contains("control"))
+                {
+                    viewModel.SelectedOperation.Value = segment;
+                }
+            }
+        }
+
+        private void OnThumbPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            PathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<PathEditorView>();
+            if (AssociatedObject is not { DataContext: PathSegment segment }
+                || parent is not { DataContext: PathEditorViewModel { PathGeometry.Value: { } geometry } viewModel })
+            {
+                return;
+            }
+
+            e.Handled = true;
+            _lastPoint = e.GetPosition(AssociatedObject);
+
+            SetSelectedOperation(viewModel, segment);
+
+            CoreProperty<BtlPoint>? prop = GetProperty(AssociatedObject);
+            if (prop != null)
+            {
+                _dragState = CreateThumbDragState(viewModel, segment, prop);
+
+                if (!AssociatedObject.Classes.Contains("control"))
+                {
+                    var list = new List<ThumbDragState>();
+                    CoordinateControlPoint(list, viewModel, geometry, segment);
+                    _coordDragStates = [.. list];
+                }
+                else
+                {
+                    var list = new List<ThumbDragState>();
+                    CoordinateAnotherControlPoint(list, viewModel, geometry, segment, prop);
+                    _coordDragStates = [.. list];
+                }
+            }
+        }
+
+        private void CoordinateControlPoint(
+            List<ThumbDragState> list,
+            PathEditorViewModel viewModel,
+            PathGeometry geometry,
+            PathSegment segment)
         {
             CoreProperty<BtlPoint>[] props = GetControlPointProperty(segment);
             if (props.Length > 0)
             {
-                CoreProperty<BtlPoint> prop2 = props[^1];
-                segment.SetValue(prop2, segment.GetValue(prop2) + delta);
+                list.Add(CreateThumbDragState(viewModel, segment, props[^1]));
             }
 
             int index = geometry.Segments.IndexOf(segment);
@@ -561,43 +760,202 @@ public partial class PathEditorView : UserControl
                 props = GetControlPointProperty(nextSegment);
                 if (props.Length > 0)
                 {
-                    CoreProperty<BtlPoint> prop2 = props[0];
-                    nextSegment.SetValue(prop2, nextSegment.GetValue(prop2) + delta);
+                    list.Add(CreateThumbDragState(viewModel, nextSegment, props[0]));
                 }
             }
         }
 
-        private void OnThumbPointerPressed(object? sender, PointerPressedEventArgs e)
+        private void CoordinateAnotherControlPoint(
+            List<ThumbDragState> list,
+            PathEditorViewModel viewModel,
+            PathGeometry geometry,
+            PathSegment segment,
+            // [ControlPoint, ControlPoint1, ControlPoint2] のいずれか
+            CoreProperty<BtlPoint> property)
         {
-            PathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<PathEditorView>();
-            if (AssociatedObject is not { DataContext: PathSegment segment }
-                || parent is not { DataContext: PathEditorViewModel { Context.Value.Group.Value: { } group } viewModel })
-            {
-                return;
-            }
+            int index = geometry.Segments.IndexOf(segment);
+            if (index < 0 || geometry.Segments.Count == 0) return;
 
-            e.Handled = true;
-            _lastPoint = e.GetPosition(AssociatedObject);
-
-            foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
+            if (segment is CubicBezierSegment)
             {
-                if (item.Context is PathOperationEditorViewModel itemvm)
+                PathSegment? asegment = null;
+                PathSegment? anchor = null;
+                int apropIndex = -1;
+
+                if (property == CubicBezierSegment.ControlPoint1Property)
                 {
-                    if (ReferenceEquals(itemvm.Value.Value, segment))
+                    int aindex = (index - 1 + geometry.Segments.Count) % geometry.Segments.Count;
+                    asegment = geometry.Segments[aindex];
+                    apropIndex = 1;
+                    anchor = asegment;
+                }
+                else if (property == CubicBezierSegment.ControlPoint2Property)
+                {
+                    int aindex = (index + 1) % geometry.Segments.Count;
+                    asegment = geometry.Segments[aindex];
+                    apropIndex = 0;
+                    anchor = segment;
+                }
+
+                if (asegment != null)
+                {
+                    CoreProperty<BtlPoint>? aproperty = GetControlPointProperty(asegment, apropIndex);
+                    if (aproperty != null)
                     {
-                        itemvm.IsExpanded.Value = true;
-                        itemvm.ProgrammaticallyExpanded = true;
-                    }
-                    else if (itemvm.ProgrammaticallyExpanded)
-                    {
-                        itemvm.IsExpanded.Value = false;
+                        var state = CreateThumbDragState(viewModel, asegment, aproperty);
+                        state.Anchor = anchor;
+                        list.Add(state);
                     }
                 }
             }
-
-            if (!AssociatedObject.Classes.Contains("control"))
+            else if (segment is QuadraticBezierSegment or ConicSegment)
             {
-                viewModel.SelectedOperation.Value = segment;
+                void Add(int aindex, int apropIndex, PathSegment? anchor)
+                {
+                    PathSegment asegment = geometry.Segments[aindex];
+                    anchor ??= asegment;
+
+                    CoreProperty<BtlPoint>? aproperty = GetControlPointProperty(asegment, apropIndex);
+                    if (aproperty != null)
+                    {
+                        ThumbDragState state = CreateThumbDragState(viewModel, asegment, aproperty);
+                        state.Anchor = anchor;
+                        list.Add(state);
+                    }
+                }
+
+                PathSegment? selected = viewModel.SelectedOperation.Value;
+                if (selected != segment)
+                {
+                    Add((index - 1 + geometry.Segments.Count) % geometry.Segments.Count, 1, segment);
+                }
+                else
+                {
+                    Add((index + 1) % geometry.Segments.Count, 0, null);
+                }
+            }
+        }
+
+        private ThumbDragState CreateThumbDragState(PathEditorViewModel viewModel, PathSegment segment, CoreProperty<BtlPoint> property)
+        {
+            var editViewModel = viewModel.EditViewModel;
+            var element = viewModel.Element.Value!;
+            int rate = editViewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            TimeSpan globalkeyTime = editViewModel.CurrentTime.Value;
+            TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
+
+            if (segment.Animations.FirstOrDefault(v => v.Property == property) is KeyFrameAnimation<BtlPoint> animation)
+            {
+                TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+                keyTime = keyTime.RoundToRate(rate);
+
+                (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(keyTime);
+
+                if (next?.KeyTime == keyTime)
+                    return new(property, segment, next as KeyFrame<BtlPoint>, null);
+
+                return new(property, segment, prev as KeyFrame<BtlPoint>, next as KeyFrame<BtlPoint>);
+            }
+
+            return new(property, segment, null, null);
+        }
+    }
+
+    private sealed class ThumbDragState
+    {
+        public ThumbDragState(
+            CoreProperty<BtlPoint> property,
+            PathSegment target,
+            KeyFrame<BtlPoint>? previous,
+            KeyFrame<BtlPoint>? next,
+            // このThumbがControlPointの時、点線でつながっているポイントを指定する
+            PathSegment? anchor = null)
+        {
+            Previous = previous;
+            Next = next;
+            Anchor = anchor;
+            Property = property;
+            Target = target;
+            OldPreviousValue = previous?.Value ?? default;
+            OldNextValue = next?.Value ?? default;
+            OldValue = target.GetValue(property);
+        }
+
+        public float? Length { get; }
+
+        public KeyFrame<BtlPoint>? Previous { get; }
+
+        public KeyFrame<BtlPoint>? Next { get; }
+
+        public CoreProperty<BtlPoint> Property { get; }
+
+        public PathSegment Target { get; }
+
+        public PathSegment? Anchor { get; set; }
+
+        public BtlPoint OldPreviousValue { get; }
+
+        public BtlPoint OldNextValue { get; }
+
+        public BtlPoint OldValue { get; }
+
+        public BtlPoint GetSampleValue()
+        {
+            if (Next != null)
+            {
+                return Next.GetValue(KeyFrame<BtlPoint>.ValueProperty);
+            }
+            else
+            {
+                return Target.GetValue(Property);
+            }
+        }
+
+        public void SetValue(BtlPoint point)
+        {
+            if (Previous == null && Next == null)
+            {
+                Target.SetValue(Property, point);
+            }
+            else
+            {
+                CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
+
+                Next?.SetValue(prop, point);
+            }
+        }
+
+        public void Move(BtlVector delta)
+        {
+            if (Previous == null && Next == null)
+            {
+                Target.SetValue(Property, Target.GetValue(Property) + delta);
+            }
+            else
+            {
+                CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
+                Previous?.SetValue(prop, Previous.GetValue(prop) + delta);
+
+                Next?.SetValue(prop, Next.GetValue(prop) + delta);
+            }
+        }
+
+        public IRecordableCommand? CreateCommand(ImmutableArray<IStorable?> storables)
+        {
+            if (Previous == null && Next == null)
+            {
+                return RecordableCommands.Edit(Target, Property, Target.GetValue(Property), OldValue)
+                    .WithStoables(storables);
+            }
+            else
+            {
+                return RecordableCommands.Append(
+                    Previous != null && Previous.Value != OldPreviousValue
+                        ? RecordableCommands.Edit(Previous, KeyFrame<BtlPoint>.ValueProperty, Previous.Value, OldPreviousValue).WithStoables(storables)
+                        : null,
+                    Next != null && Next.Value != OldNextValue
+                        ? RecordableCommands.Edit(Next, KeyFrame<BtlPoint>.ValueProperty, Next.Value, OldNextValue).WithStoables(storables)
+                        : null);
             }
         }
     }

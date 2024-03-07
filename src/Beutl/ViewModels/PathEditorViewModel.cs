@@ -135,6 +135,12 @@ public sealed class PathEditorViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> IsClosed { get; }
 
+    public ReactiveProperty<bool> Symmetry { get; } = new(true);
+
+    public ReactiveProperty<bool> Asymmetry { get; } = new(false);
+
+    public ReactiveProperty<bool> Separately { get; } = new(false);
+
     public void StartEdit(GeometryEditorViewModel context)
     {
         if (Context.Value == context)
