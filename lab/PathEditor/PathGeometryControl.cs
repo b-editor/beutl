@@ -85,15 +85,15 @@ public class PathGeometryControl : Control
                     }
 
                     Beutl.Graphics.Point lastPoint = default;
-                    foreach (PathOperation item in Geometry.Operations)
+                    foreach (PathSegment item in Geometry.Segments)
                     {
                         switch (item)
                         {
-                            case ArcOperation arc:
+                            case ArcSegment arc:
                                 lastPoint = arc.Point;
                                 break;
 
-                            case CubicBezierOperation cubic:
+                            case CubicBezierSegment cubic:
                                 skapi.SkCanvas.DrawLine(
                                     lastPoint.X, lastPoint.Y,
                                     cubic.ControlPoint1.X, cubic.ControlPoint1.Y,
@@ -107,7 +107,7 @@ public class PathGeometryControl : Control
                                     paint);
                                 break;
 
-                            case LineOperation line:
+                            case LineSegment line:
                                 lastPoint = line.Point;
                                 break;
 
@@ -115,7 +115,7 @@ public class PathGeometryControl : Control
                                 lastPoint = move.Point;
                                 break;
 
-                            case QuadraticBezierOperation quad:
+                            case QuadraticBezierSegment quad:
                                 skapi.SkCanvas.DrawLine(
                                     lastPoint.X, lastPoint.Y,
                                     quad.ControlPoint.X, quad.ControlPoint.Y,

@@ -2,7 +2,7 @@
 
 namespace Beutl.Media;
 
-public sealed class ArcOperation : PathOperation
+public sealed class ArcSegment : PathSegment
 {
     public static readonly CoreProperty<Size> RadiusProperty;
     public static readonly CoreProperty<float> RotationAngleProperty;
@@ -15,30 +15,30 @@ public sealed class ArcOperation : PathOperation
     private bool _sweepClockwise = true;
     private Point _point;
 
-    static ArcOperation()
+    static ArcSegment()
     {
-        RadiusProperty = ConfigureProperty<Size, ArcOperation>(nameof(Radius))
+        RadiusProperty = ConfigureProperty<Size, ArcSegment>(nameof(Radius))
             .Accessor(o => o.Radius, (o, v) => o.Radius = v)
             .Register();
 
-        RotationAngleProperty = ConfigureProperty<float, ArcOperation>(nameof(RotationAngle))
+        RotationAngleProperty = ConfigureProperty<float, ArcSegment>(nameof(RotationAngle))
             .Accessor(o => o.RotationAngle, (o, v) => o.RotationAngle = v)
             .Register();
 
-        IsLargeArcProperty = ConfigureProperty<bool, ArcOperation>(nameof(IsLargeArc))
+        IsLargeArcProperty = ConfigureProperty<bool, ArcSegment>(nameof(IsLargeArc))
             .Accessor(o => o.IsLargeArc, (o, v) => o.IsLargeArc = v)
             .Register();
 
-        SweepClockwiseProperty = ConfigureProperty<bool, ArcOperation>(nameof(SweepClockwise))
+        SweepClockwiseProperty = ConfigureProperty<bool, ArcSegment>(nameof(SweepClockwise))
             .Accessor(o => o.SweepClockwise, (o, v) => o.SweepClockwise = v)
             .DefaultValue(true)
             .Register();
 
-        PointProperty = ConfigureProperty<Point, ArcOperation>(nameof(Point))
+        PointProperty = ConfigureProperty<Point, ArcSegment>(nameof(Point))
             .Accessor(o => o.Point, (o, v) => o.Point = v)
             .Register();
 
-        AffectsRender<ArcOperation>(RadiusProperty, RotationAngleProperty, IsLargeArcProperty, SweepClockwiseProperty, PointProperty);
+        AffectsRender<ArcSegment>(RadiusProperty, RotationAngleProperty, IsLargeArcProperty, SweepClockwiseProperty, PointProperty);
     }
 
     public Size Radius

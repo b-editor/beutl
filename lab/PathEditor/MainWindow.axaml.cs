@@ -24,7 +24,7 @@ public partial class MainWindow : Window
         canvas.Children.Add(new PathGeometryControl(_geometry));
         canvas.AddHandler(PointerPressedEvent, OnCanvasPointerPressed, RoutingStrategies.Tunnel);
 
-        _geometry.Operations.ForEachItem(
+        _geometry.Segments.ForEachItem(
             OnOperationAttached,
             OnOperationDetached,
             () => canvas.Children.RemoveAll(canvas.Children
@@ -32,7 +32,7 @@ public partial class MainWindow : Window
                     .Do(t => ((Thumb)t).DataContext = null)));
     }
 
-    private void OnOperationDetached(int index, PathOperation obj)
+    private void OnOperationDetached(int index, PathSegment obj)
     {
         canvas.Children.RemoveAll(canvas.Children
             .Where(c => c is Thumb t && t.DataContext == obj)
@@ -42,46 +42,46 @@ public partial class MainWindow : Window
     private static IObservable<Beutl.Graphics.Point> GetObservable(Thumb obj, CoreProperty<Beutl.Graphics.Point> p)
     {
         return obj.GetObservable(DataContextProperty)
-            .Select(v => (v as PathOperation)?.GetObservable(p) ?? Observable.Return((Beutl.Graphics.Point)default))
+            .Select(v => (v as PathSegment)?.GetObservable(p) ?? Observable.Return((Beutl.Graphics.Point)default))
             .Switch();
     }
 
-    private void OnOperationAttached(int index, PathOperation obj)
+    private void OnOperationAttached(int index, PathSegment obj)
     {
         switch (obj)
         {
-            case ArcOperation arc:
+            case ArcSegment arc:
                 {
                     Thumb t = CreateThumb();
                     t.DataContext = obj;
-                    t.Bind(Canvas.LeftProperty, GetObservable(t, ArcOperation.PointProperty).Select(v => v.X).ToBinding());
-                    t.Bind(Canvas.TopProperty, GetObservable(t, ArcOperation.PointProperty).Select(v => v.Y).ToBinding());
+                    t.Bind(Canvas.LeftProperty, GetObservable(t, ArcSegment.PointProperty).Select(v => v.X).ToBinding());
+                    t.Bind(Canvas.TopProperty, GetObservable(t, ArcSegment.PointProperty).Select(v => v.Y).ToBinding());
 
                     canvas.Children.Add(t);
                 }
                 break;
 
-            case CubicBezierOperation cubic:
+            case CubicBezierSegment cubic:
                 {
                     Thumb c1 = CreateThumb();
                     c1.Classes.Add("control");
                     c1.Tag = "ControlPoint1";
                     c1.DataContext = obj;
-                    c1.Bind(Canvas.LeftProperty, GetObservable(c1, CubicBezierOperation.ControlPoint1Property).Select(v => v.X).ToBinding());
-                    c1.Bind(Canvas.TopProperty, GetObservable(c1, CubicBezierOperation.ControlPoint1Property).Select(v => v.Y).ToBinding());
+                    c1.Bind(Canvas.LeftProperty, GetObservable(c1, CubicBezierSegment.ControlPoint1Property).Select(v => v.X).ToBinding());
+                    c1.Bind(Canvas.TopProperty, GetObservable(c1, CubicBezierSegment.ControlPoint1Property).Select(v => v.Y).ToBinding());
 
                     Thumb c2 = CreateThumb();
                     c2.Classes.Add("control");
                     c2.Tag = "ControlPoint2";
                     c2.DataContext = obj;
-                    c2.Bind(Canvas.LeftProperty, GetObservable(c2, CubicBezierOperation.ControlPoint2Property).Select(v => v.X).ToBinding());
-                    c2.Bind(Canvas.TopProperty, GetObservable(c2, CubicBezierOperation.ControlPoint2Property).Select(v => v.Y).ToBinding());
+                    c2.Bind(Canvas.LeftProperty, GetObservable(c2, CubicBezierSegment.ControlPoint2Property).Select(v => v.X).ToBinding());
+                    c2.Bind(Canvas.TopProperty, GetObservable(c2, CubicBezierSegment.ControlPoint2Property).Select(v => v.Y).ToBinding());
 
                     Thumb e = CreateThumb();
                     e.Tag = "EndPoint";
                     e.DataContext = obj;
-                    e.Bind(Canvas.LeftProperty, GetObservable(e, CubicBezierOperation.EndPointProperty).Select(v => v.X).ToBinding());
-                    e.Bind(Canvas.TopProperty, GetObservable(e, CubicBezierOperation.EndPointProperty).Select(v => v.Y).ToBinding());
+                    e.Bind(Canvas.LeftProperty, GetObservable(e, CubicBezierSegment.EndPointProperty).Select(v => v.X).ToBinding());
+                    e.Bind(Canvas.TopProperty, GetObservable(e, CubicBezierSegment.EndPointProperty).Select(v => v.Y).ToBinding());
 
                     canvas.Children.Add(e);
                     canvas.Children.Add(c2);
@@ -89,12 +89,12 @@ public partial class MainWindow : Window
                 }
                 break;
 
-            case LineOperation line:
+            case LineSegment line:
                 {
                     Thumb t = CreateThumb();
                     t.DataContext = obj;
-                    t.Bind(Canvas.LeftProperty, GetObservable(t, LineOperation.PointProperty).Select(v => v.X).ToBinding());
-                    t.Bind(Canvas.TopProperty, GetObservable(t, LineOperation.PointProperty).Select(v => v.Y).ToBinding());
+                    t.Bind(Canvas.LeftProperty, GetObservable(t, LineSegment.PointProperty).Select(v => v.X).ToBinding());
+                    t.Bind(Canvas.TopProperty, GetObservable(t, LineSegment.PointProperty).Select(v => v.Y).ToBinding());
 
                     canvas.Children.Add(t);
                 }
@@ -111,20 +111,20 @@ public partial class MainWindow : Window
                 }
                 break;
 
-            case QuadraticBezierOperation quad:
+            case QuadraticBezierSegment quad:
                 {
                     Thumb c1 = CreateThumb();
                     c1.Tag = "ControlPoint";
                     c1.Classes.Add("control");
                     c1.DataContext = obj;
-                    c1.Bind(Canvas.LeftProperty, GetObservable(c1, QuadraticBezierOperation.ControlPointProperty).Select(v => v.X).ToBinding());
-                    c1.Bind(Canvas.TopProperty, GetObservable(c1, QuadraticBezierOperation.ControlPointProperty).Select(v => v.Y).ToBinding());
+                    c1.Bind(Canvas.LeftProperty, GetObservable(c1, QuadraticBezierSegment.ControlPointProperty).Select(v => v.X).ToBinding());
+                    c1.Bind(Canvas.TopProperty, GetObservable(c1, QuadraticBezierSegment.ControlPointProperty).Select(v => v.Y).ToBinding());
 
                     Thumb e = CreateThumb();
                     e.Tag = "EndPoint";
                     e.DataContext = obj;
-                    e.Bind(Canvas.LeftProperty, GetObservable(e, QuadraticBezierOperation.EndPointProperty).Select(v => v.X).ToBinding());
-                    e.Bind(Canvas.TopProperty, GetObservable(e, QuadraticBezierOperation.EndPointProperty).Select(v => v.Y).ToBinding());
+                    e.Bind(Canvas.LeftProperty, GetObservable(e, QuadraticBezierSegment.EndPointProperty).Select(v => v.X).ToBinding());
+                    e.Bind(Canvas.TopProperty, GetObservable(e, QuadraticBezierSegment.EndPointProperty).Select(v => v.Y).ToBinding());
 
                     canvas.Children.Add(e);
                     canvas.Children.Add(c1);
@@ -156,11 +156,11 @@ public partial class MainWindow : Window
             var delta = new Beutl.Graphics.Vector((float)e.Vector.X, (float)e.Vector.Y);
             switch (t.DataContext)
             {
-                case ArcOperation arc:
+                case ArcSegment arc:
                     arc.Point += delta;
                     break;
 
-                case CubicBezierOperation cubic:
+                case CubicBezierSegment cubic:
                     switch (t.Tag)
                     {
                         case "ControlPoint1":
@@ -175,7 +175,7 @@ public partial class MainWindow : Window
                     }
                     break;
 
-                case LineOperation line:
+                case LineSegment line:
                     line.Point += delta;
                     break;
 
@@ -183,7 +183,7 @@ public partial class MainWindow : Window
                     move.Point += delta;
                     break;
 
-                case QuadraticBezierOperation quad:
+                case QuadraticBezierSegment quad:
                     switch (t.Tag)
                     {
                         case "ControlPoint":
@@ -215,36 +215,36 @@ public partial class MainWindow : Window
     {
         if (sender is MenuItem item)
         {
-            int index = _geometry.Operations.Count;
+            int index = _geometry.Segments.Count;
             Beutl.Graphics.Point lastPoint = default;
             if (index > 0)
             {
-                PathOperation lastOp = _geometry.Operations[index - 1];
+                PathSegment lastOp = _geometry.Segments[index - 1];
                 lastPoint = lastOp switch
                 {
-                    ArcOperation arc => arc.Point,
-                    CubicBezierOperation cub => cub.EndPoint,
-                    LineOperation line => line.Point,
+                    ArcSegment arc => arc.Point,
+                    CubicBezierSegment cub => cub.EndPoint,
+                    LineSegment line => line.Point,
                     MoveOperation move => move.Point,
-                    QuadraticBezierOperation quad => quad.EndPoint,
+                    QuadraticBezierSegment quad => quad.EndPoint,
                     _ => default
                 };
             }
 
             var point = _clickPoint.ToBtlPoint();
-            PathOperation? obj = item.Header switch
+            PathSegment? obj = item.Header switch
             {
-                "Arc" => new ArcOperation() { Point = point },
+                "Arc" => new ArcSegment() { Point = point },
                 "Close" => new CloseOperation(),
-                "Cubic" => new CubicBezierOperation()
+                "Cubic" => new CubicBezierSegment()
                 {
                     EndPoint = point,
                     ControlPoint1 = new(float.Lerp(point.X, lastPoint.X, 0.66f), float.Lerp(point.Y, lastPoint.Y, 0.66f)),
                     ControlPoint2 = new(float.Lerp(point.X, lastPoint.X, 0.33f), float.Lerp(point.Y, lastPoint.Y, 0.33f)),
                 },
-                "Line" => new LineOperation() { Point = point },
+                "Line" => new LineSegment() { Point = point },
                 "Move" => new MoveOperation() { Point = point },
-                "Quad" => new QuadraticBezierOperation()
+                "Quad" => new QuadraticBezierSegment()
                 {
                     EndPoint = point,
                     ControlPoint = new(float.Lerp(point.X, lastPoint.X, 0.5f), float.Lerp(point.Y, lastPoint.Y, 0.5f))
@@ -255,7 +255,7 @@ public partial class MainWindow : Window
             if (obj != null)
             {
 
-                _geometry.Operations.Add(obj);
+                _geometry.Segments.Add(obj);
             }
         }
     }

@@ -124,7 +124,7 @@ public sealed class PathEditorViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<int> SceneWidth { get; }
 
-    public ReactiveProperty<PathOperation?> SelectedOperation { get; } = new();
+    public ReactiveProperty<PathSegment?> SelectedOperation { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> IsVisible { get; }
 

@@ -2,7 +2,7 @@
 
 namespace Beutl.Media;
 
-public sealed class ConicOperation : PathOperation
+public sealed class ConicSegment : PathSegment
 {
     public static readonly CoreProperty<Point> ControlPointProperty;
     public static readonly CoreProperty<Point> EndPointProperty;
@@ -11,28 +11,28 @@ public sealed class ConicOperation : PathOperation
     private Point _endPoint;
     private float _weight;
 
-    static ConicOperation()
+    static ConicSegment()
     {
-        ControlPointProperty = ConfigureProperty<Point, ConicOperation>(nameof(ControlPoint))
+        ControlPointProperty = ConfigureProperty<Point, ConicSegment>(nameof(ControlPoint))
             .Accessor(o => o.ControlPoint, (o, v) => o.ControlPoint = v)
             .Register();
 
-        EndPointProperty = ConfigureProperty<Point, ConicOperation>(nameof(EndPoint))
+        EndPointProperty = ConfigureProperty<Point, ConicSegment>(nameof(EndPoint))
             .Accessor(o => o.EndPoint, (o, v) => o.EndPoint = v)
             .Register();
 
-        WeightProperty = ConfigureProperty<float, ConicOperation>(nameof(Weight))
+        WeightProperty = ConfigureProperty<float, ConicSegment>(nameof(Weight))
             .Accessor(o => o.Weight, (o, v) => o.Weight = v)
             .Register();
 
-        AffectsRender<ConicOperation>(ControlPointProperty, EndPointProperty, WeightProperty);
+        AffectsRender<ConicSegment>(ControlPointProperty, EndPointProperty, WeightProperty);
     }
 
-    public ConicOperation()
+    public ConicSegment()
     {
     }
 
-    public ConicOperation(Point controlPoint, Point endPoint, float weight)
+    public ConicSegment(Point controlPoint, Point endPoint, float weight)
     {
         ControlPoint = controlPoint;
         EndPoint = endPoint;

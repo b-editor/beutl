@@ -3,7 +3,7 @@ using Beutl.Graphics;
 
 namespace Beutl.Media;
 
-public abstract class PathOperation : Animatable, IAffectsRender
+public abstract class PathSegment : Animatable, IAffectsRender
 {
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
@@ -12,7 +12,7 @@ public abstract class PathOperation : Animatable, IAffectsRender
     public abstract bool TryGetEndPoint(out Point point);
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
-        where T : PathOperation
+        where T : PathSegment
     {
         foreach (CoreProperty item in properties)
         {

@@ -67,9 +67,6 @@
                           Header="円弧"
                           Tag="Arc" />
                 <MenuItem Click="AddOpClicked"
-                          Header="閉じる"
-                          Tag="Close" />
-                <MenuItem Click="AddOpClicked"
                           Header="円錐"
                           Tag="Conic" />
                 <MenuItem Click="AddOpClicked"
@@ -78,9 +75,6 @@
                 <MenuItem Click="AddOpClicked"
                           Header="直線"
                           Tag="Line" />
-                <MenuItem Click="AddOpClicked"
-                          Header="Move"
-                          Tag="Move" />
                 <MenuItem Click="AddOpClicked"
                           Header="2次ベジェ曲線"
                           Tag="Quad" />

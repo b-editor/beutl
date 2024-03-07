@@ -2,31 +2,31 @@
 
 namespace Beutl.Media;
 
-public sealed class QuadraticBezierOperation : PathOperation
+public sealed class QuadraticBezierSegment : PathSegment
 {
     public static readonly CoreProperty<Point> ControlPointProperty;
     public static readonly CoreProperty<Point> EndPointProperty;
     private Point _controlPoint;
     private Point _endPoint;
 
-    static QuadraticBezierOperation()
+    static QuadraticBezierSegment()
     {
-        ControlPointProperty = ConfigureProperty<Point, QuadraticBezierOperation>(nameof(ControlPoint))
+        ControlPointProperty = ConfigureProperty<Point, QuadraticBezierSegment>(nameof(ControlPoint))
             .Accessor(o => o.ControlPoint, (o, v) => o.ControlPoint = v)
             .Register();
 
-        EndPointProperty = ConfigureProperty<Point, QuadraticBezierOperation>(nameof(EndPoint))
+        EndPointProperty = ConfigureProperty<Point, QuadraticBezierSegment>(nameof(EndPoint))
             .Accessor(o => o.EndPoint, (o, v) => o.EndPoint = v)
             .Register();
 
-        AffectsRender<QuadraticBezierOperation>(ControlPointProperty, EndPointProperty);
+        AffectsRender<QuadraticBezierSegment>(ControlPointProperty, EndPointProperty);
     }
 
-    public QuadraticBezierOperation()
+    public QuadraticBezierSegment()
     {
     }
     
-    public QuadraticBezierOperation(Point controlPoint, Point endPoint)
+    public QuadraticBezierSegment(Point controlPoint, Point endPoint)
     {
         ControlPoint = controlPoint;
         EndPoint = endPoint;

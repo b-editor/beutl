@@ -2,30 +2,30 @@
 
 namespace Beutl.Media;
 
-public sealed class LineOperation : PathOperation
+public sealed class LineSegment : PathSegment
 {
     public static readonly CoreProperty<Point> PointProperty;
     private Point _point;
 
-    static LineOperation()
+    static LineSegment()
     {
-        PointProperty = ConfigureProperty<Point, LineOperation>(nameof(Point))
+        PointProperty = ConfigureProperty<Point, LineSegment>(nameof(Point))
             .Accessor(o => o.Point, (o, v) => o.Point = v)
             .Register();
 
-        AffectsRender<LineOperation>(PointProperty);
+        AffectsRender<LineSegment>(PointProperty);
     }
 
-    public LineOperation()
+    public LineSegment()
     {
     }
     
-    public LineOperation(Point point)
+    public LineSegment(Point point)
     {
         Point = point;
     }
 
-    public LineOperation(float x, float y)
+    public LineSegment(float x, float y)
         : this(new Point(x, y))
     {
     }
