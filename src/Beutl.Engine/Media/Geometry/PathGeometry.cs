@@ -1,6 +1,9 @@
-﻿using Beutl.Animation;
+﻿using System.Text.Json.Nodes;
+
+using Beutl.Animation;
 using Beutl.Graphics;
 using Beutl.Serialization;
+using Beutl.Serialization.Migration;
 
 using SkiaSharp;
 
@@ -64,10 +67,28 @@ public sealed class PathGeometry : Geometry
 
     public override void Deserialize(ICoreSerializationContext context)
     {
-        base.Deserialize(context);
-        if (context.GetValue<PathSegments>(nameof(Segments)) is { } operations)
+        if (context.Contains("Operations"))
         {
-            Segments = operations;
+            // Todo: Compatibility
+            if (context is JsonSerializationContext jsonSerializationContext)
+            {
+                JsonObject json = jsonSerializationContext.GetJsonObject();
+                if (json["Operations"] is JsonArray opsJson)
+                {
+                    Migration_RenamePathSegment.Update(json, opsJson);
+                }
+            }
+
+            if (context.GetValue<PathSegments>("Operations") is { } op)
+            {
+                Segments = op;
+            }
+        }
+
+        base.Deserialize(context);
+        if (context.GetValue<PathSegments>(nameof(Segments)) is { } segments)
+        {
+            Segments = segments;
         }
     }
 
@@ -120,7 +141,7 @@ public sealed class PathGeometry : Geometry
 
         if (startPoint.HasValue)
             result.StartPoint = startPoint.Value;
-        
+
         if (isClosed.HasValue)
             result.IsClosed = isClosed.Value;
 
