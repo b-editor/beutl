@@ -22,8 +22,27 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
             {
                 if (v != null)
                 {
-                    Type type = v.GetType();
-                    return LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
+                    var name = v switch
+                    {
+#pragma warning disable CS0618 // Type or member is obsolete
+                        CloseOperation => "閉じる",
+                        MoveOperation => "移動",
+#pragma warning restore CS0618 // Type or member is obsolete
+                        ArcSegment => "円弧",
+                        ConicSegment => "円錐",
+                        CubicBezierSegment => "3次ベジェ曲線",
+                        LineSegment => "直線",
+                        QuadraticBezierSegment => "2次ベジェ曲線",
+                        _ => null,
+                    };
+
+                    if (name == null)
+                    {
+                        Type type = v.GetType();
+                        name = LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
+                    }
+
+                    return name;
                 }
                 else
                 {

@@ -11,7 +11,6 @@ namespace Beutl.Media;
 
 public sealed class PathGeometry : Geometry
 {
-    public static readonly CoreProperty<Point> StartPointProperty;
     public static readonly CoreProperty<bool> IsClosedProperty;
     public static readonly CoreProperty<PathSegments> OperationsProperty;
     private Point _startPoint;
@@ -20,10 +19,6 @@ public sealed class PathGeometry : Geometry
 
     static PathGeometry()
     {
-        StartPointProperty = ConfigureProperty<Point, PathGeometry>(nameof(StartPoint))
-            .Accessor(o => o.StartPoint, (o, v) => o.StartPoint = v)
-            .Register();
-
         IsClosedProperty = ConfigureProperty<bool, PathGeometry>(nameof(IsClosed))
             .Accessor(o => o.IsClosed, (o, v) => o.IsClosed = v)
             .Register();
@@ -32,18 +27,12 @@ public sealed class PathGeometry : Geometry
             .Accessor(o => o.Segments, (o, v) => o.Segments = v)
             .Register();
 
-        AffectsRender<PathGeometry>(StartPointProperty, IsClosedProperty);
+        AffectsRender<PathGeometry>(IsClosedProperty);
     }
 
     public PathGeometry()
     {
         _operations.Invalidated += (_, e) => RaiseInvalidated(e);
-    }
-
-    public Point StartPoint
-    {
-        get => _startPoint;
-        set => SetAndRaise(StartPointProperty, ref _startPoint, value);
     }
 
     public bool IsClosed
@@ -100,7 +89,6 @@ public sealed class PathGeometry : Geometry
         var result = new PathGeometry();
         Span<SKPoint> points = stackalloc SKPoint[4];
         SKPathVerb pathVerb;
-        Point? startPoint = null;
         bool? isClosed = null;
 
         do
@@ -110,10 +98,7 @@ public sealed class PathGeometry : Geometry
 
             if (pathVerb == SKPathVerb.Move)
             {
-                if (startPoint.HasValue)
-                    throw new InvalidOperationException("PathGeometryは単一の図形のみ対応します");
-
-                startPoint = points[0].ToGraphicsPoint();
+                throw new InvalidOperationException("'SKPathVerb.Move' is not supported.");
             }
             else if (pathVerb == SKPathVerb.Close)
             {
@@ -138,9 +123,6 @@ public sealed class PathGeometry : Geometry
             }
 
         } while (pathVerb != SKPathVerb.Done);
-
-        if (startPoint.HasValue)
-            result.StartPoint = startPoint.Value;
 
         if (isClosed.HasValue)
             result.IsClosed = isClosed.Value;
@@ -209,10 +191,34 @@ public sealed class PathGeometry : Geometry
     public override void ApplyTo(IGeometryContext context)
     {
         base.ApplyTo(context);
-        context.MoveTo(StartPoint);
+        bool skipFirst = false;
+        if (Segments.Count > 0)
+        {
+            if (IsClosed)
+            {
+                if (Segments[^1].TryGetEndPoint(out var endPoint))
+                {
+                    context.MoveTo(endPoint);
+                }
+            }
+            else
+            {
+                if (Segments[0].TryGetEndPoint(out var endPoint))
+                {
+                    context.MoveTo(endPoint);
+                    skipFirst = true;
+                }
+            }
+        }
 
         foreach (PathSegment item in Segments.GetMarshal().Value)
         {
+            if (skipFirst)
+            {
+                skipFirst = false;
+                continue;
+            }
+
             item.ApplyTo(context);
         }
 

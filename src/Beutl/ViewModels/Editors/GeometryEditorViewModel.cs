@@ -44,7 +44,6 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
 
                         Properties.Value = new PropertiesEditorViewModel(group,
                             (p, m) => p == Geometry.FillTypeProperty
-                                   || p == PathGeometry.StartPointProperty
                                    || p == PathGeometry.IsClosedProperty);
                     }
                     else if (v is Geometry geometry)
