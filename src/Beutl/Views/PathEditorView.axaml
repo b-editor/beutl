@@ -64,22 +64,25 @@
         <Canvas.ContextMenu>
             <ContextMenu>
                 <MenuItem Click="AddOpClicked"
-                          Header="Arc"
+                          Header="円弧"
                           Tag="Arc" />
                 <MenuItem Click="AddOpClicked"
-                          Header="Close"
+                          Header="閉じる"
                           Tag="Close" />
                 <MenuItem Click="AddOpClicked"
-                          Header="Cubic"
+                          Header="円錐"
+                          Tag="Conic" />
+                <MenuItem Click="AddOpClicked"
+                          Header="3次ベジェ曲線"
                           Tag="Cubic" />
                 <MenuItem Click="AddOpClicked"
-                          Header="Line"
+                          Header="直線"
                           Tag="Line" />
                 <MenuItem Click="AddOpClicked"
                           Header="Move"
                           Tag="Move" />
                 <MenuItem Click="AddOpClicked"
-                          Header="Quad"
+                          Header="2次ベジェ曲線"
                           Tag="Quad" />
             </ContextMenu>
         </Canvas.ContextMenu>

@@ -13,6 +13,10 @@ using Beutl.Media;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 
+using FluentAvalonia.UI.Controls;
+
+using ReactiveUI;
+
 namespace Beutl.Views;
 
 public partial class PathEditorView : UserControl
@@ -51,6 +55,49 @@ public partial class PathEditorView : UserControl
                         .Where(c => c is Thumb)
                         .Do(t => t.DataContext = null)));
             });
+
+        this.GetObservable(DataContextProperty)
+            .Select(v => (v as PathEditorViewModel)?.SelectedOperation
+                ?? Observable.Return<PathOperation?>(default))
+            .Switch()
+            .Subscribe(_ => UpdateControlPointVisibility());
+    }
+
+    private void UpdateControlPointVisibility()
+    {
+        if (DataContext is PathEditorViewModel viewModel)
+        {
+            var controlPoints = canvas.Children.Where(i => i.Classes.Contains("control")).ToArray();
+            foreach (var item in controlPoints)
+            {
+                item.IsVisible = false;
+            }
+
+            if (viewModel.SelectedOperation.Value is { } op
+                && viewModel.PathGeometry.Value is { } geometry)
+            {
+                int index = geometry.Operations.IndexOf(op);
+                int nextIndex = (index + 1) % geometry.Operations.Count;
+
+                foreach (var item in controlPoints.Where(v => v.DataContext == op))
+                {
+                    if (Equals(item.Tag, "ControlPoint2") || Equals(item.Tag, "ControlPoint"))
+                    {
+                        item.IsVisible = true;
+                    }
+                }
+
+                if (0 <= nextIndex && nextIndex < geometry.Operations.Count)
+                {
+                    var next = geometry.Operations[nextIndex];
+                    foreach (var item in controlPoints.Where(v => v.DataContext == next))
+                    {
+                        if (Equals(item.Tag, "ControlPoint1") || Equals(item.Tag, "ControlPoint"))
+                            item.IsVisible = true;
+                    }
+                }
+            }
+        }
     }
 
     public int SceneWidth
@@ -127,16 +174,6 @@ public partial class PathEditorView : UserControl
             .CombineLatest(scale)
             .Select(t => t.First.Y * t.Second)
             .ToBinding());
-
-        if (t.Classes.Contains("control"))
-        {
-            t.Bind(IsVisibleProperty, parent.Select(v => v?.GetObservable(DataContextProperty) ?? Observable.Return<object?>(null))
-                .Switch()
-                .Select(v => (v as PathEditorViewModel)?.SelectedOperation ?? Observable.Return<PathOperation?>(null))
-                .Switch()
-                .CombineLatest(t.GetObservable(DataContextProperty).Select(v => v as PathOperation))
-                .Select(t => t.First == t.Second));
-        }
     }
 
     private void OnOperationAttached(int index, PathOperation obj)
@@ -150,6 +187,24 @@ public partial class PathEditorView : UserControl
                     Bind(t, ArcOperation.PointProperty);
 
                     canvas.Children.Add(t);
+                }
+                break;
+
+            case ConicOperation:
+                {
+                    Thumb c1 = CreateThumb();
+                    c1.Tag = "ControlPoint";
+                    c1.Classes.Add("control");
+                    c1.DataContext = obj;
+                    Bind(c1, ConicOperation.ControlPointProperty);
+
+                    Thumb e = CreateThumb();
+                    e.Tag = "EndPoint";
+                    e.DataContext = obj;
+                    Bind(e, ConicOperation.EndPointProperty);
+
+                    canvas.Children.Add(e);
+                    canvas.Children.Add(c1);
                 }
                 break;
 
@@ -216,6 +271,8 @@ public partial class PathEditorView : UserControl
                 }
                 break;
         }
+
+        UpdateControlPointVisibility();
     }
 
     private Thumb CreateThumb()
@@ -228,8 +285,42 @@ public partial class PathEditorView : UserControl
         thumb.DragDelta += OnThumbDragDelta;
         thumb.DragStarted += OnThumbDragStarted;
         thumb.DragCompleted += OnThumbDragCompleted;
+        thumb.AddHandler(PointerReleasedEvent, OnThumbPointerReleased, handledEventsToo: true);
+        var flyout = new FAMenuFlyout();
+        var delete = new MenuFlyoutItem
+        {
+            Text = Strings.Delete,
+            IconSource = new SymbolIconSource
+            {
+                Symbol = Symbol.Delete
+            }
+        };
+        delete.Click += OnDeleteClicked;
+        flyout.ItemsSource = new[] { delete };
+
+        thumb.ContextFlyout = flyout;
 
         return thumb;
+    }
+
+    private void OnThumbPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton == MouseButton.Right
+            && sender is Thumb { ContextFlyout: { } flyout } thumb)
+        {
+            flyout.ShowAt(thumb);
+        }
+    }
+
+    private void OnDeleteClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem { DataContext: PathOperation op }
+            && DataContext is PathEditorViewModel { Context.Value.Group.Value: { } group })
+        {
+            int index = group.List.Value?.IndexOf(op) ?? -1;
+            if (index >= 0)
+                group.RemoveItem(index);
+        }
     }
 
     private void OnThumbDragCompleted(object? sender, VectorEventArgs e)
@@ -258,55 +349,109 @@ public partial class PathEditorView : UserControl
                 }
             }
 
-            viewModel.SelectedOperation.Value = op;
+            if (!t.Classes.Contains("control"))
+            {
+                viewModel.SelectedOperation.Value = op;
+            }
         }
     }
 
+    private static CoreProperty<Graphics.Point>? GetProperty(Thumb t)
+    {
+        switch (t.DataContext)
+        {
+            case ArcOperation:
+                return ArcOperation.PointProperty;
+
+            case ConicOperation:
+                switch (t.Tag)
+                {
+                    case "ControlPoint":
+                        return ConicOperation.ControlPointProperty;
+                    case "EndPoint":
+                        return ConicOperation.EndPointProperty;
+                }
+                break;
+
+            case CubicBezierOperation:
+                switch (t.Tag)
+                {
+                    case "ControlPoint1":
+                        return CubicBezierOperation.ControlPoint1Property;
+
+                    case "ControlPoint2":
+                        return CubicBezierOperation.ControlPoint2Property;
+                    case "EndPoint":
+                        return CubicBezierOperation.EndPointProperty;
+                }
+                break;
+
+            case LineOperation:
+                return LineOperation.PointProperty;
+
+            case MoveOperation:
+                return MoveOperation.PointProperty;
+
+            case QuadraticBezierOperation:
+                switch (t.Tag)
+                {
+                    case "ControlPoint":
+                        return QuadraticBezierOperation.ControlPointProperty;
+                    case "EndPoint":
+                        return QuadraticBezierOperation.EndPointProperty;
+                }
+                break;
+        }
+
+        return null;
+    }
+
+    private static CoreProperty<Graphics.Point>[] GetControlPointProperty(object datacontext)
+    {
+        return datacontext switch
+        {
+            ConicOperation => [ConicOperation.ControlPointProperty],
+            CubicBezierOperation => [CubicBezierOperation.ControlPoint1Property, CubicBezierOperation.ControlPoint2Property],
+            QuadraticBezierOperation => [QuadraticBezierOperation.ControlPointProperty],
+            _ => [],
+        };
+    }
+
+    // KeyModifier
     private void OnThumbDragDelta(object? sender, VectorEventArgs e)
     {
-        if (sender is Thumb t)
+        if (sender is Thumb { DataContext: PathOperation op } t
+            && DataContext is PathEditorViewModel { PathGeometry.Value: { } geometry } viewModel)
         {
             var delta = new Graphics.Vector((float)(e.Vector.X / Scale), (float)(e.Vector.Y / Scale));
-            switch (t.DataContext)
+            CoreProperty<Graphics.Point>? prop = GetProperty(t);
+            if (prop != null)
             {
-                case ArcOperation arc:
-                    arc.Point += delta;
-                    break;
-
-                case CubicBezierOperation cubic:
-                    switch (t.Tag)
+                Graphics.Point point = op.GetValue(prop);
+                op.SetValue(prop, point + delta);
+                if (!t.Classes.Contains("control"))
+                {
+                    CoreProperty<Graphics.Point>[] props = GetControlPointProperty(t.DataContext);
+                    if (props.Length > 0)
                     {
-                        case "ControlPoint1":
-                            cubic.ControlPoint1 += delta;
-                            break;
-                        case "ControlPoint2":
-                            cubic.ControlPoint2 += delta;
-                            break;
-                        case "EndPoint":
-                            cubic.EndPoint += delta;
-                            break;
+                        var prop2 = props[^1];
+                        op.SetValue(prop2, op.GetValue(prop2) + delta);
                     }
-                    break;
 
-                case LineOperation line:
-                    line.Point += delta;
-                    break;
+                    int index = geometry.Operations.IndexOf(op);
+                    int nextIndex = (index + 1) % geometry.Operations.Count;
 
-                case MoveOperation move:
-                    move.Point += delta;
-                    break;
-
-                case QuadraticBezierOperation quad:
-                    switch (t.Tag)
+                    if (0 <= nextIndex && nextIndex < geometry.Operations.Count)
                     {
-                        case "ControlPoint":
-                            quad.ControlPoint += delta;
-                            break;
-                        case "EndPoint":
-                            quad.EndPoint += delta;
-                            break;
+                        var nextOp = geometry.Operations[nextIndex];
+                        props = GetControlPointProperty(nextOp);
+                        if (props.Length > 0)
+                        {
+                            var prop2 = props[0];
+                            nextOp.SetValue(prop2, nextOp.GetValue(prop2) + delta);
+                        }
                     }
-                    break;
+                }
             }
         }
     }
@@ -322,7 +467,12 @@ public partial class PathEditorView : UserControl
 
     private void AddOpClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem item && DataContext is PathEditorViewModel { PathGeometry.Value: { } geometry })
+        if (sender is MenuItem item
+            && DataContext is PathEditorViewModel
+            {
+                PathGeometry.Value: { } geometry,
+                Context.Value.Group.Value: { } group
+            })
         {
             int index = geometry.Operations.Count;
             Graphics.Point lastPoint = default;
@@ -333,6 +483,7 @@ public partial class PathEditorView : UserControl
                 {
                     ArcOperation arc => arc.Point,
                     CubicBezierOperation cub => cub.EndPoint,
+                    ConicOperation con => con.EndPoint,
                     LineOperation line => line.Point,
                     MoveOperation move => move.Point,
                     QuadraticBezierOperation quad => quad.EndPoint,
@@ -346,10 +497,15 @@ public partial class PathEditorView : UserControl
                 point = mat.ToBtlMatrix().Transform(point);
             }
 
-            PathOperation? obj = item.Header switch
+            PathOperation? obj = item.Tag switch
             {
                 "Arc" => new ArcOperation() { Point = point },
                 "Close" => new CloseOperation(),
+                "Conic" => new ConicOperation()
+                {
+                    EndPoint = point,
+                    ControlPoint = new(float.Lerp(point.X, lastPoint.X, 0.5f), float.Lerp(point.Y, lastPoint.Y, 0.5f))
+                },
                 "Cubic" => new CubicBezierOperation()
                 {
                     EndPoint = point,
@@ -368,7 +524,7 @@ public partial class PathEditorView : UserControl
 
             if (obj != null)
             {
-                geometry.Operations.Add(obj);
+                group.AddItem(obj);
             }
         }
     }

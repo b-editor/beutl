@@ -5,9 +5,14 @@ using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
 using Avalonia.Threading;
 
+using Beutl.Graphics;
 using Beutl.Media;
 
 using SkiaSharp;
+
+using AvaPoint = Avalonia.Point;
+using AvaMatrix = Avalonia.Matrix;
+using AvaRect = Avalonia.Rect;
 
 namespace Beutl.Views;
 
@@ -19,8 +24,8 @@ public class PathGeometryControl : Control
     public static readonly StyledProperty<PathOperation?> SelectedOperationProperty =
         AvaloniaProperty.Register<PathGeometryControl, PathOperation?>(nameof(SelectedOperation));
 
-    public static readonly StyledProperty<Matrix> MatrixProperty =
-        AvaloniaProperty.Register<PathGeometryControl, Matrix>(nameof(Matrix), Matrix.Identity);
+    public static readonly StyledProperty<AvaMatrix> MatrixProperty =
+        AvaloniaProperty.Register<PathGeometryControl, AvaMatrix>(nameof(Matrix), AvaMatrix.Identity);
 
     public static readonly StyledProperty<double> ScaleProperty =
         AvaloniaProperty.Register<PathGeometryControl, double>(nameof(Scale), 1.0);
@@ -36,7 +41,7 @@ public class PathGeometryControl : Control
         set => SetValue(SelectedOperationProperty, value);
     }
 
-    public Matrix Matrix
+    public AvaMatrix Matrix
     {
         get => GetValue(MatrixProperty);
         set => SetValue(MatrixProperty, value);
@@ -87,9 +92,9 @@ public class PathGeometryControl : Control
         }
     }
 
-    private class PathDrawOperation(PathGeometry geometry, Matrix matrix, Rect bounds, double scale, int index) : ICustomDrawOperation
+    private class PathDrawOperation(PathGeometry geometry, AvaMatrix matrix, AvaRect bounds, double scale, int index) : ICustomDrawOperation
     {
-        public Rect Bounds => bounds;
+        public AvaRect Bounds => bounds;
 
         public PathGeometry Geometry { get; } = geometry;
 
@@ -104,7 +109,7 @@ public class PathGeometryControl : Control
                 && o.Geometry.GetVersion() == Geometry.GetVersion();
         }
 
-        public bool HitTest(Point p)
+        public bool HitTest(AvaPoint p)
         {
             return false;
         }
@@ -113,11 +118,10 @@ public class PathGeometryControl : Control
         {
             if (context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var sk))
             {
-                using (var path = new SKPath(Geometry.GetNativeObjectPublic()))
                 using (var skapi = sk.Lease())
                 using (var paint = new SKPaint())
                 {
-                    path.Transform(matrix.ToSKMatrix().PostConcat(SKMatrix.CreateScale((float)(scale), (float)(scale))));
+                    var skmat = matrix.ToSKMatrix().PostConcat(SKMatrix.CreateScale((float)(scale), (float)(scale)));
 
                     paint.HintingLevel = SKPaintHinting.Full;
                     paint.FilterQuality = SKFilterQuality.Low;
@@ -135,45 +139,88 @@ public class PathGeometryControl : Control
                         paint.ImageFilter = filter;
                     }
 
-                    using SKPath.RawIterator it = path.CreateRawIterator();
-                    Span<SKPoint> points = new SKPoint[4];
-                    SKPathVerb pathVerb;
-                    int count = -1;
-
-                    do
+                    if (Geometry.Operations.Count > 0 && index >= 0)
                     {
-                        pathVerb = it.Next(points);
-                        if (index == -1 || count == index)
+                        void DrawLine(PathOperation op, int index, bool c1, bool c2)
                         {
-                            switch (pathVerb)
+                            SKPoint lastPoint = default;
+                            if (0 <= index - 1 && index - 1 < Geometry.Operations.Count)
                             {
-                                case SKPathVerb.Quad:
-                                    skapi.SkCanvas.DrawLine(
-                                       points[0],
-                                       points[1],
-                                       paint);
+                                if (Geometry.Operations[index - 1].TryGetEndPoint(out Graphics.Point tmp))
+                                    lastPoint = tmp.ToSKPoint();
+                            }
 
-                                    skapi.SkCanvas.DrawLine(
-                                        points[2],
-                                        points[1],
-                                        paint);
+                            switch (op)
+                            {
+                                case ConicOperation conic:
+                                    if (c1)
+                                    {
+                                        skapi.SkCanvas.DrawLine(
+                                            skmat.MapPoint(lastPoint),
+                                            skmat.MapPoint(conic.ControlPoint.ToSKPoint()),
+                                            paint);
+                                    }
+
+                                    if (c2)
+                                    {
+                                        skapi.SkCanvas.DrawLine(
+                                            skmat.MapPoint(conic.EndPoint.ToSKPoint()),
+                                            skmat.MapPoint(conic.ControlPoint.ToSKPoint()),
+                                            paint);
+                                    }
                                     break;
-                                case SKPathVerb.Cubic:
-                                    skapi.SkCanvas.DrawLine(
-                                       points[0],
-                                       points[1],
-                                       paint);
 
-                                    skapi.SkCanvas.DrawLine(
-                                        points[2],
-                                        points[3],
-                                        paint);
+                                case CubicBezierOperation cubic:
+                                    if (c1)
+                                    {
+                                        skapi.SkCanvas.DrawLine(
+                                            skmat.MapPoint(lastPoint),
+                                            skmat.MapPoint(cubic.ControlPoint1.ToSKPoint()),
+                                            paint);
+                                    }
+
+                                    if (c2)
+                                    {
+                                        skapi.SkCanvas.DrawLine(
+                                            skmat.MapPoint(cubic.EndPoint.ToSKPoint()),
+                                            skmat.MapPoint(cubic.ControlPoint2.ToSKPoint()),
+                                            paint);
+                                    }
+                                    break;
+
+                                case QuadraticBezierOperation quad:
+                                    if (c1)
+                                    {
+                                        skapi.SkCanvas.DrawLine(
+                                            skmat.MapPoint(lastPoint),
+                                            skmat.MapPoint(quad.ControlPoint.ToSKPoint()),
+                                            paint);
+                                    }
+
+                                    if (c2)
+                                    {
+                                        skapi.SkCanvas.DrawLine(
+                                            skmat.MapPoint(quad.EndPoint.ToSKPoint()),
+                                            skmat.MapPoint(quad.ControlPoint.ToSKPoint()),
+                                            paint);
+                                    }
                                     break;
                             }
                         }
 
-                        count++;
-                    } while (pathVerb != SKPathVerb.Done);
+                        DrawLine(Geometry.Operations[index], index, false, true);
+                        //int prevIndex = (index - 1 + Geometry.Operations.Count) % Geometry.Operations.Count;
+                        int nextIndex = (index + 1) % Geometry.Operations.Count;
+
+                        //if (0 <= prevIndex && prevIndex < Geometry.Operations.Count)
+                        //{
+                        //    DrawLine(Geometry.Operations[prevIndex], prevIndex, false, false);
+                        //}
+                        if (0 <= nextIndex && nextIndex < Geometry.Operations.Count)
+                        {
+                            DrawLine(Geometry.Operations[nextIndex], nextIndex, true, false);
+                        }
+                    }
                 }
             }
         }

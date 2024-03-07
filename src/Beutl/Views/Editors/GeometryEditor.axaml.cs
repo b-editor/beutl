@@ -83,6 +83,7 @@ public partial class GeometryEditor : UserControl
                     {
                         "Arc" => typeof(ArcOperation),
                         "Close" => typeof(CloseOperation),
+                        "Conic" => typeof(ConicOperation),
                         "CubicBezier" => typeof(CubicBezierOperation),
                         "Line" => typeof(LineOperation),
                         "Move" => typeof(MoveOperation),
