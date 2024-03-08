@@ -16,6 +16,8 @@ using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Editors;
+using Beutl.ViewModels.Tools;
 
 using FluentAvalonia.UI.Controls;
 
@@ -374,6 +376,22 @@ public partial class PlayerView
             }
 
             e.Handled = _imagePressed;
+
+            if (e.ClickCount == 2)
+            {
+                SourceOperatorsTabViewModel? tab = EditViewModel.FindToolTab<SourceOperatorsTabViewModel>();
+                if (tab != null)
+                {
+                    foreach (SourceOperatorViewModel item in tab.Items)
+                    {
+                        IPropertyEditorContext? prop = item.Properties.FirstOrDefault(v => v is GeometryEditorViewModel);
+                        if (prop is GeometryEditorViewModel geometryEditorViewModel)
+                        {
+                            EditViewModel.Player.PathEditor.StartEdit(geometryEditorViewModel);
+                        }
+                    }
+                }
+            }
         }
     }
 

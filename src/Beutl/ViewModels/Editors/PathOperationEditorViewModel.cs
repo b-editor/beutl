@@ -130,6 +130,12 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
             {
                 IsExpanded.Value = (bool)isExpanded;
             }
+            if (json.TryGetPropertyValue(nameof(ProgrammaticallyExpanded), out var pExpandedNode)
+                && isExpandedNode is JsonValue pExpanded)
+            {
+                ProgrammaticallyExpanded = (bool)pExpanded;
+            }
+
             Properties.Value?.ReadFromJson(json);
         }
         catch
@@ -143,6 +149,7 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
         try
         {
             json[nameof(IsExpanded)] = IsExpanded.Value;
+            json[nameof(ProgrammaticallyExpanded)] = ProgrammaticallyExpanded;
             Properties.Value?.WriteToJson(json);
         }
         catch
