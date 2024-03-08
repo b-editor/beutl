@@ -10,9 +10,5 @@ public sealed class CloseOperation : PathSegment
         context.Close();
     }
 
-    public override bool TryGetEndPoint(out Point point)
-    {
-        point = default;
-        return false;
-    }
+    public override CoreProperty<Point> GetEndPointProperty() => throw new NotSupportedException();
 }

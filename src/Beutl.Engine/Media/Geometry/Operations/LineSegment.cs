@@ -41,9 +41,5 @@ public sealed class LineSegment : PathSegment
         context.LineTo(Point);
     }
 
-    public override bool TryGetEndPoint(out Point point)
-    {
-        point = Point;
-        return true;
-    }
+    public override CoreProperty<Point> GetEndPointProperty() => PointProperty;
 }

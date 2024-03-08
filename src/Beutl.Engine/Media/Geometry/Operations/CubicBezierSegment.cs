@@ -62,9 +62,5 @@ public sealed class CubicBezierSegment : PathSegment
         context.CubicTo(ControlPoint1, ControlPoint2,EndPoint);
     }
 
-    public override bool TryGetEndPoint(out Point point)
-    {
-        point = EndPoint;
-        return true;
-    }
+    public override CoreProperty<Point> GetEndPointProperty() => EndPointProperty;
 }
