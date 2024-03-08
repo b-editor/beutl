@@ -629,6 +629,11 @@ public partial class PathEditorView : UserControl
             if (_dragState != null)
             {
                 _dragState.Move(delta);
+                if (_dragState.Thumb is { } thumb)
+                {
+                    Canvas.SetLeft(thumb, Canvas.GetLeft(thumb) + delta.X);
+                    Canvas.SetTop(thumb, Canvas.GetTop(thumb) + delta.Y);
+                }
 
                 if (_coordDragStates != null)
                 {
@@ -673,6 +678,11 @@ public partial class PathEditorView : UserControl
                         foreach (ThumbDragState item in _coordDragStates)
                         {
                             item.Move(delta);
+                            if (item.Thumb is { } thumb1)
+                            {
+                                Canvas.SetLeft(thumb1, Canvas.GetLeft(thumb1) + delta.X);
+                                Canvas.SetTop(thumb1, Canvas.GetTop(thumb1) + delta.Y);
+                            }
                         }
                     }
                 }
@@ -732,13 +742,13 @@ public partial class PathEditorView : UserControl
                 if (!AssociatedObject.Classes.Contains("control"))
                 {
                     var list = new List<ThumbDragState>();
-                    CoordinateControlPoint(list, viewModel, geometry, segment);
+                    CoordinateControlPoint(list, parent, viewModel, geometry, segment);
                     _coordDragStates = [.. list];
                 }
                 else
                 {
                     var list = new List<ThumbDragState>();
-                    CoordinateAnotherControlPoint(list, viewModel, geometry, segment, prop);
+                    CoordinateAnotherControlPoint(list, parent, viewModel, geometry, segment, prop);
                     _coordDragStates = [.. list];
                 }
             }
@@ -746,6 +756,7 @@ public partial class PathEditorView : UserControl
 
         private void CoordinateControlPoint(
             List<ThumbDragState> list,
+            PathEditorView view,
             PathEditorViewModel viewModel,
             PathGeometry geometry,
             PathSegment segment)
@@ -753,7 +764,9 @@ public partial class PathEditorView : UserControl
             CoreProperty<BtlPoint>[] props = GetControlPointProperty(segment);
             if (props.Length > 0)
             {
-                list.Add(CreateThumbDragState(viewModel, segment, props[^1]));
+                var state = CreateThumbDragState(viewModel, segment, props[^1]);
+                state.Thumb = GetThumb(view, state.Target, state.Property);
+                list.Add(state);
             }
 
             int index = geometry.Segments.IndexOf(segment);
@@ -765,13 +778,21 @@ public partial class PathEditorView : UserControl
                 props = GetControlPointProperty(nextSegment);
                 if (props.Length > 0)
                 {
-                    list.Add(CreateThumbDragState(viewModel, nextSegment, props[0]));
+                    var state = CreateThumbDragState(viewModel, nextSegment, props[0]);
+                    state.Thumb = GetThumb(view, state.Target, state.Property);
+                    list.Add(state);
                 }
             }
         }
 
+        private static Thumb? GetThumb(PathEditorView view, PathSegment segment, CoreProperty<BtlPoint> property)
+        {
+            return view.canvas.Children.FirstOrDefault(v => ReferenceEquals(v.DataContext, segment) && Equals(v.Tag, property.Name)) as Thumb;
+        }
+
         private void CoordinateAnotherControlPoint(
             List<ThumbDragState> list,
+            PathEditorView view,
             PathEditorViewModel viewModel,
             PathGeometry geometry,
             PathSegment segment,
@@ -809,6 +830,7 @@ public partial class PathEditorView : UserControl
                     {
                         var state = CreateThumbDragState(viewModel, asegment, aproperty);
                         state.Anchor = anchor;
+                        state.Thumb = GetThumb(view, state.Target, state.Property);
                         list.Add(state);
                     }
                 }
@@ -825,6 +847,7 @@ public partial class PathEditorView : UserControl
                     {
                         ThumbDragState state = CreateThumbDragState(viewModel, asegment, aproperty);
                         state.Anchor = anchor;
+                        state.Thumb = GetThumb(view, state.Target, state.Property);
                         list.Add(state);
                     }
                 }
@@ -841,7 +864,10 @@ public partial class PathEditorView : UserControl
             }
         }
 
-        private ThumbDragState CreateThumbDragState(PathEditorViewModel viewModel, PathSegment segment, CoreProperty<BtlPoint> property)
+        private ThumbDragState CreateThumbDragState(
+            PathEditorViewModel viewModel,
+            PathSegment segment,
+            CoreProperty<BtlPoint> property)
         {
             var editViewModel = viewModel.EditViewModel;
             var element = viewModel.Element.Value!;
@@ -892,6 +918,8 @@ public partial class PathEditorView : UserControl
 
         public KeyFrame<BtlPoint>? Next { get; }
 
+        public Thumb? Thumb { get; set; }
+
         public CoreProperty<BtlPoint> Property { get; }
 
         public PathSegment Target { get; }
@@ -917,32 +945,32 @@ public partial class PathEditorView : UserControl
         }
 
         public void SetValue(BtlPoint point)
+        {
+            if (Previous == null && Next == null)
             {
-                if (Previous == null && Next == null)
-                {
-                    Target.SetValue(Property, point);
-                }
-                else
-                {
-                    CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
+                Target.SetValue(Property, point);
+            }
+            else
+            {
+                CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
 
                 Previous?.SetValue(prop, point);
-                }
+            }
         }
 
         public void Move(BtlVector delta)
+        {
+            if (Previous == null && Next == null)
             {
-                if (Previous == null && Next == null)
-                {
-                    Target.SetValue(Property, Target.GetValue(Property) + delta);
-                }
-                else
-                {
-                    CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
-                    Previous?.SetValue(prop, Previous.GetValue(prop) + delta);
+                Target.SetValue(Property, Target.GetValue(Property) + delta);
+            }
+            else
+            {
+                CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
+                Previous?.SetValue(prop, Previous.GetValue(prop) + delta);
 
-                    Next?.SetValue(prop, Next.GetValue(prop) + delta);
-                }
+                Next?.SetValue(prop, Next.GetValue(prop) + delta);
+            }
         }
 
         public IRecordableCommand? CreateCommand(ImmutableArray<IStorable?> storables)
