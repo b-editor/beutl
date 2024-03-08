@@ -8,22 +8,18 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.ReactiveUI;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Animation;
 using Beutl.Media;
-using Beutl.Rendering;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;
 
 using Reactive.Bindings.Extensions;
-
-using ReactiveUI;
 
 using BtlPoint = Beutl.Graphics.Point;
 using BtlVector = Beutl.Graphics.Vector;
@@ -78,6 +74,7 @@ public partial class PathEditorView : UserControl
             .ObserveOnUIDispatcher()
             .Subscribe(_ => UpdateControlPointVisibility());
 
+        // 個別にBindingするのではなく、一括で位置を変更する
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorViewModel)
             .Select(v => v?.PlayerViewModel?.AfterRendered ?? Observable.Return(Unit.Default))
@@ -90,8 +87,8 @@ public partial class PathEditorView : UserControl
     {
         if (DataContext is PathEditorViewModel viewModel)
         {
-            var controlPoints = canvas.Children.Where(i => i.Classes.Contains("control")).ToArray();
-            foreach (var item in controlPoints)
+            Control[] controlPoints = canvas.Children.Where(i => i.Classes.Contains("control")).ToArray();
+            foreach (Control item in controlPoints)
             {
                 item.IsVisible = false;
             }
@@ -105,7 +102,7 @@ public partial class PathEditorView : UserControl
 
                 if (isClosed || index != 0)
                 {
-                    foreach (var item in controlPoints.Where(v => v.DataContext == op))
+                    foreach (Control? item in controlPoints.Where(v => v.DataContext == op))
                     {
                         if (Equals(item.Tag, "ControlPoint2") || Equals(item.Tag, "ControlPoint"))
                         {
@@ -118,8 +115,8 @@ public partial class PathEditorView : UserControl
                 {
                     if (0 <= nextIndex && nextIndex < geometry.Segments.Count)
                     {
-                        var next = geometry.Segments[nextIndex];
-                        foreach (var item in controlPoints.Where(v => v.DataContext == next))
+                        PathSegment next = geometry.Segments[nextIndex];
+                        foreach (Control? item in controlPoints.Where(v => v.DataContext == next))
                         {
                             if (Equals(item.Tag, "ControlPoint1") || Equals(item.Tag, "ControlPoint"))
                                 item.IsVisible = true;
@@ -199,19 +196,6 @@ public partial class PathEditorView : UserControl
             .Do(t => t.DataContext = null));
     }
 
-    private static IObservable<Point> GetObservable(Thumb obj, CoreProperty<BtlPoint> p)
-    {
-        return obj.GetObservable(DataContextProperty)
-            .Select(v => (v as PathSegment)?.GetObservable(p) ?? Observable.Return((BtlPoint)default))
-            .Switch()
-            .Select(v => v.ToAvaPoint())
-            .ObserveOnUIDispatcher();
-    }
-
-    private static void Bind(Thumb t, CoreProperty<BtlPoint> p)
-    {
-    }
-
     private void OnOperationAttached(int index, PathSegment obj)
     {
         switch (obj)
@@ -220,7 +204,6 @@ public partial class PathEditorView : UserControl
                 {
                     Thumb t = CreateThumb();
                     t.DataContext = obj;
-                    Bind(t, ArcSegment.PointProperty);
 
                     canvas.Children.Add(t);
                 }
@@ -232,12 +215,10 @@ public partial class PathEditorView : UserControl
                     c1.Tag = "ControlPoint";
                     c1.Classes.Add("control");
                     c1.DataContext = obj;
-                    Bind(c1, ConicSegment.ControlPointProperty);
 
                     Thumb e = CreateThumb();
                     e.Tag = "EndPoint";
                     e.DataContext = obj;
-                    Bind(e, ConicSegment.EndPointProperty);
 
                     canvas.Children.Add(e);
                     canvas.Children.Add(c1);
@@ -250,18 +231,15 @@ public partial class PathEditorView : UserControl
                     c1.Classes.Add("control");
                     c1.Tag = "ControlPoint1";
                     c1.DataContext = obj;
-                    Bind(c1, CubicBezierSegment.ControlPoint1Property);
 
                     Thumb c2 = CreateThumb();
                     c2.Classes.Add("control");
                     c2.Tag = "ControlPoint2";
                     c2.DataContext = obj;
-                    Bind(c2, CubicBezierSegment.ControlPoint2Property);
 
                     Thumb e = CreateThumb();
                     e.Tag = "EndPoint";
                     e.DataContext = obj;
-                    Bind(e, CubicBezierSegment.EndPointProperty);
 
                     canvas.Children.Add(e);
                     canvas.Children.Add(c2);
@@ -273,7 +251,6 @@ public partial class PathEditorView : UserControl
                 {
                     Thumb t = CreateThumb();
                     t.DataContext = obj;
-                    Bind(t, LineSegment.PointProperty);
 
                     canvas.Children.Add(t);
                 }
@@ -283,7 +260,6 @@ public partial class PathEditorView : UserControl
                 {
                     Thumb t = CreateThumb();
                     t.DataContext = obj;
-                    Bind(t, MoveOperation.PointProperty);
 
                     canvas.Children.Add(t);
                 }
@@ -295,12 +271,10 @@ public partial class PathEditorView : UserControl
                     c1.Tag = "ControlPoint";
                     c1.Classes.Add("control");
                     c1.DataContext = obj;
-                    Bind(c1, QuadraticBezierSegment.ControlPointProperty);
 
                     Thumb e = CreateThumb();
                     e.Tag = "EndPoint";
                     e.DataContext = obj;
-                    Bind(e, QuadraticBezierSegment.EndPointProperty);
 
                     canvas.Children.Add(e);
                     canvas.Children.Add(c1);
@@ -398,7 +372,7 @@ public partial class PathEditorView : UserControl
         return null;
     }
 
-    private static CoreProperty<BtlPoint>[] GetControlPointProperty(object datacontext)
+    private static CoreProperty<BtlPoint>[] GetControlPointProperties(object datacontext)
     {
         return datacontext switch
         {
@@ -479,7 +453,7 @@ public partial class PathEditorView : UserControl
             }
 
             BtlPoint point = (_clickPoint / Scale).ToBtlPoint();
-            if (Matrix.TryInvert(out var mat))
+            if (Matrix.TryInvert(out Matrix mat))
             {
                 point = mat.ToBtlMatrix().Transform(point);
             }
@@ -514,6 +488,11 @@ public partial class PathEditorView : UserControl
         }
     }
 
+    private Thumb? FindThumb(PathSegment segment, CoreProperty<BtlPoint> property)
+    {
+        return canvas.Children.FirstOrDefault(v => ReferenceEquals(v.DataContext, segment) && Equals(v.Tag, property.Name)) as Thumb;
+    }
+
     private sealed class ThumbDragBehavior : Behavior<Thumb>
     {
         private ThumbDragState? _dragState;
@@ -544,15 +523,42 @@ public partial class PathEditorView : UserControl
             }
         }
 
+        private void OnReleased()
+        {
+            PathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<PathEditorView>();
+            if (parent is { DataContext: PathEditorViewModel { Element.Value: { } element } viewModel })
+            {
+                parent._skipUpdatePosition = false;
+                IRecordableCommand? command = _dragState?.CreateCommand([]);
+                if (_coordDragStates?.Length > 0)
+                {
+                    command = _coordDragStates.Aggregate(command, (a, b) => a.Append(b.CreateCommand([])));
+                }
+
+                if (command != null)
+                {
+                    command = command.WithStoables([element]);
+
+                    command.DoAndRecord(viewModel.EditViewModel.CommandRecorder);
+                }
+            }
+
+            _coordDragStates = null;
+            _dragState = null;
+            _lastPoint = null;
+        }
+
         private void OnThumbPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
         {
             if (_lastPoint.HasValue)
             {
                 e.Handled = true;
 
-                var vector = _lastPoint.Value;
+                OnReleased();
             }
 
+            _coordDragStates = null;
+            _dragState = null;
             _lastPoint = null;
         }
 
@@ -568,24 +574,7 @@ public partial class PathEditorView : UserControl
             {
                 e.Handled = true;
 
-                PathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<PathEditorView>();
-                if (parent is { DataContext: PathEditorViewModel { Element.Value: { } element } viewModel })
-                {
-                    parent._skipUpdatePosition = false;
-                    IRecordableCommand? command = _dragState?.CreateCommand([]);
-                    if (_coordDragStates?.Length > 0)
-                    {
-                        command = _coordDragStates.Aggregate(command, (a, b) => a.Append(b.CreateCommand([])));
-                    }
-
-                    if (command != null)
-                    {
-                        command = command.WithStoables([element]);
-
-                        command.DoAndRecord(viewModel.EditViewModel.CommandRecorder);
-                    }
-                }
-
+                OnReleased();
             }
 
             _coordDragStates = null;
@@ -593,7 +582,7 @@ public partial class PathEditorView : UserControl
             _lastPoint = null;
         }
 
-        private static PathSegment? GetAnchors(PathEditorViewModel viewModel, PathGeometry geometry, PathSegment segment, object? tag)
+        private static PathSegment? GetAnchor(PathEditorViewModel viewModel, PathGeometry geometry, PathSegment segment, object? tag)
         {
             if (tag is not string s || geometry.Segments.Count <= 1) return null;
 
@@ -655,7 +644,7 @@ public partial class PathEditorView : UserControl
                         // ControlPointからAnchor(複数)を取得
                         // つながっているAnchorの反対側ごとに、角度、長さを計算
 
-                        var anchor = GetAnchors(viewModel, geometry, segment, AssociatedObject.Tag);
+                        PathSegment? anchor = GetAnchor(viewModel, geometry, segment, AssociatedObject.Tag);
                         if (anchor != null)
                         {
                             Debug.Assert(_coordDragStates.Length == 1);
@@ -705,9 +694,9 @@ public partial class PathEditorView : UserControl
                                             keyTime += element.Start;
                                         }
 
-                                        BtlPoint endpoint = anchor.GetEndPoint(localkeyTime, keyTime);
+                                        BtlPoint anchorpoint = anchor.GetEndPoint(localkeyTime, keyTime);
                                         BtlPoint point = _dragState.GetInterpolatedValue(element, keyTime);
-                                        BtlPoint d = endpoint - point;
+                                        BtlPoint d = anchorpoint - point;
                                         float angle = MathF.Atan2(d.X, d.Y);
                                         angle -= MathF.PI / 2;
 
@@ -718,11 +707,11 @@ public partial class PathEditorView : UserControl
                                         }
                                         else
                                         {
-                                            BtlPoint d2 = endpoint - keyframe.Value;
+                                            BtlPoint d2 = anchorpoint - keyframe.Value;
                                             length = Length(d2);
                                         }
 
-                                        keyframe.Value = endpoint + CalculatePoint(angle, length);
+                                        keyframe.Value = anchorpoint + CalculatePoint(angle, length);
                                     }
 
                                     Set(c.Previous);
@@ -733,8 +722,8 @@ public partial class PathEditorView : UserControl
                                 else
                                 {
                                     BtlPoint point = _dragState.GetInterpolatedValue(element, viewModel.EditViewModel.CurrentTime.Value);
-                                    BtlPoint endpoint = anchor.GetEndPoint();
-                                    BtlPoint d = endpoint - point;
+                                    BtlPoint anchorpoint = anchor.GetEndPoint();
+                                    BtlPoint d = anchorpoint - point;
                                     float angle = MathF.Atan2(d.X, d.Y);
                                     angle -= MathF.PI / 2;
 
@@ -745,11 +734,11 @@ public partial class PathEditorView : UserControl
                                     }
                                     else
                                     {
-                                        BtlPoint d2 = endpoint - c.GetSampleValue();
+                                        BtlPoint d2 = anchorpoint - c.GetSampleValue();
                                         length = Length(d2);
                                     }
 
-                                    BtlPoint newValue = endpoint + CalculatePoint(angle, length);
+                                    BtlPoint newValue = anchorpoint + CalculatePoint(angle, length);
 
                                     c.SetValue(newValue);
                                     UpdateThumbPosition(c.Thumb, newValue);
@@ -778,21 +767,18 @@ public partial class PathEditorView : UserControl
             if (AssociatedObject != null
                 && viewModel is { Context.Value.Group.Value: { } group })
             {
-                if (!AssociatedObject.Classes.Contains("control"))
+                foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
                 {
-                    foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
+                    if (item.Context is PathOperationEditorViewModel itemvm)
                     {
-                        if (item.Context is PathOperationEditorViewModel itemvm)
+                        if (ReferenceEquals(itemvm.Value.Value, segment))
                         {
-                            if (ReferenceEquals(itemvm.Value.Value, segment))
-                            {
-                                itemvm.IsExpanded.Value = true;
-                                itemvm.ProgrammaticallyExpanded = true;
-                            }
-                            else if (itemvm.ProgrammaticallyExpanded)
-                            {
-                                itemvm.IsExpanded.Value = false;
-                            }
+                            itemvm.IsExpanded.Value = true;
+                            itemvm.ProgrammaticallyExpanded = true;
+                        }
+                        else if (itemvm.ProgrammaticallyExpanded)
+                        {
+                            itemvm.IsExpanded.Value = false;
                         }
                     }
                 }
@@ -847,11 +833,11 @@ public partial class PathEditorView : UserControl
             PathGeometry geometry,
             PathSegment segment)
         {
-            CoreProperty<BtlPoint>[] props = GetControlPointProperty(segment);
+            CoreProperty<BtlPoint>[] props = GetControlPointProperties(segment);
             if (props.Length > 0)
             {
-                var state = CreateThumbDragState(viewModel, segment, props[^1]);
-                state.Thumb = GetThumb(view, state.Target, state.Property);
+                ThumbDragState state = CreateThumbDragState(viewModel, segment, props[^1]);
+                state.Thumb = view.FindThumb(state.Target, state.Property);
                 list.Add(state);
             }
 
@@ -861,22 +847,17 @@ public partial class PathEditorView : UserControl
             if (0 <= nextIndex && nextIndex < geometry.Segments.Count)
             {
                 PathSegment nextSegment = geometry.Segments[nextIndex];
-                props = GetControlPointProperty(nextSegment);
+                props = GetControlPointProperties(nextSegment);
                 if (props.Length > 0)
                 {
-                    var state = CreateThumbDragState(viewModel, nextSegment, props[0]);
-                    state.Thumb = GetThumb(view, state.Target, state.Property);
+                    ThumbDragState state = CreateThumbDragState(viewModel, nextSegment, props[0]);
+                    state.Thumb = view.FindThumb(state.Target, state.Property);
                     list.Add(state);
                 }
             }
         }
 
-        private static Thumb? GetThumb(PathEditorView view, PathSegment segment, CoreProperty<BtlPoint> property)
-        {
-            return view.canvas.Children.FirstOrDefault(v => ReferenceEquals(v.DataContext, segment) && Equals(v.Tag, property.Name)) as Thumb;
-        }
-
-        private void CoordinateAnotherControlPoint(
+        private static void CoordinateAnotherControlPoint(
             List<ThumbDragState> list,
             PathEditorView view,
             PathEditorViewModel viewModel,
@@ -914,9 +895,9 @@ public partial class PathEditorView : UserControl
                     CoreProperty<BtlPoint>? aproperty = GetControlPointProperty(asegment, apropIndex);
                     if (aproperty != null)
                     {
-                        var state = CreateThumbDragState(viewModel, asegment, aproperty);
+                        ThumbDragState state = CreateThumbDragState(viewModel, asegment, aproperty);
                         state.Anchor = anchor;
-                        state.Thumb = GetThumb(view, state.Target, state.Property);
+                        state.Thumb = view.FindThumb(state.Target, state.Property);
                         list.Add(state);
                     }
                 }
@@ -933,7 +914,7 @@ public partial class PathEditorView : UserControl
                     {
                         ThumbDragState state = CreateThumbDragState(viewModel, asegment, aproperty);
                         state.Anchor = anchor;
-                        state.Thumb = GetThumb(view, state.Target, state.Property);
+                        state.Thumb = view.FindThumb(state.Target, state.Property);
                         list.Add(state);
                     }
                 }
@@ -950,13 +931,13 @@ public partial class PathEditorView : UserControl
             }
         }
 
-        private ThumbDragState CreateThumbDragState(
+        private static ThumbDragState CreateThumbDragState(
             PathEditorViewModel viewModel,
             PathSegment segment,
             CoreProperty<BtlPoint> property)
         {
-            var editViewModel = viewModel.EditViewModel;
-            var element = viewModel.Element.Value!;
+            EditViewModel editViewModel = viewModel.EditViewModel;
+            ProjectSystem.Element? element = viewModel.Element.Value;
             int rate = editViewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
             TimeSpan globalkeyTime = editViewModel.CurrentTime.Value;
             TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
@@ -998,8 +979,6 @@ public partial class PathEditorView : UserControl
             OldValue = target.GetValue(property);
             Animation = Target.Animations.FirstOrDefault(a => a.Property == Property) as KeyFrameAnimation<BtlPoint>;
         }
-
-        public float? Length { get; }
 
         public KeyFrameAnimation<BtlPoint>? Animation { get; }
 
