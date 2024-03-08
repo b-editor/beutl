@@ -43,14 +43,13 @@ public sealed class PathEditorViewModel : IDisposable
             .DisposeWith(_disposables);
 
         Matrix = Drawable
-            .ObserveOn(RenderThread.Scheduler)
             .Select(d => d != null
                 ? Observable.FromEventPattern<RenderInvalidatedEventArgs>(h => d.Invalidated += h, h => d.Invalidated -= h)
                     .Select(_ => CalculateMatrix(d))
                     .Publish(CalculateMatrix(d)).RefCount()
                 : Observable.Return(Graphics.Matrix.Identity))
             .Switch()
-            .ToReadOnlyReactivePropertySlim()
+            .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
         AvaMatrix = Matrix.Select(v => v.ToAvaMatrix())
             .ToReadOnlyReactivePropertySlim()
@@ -71,42 +70,44 @@ public sealed class PathEditorViewModel : IDisposable
                     .Select(t => new TimeRange(t.First, t.Second)) ?? Observable.Return<TimeRange>(default))
                 .Switch())
             .Select(t => t.Second.Contains(t.First))
-            .ToReadOnlyReactivePropertySlim()
+            .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
         IsClosed = PathGeometry.Select(g => g?.GetObservable(Media.PathGeometry.IsClosedProperty) ?? Observable.Return(false))
             .Switch()
-            .ToReadOnlyReactivePropertySlim()
+            .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
     }
 
     private Matrix CalculateMatrix(Drawable drawable)
     {
         Size frameSize = EditViewModel.Scene.FrameSize.ToSize(1);
-        Size size = drawable.MeasureCoreInternal(frameSize);
-        Matrix mat = drawable.GetTransformMatrix(frameSize, size);
+        Matrix matrix = Graphics.Matrix.Identity;
 
         // Shape.cs
         if (drawable is Shape shape && PathGeometry.Value is { } geometry)
         {
             var requestedSize = new Size(shape.Width, shape.Height);
-            Rect shapeBounds = geometry.Bounds;
+            Rect shapeBounds = geometry.GetCurrentBounds();
             Vector scale = Shape.CalculateScale(requestedSize, shapeBounds, shape.Stretch);
-            Matrix matrix = Graphics.Matrix.CreateTranslation(-shapeBounds.Position);
+            matrix = Graphics.Matrix.CreateTranslation(-shapeBounds.Position);
+            Size size = shapeBounds.Size * scale;
 
             if (shape.Pen != null)
             {
                 float thickness = PenHelper.GetRealThickness(shape.Pen.StrokeAlignment, shape.Pen.Thickness);
+                size = size.Inflate(thickness);
 
                 matrix *= Graphics.Matrix.CreateTranslation(thickness, thickness);
             }
 
             matrix *= Graphics.Matrix.CreateScale(scale);
 
-            mat = matrix * mat;
+            Matrix mat = drawable.GetTransformMatrix(frameSize, size);
+            matrix *= mat;
         }
 
-        return mat;
+        return matrix;
     }
 
     public EditViewModel EditViewModel { get; }
@@ -121,7 +122,7 @@ public sealed class PathEditorViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<Drawable?> Drawable { get; }
 
-    public ReadOnlyReactivePropertySlim<Matrix> Matrix { get; }
+    public ReadOnlyReactiveProperty<Matrix> Matrix { get; }
 
     public ReadOnlyReactivePropertySlim<Avalonia.Matrix> AvaMatrix { get; }
 
@@ -129,9 +130,9 @@ public sealed class PathEditorViewModel : IDisposable
 
     public ReactiveProperty<PathSegment?> SelectedOperation { get; } = new();
 
-    public ReadOnlyReactivePropertySlim<bool> IsVisible { get; }
+    public ReadOnlyReactiveProperty<bool> IsVisible { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> IsClosed { get; }
+    public ReadOnlyReactiveProperty<bool> IsClosed { get; }
 
     public ReactiveProperty<bool> Symmetry { get; } = new(true);
 

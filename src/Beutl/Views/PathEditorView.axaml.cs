@@ -628,9 +628,7 @@ public partial class PathEditorView : UserControl
             var delta = new BtlVector((float)(vector.X / parent.Scale), (float)(vector.Y / parent.Scale));
             if (_dragState != null)
             {
-                _cts?.Cancel();
-                _cts = new CancellationTokenSource();
-                _dragState.Move(delta, _cts.Token);
+                _dragState.Move(delta);
 
                 if (_coordDragStates != null)
                 {
@@ -664,7 +662,7 @@ public partial class PathEditorView : UserControl
 
                                         float x = MathF.Cos(angle) * length;
                                         float y = MathF.Sin(angle) * length;
-                                        c.SetValue(endpoint + new BtlPoint(x, -y), _cts.Token);
+                                        c.SetValue(endpoint + new BtlPoint(x, -y));
                                     }
                                 }
                             }
@@ -674,7 +672,7 @@ public partial class PathEditorView : UserControl
                     {
                         foreach (ThumbDragState item in _coordDragStates)
                         {
-                            item.Move(delta, _cts.Token);
+                            item.Move(delta);
                         }
                     }
                 }
@@ -687,6 +685,7 @@ public partial class PathEditorView : UserControl
                 && viewModel is { Context.Value.Group.Value: { } group })
             {
                 if (!AssociatedObject.Classes.Contains("control"))
+                {
                     foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
                     {
                         if (item.Context is PathOperationEditorViewModel itemvm)
@@ -702,6 +701,7 @@ public partial class PathEditorView : UserControl
                             }
                         }
                     }
+                }
 
                 if (!AssociatedObject.Classes.Contains("control"))
                 {
@@ -906,9 +906,9 @@ public partial class PathEditorView : UserControl
 
         public BtlPoint GetSampleValue()
         {
-            if (Next != null)
+            if (Previous != null)
             {
-                return Next.GetValue(KeyFrame<BtlPoint>.ValueProperty);
+                return Previous.GetValue(KeyFrame<BtlPoint>.ValueProperty);
             }
             else
             {
@@ -916,9 +916,7 @@ public partial class PathEditorView : UserControl
             }
         }
 
-        public void SetValue(BtlPoint point, CancellationToken ct)
-        {
-            RenderThread.Dispatcher.Dispatch(() =>
+        public void SetValue(BtlPoint point)
             {
                 if (Previous == null && Next == null)
                 {
@@ -928,14 +926,11 @@ public partial class PathEditorView : UserControl
                 {
                     CoreProperty<BtlPoint> prop = KeyFrame<BtlPoint>.ValueProperty;
 
-                    Next?.SetValue(prop, point);
+                Previous?.SetValue(prop, point);
                 }
-            }, ct: ct);
         }
 
-        public void Move(BtlVector delta, CancellationToken ct)
-        {
-            RenderThread.Dispatcher.Dispatch(() =>
+        public void Move(BtlVector delta)
             {
                 if (Previous == null && Next == null)
                 {
@@ -948,7 +943,6 @@ public partial class PathEditorView : UserControl
 
                     Next?.SetValue(prop, Next.GetValue(prop) + delta);
                 }
-            }, ct: ct);
         }
 
         public IRecordableCommand? CreateCommand(ImmutableArray<IStorable?> storables)
