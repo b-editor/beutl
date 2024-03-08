@@ -71,8 +71,8 @@ public sealed class PathEditorViewModel : IDisposable
                     .Select(t => new TimeRange(t.First, t.Second)) ?? Observable.Return<TimeRange>(default))
                 .Switch())
             .Select(t => t.Second.Contains(t.First))
-            .CombineLatest(PlayerViewModel.IsPlaying)
-            .Select(t => t.First && !t.Second)
+            .CombineLatest(PlayerViewModel.IsPlaying, Context)
+            .Select(t => t.First && !t.Second && t.Third != null)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
@@ -150,6 +150,18 @@ public sealed class PathEditorViewModel : IDisposable
         if (Context.Value == context)
         {
             Context.Value = null;
+            var group = context.Group.Value;
+            if (group != null)
+            {
+                foreach (var item in group.Items)
+                {
+                    if (item.Context is PathOperationEditorViewModel opEditor
+                        && opEditor.ProgrammaticallyExpanded)
+                    {
+                        opEditor.IsExpanded.Value = false;
+                    }
+                }
+            }
         }
         else
         {

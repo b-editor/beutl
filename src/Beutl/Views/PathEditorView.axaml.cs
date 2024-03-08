@@ -75,6 +75,7 @@ public partial class PathEditorView : UserControl
             .Subscribe(_ => UpdateControlPointVisibility());
 
         // 個別にBindingするのではなく、一括で位置を変更する
+        // TODO: Scale, Matrixが変わった時に位置がずれる
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorViewModel)
             .Select(v => v?.PlayerViewModel?.AfterRendered ?? Observable.Return(Unit.Default))
@@ -131,7 +132,7 @@ public partial class PathEditorView : UserControl
     {
         if (_skipUpdatePosition) return;
 
-        Dispatcher.UIThread.Invoke(() =>
+        Dispatcher.UIThread.Post(() =>
         {
             if (DataContext is PathEditorViewModel viewModel)
             {
