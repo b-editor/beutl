@@ -62,9 +62,5 @@ public sealed class ConicSegment : PathSegment
         context.ConicTo(ControlPoint, EndPoint, Weight);
     }
 
-    public override bool TryGetEndPoint(out Point point)
-    {
-        point = EndPoint;
-        return true;
-    }
+    public override CoreProperty<Point> GetEndPointProperty() => EndPointProperty;
 }

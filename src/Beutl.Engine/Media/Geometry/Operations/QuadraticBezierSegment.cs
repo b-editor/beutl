@@ -49,9 +49,5 @@ public sealed class QuadraticBezierSegment : PathSegment
         context.QuadraticTo(ControlPoint, EndPoint);
     }
 
-    public override bool TryGetEndPoint(out Point point)
-    {
-        point = EndPoint;
-        return true;
-    }
+    public override CoreProperty<Point> GetEndPointProperty() => EndPointProperty;
 }

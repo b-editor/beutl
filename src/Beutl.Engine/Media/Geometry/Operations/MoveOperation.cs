@@ -42,9 +42,5 @@ public sealed class MoveOperation : PathSegment
         context.MoveTo(Point);
     }
 
-    public override bool TryGetEndPoint(out Point point)
-    {
-        point = Point;
-        return true;
-    }
+    public override CoreProperty<Point> GetEndPointProperty() => PointProperty;
 }

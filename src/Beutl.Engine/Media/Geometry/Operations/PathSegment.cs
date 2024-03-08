@@ -14,7 +14,36 @@ public abstract class PathSegment : Animatable, IAffectsRender
 
     public abstract void ApplyTo(IGeometryContext context);
 
-    public abstract bool TryGetEndPoint(out Point point);
+    public bool TryGetEndPoint(out Point point)
+    {
+        point = GetValue(GetEndPointProperty());
+        return true;
+    }
+
+    public Point GetEndPoint()
+    {
+        return GetValue(GetEndPointProperty());
+    }
+    
+    public Point GetEndPoint(TimeSpan localTime, TimeSpan globalTime)
+    {
+        CoreProperty<Point> prop = GetEndPointProperty();
+        if (Animations.FirstOrDefault(a => a.Property == prop) is KeyFrameAnimation<Point> anm)
+        {
+            if (anm.UseGlobalClock)
+            {
+                return anm.Interpolate(globalTime);
+            }
+            else
+            {
+                return anm.Interpolate(localTime);
+            }
+        }
+
+        return GetValue(GetEndPointProperty());
+    }
+
+    public abstract CoreProperty<Point> GetEndPointProperty();
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : PathSegment

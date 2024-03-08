@@ -1,4 +1,6 @@
-﻿using Avalonia.Media.Imaging;
+﻿using System.Reactive.Subjects;
+
+using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
 using Beutl.Audio.Platforms.OpenAL;
@@ -104,7 +106,7 @@ public sealed class PlayerViewModel : IDisposable
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
-        PathEditor = new PathEditorViewModel(_editViewModel)
+        PathEditor = new PathEditorViewModel(_editViewModel, this)
             .DisposeWith(_disposables);
     }
 
@@ -121,6 +123,8 @@ public sealed class PlayerViewModel : IDisposable
 
         QueueRender();
     }
+
+    public Subject<Unit> AfterRendered { get; } = new();
 
     public Scene? Scene { get; set; }
 
@@ -643,6 +647,8 @@ public sealed class PlayerViewModel : IDisposable
                             UpdateImage(bitmap);
                         }
                     }
+
+                    AfterRendered.OnNext(Unit.Default);
                 }
                 catch (Exception ex)
                 {
@@ -690,6 +696,7 @@ public sealed class PlayerViewModel : IDisposable
         Pause();
         _disposables.Dispose();
         _currentFrameSubscription?.Dispose();
+        AfterRendered.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
     }

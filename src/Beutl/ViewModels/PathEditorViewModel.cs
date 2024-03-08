@@ -19,9 +19,10 @@ public sealed class PathEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
 
-    public PathEditorViewModel(EditViewModel editViewModel)
+    public PathEditorViewModel(EditViewModel editViewModel, PlayerViewModel playerViewModel)
     {
         EditViewModel = editViewModel;
+        PlayerViewModel = playerViewModel;
         SceneWidth = editViewModel.Scene.GetObservable(Scene.FrameSizeProperty)
             .Select(v => v.Width)
             .ToReadOnlyReactivePropertySlim()
@@ -70,6 +71,8 @@ public sealed class PathEditorViewModel : IDisposable
                     .Select(t => new TimeRange(t.First, t.Second)) ?? Observable.Return<TimeRange>(default))
                 .Switch())
             .Select(t => t.Second.Contains(t.First))
+            .CombineLatest(PlayerViewModel.IsPlaying)
+            .Select(t => t.First && !t.Second)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
@@ -111,6 +114,8 @@ public sealed class PathEditorViewModel : IDisposable
     }
 
     public EditViewModel EditViewModel { get; }
+
+    public PlayerViewModel PlayerViewModel { get; }
 
     public ReactiveProperty<GeometryEditorViewModel?> Context { get; } = new();
 
