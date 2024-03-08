@@ -93,7 +93,7 @@ public sealed class PathEditorViewModel : IDisposable
             var requestedSize = new Size(shape.Width, shape.Height);
             Rect shapeBounds = geometry.GetCurrentBounds();
             Vector scale = Shape.CalculateScale(requestedSize, shapeBounds, shape.Stretch);
-            matrix = Graphics.Matrix.CreateTranslation(-shapeBounds.Position);
+            //matrix = Graphics.Matrix.CreateTranslation(-shapeBounds.Position);
             Size size = shapeBounds.Size * scale;
 
             if (shape.Pen != null)

@@ -230,7 +230,8 @@ public abstract class Shape : Drawable
         var requestedSize = new Size(Width, Height);
         Rect shapeBounds = geometry.Bounds;
         Vector scale = CalculateScale(requestedSize, shapeBounds, Stretch);
-        Matrix matrix = Matrix.CreateTranslation(-shapeBounds.Position);
+        Matrix matrix = Matrix.Identity;
+        //Matrix matrix = Matrix.CreateTranslation(-shapeBounds.Position);
 
         if (Pen != null)
         {
