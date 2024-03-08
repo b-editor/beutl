@@ -7,6 +7,11 @@ public abstract class PathSegment : Animatable, IAffectsRender
 {
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
+    protected PathSegment()
+    {
+        AnimationInvalidated += (_, e) => RaiseInvalidated(e);
+    }
+
     public abstract void ApplyTo(IGeometryContext context);
 
     public abstract bool TryGetEndPoint(out Point point);

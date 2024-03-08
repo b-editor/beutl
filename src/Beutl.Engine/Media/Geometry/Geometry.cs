@@ -19,6 +19,7 @@ public abstract class Geometry : Animatable, IAffectsRender
     private PathCache _pathCache;
     private PathFillType _fillType;
     private ITransform? _transform;
+    private Rect _bounds;
     private bool _isDirty = true;
     private int _version;
 
@@ -38,6 +39,7 @@ public abstract class Geometry : Animatable, IAffectsRender
     public Geometry()
     {
         Invalidated += OnInvalidated;
+        AnimationInvalidated += (_, e) => RaiseInvalidated(e);
     }
 
     ~Geometry()
@@ -60,7 +62,14 @@ public abstract class Geometry : Animatable, IAffectsRender
         set => SetAndRaise(TransformProperty, ref _transform, value);
     }
 
-    public Rect Bounds => GetNativeObject().TightBounds.ToGraphicsRect();
+    public Rect Bounds
+    {
+        get
+        {
+            _ = GetNativeObject();
+            return _bounds;
+        }
+    }
 
     internal int Version
     {
@@ -128,6 +137,7 @@ public abstract class Geometry : Animatable, IAffectsRender
             }
 
             _context.FillType = _fillType;
+            _bounds = _context.NativeObject.TightBounds.ToGraphicsRect();
 
             _isDirty = false;
             unchecked
@@ -219,6 +229,9 @@ public abstract class Geometry : Animatable, IAffectsRender
     [EditorBrowsable(EditorBrowsableState.Never)]
     public SKPath GetNativeObjectPublic() => GetNativeObject();
 
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public Rect GetCurrentBounds() => _bounds;
+
     private struct PathCache
     {
         private IPen? _cachedPen;
@@ -247,8 +260,9 @@ public abstract class Geometry : Animatable, IAffectsRender
 
         public void Invalidate()
         {
-            CachedStrokePath?.Dispose();
+            SKPath? tmp = CachedStrokePath;
             CachedStrokePath = null;
+            tmp?.Dispose();
             CachedGeometryRenderBounds = default;
             _cachedPen = null;
         }
