@@ -49,24 +49,19 @@ public partial class GeometryEditor : UserControl
         {
             if (viewModel.IsGroup.Value)
             {
-                if (sender is Button btn)
+                try
                 {
-                    btn.ContextFlyout?.ShowAt(btn);
+                    viewModel.AddItem();
+                }
+                catch (Exception ex)
+                {
+                    NotificationService.ShowError("Error", ex.Message);
                 }
             }
             else
             {
                 //expandToggle.ContextFlyout?.ShowAt(expandToggle);
             }
-        }
-    }
-
-    private void Edit_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is GeometryEditorViewModel viewModel)
-        {
-            EditViewModel? editViewModel = viewModel.GetService<EditViewModel>();
-            editViewModel?.Player.PathEditor.StartEdit(viewModel);
         }
     }
 
@@ -79,19 +74,7 @@ public partial class GeometryEditor : UserControl
             {
                 try
                 {
-                    Type? type = item.Tag switch
-                    {
-                        "Arc" => typeof(ArcSegment),
-                        "Conic" => typeof(ConicSegment),
-                        "Cubic" => typeof(CubicBezierSegment),
-                        "Line" => typeof(LineSegment),
-                        "Quad" => typeof(QuadraticBezierSegment),
-                        _ => null,
-                    };
-                    if (type != null)
-                    {
-                        viewModel.AddItem(type);
-                    }
+                    viewModel.AddItem();
                 }
                 catch (Exception ex)
                 {

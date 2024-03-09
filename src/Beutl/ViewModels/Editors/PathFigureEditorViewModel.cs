@@ -11,19 +11,11 @@ using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
+public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 {
-    public GeometryEditorViewModel(IAbstractProperty<Geometry?> property)
+    public PathFigureEditorViewModel(IAbstractProperty<PathFigure> property)
         : base(property)
     {
-        IsGroup = Value.Select(v => v is PathGeometry)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
-        IsGroupOrNull = Value.Select(v => v is PathGeometry || v == null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
-
         IsExpanded.SkipWhile(v => !v)
             .Take(1)
             .Subscribe(_ =>
@@ -34,20 +26,17 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
                     Group.Value?.Dispose();
                     Group.Value = null;
 
-                    if (v is PathGeometry group)
+                    if (v is PathFigure group)
                     {
-                        var prop = new CorePropertyImpl<PathFigures>(PathGeometry.FiguresProperty, group);
-                        Group.Value = new ListEditorViewModel<PathFigure>(prop)
+                        var prop = new CorePropertyImpl<PathSegments>(PathFigure.SegmentsProperty, group);
+                        Group.Value = new ListEditorViewModel<PathSegment>(prop)
                         {
                             IsExpanded = { Value = true }
                         };
 
                         Properties.Value = new PropertiesEditorViewModel(group,
-                            (p, m) => p == Geometry.FillTypeProperty);
-                    }
-                    else if (v is Geometry geometry)
-                    {
-                        Properties.Value = new PropertiesEditorViewModel(geometry, (p, m) => m.Browsable && p != Geometry.TransformProperty);
+                            (p, m) => p == PathFigure.StartPointProperty
+                                   || p == PathFigure.IsClosedProperty);
                     }
 
                     AcceptChild();
@@ -62,20 +51,22 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
             .DisposeWith(Disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<bool> IsGroup { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsGroupOrNull { get; }
-
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
-    public ReactivePropertySlim<ListEditorViewModel<PathFigure>?> Group { get; } = new();
+    public ReactivePropertySlim<ListEditorViewModel<PathSegment>?> Group { get; } = new();
+
+    public ReactivePropertySlim<GeometryEditorViewModel?> ParentContext { get; } = new();
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
         AcceptChild();
+        if (visitor is IServiceProvider serviceProvider)
+        {
+            ParentContext.Value = serviceProvider.GetService<GeometryEditorViewModel>();
+        }
     }
 
     private void AcceptChild()
@@ -92,21 +83,14 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
         }
     }
 
-    public void ChangeGeometryType(Type type)
+    public void AddItem(Type type)
     {
-        if (Activator.CreateInstance(type) is Geometry instance)
-        {
-            SetValue(Value.Value, instance);
-        }
-    }
-
-    public void AddItem()
-    {
-        if (Value.Value is PathGeometry group)
+        if (Value.Value is { } group
+            && Activator.CreateInstance(type) is PathSegment instance)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            group.Figures.BeginRecord<PathFigure>()
-                .Add(new PathFigure())
+            group.Segments.BeginRecord<PathSegment>()
+                .Add(instance)
                 .ToCommand(GetStorables())
                 .DoAndRecord(recorder);
         }
@@ -160,13 +144,10 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
         }
     }
 
-    private sealed record Visitor(GeometryEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(PathFigureEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {
-            if (serviceType == typeof(GeometryEditorViewModel))
-                return Obj;
-
             return Obj.GetService(serviceType);
         }
 

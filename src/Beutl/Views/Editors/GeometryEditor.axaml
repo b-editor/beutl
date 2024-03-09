@@ -31,53 +31,23 @@
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
-                <StackPanel Orientation="Horizontal" Spacing="4">
-
-                    <Button Padding="0"
-                            HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Classes="size-24x24"
-                            Click="Edit_Click"
-                            Theme="{StaticResource TransparentButton}">
-                        <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xEDFB;" />
-                    </Button>
-                    <Button Padding="0"
-                            HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Classes="size-24x24"
-                            Click="Tag_Click"
-                            Theme="{StaticResource TransparentButton}">
-                        <icons:SymbolIcon Classes.add="{Binding IsGroup.Value}">
-                            <icons:SymbolIcon.Styles>
-                                <Style Selector="icons|SymbolIcon">
-                                    <Setter Property="Symbol" Value="Compose" />
-                                </Style>
-                                <Style Selector="icons|SymbolIcon.add">
-                                    <Setter Property="Symbol" Value="Add" />
-                                </Style>
-                            </icons:SymbolIcon.Styles>
-                        </icons:SymbolIcon>
-                        <Button.ContextFlyout>
-                            <ui:FAMenuFlyout>
-                                <ui:MenuFlyoutItem Click="AddClick"
-                                                   Tag="Cubic"
-                                                   Text="3次ベジェ曲線" />
-                                <ui:MenuFlyoutItem Click="AddClick"
-                                                   Tag="Quad"
-                                                   Text="2次ベジェ曲線" />
-                                <ui:MenuFlyoutItem Click="AddClick"
-                                                   Tag="Line"
-                                                   Text="直線" />
-                                <ui:MenuFlyoutItem Click="AddClick"
-                                                   Tag="Arc"
-                                                   Text="円弧" />
-                                <ui:MenuFlyoutItem Click="AddClick"
-                                                   Tag="Conic"
-                                                   Text="円錐" />
-                            </ui:FAMenuFlyout>
-                        </Button.ContextFlyout>
-                    </Button>
-                </StackPanel>
+                <Button Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Classes="size-24x24"
+                        Click="Tag_Click"
+                        Theme="{StaticResource TransparentButton}">
+                    <icons:SymbolIcon Classes.add="{Binding IsGroup.Value}">
+                        <icons:SymbolIcon.Styles>
+                            <Style Selector="icons|SymbolIcon">
+                                <Setter Property="Symbol" Value="Compose" />
+                            </Style>
+                            <Style Selector="icons|SymbolIcon.add">
+                                <Setter Property="Symbol" Value="Add" />
+                            </Style>
+                        </icons:SymbolIcon.Styles>
+                    </icons:SymbolIcon>
+                </Button>
             </ToggleButton.Tag>
             <WrapPanel Orientation="Horizontal">
                 <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Filter}" />
@@ -91,9 +61,8 @@
                     Grid.Row="1"
                     MinHeight="32">
             <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
-
-            <local:PropertiesEditor Margin="16,0,0,0"
-                                    Padding="0"
+            <!--  Margin="16,0,0,0"  -->
+            <local:PropertiesEditor Padding="0"
                                     DataContext="{Binding Properties.Value}"
                                     IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
                                                                   Converter={x:Static ObjectConverters.IsNotNull}}" />

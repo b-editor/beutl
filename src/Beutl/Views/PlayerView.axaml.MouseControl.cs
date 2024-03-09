@@ -110,6 +110,7 @@ public partial class PlayerView
 
                 _position = position;
 
+                View.framePanel.Cursor = Cursors.HandGrab;
                 e.Handled = true;
             }
         }
@@ -126,7 +127,7 @@ public partial class PlayerView
         public void OnPressed(PointerPressedEventArgs e)
         {
             PointerPoint pointerPoint = e.GetCurrentPoint(Player);
-            _pressed = pointerPoint.Properties.IsLeftButtonPressed;
+            _pressed = pointerPoint.Properties.IsLeftButtonPressed || pointerPoint.Properties.IsMiddleButtonPressed;
             _position = pointerPoint.Position;
             if (_pressed)
             {
@@ -377,7 +378,7 @@ public partial class PlayerView
 
             e.Handled = _imagePressed;
 
-            if (e.ClickCount == 2)
+            if (e.ClickCount == 2&& Drawable is Graphics.Shapes.Shape shape)
             {
                 SourceOperatorsTabViewModel? tab = EditViewModel.FindToolTab<SourceOperatorsTabViewModel>();
                 if (tab != null)
@@ -387,7 +388,8 @@ public partial class PlayerView
                         IPropertyEditorContext? prop = item.Properties.FirstOrDefault(v => v is GeometryEditorViewModel);
                         if (prop is GeometryEditorViewModel geometryEditorViewModel)
                         {
-                            EditViewModel.Player.PathEditor.StartEdit(geometryEditorViewModel);
+                            EditViewModel.Player.PathEditor.StartEdit(shape, geometryEditorViewModel, _scaledStartPosition);
+                            break;
                         }
                     }
                 }
@@ -606,6 +608,43 @@ public partial class PlayerView
 
     private readonly WeakReference<Drawable?> _lastSelected = new(null);
     private IMouseControlHandler? _mouseState;
+    private int _lastMouseMode = -1;
+
+    private int GetMouseModeIndex(PlayerViewModel viewModel)
+    {
+        if (viewModel.IsMoveMode.Value)
+        {
+            return 0;
+        }
+        else if (viewModel.IsHandMode.Value)
+        {
+            return 1;
+        }
+        else if (viewModel.IsCropMode.Value)
+        {
+            return 2;
+        }
+        else
+        {
+            return -1;
+        }
+    }
+
+    private void SetMouseMode(PlayerViewModel viewModel, int index, bool value)
+    {
+        switch (index)
+        {
+            case 0:
+                viewModel.IsMoveMode.Value = value;
+                break;
+            case 1:
+                viewModel.IsHandMode.Value = value;
+                break;
+            case 2:
+                viewModel.IsCropMode.Value = value;
+                break;
+        }
+    }
 
     private void OnFramePointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
@@ -624,6 +663,14 @@ public partial class PlayerView
     {
         _mouseState?.OnReleased(e);
         _mouseState = null;
+
+        if (DataContext is PlayerViewModel viewModel
+            && e.InitialPressMouseButton == MouseButton.Middle)
+        {
+            SetMouseMode(viewModel, _lastMouseMode, true);
+
+            _lastMouseMode = -1;
+        }
     }
 
     private IMouseControlHandler CreateMouseHandler(PlayerViewModel viewModel)
@@ -657,8 +704,16 @@ public partial class PlayerView
     private void OnFramePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var point = e.GetCurrentPoint(null);
-        if (DataContext is PlayerViewModel viewModel && point.Properties.IsLeftButtonPressed)
+        if (DataContext is PlayerViewModel viewModel
+            && (point.Properties.IsLeftButtonPressed
+            || point.Properties.IsMiddleButtonPressed))
         {
+            if (point.Properties.IsMiddleButtonPressed)
+            {
+                _lastMouseMode = GetMouseModeIndex(viewModel);
+                viewModel.IsHandMode.Value = true;
+            }
+
             _mouseState = CreateMouseHandler(viewModel);
 
             _mouseState.OnPressed(e);
