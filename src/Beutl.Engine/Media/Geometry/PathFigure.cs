@@ -13,10 +13,10 @@ namespace Beutl.Media;
 public sealed class PathFigure : Animatable, IAffectsRender
 {
     public static readonly CoreProperty<bool> IsClosedProperty;
-    public static readonly CoreProperty<Point?> StartPointProperty;
+    public static readonly CoreProperty<Point> StartPointProperty;
     public static readonly CoreProperty<PathSegments> SegmentsProperty;
     private bool _isClosed;
-    private Point? _startPoint;
+    private Point _startPoint = new(float.NaN, float.NaN);
     private readonly PathSegments _segments = [];
 
     static PathFigure()
@@ -25,8 +25,9 @@ public sealed class PathFigure : Animatable, IAffectsRender
             .Accessor(o => o.IsClosed, (o, v) => o.IsClosed = v)
             .Register();
 
-        StartPointProperty = ConfigureProperty<Point?, PathFigure>(nameof(StartPoint))
+        StartPointProperty = ConfigureProperty<Point, PathFigure>(nameof(StartPoint))
             .Accessor(o => o.StartPoint, (o, v) => o.StartPoint = v)
+            .DefaultValue(new Point(float.NaN, float.NaN))
             .Register();
 
         SegmentsProperty = ConfigureProperty<PathSegments, PathFigure>(nameof(Segments))
@@ -53,8 +54,8 @@ public sealed class PathFigure : Animatable, IAffectsRender
             }
         }
     }
-    
-    public Point? StartPoint
+
+    public Point StartPoint
     {
         get => _startPoint;
         set
@@ -91,22 +92,22 @@ public sealed class PathFigure : Animatable, IAffectsRender
     public void ApplyTo(IGeometryContext context)
     {
         bool skipFirst = false;
-        if (StartPoint.HasValue)
+        if (!StartPoint.IsInvalid)
         {
-            context.MoveTo(StartPoint.Value);
+            context.MoveTo(StartPoint);
         }
         else if (Segments.Count > 0)
         {
             if (IsClosed)
             {
-                if (Segments[^1].TryGetEndPoint(out Graphics.Point endPoint))
+                if (Segments[^1].TryGetEndPoint(out Point endPoint))
                 {
                     context.MoveTo(endPoint);
                 }
             }
             else
             {
-                if (Segments[0].TryGetEndPoint(out Graphics.Point endPoint))
+                if (Segments[0].TryGetEndPoint(out Point endPoint))
                 {
                     context.MoveTo(endPoint);
                     skipFirst = true;
