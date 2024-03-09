@@ -15,7 +15,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class PathEditorViewModel : IDisposable
+public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
 {
     private readonly CompositeDisposable _disposables = [];
 
@@ -125,15 +125,15 @@ public sealed class PathEditorViewModel : IDisposable
 
     public PlayerViewModel PlayerViewModel { get; }
 
-    public ReactiveProperty<PathFigureEditorViewModel?> FigureContext { get; } = new();
+    public IReactiveProperty<PathFigureEditorViewModel?> FigureContext { get; } = new ReactiveProperty<PathFigureEditorViewModel?>();
 
     public ReadOnlyReactivePropertySlim<GeometryEditorViewModel?> Context { get; }
 
-    public ReadOnlyReactivePropertySlim<PathGeometry?> PathGeometry { get; }
+    public IReadOnlyReactiveProperty<PathGeometry?> PathGeometry { get; }
 
-    public ReadOnlyReactivePropertySlim<PathFigure?> PathFigure { get; }
+    public IReadOnlyReactiveProperty<PathFigure?> PathFigure { get; }
 
-    public ReadOnlyReactivePropertySlim<Element?> Element { get; }
+    public IReadOnlyReactiveProperty<Element?> Element { get; }
 
     public ReadOnlyReactivePropertySlim<StyledSourcePublisher?> SourceOperator { get; }
 
@@ -145,17 +145,17 @@ public sealed class PathEditorViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<int> SceneWidth { get; }
 
-    public ReactiveProperty<PathSegment?> SelectedOperation { get; } = new();
+    public IReactiveProperty<PathSegment?> SelectedOperation { get; } = new ReactiveProperty<PathSegment?>();
 
     public ReadOnlyReactiveProperty<bool> IsVisible { get; }
 
     public ReadOnlyReactiveProperty<bool> IsClosed { get; }
 
-    public ReactiveProperty<bool> Symmetry { get; } = new(true);
+    public IReactiveProperty<bool> Symmetry { get; } = new ReactiveProperty<bool>(true);
 
-    public ReactiveProperty<bool> Asymmetry { get; } = new(false);
+    public IReactiveProperty<bool> Asymmetry { get; } = new ReactiveProperty<bool>(false);
 
-    public ReactiveProperty<bool> Separately { get; } = new(false);
+    public IReactiveProperty<bool> Separately { get; } = new ReactiveProperty<bool>(false);
 
     public void StartEdit(Shape shape, GeometryEditorViewModel context, Avalonia.Point point)
     {
