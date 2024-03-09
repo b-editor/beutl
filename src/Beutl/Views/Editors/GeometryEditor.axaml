@@ -24,6 +24,9 @@
                     <ui:MenuFlyoutItem Click="SetNullClick"
                                        FontWeight="Normal"
                                        Text="Null" />
+                    <ui:MenuFlyoutItem Click="ImportFromSvgPathClick"
+                                       FontWeight="Normal"
+                                       Text="{x:Static lang:Strings.ImportSvgPath}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
