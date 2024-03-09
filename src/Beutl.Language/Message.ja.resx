@@ -300,4 +300,7 @@
   <data name="Files_are_saved_automatically" xml:space="preserve">
     <value>ファイルは自動的に保存されます。</value>
   </data>
+  <data name="An_exception_occurred_while_parsing_the_SVG_path" xml:space="preserve">
+    <value>SVGパスの解析中に例外が発生しました。</value>
+  </data>
 </root>

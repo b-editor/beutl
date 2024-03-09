@@ -1177,4 +1177,13 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Figure" xml:space="preserve">
     <value>図形</value>
   </data>
+  <data name="Import" xml:space="preserve">
+    <value>インポート</value>
+  </data>
+  <data name="ImportSvgPath" xml:space="preserve">
+    <value>SVGパスをインポート</value>
+  </data>
+  <data name="ImportSvgPath_Description" xml:space="preserve">
+    <value>現在の図形は上書きされます。</value>
+  </data>
 </root>

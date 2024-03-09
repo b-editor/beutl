@@ -300,4 +300,7 @@ Please wait a moment.</value>
   <data name="Files_are_saved_automatically" xml:space="preserve">
     <value>Files are saved automatically.</value>
   </data>
+  <data name="An_exception_occurred_while_parsing_the_SVG_path" xml:space="preserve">
+    <value>An exception occurred while parsing the SVG path.</value>
+  </data>
 </root>

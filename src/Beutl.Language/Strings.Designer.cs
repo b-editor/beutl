@@ -1502,6 +1502,33 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Import.
+        /// </summary>
+        public static string Import {
+            get {
+                return ResourceManager.GetString("Import", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Import SVG path.
+        /// </summary>
+        public static string ImportSvgPath {
+            get {
+                return ResourceManager.GetString("ImportSvgPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The current shape will be overwritten..
+        /// </summary>
+        public static string ImportSvgPath_Description {
+            get {
+                return ResourceManager.GetString("ImportSvgPath_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Info.
         /// </summary>
         public static string Info {
