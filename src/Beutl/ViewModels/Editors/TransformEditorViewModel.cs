@@ -246,6 +246,13 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
         }
     }
 
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        Properties.Value?.Dispose();
+        Group.Value?.Dispose();
+    }
+
     private sealed record Visitor(TransformEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)

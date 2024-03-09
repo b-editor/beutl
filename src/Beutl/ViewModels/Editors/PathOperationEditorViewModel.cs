@@ -25,14 +25,14 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
                     var name = v switch
                     {
 #pragma warning disable CS0618 // Type or member is obsolete
-                        CloseOperation => "閉じる",
-                        MoveOperation => "移動",
+                        CloseOperation => Strings.Close,
+                        MoveOperation => Strings.Move,
 #pragma warning restore CS0618 // Type or member is obsolete
-                        ArcSegment => "円弧",
-                        ConicSegment => "円錐",
-                        CubicBezierSegment => "3次ベジェ曲線",
-                        LineSegment => "直線",
-                        QuadraticBezierSegment => "2次ベジェ曲線",
+                        ArcSegment => Strings.EllipticalArc,
+                        ConicSegment => Strings.Conic,
+                        CubicBezierSegment => Strings.CubicBezierCurve,
+                        LineSegment => Strings.Line,
+                        QuadraticBezierSegment => Strings.QuadraticBezierCurve,
                         _ => null,
                     };
 
@@ -155,6 +155,12 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
         catch
         {
         }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        Properties.Value?.Dispose();
     }
 
     private sealed record Visitor(PathOperationEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor

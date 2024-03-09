@@ -207,6 +207,13 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         }
     }
 
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        ChildContext.Value?.Dispose();
+        _revoker?.Dispose();
+    }
+
     private sealed record Visitor(BrushEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)

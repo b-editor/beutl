@@ -248,6 +248,13 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         SetValue(Value.Value, instance);
     }
 
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        Properties.Value?.Dispose();
+        Group.Value?.Dispose();
+    }
+
     private sealed record Visitor(FilterEffectEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)

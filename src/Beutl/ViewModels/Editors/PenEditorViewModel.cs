@@ -154,6 +154,19 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         }
     }
 
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        foreach (IPropertyEditorContext item in MajorProperties)
+        {
+            item.Dispose();
+        }
+        foreach (IPropertyEditorContext item in MinorProperties)
+        {
+            item.Dispose();
+        }
+    }
+
     private sealed record Visitor(PenEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
