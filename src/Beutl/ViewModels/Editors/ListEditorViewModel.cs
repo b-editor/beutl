@@ -405,6 +405,15 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         }
     }
 
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        foreach (ListItemEditorViewModel<TItem> item in Items)
+        {
+            item.Dispose();
+        }
+    }
+
     private sealed record Visitor(ListEditorViewModel<TItem> Obj) : IServiceProvider, IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)

@@ -13,9 +13,14 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 {
+    private readonly ReactivePropertySlim<EditViewModel?> _editViewModel = new();
+    private bool _invalidated = true;
+
     public PathFigureEditorViewModel(IAbstractProperty<PathFigure> property)
         : base(property)
     {
+        _editViewModel.DisposeWith(Disposables);
+
         IsExpanded.SkipWhile(v => !v)
             .Take(1)
             .Subscribe(_ =>
@@ -49,6 +54,26 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
             .WhereNotNull()
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v))
             .DisposeWith(Disposables);
+
+        Value.CombineWithPrevious()
+            .Subscribe(t =>
+            {
+                if (t.OldValue != null)
+                    t.OldValue.Invalidated -= OnFigureInvalidated;
+
+                if (t.NewValue != null)
+                    t.NewValue.Invalidated += OnFigureInvalidated;
+            })
+            .DisposeWith(Disposables);
+
+        EditingPath = _editViewModel.Select(v => v?.Player.PathEditor.PathFigure ?? Observable.Return<PathFigure?>(null))
+            .Switch()
+            .CombineLatest(Value)
+            .Select(t => t.First == t.Second && t.First != null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        RecreatePreviewPath();
     }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
@@ -59,6 +84,42 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 
     public ReactivePropertySlim<GeometryEditorViewModel?> ParentContext { get; } = new();
 
+    public ReadOnlyReactivePropertySlim<bool> EditingPath { get; }
+
+    public ReactivePropertySlim<Avalonia.Media.Geometry?> PreviewPath { get; } = new(null);
+
+    private void OnFigureInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        _invalidated = true;
+    }
+
+    public void RecreatePreviewPath()
+    {
+        if (!_invalidated) return;
+
+        try
+        {
+            if (Value.Value != null)
+            {
+                using (var context = new GeometryContext())
+                {
+                    Value.Value.ApplyTo(context);
+                    string path = context.NativeObject.ToSvgPathData();
+                    PreviewPath.Value = Avalonia.Media.Geometry.Parse(path);
+                    return;
+                }
+            }
+        }
+        catch
+        {
+            PreviewPath.Value = null;
+        }
+        finally
+        {
+            _invalidated = false;
+        }
+    }
+
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
@@ -66,6 +127,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         if (visitor is IServiceProvider serviceProvider)
         {
             ParentContext.Value = serviceProvider.GetService<GeometryEditorViewModel>();
+            _editViewModel.Value = serviceProvider.GetService<EditViewModel>();
         }
     }
 
@@ -142,6 +204,18 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         catch
         {
         }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (Value.Value != null)
+        {
+            Value.Value.Invalidated -= OnFigureInvalidated;
+        }
+
+        base.Dispose(disposing);
+        Properties.Value?.Dispose();
+        Group.Value?.Dispose();
     }
 
     private sealed record Visitor(PathFigureEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
