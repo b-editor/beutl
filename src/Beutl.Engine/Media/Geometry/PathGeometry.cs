@@ -67,7 +67,7 @@ public sealed class PathGeometry : Geometry
 
             if (pathVerb == SKPathVerb.Move)
             {
-                if (currentFigure.StartPoint.HasValue || currentFigure.Segments.Count > 0)
+                if (!currentFigure.StartPoint.IsInvalid || currentFigure.Segments.Count > 0)
                 {
                     result.Figures.Add(currentFigure);
                     currentFigure = new PathFigure();

@@ -40,6 +40,7 @@ public readonly struct Point(float x, float y)
       IMultiplyOperators<Point, Matrix, Point>,
       ITupleConvertible<Point, float>
 {
+    public static readonly Point Invalid = new(float.NaN, float.NaN);
 
     /// <summary>
     /// Gets the X position.
@@ -55,6 +56,11 @@ public readonly struct Point(float x, float y)
     /// Gets a value indicating whether the X and Y coordinates are zero.
     /// </summary>
     public bool IsDefault => (X == 0) && (Y == 0);
+
+    /// <summary>
+    /// Gets the value of whether any of the properties are NaN.
+    /// </summary>
+    public bool IsInvalid => float.IsNaN(X) || float.IsNaN(Y);
 
     static int ITupleConvertible<Point, float>.TupleLength => 2;
 
