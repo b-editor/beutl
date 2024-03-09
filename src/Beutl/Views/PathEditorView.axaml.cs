@@ -620,7 +620,7 @@ public partial class PathEditorView : UserControl
             PathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<PathEditorView>();
             if (AssociatedObject is not { DataContext: PathSegment segment }
                 || _dragState == null
-                || parent is not { DataContext: PathEditorViewModel { PathGeometry.Value: { } geometry, PathFigure.Value: { } figure, Element.Value: { } element } viewModel }
+                || parent is not { DataContext: PathEditorViewModel { PathFigure.Value: { } figure, Element.Value: { } element } viewModel }
                 || !_lastPoint.HasValue)
             {
                 return;
@@ -629,7 +629,7 @@ public partial class PathEditorView : UserControl
             Point vector = e.GetPosition(AssociatedObject) - _lastPoint.Value;
 
             var delta = new BtlVector((float)(vector.X / parent.Scale), (float)(vector.Y / parent.Scale));
-            var mat = new Graphics.Matrix(
+            Graphics.Matrix mat = new Graphics.Matrix(
                 (float)parent.Matrix.M11, (float)parent.Matrix.M12,
                 (float)parent.Matrix.M21, (float)parent.Matrix.M22,
                 0, 0).Invert();
@@ -833,7 +833,7 @@ public partial class PathEditorView : UserControl
             }
         }
 
-        private void CoordinateControlPoint(
+        private static void CoordinateControlPoint(
             List<ThumbDragState> list,
             PathEditorView view,
             PathEditorViewModel viewModel,

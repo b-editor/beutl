@@ -47,7 +47,7 @@
                              IsChecked="{Binding PathEditor.Symmetry.Value, Mode=OneWay}"
                              IsVisible="{Binding !!PathEditor.Context.Value}"
                              Tag="Symmetry"
-                             ToolTip.Tip="対称">
+                             ToolTip.Tip="{x:Static lang:Strings.Symmetry}">
                     <Border VerticalAlignment="Center">
                         <Path Width="16"
                               VerticalAlignment="Center"
@@ -61,7 +61,7 @@
                              IsChecked="{Binding PathEditor.Asymmetry.Value, Mode=OneWay}"
                              IsVisible="{Binding !!PathEditor.Context.Value}"
                              Tag="Asymmetry"
-                             ToolTip.Tip="非対称">
+                             ToolTip.Tip="{x:Static lang:Strings.Asymmetry}">
                     <Border VerticalAlignment="Center">
                         <Path Width="16"
                               VerticalAlignment="Center"
@@ -75,7 +75,7 @@
                              IsChecked="{Binding PathEditor.Separately.Value, Mode=OneWay}"
                              IsVisible="{Binding !!PathEditor.Context.Value}"
                              Tag="Separately"
-                             ToolTip.Tip="別々">
+                             ToolTip.Tip="{x:Static lang:Strings.Separately}">
                     <Border VerticalAlignment="Center">
                         <Path Width="16"
                               VerticalAlignment="Center"

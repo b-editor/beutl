@@ -68,24 +68,18 @@ public partial class GeometryEditor : UserControl
     private void AddClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is GeometryEditorViewModel viewModel
-            && sender is MenuFlyoutItem item)
+            && sender is MenuFlyoutItem item
+            && viewModel.IsGroup.Value)
         {
-            if (viewModel.IsGroup.Value)
+            try
             {
-                try
-                {
-                    viewModel.AddItem();
-                }
-                catch (Exception ex)
-                {
-                    NotificationService.ShowError("Error", ex.Message);
-                }
+                viewModel.AddItem();
+            }
+            catch (Exception ex)
+            {
+                NotificationService.ShowError("Error", ex.Message);
             }
         }
-    }
-
-    private void ChangeFilterTypeClick(object? sender, RoutedEventArgs e)
-    {
     }
 
     private void SetNullClick(object? sender, RoutedEventArgs e)

@@ -39,7 +39,6 @@ public sealed class PathEditorViewModel : IDisposable
             .DisposeWith(_disposables);
         PathFigure = FigureContext.Select(v => v?.Value ?? Observable.Return<PathFigure?>(null))
             .Switch()
-            .Select(v => v as PathFigure)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         Element = Context.Select(v => v?.GetService<Element>())
@@ -167,14 +166,11 @@ public sealed class PathEditorViewModel : IDisposable
         {
             point = inverted.Transform(point);
             PathFigure? figure = geometry.HitTestFigure(point.ToBtlPoint(), shape.Pen);
-            if (figure != null)
+            if (figure != null
+                && group.Items.FirstOrDefault(v => v.Context is PathFigureEditorViewModel f && f.Value.Value == figure)
+                    ?.Context is PathFigureEditorViewModel figContext)
             {
-                var figContext = group.Items.FirstOrDefault(v => v.Context is PathFigureEditorViewModel f && f.Value.Value == figure)
-                    ?.Context as PathFigureEditorViewModel;
-                if (figContext != null)
-                {
-                    StartEdit(figContext);
-                }
+                StartEdit(figContext);
             }
         }
     }
@@ -184,10 +180,10 @@ public sealed class PathEditorViewModel : IDisposable
         if (FigureContext.Value == context)
         {
             FigureContext.Value = null;
-            var group = context.Group.Value;
+            ListEditorViewModel<PathSegment>? group = context.Group.Value;
             if (group != null)
             {
-                foreach (var item in group.Items)
+                foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
                 {
                     if (item.Context is PathOperationEditorViewModel opEditor
                         && opEditor.ProgrammaticallyExpanded)

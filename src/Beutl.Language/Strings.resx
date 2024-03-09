@@ -1150,4 +1150,31 @@ and b-editor maintains the download URL.</value>
   <data name="ShowRing" xml:space="preserve">
     <value>Show ring</value>
   </data>
+  <data name="CubicBezierCurve" xml:space="preserve">
+    <value>Cubic Bezier curve</value>
+  </data>
+  <data name="QuadraticBezierCurve" xml:space="preserve">
+    <value>Quadratic Bezier curve</value>
+  </data>
+  <data name="Line" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="EllipticalArc" xml:space="preserve">
+    <value>Elliptical arc</value>
+  </data>
+  <data name="Conic" xml:space="preserve">
+    <value>Conic</value>
+  </data>
+  <data name="Symmetry" xml:space="preserve">
+    <value>Symmetry</value>
+  </data>
+  <data name="Asymmetry" xml:space="preserve">
+    <value>Asymmetry</value>
+  </data>
+  <data name="Separately" xml:space="preserve">
+    <value>Separately</value>
+  </data>
+  <data name="Figure" xml:space="preserve">
+    <value>Figure</value>
+  </data>
 </root>
