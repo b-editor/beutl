@@ -1150,4 +1150,31 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="ShowRing" xml:space="preserve">
     <value>リングを表示</value>
   </data>
+  <data name="CubicBezierCurve" xml:space="preserve">
+    <value>3次ベジェ曲線</value>
+  </data>
+  <data name="QuadraticBezierCurve" xml:space="preserve">
+    <value>2次ベジェ曲線</value>
+  </data>
+  <data name="Line" xml:space="preserve">
+    <value>直線</value>
+  </data>
+  <data name="EllipticalArc" xml:space="preserve">
+    <value>円弧</value>
+  </data>
+  <data name="Conic" xml:space="preserve">
+    <value>円錐</value>
+  </data>
+  <data name="Symmetry" xml:space="preserve">
+    <value>対称</value>
+  </data>
+  <data name="Asymmetry" xml:space="preserve">
+    <value>非対称</value>
+  </data>
+  <data name="Separately" xml:space="preserve">
+    <value>別々</value>
+  </data>
+  <data name="Figure" xml:space="preserve">
+    <value>図形</value>
+  </data>
 </root>

@@ -2,6 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -66,32 +67,32 @@
             <ui:FAMenuFlyout>
                 <ui:MenuFlyoutItem Click="AddOpClicked"
                                    Tag="Cubic"
-                                   Text="3次ベジェ曲線" />
+                                   Text="{x:Static lang:Strings.CubicBezierCurve}" />
                 <ui:MenuFlyoutItem Click="AddOpClicked"
                                    Tag="Quad"
-                                   Text="2次ベジェ曲線" />
+                                   Text="{x:Static lang:Strings.QuadraticBezierCurve}" />
                 <ui:MenuFlyoutItem Click="AddOpClicked"
                                    Tag="Line"
-                                   Text="直線" />
+                                   Text="{x:Static lang:Strings.Line}" />
                 <ui:MenuFlyoutItem Click="AddOpClicked"
                                    Tag="Arc"
-                                   Text="円弧" />
+                                   Text="{x:Static lang:Strings.EllipticalArc}" />
                 <ui:MenuFlyoutItem Click="AddOpClicked"
                                    Tag="Conic"
-                                   Text="円錐" />
+                                   Text="{x:Static lang:Strings.Conic}" />
                 <ui:MenuFlyoutSeparator />
                 <ui:RadioMenuFlyoutItem Click="ToggleDragModeClick"
                                         IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
                                         Tag="Symmetry"
-                                        Text="対称" />
+                                        Text="{x:Static lang:Strings.Symmetry}" />
                 <ui:RadioMenuFlyoutItem Click="ToggleDragModeClick"
                                         IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
                                         Tag="Asymmetry"
-                                        Text="非対称" />
+                                        Text="{x:Static lang:Strings.Asymmetry}" />
                 <ui:RadioMenuFlyoutItem Click="ToggleDragModeClick"
                                         IsChecked="{Binding Separately.Value, Mode=OneWay}"
                                         Tag="Separately"
-                                        Text="別々" />
+                                        Text="{x:Static lang:Strings.Separately}" />
             </ui:FAMenuFlyout>
         </Canvas.ContextFlyout>
 

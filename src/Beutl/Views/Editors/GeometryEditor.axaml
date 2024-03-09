@@ -21,10 +21,6 @@
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Click="ChangeFilterTypeClick"
-                                       FontWeight="Normal"
-                                       IconSource="New"
-                                       Text="{x:Static lang:Strings.Change}" />
                     <ui:MenuFlyoutItem Click="SetNullClick"
                                        FontWeight="Normal"
                                        Text="Null" />
