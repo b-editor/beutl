@@ -114,4 +114,27 @@ public partial class PlayerView : UserControl
 
         Dispatcher.UIThread.InvokeAsync(image.InvalidateVisual);
     }
+
+    private void ToggleDragModeClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton button && DataContext is PlayerViewModel { PathEditor: PathEditorViewModel viewModel })
+        {
+            viewModel.Symmetry.Value = false;
+            viewModel.Asymmetry.Value = false;
+            viewModel.Separately.Value = false;
+
+            switch (button.Tag)
+            {
+                case "Symmetry":
+                    viewModel.Symmetry.Value = true;
+                    break;
+                case "Asymmetry":
+                    viewModel.Asymmetry.Value = true;
+                    break;
+                case "Separately":
+                    viewModel.Separately.Value = true;
+                    break;
+            }
+        }
+    }
 }

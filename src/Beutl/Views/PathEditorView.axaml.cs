@@ -48,7 +48,7 @@ public partial class PathEditorView : UserControl
         InitializeComponent();
         canvas.AddHandler(PointerPressedEvent, OnCanvasPointerPressed, RoutingStrategies.Tunnel);
 
-        view.GetObservable(PathGeometryControl.GeometryProperty)
+        view.GetObservable(PathGeometryControl.FigureProperty)
             .Subscribe(geo =>
             {
                 canvas.Children.RemoveAll(canvas.Children
@@ -95,11 +95,11 @@ public partial class PathEditorView : UserControl
             }
 
             if (viewModel.SelectedOperation.Value is { } op
-                && viewModel.PathGeometry.Value is { } geometry)
+                && viewModel.PathFigure.Value is { } figure)
             {
-                bool isClosed = geometry.IsClosed;
-                int index = geometry.Segments.IndexOf(op);
-                int nextIndex = (index + 1) % geometry.Segments.Count;
+                bool isClosed = figure.IsClosed;
+                int index = figure.Segments.IndexOf(op);
+                int nextIndex = (index + 1) % figure.Segments.Count;
 
                 if (isClosed || index != 0)
                 {
@@ -114,9 +114,9 @@ public partial class PathEditorView : UserControl
 
                 if (isClosed || nextIndex != 0)
                 {
-                    if (0 <= nextIndex && nextIndex < geometry.Segments.Count)
+                    if (0 <= nextIndex && nextIndex < figure.Segments.Count)
                     {
-                        PathSegment next = geometry.Segments[nextIndex];
+                        PathSegment next = figure.Segments[nextIndex];
                         foreach (Control? item in controlPoints.Where(v => v.DataContext == next))
                         {
                             if (Equals(item.Tag, "ControlPoint1") || Equals(item.Tag, "ControlPoint"))
@@ -315,7 +315,7 @@ public partial class PathEditorView : UserControl
     private void OnDeleteClicked(object? sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem { DataContext: PathSegment op }
-            && DataContext is PathEditorViewModel { Context.Value.Group.Value: { } group })
+            && DataContext is PathEditorViewModel { FigureContext.Value.Group.Value: { } group })
         {
             int index = group.List.Value?.IndexOf(op) ?? -1;
             if (index >= 0)
@@ -432,15 +432,15 @@ public partial class PathEditorView : UserControl
         if (sender is MenuFlyoutItem item
             && DataContext is PathEditorViewModel
             {
-                PathGeometry.Value: { } geometry,
-                Context.Value.Group.Value: { } group
+                PathFigure.Value: { } figure,
+                FigureContext.Value.Group.Value: { } group
             })
         {
-            int index = geometry.Segments.Count;
+            int index = figure.Segments.Count;
             BtlPoint lastPoint = default;
             if (index > 0)
             {
-                PathSegment lastOp = geometry.Segments[index - 1];
+                PathSegment lastOp = figure.Segments[index - 1];
                 lastPoint = lastOp switch
                 {
                     ArcSegment arc => arc.Point,
@@ -583,15 +583,15 @@ public partial class PathEditorView : UserControl
             _lastPoint = null;
         }
 
-        private static PathSegment? GetAnchor(PathEditorViewModel viewModel, PathGeometry geometry, PathSegment segment, object? tag)
+        private static PathSegment? GetAnchor(PathEditorViewModel viewModel, PathFigure figure, PathSegment segment, object? tag)
         {
-            if (tag is not string s || geometry.Segments.Count <= 1) return null;
+            if (tag is not string s || figure.Segments.Count <= 1) return null;
 
-            int index = geometry.Segments.IndexOf(segment);
-            int previndex = (index - 1 + geometry.Segments.Count) % geometry.Segments.Count;
+            int index = figure.Segments.IndexOf(segment);
+            int previndex = (index - 1 + figure.Segments.Count) % figure.Segments.Count;
             if (s == "ControlPoint1")
             {
-                return geometry.Segments[previndex];
+                return figure.Segments[previndex];
             }
             else if (s == "ControlPoint2")
             {
@@ -602,7 +602,7 @@ public partial class PathEditorView : UserControl
                 PathSegment? selected = viewModel.SelectedOperation.Value;
                 if (selected != segment)
                 {
-                    return geometry.Segments[previndex];
+                    return figure.Segments[previndex];
                 }
                 else
                 {
@@ -620,7 +620,7 @@ public partial class PathEditorView : UserControl
             PathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<PathEditorView>();
             if (AssociatedObject is not { DataContext: PathSegment segment }
                 || _dragState == null
-                || parent is not { DataContext: PathEditorViewModel { PathGeometry.Value: { } geometry, Element.Value: { } element } viewModel }
+                || parent is not { DataContext: PathEditorViewModel { PathGeometry.Value: { } geometry, PathFigure.Value: { } figure, Element.Value: { } element } viewModel }
                 || !_lastPoint.HasValue)
             {
                 return;
@@ -629,6 +629,12 @@ public partial class PathEditorView : UserControl
             Point vector = e.GetPosition(AssociatedObject) - _lastPoint.Value;
 
             var delta = new BtlVector((float)(vector.X / parent.Scale), (float)(vector.Y / parent.Scale));
+            var mat = new Graphics.Matrix(
+                (float)parent.Matrix.M11, (float)parent.Matrix.M12,
+                (float)parent.Matrix.M21, (float)parent.Matrix.M22,
+                0, 0).Invert();
+            delta = mat.Transform((BtlPoint)delta);
+
             _dragState.Move(delta);
             if (_dragState.Thumb is { } thumb)
             {
@@ -645,7 +651,7 @@ public partial class PathEditorView : UserControl
                         // ControlPointからAnchor(複数)を取得
                         // つながっているAnchorの反対側ごとに、角度、長さを計算
 
-                        PathSegment? anchor = GetAnchor(viewModel, geometry, segment, AssociatedObject.Tag);
+                        PathSegment? anchor = GetAnchor(viewModel, figure, segment, AssociatedObject.Tag);
                         if (anchor != null)
                         {
                             Debug.Assert(_coordDragStates.Length == 1);
@@ -766,7 +772,7 @@ public partial class PathEditorView : UserControl
         private void SetSelectedOperation(PathEditorViewModel viewModel, PathSegment segment)
         {
             if (AssociatedObject != null
-                && viewModel is { Context.Value.Group.Value: { } group })
+                && viewModel is { FigureContext.Value.Group.Value: { } group })
             {
                 foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
                 {
@@ -795,7 +801,7 @@ public partial class PathEditorView : UserControl
         {
             PathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<PathEditorView>();
             if (AssociatedObject is not { DataContext: PathSegment segment }
-                || parent is not { DataContext: PathEditorViewModel { PathGeometry.Value: { } geometry } viewModel })
+                || parent is not { DataContext: PathEditorViewModel { PathFigure.Value: { } figure } viewModel })
             {
                 return;
             }
@@ -815,13 +821,13 @@ public partial class PathEditorView : UserControl
                 if (!AssociatedObject.Classes.Contains("control"))
                 {
                     var list = new List<ThumbDragState>();
-                    CoordinateControlPoint(list, parent, viewModel, geometry, segment);
+                    CoordinateControlPoint(list, parent, viewModel, figure, segment);
                     _coordDragStates = [.. list];
                 }
                 else
                 {
                     var list = new List<ThumbDragState>();
-                    CoordinateAnotherControlPoint(list, parent, viewModel, geometry, segment, prop);
+                    CoordinateAnotherControlPoint(list, parent, viewModel, figure, segment, prop);
                     _coordDragStates = [.. list];
                 }
             }
@@ -831,7 +837,7 @@ public partial class PathEditorView : UserControl
             List<ThumbDragState> list,
             PathEditorView view,
             PathEditorViewModel viewModel,
-            PathGeometry geometry,
+            PathFigure figure,
             PathSegment segment)
         {
             CoreProperty<BtlPoint>[] props = GetControlPointProperties(segment);
@@ -842,12 +848,12 @@ public partial class PathEditorView : UserControl
                 list.Add(state);
             }
 
-            int index = geometry.Segments.IndexOf(segment);
-            int nextIndex = (index + 1) % geometry.Segments.Count;
+            int index = figure.Segments.IndexOf(segment);
+            int nextIndex = (index + 1) % figure.Segments.Count;
 
-            if (0 <= nextIndex && nextIndex < geometry.Segments.Count)
+            if (0 <= nextIndex && nextIndex < figure.Segments.Count)
             {
-                PathSegment nextSegment = geometry.Segments[nextIndex];
+                PathSegment nextSegment = figure.Segments[nextIndex];
                 props = GetControlPointProperties(nextSegment);
                 if (props.Length > 0)
                 {
@@ -862,13 +868,13 @@ public partial class PathEditorView : UserControl
             List<ThumbDragState> list,
             PathEditorView view,
             PathEditorViewModel viewModel,
-            PathGeometry geometry,
+            PathFigure figure,
             PathSegment segment,
             // [ControlPoint, ControlPoint1, ControlPoint2] のいずれか
             CoreProperty<BtlPoint> property)
         {
-            int index = geometry.Segments.IndexOf(segment);
-            if (index < 0 || geometry.Segments.Count == 0) return;
+            int index = figure.Segments.IndexOf(segment);
+            if (index < 0 || figure.Segments.Count == 0) return;
 
             if (segment is CubicBezierSegment)
             {
@@ -878,15 +884,15 @@ public partial class PathEditorView : UserControl
 
                 if (property == CubicBezierSegment.ControlPoint1Property)
                 {
-                    int aindex = (index - 1 + geometry.Segments.Count) % geometry.Segments.Count;
-                    asegment = geometry.Segments[aindex];
+                    int aindex = (index - 1 + figure.Segments.Count) % figure.Segments.Count;
+                    asegment = figure.Segments[aindex];
                     apropIndex = 1;
                     anchor = asegment;
                 }
                 else if (property == CubicBezierSegment.ControlPoint2Property)
                 {
-                    int aindex = (index + 1) % geometry.Segments.Count;
-                    asegment = geometry.Segments[aindex];
+                    int aindex = (index + 1) % figure.Segments.Count;
+                    asegment = figure.Segments[aindex];
                     apropIndex = 0;
                     anchor = segment;
                 }
@@ -907,7 +913,7 @@ public partial class PathEditorView : UserControl
             {
                 void Add(int aindex, int apropIndex, PathSegment? anchor)
                 {
-                    PathSegment asegment = geometry.Segments[aindex];
+                    PathSegment asegment = figure.Segments[aindex];
                     anchor ??= asegment;
 
                     CoreProperty<BtlPoint>? aproperty = GetControlPointProperty(asegment, apropIndex);
@@ -923,11 +929,11 @@ public partial class PathEditorView : UserControl
                 PathSegment? selected = viewModel.SelectedOperation.Value;
                 if (selected != segment)
                 {
-                    Add((index - 1 + geometry.Segments.Count) % geometry.Segments.Count, 1, segment);
+                    Add((index - 1 + figure.Segments.Count) % figure.Segments.Count, 1, segment);
                 }
                 else
                 {
-                    Add((index + 1) % geometry.Segments.Count, 0, null);
+                    Add((index + 1) % figure.Segments.Count, 0, null);
                 }
             }
         }

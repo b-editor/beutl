@@ -53,11 +53,11 @@
             </Style>
 
             <Style Selector="^.control">
-                <Setter Property="Margin" Value="-4,-4,0,0" />
-                <Setter Property="Width" Value="8" />
-                <Setter Property="Height" Value="8" />
-                <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="BorderThickness" Value="1.5" />
+                <Setter Property="Margin" Value="-5,-5,0,0" />
+                <Setter Property="Width" Value="10" />
+                <Setter Property="Height" Value="10" />
+                <Setter Property="CornerRadius" Value="5" />
+                <Setter Property="BorderThickness" Value="2" />
             </Style>
         </ControlTheme>
     </UserControl.Resources>
@@ -96,6 +96,7 @@
         </Canvas.ContextFlyout>
 
         <local:PathGeometryControl x:Name="view"
+                                   Figure="{Binding PathFigure.Value}"
                                    Geometry="{Binding PathGeometry.Value}"
                                    Matrix="{Binding AvaMatrix.Value}"
                                    Scale="{Binding #root.Scale}"

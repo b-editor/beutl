@@ -6,10 +6,9 @@ namespace Beutl.Media;
 
 public sealed class GeometryContext : IGeometryContext, IDisposable
 {
-    ~GeometryContext()
+    public GeometryContext()
     {
-        NativeObject.Dispose();
-        IsDisposed = true;
+
     }
 
     public SKPath NativeObject { get; } = new();

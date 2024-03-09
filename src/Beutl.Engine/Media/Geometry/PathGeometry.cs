@@ -1,9 +1,9 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Security.Cryptography.X509Certificates;
 
 using Beutl.Animation;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
-using Beutl.Serialization.Migration;
 
 using SkiaSharp;
 
@@ -11,73 +11,42 @@ namespace Beutl.Media;
 
 public sealed class PathGeometry : Geometry
 {
-    public static readonly CoreProperty<bool> IsClosedProperty;
-    public static readonly CoreProperty<PathSegments> OperationsProperty;
-    private Point _startPoint;
-    private bool _isClosed;
-    private readonly PathSegments _operations = [];
+    public static readonly CoreProperty<PathFigures> FiguresProperty;
+    private readonly PathFigures _figures = [];
 
     static PathGeometry()
     {
-        IsClosedProperty = ConfigureProperty<bool, PathGeometry>(nameof(IsClosed))
-            .Accessor(o => o.IsClosed, (o, v) => o.IsClosed = v)
+        FiguresProperty = ConfigureProperty<PathFigures, PathGeometry>(nameof(Figures))
+            .Accessor(o => o.Figures, (o, v) => o.Figures = v)
             .Register();
 
-        OperationsProperty = ConfigureProperty<PathSegments, PathGeometry>(nameof(Segments))
-            .Accessor(o => o.Segments, (o, v) => o.Segments = v)
-            .Register();
-
-        AffectsRender<PathGeometry>(IsClosedProperty);
+        AffectsRender<PathGeometry>(FiguresProperty);
     }
 
     public PathGeometry()
     {
-        _operations.Invalidated += (_, e) => RaiseInvalidated(e);
-    }
-
-    public bool IsClosed
-    {
-        get => _isClosed;
-        set => SetAndRaise(IsClosedProperty, ref _isClosed, value);
+        _figures.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
     [NotAutoSerialized]
-    public PathSegments Segments
+    public PathFigures Figures
     {
-        get => _operations;
-        set => _operations.Replace(value);
+        get => _figures;
+        set => _figures.Replace(value);
     }
 
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue(nameof(Segments), Segments);
+        context.SetValue(nameof(Figures), Figures);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
-        if (context.Contains("Operations"))
-        {
-            // Todo: Compatibility
-            if (context is JsonSerializationContext jsonSerializationContext)
-            {
-                JsonObject json = jsonSerializationContext.GetJsonObject();
-                if (json["Operations"] is JsonArray opsJson)
-                {
-                    Migration_RenamePathSegment.Update(json, opsJson);
-                }
-            }
-
-            if (context.GetValue<PathSegments>("Operations") is { } op)
-            {
-                Segments = op;
-            }
-        }
-
         base.Deserialize(context);
-        if (context.GetValue<PathSegments>(nameof(Segments)) is { } segments)
+        if (context.GetValue<PathFigures>(nameof(Figures)) is { } figures)
         {
-            Segments = segments;
+            Figures = figures;
         }
     }
 
@@ -87,28 +56,33 @@ public sealed class PathGeometry : Geometry
         using SKPath.RawIterator it = path.CreateRawIterator();
 
         var result = new PathGeometry();
+        var currentFigure = new PathFigure();
         Span<SKPoint> points = stackalloc SKPoint[4];
         SKPathVerb pathVerb;
-        bool? isClosed = null;
 
         do
         {
             pathVerb = it.Next(points);
-            PathSegment? operation;
+            PathSegment? segment;
 
             if (pathVerb == SKPathVerb.Move)
             {
-                throw new InvalidOperationException("'SKPathVerb.Move' is not supported.");
+                if (currentFigure.StartPoint.HasValue || currentFigure.Segments.Count > 0)
+                {
+                    result.Figures.Add(currentFigure);
+                    currentFigure = new PathFigure();
+                }
+
+                currentFigure.StartPoint = points[0].ToGraphicsPoint();
             }
             else if (pathVerb == SKPathVerb.Close)
             {
-                if (isClosed.HasValue)
-                    throw new InvalidOperationException("PathGeometryは単一の図形のみ対応します");
-
-                isClosed = true;
+                currentFigure.IsClosed = true;
+                result.Figures.Add(currentFigure);
+                currentFigure = new PathFigure();
             }
 
-            operation = pathVerb switch
+            segment = pathVerb switch
             {
                 SKPathVerb.Line => new LineSegment(points[1].ToGraphicsPoint()),
                 SKPathVerb.Quad => new QuadraticBezierSegment(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint()),
@@ -117,15 +91,15 @@ public sealed class PathGeometry : Geometry
                 SKPathVerb.Done or _ => null,
             };
 
-            if (operation != null)
+            if (segment != null)
             {
-                result.Segments.Add(operation);
+                currentFigure.Segments.Add(segment);
             }
 
         } while (pathVerb != SKPathVerb.Done);
 
-        if (isClosed.HasValue)
-            result.IsClosed = isClosed.Value;
+        if (currentFigure.Segments.Count > 0)
+            result.Figures.Add(currentFigure);
 
         return result;
     }
@@ -133,12 +107,30 @@ public sealed class PathGeometry : Geometry
     [Obsolete("Use 'StartPoint'.")]
     public void MoveTo(Point point)
     {
-        Segments.Add(new MoveOperation(point));
+        var figure = new PathFigure
+        {
+            StartPoint = point
+        };
+        Figures.Add(figure);
+    }
+
+    private PathFigure GetLastOrAdd()
+    {
+        if (Figures.Count > 0)
+        {
+            return Figures[^1];
+        }
+        else
+        {
+            var figure = new PathFigure();
+            Figures.Add(figure);
+            return figure;
+        }
     }
 
     public void ArcTo(Size radius, float angle, bool isLargeArc, bool sweepClockwise, Point point)
     {
-        Segments.Add(new ArcSegment()
+        GetLastOrAdd().Segments.Add(new ArcSegment()
         {
             Radius = radius,
             RotationAngle = angle,
@@ -150,7 +142,7 @@ public sealed class PathGeometry : Geometry
 
     public void ConicTo(Point controlPoint, Point endPoint, float weight)
     {
-        Segments.Add(new ConicSegment()
+        GetLastOrAdd().Segments.Add(new ConicSegment()
         {
             ControlPoint = controlPoint,
             EndPoint = endPoint,
@@ -160,7 +152,7 @@ public sealed class PathGeometry : Geometry
 
     public void CubicTo(Point controlPoint1, Point controlPoint2, Point endPoint)
     {
-        Segments.Add(new CubicBezierSegment()
+        GetLastOrAdd().Segments.Add(new CubicBezierSegment()
         {
             ControlPoint1 = controlPoint1,
             ControlPoint2 = controlPoint2,
@@ -170,12 +162,12 @@ public sealed class PathGeometry : Geometry
 
     public void LineTo(Point point)
     {
-        Segments.Add(new LineSegment(point));
+        GetLastOrAdd().Segments.Add(new LineSegment(point));
     }
 
     public void QuadraticTo(Point controlPoint, Point endPoint)
     {
-        Segments.Add(new QuadraticBezierSegment()
+        GetLastOrAdd().Segments.Add(new QuadraticBezierSegment()
         {
             ControlPoint = controlPoint,
             EndPoint = endPoint
@@ -185,53 +177,63 @@ public sealed class PathGeometry : Geometry
     [Obsolete("Use 'IsClosed'.")]
     public void Close()
     {
-        Segments.Add(new CloseOperation());
+        if (Figures.Count > 0)
+        {
+            Figures[^1].IsClosed = true;
+        }
     }
 
     public override void ApplyTo(IGeometryContext context)
     {
         base.ApplyTo(context);
-        bool skipFirst = false;
-        if (Segments.Count > 0)
-        {
-            if (IsClosed)
-            {
-                if (Segments[^1].TryGetEndPoint(out var endPoint))
-                {
-                    context.MoveTo(endPoint);
-                }
-            }
-            else
-            {
-                if (Segments[0].TryGetEndPoint(out var endPoint))
-                {
-                    context.MoveTo(endPoint);
-                    skipFirst = true;
-                }
-            }
-        }
 
-        foreach (PathSegment item in Segments.GetMarshal().Value)
+        foreach (PathFigure item in Figures)
         {
-            if (skipFirst)
-            {
-                skipFirst = false;
-                continue;
-            }
-
             item.ApplyTo(context);
         }
-
-        if (IsClosed)
-            context.Close();
     }
 
     public override void ApplyAnimations(IClock clock)
     {
         base.ApplyAnimations(clock);
-        foreach (PathSegment item in Segments)
+        foreach (var item in Figures)
         {
             item.ApplyAnimations(clock);
         }
+    }
+
+    public PathFigure? HitTestFigure(Point point, IPen? pen)
+    {
+        Rect bounds = Bounds;
+
+        foreach (PathFigure item in Figures)
+        {
+            using (var context = new GeometryContext())
+            {
+                context.FillType = FillType;
+                item.ApplyTo(context);
+                if (Transform?.IsEnabled == true)
+                {
+                    context.Transform(Transform.Value);
+                }
+
+                if (context.NativeObject.Contains(point.X, point.Y))
+                {
+                    return item;
+                }
+
+                if (pen != null)
+                {
+                    using SKPath strokePath = PenHelper.CreateStrokePath(context.NativeObject, pen, bounds);
+                    if (strokePath.Contains(point.X, point.Y))
+                    {
+                        return item;
+                    }
+                }
+
+            }
+        }
+
+        return null;
     }
 }

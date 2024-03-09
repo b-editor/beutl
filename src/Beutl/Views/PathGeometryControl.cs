@@ -20,6 +20,9 @@ public class PathGeometryControl : Control
 {
     public static readonly StyledProperty<PathGeometry?> GeometryProperty =
         AvaloniaProperty.Register<PathGeometryControl, PathGeometry?>(nameof(Geometry));
+    
+    public static readonly StyledProperty<PathFigure?> FigureProperty =
+        AvaloniaProperty.Register<PathGeometryControl, PathFigure?>(nameof(Figure));
 
     public static readonly StyledProperty<PathSegment?> SelectedOperationProperty =
         AvaloniaProperty.Register<PathGeometryControl, PathSegment?>(nameof(SelectedOperation));
@@ -32,7 +35,7 @@ public class PathGeometryControl : Control
 
     static PathGeometryControl()
     {
-        AffectsRender<PathGeometryControl>(GeometryProperty, MatrixProperty, ScaleProperty, SelectedOperationProperty);
+        AffectsRender<PathGeometryControl>(GeometryProperty, FigureProperty, MatrixProperty, ScaleProperty, SelectedOperationProperty);
     }
 
     public PathSegment? SelectedOperation
@@ -51,6 +54,12 @@ public class PathGeometryControl : Control
     {
         get => GetValue(GeometryProperty);
         set => SetValue(GeometryProperty, value);
+    }
+    
+    public PathFigure? Figure
+    {
+        get => GetValue(FigureProperty);
+        set => SetValue(FigureProperty, value);
     }
 
     public double Scale
@@ -84,19 +93,23 @@ public class PathGeometryControl : Control
     public override void Render(Avalonia.Media.DrawingContext context)
     {
         base.Render(context);
-        if (Geometry != null && SelectedOperation != null)
+        if (Geometry != null
+            && Figure != null
+            && SelectedOperation != null)
         {
             context.Custom(new PathDrawOperation(
-                Geometry, Matrix, Geometry.Bounds.ToAvaRect(),
-                Scale, Geometry.Segments.IndexOf(SelectedOperation)));
+                Geometry, Figure, Matrix, Geometry.GetCurrentBounds().ToAvaRect(),
+                Scale, Figure.Segments.IndexOf(SelectedOperation)));
         }
     }
 
-    private class PathDrawOperation(PathGeometry geometry, AvaMatrix matrix, AvaRect bounds, double scale, int index) : ICustomDrawOperation
+    private class PathDrawOperation(PathGeometry geometry, PathFigure figure, AvaMatrix matrix, AvaRect bounds, double scale, int index) : ICustomDrawOperation
     {
         public AvaRect Bounds => bounds;
 
         public PathGeometry Geometry { get; } = geometry;
+
+        public PathFigure Figure { get; } = figure;
 
         public void Dispose()
         {
@@ -137,9 +150,9 @@ public class PathGeometryControl : Control
                         paint.ImageFilter = filter;
                     }
 
-                    if (Geometry.Segments.Count > 0 && index >= 0)
+                    if (Figure.Segments.Count > 0 && index >= 0)
                     {
-                        bool isClosed = Geometry.IsClosed;
+                        bool isClosed = Figure.IsClosed;
 
                         void DrawLine(PathSegment op, int index, bool c1, bool c2)
                         {
@@ -148,11 +161,11 @@ public class PathGeometryControl : Control
                                 return;
                             }
 
-                            int prevIndex = (index - 1 + Geometry.Segments.Count) % Geometry.Segments.Count;
+                            int prevIndex = (index - 1 + Figure.Segments.Count) % Figure.Segments.Count;
                             SKPoint lastPoint = default;
-                            if (0 <= prevIndex && prevIndex < Geometry.Segments.Count)
+                            if (0 <= prevIndex && prevIndex < Figure.Segments.Count)
                             {
-                                if (Geometry.Segments[prevIndex].TryGetEndPoint(out Graphics.Point tmp))
+                                if (Figure.Segments[prevIndex].TryGetEndPoint(out Graphics.Point tmp))
                                     lastPoint = tmp.ToSKPoint();
                             }
 
@@ -214,12 +227,12 @@ public class PathGeometryControl : Control
                             }
                         }
 
-                        DrawLine(Geometry.Segments[index], index, false, true);
-                        int nextIndex = (index + 1) % Geometry.Segments.Count;
+                        DrawLine(Figure.Segments[index], index, false, true);
+                        int nextIndex = (index + 1) % Figure.Segments.Count;
 
-                        if (0 <= nextIndex && nextIndex < Geometry.Segments.Count)
+                        if (0 <= nextIndex && nextIndex < Figure.Segments.Count)
                         {
-                            DrawLine(Geometry.Segments[nextIndex], nextIndex, true, false);
+                            DrawLine(Figure.Segments[nextIndex], nextIndex, true, false);
                         }
                     }
                 }

@@ -15,7 +15,7 @@ public abstract class Geometry : Animatable, IAffectsRender
 {
     public static readonly CoreProperty<PathFillType> FillTypeProperty;
     public static readonly CoreProperty<ITransform?> TransformProperty;
-    private readonly GeometryContext _context = new();
+    private GeometryContext? _context;
     private PathCache _pathCache;
     private PathFillType _fillType;
     private ITransform? _transform;
@@ -44,7 +44,6 @@ public abstract class Geometry : Animatable, IAffectsRender
 
     ~Geometry()
     {
-        _context.Dispose();
         _pathCache.Invalidate();
     }
 
@@ -122,31 +121,41 @@ public abstract class Geometry : Animatable, IAffectsRender
     private void OnInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
         _isDirty = true;
+        _context = null;
         _pathCache.Invalidate();
     }
 
     internal SKPath GetNativeObject()
     {
-        if (_isDirty)
+        return GetContext().NativeObject;
+    }
+
+    internal GeometryContext GetContext()
+    {
+        if (_isDirty || _context == null)
         {
-            _context.Clear();
-            ApplyTo(_context);
+            var context = new GeometryContext
+            {
+                FillType = _fillType
+            };
+            ApplyTo(context);
             if (Transform?.IsEnabled == true)
             {
-                _context.Transform(Transform.Value);
+                context.Transform(Transform.Value);
             }
 
-            _context.FillType = _fillType;
-            _bounds = _context.NativeObject.TightBounds.ToGraphicsRect();
+            _bounds = context.Bounds;
 
             _isDirty = false;
             unchecked
             {
                 _version++;
             }
+
+            _context = context;
         }
 
-        return _context.NativeObject;
+        return _context;
     }
 
     public bool FillContains(Point point)
