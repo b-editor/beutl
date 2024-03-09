@@ -20,6 +20,17 @@
                           Cursor="SizeNorthSouth"
                           IsChecked="{Binding IsExpanded.Value}"
                           Theme="{DynamicResource ListEditorMiniExpanderToggleButton}">
+                <ToggleButton.Tag>
+                    <Panel>
+                        <ui:FAPathIcon Data="{Binding PreviewPath.Value}"
+                                       IsVisible="{Binding !!PreviewPath.Value}"
+                                       RenderTransform="scale(0.7)" />
+
+                        <icons:SymbolIcon Margin="0,1,0,0"
+                                          IsVisible="{Binding !PreviewPath.Value}"
+                                          Symbol="ReOrderDotsVertical" />
+                    </Panel>
+                </ToggleButton.Tag>
                 <TextBlock Text="{x:Static lang:Strings.Figure}" />
             </ToggleButton>
 
@@ -28,14 +39,15 @@
                         Orientation="Horizontal"
                         Spacing="4">
 
-                <Button Padding="0"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Classes="size-24x24"
-                        Click="Edit_Click"
-                        Theme="{StaticResource TransparentButton}">
+                <ToggleButton Padding="0"
+                              HorizontalContentAlignment="Center"
+                              VerticalContentAlignment="Center"
+                              Classes="size-24x24"
+                              Click="Edit_Click"
+                              IsChecked="{Binding EditingPath.Value}"
+                              Theme="{StaticResource TransparentToggleButton}">
                     <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xEDFB;" />
-                </Button>
+                </ToggleButton>
                 <Button Padding="0"
                         HorizontalContentAlignment="Center"
                         VerticalContentAlignment="Center"
