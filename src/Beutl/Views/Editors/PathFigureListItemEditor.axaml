@@ -23,11 +23,11 @@
                 <ToggleButton.Tag>
                     <Panel>
                         <ui:FAPathIcon Data="{Binding PreviewPath.Value}"
-                                       IsVisible="{Binding !!PreviewPath.Value}"
+                                       IsVisible="{Binding PreviewPath.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                                        RenderTransform="scale(0.7)" />
 
                         <icons:SymbolIcon Margin="0,1,0,0"
-                                          IsVisible="{Binding !PreviewPath.Value}"
+                                          IsVisible="{Binding PreviewPath.Value, Converter={x:Static ObjectConverters.IsNull}}"
                                           Symbol="ReOrderDotsVertical" />
                     </Panel>
                 </ToggleButton.Tag>
