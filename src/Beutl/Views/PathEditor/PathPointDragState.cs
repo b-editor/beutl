@@ -100,7 +100,10 @@ public sealed class PathPointDragState
     {
         if (Previous == null && Next == null)
         {
-            Target.SetValue(Property, Target.GetValue(Property) + delta);
+            BtlPoint p = Target.GetValue(Property) + delta;
+            p = new BtlPoint(PathEditorHelper.Round(p.X), PathEditorHelper.Round(p.Y));
+
+            Target.SetValue(Property, p);
         }
         else
         {

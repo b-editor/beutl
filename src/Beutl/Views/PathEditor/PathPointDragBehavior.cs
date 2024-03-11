@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -17,9 +19,28 @@ namespace Beutl.Views;
 
 public sealed class PathPointDragBehavior : Behavior<Thumb>
 {
+    public static readonly AttachedProperty<bool> IsSelectedProperty =
+        AvaloniaProperty.RegisterAttached<PathPointDragBehavior, Thumb, bool>("IsSelected");
+
     private PathPointDragState? _dragState;
     private PathPointDragState[]? _coordDragStates;
     private Point? _lastPoint;
+
+    static PathPointDragBehavior()
+    {
+        IsSelectedProperty.Changed.Subscribe(
+            e => (e.Sender as Thumb)?.Classes.Set("selected", e.NewValue.GetValueOrDefault()));
+    }
+
+    public static void SetIsSelected(Thumb owner, bool value)
+    {
+        owner.SetValue(IsSelectedProperty, value);
+    }
+
+    public static bool GetIsSelected(Thumb owner)
+    {
+        return owner.GetValue(IsSelectedProperty);
+    }
 
     protected override void OnAttached()
     {
@@ -86,6 +107,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
 
     private void OnThumbPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
+        if (AssociatedObject == null) return;
+
         if (e.InitialPressMouseButton == MouseButton.Right
             && AssociatedObject is { ContextFlyout: { } flyout })
         {
@@ -95,6 +118,25 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         if (e.InitialPressMouseButton == MouseButton.Left && _lastPoint.HasValue)
         {
             e.Handled = true;
+
+            if (!AssociatedObject.Classes.Contains("control"))
+            {
+                if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+                {
+                    SetIsSelected(AssociatedObject, !GetIsSelected(AssociatedObject));
+                }
+                else if (_dragState == null || _coordDragStates == null)
+                {
+                    IPathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<IPathEditorView>();
+                    if (parent != null)
+                    {
+                        foreach (Thumb item in parent.GetSelectedAnchors())
+                        {
+                            SetIsSelected(item, false);
+                        }
+                    }
+                }
+            }
 
             OnReleased();
         }
@@ -140,9 +182,15 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     {
         IPathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<IPathEditorView>();
         if (AssociatedObject is not { DataContext: PathSegment segment }
-            || _dragState == null
             || parent is not { DataContext: IPathEditorViewModel { PathFigure.Value: { } figure, Element.Value: { } element } viewModel }
             || !_lastPoint.HasValue)
+        {
+            return;
+        }
+
+        // _dragState, _coordDragStatesがnullの場合、作成。
+        if ((_dragState == null || _coordDragStates == null)
+            && !CreateDragState(parent, viewModel, AssociatedObject, figure, segment))
         {
             return;
         }
@@ -159,8 +207,11 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         _dragState.Move(delta);
         if (_dragState.Thumb is { } thumb)
         {
-            Canvas.SetLeft(thumb, Canvas.GetLeft(thumb) + vector.X);
-            Canvas.SetTop(thumb, Canvas.GetTop(thumb) + vector.Y);
+            var p = PathEditorHelper.Round(
+                PathEditorHelper.GetCanvasPosition(thumb) + vector,
+                parent.Matrix);
+
+            PathEditorHelper.SetCanvasPosition(thumb, p);
         }
 
         if (_coordDragStates != null)
@@ -175,7 +226,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                     PathSegment? anchor = GetAnchor(viewModel, figure, segment, AssociatedObject.Tag);
                     if (anchor != null)
                     {
-                        Debug.Assert(_coordDragStates.Length == 1);
+                        Debug.Assert(_coordDragStates.Length == 1 || _coordDragStates.Length == 0);
 
                         foreach (PathPointDragState c in _coordDragStates)
                         {
@@ -198,8 +249,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
 
                                 Point p = parent.Matrix.Transform(point.ToAvaPoint());
                                 p *= parent.Scale;
-                                Canvas.SetLeft(thumb, p.X);
-                                Canvas.SetTop(thumb, p.Y);
+                                PathEditorHelper.SetCanvasPosition(thumb, p);
                             }
 
                             // アニメーションが有効な時は
@@ -239,7 +289,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                                         length = Length(d2);
                                     }
 
-                                    keyframe.Value = anchorpoint + CalculatePoint(angle, length);
+                                    keyframe.Value = PathEditorHelper.Round(anchorpoint + CalculatePoint(angle, length));
                                 }
 
                                 Set(c.Previous);
@@ -266,7 +316,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                                     length = Length(d2);
                                 }
 
-                                BtlPoint newValue = anchorpoint + CalculatePoint(angle, length);
+                                BtlPoint newValue = PathEditorHelper.Round(anchorpoint + CalculatePoint(angle, length));
 
                                 c.SetValue(newValue);
                                 UpdateThumbPosition(c.Thumb, newValue);
@@ -282,8 +332,11 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                     item.Move(delta);
                     if (item.Thumb is { } thumb1)
                     {
-                        Canvas.SetLeft(thumb1, Canvas.GetLeft(thumb1) + vector.X);
-                        Canvas.SetTop(thumb1, Canvas.GetTop(thumb1) + vector.Y);
+                        var p = PathEditorHelper.Round(
+                            PathEditorHelper.GetCanvasPosition(thumb1) + vector,
+                            parent.Matrix);
+
+                        PathEditorHelper.SetCanvasPosition(thumb1, p);
                     }
                 }
             }
@@ -333,28 +386,60 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
 
         SetSelectedOperation(viewModel, segment);
 
-        CoreProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(AssociatedObject);
+        //CreateDragState(parent, viewModel, AssociatedObject, figure, segment);
+    }
+
+    [MemberNotNullWhen(true, nameof(_dragState), nameof(_coordDragStates))]
+    private bool CreateDragState(
+        IPathEditorView view,
+        IPathEditorViewModel viewModel,
+        Thumb thumb,
+        PathFigure figure,
+        PathSegment segment)
+    {
+        CoreProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
         if (prop != null)
         {
             _dragState = CreateThumbDragState(viewModel, segment, prop);
-            _dragState.Thumb = AssociatedObject;
+            _dragState.Thumb = thumb;
 
-            if (!AssociatedObject.Classes.Contains("control"))
+            if (!thumb.Classes.Contains("control"))
             {
                 var list = new List<PathPointDragState>();
-                CoordinateControlPoint(list, parent, viewModel, figure, segment);
+                CoordinateControlPoint(list, view, viewModel, figure, segment);
+                foreach (Thumb anchor in view.GetSelectedAnchors())
+                {
+                    if (anchor == thumb) continue;
+
+                    CoreProperty<BtlPoint>? prop2 = PathEditorHelper.GetProperty(anchor);
+                    if (anchor.DataContext is PathSegment s && prop2 != null)
+                    {
+                        PathPointDragState d = CreateThumbDragState(viewModel, s, prop2);
+                        d.Thumb = anchor;
+                        list.Add(d);
+
+                        CoordinateControlPoint(list, view, viewModel, figure, s);
+                    }
+                }
+
                 _coordDragStates = [.. list];
             }
             else
             {
                 var list = new List<PathPointDragState>();
-                CoordinateAnotherControlPoint(list, parent, viewModel, figure, segment, prop);
+                CoordinateAnotherControlPoint(list, view, viewModel, figure, segment, prop);
                 _coordDragStates = [.. list];
             }
+
+            return true;
+        }
+        else
+        {
+            return false;
         }
     }
 
-    private static void CoordinateControlPoint(
+    internal static void CoordinateControlPoint(
         List<PathPointDragState> list,
         IPathEditorView view,
         IPathEditorViewModel viewModel,
@@ -385,7 +470,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         }
     }
 
-    private static void CoordinateAnotherControlPoint(
+    internal static void CoordinateAnotherControlPoint(
         List<PathPointDragState> list,
         IPathEditorView view,
         IPathEditorViewModel viewModel,
@@ -459,7 +544,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         }
     }
 
-    private static PathPointDragState CreateThumbDragState(
+    internal static PathPointDragState CreateThumbDragState(
         IPathEditorViewModel viewModel,
         PathSegment segment,
         CoreProperty<BtlPoint> property)

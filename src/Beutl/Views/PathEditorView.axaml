@@ -53,6 +53,10 @@
                 <Setter Property="Opacity" Value="0.75" />
             </Style>
 
+            <Style Selector="^.selected">
+                <Setter Property="Opacity" Value="0.8" />
+            </Style>
+
             <Style Selector="^.control">
                 <Setter Property="Margin" Value="-5,-5,0,0" />
                 <Setter Property="Width" Value="10" />
@@ -99,6 +103,7 @@
         <local:PathGeometryControl x:Name="view"
                                    Figure="{Binding PathFigure.Value}"
                                    Geometry="{Binding PathGeometry.Value}"
+                                   IsHitTestVisible="False"
                                    Matrix="{Binding AvaMatrix.Value}"
                                    Scale="{Binding #root.Scale}"
                                    SelectedOperation="{Binding SelectedOperation.Value}" />

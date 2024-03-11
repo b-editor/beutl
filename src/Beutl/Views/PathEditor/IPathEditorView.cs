@@ -19,4 +19,6 @@ internal interface IPathEditorView
     double Scale { get; }
 
     Thumb? FindThumb(PathSegment segment, CoreProperty<BtlPoint> property);
+
+    Thumb[] GetSelectedAnchors();
 }
