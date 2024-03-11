@@ -1,31 +1,25 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Platform;
-using Avalonia.Rendering.SceneGraph;
-using Avalonia.Skia;
+using Avalonia.Media;
 using Avalonia.Threading;
 
-using Beutl.Graphics;
 using Beutl.Media;
 
-using SkiaSharp;
-
-using AvaPoint = Avalonia.Point;
 using AvaMatrix = Avalonia.Matrix;
-using AvaRect = Avalonia.Rect;
+using AvaPoint = Avalonia.Point;
 
 namespace Beutl.Views;
 
 public class PathGeometryControl : Control
 {
-    public static readonly StyledProperty<PathGeometry?> GeometryProperty =
-        AvaloniaProperty.Register<PathGeometryControl, PathGeometry?>(nameof(Geometry));
-    
-    public static readonly StyledProperty<PathFigure?> FigureProperty =
-        AvaloniaProperty.Register<PathGeometryControl, PathFigure?>(nameof(Figure));
+    public static readonly StyledProperty<Media.PathGeometry?> GeometryProperty =
+        AvaloniaProperty.Register<PathGeometryControl, Media.PathGeometry?>(nameof(Geometry));
 
-    public static readonly StyledProperty<PathSegment?> SelectedOperationProperty =
-        AvaloniaProperty.Register<PathGeometryControl, PathSegment?>(nameof(SelectedOperation));
+    public static readonly StyledProperty<Media.PathFigure?> FigureProperty =
+        AvaloniaProperty.Register<PathGeometryControl, Media.PathFigure?>(nameof(Figure));
+
+    public static readonly StyledProperty<Media.PathSegment?> SelectedOperationProperty =
+        AvaloniaProperty.Register<PathGeometryControl, Media.PathSegment?>(nameof(SelectedOperation));
 
     public static readonly StyledProperty<AvaMatrix> MatrixProperty =
         AvaloniaProperty.Register<PathGeometryControl, AvaMatrix>(nameof(Matrix), AvaMatrix.Identity);
@@ -33,12 +27,23 @@ public class PathGeometryControl : Control
     public static readonly StyledProperty<double> ScaleProperty =
         AvaloniaProperty.Register<PathGeometryControl, double>(nameof(Scale), 1.0);
 
+    public static readonly StyledProperty<bool> IsPlayingProperty =
+        AvaloniaProperty.Register<PathGeometryControl, bool>(nameof(IsPlaying));
+
+    private static readonly Avalonia.Media.IPen s_pen = new Avalonia.Media.Immutable.ImmutablePen(
+        Avalonia.Media.Brushes.White.ToImmutable(), 1,
+        new Avalonia.Media.Immutable.ImmutableDashStyle([3, 3], 0));
+
+    private static readonly Avalonia.Media.IPen s_shadowPen = new Avalonia.Media.Immutable.ImmutablePen(
+        Avalonia.Media.Brushes.Black.ToImmutable(), 1,
+        new Avalonia.Media.Immutable.ImmutableDashStyle([3, 3], 0));
+
     static PathGeometryControl()
     {
         AffectsRender<PathGeometryControl>(GeometryProperty, FigureProperty, MatrixProperty, ScaleProperty, SelectedOperationProperty);
     }
 
-    public PathSegment? SelectedOperation
+    public Media.PathSegment? SelectedOperation
     {
         get => GetValue(SelectedOperationProperty);
         set => SetValue(SelectedOperationProperty, value);
@@ -50,13 +55,13 @@ public class PathGeometryControl : Control
         set => SetValue(MatrixProperty, value);
     }
 
-    public PathGeometry? Geometry
+    public Media.PathGeometry? Geometry
     {
         get => GetValue(GeometryProperty);
         set => SetValue(GeometryProperty, value);
     }
-    
-    public PathFigure? Figure
+
+    public Media.PathFigure? Figure
     {
         get => GetValue(FigureProperty);
         set => SetValue(FigureProperty, value);
@@ -68,176 +73,139 @@ public class PathGeometryControl : Control
         set => SetValue(ScaleProperty, value);
     }
 
+    public bool IsPlaying
+    {
+        get => GetValue(IsPlayingProperty);
+        set => SetValue(IsPlayingProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property == GeometryProperty)
         {
-            if (change.OldValue is PathGeometry oldValue)
+            if (change.OldValue is Media.PathGeometry oldValue)
             {
                 oldValue.Invalidated -= OnGeometryInvalidated;
             }
 
-            if (change.NewValue is PathGeometry newValue)
+            if (change.NewValue is Media.PathGeometry newValue)
             {
                 newValue.Invalidated += OnGeometryInvalidated;
             }
+        }
+        else if (change.Property == IsPlayingProperty)
+        {
+            IsHitTestVisible = !IsPlaying;
         }
     }
 
     private void OnGeometryInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        Dispatcher.UIThread.Post(InvalidateVisual);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsPlaying)
+            {
+                InvalidateVisual();
+            }
+        });
     }
 
-    public override void Render(Avalonia.Media.DrawingContext context)
+    public override void Render(DrawingContext context)
     {
         base.Render(context);
         if (Geometry != null
             && Figure != null
             && SelectedOperation != null)
         {
-            context.Custom(new PathDrawOperation(
-                Geometry, Figure, Matrix, Geometry.GetCurrentBounds().ToAvaRect(),
-                Scale, Figure.Segments.IndexOf(SelectedOperation)));
-        }
-    }
-
-    private class PathDrawOperation(PathGeometry geometry, PathFigure figure, AvaMatrix matrix, AvaRect bounds, double scale, int index) : ICustomDrawOperation
-    {
-        public AvaRect Bounds => bounds;
-
-        public PathGeometry Geometry { get; } = geometry;
-
-        public PathFigure Figure { get; } = figure;
-
-        public void Dispose()
-        {
-        }
-
-        public bool Equals(ICustomDrawOperation? other)
-        {
-            return false;
-        }
-
-        public bool HitTest(AvaPoint p)
-        {
-            return false;
-        }
-
-        public void Render(Avalonia.Media.ImmediateDrawingContext context)
-        {
-            if (context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out var sk))
+            int index = Figure.Segments.IndexOf(SelectedOperation);
+            if (Figure.Segments.Count > 0 && index >= 0)
             {
-                using (var skapi = sk.Lease())
-                using (var paint = new SKPaint())
+                AvaMatrix mat = Matrix * AvaMatrix.CreateScale(Scale, Scale);
+
+                bool isClosed = Figure.IsClosed;
+
+                void DrawLineAndShadow(AvaPoint p1, AvaPoint p2)
                 {
-                    var skmat = matrix.ToSKMatrix().PostConcat(SKMatrix.CreateScale((float)(scale), (float)(scale)));
+                    context.DrawLine(s_shadowPen, p1 + new AvaPoint(1, 1), p2 + new AvaPoint(1, 1));
+                    context.DrawLine(s_pen, p1, p2);
+                }
 
-                    paint.HintingLevel = SKPaintHinting.Full;
-                    paint.FilterQuality = SKFilterQuality.Low;
-                    paint.IsAntialias = true;
-
-                    paint.Style = SKPaintStyle.Stroke;
-                    paint.StrokeWidth = 1;
-                    paint.Color = SKColors.White;
-                    using (var dash = SKPathEffect.CreateDash([3, 3], 0))
+                void DrawLine(Media.PathSegment op, int index, bool c1, bool c2)
+                {
+                    if (!isClosed && index == 0)
                     {
-                        paint.PathEffect = dash;
-                    }
-                    using (var filter = SKImageFilter.CreateDropShadow(1, 1, 0, 0, SKColors.Black))
-                    {
-                        paint.ImageFilter = filter;
+                        return;
                     }
 
-                    if (Figure.Segments.Count > 0 && index >= 0)
+                    int prevIndex = (index - 1 + Figure.Segments.Count) % Figure.Segments.Count;
+                    AvaPoint lastPoint = default;
+                    if (0 <= prevIndex && prevIndex < Figure.Segments.Count
+                        && Figure.Segments[prevIndex].TryGetEndPoint(out Graphics.Point tmp))
                     {
-                        bool isClosed = Figure.IsClosed;
-
-                        void DrawLine(PathSegment op, int index, bool c1, bool c2)
-                        {
-                            if (!isClosed && index == 0)
-                            {
-                                return;
-                            }
-
-                            int prevIndex = (index - 1 + Figure.Segments.Count) % Figure.Segments.Count;
-                            SKPoint lastPoint = default;
-                            if (0 <= prevIndex && prevIndex < Figure.Segments.Count)
-                            {
-                                if (Figure.Segments[prevIndex].TryGetEndPoint(out Graphics.Point tmp))
-                                    lastPoint = tmp.ToSKPoint();
-                            }
-
-                            switch (op)
-                            {
-                                case ConicSegment conic:
-                                    if (c1)
-                                    {
-                                        skapi.SkCanvas.DrawLine(
-                                            skmat.MapPoint(lastPoint),
-                                            skmat.MapPoint(conic.ControlPoint.ToSKPoint()),
-                                            paint);
-                                    }
-
-                                    if (c2)
-                                    {
-                                        skapi.SkCanvas.DrawLine(
-                                            skmat.MapPoint(conic.EndPoint.ToSKPoint()),
-                                            skmat.MapPoint(conic.ControlPoint.ToSKPoint()),
-                                            paint);
-                                    }
-                                    break;
-
-                                case CubicBezierSegment cubic:
-                                    if (c1)
-                                    {
-                                        skapi.SkCanvas.DrawLine(
-                                            skmat.MapPoint(lastPoint),
-                                            skmat.MapPoint(cubic.ControlPoint1.ToSKPoint()),
-                                            paint);
-                                    }
-
-                                    if (c2)
-                                    {
-                                        skapi.SkCanvas.DrawLine(
-                                            skmat.MapPoint(cubic.EndPoint.ToSKPoint()),
-                                            skmat.MapPoint(cubic.ControlPoint2.ToSKPoint()),
-                                            paint);
-                                    }
-                                    break;
-
-                                case QuadraticBezierSegment quad:
-                                    if (c1)
-                                    {
-                                        skapi.SkCanvas.DrawLine(
-                                            skmat.MapPoint(lastPoint),
-                                            skmat.MapPoint(quad.ControlPoint.ToSKPoint()),
-                                            paint);
-                                    }
-
-                                    if (c2)
-                                    {
-                                        skapi.SkCanvas.DrawLine(
-                                            skmat.MapPoint(quad.EndPoint.ToSKPoint()),
-                                            skmat.MapPoint(quad.ControlPoint.ToSKPoint()),
-                                            paint);
-                                    }
-                                    break;
-                            }
-                        }
-
-                        DrawLine(Figure.Segments[index], index, false, true);
-                        int nextIndex = (index + 1) % Figure.Segments.Count;
-
-                        if (0 <= nextIndex && nextIndex < Figure.Segments.Count)
-                        {
-                            DrawLine(Figure.Segments[nextIndex], nextIndex, true, false);
-                        }
+                        lastPoint = tmp.ToAvaPoint();
                     }
+
+                    switch (op)
+                    {
+                        case ConicSegment conic:
+                            if (c1)
+                            {
+                                DrawLineAndShadow(
+                                    mat.Transform(lastPoint),
+                                    mat.Transform(conic.ControlPoint.ToAvaPoint()));
+                            }
+
+                            if (c2)
+                            {
+                                DrawLineAndShadow(
+                                    mat.Transform(conic.EndPoint.ToAvaPoint()),
+                                    mat.Transform(conic.ControlPoint.ToAvaPoint()));
+                            }
+                            break;
+
+                        case CubicBezierSegment cubic:
+                            if (c1)
+                            {
+                                DrawLineAndShadow(
+                                    mat.Transform(lastPoint),
+                                    mat.Transform(cubic.ControlPoint1.ToAvaPoint()));
+                            }
+
+                            if (c2)
+                            {
+                                DrawLineAndShadow(
+                                    mat.Transform(cubic.EndPoint.ToAvaPoint()),
+                                    mat.Transform(cubic.ControlPoint2.ToAvaPoint()));
+                            }
+                            break;
+
+                        case Media.QuadraticBezierSegment quad:
+                            if (c1)
+                            {
+                                DrawLineAndShadow(
+                                    mat.Transform(lastPoint),
+                                    mat.Transform(quad.ControlPoint.ToAvaPoint()));
+                            }
+
+                            if (c2)
+                            {
+                                DrawLineAndShadow(
+                                    mat.Transform(quad.EndPoint.ToAvaPoint()),
+                                    mat.Transform(quad.ControlPoint.ToAvaPoint()));
+                            }
+                            break;
+                    }
+                }
+
+                DrawLine(Figure.Segments[index], index, false, true);
+                int nextIndex = (index + 1) % Figure.Segments.Count;
+
+                if (0 <= nextIndex && nextIndex < Figure.Segments.Count)
+                {
+                    DrawLine(Figure.Segments[nextIndex], nextIndex, true, false);
                 }
             }
         }
     }
 }
-

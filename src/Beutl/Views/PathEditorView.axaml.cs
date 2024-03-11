@@ -303,4 +303,11 @@ public partial class PathEditorView : UserControl, IPathEditorView
     {
         return canvas.Children.FirstOrDefault(v => ReferenceEquals(v.DataContext, segment) && Equals(v.Tag, property.Name)) as Thumb;
     }
+
+    public Thumb[] GetSelectedAnchors()
+    {
+        return canvas.Children.OfType<Thumb>()
+            .Where(c => !c.Classes.Contains("control") && PathPointDragBehavior.GetIsSelected(c))
+            .ToArray();
+    }
 }

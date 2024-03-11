@@ -1,5 +1,6 @@
 ﻿#pragma warning disable CS0618 // Type or member is obsolete
 
+using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 
 using Beutl.Media;
@@ -179,5 +180,41 @@ public static class PathEditorHelper
             default:
                 return [];
         }
+    }
+
+    public static double Round(double v)
+    {
+        return Math.Round(v, 2, MidpointRounding.AwayFromZero);
+    }
+
+    public static float Round(float v)
+    {
+        return MathF.Round(v, 2, MidpointRounding.AwayFromZero);
+    }
+
+    public static Avalonia.Point Round(Avalonia.Point p)
+    {
+        return new(Round(p.X), Round(p.Y));
+    }
+
+    public static Avalonia.Point Round(Avalonia.Point p, Avalonia.Matrix m)
+    {
+        return Round(p.Transform(m.Invert())).Transform(m);
+    }
+
+    public static BtlPoint Round(BtlPoint p)
+    {
+        return new(Round(p.X), Round(p.Y));
+    }
+
+    public static Avalonia.Point GetCanvasPosition(Control c)
+    {
+        return new(Canvas.GetLeft(c), Canvas.GetTop(c));
+    }
+
+    public static void SetCanvasPosition(Control c, Avalonia.Point p)
+    {
+        Canvas.SetLeft(c, p.X);
+        Canvas.SetTop(c, p.Y);
     }
 }

@@ -65,7 +65,17 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
         if (DataContext is PathFigureEditorViewModel viewModel)
         {
             EditViewModel? editViewModel = viewModel.GetService<EditViewModel>();
-            editViewModel?.Player.PathEditor.StartEdit(viewModel);
+            // Todo: 右クリックで選べるようにする
+            //editViewModel?.Player.PathEditor.StartEdit(viewModel);
+
+            if (editViewModel != null)
+            {
+                var context = editViewModel.FindToolTab<PathEditorTabViewModel>()
+                    ?? new PathEditorTabViewModel(editViewModel);
+                context.StartEdit(viewModel);
+
+                editViewModel.OpenToolTab(context);
+            }
         }
     }
 
