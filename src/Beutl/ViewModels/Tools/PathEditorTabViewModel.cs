@@ -46,6 +46,9 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
             .Switch()
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
+
+        FigureContext.Subscribe(_ => SelectedOperation.Value = null)
+            .DisposeWith(_disposables);
     }
 
     public EditViewModel EditViewModel { get; }
@@ -109,8 +112,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
 
             FigureContext.Value = context;
         }
-
-        SelectedOperation.Value = null;
     }
 
     public void Dispose()
