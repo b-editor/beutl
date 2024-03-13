@@ -1186,4 +1186,10 @@ and b-editor maintains the download URL.</value>
   <data name="ImportSvgPath_Description" xml:space="preserve">
     <value>The current shape will be overwritten.</value>
   </data>
+  <data name="EditInFrame" xml:space="preserve">
+    <value>Edit in frame</value>
+  </data>
+  <data name="EditInTab" xml:space="preserve">
+    <value>Edit in tab</value>
+  </data>
 </root>

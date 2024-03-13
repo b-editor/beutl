@@ -989,6 +989,24 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Edit in frame.
+        /// </summary>
+        public static string EditInFrame {
+            get {
+                return ResourceManager.GetString("EditInFrame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Edit in tab.
+        /// </summary>
+        public static string EditInTab {
+            get {
+                return ResourceManager.GetString("EditInTab", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Edit Json.
         /// </summary>
         public static string EditJson {

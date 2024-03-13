@@ -1186,4 +1186,10 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="ImportSvgPath_Description" xml:space="preserve">
     <value>現在の図形は上書きされます。</value>
   </data>
+  <data name="EditInFrame" xml:space="preserve">
+    <value>フレームで編集</value>
+  </data>
+  <data name="EditInTab" xml:space="preserve">
+    <value>タブで編集</value>
+  </data>
 </root>

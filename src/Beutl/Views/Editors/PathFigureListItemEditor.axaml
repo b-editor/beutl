@@ -44,8 +44,14 @@
                               VerticalContentAlignment="Center"
                               Classes="size-24x24"
                               Click="Edit_Click"
-                              IsChecked="{Binding EditingPath.Value}"
+                              IsChecked="{Binding EditingPath.Value, Mode=OneWay}"
                               Theme="{StaticResource TransparentToggleButton}">
+                    <ToggleButton.ContextFlyout>
+                        <ui:FAMenuFlyout>
+                            <ui:MenuFlyoutItem Click="EditInFrameClicked" Text="{x:Static lang:Strings.EditInFrame}" />
+                            <ui:MenuFlyoutItem Click="EditInTabClicked" Text="{x:Static lang:Strings.EditInTab}" />
+                        </ui:FAMenuFlyout>
+                    </ToggleButton.ContextFlyout>
                     <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xEDFB;" />
                 </ToggleButton>
                 <Button Padding="0"
