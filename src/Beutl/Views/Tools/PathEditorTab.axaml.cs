@@ -10,7 +10,6 @@ using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Media;
-using Beutl.Rendering;
 using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
@@ -80,7 +79,6 @@ public partial class PathEditorTab : UserControl, IPathEditorView
             .Subscribe(_ => UpdateControlPointVisibility());
 
         // 個別にBindingするのではなく、一括で位置を変更する
-        // TODO: Scale, Matrixが変わった時に位置がずれる
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorTabViewModel)
             .Select(v => v?.EditViewModel.Player.AfterRendered ?? Observable.Return(Unit.Default))
@@ -186,10 +184,16 @@ public partial class PathEditorTab : UserControl, IPathEditorView
                 using (var context = new GeometryContext() { FillType = geometry.FillType })
                 {
                     geometry.ApplyTo(context);
-                    var s = context.NativeObject.ToSvgPathData();
-                    path.Data = Avalonia.Media.Geometry.Parse(s);
-                }
+                    string s = context.NativeObject.ToSvgPathData();
 
+                    var newGeometry = Avalonia.Media.PathGeometry.Parse(s);
+                    newGeometry.FillRule = geometry.FillType == PathFillType.Winding ? Avalonia.Media.FillRule.NonZero : Avalonia.Media.FillRule.EvenOdd;
+                    path.Data = newGeometry;
+                }
+            }
+            else
+            {
+                path.Data = null;
             }
         });
     }

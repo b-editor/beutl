@@ -42,14 +42,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        editViewModel.SelectedObject.Subscribe(obj =>
-        {
-            if (!ReferenceEquals(obj, Element.Value))
-            {
-                FigureContext.Value = null;
-            }
-        }).DisposeWith(_disposables);
-
         IsClosed = PathFigure.Select(g => g?.GetObservable(Media.PathFigure.IsClosedProperty) ?? Observable.Return(false))
             .Switch()
             .ToReadOnlyReactiveProperty()
@@ -88,7 +80,8 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
 
     public ToolTabExtension.TabPlacement Placement { get; } = ToolTabExtension.TabPlacement.Bottom;
 
-    public void StartEdit(PathFigureEditorViewModel context)
+    // FigureContextがcontext引数と同じ場合、編集を終了
+    public void StartOrFinishEdit(PathFigureEditorViewModel context)
     {
         if (FigureContext.Value == context)
         {
