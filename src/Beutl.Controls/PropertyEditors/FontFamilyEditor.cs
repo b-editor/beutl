@@ -138,7 +138,7 @@ public class BeutlFontFamilyToAvaloniaConverter : FuncValueConverter<Media.FontF
     public static readonly BeutlFontFamilyToAvaloniaConverter Instance = new();
 
     public BeutlFontFamilyToAvaloniaConverter()
-        : base(f => new Avalonia.Media.FontFamily(f.Name))
+        : base(f => f != null ? new Avalonia.Media.FontFamily(f.Name) : Avalonia.Media.FontFamily.Default)
     {
     }
 }
