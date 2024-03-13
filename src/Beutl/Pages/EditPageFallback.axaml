@@ -40,9 +40,9 @@
                         <icons:SymbolIcon Symbol="New" />
                     </OptionsDisplayItem.Icon>
                     <OptionsDisplayItem.ContextMenu>
-                        <ContextMenu PlacementAnchor="BottomRight"
-                                     PlacementGravity="BottomLeft"
-                                     PlacementMode="AnchorAndGravity">
+                        <ContextMenu Placement="AnchorAndGravity"
+                                     PlacementAnchor="BottomRight"
+                                     PlacementGravity="BottomLeft">
                             <MenuItem Click="CreateNewProject_Click" Header="{x:Static lang:Strings.CreateNewProject}" />
                             <MenuItem Click="CreateNewScene_Click" Header="{x:Static lang:Strings.CreateNewScene}" />
                         </ContextMenu>
@@ -58,9 +58,9 @@
                         <icons:SymbolIcon Symbol="Open" />
                     </OptionsDisplayItem.Icon>
                     <OptionsDisplayItem.ContextMenu>
-                        <ContextMenu PlacementAnchor="BottomRight"
-                                     PlacementGravity="BottomLeft"
-                                     PlacementMode="AnchorAndGravity">
+                        <ContextMenu Placement="AnchorAndGravity"
+                                     PlacementAnchor="BottomRight"
+                                     PlacementGravity="BottomLeft">
                             <MenuItem Click="OpenProject_Click" Header="{x:Static lang:Strings.Project}" />
                             <MenuItem Click="OpenFile_Click" Header="{x:Static lang:Strings.File}" />
                         </ContextMenu>
