@@ -51,30 +51,61 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 
     private void Tag_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PathFigureEditorViewModel viewModel)
+        if (sender is Button btn)
         {
-            if (sender is Button btn)
+            btn.ContextFlyout?.ShowAt(btn);
+        }
+    }
+
+    private void EditInFrameClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PathFigureEditorViewModel viewModel
+            && viewModel.GetService<EditViewModel>() is { } editViewModel)
+        {
+            editViewModel?.Player.PathEditor.StartEdit(viewModel);
+        }
+    }
+
+    private void EditInTabClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PathFigureEditorViewModel viewModel
+            && viewModel.GetService<EditViewModel>() is { } editViewModel)
+        {
+            var context = editViewModel.FindToolTab<PathEditorTabViewModel>()
+                ?? new PathEditorTabViewModel(editViewModel);
+
+            // 既に編集中でタブが選択されている場合、編集を終了
+            if (context.FigureContext.Value == viewModel)
             {
-                btn.ContextFlyout?.ShowAt(btn);
+                if (context.IsSelected.Value)
+                {
+                    context.StartOrFinishEdit(viewModel);
+                }
             }
+            else
+            {
+                context.StartOrFinishEdit(viewModel);
+            }
+
+            editViewModel.OpenToolTab(context);
         }
     }
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PathFigureEditorViewModel viewModel)
+        if (DataContext is PathFigureEditorViewModel viewModel
+            && viewModel.GetService<EditViewModel>() is { } editViewModel
+            && sender is ToggleButton btn)
         {
-            EditViewModel? editViewModel = viewModel.GetService<EditViewModel>();
-            // Todo: 右クリックで選べるようにする
-            //editViewModel?.Player.PathEditor.StartEdit(viewModel);
+            btn.IsChecked = btn.IsChecked != true;
 
-            if (editViewModel != null)
+            if (viewModel.EditingPath.Value)
             {
-                var context = editViewModel.FindToolTab<PathEditorTabViewModel>()
-                    ?? new PathEditorTabViewModel(editViewModel);
-                context.StartEdit(viewModel);
-
-                editViewModel.OpenToolTab(context);
+                editViewModel?.Player.PathEditor.StartEdit(viewModel);
+            }
+            else
+            {
+                btn.ContextFlyout?.ShowAt(btn);
             }
         }
     }
