@@ -1,6 +1,4 @@
-﻿using System.Security.Cryptography.X509Certificates;
-
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
