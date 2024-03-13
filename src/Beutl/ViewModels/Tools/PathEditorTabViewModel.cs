@@ -101,6 +101,12 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
         }
         else
         {
+            // Groupプロパティを初期化
+            if (!context.IsExpanded.Value)
+            {
+                context.IsExpanded.Value = true;
+            }
+
             FigureContext.Value = context;
         }
 

@@ -159,6 +159,12 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
 
     public void StartEdit(Shape shape, GeometryEditorViewModel context, Avalonia.Point point)
     {
+        // Groupプロパティを初期化
+        if (!context.IsExpanded.Value)
+        {
+            context.IsExpanded.Value = true;
+        }
+
         Avalonia.Matrix matrix = CalculateMatrix(shape, context.Value.Value).ToAvaMatrix();
         if (matrix.TryInvert(out Avalonia.Matrix inverted)
             && context.Value.Value is PathGeometry geometry
@@ -195,6 +201,12 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
         }
         else
         {
+            // Groupプロパティを初期化
+            if (!context.IsExpanded.Value)
+            {
+                context.IsExpanded.Value = true;
+            }
+
             FigureContext.Value = context;
         }
 
