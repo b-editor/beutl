@@ -18,7 +18,7 @@ public sealed class PathEditorTabExtension : ToolTabExtension
 
     public override bool CanMultiple => false;
 
-    public override string? Header => "PathEditor";
+    public override string? Header => Strings.PathEditor;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
