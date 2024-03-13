@@ -1,7 +1,7 @@
-﻿using System.Reactive.Subjects;
-
-using Avalonia;
-using Avalonia.Data;
+﻿using Avalonia.Data;
+using Avalonia.Data.Core;
+using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindings;
 
 using Reactive.Bindings;
 
@@ -9,64 +9,45 @@ namespace Beutl;
 
 internal static class BindingHelper
 {
+    private static readonly Dictionary<Type, CompiledBindingPath> s_cache = [];
+
     public static IBinding ToPropertyBinding<T>(this IReactiveProperty<T> property, BindingMode bindingMode = BindingMode.Default)
     {
-        return new BindingAdaptor<T>(property, bindingMode);
-    }
-
-    private class BindingAdaptor<T>(IReactiveProperty<T> property, BindingMode bindingMode) : IBinding
-    {
-        private readonly RxPropertySubject<T> _source = new(property);
-        private readonly BindingMode _bindingMode = bindingMode;
-
-        public InstancedBinding? Initiate(
-            AvaloniaObject target,
-            AvaloniaProperty? targetProperty,
-            object? anchor = null,
-            bool enableDataValidation = false)
+        if (!s_cache.TryGetValue(typeof(T), out CompiledBindingPath? path))
         {
-            BindingMode bindingMode = _bindingMode == BindingMode.Default
-                ? targetProperty?.GetMetadata(target.GetType())?.DefaultBindingMode ?? BindingMode.Default
-                : _bindingMode;
+            var propInfo = new ClrPropertyInfo(
+                nameof(IReactiveProperty<T>.Value),
+                o =>
+                {
+                    if (o is IReactiveProperty<T> p)
+                    {
+                        return p.Value;
+                    }
+                    else
+                    {
+                        return default;
+                    }
+                },
+                (o, v) =>
+                {
+                    if (o is IReactiveProperty<T> p)
+                    {
+                        p.Value = v is T t ? t : default!;
+                    }
+                },
+                typeof(T));
 
-            return bindingMode switch
-            {
-                BindingMode.TwoWay => InstancedBinding.TwoWay(_source, _source),
-                BindingMode.OneTime => InstancedBinding.OneTime(property.Value!),
-                BindingMode.OneWayToSource => InstancedBinding.OneWayToSource(_source),
-                _ => InstancedBinding.OneWay(_source),
-            };
-        }
-    }
+            var b = new CompiledBindingPathBuilder();
+            b.Property(propInfo, PropertyInfoAccessorFactory.CreateInpcPropertyAccessor);
 
-    private sealed class RxPropertySubject<T>(IReactiveProperty<T> source) : ISubject<object?>
-    {
-        public void OnCompleted()
-        {
+            path = b.Build();
+            s_cache.Add(typeof(T), path);
         }
 
-        public void OnError(Exception error)
+        return new CompiledBindingExtension(path)
         {
-        }
-
-        public void OnNext(object? value)
-        {
-            if (value is T t)
-            {
-                source.Value = t;
-            }
-            else
-            {
-                source.Value = default!;
-            }
-        }
-
-        public IDisposable Subscribe(IObserver<object?> observer)
-        {
-            return source.Subscribe(
-                v => observer.OnNext(v),
-                observer.OnError,
-                observer.OnCompleted);
-        }
+            Source = property,
+            Mode = bindingMode
+        };
     }
 }
