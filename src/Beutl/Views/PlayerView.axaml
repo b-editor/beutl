@@ -45,7 +45,7 @@
                              Click="ToggleDragModeClick"
                              GroupName="PathEditor_DragMode"
                              IsChecked="{Binding PathEditor.Symmetry.Value, Mode=OneWay}"
-                             IsVisible="{Binding !!PathEditor.Context.Value}"
+                             IsVisible="{Binding PathEditor.Context.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                              Tag="Symmetry"
                              ToolTip.Tip="{x:Static lang:Strings.Symmetry}">
                     <Border VerticalAlignment="Center">
@@ -59,7 +59,7 @@
                 <RadioButton Click="ToggleDragModeClick"
                              GroupName="PathEditor_DragMode"
                              IsChecked="{Binding PathEditor.Asymmetry.Value, Mode=OneWay}"
-                             IsVisible="{Binding !!PathEditor.Context.Value}"
+                             IsVisible="{Binding PathEditor.Context.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                              Tag="Asymmetry"
                              ToolTip.Tip="{x:Static lang:Strings.Asymmetry}">
                     <Border VerticalAlignment="Center">
@@ -73,7 +73,7 @@
                 <RadioButton Click="ToggleDragModeClick"
                              GroupName="PathEditor_DragMode"
                              IsChecked="{Binding PathEditor.Separately.Value, Mode=OneWay}"
-                             IsVisible="{Binding !!PathEditor.Context.Value}"
+                             IsVisible="{Binding PathEditor.Context.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                              Tag="Separately"
                              ToolTip.Tip="{x:Static lang:Strings.Separately}">
                     <Border VerticalAlignment="Center">
