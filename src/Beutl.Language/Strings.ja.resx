@@ -1192,4 +1192,10 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="EditInTab" xml:space="preserve">
     <value>タブで編集</value>
   </data>
+  <data name="PathEditor" xml:space="preserve">
+    <value>パスエディタ</value>
+  </data>
+  <data name="GeometryShape" xml:space="preserve">
+    <value>ジオメトリー</value>
+  </data>
 </root>

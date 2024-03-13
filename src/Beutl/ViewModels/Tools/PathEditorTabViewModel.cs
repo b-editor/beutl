@@ -79,7 +79,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public string Header => "PathEditor";
+    public string Header => Strings.PathEditor;
 
     public ToolTabExtension.TabPlacement Placement { get; } = ToolTabExtension.TabPlacement.Bottom;
 

@@ -40,7 +40,7 @@ public static class LibraryRegistrar
             );
         
         LibraryService.Current
-            .AddMultiple("Geometry", m => m
+            .AddMultiple(Strings.GeometryShape, m => m
                 .BindSourceOperator<Source.GeometryOperator>()
                 .BindDrawable<Graphics.Shapes.GeometryShape>()
             );

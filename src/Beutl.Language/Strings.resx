@@ -1192,4 +1192,10 @@ and b-editor maintains the download URL.</value>
   <data name="EditInTab" xml:space="preserve">
     <value>Edit in tab</value>
   </data>
+  <data name="PathEditor" xml:space="preserve">
+    <value>Path editor</value>
+  </data>
+  <data name="GeometryShape" xml:space="preserve">
+    <value>Geometry</value>
+  </data>
 </root>

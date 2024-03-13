@@ -1358,6 +1358,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Geometry.
+        /// </summary>
+        public static string GeometryShape {
+            get {
+                return ResourceManager.GetString("GeometryShape", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Gradient Origin.
         /// </summary>
         public static string GradientOrigin {
@@ -2092,6 +2101,15 @@ namespace Beutl.Language {
         public static string Paste {
             get {
                 return ResourceManager.GetString("Paste", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Path editor.
+        /// </summary>
+        public static string PathEditor {
+            get {
+                return ResourceManager.GetString("PathEditor", resourceCulture);
             }
         }
         
