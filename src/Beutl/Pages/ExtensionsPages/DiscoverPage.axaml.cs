@@ -11,6 +11,8 @@ using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
+using FAHyperlinkButton = FluentAvalonia.UI.Controls.HyperlinkButton;
+
 namespace Beutl.Pages.ExtensionsPages;
 
 public sealed partial class DiscoverPage : UserControl
@@ -40,7 +42,7 @@ public sealed partial class DiscoverPage : UserControl
 
     private void MoreRanking_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is HyperlinkButton { Tag: { } tag }
+        if (sender is FAHyperlinkButton { Tag: { } tag }
             && this.FindLogicalAncestorOfType<Frame>() is { } frame)
         {
             RankingType type = tag switch

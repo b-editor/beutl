@@ -21,7 +21,7 @@
                                        Width="{Binding #Root.Bounds.Width}"
                                        Height="{Binding #Root.Bounds.Width}"
                                        BorderBrush="{DynamicResource ColorRampBorderBrush}"
-                                       BorderThickness="{DynamicResource ColorRampBorderThickness}"
+                                       BorderThickness="1"
                                        Components="SaturationValue"
                                        Shape="Box" />
 
@@ -29,7 +29,7 @@
                                        Width="{Binding #Root.Bounds.Width}"
                                        Height="{Binding #Root.Bounds.Width}"
                                        BorderBrush="{DynamicResource ColorRampBorderBrush}"
-                                       BorderThickness="{DynamicResource ColorRampBorderThickness}"
+                                       BorderThickness="1"
                                        Components="HueSaturation"
                                        IsVisible="False"
                                        Shape="Ring" />
