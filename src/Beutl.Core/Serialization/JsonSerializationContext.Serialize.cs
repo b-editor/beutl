@@ -29,7 +29,7 @@ public partial class JsonSerializationContext
             }
 
             JsonObject obj = innerContext.GetJsonObject();
-            if (value is not IDummy && actualType != baseType)
+            if (value is not IDummy && !baseType.IsSealed)
             {
                 obj.WriteDiscriminator(actualType);
             }
