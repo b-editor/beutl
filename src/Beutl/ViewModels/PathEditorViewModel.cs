@@ -64,14 +64,6 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        editViewModel.SelectedObject.Subscribe(obj =>
-        {
-            if (!ReferenceEquals(obj, Element.Value))
-            {
-                FigureContext.Value = null;
-            }
-        }).DisposeWith(_disposables);
-
         IsVisible = editViewModel.CurrentTime
             .CombineLatest(Element
                 .Select(e => e?.GetObservable(ProjectSystem.Element.StartProperty)
@@ -87,6 +79,9 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
         IsClosed = PathFigure.Select(g => g?.GetObservable(Media.PathFigure.IsClosedProperty) ?? Observable.Return(false))
             .Switch()
             .ToReadOnlyReactiveProperty()
+            .DisposeWith(_disposables);
+
+        FigureContext.Subscribe(_ => SelectedOperation.Value = null)
             .DisposeWith(_disposables);
     }
 
@@ -209,8 +204,6 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
 
             FigureContext.Value = context;
         }
-
-        SelectedOperation.Value = null;
     }
 
     public void Dispose()

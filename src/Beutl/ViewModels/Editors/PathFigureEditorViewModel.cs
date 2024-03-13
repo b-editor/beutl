@@ -212,6 +212,21 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         {
             Value.Value.Invalidated -= OnFigureInvalidated;
         }
+        if (_editViewModel.Value is { } editViewModel)
+        {
+            PathEditorTabViewModel? tab = editViewModel.FindToolTab<PathEditorTabViewModel>();
+            if (tab != null && tab.FigureContext.Value == this)
+            {
+                tab.FigureContext.Value = null;
+            }
+
+            if (editViewModel is { Player.PathEditor: { } pathEditor }
+                && pathEditor.FigureContext.Value == this)
+            {
+                pathEditor.FigureContext.Value = null;
+            }
+        }
+        PreviewPath.Value = null;
 
         base.Dispose(disposing);
         Properties.Value?.Dispose();
