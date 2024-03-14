@@ -268,21 +268,11 @@ public class TextBlock : Drawable
                         {
                             Rect elementBounds = item.Bounds;
 
-                            if (prevRight == 0)
-                            {
-                                prevRight -= elementBounds.Left;
-                            }
-
                             using (canvas.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, 0)))
                             {
                                 canvas.DrawText(item, item.Brush ?? Fill, item.Pen ?? Pen);
 
                                 prevRight += elementBounds.Width + item.Spacing;
-                            }
-
-                            if (prevRight != 0)
-                            {
-                                prevRight += elementBounds.Left;
                             }
                         }
                     }
@@ -310,11 +300,6 @@ public class TextBlock : Drawable
                 {
                     Rect elementBounds = item.Bounds;
 
-                    if (prevRight == 0)
-                    {
-                        prevRight -= elementBounds.Left;
-                    }
-
                     foreach (Geometry geometry in item.ToGeometies())
                     {
                         using (canvas.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition)))
@@ -324,11 +309,6 @@ public class TextBlock : Drawable
                     }
 
                     prevRight += elementBounds.Width + item.Spacing;
-
-                    if (prevRight != 0)
-                    {
-                        prevRight += elementBounds.Left;
-                    }
                 }
             }
 
@@ -416,11 +396,6 @@ public class TextBlock : Drawable
             if (item.Text.Length > 0)
             {
                 Rect bounds = item.Bounds;
-                if (width != 0)
-                {
-                    width += bounds.Left;
-                }
-
                 width += bounds.Width;
                 width += item.Spacing;
 
