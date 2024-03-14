@@ -310,30 +310,21 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         }
     }
 
-    private void DrawTextStroke(FormattedText text, IPen pen)
-    {
-        ConfigureStrokePaint(new(text.Bounds.Size), pen!);
-        _sharedStrokePaint.IsStroke = false;
-        SKPath filled = text.GetFillPath()!;
-        SKPath stroke = text.GetStrokePath()!;
-
-        Canvas.DrawPath(stroke, _sharedStrokePaint);
-    }
-
     public void DrawText(FormattedText text, IBrush? fill, IPen? pen)
     {
         VerifyAccess();
+        SKTextBlob textBlob = text.GetTextBlob();
 
-        SKPath filled = text.GetFillPath()!;
-
-        // draw filled
         ConfigureFillPaint(text.Bounds, fill);
-        Canvas.DrawPath(filled, _sharedFillPaint);
+        Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
-        // draw stroke
-        if (pen != null && pen.Thickness > 0)
+        if (pen != null
+            && pen.Thickness > 0
+            && text.GetStrokePath() is { }stroke)
         {
-            DrawTextStroke(text, pen);
+            ConfigureStrokePaint(new(text.Bounds.Size), pen!);
+            _sharedStrokePaint.IsStroke = false;
+            Canvas.DrawPath(stroke, _sharedStrokePaint);
         }
     }
 
