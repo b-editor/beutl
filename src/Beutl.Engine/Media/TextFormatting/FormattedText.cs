@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Media.Immutable;
 using Beutl.Reactive;
 
 using SkiaSharp;
@@ -122,19 +121,14 @@ public class FormattedText : IEquatable<FormattedText>
     // テスト用
     internal Point AddToSKPath(SKPath path, Point point)
     {
-        using SKFont font = this.ToSKFont();
+        using SKFont font = ToSKFont();
 
         using var shaper = new SKShaper(font.Typeface);
         using var buffer = new HarfBuzzSharp.Buffer();
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
 
-        using SKPaint paint = new()
-        {
-            TextSize = Size,
-            Typeface = font.Typeface
-        };
-        SKShaper.Result result = shaper.Shape(buffer, paint);
+        SKShaper.Result result = shaper.Shape(buffer, font);
 
         // create the text blob
         using var builder = new SKTextBlobBuilder();
@@ -191,7 +185,11 @@ public class FormattedText : IEquatable<FormattedText>
         {
             Edging = SKFontEdging.Antialias,
             Subpixel = true,
-            Hinting = SKFontHinting.Full
+            Hinting = SKFontHinting.Full,
+            Embolden = true
+            //paint.HintingLevel = SKPaintHinting.Full;
+            //paint.LcdRenderText = true;
+            //paint.SubpixelText = true;
         };
 
         return font;
@@ -212,12 +210,7 @@ public class FormattedText : IEquatable<FormattedText>
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
 
-        using SKPaint paint = new()
-        {
-            TextSize = Size,
-            Typeface = font.Typeface,
-        };
-        SKShaper.Result result = shaper.Shape(buffer, paint);
+        SKShaper.Result result = shaper.Shape(buffer, font);
 
         // create the text blob
         using var builder = new SKTextBlobBuilder();
@@ -237,13 +230,16 @@ public class FormattedText : IEquatable<FormattedText>
             positions[i] = point;
 
             SKPath tmp = font.GetGlyphPath(glyphs[i]);
-            fillPath.AddPath(tmp, point.X, point.Y);
-
-            tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
-
             ref SKPathGeometry? exist = ref pathList[i]!;
             exist ??= new SKPathGeometry();
-            exist.SetSKPath(tmp, false);
+            if (tmp != null)
+            {
+                fillPath.AddPath(tmp, point.X, point.Y);
+
+                tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
+
+                exist.SetSKPath(tmp, false);
+            }
         }
 
         SKPath? strokePath = null;
