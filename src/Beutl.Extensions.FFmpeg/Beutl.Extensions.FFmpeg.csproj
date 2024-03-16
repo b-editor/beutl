@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="FFmpeg.AutoGen" />
+    <PackageReference Include="FFMpegCore" />
   </ItemGroup>
 
   <ItemGroup>
