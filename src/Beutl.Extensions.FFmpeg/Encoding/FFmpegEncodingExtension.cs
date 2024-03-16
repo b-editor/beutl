@@ -46,7 +46,6 @@ public sealed class FFmpegEncoderInfo : IEncoderInfo
         {
             CodecOptions = new JsonObject()
             {
-                ["Format"] = ffmpeg.av_get_sample_fmt_name(AVSampleFormat.AV_SAMPLE_FMT_FLTP),
                 ["Codec"] = ffmpeg.avcodec_get_name(AVCodecID.AV_CODEC_ID_NONE),
             }
         };
@@ -63,7 +62,6 @@ public sealed class FFmpegEncoderInfo : IEncoderInfo
                 ["Preset"] = "medium",
                 ["Crf"] = "22",
                 ["Profile"] = "high",
-                ["Level"] = "4.0",
             }
         };
     }
