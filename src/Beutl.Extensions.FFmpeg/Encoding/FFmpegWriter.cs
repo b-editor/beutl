@@ -112,6 +112,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             }
         }
 
+        JsonHelper.TryGetString(videoOptions, "Arguments", out string? args);
+
         string? preset = JsonHelper.TryGetString(videoOptions, "Preset", out string? presetStr) ? presetStr : null;
         int? crf = JsonHelper.TryGetInt(videoOptions, "Crf", out int crf2) ? crf2 : null;
         string? profile = JsonHelper.TryGetString(videoOptions, "Profile", out string? profileStr) ? profileStr : null;
@@ -131,7 +133,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             //.WithHardwareAcceleration()
             .UsingMultithreading(true)
             .ForceFormat(_formatName)
-            .WithVideoCodec(videoCodecName);
+            .WithVideoCodec(videoCodecName)
+            .When(!string.IsNullOrWhiteSpace(args), o => o.WithCustomArgument(args!));
     }
 
     public override bool AddVideo(IBitmap image)
@@ -169,6 +172,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             }
         }
 
+        JsonHelper.TryGetString(audioOptions, "Arguments", out string? args);
+
         var audioCodecName = ffmpeg.avcodec_get_name(audioCodec);
 
         options
@@ -178,7 +183,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             //.WithHardwareAcceleration()
             .UsingMultithreading(true)
             .ForceFormat(_formatName)
-            .WithAudioCodec(audioCodecName);
+            .WithAudioCodec(audioCodecName)
+            .When(!string.IsNullOrWhiteSpace(args), o => o.WithCustomArgument(args!));
     }
 
     [MemberNotNull(nameof(_audioTmpFile), nameof(_audioSamplesSubject), nameof(_audioSamplesSource), nameof(_audioTask))]
