@@ -11,13 +11,13 @@ namespace Beutl.Embedding.FFmpeg.Encoding;
 namespace Beutl.Extensions.FFmpeg.Encoding;
 #endif
 
-public sealed class FFmpegEncoderInfo : IEncoderInfo
+public sealed class FFmpegEncoderInfo(FFmpegEncodingSettings settings) : IEncoderInfo
 {
     public string Name => "FFmpeg Encoder";
 
     public MediaWriter? Create(string file, VideoEncoderSettings videoConfig, AudioEncoderSettings audioConfig)
     {
-        return new FFmpegWriter(file, videoConfig, audioConfig);
+        return new FFmpegWriter(file, videoConfig, audioConfig, settings);
     }
 
     public AudioEncoderSettings DefaultAudioConfig()

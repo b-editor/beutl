@@ -24,13 +24,13 @@ namespace Beutl.Extensions.FFmpeg.Encoding;
 
 public sealed unsafe class FFmpegWriter : MediaWriter
 {
+    private readonly FFmpegEncodingSettings _settings;
     private readonly FFOptions _ffOptions;
 
     private readonly CustomRawVideoPipeSource _videoFramesSource;
     private readonly Task<bool> _videoTask;
     private readonly Subject<IVideoFrame> _videoFramesSubject;
     private readonly string _videoTmpFile;
-
     private RawAudioPipeSource? _audioSamplesSource;
     private Task<bool>? _audioTask;
     private Subject<IAudioSample>? _audioSamplesSubject;
@@ -42,12 +42,14 @@ public sealed unsafe class FFmpegWriter : MediaWriter
     private long _numSamples;
     private string _outputFile;
 
-    public FFmpegWriter(string file, VideoEncoderSettings videoConfig, AudioEncoderSettings audioConfig)
+    public FFmpegWriter(string file, VideoEncoderSettings videoConfig, AudioEncoderSettings audioConfig, FFmpegEncodingSettings settings)
         : base(videoConfig, audioConfig)
     {
         try
         {
+            _settings = settings;
             _ffOptions = new() { BinaryFolder = Path.GetDirectoryName(FFmpegLoader.GetExecutable())!, UseCache = false };
+            GlobalFFOptions.Configure(_ffOptions);
 
             _outputFile = file;
 
@@ -59,6 +61,9 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
             // 動画ストリーム
             _videoTmpFile = Path.GetTempFileName();
+            TryDeleteFile(_videoTmpFile);
+            _videoTmpFile = Path.ChangeExtension(_videoTmpFile, Path.GetExtension(_outputFile));
+
             _videoFramesSubject = new Subject<IVideoFrame>();
             _videoFramesSource = new CustomRawVideoPipeSource(_videoFramesSubject.ToEnumerable())
             {
@@ -68,7 +73,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
                 FrameRate = videoConfig.FrameRate,
             };
 
-            _videoTask = Task.Factory.StartNew(() => FFMpegArguments.FromPipeInput(_videoFramesSource)
+            _videoTask = Task.Factory.StartNew(() => FFMpegArguments.FromPipeInput(_videoFramesSource, ConfigureInputArguments)
                 .OutputToFile(_videoTmpFile, true, ConfigureVideoOutputArguments)
                 .ProcessSynchronously(ffMpegOptions: _ffOptions),
                 TaskCreationOptions.LongRunning);
@@ -83,7 +88,41 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
     public override long NumberOfFrames => _numFrames;
 
+    private long _encodedFrames;
+
     public override long NumberOfSamples => _numSamples;
+
+    private void ConfigureInputArguments(FFMpegArgumentOptions options)
+    {
+        if (_settings.Acceleration != FFmpegEncodingSettings.AccelerationOptions.Software)
+        {
+            options.WithHardwareAcceleration(_settings.Acceleration switch
+            {
+                FFmpegEncodingSettings.AccelerationOptions.D3D11VA => HardwareAccelerationDevice.D3D11VA,
+                FFmpegEncodingSettings.AccelerationOptions.DXVA2 => HardwareAccelerationDevice.DXVA2,
+                FFmpegEncodingSettings.AccelerationOptions.QSV => HardwareAccelerationDevice.QSV,
+                FFmpegEncodingSettings.AccelerationOptions.CUVID => HardwareAccelerationDevice.CUVID,
+                FFmpegEncodingSettings.AccelerationOptions.CUDA => HardwareAccelerationDevice.CUDA,
+                FFmpegEncodingSettings.AccelerationOptions.VDPAU => HardwareAccelerationDevice.VDPAU,
+                FFmpegEncodingSettings.AccelerationOptions.VAAPI => HardwareAccelerationDevice.VAAPI,
+                FFmpegEncodingSettings.AccelerationOptions.LibMFX => HardwareAccelerationDevice.LibMFX,
+                _ => HardwareAccelerationDevice.Auto,
+            });
+        }
+
+        if (_settings.Acceleration == FFmpegEncodingSettings.AccelerationOptions.Software
+            && _settings.ThreadCount != 1)
+        {
+            if (_settings.ThreadCount <= 0)
+            {
+                options.UsingMultithreading(true);
+            }
+            else
+            {
+                options.UsingThreads(Math.Clamp(_settings.ThreadCount, 1, Environment.ProcessorCount));
+            }
+        }
+    }
 
     private void ConfigureVideoOutputArguments(FFMpegArgumentOptions options)
     {
@@ -93,12 +132,12 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
         if (JsonHelper.TryGetString(videoOptions, "Codec", out string? codecStr))
         {
-            AVCodecDescriptor* desc = ffmpeg.avcodec_descriptor_get_by_name(codecStr);
-            if (desc != null
-                && desc->type == AVMediaType.AVMEDIA_TYPE_VIDEO
-                && desc->id != AVCodecID.AV_CODEC_ID_NONE)
+            AVCodec* codec = ffmpeg.avcodec_find_encoder_by_name(codecStr);
+            if (codec != null
+                && codec->type == AVMediaType.AVMEDIA_TYPE_VIDEO
+                && codec->id != AVCodecID.AV_CODEC_ID_NONE)
             {
-                videoCodec = desc->id;
+                videoCodec = codec->id;
             }
         }
 
@@ -130,8 +169,6 @@ public sealed unsafe class FFmpegWriter : MediaWriter
                 o.ForcePixelFormat(videoPixFmt!))
             .When(!string.IsNullOrEmpty(preset), o => o.WithCustomArgument($"-preset {preset}"))
             .When(crf.HasValue, o => o.WithConstantRateFactor(crf!.Value))
-            //.WithHardwareAcceleration()
-            .UsingMultithreading(true)
             .ForceFormat(_formatName)
             .WithVideoCodec(videoCodecName)
             .When(!string.IsNullOrWhiteSpace(args), o => o.WithCustomArgument(args!));
@@ -149,7 +186,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
         if (_videoTask.IsFaulted || _videoTask.IsCompleted)
         {
-            return false;
+            _videoTask.GetAwaiter().GetResult();
+            throw new Exception();
         }
 
         return true;
@@ -163,12 +201,12 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
         if (JsonHelper.TryGetString(audioOptions, "Codec", out string? codecStr))
         {
-            AVCodecDescriptor* desc = ffmpeg.avcodec_descriptor_get_by_name(codecStr);
-            if (desc != null
-                && desc->type == AVMediaType.AVMEDIA_TYPE_AUDIO
-                && desc->id == AVCodecID.AV_CODEC_ID_NONE)
+            AVCodec* codec = ffmpeg.avcodec_find_encoder_by_name(codecStr);
+            if (codec != null
+                && codec->type == AVMediaType.AVMEDIA_TYPE_AUDIO
+                && codec->id != AVCodecID.AV_CODEC_ID_NONE)
             {
-                audioCodec = desc->id;
+                audioCodec = codec->id;
             }
         }
 
@@ -180,8 +218,6 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             .WithAudioBitrate(audioConfig.Bitrate)
             .WithAudioSamplingRate(AudioConfig.SampleRate)
             .WithCustomArgument($"-ac {AudioConfig.Channels}")
-            //.WithHardwareAcceleration()
-            .UsingMultithreading(true)
             .ForceFormat(_formatName)
             .WithAudioCodec(audioCodecName)
             .When(!string.IsNullOrWhiteSpace(args), o => o.WithCustomArgument(args!));
@@ -191,6 +227,9 @@ public sealed unsafe class FFmpegWriter : MediaWriter
     private void LazyInitializeAudioStream(int sampleRate, int channels, string format)
     {
         _audioTmpFile = Path.GetTempFileName();
+        TryDeleteFile(_audioTmpFile);
+        _audioTmpFile = Path.ChangeExtension(_audioTmpFile, Path.GetExtension(_outputFile));
+
         _audioSamplesSubject = new Subject<IAudioSample>();
         _audioSamplesSource = new RawAudioPipeSource(_audioSamplesSubject.ToEnumerable())
         {
@@ -199,7 +238,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             Format = format
         };
 
-        _audioTask = Task.Factory.StartNew(() => FFMpegArguments.FromPipeInput(_audioSamplesSource)
+        _audioTask = Task.Factory.StartNew(() => FFMpegArguments.FromPipeInput(_audioSamplesSource, ConfigureInputArguments)
             .OutputToFile(_audioTmpFile, true, ConfigureAudioOutputArguments)
             .ProcessSynchronously(ffMpegOptions: _ffOptions),
             TaskCreationOptions.LongRunning);
@@ -223,7 +262,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
 
         if (_audioTask.IsFaulted || _audioTask.IsCompleted)
         {
-            return false;
+            _audioTask.GetAwaiter().GetResult();
+            throw new Exception();
         }
 
         return true;
@@ -233,8 +273,8 @@ public sealed unsafe class FFmpegWriter : MediaWriter
     {
         base.Dispose(disposing);
 
-        CloseVideo();
-        CloseAudio();
+        CloseVideo(disposing);
+        CloseAudio(disposing);
 
         if (disposing)
         {
@@ -244,7 +284,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             }
             else
             {
-                File.Move(_videoTmpFile, _outputFile);
+                File.Move(_videoTmpFile, _outputFile, true);
             }
         }
     }
@@ -263,23 +303,38 @@ public sealed unsafe class FFmpegWriter : MediaWriter
         TryDeleteFile(_videoTmpFile);
     }
 
-    private void CloseVideo()
+    private void CloseVideo(bool disposing)
     {
-        _videoFramesSubject.OnCompleted();
-        if (!_videoTask.GetAwaiter().GetResult())
+        try
         {
-            throw new Exception();
+            _videoFramesSubject.OnCompleted();
+
+            _videoTask.GetAwaiter().GetResult();
+        }
+        catch
+        {
+            if (disposing)
+            {
+                throw;
+            }
         }
     }
 
-    private void CloseAudio()
+    private void CloseAudio(bool disposing)
     {
-        if (_audioSamplesSubject != null && _audioTask != null)
+        try
         {
-            _audioSamplesSubject.OnCompleted();
-            if (!_audioTask.GetAwaiter().GetResult())
+            if (_audioSamplesSubject != null && _audioTask != null)
             {
-                throw new Exception();
+                _audioSamplesSubject.OnCompleted();
+                _audioTask.GetAwaiter().GetResult();
+            }
+        }
+        catch
+        {
+            if (disposing)
+            {
+                throw;
             }
         }
     }

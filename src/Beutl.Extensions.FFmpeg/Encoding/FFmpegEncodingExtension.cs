@@ -14,9 +14,11 @@ public sealed class FFmpegEncodingExtension : EncodingExtension
 
     public override string DisplayName => "FFmpeg Encoder";
 
+    public override FFmpegEncodingSettings Settings { get; } = new FFmpegEncodingSettings();
+
     public override IEncoderInfo GetEncoderInfo()
     {
-        return new FFmpegEncoderInfo();
+        return new FFmpegEncoderInfo(Settings);
     }
 
     public override void Load()
