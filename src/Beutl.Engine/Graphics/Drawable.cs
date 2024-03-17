@@ -154,7 +154,12 @@ public abstract class Drawable : Renderable
 
     protected abstract Size MeasureCore(Size availableSize);
 
-    private Matrix GetTransformMatrix(Size availableSize, Size coreBounds)
+    internal Size MeasureCoreInternal(Size availableSize)
+    {
+        return MeasureCore(availableSize);
+    }
+
+    internal Matrix GetTransformMatrix(Size availableSize, Size coreBounds)
     {
         Vector pt = CalculateTranslate(coreBounds, availableSize);
         Vector origin = TransformOrigin.ToPixels(coreBounds);
@@ -214,28 +219,32 @@ public abstract class Drawable : Renderable
 
         if (float.IsFinite(canvasSize.Width))
         {
-            x = -bounds.Width / 2;
             switch (AlignmentX)
             {
+                case AlignmentX.Left:
+                    x = 0;
+                    break;
                 case AlignmentX.Center:
-                    x += canvasSize.Width / 2;
+                    x = canvasSize.Width / 2 - bounds.Width / 2;
                     break;
                 case AlignmentX.Right:
-                    x += canvasSize.Width;
+                    x = canvasSize.Width - bounds.Width;
                     break;
             }
         }
 
         if (float.IsFinite(canvasSize.Height))
         {
-            y = -bounds.Height / 2;
             switch (AlignmentY)
             {
+                case AlignmentY.Top:
+                    y = 0;
+                    break;
                 case AlignmentY.Center:
-                    y += canvasSize.Height / 2;
+                    y = canvasSize.Height / 2 - bounds.Height / 2;
                     break;
                 case AlignmentY.Bottom:
-                    y += canvasSize.Height;
+                    y = canvasSize.Height - bounds.Height;
                     break;
             }
         }

@@ -1,0 +1,111 @@
+<UserControl x:Class="Beutl.Views.PathEditorView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels"
+             x:Name="root"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="vm:PathEditorViewModel"
+             IsHitTestVisible="{Binding PathGeometry.Value}"
+             IsVisible="{Binding IsVisible.Value}"
+             Matrix="{Binding AvaMatrix.Value}"
+             SceneWidth="{Binding SceneWidth.Value}"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <ControlTheme x:Key="ControlPointThumb" TargetType="Thumb">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="White" />
+            <!--<Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuterBrush}" />-->
+            <Setter Property="BorderThickness" Value="3" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="Margin" Value="-8,-8,0,0" />
+            <Setter Property="ClipToBounds" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="0"
+                                                  OffsetX="1"
+                                                  OffsetY="1"
+                                                  Color="Black" />
+                            </Border.Effect>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+
+            <Style Selector="^:pointerover">
+                <Setter Property="Opacity" Value="0.9" />
+            </Style>
+
+            <Style Selector="^:pressed">
+                <Setter Property="Opacity" Value="0.75" />
+            </Style>
+
+            <Style Selector="^.selected">
+                <Setter Property="Opacity" Value="0.8" />
+            </Style>
+
+            <Style Selector="^.control">
+                <Setter Property="Margin" Value="-5,-5,0,0" />
+                <Setter Property="Width" Value="10" />
+                <Setter Property="Height" Value="10" />
+                <Setter Property="CornerRadius" Value="5" />
+                <Setter Property="BorderThickness" Value="2" />
+            </Style>
+        </ControlTheme>
+    </UserControl.Resources>
+    <Canvas Name="canvas" Background="Transparent">
+        <Canvas.ContextFlyout>
+            <ui:FAMenuFlyout>
+                <ui:MenuFlyoutItem Click="AddOpClicked"
+                                   Tag="Cubic"
+                                   Text="{x:Static lang:Strings.CubicBezierCurve}" />
+                <ui:MenuFlyoutItem Click="AddOpClicked"
+                                   Tag="Quad"
+                                   Text="{x:Static lang:Strings.QuadraticBezierCurve}" />
+                <ui:MenuFlyoutItem Click="AddOpClicked"
+                                   Tag="Line"
+                                   Text="{x:Static lang:Strings.Line}" />
+                <ui:MenuFlyoutItem Click="AddOpClicked"
+                                   Tag="Arc"
+                                   Text="{x:Static lang:Strings.EllipticalArc}" />
+                <ui:MenuFlyoutItem Click="AddOpClicked"
+                                   Tag="Conic"
+                                   Text="{x:Static lang:Strings.Conic}" />
+                <ui:MenuFlyoutSeparator />
+                <ui:RadioMenuFlyoutItem Click="ToggleDragModeClick"
+                                        IsChecked="{Binding Symmetry.Value, Mode=OneWay}"
+                                        Tag="Symmetry"
+                                        Text="{x:Static lang:Strings.Symmetry}" />
+                <ui:RadioMenuFlyoutItem Click="ToggleDragModeClick"
+                                        IsChecked="{Binding Asymmetry.Value, Mode=OneWay}"
+                                        Tag="Asymmetry"
+                                        Text="{x:Static lang:Strings.Asymmetry}" />
+                <ui:RadioMenuFlyoutItem Click="ToggleDragModeClick"
+                                        IsChecked="{Binding Separately.Value, Mode=OneWay}"
+                                        Tag="Separately"
+                                        Text="{x:Static lang:Strings.Separately}" />
+            </ui:FAMenuFlyout>
+        </Canvas.ContextFlyout>
+
+        <local:PathGeometryControl x:Name="view"
+                                   Figure="{Binding PathFigure.Value}"
+                                   Geometry="{Binding PathGeometry.Value}"
+                                   IsHitTestVisible="False"
+                                   Matrix="{Binding AvaMatrix.Value}"
+                                   Scale="{Binding #root.Scale}"
+                                   SelectedOperation="{Binding SelectedOperation.Value}" />
+    </Canvas>
+</UserControl>

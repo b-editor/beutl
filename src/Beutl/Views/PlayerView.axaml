@@ -1,0 +1,108 @@
+<UserControl x:Class="Beutl.Views.PlayerView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:Beutl.Converters;assembly=Beutl"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="vm:PlayerViewModel"
+             mc:Ignorable="d">
+    <Player x:Name="Player"
+            CurrentTime="{Binding CurrentFrame.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
+            EndButtonCommand="{Binding End}"
+            IsPlaying="{Binding IsPlaying.Value, Mode=TwoWay}"
+            Maximum="{Binding Duration.Value, Converter={x:Static converters:TimeSpanToDoubleConverter.Instance}}"
+            NextButtonCommand="{Binding Next}"
+            PlayButtonCommand="{Binding PlayPause}"
+            PreviousButtonCommand="{Binding Previous}"
+            StartButtonCommand="{Binding Start}"
+            Value="{Binding CurrentFrame.Value, Converter={x:Static converters:TimeSpanToDoubleConverter.Instance}}"
+            Duration="{Binding Duration.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}">
+        <Player.InnerLeftContent>
+            <StackPanel Margin="4,4,0,0">
+                <StackPanel.Styles>
+                    <Style Selector="RadioButton">
+                        <Setter Property="Theme" Value="{StaticResource LiteNavVerticalRadioButton}" />
+                        <Setter Property="Padding" Value="7,6,5,6" />
+                    </Style>
+                </StackPanel.Styles>
+                <RadioButton IsChecked="{Binding IsMoveMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Move}">
+                    <icons:SymbolIcon FontSize="16" Symbol="Cursor" />
+                </RadioButton>
+                <RadioButton IsChecked="{Binding IsHandMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Hand}">
+                    <icons:SymbolIcon FontSize="16" Symbol="HandLeft" />
+                </RadioButton>
+                <!--  Todo: ローカライズ  -->
+                <RadioButton IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="範囲選択">
+                    <icons:SymbolIcon FontSize="16" Symbol="Crop" />
+                </RadioButton>
+                <RadioButton Margin="0,8,0,0"
+                             Click="ToggleDragModeClick"
+                             GroupName="PathEditor_DragMode"
+                             IsChecked="{Binding PathEditor.Symmetry.Value, Mode=OneWay}"
+                             IsVisible="{Binding PathEditor.Context.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                             Tag="Symmetry"
+                             ToolTip.Tip="{x:Static lang:Strings.Symmetry}">
+                    <Border VerticalAlignment="Center">
+                        <Path Width="16"
+                              VerticalAlignment="Center"
+                              Data="M378.522 292C380.822 281.145 390.46 273 402 273C413.54 273 423.178 281.145 425.478 292L454.854 292C456.913 286.174 462.469 282 469 282C477.284 282 484 288.716 484 297C484 305.284 477.284 312 469 312C462.469 312 456.913 307.826 454.854 302L442.649 302C452.012 307.793 459.488 316.102 465.078 326.928C468.735 334.011 471.317 341.77 472.823 350.204C473.582 354.449 473.974 358.033 474 360.955L464 361.045C464 361.032 464 361.017 464 361C463.975 358.645 463.635 355.632 462.979 351.962C461.65 344.52 459.388 337.704 456.192 331.516Q445.769 311.328 424.653 304.948C421.373 314.297 412.469 321 402 321C391.78 321 383.052 314.612 379.591 305.611Q360.467 312.267 350.027 331.197C346.569 337.465 344.023 344.39 342.388 351.972C341.603 355.61 341.143 358.62 341.007 361C341.002 361.082 340.998 361.162 340.994 361.242L331.006 360.758C331.15 357.793 331.685 354.162 332.612 349.864C334.454 341.325 337.34 333.493 341.27 326.367Q350.001 310.538 363.754 302L349.146 302C347.087 307.826 341.531 312 335 312C326.716 312 320 305.284 320 297C320 288.716 326.716 282 335 282C341.531 282 347.087 286.174 349.146 292L378.522 292ZM388 297C388 300.866 389.367 304.166 392.1 306.9Q396.201 311 402 311C405.866 311 409.166 309.633 411.9 306.9Q416 302.799 416 297C416 293.134 414.633 289.834 411.9 287.1Q407.799 283 402 283C398.134 283 394.834 284.367 392.1 287.1Q388 291.201 388 297ZM328 297C328 298.933 328.683 300.583 330.05 301.95Q332.101 304 335 304C336.933 304 338.583 303.317 339.95 301.95C341.317 300.583 342 298.933 342 297C342 295.067 341.317 293.417 339.95 292.05C338.583 290.683 336.933 290 335 290Q332.101 290 330.05 292.05C328.683 293.417 328 295.067 328 297ZM464.05 301.95C462.683 300.583 462 298.933 462 297C462 295.067 462.683 293.417 464.05 292.05C465.417 290.683 467.067 290 469 290C470.933 290 472.583 290.683 473.95 292.05C475.317 293.417 476 295.067 476 297C476 298.933 475.317 300.583 473.95 301.95C472.583 303.317 470.933 304 469 304C467.067 304 465.417 303.317 464.05 301.95Z"
+                              Fill="{DynamicResource TextFillColorPrimaryBrush}"
+                              Stretch="Uniform" />
+                    </Border>
+                </RadioButton>
+                <RadioButton Click="ToggleDragModeClick"
+                             GroupName="PathEditor_DragMode"
+                             IsChecked="{Binding PathEditor.Asymmetry.Value, Mode=OneWay}"
+                             IsVisible="{Binding PathEditor.Context.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                             Tag="Asymmetry"
+                             ToolTip.Tip="{x:Static lang:Strings.Asymmetry}">
+                    <Border VerticalAlignment="Center">
+                        <Path Width="16"
+                              VerticalAlignment="Center"
+                              Data="M363.522 916C365.822 905.145 375.46 897 387 897C398.54 897 408.178 905.145 410.478 916L454.854 916C456.913 910.174 462.469 906 469 906C477.284 906 484 912.716 484 921C484 929.284 477.284 936 469 936C462.469 936 456.913 931.826 454.854 926L436.253 926Q453.035 934.502 463.064 950.232C467.648 957.423 470.843 965.327 472.649 973.944C473.55 978.242 474 981.928 474 985L474 985.02L464 984.98L464 985C464 982.619 463.621 979.617 462.862 975.996C461.305 968.569 458.562 961.773 454.631 955.608C445.231 940.863 430.352 931.625 409.995 927.895C407.032 937.789 397.858 945 387 945C377.434 945 369.175 939.404 365.319 931.306Q352.986 938.376 346.569 954.864C344.132 961.126 342.472 968.038 341.589 975.6C341.148 979.367 340.952 982.469 340.999 984.903L331.001 985.097C330.945 982.21 331.163 978.657 331.656 974.439C332.639 966.029 334.503 958.295 337.25 951.238Q343.658 934.772 354.979 926L349.146 926C347.087 931.826 341.531 936 335 936C326.716 936 320 929.284 320 921C320 912.716 326.716 906 335 906C341.531 906 347.087 910.174 349.146 916L363.522 916ZM373 921C373 924.866 374.367 928.166 377.1 930.899Q381.201 935 387 935C390.866 935 394.166 933.633 396.9 930.899Q401 926.799 401 921C401 917.134 399.633 913.834 396.9 911.101Q392.799 907 387 907C383.134 907 379.834 908.367 377.1 911.101Q373 915.201 373 921ZM330.05 925.95C328.683 924.583 328 922.933 328 921C328 919.067 328.683 917.417 330.05 916.05Q332.101 914 335 914C336.933 914 338.583 914.683 339.95 916.05C341.317 917.417 342 919.067 342 921C342 922.933 341.317 924.583 339.95 925.95C338.583 927.317 336.933 928 335 928Q332.101 928 330.05 925.95ZM462 921C462 922.933 462.683 924.583 464.05 925.95C465.417 927.317 467.067 928 469 928C470.933 928 472.583 927.317 473.95 925.95C475.317 924.583 476 922.933 476 921C476 919.067 475.317 917.417 473.95 916.05C472.583 914.683 470.933 914 469 914C467.067 914 465.417 914.683 464.05 916.05C462.683 917.417 462 919.067 462 921Z"
+                              Fill="{DynamicResource TextFillColorPrimaryBrush}"
+                              Stretch="Uniform" />
+                    </Border>
+                </RadioButton>
+                <RadioButton Click="ToggleDragModeClick"
+                             GroupName="PathEditor_DragMode"
+                             IsChecked="{Binding PathEditor.Separately.Value, Mode=OneWay}"
+                             IsVisible="{Binding PathEditor.Context.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                             Tag="Separately"
+                             ToolTip.Tip="{x:Static lang:Strings.Separately}">
+                    <Border VerticalAlignment="Center">
+                        <Path Width="16"
+                              VerticalAlignment="Center"
+                              Data="M454 590.946C454.029 582.687 460.734 576 469 576C477.284 576 484 582.716 484 591C484 599.284 477.284 606 469 606C464.274 606 460.059 603.815 457.31 600.4L438.476 605.8C440.403 606.519 442.268 607.377 444.072 608.375C453.226 613.438 460.393 621.865 465.573 633.655C469.14 641.775 471.614 651.09 472.994 661.599C473.682 666.841 474.018 671.316 474 675.023L469 675L464 674.976C464.016 671.721 463.708 667.695 463.079 662.901C461.823 653.335 459.602 644.927 456.417 637.677Q446.469 615.032 425.9 613.211C424.784 625.429 414.51 635 402 635C391.78 635 383.052 628.612 379.591 619.611Q360.467 626.267 350.027 645.197Q344.841 654.599 342.388 665.972C341.603 669.61 341.143 672.62 341.007 675C341.002 675.082 340.998 675.162 340.994 675.242L331.006 674.758C331.15 671.793 331.685 668.162 332.612 663.864C334.454 655.325 337.34 647.493 341.27 640.367Q350.001 624.538 363.754 616L349.146 616C347.087 621.826 341.531 626 335 626C326.716 626 320 619.284 320 611C320 602.716 326.716 596 335 596C341.531 596 347.087 600.174 349.146 606L378.522 606C380.822 595.145 390.46 587 402 587C411.199 587 419.189 592.175 423.217 599.773L454 590.946ZM464.05 595.95C462.683 594.583 462 592.933 462 591C462 589.067 462.683 587.417 464.05 586.05C465.417 584.683 467.067 584 469 584C470.933 584 472.583 584.683 473.95 586.05C475.317 587.417 476 589.067 476 591C476 592.933 475.317 594.583 473.95 595.95C472.583 597.317 470.933 598 469 598C467.067 598 465.417 597.317 464.05 595.95ZM388 611C388 614.866 389.367 618.166 392.1 620.899Q396.201 625 402 625C405.866 625 409.166 623.633 411.9 620.899Q416 616.799 416 611C416 607.134 414.633 603.834 411.9 601.101Q407.799 597 402 597C398.134 597 394.834 598.367 392.1 601.101Q388 605.201 388 611ZM328 611C328 612.933 328.683 614.583 330.05 615.95Q332.101 618 335 618C336.933 618 338.583 617.317 339.95 615.95C341.317 614.583 342 612.933 342 611C342 609.067 341.317 607.417 339.95 606.05C338.583 604.683 336.933 604 335 604Q332.101 604 330.05 606.05C328.683 607.417 328 609.067 328 611Z"
+                              Fill="{DynamicResource TextFillColorPrimaryBrush}"
+                              Stretch="Uniform" />
+                    </Border>
+                </RadioButton>
+            </StackPanel>
+        </Player.InnerLeftContent>
+        <Player.Content>
+            <Panel Name="framePanel"
+                   Margin="0"
+                   Background="Transparent">
+                <Border Width="{Binding #image.Bounds.Width}"
+                        Height="{Binding #image.Bounds.Height}"
+                        Background="Black"
+                        ClipToBounds="True" />
+
+                <Image Name="image"
+                       RenderOptions.BitmapInterpolationMode="HighQuality"
+                       Source="{Binding PreviewImage.Value, Mode=OneWay}" />
+
+                <local:PathEditorView Width="{Binding #image.Bounds.Width}"
+                                      Height="{Binding #image.Bounds.Height}"
+                                      DataContext="{Binding PathEditor}" />
+            </Panel>
+        </Player.Content>
+    </Player>
+</UserControl>

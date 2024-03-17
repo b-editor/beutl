@@ -2,7 +2,7 @@
 
 namespace Beutl.Media;
 
-public sealed class CubicBezierOperation : PathOperation
+public sealed class CubicBezierSegment : PathSegment
 {
     public static readonly CoreProperty<Point> ControlPoint1Property;
     public static readonly CoreProperty<Point> ControlPoint2Property;
@@ -11,28 +11,28 @@ public sealed class CubicBezierOperation : PathOperation
     private Point _controlPoint2;
     private Point _endPoint;
 
-    static CubicBezierOperation()
+    static CubicBezierSegment()
     {
-        ControlPoint1Property = ConfigureProperty<Point, CubicBezierOperation>(nameof(ControlPoint1))
+        ControlPoint1Property = ConfigureProperty<Point, CubicBezierSegment>(nameof(ControlPoint1))
             .Accessor(o => o.ControlPoint1, (o, v) => o.ControlPoint1 = v)
             .Register();
 
-        ControlPoint2Property = ConfigureProperty<Point, CubicBezierOperation>(nameof(ControlPoint2))
+        ControlPoint2Property = ConfigureProperty<Point, CubicBezierSegment>(nameof(ControlPoint2))
             .Accessor(o => o.ControlPoint2, (o, v) => o.ControlPoint2 = v)
             .Register();
 
-        EndPointProperty = ConfigureProperty<Point, CubicBezierOperation>(nameof(EndPoint))
+        EndPointProperty = ConfigureProperty<Point, CubicBezierSegment>(nameof(EndPoint))
             .Accessor(o => o.EndPoint, (o, v) => o.EndPoint = v)
             .Register();
 
-        AffectsRender<CubicBezierOperation>(ControlPoint1Property, ControlPoint2Property, EndPointProperty);
+        AffectsRender<CubicBezierSegment>(ControlPoint1Property, ControlPoint2Property, EndPointProperty);
     }
 
-    public CubicBezierOperation()
+    public CubicBezierSegment()
     {
     }
 
-    public CubicBezierOperation(Point controlPoint1, Point controlPoint2, Point endPoint)
+    public CubicBezierSegment(Point controlPoint1, Point controlPoint2, Point endPoint)
     {
         ControlPoint1 = controlPoint1;
         ControlPoint2 = controlPoint2;
@@ -61,4 +61,6 @@ public sealed class CubicBezierOperation : PathOperation
     {
         context.CubicTo(ControlPoint1, ControlPoint2,EndPoint);
     }
+
+    public override CoreProperty<Point> GetEndPointProperty() => EndPointProperty;
 }

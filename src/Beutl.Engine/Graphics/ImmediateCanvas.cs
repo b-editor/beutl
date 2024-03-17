@@ -362,7 +362,10 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
             ConfigureStrokePaint(rect, pen);
             _sharedStrokePaint.IsStroke = false;
             SKPath? stroke = geometry.GetStrokePath(pen);
-            Canvas.DrawPath(stroke, _sharedStrokePaint);
+            if (stroke != null)
+            {
+                Canvas.DrawPath(stroke, _sharedStrokePaint);
+            }
         }
     }
 

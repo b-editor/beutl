@@ -1150,4 +1150,52 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="ShowRing" xml:space="preserve">
     <value>リングを表示</value>
   </data>
+  <data name="CubicBezierCurve" xml:space="preserve">
+    <value>3次ベジェ曲線</value>
+  </data>
+  <data name="QuadraticBezierCurve" xml:space="preserve">
+    <value>2次ベジェ曲線</value>
+  </data>
+  <data name="Line" xml:space="preserve">
+    <value>直線</value>
+  </data>
+  <data name="EllipticalArc" xml:space="preserve">
+    <value>円弧</value>
+  </data>
+  <data name="Conic" xml:space="preserve">
+    <value>円錐</value>
+  </data>
+  <data name="Symmetry" xml:space="preserve">
+    <value>対称</value>
+  </data>
+  <data name="Asymmetry" xml:space="preserve">
+    <value>非対称</value>
+  </data>
+  <data name="Separately" xml:space="preserve">
+    <value>別々</value>
+  </data>
+  <data name="Figure" xml:space="preserve">
+    <value>図形</value>
+  </data>
+  <data name="Import" xml:space="preserve">
+    <value>インポート</value>
+  </data>
+  <data name="ImportSvgPath" xml:space="preserve">
+    <value>SVGパスをインポート</value>
+  </data>
+  <data name="ImportSvgPath_Description" xml:space="preserve">
+    <value>現在の図形は上書きされます。</value>
+  </data>
+  <data name="EditInFrame" xml:space="preserve">
+    <value>フレームで編集</value>
+  </data>
+  <data name="EditInTab" xml:space="preserve">
+    <value>タブで編集</value>
+  </data>
+  <data name="PathEditor" xml:space="preserve">
+    <value>パスエディタ</value>
+  </data>
+  <data name="GeometryShape" xml:space="preserve">
+    <value>ジオメトリー</value>
+  </data>
 </root>

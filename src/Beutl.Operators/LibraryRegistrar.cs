@@ -38,6 +38,12 @@ public static class LibraryRegistrar
                 .BindNode<NodeTree.Nodes.Geometry.RoundedRectGeometryNode>()
                 .BindGeometry<RoundedRectGeometry>()
             );
+        
+        LibraryService.Current
+            .AddMultiple(Strings.GeometryShape, m => m
+                .BindSourceOperator<Source.GeometryOperator>()
+                .BindDrawable<Graphics.Shapes.GeometryShape>()
+            );
 
         LibraryService.Current
             .AddMultiple(Strings.Text, m => m

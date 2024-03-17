@@ -1,0 +1,113 @@
+<UserControl x:Class="Beutl.Views.Editors.PathFigureListItemEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels.Editors"
+             x:Name="root"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="viewModel:PathFigureEditorViewModel"
+             Background="Transparent"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto">
+            <ToggleButton x:Name="reorderHandle"
+                          Cursor="SizeNorthSouth"
+                          IsChecked="{Binding IsExpanded.Value}"
+                          Theme="{DynamicResource ListEditorMiniExpanderToggleButton}">
+                <ToggleButton.Tag>
+                    <Panel>
+                        <ui:FAPathIcon Data="{Binding PreviewPath.Value}"
+                                       IsVisible="{Binding PreviewPath.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       RenderTransform="scale(0.7)" />
+
+                        <icons:SymbolIcon Margin="0,1,0,0"
+                                          IsVisible="{Binding PreviewPath.Value, Converter={x:Static ObjectConverters.IsNull}}"
+                                          Symbol="ReOrderDotsVertical" />
+                    </Panel>
+                </ToggleButton.Tag>
+                <TextBlock Text="{x:Static lang:Strings.Figure}" />
+            </ToggleButton>
+
+            <StackPanel Grid.Column="1"
+                        Margin="4,0,8,0"
+                        Orientation="Horizontal"
+                        Spacing="4">
+
+                <ToggleButton Padding="0"
+                              HorizontalContentAlignment="Center"
+                              VerticalContentAlignment="Center"
+                              Classes="size-24x24"
+                              Click="Edit_Click"
+                              IsChecked="{Binding EditingPath.Value, Mode=OneWay}"
+                              Theme="{StaticResource TransparentToggleButton}">
+                    <ToggleButton.ContextFlyout>
+                        <ui:FAMenuFlyout>
+                            <ui:MenuFlyoutItem Click="EditInFrameClicked" Text="{x:Static lang:Strings.EditInFrame}" />
+                            <ui:MenuFlyoutItem Click="EditInTabClicked" Text="{x:Static lang:Strings.EditInTab}" />
+                        </ui:FAMenuFlyout>
+                    </ToggleButton.ContextFlyout>
+                    <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xEDFB;" />
+                </ToggleButton>
+                <Button Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Classes="size-24x24"
+                        Click="Tag_Click"
+                        Theme="{StaticResource TransparentButton}">
+                    <icons:SymbolIcon Symbol="Add" />
+                    <Button.ContextFlyout>
+                        <ui:FAMenuFlyout>
+                            <ui:MenuFlyoutItem Click="AddClick"
+                                               Tag="Cubic"
+                                               Text="{x:Static lang:Strings.CubicBezierCurve}" />
+                            <ui:MenuFlyoutItem Click="AddClick"
+                                               Tag="Quad"
+                                               Text="{x:Static lang:Strings.QuadraticBezierCurve}" />
+                            <ui:MenuFlyoutItem Click="AddClick"
+                                               Tag="Line"
+                                               Text="{x:Static lang:Strings.Line}" />
+                            <ui:MenuFlyoutItem Click="AddClick"
+                                               Tag="Arc"
+                                               Text="{x:Static lang:Strings.EllipticalArc}" />
+                            <ui:MenuFlyoutItem Click="AddClick"
+                                               Tag="Conic"
+                                               Text="{x:Static lang:Strings.Conic}" />
+                        </ui:FAMenuFlyout>
+                    </Button.ContextFlyout>
+                </Button>
+                <Button Padding="0"
+                        Classes="size-24x24"
+                        Click="DeleteClick"
+                        Theme="{StaticResource TransparentButton}">
+                    <icons:SymbolIcon Symbol="Delete" />
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <StackPanel x:Name="content"
+                    Grid.Row="1"
+                    MinHeight="32"
+                    Margin="16,0,0,0">
+            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
+
+            <local:PropertiesEditor Padding="0"
+                                    DataContext="{Binding Properties.Value}"
+                                    IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
+                                                                  Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+            <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <local:ListItemEditor />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Grid>
+</UserControl>

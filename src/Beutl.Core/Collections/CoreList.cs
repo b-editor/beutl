@@ -38,6 +38,7 @@ public class CoreList<T> : ICoreList<T>
 {
     private static readonly PropertyChangedEventArgs s_countPropertyChanged = new(nameof(CoreList<object>.Count));
     private static readonly NotifyCollectionChangedEventArgs s_resetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
+    private static readonly PropertyChangedEventArgs s_indexerPropertyChanged = new("Item[]");
 
     public CoreList()
     {
@@ -98,6 +99,7 @@ public class CoreList<T> : ICoreList<T>
                 Attached?.Invoke(value);
                 Inner[index] = value;
 
+                PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
                 CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
                     NotifyCollectionChangedAction.Replace,
                     value,
@@ -174,6 +176,7 @@ public class CoreList<T> : ICoreList<T>
                 Detached?.Invoke(item);
             }
 
+            PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
             if (eventArgs != null)
             {
                 CollectionChanged?.Invoke(this, eventArgs);
@@ -203,6 +206,7 @@ public class CoreList<T> : ICoreList<T>
                 Attached?.Invoke(item);
             }
 
+            PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
                 NotifyCollectionChangedAction.Replace,
                 (IList)source,
@@ -363,6 +367,7 @@ public class CoreList<T> : ICoreList<T>
         Inner.RemoveAt(oldIndex);
         Inner.Insert(newIndex, item);
 
+        PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
             NotifyCollectionChangedAction.Move,
             item,
@@ -382,6 +387,7 @@ public class CoreList<T> : ICoreList<T>
 
         Inner.InsertRange(newIndex, items);
 
+        PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
             NotifyCollectionChangedAction.Move,
             items,
@@ -585,6 +591,7 @@ public class CoreList<T> : ICoreList<T>
             }
         }
 
+        PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         if (CollectionChanged != null)
         {
             var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, t, index);
@@ -601,6 +608,7 @@ public class CoreList<T> : ICoreList<T>
             Attached?.Invoke(t[i]);
         }
 
+        PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         if (CollectionChanged != null)
         {
             T[] array = ArrayPool<T>.Shared.Rent(t.Length);
@@ -624,6 +632,7 @@ public class CoreList<T> : ICoreList<T>
     {
         Attached?.Invoke(item);
 
+        PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         if (CollectionChanged != null)
         {
             var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new[] { item }, index);
@@ -648,6 +657,7 @@ public class CoreList<T> : ICoreList<T>
             }
         }
 
+        PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         if (CollectionChanged != null)
         {
             var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, t, index);
@@ -661,6 +671,7 @@ public class CoreList<T> : ICoreList<T>
     {
         Detached?.Invoke(item);
 
+        PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         if (CollectionChanged != null)
         {
             var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, new[] { item }, index);
