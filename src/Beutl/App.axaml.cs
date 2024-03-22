@@ -104,10 +104,20 @@ public sealed class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow
+            if (OperatingSystem.IsMacOS())
             {
-                DataContext = GetMainViewModel(),
-            };
+                desktop.MainWindow = new MacWindow
+                {
+                    DataContext = GetMainViewModel(),
+                };
+            }
+            else
+            {
+                desktop.MainWindow = new MainWindow
+                {
+                    DataContext = GetMainViewModel(),
+                };
+            }
 
             desktop.MainWindow.Opened += (_, _) => _windowOpenTcs.SetResult();
         }
@@ -169,5 +179,23 @@ public sealed class App : Application
     private MainViewModel GetMainViewModel()
     {
         return _mainViewModel ??= new MainViewModel();
+    }
+
+    private void AboutBeutlClicked(object? sender, EventArgs e)
+    {
+        if (_mainViewModel != null)
+        {
+            _mainViewModel.SelectedPage.Value = _mainViewModel.SettingsPage;
+            (_mainViewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToSettingsPage();
+        }
+    }
+
+    private void OpenSettingsClicked(object? sender, EventArgs e)
+    {
+        if (_mainViewModel != null)
+        {
+            _mainViewModel.SelectedPage.Value = _mainViewModel.SettingsPage;
+            (_mainViewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToAccountSettingsPage();
+        }
     }
 }

@@ -42,6 +42,21 @@ public sealed partial class MainView : UserControl
 
         recentFiles.ItemsSource = _rawRecentFileItems;
         recentProjects.ItemsSource = _rawRecentProjItems;
+        if (OperatingSystem.IsMacOS())
+        {
+            WindowIcon.IsVisible = false;
+            MenuBar.IsVisible = false;
+            Titlebar.Height = 30;
+            NotificationPanel.Margin = new(0, 30 + 8, 8, 0);
+            OpenNotificationsButton.Margin = default;
+            OpenNotificationsButton.Padding = default;
+            NotificationInfoBadge.Height = 16;
+            NotificationInfoBadge.Width = 16;
+
+            Titlebar.ColumnDefinitions[^3].Width = GridLength.Star;
+            Titlebar.ColumnDefinitions[^2].Width = GridLength.Auto;
+            Titlebar.ColumnDefinitions[^1].Width = GridLength.Auto;
+        }
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -262,7 +277,7 @@ public sealed partial class MainView : UserControl
     [Conditional("DEBUG")]
     private void MonitorKeyModifier_Click(object? sender, RoutedEventArgs e)
     {
-        if(TopLevel.GetTopLevel(this) is Window owner)
+        if (TopLevel.GetTopLevel(this) is Window owner)
         {
             new KeyModifierMonitor().Show(owner);
         }

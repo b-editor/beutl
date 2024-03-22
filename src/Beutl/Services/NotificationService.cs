@@ -18,19 +18,22 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
     {
         IApplicationLifetime? lifetime = Application.Current?.ApplicationLifetime;
 
-        if (lifetime is IClassicDesktopStyleApplicationLifetime desktopLifetime &&
-            desktopLifetime.MainWindow is MainWindow window)
+        if (lifetime is IClassicDesktopStyleApplicationLifetime desktopLifetime)
         {
-            return window.mainView;
+            if (desktopLifetime.MainWindow is MainWindow window)
+            {
+                return window.mainView;
+            }
+            else if (desktopLifetime.MainWindow is MacWindow mwindow)
+            {
+                return mwindow.mainView;
+            }
         }
         else if (lifetime is ISingleViewApplicationLifetime singleViewLifetime)
         {
             return singleViewLifetime.MainView as MainView;
         }
-        else
-        {
-            return null;
-        }
+        return null;
     }
 
     private static void Close(InfoBar infoBar)
