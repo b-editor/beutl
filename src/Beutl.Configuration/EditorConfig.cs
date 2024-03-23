@@ -46,6 +46,7 @@ public sealed partial class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<bool> IsNodeCacheEnabledProperty;
     public static readonly CoreProperty<int> NodeCacheMaxPixelsProperty;
     public static readonly CoreProperty<int> NodeCacheMinPixelsProperty;
+    public static readonly CoreProperty<bool> SwapTimelineScrollDirectionProperty;
 
     static EditorConfig()
     {
@@ -94,6 +95,10 @@ public sealed partial class EditorConfig : ConfigurationBase
 
         NodeCacheMinPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMinPixels))
             .DefaultValue(1)
+            .Register();
+
+        SwapTimelineScrollDirectionProperty = ConfigureProperty<bool, EditorConfig>(nameof(SwapTimelineScrollDirection))
+            .DefaultValue(false)
             .Register();
 
     }
@@ -150,17 +155,23 @@ public sealed partial class EditorConfig : ConfigurationBase
         get => GetValue(IsNodeCacheEnabledProperty);
         set => SetValue(IsNodeCacheEnabledProperty, value);
     }
-    
+
     public int NodeCacheMaxPixels
     {
         get => GetValue(NodeCacheMaxPixelsProperty);
         set => SetValue(NodeCacheMaxPixelsProperty, value);
     }
-    
+
     public int NodeCacheMinPixels
     {
         get => GetValue(NodeCacheMinPixelsProperty);
         set => SetValue(NodeCacheMinPixelsProperty, value);
+    }
+
+    public bool SwapTimelineScrollDirection
+    {
+        get => GetValue(SwapTimelineScrollDirectionProperty);
+        set => SetValue(SwapTimelineScrollDirectionProperty, value);
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()

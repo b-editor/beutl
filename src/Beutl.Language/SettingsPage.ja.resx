@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
+  <!--
+    Microsoft ResX Schema
+
     Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
     associated with the data types.
-    
+
     Example:
-    
+
     ... ado.net/XML headers & schema ...
     <resheader name="resmimetype">text/microsoft-resx</resheader>
     <resheader name="version">2.0</resheader>
@@ -22,44 +22,47 @@
     <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
         <value>[base64 mime encoded serialized .NET Framework object]</value>
     </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing"
+  mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework
+  object]</value>
         <comment>This is a comment</comment>
     </data>
-                
-    There are any number of "resheader" rows that contain simple 
+
+    There are any number of "resheader" rows that contain simple
     name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
     mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
     extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
     read any of the formats listed below.
-    
+
     mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
             : and then encoded with base64 encoding.
-    
+
     mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
             : and then encoded with base64 encoding.
 
     mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
+    value   : The object must be serialized into a byte array
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
@@ -112,238 +115,315 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0,
+      Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0,
+      Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="SignOut" xml:space="preserve">
     <value>サインアウト</value>
+    <comment/>
   </data>
   <data name="ChangeAccountSettings" xml:space="preserve">
     <value>アカウントの設定を変更</value>
+    <comment/>
   </data>
   <data name="SignIn" xml:space="preserve">
     <value>サインイン</value>
+    <comment/>
   </data>
   <data name="SignInWith" xml:space="preserve">
     <value>ソーシャルアカウントでサインイン</value>
+    <comment/>
   </data>
   <data name="SignInViaBrowser" xml:space="preserve">
     <value>ブラウザからサインイン</value>
+    <comment/>
   </data>
   <data name="Add_file_extension" xml:space="preserve">
     <value>ファイル拡張子を追加</value>
+    <comment/>
   </data>
   <data name="All_Editor_Extensions" xml:space="preserve">
     <value>全てのエディター拡張</value>
+    <comment/>
   </data>
   <data name="ChangeVisibility" xml:space="preserve">
     <value>このファイルの可視性を"{0}"に変更します。</value>
+    <comment/>
   </data>
   <data name="Editor_Extension_Priority" xml:space="preserve">
     <value>エディター拡張の優先順位</value>
+    <comment/>
   </data>
   <data name="Higher" xml:space="preserve">
     <value>上</value>
+    <comment/>
   </data>
   <data name="Lower" xml:space="preserve">
     <value>下</value>
+    <comment/>
   </data>
   <data name="MakePrivate" xml:space="preserve">
     <value>非公開する</value>
+    <comment/>
   </data>
   <data name="MakePublic" xml:space="preserve">
     <value>公開する</value>
+    <comment/>
   </data>
   <data name="Storage" xml:space="preserve">
     <value>ストレージ</value>
+    <comment/>
   </data>
   <data name="Storage_BackupSettings" xml:space="preserve">
     <value>設定をバックアップ</value>
+    <comment/>
   </data>
   <data name="Storage_Used" xml:space="preserve">
     <value>{0} 使用済み</value>
+    <comment/>
   </data>
   <data name="Storage_Remaining" xml:space="preserve">
     <value>{0} 空き</value>
+    <comment/>
   </data>
   <data name="Theme_Tip" xml:space="preserve">
     <value>表示するアプリのテーマを選択します。</value>
+    <comment/>
   </data>
   <data name="Please_enter_a_file_extension" xml:space="preserve">
     <value>ファイルの拡張子を入力してください。</value>
+    <comment/>
   </data>
   <data name="The_following_characters_are_not_allowed" xml:space="preserve">
     <value>以下の文字は使用できません (" &gt; &lt; | : ? * \ /)</value>
+    <comment/>
   </data>
   <data name="This_file_extension_already_exists" xml:space="preserve">
     <value>この拡張子は既に存在しています。</value>
+    <comment/>
   </data>
   <data name="CopyVersionInfo" xml:space="preserve">
     <value>バージョン情報をコピー</value>
+    <comment/>
   </data>
   <data name="GpuInfomation" xml:space="preserve">
     <value>Gpu 情報</value>
+    <comment/>
   </data>
   <data name="OpenGLVersion" xml:space="preserve">
     <value>OpenGL バージョン</value>
+    <comment/>
   </data>
   <data name="DeviceInfomation" xml:space="preserve">
     <value>デバイス情報</value>
+    <comment/>
   </data>
   <data name="ChangePrimaryPropertiesToBeHidden" xml:space="preserve">
     <value>非表示にする主要なプロパティを変更します</value>
+    <comment/>
   </data>
   <data name="EditorSettings" xml:space="preserve">
     <value>エディタ設定</value>
+    <comment/>
   </data>
   <data name="HidePrimaryProperties" xml:space="preserve">
     <value>主要なプロパティを非表示にする</value>
+    <comment/>
   </data>
   <data name="HidePrimaryProperties_Description" xml:space="preserve">
     <value>主要なプロパティは'ソース操作'を追加すると設定できます。終了後に適用されます。</value>
+    <comment/>
   </data>
   <data name="PrimaryProperties" xml:space="preserve">
     <value>主要なプロパティ</value>
+    <comment/>
   </data>
   <data name="AddPropertyToHide" xml:space="preserve">
     <value>非表示にするプロパティを追加</value>
+    <comment/>
   </data>
   <data name="DecoderPriority" xml:space="preserve">
     <value>デコーダーの優先順位</value>
+    <comment/>
   </data>
   <data name="DecoderPriority_Description" xml:space="preserve">
     <value>デコーダーの優先順位を変更できます。上のデコーダーが優先されます。</value>
+    <comment/>
   </data>
   <data name="AccentColor" xml:space="preserve">
     <value>アクセントカラー</value>
+    <comment/>
   </data>
   <data name="CustomColor" xml:space="preserve">
     <value>ユーザー設定の色</value>
+    <comment/>
   </data>
   <data name="UseCustomAccentColor" xml:space="preserve">
     <value>アクセントカラーをカスタマイズ</value>
+    <comment/>
   </data>
   <data name="Telemetry_Beutl_Application" xml:space="preserve">
     <value>アプリケーション</value>
+    <comment/>
   </data>
   <data name="Telemetry_Description_Beutl_Application" xml:space="preserve">
-    <value>アプリケーションのパフォーマンス改善のために以下のような情報を収集します。
-アプリケーションが開始した時間、操作の経過時間、APIで取得した項目の件数</value>
+    <value>アプリケーションのパフォーマンス改善のために以下のような情報を収集します。アプリケーションが開始した時間、操作の経過時間、APIで取得した項目の件数</value>
+    <comment/>
   </data>
   <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">
     <value>パッケージ管理</value>
+    <comment/>
   </data>
   <data name="Telemetry_Description_Beutl_PackageManagement" xml:space="preserve">
     <value>拡張機能のインストール、ロードに要した時間を収集します。</value>
+    <comment/>
   </data>
   <data name="Telemetry_Beutl_Api_Client" xml:space="preserve">
     <value>APIクライアント</value>
+    <comment/>
   </data>
   <data name="Telemetry_Description_Beutl_Api_Client" xml:space="preserve">
     <value>拡張機能ストア、アカウント機能で使用される、APIの呼び出し時間を収集します。</value>
+    <comment/>
   </data>
   <data name="Telemetry" xml:space="preserve">
     <value>テレメトリ</value>
+    <comment/>
   </data>
   <data name="Telemetry_ShortDescription" xml:space="preserve">
     <value>収集するデータに関する設定</value>
+    <comment/>
   </data>
   <data name="Telemetry_Description" xml:space="preserve">
-    <value>Beutlを改善するために、匿名の使用状況データを収集します。
-これらの設定はアプリケーションの再起動後に変更が適用されます。
-詳しくは以下のページをご覧ください。</value>
+    <value>Beutlを改善するために、匿名の使用状況データを収集します。これらの設定はアプリケーションの再起動後に変更が適用されます。詳しくは以下のページをご覧ください。</value>
+    <comment/>
   </data>
   <data name="ShowExactBoundaries_Description" xml:space="preserve">
-    <value>プレビュー時に表示される要素の境界を正確に表示します。
-この設定を有効にすると境界線が見えなくなる場合があります。</value>
+    <value>プレビュー時に表示される要素の境界を正確に表示します。この設定を有効にすると境界線が見えなくなる場合があります。</value>
+    <comment/>
   </data>
   <data name="ShowExactBoundaries" xml:space="preserve">
     <value>正確な境界線を表示</value>
+    <comment/>
   </data>
   <data name="AutoAdjustSceneDuration" xml:space="preserve">
     <value>自動でシーンの長さを調整</value>
+    <comment/>
   </data>
   <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
     <value>要素を追加したとき、シーンの長さを調整する必要がある場合、自動で調整します。</value>
+    <comment/>
   </data>
   <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
     <value>いくつかの設定が移動しました。</value>
+    <comment/>
   </data>
   <data name="BeutlPackageFile" xml:space="preserve">
     <value>パッケージファイル</value>
+    <comment/>
   </data>
   <data name="FontFiles" xml:space="preserve">
     <value>フォントファイル</value>
+    <comment/>
   </data>
   <data name="TextFiles" xml:space="preserve">
     <value>テキストファイル</value>
+    <comment/>
   </data>
   <data name="Zip" xml:space="preserve">
     <value>Zip</value>
+    <comment/>
   </data>
   <data name="EnablePointerLockInProperty" xml:space="preserve">
     <value>ポインターロックを有効化</value>
+    <comment/>
   </data>
   <data name="EnablePointerLockInProperty_Description" xml:space="preserve">
     <value>プロパティエディタのドラッグ操作中にカーソルを非表示にします。（Windowsのみ）</value>
+    <comment/>
   </data>
   <data name="Telemetry_Beutl_Logging" xml:space="preserve">
     <value>ログ</value>
+    <comment/>
   </data>
   <data name="Telemetry_Description_Beutl_Logging" xml:space="preserve">
     <value>より詳細な使用状況を収集します。送信されるログは ".beutl/log" ディレクトリ下にも保存されます。</value>
+    <comment/>
   </data>
   <data name="TheseSettingsWillBeAppliedAfterTheApplicationIsRestarted" xml:space="preserve">
     <value>これらの設定はアプリケーションの再起動後に変更が適用されます。</value>
+    <comment/>
   </data>
   <data name="EnableAutoSave" xml:space="preserve">
     <value>自動保存を有効化</value>
+    <comment/>
   </data>
   <data name="EnableAutoSave_Description" xml:space="preserve">
     <value>操作を実行後、自動でファイルを保存します。</value>
+    <comment/>
   </data>
   <data name="FrameCacheMaxSize" xml:space="preserve">
     <value>最大バイト数</value>
+    <comment/>
   </data>
   <data name="FrameCacheMaxSize_Description" xml:space="preserve">
     <value>このバイト数を超えないようにキャッシュ数を調整します。</value>
+    <comment/>
   </data>
   <data name="FrameCacheScale" xml:space="preserve">
     <value>スケール</value>
+    <comment/>
   </data>
   <data name="FrameCacheScale_Quarter" xml:space="preserve">
     <value>四分の一</value>
+    <comment/>
   </data>
   <data name="FrameCacheScale_Original" xml:space="preserve">
     <value>オリジナル</value>
+    <comment/>
   </data>
   <data name="FrameCacheScale_FitToPreviewer" xml:space="preserve">
     <value>プレビュー画面に合わせる</value>
+    <comment/>
   </data>
   <data name="FrameCacheScale_Half" xml:space="preserve">
     <value>二分の一</value>
+    <comment/>
   </data>
   <data name="FrameCacheColorType" xml:space="preserve">
     <value>色空間</value>
+    <comment/>
   </data>
   <data name="PropertyEditor" xml:space="preserve">
     <value>プロパティエディタ</value>
+    <comment/>
   </data>
   <data name="EnableFrameCache" xml:space="preserve">
     <value>フレームキャッシュを有効化</value>
+    <comment/>
   </data>
   <data name="NodeCache" xml:space="preserve">
     <value>ノードキャッシュ</value>
+    <comment/>
   </data>
   <data name="EnableNodeCache" xml:space="preserve">
     <value>ノードキャッシュを有効化</value>
+    <comment/>
   </data>
   <data name="NodeCacheMaxPixels" xml:space="preserve">
     <value>最大ピクセル数</value>
+    <comment/>
   </data>
   <data name="NodeCacheMinPixels" xml:space="preserve">
     <value>最小ピクセル数</value>
+    <comment/>
+  </data>
+  <data name="SwapTimelineScrollDirection" xml:space="preserve">
+    <value>タイムラインのスクロール方向を入れ替える</value>
+    <comment/>
   </data>
 </root>

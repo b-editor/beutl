@@ -11,7 +11,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
-
+using Beutl.Configuration;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
@@ -343,15 +343,19 @@ public sealed partial class Timeline : UserControl
             // 目盛りのスケールを変更
             UpdateZoom(e, ref scale, ref offset);
         }
-        else if (e.KeyModifiers == KeyModifiers.Shift)
-        {
-            // オフセット(Y) をスクロール
-            offset.Y -= (float)(e.Delta.Y * 50);
-        }
         else
         {
-            // オフセット(X) をスクロール
-            offset.X -= (float)(e.Delta.Y * 50);
+            if (GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection)
+            {
+                offset.Y -= (float)(e.Delta.Y * 50);
+                offset.X -= (float)(e.Delta.X * 50);
+            }
+            else
+            {
+                // オフセット(X) をスクロール
+                offset.X -= (float)(e.Delta.Y * 50);
+                offset.Y -= (float)(e.Delta.X * 50);
+            }
         }
 
         viewModel.Options.Value = viewModel.Options.Value with

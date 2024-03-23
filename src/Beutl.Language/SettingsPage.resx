@@ -1,17 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
+  <!--
+    Microsoft ResX Schema
+
     Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
     associated with the data types.
-    
+
     Example:
-    
+
     ... ado.net/XML headers & schema ...
     <resheader name="resmimetype">text/microsoft-resx</resheader>
     <resheader name="version">2.0</resheader>
@@ -22,44 +22,47 @@
     <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
         <value>[base64 mime encoded serialized .NET Framework object]</value>
     </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing"
+  mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework
+  object]</value>
         <comment>This is a comment</comment>
     </data>
-                
-    There are any number of "resheader" rows that contain simple 
+
+    There are any number of "resheader" rows that contain simple
     name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
     mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
     extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
     read any of the formats listed below.
-    
+
     mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
             : and then encoded with base64 encoding.
-    
+
     mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
             : and then encoded with base64 encoding.
 
     mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
+    value   : The object must be serialized into a byte array
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
@@ -112,238 +115,315 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0,
+      Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0,
+      Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="SignOut" xml:space="preserve">
     <value>Sign out</value>
+    <comment/>
   </data>
   <data name="ChangeAccountSettings" xml:space="preserve">
     <value>Change account settings</value>
+    <comment/>
   </data>
   <data name="SignIn" xml:space="preserve">
     <value>Sign in</value>
+    <comment/>
   </data>
   <data name="SignInWith" xml:space="preserve">
     <value>Sign in with your social accounts</value>
+    <comment/>
   </data>
   <data name="SignInViaBrowser" xml:space="preserve">
     <value>Sign in via browser</value>
+    <comment/>
   </data>
   <data name="Editor_Extension_Priority" xml:space="preserve">
     <value>Editor Extension Priority</value>
+    <comment/>
   </data>
   <data name="Higher" xml:space="preserve">
     <value>Higher</value>
+    <comment/>
   </data>
   <data name="Lower" xml:space="preserve">
     <value>Lower</value>
+    <comment/>
   </data>
   <data name="All_Editor_Extensions" xml:space="preserve">
     <value>All Editor Extensions</value>
+    <comment/>
   </data>
   <data name="Add_file_extension" xml:space="preserve">
     <value>Add file extension</value>
+    <comment/>
   </data>
   <data name="Storage" xml:space="preserve">
     <value>Storage</value>
+    <comment/>
   </data>
   <data name="MakePrivate" xml:space="preserve">
     <value>Make private</value>
+    <comment/>
   </data>
   <data name="MakePublic" xml:space="preserve">
     <value>Make public</value>
+    <comment/>
   </data>
   <data name="ChangeVisibility" xml:space="preserve">
     <value>Change the visibility of this file to "{0}".</value>
+    <comment/>
   </data>
   <data name="Storage_Used" xml:space="preserve">
     <value>{0} Used</value>
+    <comment/>
   </data>
   <data name="Storage_Remaining" xml:space="preserve">
     <value>{0} Remaining</value>
+    <comment/>
   </data>
   <data name="Storage_BackupSettings" xml:space="preserve">
     <value>Back up settings</value>
+    <comment/>
   </data>
   <data name="Theme_Tip" xml:space="preserve">
     <value>Select the theme of the app you want to display.</value>
+    <comment/>
   </data>
   <data name="Please_enter_a_file_extension" xml:space="preserve">
     <value>Please enter a file extension.</value>
+    <comment/>
   </data>
   <data name="The_following_characters_are_not_allowed" xml:space="preserve">
     <value>The following characters are not allowed (" &gt; &lt; | : ? * \ /)</value>
+    <comment/>
   </data>
   <data name="This_file_extension_already_exists" xml:space="preserve">
     <value>This file extension already exists.</value>
+    <comment/>
   </data>
   <data name="CopyVersionInfo" xml:space="preserve">
     <value>Copy version info</value>
+    <comment/>
   </data>
   <data name="GpuInfomation" xml:space="preserve">
     <value>Gpu Infomation</value>
+    <comment/>
   </data>
   <data name="OpenGLVersion" xml:space="preserve">
     <value>OpenGL Version</value>
+    <comment/>
   </data>
   <data name="DeviceInfomation" xml:space="preserve">
     <value>Device Infomation</value>
+    <comment/>
   </data>
   <data name="ChangePrimaryPropertiesToBeHidden" xml:space="preserve">
     <value>Change the primary properties to be hidden</value>
+    <comment/>
   </data>
   <data name="EditorSettings" xml:space="preserve">
     <value>Editor settings</value>
+    <comment/>
   </data>
   <data name="HidePrimaryProperties" xml:space="preserve">
     <value>Hide primary properties</value>
+    <comment/>
   </data>
   <data name="HidePrimaryProperties_Description" xml:space="preserve">
     <value>Primary properties can be set by adding 'Source Operation'. Applies after the end of the program.</value>
+    <comment/>
   </data>
   <data name="PrimaryProperties" xml:space="preserve">
     <value>Primary properties</value>
+    <comment/>
   </data>
   <data name="AddPropertyToHide" xml:space="preserve">
     <value>Add property to hide</value>
+    <comment/>
   </data>
   <data name="DecoderPriority" xml:space="preserve">
     <value>Decoder Priority</value>
+    <comment/>
   </data>
   <data name="DecoderPriority_Description" xml:space="preserve">
     <value>You can change the priority order of decoders. The upper decoder has priority.</value>
+    <comment/>
   </data>
   <data name="AccentColor" xml:space="preserve">
     <value>Accent color</value>
+    <comment/>
   </data>
   <data name="CustomColor" xml:space="preserve">
     <value>Custom color</value>
+    <comment/>
   </data>
   <data name="UseCustomAccentColor" xml:space="preserve">
     <value>Use custom accent color</value>
+    <comment/>
   </data>
   <data name="Telemetry_Beutl_Application" xml:space="preserve">
     <value>Application</value>
+    <comment/>
   </data>
   <data name="Telemetry_Description_Beutl_Application" xml:space="preserve">
-    <value>The following information is collected to improve application performance
-Time the application was started, elapsed time of operation, and number of items retrieved by the API</value>
+    <value>The following information is collected to improve application performanceTime the application was started, elapsed time of operation, and number of items retrieved by the API</value>
+    <comment/>
   </data>
   <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">
     <value>Package Management</value>
+    <comment/>
   </data>
   <data name="Telemetry_Description_Beutl_PackageManagement" xml:space="preserve">
     <value>Collect the time taken to install and load extensions.</value>
+    <comment/>
   </data>
   <data name="Telemetry_Beutl_Api_Client" xml:space="preserve">
     <value>APIクライアント</value>
+    <comment/>
   </data>
   <data name="Telemetry_Description_Beutl_Api_Client" xml:space="preserve">
     <value>Collect API call times used by extension store and account functions.</value>
+    <comment/>
   </data>
   <data name="Telemetry" xml:space="preserve">
     <value>Telemetry</value>
+    <comment/>
   </data>
   <data name="Telemetry_ShortDescription" xml:space="preserve">
     <value>Settings about the data to be collected</value>
+    <comment/>
   </data>
   <data name="Telemetry_Description" xml:space="preserve">
-    <value>To improve Beutl, we collect anonymous usage data.
-These settings will be applied after the application is restarted.
-For more information, please refer to the following pages.</value>
+    <value>To improve Beutl, we collect anonymous usage data.These settings will be applied after the application is restarted.For more information, please refer to the following pages.</value>
+    <comment/>
   </data>
   <data name="ShowExactBoundaries_Description" xml:space="preserve">
-    <value>Displays the boundaries of elements accurately during preview.
-Enabling this setting may make the border invisible.</value>
+    <value>Displays the boundaries of elements accurately during preview.Enabling this setting may make the border invisible.</value>
+    <comment/>
   </data>
   <data name="ShowExactBoundaries" xml:space="preserve">
     <value>Display precise boundaries</value>
+    <comment/>
   </data>
   <data name="AutoAdjustSceneDuration" xml:space="preserve">
     <value>Automatically adjusts scene duration</value>
+    <comment/>
   </data>
   <data name="AutoAdjustSceneDuration_Description" xml:space="preserve">
     <value>When elements are added, if the duration of the scene needs to be adjusted, it will automatically do so.</value>
+    <comment/>
   </data>
   <data name="SomeSettingsHaveBeenMoved" xml:space="preserve">
     <value>Some settings have been moved.</value>
+    <comment/>
   </data>
   <data name="BeutlPackageFile" xml:space="preserve">
     <value>Packages</value>
+    <comment/>
   </data>
   <data name="FontFiles" xml:space="preserve">
     <value>Font Files</value>
+    <comment/>
   </data>
   <data name="TextFiles" xml:space="preserve">
     <value>Text Files</value>
+    <comment/>
   </data>
   <data name="Zip" xml:space="preserve">
     <value>Zip</value>
+    <comment/>
   </data>
   <data name="EnablePointerLockInProperty" xml:space="preserve">
     <value>Enable pointer lock</value>
+    <comment/>
   </data>
   <data name="EnablePointerLockInProperty_Description" xml:space="preserve">
     <value>Hides the cursor during drag operations in the Property Editor. (Windows only)</value>
+    <comment/>
   </data>
   <data name="Telemetry_Beutl_Logging" xml:space="preserve">
     <value>Logging</value>
+    <comment/>
   </data>
   <data name="Telemetry_Description_Beutl_Logging" xml:space="preserve">
     <value>More detailed usage information is collected. The logs sent are also stored under the ".beutl/log" directory.</value>
+    <comment/>
   </data>
   <data name="TheseSettingsWillBeAppliedAfterTheApplicationIsRestarted" xml:space="preserve">
     <value>These settings will be applied after the application is restarted.</value>
+    <comment/>
   </data>
   <data name="EnableAutoSave" xml:space="preserve">
     <value>Enable auto save</value>
+    <comment/>
   </data>
   <data name="EnableAutoSave_Description" xml:space="preserve">
     <value>The file is automatically saved after the operation is performed.</value>
+    <comment/>
   </data>
   <data name="FrameCacheMaxSize" xml:space="preserve">
     <value>Maximum bytes</value>
+    <comment/>
   </data>
   <data name="FrameCacheMaxSize_Description" xml:space="preserve">
     <value>The number of caches will be adjusted so that it does not exceed this number of bytes.</value>
+    <comment/>
   </data>
   <data name="FrameCacheScale" xml:space="preserve">
     <value>Scale</value>
+    <comment/>
   </data>
   <data name="FrameCacheScale_Original" xml:space="preserve">
     <value>Original</value>
+    <comment/>
   </data>
   <data name="FrameCacheScale_FitToPreviewer" xml:space="preserve">
     <value>Fit to preview screen</value>
+    <comment/>
   </data>
   <data name="FrameCacheScale_Half" xml:space="preserve">
     <value>Half</value>
+    <comment/>
   </data>
   <data name="FrameCacheScale_Quarter" xml:space="preserve">
     <value>Quarter</value>
+    <comment/>
   </data>
   <data name="FrameCacheColorType" xml:space="preserve">
     <value>Color space</value>
+    <comment/>
   </data>
   <data name="PropertyEditor" xml:space="preserve">
     <value>Property editor</value>
+    <comment/>
   </data>
   <data name="EnableFrameCache" xml:space="preserve">
     <value>Enable frame cache</value>
+    <comment/>
   </data>
   <data name="NodeCache" xml:space="preserve">
     <value>Node Cache</value>
+    <comment/>
   </data>
   <data name="EnableNodeCache" xml:space="preserve">
     <value>Enable node cache</value>
+    <comment/>
   </data>
   <data name="NodeCacheMaxPixels" xml:space="preserve">
     <value>Maximum pixels</value>
+    <comment/>
   </data>
   <data name="NodeCacheMinPixels" xml:space="preserve">
     <value>Minimum pixels</value>
+    <comment/>
+  </data>
+  <data name="SwapTimelineScrollDirection" xml:space="preserve">
+    <value>Swap the scroll direction of the timeline</value>
+    <comment/>
   </data>
 </root>

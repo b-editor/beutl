@@ -9,6 +9,7 @@ using Avalonia.LogicalTree;
 
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Configuration;
 using Beutl.Services;
 using Beutl.ViewModels;
 
@@ -175,21 +176,26 @@ public partial class GraphEditorView : UserControl
             else if (e.KeyModifiers.HasAllFlags(KeyModifiers.Control | KeyModifiers.Shift))
             {
                 double oldScale = viewModel.ScaleY.Value;
-                double scaleY = Zoom(e.Delta.Y, oldScale);
+                double scaleY = Zoom(e.Delta.X, oldScale);
+                // double scaleY = Zoom(e.Delta.Y, oldScale);
                 scaleY = Math.Clamp(scaleY, 0.01, 8.75);
 
                 //offset.Y *= scaleY;
                 viewModel.ScaleY.Value = scaleY;
             }
-            else if (e.KeyModifiers == KeyModifiers.Shift)
-            {
-                // オフセット(X) をスクロール
-                offset.Y -= (float)(e.Delta.Y * 50);
-            }
             else
             {
-                // オフセット(Y) をスクロール
-                offset.X -= (float)(e.Delta.Y * 50);
+                if (GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection)
+                {
+                    offset.Y -= (float)(e.Delta.Y * 50);
+                    offset.X -= (float)(e.Delta.X * 50);
+                }
+                else
+                {
+                    // オフセット(X) をスクロール
+                    offset.X -= (float)(e.Delta.Y * 50);
+                    offset.Y -= (float)(e.Delta.X * 50);
+                }
             }
 
             Vector2 originalOffset = viewModel.Options.Value.Offset;
