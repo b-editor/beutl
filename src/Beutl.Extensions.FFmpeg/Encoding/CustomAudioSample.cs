@@ -13,10 +13,8 @@ namespace Beutl.Embedding.FFmpeg.Encoding;
 namespace Beutl.Extensions.FFmpeg.Encoding;
 #endif
 
-internal sealed class CustomAudioSample(Pcm<Stereo32BitFloat> bitmap, FFmpegWriter writer) : IAudioSample, IDisposable
+internal sealed class CustomAudioSample(Pcm<Stereo32BitFloat> bitmap) : IAudioSample, IDisposable
 {
-    private readonly FFmpegWriter _writer = writer;
-
     public void Dispose()
     {
         bitmap.Dispose();
