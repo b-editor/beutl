@@ -11,10 +11,8 @@ namespace Beutl.Embedding.FFmpeg.Encoding;
 namespace Beutl.Extensions.FFmpeg.Encoding;
 #endif
 
-internal sealed class CustomVideoFrame(Bitmap<Bgra8888> bitmap, FFmpegWriter writer) : IVideoFrame, IDisposable
+internal sealed class CustomVideoFrame(Bitmap<Bgra8888> bitmap) : IVideoFrame, IDisposable
 {
-    private readonly FFmpegWriter _writer = writer;
-
     public int Width => bitmap.Width;
 
     public int Height => bitmap.Height;

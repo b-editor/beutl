@@ -7,9 +7,10 @@ namespace Beutl.Embedding.FFmpeg.Encoding;
 namespace Beutl.Extensions.FFmpeg.Encoding;
 #endif
 
-internal sealed class CustomRawVideoPipeSource(IEnumerable<IVideoFrame> framesEnumerator) : IPipeSource
+internal sealed class CustomRawVideoPipeSource(IEnumerable<IVideoFrame> framesEnumerator, Action<Stream>? setstream) : IPipeSource
 {
     private readonly IEnumerator<IVideoFrame> _framesEnumerator = framesEnumerator.GetEnumerator();
+    private readonly Action<Stream>? _setstream = setstream;
 
     public required string StreamFormat { get; set; }
 
@@ -26,6 +27,7 @@ internal sealed class CustomRawVideoPipeSource(IEnumerable<IVideoFrame> framesEn
 
     public async Task WriteAsync(Stream outputStream, CancellationToken cancellationToken)
     {
+        _setstream?.Invoke(outputStream);
         if (_framesEnumerator.Current != null)
         {
             CheckFrameAndThrow(_framesEnumerator.Current);
