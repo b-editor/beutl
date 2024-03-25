@@ -372,6 +372,7 @@ public partial class GraphEditorView : UserControl
     private void OnControlPointPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (DataContext is GraphEditorViewModel viewModel
+            && _cPointPressed
             && sender is Shape { DataContext: GraphEditorKeyFrameViewModel itemViewModel, Tag: string tag })
         {
             switch (tag)
