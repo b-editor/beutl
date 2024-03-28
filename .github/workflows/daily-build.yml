@@ -9,7 +9,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        rid: [linux_x64, win_x64, osx_x64]
+        rid: [linux_x64, win_x64, osx_x64, osx_arm64]
     steps:
     - name: Checkout
       uses: actions/checkout@v4

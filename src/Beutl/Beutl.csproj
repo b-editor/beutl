@@ -19,8 +19,9 @@
     <CFBundleName>Beutl</CFBundleName>
     <CFBundleDisplayName>Beutl</CFBundleDisplayName>
     <CFBundleIdentifier>net.beditor.beutl</CFBundleIdentifier>
-    <CFBundleVersion>1.0.0</CFBundleVersion>
-    <CFBundleShortVersionString>1.0.0</CFBundleShortVersionString>
+    <!-- スクリプトから指定 -->
+    <!-- <CFBundleVersion>$(AssemblyVersion)</CFBundleVersion> -->
+    <!-- <CFBundleShortVersionString>$(AssemblyVersion)</CFBundleShortVersionString> -->
     <CFBundlePackageType>APPL</CFBundlePackageType>
     <CFBundleSignature>????</CFBundleSignature>
     <CFBundleExecutable>Beutl</CFBundleExecutable>

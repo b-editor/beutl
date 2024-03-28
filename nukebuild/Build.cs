@@ -26,7 +26,7 @@ partial class Build : NukeBuild
     Configuration Configuration = Configuration.Release;
 
     [Parameter()]
-    DotNetRuntimeIdentifier Runtime = null;
+    RuntimeIdentifier Runtime = null;
 
     [Parameter()]
     bool SelfContained = false;
@@ -81,11 +81,6 @@ partial class Build : NukeBuild
         .DependsOn(Restore)
         .Executes(() =>
         {
-            if (!IsSupportedRid(Runtime))
-            {
-                throw new NotSupportedException("This runtime is not yet supported.");
-            }
-
             AbsolutePath mainProj = SourceDirectory / "Beutl" / "Beutl.csproj";
             AbsolutePath mainOutput = OutputDirectory / "Beutl";
 
@@ -94,8 +89,8 @@ partial class Build : NukeBuild
             DotNetPublish(s => s
                 .EnableNoRestore()
                 .When(Runtime != null, s => s.SetRuntime(Runtime).SetSelfContained(SelfContained))
-                .When(Runtime == DotNetRuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
-                .When(Runtime != DotNetRuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
+                .When(Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
+                .When(Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
                 .SetConfiguration(Configuration)
                 .SetProject(mainProj)
                 .SetOutput(mainOutput)
@@ -184,14 +179,23 @@ partial class Build : NukeBuild
                 .SetScriptFile(RootDirectory / "nukebuild/beutl-setup.iss"));
         });
 
-    bool IsSupportedRid(DotNetRuntimeIdentifier rid)
-    {
-        return rid == DotNetRuntimeIdentifier.linux_x64
-            || rid == DotNetRuntimeIdentifier.win_x64
-            || rid == DotNetRuntimeIdentifier.win10_x64
-            || rid == DotNetRuntimeIdentifier.win7_x64
-            || rid == DotNetRuntimeIdentifier.win81_x64
-            || rid == DotNetRuntimeIdentifier.osx_x64
-            || rid == null;
-    }
+    Target BundleApp => _ => _
+        .Executes(() =>
+        {
+            // dotnet msbuild -t:BundleApp -p:RuntimeIdentifier=osx-arm64 -p:TargetFramework=net8.0 -p:UseAppHost=true -p:SelfContained=true
+            AbsolutePath directory = SourceDirectory / "Beutl";
+            AbsolutePath output = OutputDirectory / "AppBundle";
+            string tfm = GetTFM();
+            DotNetMSBuild(s => s
+                .SetProcessWorkingDirectory(directory)
+                .SetTargets("BundleApp")
+                .SetConfiguration(Configuration)
+                .SetProperty("PublishDir", output)
+                .SetProperty("CFBundleVersion", NerdbankVersioning.AssemblyFileVersion)
+                .SetProperty("CFBundleShortVersionString", NerdbankVersioning.AssemblyFileVersion)
+                .SetProperty("RuntimeIdentifier", Runtime)
+                .SetProperty("TargetFramework", tfm)
+                .SetProperty("UseAppHost", true)
+                .SetProperty("SelfContained", true));
+        });
 }

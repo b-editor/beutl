@@ -27,7 +27,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        rid: [linux_x64, win_x64]
+        rid: [linux_x64, win_x64, osx_arm64]
 
     steps:
       - name: Checkout
@@ -175,6 +175,39 @@ jobs:
         with:
           name: beutl_${{needs.determine-version.outputs.simpleVer}}-${{needs.determine-version.outputs.revision}}ubuntu22.04_amd64.deb
           path: ./packages/beutl_${{needs.determine-version.outputs.simpleVer}}-${{needs.determine-version.outputs.revision}}ubuntu22.04_amd64.deb
+
+  build-app-bundle:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        rid: [osx_x64, osx_arm64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: ./build.cmd Restore
+  
+      - name: Bundle
+        run: ./build.cmd bundleApp --runtime ${{matrix.rid}} --skip restore
+
+      - name: Zip
+        run: |
+          mkdir artifacts
+          zip artifacts/Beutl.${{matrix.rid}}.app.zip -r output/AppBundle/Beutl.app 
+  
+      - name: Save
+        uses: actions/upload-artifact@v4
+        with:
+          name: Beutl.${{matrix.rid}}.app.zip
+          path: ./artifacts/Beutl.${{matrix.rid}}.app.zip
 
   build-nuget:
     needs: [determine-version]
