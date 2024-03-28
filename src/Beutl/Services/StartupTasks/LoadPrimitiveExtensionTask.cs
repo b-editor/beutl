@@ -117,6 +117,40 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                 }
 #pragma warning restore CS0436
 #endif
+
+#pragma warning disable CS0436
+                if (OperatingSystem.IsMacOS())
+                {
+                    activity?.AddEvent(new("Loading_AVFoundation"));
+
+                    // Beutl.Extensions.FFmpeg.csproj
+                    var pkg = new LocalPackage
+                    {
+                        ShortDescription = "AVFoundation for beutl",
+                        Name = "Beutl.Embedding.AVFoundation",
+                        DisplayName = "Beutl.Embedding.AVFoundation",
+                        InstalledPath = AppContext.BaseDirectory,
+                        Tags = { "macos", "avfoundation", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
+                        Version = GitVersionInformation.NuGetVersionV2,
+                        WebSite = "https://github.com/b-editor/beutl",
+                        Publisher = "b-editor"
+                    };
+                    try
+                    {
+                        var decoding = new Extensions.AVFoundation.Decoding.AVFDecodingExtension();
+                        _manager.SetupExtensionSettings(decoding);
+                        decoding.Load();
+
+                        provider.AddExtensions(pkg.LocalId, [decoding]);
+                    }
+                    catch (Exception ex)
+                    {
+                        Failures.Add((pkg, ex));
+                    }
+
+                    activity?.AddEvent(new("Loaded_AVFoundation"));
+                }
+#pragma warning restore CS0436
             }
         });
     }
