@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 
 using Beutl.Extensions.FFmpeg.Properties;
@@ -90,6 +91,13 @@ public static class FFmpegLoader
         {
             paths.Add("/usr/bin/ffmpeg");
         }
+        if (OperatingSystem.IsMacOS())
+        {
+            if (RuntimeInformation.OSArchitecture == Architecture.X64)
+                paths.Add("/usr/local/bin/ffmpeg");
+            if (RuntimeInformation.OSArchitecture == Architecture.Arm64)
+                paths.Add("/opt/homebrew/bin/ffmpeg");
+        }
 
         foreach (string item in paths)
         {
@@ -127,6 +135,13 @@ public static class FFmpegLoader
         {
             paths.Add($"/usr/lib/{(Environment.Is64BitProcess ? "x86_64" : "x86")}-linux-gnu");
         }
+        else if (OperatingSystem.IsMacOS())
+        {
+            if (RuntimeInformation.OSArchitecture == Architecture.X64)
+                paths.Add("/usr/local/lib");
+            if (RuntimeInformation.OSArchitecture == Architecture.Arm64)
+                paths.Add("/opt/homebrew/lib");
+        }
 
         foreach (string item in paths)
         {
@@ -146,6 +161,7 @@ public static class FFmpegLoader
         string[] files = Directory.GetFiles(basePath);
         foreach (KeyValuePair<string, int> item in ffmpeg.LibraryVersionMap)
         {
+            ///usr/local/lib/libavformat.60.16.100.dylib
             if (!files.Any(x => x.Contains(item.Key)))
             {
                 return false;

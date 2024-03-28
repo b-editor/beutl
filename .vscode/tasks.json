@@ -36,6 +36,12 @@
                 "${workspaceFolder}/src/Beutl/Beutl.csproj"
             ],
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "xstyler",
+            "type": "shell",
+            "command": "xstyler --ignore -c ${workspaceFolder}/xamlstyler.json -f ${file}",
+            "problemMatcher": []
         }
     ]
 }

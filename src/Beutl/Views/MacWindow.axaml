@@ -1,0 +1,137 @@
+<Window x:Class="Beutl.Views.MacWindow"
+               xmlns="https://github.com/avaloniaui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+               xmlns:vm="using:Beutl.ViewModels"
+               xmlns:local="using:Beutl.Views"
+               xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+               xmlns:lang="using:Beutl.Language"
+               xmlns:ui="using:FluentAvalonia.UI.Controls"
+               Title="{Binding WindowTitle.Value}"
+               x:DataType="vm:MainViewModel"
+               Background="{DynamicResource MacMainViewBackground}"
+               d:DesignHeight="720"
+               d:DesignWidth="1280"
+               Icon="avares://Beutl.Controls/Assets/logo.png"
+               mc:Ignorable="d">
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <!--  ファイル  -->
+            <NativeMenuItem Header="{x:Static lang:Strings.File}">
+                <NativeMenu>
+                    <!--  新規作成  -->
+                    <NativeMenuItem Header="{x:Static lang:Strings.CreateNew}">
+                        <NativeMenu>
+                            <!--  プロジェクト  -->
+                            <NativeMenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
+                                            Header="{x:Static lang:Strings.CreateNewProject}"
+                                            Gesture="{DynamicResource CreateNewProjectKeyGesture}" />
+                            <!--  ファイル  -->
+                            <NativeMenuItem Command="{CompiledBinding MenuBar.CreateNew}"
+                                            Header="{x:Static lang:Strings.CreateNewScene}"
+                                            Gesture="{DynamicResource CreateNewKeyGesture}" />
+                        </NativeMenu>
+                    </NativeMenuItem>
+                    <NativeMenuItemSeparator />
+                    <!--  開く  -->
+                    <NativeMenuItem Header="{x:Static lang:Strings.Open}">
+                        <NativeMenu>
+                            <!--  プロジェクト  -->
+                            <NativeMenuItem Command="{CompiledBinding MenuBar.OpenProject}"
+                                            Header="{x:Static lang:Strings.Project}"
+                                            Gesture="{DynamicResource OpenProjectKeyGesture}" />
+                            <!--  ファイル  -->
+                            <NativeMenuItem Command="{CompiledBinding MenuBar.OpenFile}"
+                                            Header="{x:Static lang:Strings.File}"
+                                            Gesture="{DynamicResource OpenKeyGesture}" />
+                        </NativeMenu>
+                    </NativeMenuItem>
+                    <NativeMenuItemSeparator />
+                    <!--  閉じる  -->
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.CloseFile}" Header="{x:Static lang:Strings.Close}" />
+                    <!--  プロジェクトを閉じる  -->
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.CloseProject}"
+                                    Header="{x:Static lang:Strings.CloseProject}"
+                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                    <NativeMenuItemSeparator />
+                    <!--  上書き保存  -->
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.Save}"
+                                    Header="{x:Static lang:Strings.Save}"
+                                    Gesture="{DynamicResource SaveKeyGesture}"
+                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                    <!--  すべて保存  -->
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.SaveAll}"
+                                    Header="{x:Static lang:Strings.SaveAll}"
+                                    Gesture="{DynamicResource SaveAllKeyGesture}"
+                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                    <NativeMenuItemSeparator />
+                    <!--  最近使ったプロジェクト  -->
+                    <NativeMenuItem Header="{x:Static lang:Strings.RecentFiles}">
+                        <NativeMenu />
+                    </NativeMenuItem>
+                    <NativeMenuItem Header="{x:Static lang:Strings.RecentProjects}">
+                        <NativeMenu />
+                    </NativeMenuItem>
+
+                    <NativeMenuItemSeparator />
+                    <!--  終了  -->
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.Exit}"
+                                    Header="{x:Static lang:Strings.Exit}"
+                                    Gesture="{DynamicResource ExitKeyGesture}" />
+                </NativeMenu>
+            </NativeMenuItem>
+            <!--  編集  -->
+            <NativeMenuItem Header="{x:Static lang:Strings.Edit}">
+                <NativeMenu>
+                    <!--  元に戻す  -->
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.Undo}"
+                                    Header="{x:Static lang:Strings.Undo}"
+                                    Gesture="{DynamicResource UndoKeyGesture}"
+                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                    <!--  やり直し  -->
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.Redo}"
+                                    Header="{x:Static lang:Strings.Redo}"
+                                    Gesture="{DynamicResource RedoKeyGesture}"
+                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                </NativeMenu>
+            </NativeMenuItem>
+            <!--  表示  -->
+            <NativeMenuItem Header="{x:Static lang:Strings.View}">
+                <NativeMenu>
+                    <NativeMenuItem Header="{x:Static lang:Strings.Editors}">
+                        <NativeMenu />
+                    </NativeMenuItem>
+                    <NativeMenuItem Header="{x:Static lang:Strings.Tools}">
+                        <NativeMenu />
+                    </NativeMenuItem>
+                </NativeMenu>
+            </NativeMenuItem>
+            <!--  プロジェクト  -->
+            <NativeMenuItem Header="{x:Static lang:Strings.Project}">
+                <NativeMenu>
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.AddToProject}" Header="{x:Static lang:Strings.Add}" />
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
+                </NativeMenu>
+            </NativeMenuItem>
+            <!--  シーン  -->
+            <NativeMenuItem Header="{x:Static lang:Strings.Scene}">
+                <NativeMenu>
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
+                    <!--  要素  -->
+                    <NativeMenuItem Header="{x:Static lang:Strings.Element}">
+                        <NativeMenu>
+                            <NativeMenuItem Command="{CompiledBinding MenuBar.AddLayer}" Header="{x:Static lang:Strings.Add}" />
+                            <NativeMenuItem Command="{CompiledBinding MenuBar.DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />
+                            <NativeMenuItem Command="{CompiledBinding MenuBar.ExcludeLayer}" Header="{x:Static lang:Strings.Exclude}" />
+                            <NativeMenuItem Command="{CompiledBinding MenuBar.CutLayer}" Header="{x:Static lang:Strings.Cut}" />
+                            <NativeMenuItem Command="{CompiledBinding MenuBar.CopyLayer}" Header="{x:Static lang:Strings.Copy}" />
+                            <NativeMenuItem Command="{CompiledBinding MenuBar.PasteLayer}" Header="{x:Static lang:Strings.Paste}" />
+                        </NativeMenu>
+                    </NativeMenuItem>
+                </NativeMenu>
+            </NativeMenuItem>
+        </NativeMenu>
+    </NativeMenu.Menu>
+    <local:MainView x:Name="mainView" />
+</Window>

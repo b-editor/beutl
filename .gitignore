@@ -358,3 +358,5 @@ tools/*
 packages/ubuntu22.04_amd64/usr/lib/
 packages/ubuntu22.04_amd64/usr/bin/
 /output
+
+.DS_Store

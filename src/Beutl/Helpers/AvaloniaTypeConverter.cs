@@ -363,4 +363,9 @@ public static class AvaloniaTypeConverter
 
         return null;
     }
+
+    public static Vector SwapAxis(this Vector vector)
+    {
+        return new(vector.Y, vector.X);
+    }
 }

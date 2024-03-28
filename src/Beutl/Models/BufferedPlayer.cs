@@ -65,7 +65,7 @@ public sealed class BufferedPlayer : IPlayer
 
                     if (_queue.Count >= 120)
                     {
-                        Debug.WriteLine("wait timer");
+                        // Debug.WriteLine("wait timer");
                         WaitTimer();
                     }
 
@@ -84,7 +84,7 @@ public sealed class BufferedPlayer : IPlayer
                     {
                         if (_renderer.Render(time))
                         {
-                            Debug.WriteLine($"{frame} rendered.");
+                            // Debug.WriteLine($"{frame} rendered.");
                             using (Ref<Bitmap<Bgra8888>> bitmap = Ref<Bitmap<Bgra8888>>.Create(_renderer.Snapshot()))
                             {
                                 _queue.Enqueue(new(bitmap.Clone(), frame));
@@ -127,7 +127,7 @@ public sealed class BufferedPlayer : IPlayer
             return true;
         }
 
-        Debug.WriteLine("wait rendered");
+        // Debug.WriteLine("wait rendered");
         WaitRender();
 
         return _queue.TryDequeue(out frame);
@@ -153,7 +153,7 @@ public sealed class BufferedPlayer : IPlayer
 
     public void Skipped(int requestedFrame)
     {
-        Debug.WriteLine($"{requestedFrame} skipped");
+        // Debug.WriteLine($"{requestedFrame} skipped");
         _requestedFrame = requestedFrame;
     }
 

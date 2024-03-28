@@ -53,6 +53,11 @@ public sealed class SettingsPageViewModel : IPageContext
         _navigateRequested.OnNext(Infomation);
     }
 
+    public void GoToAccountSettingsPage()
+    {
+        _navigateRequested.OnNext(Account);
+    }
+
     public void Dispose()
     {
     }

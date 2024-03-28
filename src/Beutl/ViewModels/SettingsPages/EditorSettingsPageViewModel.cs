@@ -50,6 +50,9 @@ public sealed class EditorSettingsPageViewModel
         HidePrimaryProperties = _viewConfig.GetObservable(ViewConfig.HidePrimaryPropertiesProperty).ToReactiveProperty();
         HidePrimaryProperties.Subscribe(b => _viewConfig.HidePrimaryProperties = b);
 
+        SwapTimelineScrollDirection = _editorConfig.GetObservable(EditorConfig.SwapTimelineScrollDirectionProperty).ToReactiveProperty();
+        SwapTimelineScrollDirection.Subscribe(b => _editorConfig.SwapTimelineScrollDirection = b);
+
         PrimaryProperties = _viewConfig.PrimaryProperties;
 
         RemovePrimaryProperty.Subscribe(v => PrimaryProperties.Remove(v));
@@ -85,4 +88,6 @@ public sealed class EditorSettingsPageViewModel
     public ReactiveProperty<int> NodeCacheMaxPixels { get; }
 
     public ReactiveProperty<int> NodeCacheMinPixels { get; }
+
+    public ReactiveProperty<bool> SwapTimelineScrollDirection { get; }
 }

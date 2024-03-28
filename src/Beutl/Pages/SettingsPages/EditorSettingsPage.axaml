@@ -48,6 +48,14 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.SwapTimelineScrollDirection}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding SwapTimelineScrollDirection.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
                 <TextBlock Margin="0,16,0,0"
                            Text="{x:Static lang:Strings.FrameCache}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />

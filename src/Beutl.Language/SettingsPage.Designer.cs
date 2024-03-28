@@ -738,5 +738,16 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Zip", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Swap the scroll direction of the timeline に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SwapTimelineScrollDirection
+        {
+            get
+            {
+                return ResourceManager.GetString("SwapTimelineScrollDirection", resourceCulture);
+            }
+        }
     }
 }

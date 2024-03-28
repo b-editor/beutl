@@ -9,6 +9,7 @@ using Avalonia.LogicalTree;
 
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Configuration;
 using Beutl.Services;
 using Beutl.ViewModels;
 
@@ -164,8 +165,14 @@ public partial class GraphEditorView : UserControl
         if (DataContext is GraphEditorViewModel viewModel)
         {
             Avalonia.Vector aOffset = scroll.Offset;
+            Avalonia.Vector edelta = e.Delta;
             float scale = viewModel.Options.Value.Scale;
             var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
+
+            if (OperatingSystem.IsWindows() && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            {
+                edelta = edelta.SwapAxis();
+            }
 
             if (e.KeyModifiers == KeyModifiers.Control)
             {
@@ -175,21 +182,26 @@ public partial class GraphEditorView : UserControl
             else if (e.KeyModifiers.HasAllFlags(KeyModifiers.Control | KeyModifiers.Shift))
             {
                 double oldScale = viewModel.ScaleY.Value;
-                double scaleY = Zoom(e.Delta.Y, oldScale);
+                double scaleY = Zoom(edelta.X, oldScale);
+                // double scaleY = Zoom(delta.Y, oldScale);
                 scaleY = Math.Clamp(scaleY, 0.01, 8.75);
 
                 //offset.Y *= scaleY;
                 viewModel.ScaleY.Value = scaleY;
             }
-            else if (e.KeyModifiers == KeyModifiers.Shift)
-            {
-                // オフセット(X) をスクロール
-                offset.Y -= (float)(e.Delta.Y * 50);
-            }
             else
             {
-                // オフセット(Y) をスクロール
-                offset.X -= (float)(e.Delta.Y * 50);
+                if (GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection)
+                {
+                    offset.Y -= (float)(edelta.Y * 50);
+                    offset.X -= (float)(edelta.X * 50);
+                }
+                else
+                {
+                    // オフセット(X) をスクロール
+                    offset.X -= (float)(edelta.Y * 50);
+                    offset.Y -= (float)(edelta.X * 50);
+                }
             }
 
             Vector2 originalOffset = viewModel.Options.Value.Offset;

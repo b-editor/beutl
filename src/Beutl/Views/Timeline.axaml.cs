@@ -12,6 +12,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
+using Beutl.Configuration;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
@@ -335,6 +336,7 @@ public sealed partial class Timeline : UserControl
     {
         TimelineViewModel viewModel = ViewModel;
         Avalonia.Vector aOffset = ContentScroll.Offset;
+        Avalonia.Vector delta = e.Delta;
         float scale = viewModel.Options.Value.Scale;
         var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
 
@@ -343,15 +345,24 @@ public sealed partial class Timeline : UserControl
             // 目盛りのスケールを変更
             UpdateZoom(e, ref scale, ref offset);
         }
-        else if (e.KeyModifiers == KeyModifiers.Shift)
-        {
-            // オフセット(Y) をスクロール
-            offset.Y -= (float)(e.Delta.Y * 50);
-        }
         else
         {
-            // オフセット(X) をスクロール
-            offset.X -= (float)(e.Delta.Y * 50);
+            if (OperatingSystem.IsWindows() && e.KeyModifiers == KeyModifiers.Shift)
+            {
+                delta = delta.SwapAxis();
+            }
+
+            if (GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection)
+            {
+                offset.Y -= (float)(delta.Y * 50);
+                offset.X -= (float)(delta.X * 50);
+            }
+            else
+            {
+                // オフセット(X) をスクロール
+                offset.X -= (float)(delta.Y * 50);
+                offset.Y -= (float)(delta.X * 50);
+            }
         }
 
         viewModel.Options.Value = viewModel.Options.Value with

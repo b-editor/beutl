@@ -318,7 +318,7 @@ public sealed class PlayerViewModel : IDisposable
         else
         {
             using var audioContext = new AudioContext();
-            await PlayWithOpenAL(audioContext, scene).ConfigureAwait(false);
+            await PlayWithOpenAL(audioContext, scene);
         }
     }
 
@@ -410,6 +410,16 @@ public sealed class PlayerViewModel : IDisposable
 
     private async Task PlayWithOpenAL(AudioContext audioContext, Scene scene)
     {
+        static void CheckError()
+        {
+            ALError error = AL.GetError();
+
+            if (error is not ALError.NoError)
+            {
+                throw new Exception(AL.GetErrorString(error));
+            }
+        }
+
         try
         {
             audioContext.MakeCurrent();
@@ -417,7 +427,9 @@ public sealed class PlayerViewModel : IDisposable
             IComposer composer = _editViewModel.Composer.Value;
             TimeSpan cur = _editViewModel.CurrentTime.Value;
             int[] buffers = AL.GenBuffers(2);
+            CheckError();
             int source = AL.GenSource();
+            CheckError();
 
             foreach (int buffer in buffers)
             {
@@ -428,33 +440,46 @@ public sealed class PlayerViewModel : IDisposable
                     using Pcm<Stereo16BitInteger> pcm = pcmf.Convert<Stereo16BitInteger>();
 
                     AL.BufferData<Stereo16BitInteger>(buffer, ALFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
+                    CheckError();
                 }
 
                 AL.SourceQueueBuffer(source, buffer);
+                CheckError();
             }
 
             AL.SourcePlay(source);
+            CheckError();
 
             while (IsPlaying.Value)
             {
                 AL.GetSource(source, ALGetSourcei.BuffersProcessed, out int processed);
+                CheckError();
                 while (processed > 0)
                 {
                     using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
                     cur += s_second;
                     int buffer = AL.SourceUnqueueBuffer(source);
+                    CheckError();
                     if (pcmf != null)
                     {
                         using Pcm<Stereo16BitInteger> pcm = pcmf.Convert<Stereo16BitInteger>();
 
                         AL.BufferData<Stereo16BitInteger>(buffer, ALFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
+                        CheckError();
                     }
 
                     AL.SourceQueueBuffer(source, buffer);
+                    CheckError();
                     processed--;
                 }
 
-                await Task.Delay(1000).ConfigureAwait(false);
+                if (AL.GetSourceState(source) != ALSourceState.Playing)
+                {
+                    AL.SourcePlay(source);
+                    CheckError();
+                }
+
+                await Task.Delay(100).ConfigureAwait(false);
                 if (cur > scene.Duration)
                     break;
             }
@@ -464,8 +489,14 @@ public sealed class PlayerViewModel : IDisposable
                 await Task.Delay(100).ConfigureAwait(false);
             }
 
+            CheckError();
+            // https://hamken100.blogspot.com/2014/04/aldeletebuffersalinvalidoperation.html
+            AL.Source(source, ALSourcei.Buffer, 0);
+            CheckError();
             AL.DeleteBuffers(buffers);
+            CheckError();
             AL.DeleteSource(source);
+            CheckError();
         }
         catch (Exception ex)
         {
