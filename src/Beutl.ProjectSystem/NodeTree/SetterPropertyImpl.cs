@@ -72,6 +72,15 @@ public sealed class SetterPropertyImpl<T>(Setter<T> setter, Type implementedType
         }
     }
 
+    public string? Description
+    {
+        get
+        {
+            CorePropertyMetadata metadata = Property.GetMetadata<CorePropertyMetadata>(ImplementedType);
+            return metadata.DisplayAttribute?.GetDescription();
+        }
+    }
+
     public bool IsReadOnly => false;
 
     CoreProperty? IAbstractProperty.GetCoreProperty() => Property;

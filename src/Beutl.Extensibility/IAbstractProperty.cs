@@ -13,6 +13,8 @@ public interface IAbstractProperty
 
     string DisplayName { get; }
 
+    string? Description { get; }
+
     bool IsReadOnly { get; }
 
     object? GetDefaultValue();
@@ -95,6 +97,8 @@ internal sealed class KeyFramePropertyWrapper<T>(KeyFrame<T> keyFrame, KeyFrameA
     public string DisplayName => "KeyFrame Value";
 
     public bool IsReadOnly => false;
+
+    public string? Description => null;
 
     public IObservable<T?> GetObservable()
     {

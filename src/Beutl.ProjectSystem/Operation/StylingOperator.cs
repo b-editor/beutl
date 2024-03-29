@@ -91,6 +91,15 @@ public sealed class StylingSetterPropertyImpl<T>(Setter<T> setter, Style style) 
         }
     }
 
+    public string? Description
+    {
+        get
+        {
+            CorePropertyMetadata metadata = Property.GetMetadata<CorePropertyMetadata>(ImplementedType);
+            return metadata.DisplayAttribute?.GetDescription();
+        }
+    }
+
     public bool IsReadOnly => false;
 
     public Type ImplementedType => Style.TargetType;

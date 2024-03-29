@@ -34,6 +34,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         WrappedProperty = property;
 
         Header = property.DisplayName;
+        Description = property.Description;
 
         IObservable<bool> hasAnimation = property is IAbstractAnimatableProperty anm
             ? anm.ObserveAnimation.Select(x => x != null)
@@ -124,6 +125,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     public bool CanReset => GetDefaultValue() != null;
 
     public string Header { get; }
+
+    public string? Description { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
@@ -228,6 +231,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         {
             editor[!PropertyEditor.IsReadOnlyProperty] = IsReadOnly.ToBinding();
             editor.Header = Header;
+            editor.Description = Description;
             if (WrappedProperty is IAbstractAnimatableProperty animatableProperty)
             {
                 editor[!PropertyEditor.KeyFrameCountProperty] = KeyFrameCount.ToBinding();

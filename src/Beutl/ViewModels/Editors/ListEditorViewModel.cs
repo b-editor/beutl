@@ -32,6 +32,8 @@ public sealed class ListItemAccessorImpl<T> : IAbstractProperty<T>
 
     public int Index { get; set; }
 
+    public string? Description => null;
+
     public object? GetDefaultValue()
     {
         return default(T);

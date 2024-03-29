@@ -24,6 +24,15 @@ public class CorePropertyImpl<T>(CoreProperty<T> property, ICoreObject obj) : IA
         }
     }
 
+    public string? Description
+    {
+        get
+        {
+            CorePropertyMetadata metadata = Property.GetMetadata<CorePropertyMetadata>(ImplementedType);
+            return metadata.DisplayAttribute?.GetDescription();
+        }
+    }
+
     public bool IsReadOnly => Property is IStaticProperty { CanRead: false };
 
     CoreProperty? IAbstractProperty.GetCoreProperty() => Property;
