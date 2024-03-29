@@ -157,6 +157,7 @@ public static class PropertyEditorService
             new(typeof(ushort), new(_ => new NumberEditor<ushort>(), s => new NumberEditorViewModel<ushort>(s.ToTyped<ushort>()))),
             new(typeof(uint), new(_ => new NumberEditor<uint>(), s => new NumberEditorViewModel<uint>(s.ToTyped<uint>()))),
             new(typeof(ulong), new(_ => new NumberEditor<ulong>(), s => new NumberEditorViewModel<ulong>(s.ToTyped<ulong>()))),
+            new(typeof(Rational), new(_ => new RationalEditor(), s => new RationalEditorViewModel(s.ToTyped<Rational>()))),
 
             new(typeof(bool), new(_ => new BooleanEditor(), s => new BooleanEditorViewModel(s.ToTyped<bool>()))),
             new(typeof(string), new(_ => new StringEditor(), s => new StringEditorViewModel(s.ToTyped<string?>()))),
