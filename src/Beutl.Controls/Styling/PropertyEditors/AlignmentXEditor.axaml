@@ -1,8 +1,10 @@
-<ResourceDictionary xmlns="https://github.com/avaloniaui"
+﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:icons="using:FluentIcons.FluentAvalonia"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
-                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+                    xmlns:ui="using:FluentAvalonia.UI.Controls"
+                    x:CompileBindings="True">
+    <!--なぜか <Style Selector="^"> でのプロパティ設定が効かないので、属性で設定している部分があります-->
     <Design.PreviewWith>
         <Border Width="300" Height="200">
             <StackPanel>
@@ -37,13 +39,13 @@
                                     HorizontalAlignment="Right"
                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                     Orientation="Horizontal">
-                            <RadioButton Name="PART_LeftRadioButton">
+                            <RadioButton Name="PART_LeftRadioButton" Padding="12,4">
                                 <icons:SymbolIcon Symbol="AlignLeft" />
                             </RadioButton>
-                            <RadioButton Name="PART_CenterRadioButton">
+                            <RadioButton Name="PART_CenterRadioButton" Padding="12,4">
                                 <icons:SymbolIcon Symbol="AlignCenterVertical" />
                             </RadioButton>
-                            <RadioButton Name="PART_RightRadioButton">
+                            <RadioButton Name="PART_RightRadioButton" Padding="12,4">
                                 <icons:SymbolIcon Symbol="AlignRight" />
                             </RadioButton>
                         </StackPanel>
@@ -102,13 +104,19 @@
                                   Margin="4,2"
                                   ColumnDefinitions="*,*,*"
                                   IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}">
-                                <RadioButton Name="PART_LeftRadioButton" Grid.Column="0">
+                                <RadioButton Name="PART_LeftRadioButton"
+                                             Grid.Column="0"
+                                             Padding="12,4">
                                     <icons:SymbolIcon Symbol="AlignLeft" />
                                 </RadioButton>
-                                <RadioButton Name="PART_CenterRadioButton" Grid.Column="1">
+                                <RadioButton Name="PART_CenterRadioButton"
+                                             Grid.Column="1"
+                                             Padding="12,4">
                                     <icons:SymbolIcon Symbol="AlignCenterVertical" />
                                 </RadioButton>
-                                <RadioButton Name="PART_RightRadioButton" Grid.Column="2">
+                                <RadioButton Name="PART_RightRadioButton"
+                                             Grid.Column="2"
+                                             Padding="12,4">
                                     <icons:SymbolIcon Symbol="AlignRight" />
                                 </RadioButton>
                             </Grid>
@@ -139,13 +147,13 @@
                                         HorizontalAlignment="Right"
                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                         Orientation="Horizontal">
-                                <RadioButton Name="PART_LeftRadioButton">
+                                <RadioButton Name="PART_LeftRadioButton" Padding="12,4">
                                     <icons:SymbolIcon Symbol="AlignLeft" />
                                 </RadioButton>
-                                <RadioButton Name="PART_CenterRadioButton">
+                                <RadioButton Name="PART_CenterRadioButton" Padding="12,4">
                                     <icons:SymbolIcon Symbol="AlignCenterVertical" />
                                 </RadioButton>
-                                <RadioButton Name="PART_RightRadioButton">
+                                <RadioButton Name="PART_RightRadioButton" Padding="12,4">
                                     <icons:SymbolIcon Symbol="AlignRight" />
                                 </RadioButton>
                             </StackPanel>
@@ -165,7 +173,7 @@
         </Style>
 
         <Style Selector="^ /template/ RadioButton">
-            <Setter Property="Padding" Value="12,4" />
+            <!-- <Setter Property="Padding" Value="12,4" /> -->
             <Setter Property="Theme" Value="{StaticResource LiteNavRadioButton}" />
             <Setter Property="FontSize" Value="18" />
         </Style>
@@ -216,13 +224,13 @@
                                     HorizontalAlignment="Right"
                                     IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                     Orientation="Horizontal">
-                            <RadioButton Name="PART_TopRadioButton">
+                            <RadioButton Name="PART_TopRadioButton" Padding="12,4">
                                 <icons:SymbolIcon Symbol="AlignTop" />
                             </RadioButton>
-                            <RadioButton Name="PART_CenterRadioButton">
+                            <RadioButton Name="PART_CenterRadioButton" Padding="12,4">
                                 <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
                             </RadioButton>
-                            <RadioButton Name="PART_BottomRadioButton">
+                            <RadioButton Name="PART_BottomRadioButton" Padding="12,4">
                                 <icons:SymbolIcon Symbol="AlignBottom" />
                             </RadioButton>
                         </StackPanel>
@@ -281,13 +289,19 @@
                                   Margin="4,2"
                                   ColumnDefinitions="*,*,*"
                                   IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}">
-                                <RadioButton Name="PART_TopRadioButton" Grid.Column="0">
+                                <RadioButton Name="PART_TopRadioButton"
+                                             Grid.Column="0"
+                                             Padding="12,4">
                                     <icons:SymbolIcon Symbol="AlignTop" />
                                 </RadioButton>
-                                <RadioButton Name="PART_CenterRadioButton" Grid.Column="1">
+                                <RadioButton Name="PART_CenterRadioButton"
+                                             Grid.Column="1"
+                                             Padding="12,4">
                                     <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
                                 </RadioButton>
-                                <RadioButton Name="PART_BottomRadioButton" Grid.Column="2">
+                                <RadioButton Name="PART_BottomRadioButton"
+                                             Grid.Column="2"
+                                             Padding="12,4">
                                     <icons:SymbolIcon Symbol="AlignBottom" />
                                 </RadioButton>
                             </Grid>
@@ -318,13 +332,13 @@
                                         HorizontalAlignment="Right"
                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                         Orientation="Horizontal">
-                                <RadioButton Name="PART_TopRadioButton">
+                                <RadioButton Name="PART_TopRadioButton" Padding="12,4">
                                     <icons:SymbolIcon Symbol="AlignTop" />
                                 </RadioButton>
-                                <RadioButton Name="PART_CenterRadioButton">
+                                <RadioButton Name="PART_CenterRadioButton" Padding="12,4">
                                     <icons:SymbolIcon Symbol="AlignCenterHorizontal" />
                                 </RadioButton>
-                                <RadioButton Name="PART_BottomRadioButton">
+                                <RadioButton Name="PART_BottomRadioButton" Padding="12,4">
                                     <icons:SymbolIcon Symbol="AlignBottom" />
                                 </RadioButton>
                             </StackPanel>
@@ -344,7 +358,7 @@
         </Style>
 
         <Style Selector="^ /template/ RadioButton">
-            <Setter Property="Padding" Value="12,4" />
+            <!-- <Setter Property="Padding" Value="12,4" /> -->
             <Setter Property="Theme" Value="{StaticResource LiteNavRadioButton}" />
             <Setter Property="FontSize" Value="18" />
         </Style>

@@ -15,6 +15,26 @@
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <CFBundleName>Beutl</CFBundleName>
+    <CFBundleDisplayName>Beutl</CFBundleDisplayName>
+    <CFBundleIdentifier>net.beditor.beutl</CFBundleIdentifier>
+    <!-- スクリプトから指定 -->
+    <!-- <CFBundleVersion>$(AssemblyVersion)</CFBundleVersion> -->
+    <!-- <CFBundleShortVersionString>$(AssemblyVersion)</CFBundleShortVersionString> -->
+    <CFBundlePackageType>APPL</CFBundlePackageType>
+    <CFBundleSignature>????</CFBundleSignature>
+    <CFBundleExecutable>Beutl</CFBundleExecutable>
+    <CFBundleIconFile>$(RootDirectory)\assets\logos\Beutl.icns</CFBundleIconFile>
+    <NSPrincipalClass>NSApplication</NSPrincipalClass>
+    <NSHighResolutionCapable>true</NSHighResolutionCapable>
+  </PropertyGroup>
+  <!-- <PropertyGroup>
+    <OutputPath>bin\$(Configuration)\$(Platform)\Beutl.app/Contents/MacOS</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <UseAppHost>true</UseAppHost>
+  </PropertyGroup> -->
+
   <ItemGroup Condition="$(TargetFramework.Contains('windows'))">
     <Using Remove="System.Drawing" />
     <Using Remove="System.Windows.Forms" />
@@ -32,6 +52,7 @@
     <PackageReference Include="Avalonia.Xaml.Behaviors" />
     <PackageReference Include="Avalonia.Xaml.Interactivity" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
+    <PackageReference Include="Dotnet.Bundle" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvalonia.BreadcrumbBar" />
     <PackageReference Include="FluentAvaloniaUI" />
@@ -59,20 +80,25 @@
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
-    <ProjectReference Condition="'$(NukePublish)'!='True'" Include="..\Beutl.PackageTools\Beutl.PackageTools.csproj" />
-    <ProjectReference Condition="'$(NukePublish)'!='True'" Include="..\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj" />
-    <ProjectReference Condition="'$(NukePublish)'!='True'" Include="..\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
-    <ProjectReference Condition="'$(NukePublish)'!='True'" Include="..\Beutl.ExceptionHandler\Beutl.ExceptionHandler.csproj" />
+    <ProjectReference Condition="'$(NukePublish)'!='True'"
+      Include="..\Beutl.PackageTools\Beutl.PackageTools.csproj" />
+    <ProjectReference Condition="'$(NukePublish)'!='True'"
+      Include="..\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj" />
+    <ProjectReference Condition="'$(NukePublish)'!='True'"
+      Include="..\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
+    <ProjectReference Condition="'$(NukePublish)'!='True'"
+      Include="..\Beutl.ExceptionHandler\Beutl.ExceptionHandler.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(FFmpegBuildIn)'=='True'">
     <ProjectReference Include="..\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
   </ItemGroup>
-  
+
   <ItemGroup Condition="'$(MFBuildIn)'=='True'">
-    <ProjectReference Include="..\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
+    <ProjectReference
+      Include="..\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <None Update="ViewModels\Editors\VectorEditorViewModels.tt">
       <Generator>TextTemplatingFileGenerator</Generator>

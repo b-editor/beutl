@@ -53,9 +53,11 @@
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
                     <SolidColorBrush x:Key="MainViewBackground" Color="Transparent" />
+                    <SolidColorBrush x:Key="MacMainViewBackground" Color="Transparent" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="MainViewBackground" Color="#4D000000" />
+                    <SolidColorBrush x:Key="MacMainViewBackground" Color="#FF111111" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 

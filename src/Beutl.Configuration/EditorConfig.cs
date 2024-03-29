@@ -4,7 +4,7 @@ using System.Management;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Runtime.Versioning;
-
+using System.Text.RegularExpressions;
 using Beutl.Collections;
 using Beutl.Serialization;
 
@@ -34,7 +34,7 @@ public enum FrameCacheConfigColorType
     YUV
 }
 
-public sealed class EditorConfig : ConfigurationBase
+public sealed partial class EditorConfig : ConfigurationBase
 {
     public static readonly CoreProperty<bool> AutoAdjustSceneDurationProperty;
     public static readonly CoreProperty<bool> EnablePointerLockInPropertyProperty;
@@ -46,6 +46,7 @@ public sealed class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<bool> IsNodeCacheEnabledProperty;
     public static readonly CoreProperty<int> NodeCacheMaxPixelsProperty;
     public static readonly CoreProperty<int> NodeCacheMinPixelsProperty;
+    public static readonly CoreProperty<bool> SwapTimelineScrollDirectionProperty;
 
     static EditorConfig()
     {
@@ -67,6 +68,7 @@ public sealed class EditorConfig : ConfigurationBase
 
         ulong memSize = OperatingSystem.IsWindows() ? GetWindowsMemoryCapacity()
             : OperatingSystem.IsLinux() ? GetLinuxMemoryCapacity()
+            : OperatingSystem.IsMacOS() ? GetMacMemoryCapacity()
             : 1024 * 1024 * 1024;
         double memSizeInMG = memSize / (1024d * 1024d);
 
@@ -93,6 +95,10 @@ public sealed class EditorConfig : ConfigurationBase
 
         NodeCacheMinPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMinPixels))
             .DefaultValue(1)
+            .Register();
+
+        SwapTimelineScrollDirectionProperty = ConfigureProperty<bool, EditorConfig>(nameof(SwapTimelineScrollDirection))
+            .DefaultValue(false)
             .Register();
 
     }
@@ -149,17 +155,23 @@ public sealed class EditorConfig : ConfigurationBase
         get => GetValue(IsNodeCacheEnabledProperty);
         set => SetValue(IsNodeCacheEnabledProperty, value);
     }
-    
+
     public int NodeCacheMaxPixels
     {
         get => GetValue(NodeCacheMaxPixelsProperty);
         set => SetValue(NodeCacheMaxPixelsProperty, value);
     }
-    
+
     public int NodeCacheMinPixels
     {
         get => GetValue(NodeCacheMinPixelsProperty);
         set => SetValue(NodeCacheMinPixelsProperty, value);
+    }
+
+    public bool SwapTimelineScrollDirection
+    {
+        get => GetValue(SwapTimelineScrollDirectionProperty);
+        set => SetValue(SwapTimelineScrollDirectionProperty, value);
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()
@@ -248,4 +260,28 @@ public sealed class EditorConfig : ConfigurationBase
         // https://help.ubuntu.com/community/Installation/SystemRequirements
         return 4L * 1024 * 1024 * 1024;
     }
+
+    private static ulong GetMacMemoryCapacity()
+    {
+        var startInfo = new ProcessStartInfo("/usr/bin/memory_pressure", "-Q")
+        {
+            RedirectStandardOutput = true
+        };
+        var proc = Process.Start(startInfo);
+        if (proc != null)
+        {
+            proc.WaitForExit();
+            string? str = proc.StandardOutput.ReadLine();
+            Regex regex = NumberRegex();
+            if (str != null && regex.Match(str) is { Success: true } match)
+            {
+                return ulong.Parse(match.Value);
+            }
+        }
+
+        return 4L * 1024 * 1024 * 1024;
+    }
+
+    [GeneratedRegex(@"(\d+)")]
+    private static partial Regex NumberRegex();
 }

@@ -17,6 +17,7 @@
     <PackageVersion Include="BenchmarkDotNet" Version="0.13.12" />
     <PackageVersion Include="coverlet.collector" Version="6.0.1" />
     <PackageVersion Include="DeviceId" Version="6.6.0" />
+    <PackageVersion Include="Dotnet.Bundle" Version="0.9.13" />
     <PackageVersion Include="DynamicData" Version="8.3.27" />
     <PackageVersion Include="FFmpeg.AutoGen" Version="6.1.0" />
     <PackageVersion Include="FluentAvalonia.BreadcrumbBar" Version="2.0.2" />
@@ -50,6 +51,7 @@
     <PackageVersion Include="NUnit3TestAdapter" Version="4.5.0" />
     <PackageVersion Include="OpenCvSharp4" Version="4.9.0.20240103" />
     <PackageVersion Include="OpenCvSharp4.runtime.osx.10.15-x64" Version="4.6.0.20230105" />
+    <PackageVersion Include="OpenCvSharp4.runtime.osx_arm64" Version="4.8.1-rc" />
     <PackageVersion Include="OpenCvSharp4.runtime.win" Version="4.9.0.20240103" />
     <PackageVersion Include="OpenTelemetry" Version="1.7.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.7.0" />

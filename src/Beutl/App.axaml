@@ -2,6 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:aconverters="using:Avalonia.Markup.Xaml.Converters"
+             Name="Beutl"
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:sty="using:FluentAvalonia.Styling">
     <Application.Resources>
@@ -32,7 +33,7 @@
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>
-        <sty:FluentAvaloniaTheme PreferUserAccentColor="True" />
+        <sty:FluentAvaloniaTheme TextVerticalAlignmentOverrideBehavior="Disabled" PreferUserAccentColor="True" />
         <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
         <StyleInclude Source="avares://FluentAvalonia.BreadcrumbBar/Styling/Styles.axaml" />
         <StyleInclude Source="avares://AsyncImageLoader.Avalonia/AdvancedImage.axaml" />
@@ -55,4 +56,12 @@
             <Setter Property="(TextBoxAttachment.EnterDownBehavior)" Value="Auto" />
         </Style>
     </Application.Styles>
+
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Click="AboutBeutlClicked" Header="Beutlのバージョン情報" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Click="OpenSettingsClicked" Header="設定" />
+        </NativeMenu>
+    </NativeMenu.Menu>
 </Application>
