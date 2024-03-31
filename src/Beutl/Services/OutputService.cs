@@ -151,13 +151,13 @@ public sealed class OutputService
 
     public void RestoreItems()
     {
+        _isRestored = true;
         if (File.Exists(_filePath))
         {
             using FileStream stream = File.Open(_filePath, FileMode.Open);
             var jsonNode = JsonNode.Parse(stream);
             if (jsonNode is JsonArray jsonArray)
             {
-                _isRestored = true;
                 _items.Clear();
                 _items.EnsureCapacity(jsonArray.Count);
 

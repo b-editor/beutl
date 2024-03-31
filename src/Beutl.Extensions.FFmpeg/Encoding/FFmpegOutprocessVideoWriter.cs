@@ -33,7 +33,7 @@ public sealed unsafe class FFmpegOutprocessVideoWriter : IFFmpegVideoWriter
     private readonly string _outputFile;
     private PipeStream? _stream;
 
-    public FFmpegOutprocessVideoWriter(string file, VideoEncoderSettings videoConfig, FFmpegEncodingSettings settings)
+    public FFmpegOutprocessVideoWriter(string file, FFmpegVideoEncoderSettings videoConfig, FFmpegEncodingSettings settings)
     {
         try
         {
@@ -75,7 +75,7 @@ public sealed unsafe class FFmpegOutprocessVideoWriter : IFFmpegVideoWriter
 
     public long NumberOfFrames { get; private set; }
 
-    public VideoEncoderSettings VideoConfig { get; }
+    public FFmpegVideoEncoderSettings VideoConfig { get; }
 
     private void ConfigureInputArguments(FFMpegArgumentOptions options)
     {
@@ -113,34 +113,27 @@ public sealed unsafe class FFmpegOutprocessVideoWriter : IFFmpegVideoWriter
     {
         var videoConfig = VideoConfig;
         var videoCodec = _outputFormat->video_codec;
-        var videoOptions = videoConfig.CodecOptions as JsonObject;
 
-        if (JsonHelper.TryGetString(videoOptions, "Codec", out string? codecStr))
+        AVCodec* codec = ffmpeg.avcodec_find_encoder((AVCodecID)VideoConfig.Codec);
+        if (codec != null
+            && codec->type == AVMediaType.AVMEDIA_TYPE_VIDEO
+            && codec->id != AVCodecID.AV_CODEC_ID_NONE)
         {
-            AVCodec* codec = ffmpeg.avcodec_find_encoder_by_name(codecStr);
-            if (codec != null
-                && codec->type == AVMediaType.AVMEDIA_TYPE_VIDEO
-                && codec->id != AVCodecID.AV_CODEC_ID_NONE)
-            {
-                videoCodec = codec->id;
-            }
+            videoCodec = codec->id;
         }
 
         string? videoPixFmt = null;
-        if (JsonHelper.TryGetString(videoOptions, "Format", out string? fmtStr))
+        AVPixelFormat pixFmt = VideoConfig.Format;
+        if (pixFmt != AVPixelFormat.AV_PIX_FMT_NONE)
         {
-            AVPixelFormat pixFmt = ffmpeg.av_get_pix_fmt(fmtStr);
-            if (pixFmt != AVPixelFormat.AV_PIX_FMT_NONE)
-            {
-                videoPixFmt = ffmpeg.av_get_pix_fmt_name(pixFmt);
-            }
+            videoPixFmt = ffmpeg.av_get_pix_fmt_name(pixFmt);
         }
 
-        JsonHelper.TryGetString(videoOptions, "Arguments", out string? args);
+        var args = VideoConfig.Arguments;
 
-        string? preset = JsonHelper.TryGetString(videoOptions, "Preset", out string? presetStr) ? presetStr : null;
-        int? crf = JsonHelper.TryGetInt(videoOptions, "Crf", out int crf2) ? crf2 : null;
-        string? profile = JsonHelper.TryGetString(videoOptions, "Profile", out string? profileStr) ? profileStr : null;
+        string? preset = VideoConfig.Preset;
+        int? crf = VideoConfig.Crf;
+        string? profile = VideoConfig.Profile;
 
         var videoCodecName = ffmpeg.avcodec_get_name(videoCodec);
 

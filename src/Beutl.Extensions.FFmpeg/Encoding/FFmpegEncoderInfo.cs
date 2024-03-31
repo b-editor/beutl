@@ -1,9 +1,4 @@
-﻿using System.Text.Json.Nodes;
-
-using Beutl.Media;
-using Beutl.Media.Encoding;
-
-using FFmpeg.AutoGen;
+﻿using Beutl.Media.Encoding;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Encoding;
@@ -22,30 +17,12 @@ public sealed class FFmpegEncoderInfo(FFmpegEncodingSettings settings) : IEncode
 
     public AudioEncoderSettings DefaultAudioConfig()
     {
-        return new()
-        {
-            CodecOptions = new JsonObject()
-            {
-                ["Codec"] = ffmpeg.avcodec_get_name(AVCodecID.AV_CODEC_ID_NONE),
-                ["Arguments"] = "",
-            }
-        };
+        return new FFmpegAudioEncoderSettings();
     }
 
     public VideoEncoderSettings DefaultVideoConfig()
     {
-        return new(new PixelSize(1920, 1080), new PixelSize(1920, 1080), new(30))
-        {
-            CodecOptions = new JsonObject()
-            {
-                ["Format"] = ffmpeg.av_get_pix_fmt_name(AVPixelFormat.AV_PIX_FMT_NONE),
-                ["Codec"] = ffmpeg.avcodec_get_name(AVCodecID.AV_CODEC_ID_NONE),
-                ["Preset"] = "medium",
-                ["Crf"] = "22",
-                ["Profile"] = "high",
-                ["Arguments"] = "",
-            }
-        };
+        return new FFmpegVideoEncoderSettings();
     }
 
     public IEnumerable<string> SupportExtensions()

@@ -33,7 +33,7 @@ public sealed unsafe class FFmpegOutprocessAudioWriter : IFFmpegAudioWriter
     private readonly AVOutputFormat* _outputFormat;
     private readonly string _outputFile;
 
-    public FFmpegOutprocessAudioWriter(string file, AudioEncoderSettings audioConfig, FFmpegEncodingSettings settings)
+    public FFmpegOutprocessAudioWriter(string file, FFmpegAudioEncoderSettings audioConfig, FFmpegEncodingSettings settings)
     {
         try
         {
@@ -60,7 +60,7 @@ public sealed unsafe class FFmpegOutprocessAudioWriter : IFFmpegAudioWriter
 
     public long NumberOfSamples { get; private set; }
 
-    public AudioEncoderSettings AudioConfig { get; }
+    public FFmpegAudioEncoderSettings AudioConfig { get; }
 
     private void ConfigureInputArguments(FFMpegArgumentOptions options)
     {
@@ -98,20 +98,16 @@ public sealed unsafe class FFmpegOutprocessAudioWriter : IFFmpegAudioWriter
     {
         var audioConfig = AudioConfig;
         var audioCodec = _outputFormat->audio_codec;
-        var audioOptions = audioConfig.CodecOptions as JsonObject;
 
-        if (JsonHelper.TryGetString(audioOptions, "Codec", out string? codecStr))
+        AVCodec* codec = ffmpeg.avcodec_find_encoder((AVCodecID)AudioConfig.Codec);
+        if (codec != null
+            && codec->type == AVMediaType.AVMEDIA_TYPE_AUDIO
+            && codec->id != AVCodecID.AV_CODEC_ID_NONE)
         {
-            AVCodec* codec = ffmpeg.avcodec_find_encoder_by_name(codecStr);
-            if (codec != null
-                && codec->type == AVMediaType.AVMEDIA_TYPE_AUDIO
-                && codec->id != AVCodecID.AV_CODEC_ID_NONE)
-            {
-                audioCodec = codec->id;
-            }
+            audioCodec = codec->id;
         }
 
-        JsonHelper.TryGetString(audioOptions, "Arguments", out string? args);
+        var args = AudioConfig.Arguments;
 
         var audioCodecName = ffmpeg.avcodec_get_name(audioCodec);
 

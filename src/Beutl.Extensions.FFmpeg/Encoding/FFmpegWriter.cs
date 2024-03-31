@@ -43,11 +43,11 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             _videoTmpFile = Path.ChangeExtension(_videoTmpFile, Path.GetExtension(_outputFile));
             if (OperatingSystem.IsWindows())
             {
-                _videoWriter = new FFmpegOutprocessVideoWriter(_videoTmpFile, VideoConfig, _settings);
+                _videoWriter = new FFmpegOutprocessVideoWriter(_videoTmpFile, (FFmpegVideoEncoderSettings)VideoConfig, _settings);
             }
             else
             {
-                _videoWriter = new FFmpegInprocessVideoWriter(_videoTmpFile, VideoConfig);
+                _videoWriter = new FFmpegInprocessVideoWriter(_videoTmpFile, (FFmpegVideoEncoderSettings)VideoConfig);
             }
         }
 
@@ -61,7 +61,7 @@ public sealed unsafe class FFmpegWriter : MediaWriter
             _audioTmpFile = Path.GetTempFileName();
             TryDeleteFile(_audioTmpFile);
             _audioTmpFile = Path.ChangeExtension(_audioTmpFile, Path.GetExtension(_outputFile));
-            _audioWriter = new FFmpegOutprocessAudioWriter(_audioTmpFile, AudioConfig, _settings);
+            _audioWriter = new FFmpegOutprocessAudioWriter(_audioTmpFile, (FFmpegAudioEncoderSettings)AudioConfig, _settings);
         }
 
         return _audioWriter.AddAudio(sound);

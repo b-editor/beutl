@@ -12,10 +12,9 @@ using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
 using Beutl.Rendering.Cache;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
-using Beutl.Utilities;
-
 using DynamicData;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -24,282 +23,6 @@ using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
-
-public sealed class VideoOutputViewModel
-{
-    private double _aspectRatio;
-    private bool _changingSize;
-
-    public VideoOutputViewModel(int width, int height, Rational frameRate, int bitRate, int keyframeRate)
-    {
-        Width.Value = width;
-        Height.Value = height;
-        InputFrameRate.Value = frameRate.ToString();
-        BitRate.Value = bitRate;
-        KeyFrameRate.Value = keyframeRate;
-        FrameRate = new ReactivePropertySlim<Rational>(frameRate);
-
-        FixAspectRatio.Where(x => x)
-            .Subscribe(_ => _aspectRatio = Width.Value / (double)Height.Value);
-
-        Width.Skip(1)
-            .Where(_ => FixAspectRatio.Value && !_changingSize)
-            .Subscribe(w =>
-            {
-                try
-                {
-                    _changingSize = true;
-                    Height.Value = (int)(w / _aspectRatio);
-                }
-                finally
-                {
-                    _changingSize = false;
-                }
-            });
-        Height.Skip(1)
-            .Where(_ => FixAspectRatio.Value && !_changingSize)
-            .Subscribe(h =>
-            {
-                try
-                {
-                    _changingSize = true;
-                    Width.Value = (int)(h * _aspectRatio);
-                }
-                finally
-                {
-                    _changingSize = false;
-                }
-            });
-
-        Width.SetValidateNotifyError(ValidateLessThanOrEqualToZero);
-        Height.SetValidateNotifyError(ValidateLessThanOrEqualToZero);
-        BitRate.SetValidateNotifyError(ValidateLessThanOrEqualToZero);
-        KeyFrameRate.SetValidateNotifyError(ValidateLessThanOrEqualToZero);
-        InputFrameRate.SetValidateNotifyError(x =>
-        {
-            if (Rational.TryParse(x, null, out Rational rate))
-            {
-                if (MathUtilities.LessThanOrClose(rate.ToDouble(), 0))
-                {
-                    return Message.ValueLessThanOrEqualToZero;
-                }
-                else
-                {
-                    FrameRate.Value = rate;
-                    return null;
-                }
-            }
-            else
-            {
-                return Message.InvalidString;
-            }
-        });
-        OptionsString.SetValidateNotifyError(x =>
-        {
-            try
-            {
-                if (x == null || JsonNode.Parse(x) is not { } json)
-                {
-                    return Message.InvalidString;
-                }
-                else
-                {
-                    OptionsJson.Value = json;
-                    return null;
-                }
-            }
-            catch
-            {
-                return Message.InvalidString;
-            }
-        });
-
-        IsValid = Width.ObserveHasErrors
-            .AnyTrue(Height.ObserveHasErrors,
-                     BitRate.ObserveHasErrors,
-                     KeyFrameRate.ObserveHasErrors,
-                     InputFrameRate.ObserveHasErrors)
-            .Not()
-            .ToReadOnlyReactivePropertySlim();
-    }
-
-    public ReactiveProperty<int> Width { get; } = new();
-
-    public ReactiveProperty<int> Height { get; } = new();
-
-    public ReactiveProperty<bool> FixAspectRatio { get; } = new(true);
-
-    public ReactivePropertySlim<bool> IsFrameSizeExpanded { get; } = new(true);
-
-    public ReactiveProperty<string> InputFrameRate { get; } = new();
-
-    public ReactivePropertySlim<Rational> FrameRate { get; }
-
-    public ReactiveProperty<int> BitRate { get; } = new();
-
-    public ReactiveProperty<int> KeyFrameRate { get; } = new();
-
-    public ReactiveProperty<string?> OptionsString { get; } = new();
-
-    public ReactivePropertySlim<JsonNode?> OptionsJson { get; } = new();
-
-    public ReactivePropertySlim<bool> IsOptionsExpanded { get; } = new(false);
-
-    public ReadOnlyReactivePropertySlim<bool> IsValid { get; }
-
-    public VideoEncoderSettings ToSettings(PixelSize sourceSize)
-    {
-        return new VideoEncoderSettings(
-            sourceSize,
-            new PixelSize(Width.Value, Height.Value),
-            FrameRate.Value,
-            BitRate.Value,
-            KeyFrameRate.Value)
-        {
-            CodecOptions = OptionsJson.Value
-        };
-    }
-
-    private static string? ValidateLessThanOrEqualToZero(int value)
-    {
-        if (value <= 0)
-            return Message.ValueLessThanOrEqualToZero;
-        else
-            return null;
-    }
-
-    public JsonNode WriteToJson()
-    {
-        return new JsonObject
-        {
-            [nameof(Width)] = Width.Value,
-            [nameof(Height)] = Height.Value,
-            [nameof(FixAspectRatio)] = FixAspectRatio.Value,
-            [nameof(FrameRate)] = InputFrameRate.Value,
-            [nameof(BitRate)] = BitRate.Value,
-            [nameof(KeyFrameRate)] = KeyFrameRate.Value,
-            ["Options"] = OptionsJson.Value?.DeepClone(),
-            [nameof(IsOptionsExpanded)] = IsOptionsExpanded.Value,
-        };
-    }
-
-    public void ReadFromJson(JsonNode json)
-    {
-        try
-        {
-            _changingSize = true;
-            JsonObject obj = json.AsObject();
-            Width.Value = obj[nameof(Width)]!.AsValue().GetValue<int>();
-            Height.Value = obj[nameof(Height)]!.AsValue().GetValue<int>();
-            FixAspectRatio.Value = obj[nameof(FixAspectRatio)]!.AsValue().GetValue<bool>();
-            InputFrameRate.Value = obj[nameof(FrameRate)]!.AsValue().GetValue<string>();
-            BitRate.Value = obj[nameof(BitRate)]!.AsValue().GetValue<int>();
-            KeyFrameRate.Value = obj[nameof(KeyFrameRate)]!.AsValue().GetValue<int>();
-            OptionsJson.Value = obj["Options"];
-            if (OptionsJson.Value != null)
-            {
-                OptionsString.Value = OptionsJson.Value.ToJsonString(JsonHelper.SerializerOptions);
-            }
-
-            IsOptionsExpanded.Value = obj[nameof(IsOptionsExpanded)]!.AsValue().GetValue<bool>();
-        }
-        catch
-        {
-        }
-        finally
-        {
-            _changingSize = false;
-        }
-    }
-}
-
-public sealed class AudioOutputViewModel
-{
-    public AudioOutputViewModel(int sampleRate, int channels, int bitrate)
-    {
-        SampleRate.Value = sampleRate;
-        BitRate.Value = bitrate;
-        Channels.Value = channels;
-
-        SampleRate.SetValidateNotifyError(ValidateLessThanOrEqualToZero);
-        BitRate.SetValidateNotifyError(ValidateLessThanOrEqualToZero);
-        Channels.SetValidateNotifyError(x => x is >= 1 and <= 2 ? null : Message.Invalid_choice);
-        OptionsString.SetValidateNotifyError(x =>
-        {
-            try
-            {
-                if (x == null || JsonNode.Parse(x) is not { } json)
-                {
-                    return Message.InvalidString;
-                }
-                else
-                {
-                    OptionsJson.Value = json;
-                    return null;
-                }
-            }
-            catch
-            {
-                return Message.InvalidString;
-            }
-        });
-
-        IsValid = SampleRate.ObserveHasErrors
-            .AnyTrue(Channels.ObserveHasErrors, BitRate.ObserveHasErrors)
-            .Not()
-            .ToReadOnlyReactivePropertySlim();
-    }
-
-    public ReactiveProperty<int> SampleRate { get; } = new();
-
-    public ReactiveProperty<int> Channels { get; } = new();
-
-    public ReactiveProperty<int> BitRate { get; } = new();
-
-    public ReactiveProperty<string?> OptionsString { get; } = new();
-
-    public ReactivePropertySlim<JsonNode?> OptionsJson { get; } = new();
-
-    public ReactivePropertySlim<bool> IsOptionsExpanded { get; } = new(false);
-
-    public ReadOnlyReactivePropertySlim<bool> IsValid { get; }
-
-    public AudioEncoderSettings ToSettings()
-    {
-        return new AudioEncoderSettings(
-            SampleRate.Value,
-            Channels.Value + 1,
-            BitRate.Value)
-        {
-            CodecOptions = OptionsJson.Value
-        };
-    }
-
-    private static string? ValidateLessThanOrEqualToZero(int value)
-    {
-        if (value <= 0)
-            return Message.ValueLessThanOrEqualToZero;
-        else
-            return null;
-    }
-
-    public JsonNode WriteToJson()
-    {
-        return new JsonObject
-        {
-            [nameof(SampleRate)] = SampleRate.Value,
-            [nameof(Channels)] = Channels.Value,
-            [nameof(BitRate)] = BitRate.Value,
-            ["Options"] = OptionsJson.Value?.DeepClone(),
-            [nameof(IsOptionsExpanded)] = IsOptionsExpanded.Value,
-        };
-    }
-
-    public void ReadFromJson(JsonNode json)
-    {
-
-    }
-}
 
 public sealed class OutputViewModel : IOutputContext
 {
@@ -316,34 +39,32 @@ public sealed class OutputViewModel : IOutputContext
     {
         Model = model;
 
-        const int framerate = 30;
-        const int samplerate = 44100;
-
-        VideoSettings = new VideoOutputViewModel(
-            width: model.Width,
-            height: model.Height,
-            frameRate: new Rational(framerate),
-            bitRate: 5_000_000,
-            keyframeRate: 12);
-        AudioSettings = new AudioOutputViewModel(samplerate, 1, 128_000);
-
         SelectedEncoder.Subscribe(obj =>
         {
-            if (obj?.DefaultVideoConfig()?.CodecOptions is { } videoCodecOptions)
+            if (obj != null)
             {
-                VideoSettings.OptionsString.Value = videoCodecOptions.ToJsonString(JsonHelper.SerializerOptions);
+                var settings = obj.DefaultVideoConfig();
+                settings.SourceSize = new(Model.Width, Model.Height);
+                settings.DestinationSize = new(Model.Width, Model.Height);
+                VideoSettings.Value = new EncoderSettingsViewModel(settings);
+            }
+            else
+            {
+                VideoSettings.Value = null;
             }
 
-            if (obj?.DefaultAudioConfig()?.CodecOptions is { } audioCodecOptions)
+            if (obj != null)
             {
-                AudioSettings.OptionsString.Value = audioCodecOptions.ToJsonString(JsonHelper.SerializerOptions);
+                AudioSettings.Value = new EncoderSettingsViewModel(obj.DefaultAudioConfig());
+            }
+            else
+            {
+                AudioSettings.Value = null;
             }
         });
 
-        CanEncode = VideoSettings.IsValid
-            .AreTrue(AudioSettings.IsValid,
-                     DestinationFile.Select(x => x != null),
-                     SelectedEncoder.Select(x => x != null))
+        CanEncode = DestinationFile.Select(x => x != null)
+            .AreTrue(SelectedEncoder.Select(x => x != null))
             .ToReadOnlyReactivePropertySlim();
 
         _disposable1 = EncoderRegistry.EnumerateEncoders().AsObservableChangeSet()
@@ -371,9 +92,9 @@ public sealed class OutputViewModel : IOutputContext
 
     public ReadOnlyReactivePropertySlim<bool> CanEncode { get; }
 
-    public VideoOutputViewModel VideoSettings { get; }
+    public ReactiveProperty<EncoderSettingsViewModel?> VideoSettings { get; } = new();
 
-    public AudioOutputViewModel AudioSettings { get; }
+    public ReactiveProperty<EncoderSettingsViewModel?> AudioSettings { get; } = new();
 
     public ReactivePropertySlim<Avalonia.Vector> ScrollOffset { get; } = new();
 
@@ -443,8 +164,14 @@ public sealed class OutputViewModel : IOutputContext
                 else
                 {
                     _isIndeterminate.Value = false;
-                    VideoEncoderSettings videoSettings = VideoSettings.ToSettings(scene.FrameSize);
-                    AudioEncoderSettings audioSettings = AudioSettings.ToSettings();
+                    if (VideoSettings.Value?.Settings is not VideoEncoderSettings videoSettings
+                        || AudioSettings.Value?.Settings is not AudioEncoderSettings audioSettings)
+                    {
+                        ProgressText.Value = Message.AnUnexpectedErrorHasOccurred;
+                        _logger.LogWarning("EncoderSettings is null. ({Encoder})", SelectedEncoder.Value);
+                        return;
+                    }
+                    videoSettings.SourceSize = scene.FrameSize;
 
                     TimeSpan duration = scene.Duration;
                     Rational frameRate = videoSettings.FrameRate;
@@ -560,6 +287,27 @@ public sealed class OutputViewModel : IOutputContext
 
     public void WriteToJson(JsonObject json)
     {
+        JsonObject? Serialize(MediaEncoderSettings? settings)
+        {
+            if (settings == null) return null;
+            try
+            {
+                var context = new JsonSerializationContext(
+                    settings.GetType(), NullSerializationErrorNotifier.Instance);
+                using (ThreadLocalSerializationContext.Enter(context))
+                {
+                    settings.Serialize(context);
+                }
+
+                return context.GetJsonObject();
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "An exception occurred during serialize.");
+                return null;
+            }
+        }
+
         json[nameof(DestinationFile)] = DestinationFile.Value;
         if (SelectedEncoder.Value != null)
         {
@@ -568,12 +316,30 @@ public sealed class OutputViewModel : IOutputContext
 
         json[nameof(IsEncodersExpanded)] = IsEncodersExpanded.Value;
         json[nameof(ScrollOffset)] = ScrollOffset.Value.ToString();
-        json[nameof(VideoSettings)] = VideoSettings.WriteToJson();
-        json[nameof(AudioSettings)] = AudioSettings.WriteToJson();
+        json[nameof(VideoSettings)] = Serialize(VideoSettings.Value?.Settings);
+        json[nameof(AudioSettings)] = Serialize(AudioSettings.Value?.Settings);
     }
 
     public void ReadFromJson(JsonObject json)
     {
+        void Deserialize(MediaEncoderSettings? settings, JsonObject json)
+        {
+            if (settings == null) return;
+            try
+            {
+                var context = new JsonSerializationContext(
+                    settings.GetType(), NullSerializationErrorNotifier.Instance, json: json);
+                using (ThreadLocalSerializationContext.Enter(context))
+                {
+                    settings.Deserialize(context);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "An exception occurred during deserialize.");
+            }
+        }
+
         if (json.TryGetPropertyValue(nameof(DestinationFile), out JsonNode? dstFileNode)
             && dstFileNode is JsonValue dstFileValue
             && dstFileValue.TryGetValue(out string? dstFile))
@@ -605,16 +371,17 @@ public sealed class OutputViewModel : IOutputContext
             ScrollOffset.Value = new Avalonia.Vector(vec.X, vec.Y);
         }
 
+        // 上のSelectedEncoder.Value = encoder;でnull以外が指定された場合、VideoSettings, AudioSettingsもnullじゃなくなる。
         if (json.TryGetPropertyValue(nameof(VideoSettings), out JsonNode? videoNode)
             && videoNode is JsonObject videoObj)
         {
-            VideoSettings.ReadFromJson(videoObj);
+            Deserialize(VideoSettings.Value?.Settings, videoObj);
         }
 
         if (json.TryGetPropertyValue(nameof(AudioSettings), out JsonNode? audioNode)
             && audioNode is JsonObject audioObj)
         {
-            AudioSettings.ReadFromJson(audioObj);
+            Deserialize(AudioSettings.Value?.Settings, audioObj);
         }
     }
 }

@@ -1,5 +1,4 @@
-﻿using Beutl.Media.Encoding;
-using Beutl.Media.Music;
+﻿using Beutl.Media.Music;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Encoding;
@@ -11,7 +10,7 @@ public interface IFFmpegAudioWriter : IDisposable
 {
     long NumberOfSamples { get; }
 
-    AudioEncoderSettings AudioConfig { get; }
+    FFmpegAudioEncoderSettings AudioConfig { get; }
 
     bool AddAudio(IPcm sound);
 }

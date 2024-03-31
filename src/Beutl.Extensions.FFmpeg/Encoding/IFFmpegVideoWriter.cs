@@ -1,5 +1,4 @@
 ﻿using Beutl.Media;
-using Beutl.Media.Encoding;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Encoding;
@@ -11,7 +10,7 @@ public interface IFFmpegVideoWriter : IDisposable
 {
     long NumberOfFrames { get; }
 
-    VideoEncoderSettings VideoConfig { get; }
+    FFmpegVideoEncoderSettings VideoConfig { get; }
 
     bool AddVideo(IBitmap image);
 }

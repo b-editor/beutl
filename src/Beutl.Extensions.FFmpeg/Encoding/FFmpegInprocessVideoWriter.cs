@@ -24,7 +24,7 @@ public sealed unsafe class FFmpegInprocessVideoWriter : IFFmpegVideoWriter
     private SwsContext* _swsContext;
     private AVDictionary* _dictionary;
 
-    public FFmpegInprocessVideoWriter(string file, VideoEncoderSettings videoConfig)
+    public FFmpegInprocessVideoWriter(string file, FFmpegVideoEncoderSettings videoConfig)
     {
         try
         {
@@ -55,7 +55,7 @@ public sealed unsafe class FFmpegInprocessVideoWriter : IFFmpegVideoWriter
 
     public long NumberOfFrames { get; private set; }
 
-    public VideoEncoderSettings VideoConfig { get; }
+    public FFmpegVideoEncoderSettings VideoConfig { get; }
 
     public bool AddVideo(IBitmap image)
     {
@@ -171,18 +171,14 @@ public sealed unsafe class FFmpegInprocessVideoWriter : IFFmpegVideoWriter
 
     private void CreateVideoStream(AVOutputFormat* format)
     {
-        var codecOptions = VideoConfig.CodecOptions as JsonObject;
         AVCodecID codecId = format->video_codec;
 
-        if (JsonHelper.TryGetString(codecOptions, "Codec", out string? codecStr))
+        AVCodecDescriptor* desc = ffmpeg.avcodec_descriptor_get((AVCodecID)VideoConfig.Codec);
+        if (desc != null
+            && desc->type == AVMediaType.AVMEDIA_TYPE_VIDEO
+            && desc->id != AVCodecID.AV_CODEC_ID_NONE)
         {
-            AVCodecDescriptor* desc = ffmpeg.avcodec_descriptor_get_by_name(codecStr);
-            if (desc != null
-                && desc->type == AVMediaType.AVMEDIA_TYPE_VIDEO
-                && desc->id != AVCodecID.AV_CODEC_ID_NONE)
-            {
-                codecId = desc->id;
-            }
+            codecId = desc->id;
         }
 
         _videoCodec = ffmpeg.avcodec_find_encoder(codecId);
@@ -208,13 +204,9 @@ public sealed unsafe class FFmpegInprocessVideoWriter : IFFmpegVideoWriter
             throw new Exception("avcodec_alloc_context3 failed");
 
         AVPixelFormat videoPixFmt = AVPixelFormat.AV_PIX_FMT_YUV420P;
-        if (JsonHelper.TryGetString(codecOptions, "Format", out string? fmtStr))
+        if (VideoConfig.Format != AVPixelFormat.AV_PIX_FMT_NONE)
         {
-            AVPixelFormat pixFmt = ffmpeg.av_get_pix_fmt(fmtStr);
-            if (pixFmt != AVPixelFormat.AV_PIX_FMT_NONE)
-            {
-                videoPixFmt = pixFmt;
-            }
+            videoPixFmt = VideoConfig.Format;
         }
 
         _videoStream->codecpar->codec_id = codecId;
@@ -233,10 +225,11 @@ public sealed unsafe class FFmpegInprocessVideoWriter : IFFmpegVideoWriter
         _videoCodecContext->thread_count = Math.Min(Environment.ProcessorCount, 16);
 
         AVDictionary* dictionary = null;
-        string preset = JsonHelper.TryGetString(codecOptions, "Preset", out string? presetStr) ? presetStr : "medium";
-        string crf = JsonHelper.TryGetString(codecOptions, "Crf", out string? crfStr) ? crfStr : "22";
-        string profile = JsonHelper.TryGetString(codecOptions, "Profile", out string? profileStr) ? profileStr : "high";
-        string level = JsonHelper.TryGetString(codecOptions, "Level", out string? levelStr) ? levelStr : "4.0";
+        string preset = VideoConfig.Preset;
+        string crf = VideoConfig.Crf.ToString();
+        string profile = VideoConfig.Profile;
+        string level = "4.0";
+        // string level = JsonHelper.TryGetString(codecOptions, "Level", out string? levelStr) ? levelStr : "4.0";
         ffmpeg.av_dict_set(&dictionary, "preset", preset, 0);
         ffmpeg.av_dict_set(&dictionary, "crf", crf, 0);
         ffmpeg.av_dict_set(&dictionary, "profile", profile, 0);
