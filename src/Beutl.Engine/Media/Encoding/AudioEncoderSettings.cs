@@ -1,4 +1,7 @@
-﻿namespace Beutl.Media.Encoding;
+﻿using Beutl.Language;
+using System.ComponentModel.DataAnnotations;
+
+namespace Beutl.Media.Encoding;
 
 public class AudioEncoderSettings : MediaEncoderSettings
 {
@@ -21,18 +24,21 @@ public class AudioEncoderSettings : MediaEncoderSettings
             .Register();
     }
 
+    [Display(Name = nameof(Strings.SampleRate), Description = nameof(Strings.SampleRate_Tip), ResourceType = typeof(Strings), Order = int.MinValue)]
     public int SampleRate
     {
         get => GetValue(SampleRateProperty);
         set => SetValue(SampleRateProperty, value);
     }
 
+    [Display(Name = nameof(Strings.Channels), Description = nameof(Strings.Channels_Tip), ResourceType = typeof(Strings), Order = int.MinValue + 1)]
     public int Channels
     {
         get => GetValue(ChannelsProperty);
         set => SetValue(ChannelsProperty, value);
     }
 
+    [Display(Name = nameof(Strings.Bitrate), Description = nameof(Strings.Bitrate_Tip), ResourceType = typeof(Strings), Order = int.MinValue + 2)]
     public int Bitrate
     {
         get => GetValue(BitrateProperty);
