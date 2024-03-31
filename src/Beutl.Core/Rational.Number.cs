@@ -1,15 +1,19 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
+using System.Text.Json.Serialization;
+
+using Beutl.JsonConverters;
 
 namespace Beutl;
 
+[JsonConverter(typeof(RationalJsonConverter))]
 public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Rational>
 {
     public static Rational NaN => new(0, 0);
-    
+
     public static Rational PositiveInfinity => new(1, 0);
-    
+
     public static Rational NegativeInfinity => new(-1, 0);
 
     public static Rational MaxValue => new(long.MaxValue);
@@ -152,10 +156,10 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
             throw new ArgumentException("Invalid Rational", nameof(s));
         }
 
-        if (idx > 1)
+        if (idx > 0)
         {
-            ReadOnlySpan<char> numStr = s.Slice(0, idx - 1);
-            ReadOnlySpan<char> denStr = s.Slice(idx);
+            ReadOnlySpan<char> numStr = s.Slice(0, idx);
+            ReadOnlySpan<char> denStr = s.Slice(idx + 1);
             long num = long.Parse(numStr, style, provider);
             long den = long.Parse(denStr, style, provider);
             return new Rational(num, den);
@@ -176,6 +180,26 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
         return Parse(s, NumberStyles.Integer, provider);
     }
 
+    public static Rational Parse(ReadOnlySpan<char> s)
+    {
+        return Parse(s);
+    }
+
+    public static Rational Parse(string s)
+    {
+        return Parse(s, null);
+    }
+
+    public static bool TryParse(ReadOnlySpan<char> s, out Rational result)
+    {
+        return TryParse(s, null, out result);
+    }
+
+    public static bool TryParse(string s, out Rational result)
+    {
+        return TryParse(s, null, out result);
+    }
+
     public static Rational Parse(string s, IFormatProvider? provider)
     {
         return Parse(s, NumberStyles.Integer, provider);
@@ -190,10 +214,10 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
             return false;
         }
 
-        if (idx > 1)
+        if (idx > 0)
         {
-            ReadOnlySpan<char> numStr = s.Slice(0, idx - 1);
-            ReadOnlySpan<char> denStr = s.Slice(idx);
+            ReadOnlySpan<char> numStr = s.Slice(0, idx);
+            ReadOnlySpan<char> denStr = s.Slice(idx + 1);
 
             if (long.TryParse(numStr, style, provider, out long num)
                 && long.TryParse(denStr, style, provider, out long den))

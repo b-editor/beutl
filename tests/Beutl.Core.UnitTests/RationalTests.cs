@@ -62,4 +62,21 @@ public class RationalTests
     {
         Assert.That(new Rational(num, den).Simplify(), Is.EqualTo(new Rational(expNum, expDen)));
     }
+
+    [Test]
+    [TestCase("1/1")]
+    [TestCase("0/1")]
+    [TestCase("0 / 1")]
+    public void Parse(string s)
+    {
+        Rational.Parse(s);
+    }
+
+    [Test]
+    [TestCase("1.5")]
+    [TestCase("/1")]
+    public void Parse_Invalid(string s)
+    {
+        Assert.Catch(() => Rational.Parse(s));
+    }
 }
