@@ -156,7 +156,7 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
             throw new ArgumentException("Invalid Rational", nameof(s));
         }
 
-        if (idx > 1)
+        if (idx > 0)
         {
             ReadOnlySpan<char> numStr = s.Slice(0, idx);
             ReadOnlySpan<char> denStr = s.Slice(idx + 1);
@@ -214,7 +214,7 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
             return false;
         }
 
-        if (idx > 1)
+        if (idx > 0)
         {
             ReadOnlySpan<char> numStr = s.Slice(0, idx);
             ReadOnlySpan<char> denStr = s.Slice(idx + 1);
