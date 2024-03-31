@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:pages="using:Beutl.Pages.SettingsPages"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewModel="using:Beutl.ViewModels"
@@ -87,127 +88,13 @@
                        Text="{x:Static lang:Strings.Video}"
                        Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-            <OptionsDisplayItem Description="{x:Static lang:Strings.FrameSize_Tip}"
-                                Expands="True"
-                                Header="{x:Static lang:Strings.FrameSize}"
-                                IsExpanded="{Binding VideoSettings.IsFrameSizeExpanded.Value}">
-                <OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="Tv" />
-                </OptionsDisplayItem.Icon>
-                <OptionsDisplayItem.Content>
-                    <StackPanel Margin="40,0" Spacing="16">
-                        <Grid Margin="4" ColumnDefinitions="*,Auto">
-                            <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.Width}" />
-
-                            <TextBox Grid.Column="1"
-                                     Width="160"
-                                     Text="{Binding VideoSettings.Width.Value}" />
-                        </Grid>
-                        <Grid Margin="4" ColumnDefinitions="*,Auto">
-                            <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.Height}" />
-
-                            <TextBox Grid.Column="1"
-                                     Width="160"
-                                     Text="{Binding VideoSettings.Height.Value}" />
-                        </Grid>
-                        <CheckBox Margin="4"
-                                  Content="{x:Static lang:Strings.FixAspectRatio}"
-                                  IsChecked="{Binding VideoSettings.FixAspectRatio.Value}" />
-                    </StackPanel>
-                </OptionsDisplayItem.Content>
-            </OptionsDisplayItem>
-
-            <OptionsDisplayItem Description="{x:Static lang:Strings.FrameRate_Tip}" Header="{x:Static lang:Strings.FrameRate}">
-                <OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="RatioOneToOne" />
-                </OptionsDisplayItem.Icon>
-                <OptionsDisplayItem.ActionButton>
-                    <TextBox Width="188" Text="{Binding VideoSettings.InputFrameRate.Value}" />
-                </OptionsDisplayItem.ActionButton>
-            </OptionsDisplayItem>
-
-            <OptionsDisplayItem Description="{x:Static lang:Strings.Bitrate_Tip}" Header="{x:Static lang:Strings.Bitrate}">
-                <OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="DataBarVertical" />
-                </OptionsDisplayItem.Icon>
-                <OptionsDisplayItem.ActionButton>
-                    <TextBox Width="188" Text="{Binding VideoSettings.BitRate.Value}" />
-                </OptionsDisplayItem.ActionButton>
-            </OptionsDisplayItem>
-
-            <OptionsDisplayItem Description="{x:Static lang:Strings.KeyframeRate_Tip}" Header="{x:Static lang:Strings.KeyframeRate}">
-                <OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon RenderTransform="rotate(90deg)" Symbol="Insert" />
-                </OptionsDisplayItem.Icon>
-                <OptionsDisplayItem.ActionButton>
-                    <TextBox Width="188" Text="{Binding VideoSettings.KeyFrameRate.Value}" />
-                </OptionsDisplayItem.ActionButton>
-            </OptionsDisplayItem>
-
-            <OptionsDisplayItem Expands="True"
-                                Header="{x:Static lang:Strings.AdditionalOptions}"
-                                IsExpanded="{Binding VideoSettings.IsOptionsExpanded.Value}">
-                <OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="Settings" />
-                </OptionsDisplayItem.Icon>
-                <OptionsDisplayItem.Content>
-                    <TextBox MaxHeight="160"
-                             Margin="44,0"
-                             AcceptsReturn="True"
-                             AcceptsTab="True"
-                             Text="{Binding VideoSettings.OptionsString.Value}" />
-                </OptionsDisplayItem.Content>
-            </OptionsDisplayItem>
+            <pages:PropertiesEditor DataContext="{Binding VideoSettings.Value}" />
 
             <TextBlock Margin="0,16,0,0"
                        Text="{x:Static lang:Strings.Audio}"
                        Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-            <OptionsDisplayItem Description="{x:Static lang:Strings.SampleRate_Tip}" Header="{x:Static lang:Strings.SampleRate}">
-                <OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="RatioOneToOne" />
-                </OptionsDisplayItem.Icon>
-                <OptionsDisplayItem.ActionButton>
-                    <TextBox Width="188" Text="{Binding AudioSettings.SampleRate.Value}" />
-                </OptionsDisplayItem.ActionButton>
-            </OptionsDisplayItem>
-
-            <OptionsDisplayItem Description="{x:Static lang:Strings.Channels_Tip}" Header="{x:Static lang:Strings.Channels}">
-                <OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="Headphones" />
-                </OptionsDisplayItem.Icon>
-                <OptionsDisplayItem.ActionButton>
-                    <ComboBox Width="188" SelectedIndex="{Binding AudioSettings.Channels.Value}">
-                        <ComboBoxItem Content="{x:Static lang:Strings.Monaural}" />
-                        <ComboBoxItem Content="{x:Static lang:Strings.Stereo}" />
-                    </ComboBox>
-                </OptionsDisplayItem.ActionButton>
-            </OptionsDisplayItem>
-
-            <OptionsDisplayItem Description="{x:Static lang:Strings.Bitrate_Tip}" Header="{x:Static lang:Strings.Bitrate}">
-                <OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="DataBarVertical" />
-                </OptionsDisplayItem.Icon>
-                <OptionsDisplayItem.ActionButton>
-                    <TextBox Width="188" Text="{Binding AudioSettings.BitRate.Value}" />
-                </OptionsDisplayItem.ActionButton>
-            </OptionsDisplayItem>
-
-            <OptionsDisplayItem Expands="True"
-                                Header="{x:Static lang:Strings.AdditionalOptions}"
-                                IsExpanded="{Binding AudioSettings.IsOptionsExpanded.Value}">
-                <OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="Settings" />
-                </OptionsDisplayItem.Icon>
-                <OptionsDisplayItem.Content>
-                    <TextBox MaxHeight="160"
-                             Margin="44,0"
-                             AcceptsReturn="True"
-                             AcceptsTab="True"
-                             Text="{Binding AudioSettings.OptionsString.Value}" />
-                </OptionsDisplayItem.Content>
-            </OptionsDisplayItem>
-
+            <pages:PropertiesEditor DataContext="{Binding AudioSettings.Value}" />
         </StackPanel>
     </ScrollViewer>
 </UserControl>
