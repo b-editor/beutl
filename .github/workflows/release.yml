@@ -237,7 +237,7 @@ jobs:
           path: ./artifacts/Beutl.Sdk.${{needs.determine-version.outputs.semVer}}.nupkg
 
   create-release:
-    needs: [build-executable, build-windows-installer, build-debian-package, build-nuget]
+    needs: [build-executable, build-windows-installer, build-debian-package, build-nuget, build-app-bundle]
     runs-on: windows-latest
     steps:
       - uses: actions/download-artifact@v4
