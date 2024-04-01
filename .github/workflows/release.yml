@@ -193,7 +193,9 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: ./build.sh Restore
+        run: |
+          chmod +x build.sh
+          ./build.sh Restore
   
       - name: Bundle
         run: ./build.sh bundleApp --runtime ${{matrix.rid}} --skip restore
