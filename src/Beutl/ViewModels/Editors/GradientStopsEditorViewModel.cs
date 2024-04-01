@@ -46,6 +46,12 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
 
     public ReactivePropertySlim<AM.GradientStop?> SelectedItem { get; } = new();
 
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        _disposable?.Dispose();
+    }
+
     public void InsertGradientStop(int index, GradientStop item)
     {
         if (Value.Value is { } list)

@@ -250,6 +250,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Asymmetry.
+        /// </summary>
+        public static string Asymmetry {
+            get {
+                return ResourceManager.GetString("Asymmetry", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Audio.
         /// </summary>
         public static string Audio {
@@ -601,6 +610,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Conic.
+        /// </summary>
+        public static string Conic {
+            get {
+                return ResourceManager.GetString("Conic", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Conical.
         /// </summary>
         public static string Conical {
@@ -778,6 +796,15 @@ namespace Beutl.Language {
         public static string CreateNewScene {
             get {
                 return ResourceManager.GetString("CreateNewScene", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cubic Bezier curve.
+        /// </summary>
+        public static string CubicBezierCurve {
+            get {
+                return ResourceManager.GetString("CubicBezierCurve", resourceCulture);
             }
         }
         
@@ -962,6 +989,24 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Edit in frame.
+        /// </summary>
+        public static string EditInFrame {
+            get {
+                return ResourceManager.GetString("EditInFrame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Edit in tab.
+        /// </summary>
+        public static string EditInTab {
+            get {
+                return ResourceManager.GetString("EditInTab", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Edit Json.
         /// </summary>
         public static string EditJson {
@@ -1003,6 +1048,15 @@ namespace Beutl.Language {
         public static string Ellipse {
             get {
                 return ResourceManager.GetString("Ellipse", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Elliptical arc.
+        /// </summary>
+        public static string EllipticalArc {
+            get {
+                return ResourceManager.GetString("EllipticalArc", resourceCulture);
             }
         }
         
@@ -1111,6 +1165,15 @@ namespace Beutl.Language {
         public static string External {
             get {
                 return ResourceManager.GetString("External", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Figure.
+        /// </summary>
+        public static string Figure {
+            get {
+                return ResourceManager.GetString("Figure", resourceCulture);
             }
         }
         
@@ -1295,6 +1358,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Geometry.
+        /// </summary>
+        public static string GeometryShape {
+            get {
+                return ResourceManager.GetString("GeometryShape", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Gradient Origin.
         /// </summary>
         public static string GradientOrigin {
@@ -1457,6 +1529,33 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Import.
+        /// </summary>
+        public static string Import {
+            get {
+                return ResourceManager.GetString("Import", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Import SVG path.
+        /// </summary>
+        public static string ImportSvgPath {
+            get {
+                return ResourceManager.GetString("ImportSvgPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The current shape will be overwritten..
+        /// </summary>
+        public static string ImportSvgPath_Description {
+            get {
+                return ResourceManager.GetString("ImportSvgPath_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Info.
         /// </summary>
         public static string Info {
@@ -1615,6 +1714,15 @@ namespace Beutl.Language {
         public static string Lighting {
             get {
                 return ResourceManager.GetString("Lighting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Line.
+        /// </summary>
+        public static string Line {
+            get {
+                return ResourceManager.GetString("Line", resourceCulture);
             }
         }
         
@@ -1997,6 +2105,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Path editor.
+        /// </summary>
+        public static string PathEditor {
+            get {
+                return ResourceManager.GetString("PathEditor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Dashes and spaces.
         /// </summary>
         public static string Pen_DashArray {
@@ -2128,6 +2245,15 @@ namespace Beutl.Language {
         public static string Public {
             get {
                 return ResourceManager.GetString("Public", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Quadratic Bezier curve.
+        /// </summary>
+        public static string QuadraticBezierCurve {
+            get {
+                return ResourceManager.GetString("QuadraticBezierCurve", resourceCulture);
             }
         }
         
@@ -2519,6 +2645,15 @@ namespace Beutl.Language {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Separately.
+        /// </summary>
+        public static string Separately {
+            get {
+                return ResourceManager.GetString("Separately", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Settings.
         /// </summary>
         public static string Settings {
@@ -2893,6 +3028,15 @@ namespace Beutl.Language {
         public static string Suggestion {
             get {
                 return ResourceManager.GetString("Suggestion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Symmetry.
+        /// </summary>
+        public static string Symmetry {
+            get {
+                return ResourceManager.GetString("Symmetry", resourceCulture);
             }
         }
         

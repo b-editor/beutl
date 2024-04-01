@@ -31,7 +31,6 @@ public sealed partial class EditView : UserControl
     private readonly AvaloniaList<BcTabItem> _bottomTabItems = [];
     private readonly AvaloniaList<BcTabItem> _rightTabItems = [];
     private readonly CompositeDisposable _disposables = [];
-    private Image? _image;
 
     public EditView()
     {
@@ -48,36 +47,7 @@ public sealed partial class EditView : UserControl
         _rightTabItems.CollectionChanged += TabItems_CollectionChanged;
 
         this.GetObservable(IsKeyboardFocusWithinProperty)
-            .Subscribe(v => Player.SetSeekBarOpacity(v ? 1 : 0.8));
-
-        Player.TemplateApplied += OnPlayerTemplateApplied;
-    }
-
-    private Image Image => _image ??= Player.GetImage();
-
-    private void OnPlayerTemplateApplied(object? sender, TemplateAppliedEventArgs e)
-    {
-        // EditView.axaxml.MouseControl.cs
-        Panel control = Player.GetFramePanel();
-        ConfigureFrameContextMenu(control);
-        control.PointerPressed += OnFramePointerPressed;
-        control.PointerReleased += OnFramePointerReleased;
-        control.PointerMoved += OnFramePointerMoved;
-        control.AddHandler(PointerWheelChangedEvent, OnFramePointerWheelChanged, RoutingStrategies.Tunnel);
-
-        control.GetObservable(BoundsProperty)
-            .Subscribe(s =>
-            {
-                if (DataContext is EditViewModel { Player: { } player })
-                {
-                    player.MaxFrameSize = new((float)s.Size.Width, (float)s.Size.Height);
-                }
-            });
-
-        // EditView.axaxml.DragAndDrop.cs
-        DragDrop.SetAllowDrop(control, true);
-        control.AddHandler(DragDrop.DragOverEvent, OnFrameDragOver);
-        control.AddHandler(DragDrop.DropEvent, OnFrameDrop);
+            .Subscribe(v => Player.Player.SetSeekBarOpacity(v ? 1 : 0.8));
     }
 
     private void OnTabViewSelectedItemChanged(object? obj)
@@ -156,15 +126,6 @@ public sealed partial class EditView : UserControl
                     OnRemoved(e, tabItems);
                     break;
             }
-        }
-    }
-
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnDetachedFromVisualTree(e);
-        if (DataContext is EditViewModel viewModel && viewModel.Player.IsPlaying.Value)
-        {
-            viewModel.Player.Pause();
         }
     }
 
@@ -283,58 +244,6 @@ Error:
                 },
                 () => throw new Exception())
                 .DisposeWith(_disposables);
-
-            vm.Player.PreviewInvalidated += Player_PreviewInvalidated;
-            Disposable.Create(vm, x => x.Player.PreviewInvalidated -= Player_PreviewInvalidated)
-                .DisposeWith(_disposables);
-
-            vm.Player.FrameMatrix
-                .ObserveOnUIDispatcher()
-                .Select(matrix => (matrix, Player.GetImage(), Player.GetFramePanel()?.Children?.FirstOrDefault()!))
-                .Where(t => t.Item2 != null && t.Item3 != null)
-                .Subscribe(t =>
-                {
-                    t.Item3.RenderTransformOrigin = t.Item2.RenderTransformOrigin = RelativePoint.TopLeft;
-                    t.Item3.RenderTransform = t.Item2.RenderTransform = new ImmutableTransform(t.matrix.ToAvaMatrix());
-                    if (DataContext is EditViewModel vm)
-                    {
-                        int width = vm.Scene.FrameSize.Width;
-                        if (width == 0) return;
-                        double actualWidth = t.Item2.Bounds.Width * t.matrix.M11;
-                        double pixelSize = actualWidth / width;
-                        if (pixelSize >= 1)
-                        {
-                            RenderOptions.SetBitmapInterpolationMode(t.Item2, BitmapInterpolationMode.None);
-                        }
-                        else
-                        {
-                            RenderOptions.SetBitmapInterpolationMode(t.Item2, BitmapInterpolationMode.HighQuality);
-                        }
-                    }
-                })
-                .DisposeWith(_disposables);
-
-            vm.Player.IsHandMode.CombineLatest(vm.Player.IsCropMode)
-                .ObserveOnUIDispatcher()
-                .Where(_ => Player.GetFramePanel() != null)
-                .Subscribe(t =>
-                {
-                    if (t.First)
-                        Player.GetFramePanel().Cursor = Cursors.Hand;
-                    else if (t.Second)
-                        Player.GetFramePanel().Cursor = Cursors.Cross;
-                    else
-                        Player.GetFramePanel().Cursor = null;
-                })
-                .DisposeWith(_disposables);
         }
-    }
-
-    private void Player_PreviewInvalidated(object? sender, EventArgs e)
-    {
-        if (Image == null)
-            return;
-
-        Dispatcher.UIThread.InvokeAsync(Image.InvalidateVisual);
     }
 }

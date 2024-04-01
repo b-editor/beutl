@@ -113,7 +113,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XamlPreview", "tests\XamlPr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Extensions.MediaFoundation", "src\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj", "{8C77D39D-CF39-4C7D-92FF-012D9A18E132}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.PackageTools.UI", "src\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj", "{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.PackageTools.UI", "src\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj", "{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

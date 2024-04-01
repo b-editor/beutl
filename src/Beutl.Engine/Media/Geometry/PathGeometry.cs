@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 
 using SkiaSharp;
@@ -8,40 +9,42 @@ namespace Beutl.Media;
 
 public sealed class PathGeometry : Geometry
 {
-    public static readonly CoreProperty<PathOperations> OperationsProperty;
-    private readonly PathOperations _operations = [];
+    public static readonly CoreProperty<PathFigures> FiguresProperty;
+    private readonly PathFigures _figures = [];
 
     static PathGeometry()
     {
-        OperationsProperty = ConfigureProperty<PathOperations, PathGeometry>(nameof(Operations))
-            .Accessor(o => o.Operations, (o, v) => o.Operations = v)
+        FiguresProperty = ConfigureProperty<PathFigures, PathGeometry>(nameof(Figures))
+            .Accessor(o => o.Figures, (o, v) => o.Figures = v)
             .Register();
+
+        AffectsRender<PathGeometry>(FiguresProperty);
     }
 
     public PathGeometry()
     {
-        _operations.Invalidated += (_, e) => RaiseInvalidated(e);
+        _figures.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
     [NotAutoSerialized]
-    public PathOperations Operations
+    public PathFigures Figures
     {
-        get => _operations;
-        set => _operations.Replace(value);
+        get => _figures;
+        set => _figures.Replace(value);
     }
 
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue(nameof(Operations), Operations);
+        context.SetValue(nameof(Figures), Figures);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        if (context.GetValue<PathOperations>(nameof(Operations)) is { } operations)
+        if (context.GetValue<PathFigures>(nameof(Figures)) is { } figures)
         {
-            Operations = operations;
+            Figures = figures;
         }
     }
 
@@ -51,43 +54,81 @@ public sealed class PathGeometry : Geometry
         using SKPath.RawIterator it = path.CreateRawIterator();
 
         var result = new PathGeometry();
+        var currentFigure = new PathFigure();
         Span<SKPoint> points = stackalloc SKPoint[4];
         SKPathVerb pathVerb;
 
         do
         {
             pathVerb = it.Next(points);
-            PathOperation? operation;
+            PathSegment? segment;
 
-            operation = pathVerb switch
+            if (pathVerb == SKPathVerb.Move)
             {
-                SKPathVerb.Move => new MoveOperation(points[0].ToGraphicsPoint()),
-                SKPathVerb.Line => new LineOperation(points[1].ToGraphicsPoint()),
-                SKPathVerb.Quad => new QuadraticBezierOperation(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint()),
-                SKPathVerb.Conic => new ConicOperation(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint(), it.ConicWeight()),
-                SKPathVerb.Cubic => new CubicBezierOperation(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint(), points[3].ToGraphicsPoint()),
-                SKPathVerb.Close => new CloseOperation(),
+                if (!currentFigure.StartPoint.IsInvalid || currentFigure.Segments.Count > 0)
+                {
+                    result.Figures.Add(currentFigure);
+                    currentFigure = new PathFigure();
+                }
+
+                currentFigure.StartPoint = points[0].ToGraphicsPoint();
+            }
+            else if (pathVerb == SKPathVerb.Close)
+            {
+                currentFigure.IsClosed = true;
+                result.Figures.Add(currentFigure);
+                currentFigure = new PathFigure();
+            }
+
+            segment = pathVerb switch
+            {
+                SKPathVerb.Line => new LineSegment(points[1].ToGraphicsPoint()),
+                SKPathVerb.Quad => new QuadraticBezierSegment(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint()),
+                SKPathVerb.Conic => new ConicSegment(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint(), it.ConicWeight()),
+                SKPathVerb.Cubic => new CubicBezierSegment(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint(), points[3].ToGraphicsPoint()),
                 SKPathVerb.Done or _ => null,
             };
 
-            if (operation != null)
+            if (segment != null)
             {
-                result.Operations.Add(operation);
+                currentFigure.Segments.Add(segment);
             }
 
         } while (pathVerb != SKPathVerb.Done);
 
+        if (currentFigure.Segments.Count > 0)
+            result.Figures.Add(currentFigure);
+
         return result;
     }
 
+    [Obsolete("Use 'StartPoint'.")]
     public void MoveTo(Point point)
     {
-        Operations.Add(new MoveOperation(point));
+        var figure = new PathFigure
+        {
+            StartPoint = point
+        };
+        Figures.Add(figure);
+    }
+
+    private PathFigure GetLastOrAdd()
+    {
+        if (Figures.Count > 0)
+        {
+            return Figures[^1];
+        }
+        else
+        {
+            var figure = new PathFigure();
+            Figures.Add(figure);
+            return figure;
+        }
     }
 
     public void ArcTo(Size radius, float angle, bool isLargeArc, bool sweepClockwise, Point point)
     {
-        Operations.Add(new ArcOperation()
+        GetLastOrAdd().Segments.Add(new ArcSegment()
         {
             Radius = radius,
             RotationAngle = angle,
@@ -99,7 +140,7 @@ public sealed class PathGeometry : Geometry
 
     public void ConicTo(Point controlPoint, Point endPoint, float weight)
     {
-        Operations.Add(new ConicOperation()
+        GetLastOrAdd().Segments.Add(new ConicSegment()
         {
             ControlPoint = controlPoint,
             EndPoint = endPoint,
@@ -109,7 +150,7 @@ public sealed class PathGeometry : Geometry
 
     public void CubicTo(Point controlPoint1, Point controlPoint2, Point endPoint)
     {
-        Operations.Add(new CubicBezierOperation()
+        GetLastOrAdd().Segments.Add(new CubicBezierSegment()
         {
             ControlPoint1 = controlPoint1,
             ControlPoint2 = controlPoint2,
@@ -119,28 +160,32 @@ public sealed class PathGeometry : Geometry
 
     public void LineTo(Point point)
     {
-        Operations.Add(new LineOperation(point));
+        GetLastOrAdd().Segments.Add(new LineSegment(point));
     }
 
     public void QuadraticTo(Point controlPoint, Point endPoint)
     {
-        Operations.Add(new QuadraticBezierOperation()
+        GetLastOrAdd().Segments.Add(new QuadraticBezierSegment()
         {
             ControlPoint = controlPoint,
             EndPoint = endPoint
         });
     }
 
+    [Obsolete("Use 'IsClosed'.")]
     public void Close()
     {
-        Operations.Add(new CloseOperation());
+        if (Figures.Count > 0)
+        {
+            Figures[^1].IsClosed = true;
+        }
     }
 
     public override void ApplyTo(IGeometryContext context)
     {
         base.ApplyTo(context);
 
-        foreach (PathOperation item in Operations.GetMarshal().Value)
+        foreach (PathFigure item in Figures)
         {
             item.ApplyTo(context);
         }
@@ -149,9 +194,44 @@ public sealed class PathGeometry : Geometry
     public override void ApplyAnimations(IClock clock)
     {
         base.ApplyAnimations(clock);
-        foreach (PathOperation item in Operations)
+        foreach (var item in Figures)
         {
             item.ApplyAnimations(clock);
         }
+    }
+
+    public PathFigure? HitTestFigure(Point point, IPen? pen)
+    {
+        Rect bounds = Bounds;
+
+        foreach (PathFigure item in Figures)
+        {
+            using (var context = new GeometryContext())
+            {
+                context.FillType = FillType;
+                item.ApplyTo(context);
+                if (Transform?.IsEnabled == true)
+                {
+                    context.Transform(Transform.Value);
+                }
+
+                if (context.NativeObject.Contains(point.X, point.Y))
+                {
+                    return item;
+                }
+
+                if (pen != null)
+                {
+                    using SKPath strokePath = PenHelper.CreateStrokePath(context.NativeObject, pen, bounds);
+                    if (strokePath.Contains(point.X, point.Y))
+                    {
+                        return item;
+                    }
+                }
+
+            }
+        }
+
+        return null;
     }
 }
