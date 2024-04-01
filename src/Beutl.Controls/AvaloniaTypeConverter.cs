@@ -155,8 +155,7 @@ internal static class AvaloniaTypeConverter
                                 {
                                     Center = center.ToAvaRelativePoint(),
                                     GradientOrigin = origin.ToAvaRelativePoint(),
-                                    RadiusX = new Avalonia.RelativeScalar(r.Radius, Avalonia.RelativeUnit.Relative),
-                                    RadiusY = new Avalonia.RelativeScalar(r.Radius, Avalonia.RelativeUnit.Relative),
+                                    Radius = r.Radius,
                                     GradientStops = stops,
                                     Opacity = r.Opacity
                                 };
