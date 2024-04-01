@@ -195,7 +195,9 @@ public sealed partial class MacWindow : Window
             {
                 Header = item.DisplayName,
                 CommandParameter = item,
-                IsVisible = false
+                // Todo: Avalonia 11.1.0から
+                // IsVisible = false
+                IsEnabled = false
             };
 
             menuItem.Click += async (s, e) =>
@@ -251,7 +253,9 @@ public sealed partial class MacWindow : Window
                 {
                     if (item.CommandParameter is EditorExtension editorExtension)
                     {
-                        item.IsVisible = editorExtension.IsSupported(selectedTab.FilePath.Value);
+                        // Todo: Avalonia 11.1.0から
+                        // item.IsVisible = editorExtension.IsSupported(selectedTab.FilePath.Value);
+                        item.IsEnabled = editorExtension.IsSupported(selectedTab.FilePath.Value);
                     }
                 }
             }
