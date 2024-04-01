@@ -193,10 +193,10 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: ./build.cmd Restore
+        run: ./build.sh Restore
   
       - name: Bundle
-        run: ./build.cmd bundleApp --runtime ${{matrix.rid}} --skip restore
+        run: ./build.sh bundleApp --runtime ${{matrix.rid}} --skip restore
 
       - name: Zip
         run: |
