@@ -19,7 +19,7 @@
     <PackageVersion Include="DeviceId" Version="6.6.0" />
     <PackageVersion Include="Dotnet.Bundle" Version="0.9.13" />
     <PackageVersion Include="DynamicData" Version="8.4.1" />
-    <PackageVersion Include="FFmpeg.AutoGen" Version="6.1.0" />
+    <PackageVersion Include="FFmpeg.AutoGen" Version="6.1.0.1" />
     <PackageVersion Include="FFMpegCore" Version="5.1.0" />
     <PackageVersion Include="FluentAvalonia.BreadcrumbBar" Version="2.0.2" />
     <PackageVersion Include="FluentAvaloniaUI" Version="2.0.5" />
