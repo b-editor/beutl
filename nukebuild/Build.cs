@@ -108,8 +108,8 @@ partial class Build : NukeBuild
                 AbsolutePath output = OutputDirectory / item;
                 DotNetPublish(s => s
                     .When(Runtime != null, s => s.SetRuntime(Runtime).SetSelfContained(SelfContained))
-                    .When(Runtime == DotNetRuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
-                    .When(Runtime != DotNetRuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
+                    .When(Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
+                    .When(Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
                     .EnableNoRestore()
                     .SetConfiguration(Configuration)
                     .SetProject(SourceDirectory / item / $"{item}.csproj")
@@ -186,6 +186,7 @@ partial class Build : NukeBuild
             AbsolutePath directory = SourceDirectory / "Beutl";
             AbsolutePath output = OutputDirectory / "AppBundle";
             string tfm = GetTFM();
+            DotNetRestore(s => s.SetProjectFile(directory / "Beutl.csproj"));
             DotNetMSBuild(s => s
                 .SetProcessWorkingDirectory(directory)
                 .SetTargets("BundleApp")
@@ -193,7 +194,7 @@ partial class Build : NukeBuild
                 .SetProperty("PublishDir", output)
                 .SetProperty("CFBundleVersion", NerdbankVersioning.AssemblyFileVersion)
                 .SetProperty("CFBundleShortVersionString", NerdbankVersioning.AssemblyFileVersion)
-                .SetProperty("RuntimeIdentifier", Runtime)
+                .SetProperty("RuntimeIdentifier", Runtime.ToString())
                 .SetProperty("TargetFramework", tfm)
                 .SetProperty("UseAppHost", true)
                 .SetProperty("SelfContained", true));
