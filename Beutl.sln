@@ -27,8 +27,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{BBF37951
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00-E924-4463-A38B-F691AFBAE362}"
 	ProjectSection(SolutionItems) = preProject
-		build\props\CopyProjectReferencesToPackage.props = build\props\CopyProjectReferencesToPackage.props
-		build\props\CopyProjectReferencesToPackage.targets = build\props\CopyProjectReferencesToPackage.targets
 		build\props\CoreLibraries.props = build\props\CoreLibraries.props
 	EndProjectSection
 EndProject
@@ -86,8 +84,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Workflows", "Workflows", "{
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Operators", "src\Beutl.Operators\Beutl.Operators.csproj", "{5B97917E-A771-496A-80C9-4F3B87FB443D}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ResourcesGenerator", "build\generators\ResourcesGenerator\ResourcesGenerator.csproj", "{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Packages", "Packages", "{D2E28768-5899-48B0-B35C-41BABE9D9536}"
 EndProject
@@ -289,14 +285,6 @@ Global
 		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Release|x64.ActiveCfg = Release|Any CPU
 		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Release|x64.Build.0 = Release|Any CPU
-		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Debug|x64.Build.0 = Debug|Any CPU
-		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Release|x64.ActiveCfg = Release|Any CPU
-		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0}.Release|x64.Build.0 = Release|Any CPU
 		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{33C7F43D-AB1D-47C5-AE59-536B200EA7F2}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -401,7 +389,6 @@ Global
 		{BBC27A44-A56C-4706-856C-8911C656E02A} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 		{D6C0F32B-62A6-48BA-867E-BCDD88B71748} = {BBF37951-9757-4F4A-9FEE-130C4A218B94}
 		{ED8EECC3-4BDC-4B29-A17B-1044C7534BB2} = {464CEA08-D77A-4CB8-9B03-BEF0C852B907}
-		{D35340D7-2CB9-4A1B-AF2C-9237C220D8D0} = {D6C0F32B-62A6-48BA-867E-BCDD88B71748}
 		{EED4AB04-13CD-4382-BD1A-64D7A258957F} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 		{AC7E6F97-061C-47DA-B264-04A4EAE666B9} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 	EndGlobalSection
