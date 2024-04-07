@@ -128,7 +128,5 @@
     </Compile>
   </ItemGroup>
 
-  <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.props" />
-  <Import Project="$(RootDirectory)\build\props\CopyProjectReferencesToPackage.targets" />
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />
 </Project>

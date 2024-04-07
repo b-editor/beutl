@@ -38,7 +38,8 @@ public class LocalPackage
         if (nearest != null)
         {
             PackageDependencyGroup depGroup = depGroups.First(v => v.TargetFramework == nearest);
-            PackageDependency? sdkDep = depGroup.Packages.FirstOrDefault(v => v.Id == "Beutl.Sdk");
+            PackageDependency? sdkDep = depGroup.Packages.FirstOrDefault(v => v.Id == "Beutl.Sdk")
+                ?? depGroup.Packages.FirstOrDefault(v => v.Id == "Beutl.Extensibility");
             if (sdkDep != null)
             {
                 TargetVersion = sdkDep.VersionRange.ToShortString();

@@ -90,6 +90,7 @@
               "BundleApp",
               "Clean",
               "Compile",
+              "NuGetPack",
               "Publish",
               "Restore",
               "Zip"
@@ -110,6 +111,7 @@
               "BundleApp",
               "Clean",
               "Compile",
+              "NuGetPack",
               "Publish",
               "Restore",
               "Zip"

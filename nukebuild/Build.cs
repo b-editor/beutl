@@ -199,4 +199,38 @@ partial class Build : NukeBuild
                 .SetProperty("UseAppHost", true)
                 .SetProperty("SelfContained", true));
         });
+
+    Target NuGetPack => _ => _
+        .DependsOn(Restore)
+        .Executes(() =>
+        {
+            string[] projects =
+            [
+                "Beutl.Configuration",
+                "Beutl.Core",
+                "Beutl.Extensibility",
+                "Beutl.Engine",
+                "Beutl.Language",
+                "Beutl.Operators",
+                "Beutl.ProjectSystem",
+                "Beutl.Threading",
+                "Beutl.Utilities",
+            ];
+
+            string tfm = GetTFM();
+            foreach (string proj in projects)
+            {
+                DotNetBuild(s => s
+                    .EnableNoRestore()
+                    .SetFramework(tfm)
+                    .SetConfiguration(Configuration)
+                    .SetProjectFile(SourceDirectory / proj / $"{proj}.csproj"));
+
+                DotNetPack(s => s
+                    .EnableNoRestore()
+                    .SetConfiguration(Configuration)
+                    .SetOutputDirectory(ArtifactsDirectory)
+                    .SetProject(SourceDirectory / proj / $"{proj}.csproj"));
+            }
+        });
 }
