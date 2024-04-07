@@ -113,7 +113,7 @@ jobs:
         with:
           name: beutl-setup
           path: ./artifacts/beutl-setup.exe
-  
+
   build-debian-package:
     needs: [determine-version, build-executable]
     runs-on: ubuntu-latest
@@ -200,16 +200,11 @@ jobs:
       - name: Bundle
         run: ./build.sh bundleApp --runtime ${{matrix.rid}} --skip restore
 
-      - name: Zip
-        run: |
-          mkdir -p artifacts
-          zip artifacts/Beutl.${{matrix.rid}}.app.zip -r output/AppBundle/Beutl.app 
-  
       - name: Save
         uses: actions/upload-artifact@v4
         with:
           name: Beutl.${{matrix.rid}}.app.zip
-          path: ./artifacts/Beutl.${{matrix.rid}}.app.zip
+          path: output/AppBundle/Beutl.app
 
   build-nuget:
     needs: [determine-version]
@@ -244,6 +239,9 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      - name: Print
+        run: ls artifacts
 
       - uses: ncipollo/release-action@v1
         id: create_release
