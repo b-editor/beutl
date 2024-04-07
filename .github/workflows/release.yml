@@ -173,7 +173,7 @@ jobs:
       - name: Save package
         uses: actions/upload-artifact@v4
         with:
-          name: beutl_${{needs.determine-version.outputs.simpleVer}}-${{needs.determine-version.outputs.revision}}ubuntu22.04_amd64.deb
+          name: ubuntu22.04_amd64
           path: ./packages/beutl_${{needs.determine-version.outputs.simpleVer}}-${{needs.determine-version.outputs.revision}}ubuntu22.04_amd64.deb
 
   build-app-bundle:
@@ -200,11 +200,17 @@ jobs:
       - name: Bundle
         run: ./build.sh bundleApp --runtime ${{matrix.rid}} --skip restore
 
+      - name: Zip
+        run: |
+          mkdir -p artifacts
+          cd output/AppBundle
+          zip ../../artifacts/Beutl.${{matrix.rid}}.app.zip -r Beutl.app 
+  
       - name: Save
         uses: actions/upload-artifact@v4
         with:
-          name: Beutl.${{matrix.rid}}.app.zip
-          path: output/AppBundle/Beutl.app
+          name: Beutl_${{matrix.rid}}
+          path: artifacts/Beutl.${{matrix.rid}}.app.zip
 
   build-nuget:
     needs: [determine-version]
@@ -246,7 +252,7 @@ jobs:
       - uses: ncipollo/release-action@v1
         id: create_release
         with:
-          artifacts: "artifacts/**/*.zip,artifacts/**/*.nupkg,artifacts/**/*.deb,artifacts/beutl-setup.exe"
+          artifacts: "artifacts/**/*.zip,artifacts/**/*.nupkg,artifacts/**/*.deb,artifacts/beutl-setup/beutl-setup.exe"
           draft: true
           makeLatest: true
           generateReleaseNotes: true
