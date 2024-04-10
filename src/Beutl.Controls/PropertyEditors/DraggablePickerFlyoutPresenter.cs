@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Disposables;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -8,9 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
-
 using Beutl.Reactive;
-
 using FluentAvalonia.Core;
 
 #nullable enable
@@ -120,7 +117,7 @@ public class DraggablePickerFlyoutPresenter : ContentControl
 
     private void OnDragAreaPointerExited(object? sender, PointerEventArgs e)
     {
-        _pressed = false;
+        // _pressed = false;
     }
 
     private void OnDragAreaPointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -132,14 +129,18 @@ public class DraggablePickerFlyoutPresenter : ContentControl
     {
         if (_dragArea == null || !_pressed) return;
 
-        PointerPoint pointer = e.GetCurrentPoint(null);
-        Point point = pointer.Position;
-        Point delta = point - _point;
-
         if (this.FindLogicalAncestorOfType<Popup>() is { } popup)
         {
+            PointerPoint pointer = e.GetCurrentPoint(null);
+            Point point = pointer.Position;
+            Point delta = point - _point;
+
             popup.HorizontalOffset += delta.X;
             popup.VerticalOffset += delta.Y;
+            if (this.FindAncestorOfType<PopupRoot>() == null)
+            {
+                _point = point;
+            }
         }
     }
 
@@ -147,15 +148,13 @@ public class DraggablePickerFlyoutPresenter : ContentControl
     {
         if (_dragArea == null) return;
 
+        var root = this.FindAncestorOfType<PopupRoot>();
         PointerPoint pointer = e.GetCurrentPoint(null);
         if (pointer.Properties.IsLeftButtonPressed)
         {
             _pressed = true;
             _point = pointer.Position;
-            if (this.FindAncestorOfType<PopupRoot>() is { } root)
-            {
-                root.Activate();
-            }
+            root?.Activate();
         }
     }
 }
