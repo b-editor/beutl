@@ -4,12 +4,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Dialogs;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
@@ -116,27 +114,30 @@ public partial class FilterEffectEditor : UserControl
         }
     }
 
-    private static async Task<Type?> SelectType()
+    private Task<Type?> SelectType()
     {
         var viewModel = new SelectFilterEffectTypeViewModel();
-        var dialog = new SelectFilterEffectType
+        var dialog = new FilterEffectPickerFlyout(viewModel);
+        dialog.ShowAt(this);
+        var tcs = new TaskCompletionSource<Type?>();
+        dialog.Dismissed += (_, _) => tcs.SetResult(null);
+        dialog.Confirmed += (_, _) =>
         {
-            DataContext = viewModel
+            switch (viewModel.SelectedItem.Value)
+            {
+                case SingleTypeLibraryItem single:
+                    tcs.SetResult(single.ImplementationType);
+                    break;
+                case MultipleTypeLibraryItem multi:
+                    tcs.SetResult(multi.Types.GetValueOrDefault(KnownLibraryItemFormats.FilterEffect));
+                    break;
+                default:
+                    tcs.SetResult(null);
+                    break;
+            }
         };
 
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            if (viewModel.SelectedItem.Value is SingleTypeLibraryItem single)
-            {
-                return single.ImplementationType;
-            }
-            else if (viewModel.SelectedItem.Value is MultipleTypeLibraryItem multi)
-            {
-                return multi.Types.GetValueOrDefault(KnownLibraryItemFormats.FilterEffect);
-            }
-        }
-
-        return null;
+        return tcs.Task;
     }
 
     private async void ChangeFilterTypeClick(object? sender, RoutedEventArgs e)

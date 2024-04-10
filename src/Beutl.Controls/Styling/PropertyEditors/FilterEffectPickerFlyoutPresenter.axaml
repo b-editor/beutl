@@ -1,0 +1,155 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:behaviors="using:Beutl.Controls.Behaviors"
+                    xmlns:lang="using:Beutl.Language"
+                    xmlns:service="using:Beutl.Services"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+                    x:CompileBindings="True">
+    <Design.PreviewWith>
+        <Border Height="600" Padding="50">
+            <local:FilterEffectPickerFlyoutPresenter VerticalAlignment="Center">
+                <local:SimpleColorPicker />
+            </local:FilterEffectPickerFlyoutPresenter>
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:FilterEffectPickerFlyoutPresenter}"
+                  TargetType="local:FilterEffectPickerFlyoutPresenter">
+        <Setter Property="Width" Value="240" />
+        <Setter Property="ShowHideButtons" Value="True" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Background" Value="{DynamicResource FlyoutPresenterBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource FlyoutBorderThemeBrush}" />
+        <Setter Property="BorderThickness" Value="{StaticResource FlyoutBorderThemeThickness}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
+        <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ui:FABorder Padding="{DynamicResource FlyoutBorderThemePadding}"
+                             Background="{TemplateBinding Background}"
+                             BorderBrush="{TemplateBinding BorderBrush}"
+                             BorderThickness="{TemplateBinding BorderThickness}"
+                             CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid RowDefinitions="Auto,Auto,Auto">
+                        <Grid Name="DragArea"
+                              Height="40"
+                              VerticalAlignment="Top"
+                              Background="Transparent"
+                              ColumnDefinitions="*,Auto">
+                            <WrapPanel Name="TabLayout" Margin="4,4,0,4">
+                                <ToggleButton IsChecked="{TemplateBinding ShowSearchBox, Mode=TwoWay}"
+                                              Name="ShowSearchBoxButton">
+                                    <ui:SymbolIcon Symbol="Find" />
+                                </ToggleButton>
+                                <ToggleButton Name="ShowAllButton" IsChecked="{TemplateBinding ShowAll, Mode=TwoWay}">
+                                    <ui:SymbolIcon Symbol="More" />
+                                </ToggleButton>
+                            </WrapPanel>
+
+                            <Button Name="CloseButton"
+                                    Grid.Column="1"
+                                    Width="32"
+                                    Height="32"
+                                    Margin="4"
+                                    Padding="0"
+                                    HorizontalAlignment="Right"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Theme="{StaticResource TransparentButton}">
+                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
+                            </Button>
+                        </Grid>
+
+                        <Border Grid.Row="2"
+                                BorderBrush="{DynamicResource PickerFlyoutPresenterDivider}"
+                                BorderThickness="0,1,0,0">
+
+                            <Panel Name="AcceptDismissContainer"
+                                   Height="{DynamicResource PickerAcceptDismissRegionHeight}"
+                                   IsVisible="False">
+                                <Grid ColumnDefinitions="*,*">
+                                    <Button Name="AcceptButton"
+                                            Margin="4,4,2,4"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            Theme="{StaticResource FlyoutAcceptDismiss}">
+                                        <ui:SymbolIcon FontSize="18" Symbol="Checkmark" />
+                                    </Button>
+                                    <Button Name="DismissButton"
+                                            Grid.Column="1"
+                                            Margin="2,4,4,4"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            Theme="{StaticResource FlyoutAcceptDismiss}">
+                                        <ui:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                    </Button>
+                                </Grid>
+
+                            </Panel>
+                        </Border>
+
+                        <StackPanel Grid.Row="1">
+                            <TextBox x:Name="SearchTextBox"
+                                     Classes="clearButton"
+                                     Text="{TemplateBinding SearchText, Mode=TwoWay}"
+                                     Margin="6,0,6,6"
+                                     IsVisible="False"
+                                     Watermark="{x:Static lang:Strings.Search}" />
+
+                            <ListBox x:Name="PART_ListBox" SelectedItem="{TemplateBinding SelectedItem, Mode=TwoWay}"
+                                     ItemsSource="{TemplateBinding Items}" Height="250">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="service:LibraryItem">
+                                        <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" />
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
+
+                        <ProgressRing Name="PART_ProgressRing"
+                                      IsVisible="False"
+                                      IsIndeterminate="False"
+                                      Grid.RowSpan="3"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Center" />
+                    </Grid>
+                </ui:FABorder>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:acceptdismiss /template/ Panel#AcceptDismissContainer">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:acceptdismiss /template/ Button#CloseButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <Style Selector="^:search-box /template/ TextBox#SearchTextBox">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:busy /template/ ProgressRing#PART_ProgressRing">
+            <Setter Property="IsVisible" Value="True" />
+            <Setter Property="IsIndeterminate" Value="True" />
+        </Style>
+
+        <Style Selector="^ /template/ WrapPanel#TabLayout">
+            <Style Selector="^ > ToggleButton">
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="Margin" Value="0,0,4,0" />
+                <Setter Property="Theme" Value="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" />
+
+                <Style Selector="^ > ui|FontIcon">
+                    <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
+                </Style>
+            </Style>
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>
