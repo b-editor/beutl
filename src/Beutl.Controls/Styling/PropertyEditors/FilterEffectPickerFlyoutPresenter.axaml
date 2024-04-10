@@ -43,7 +43,8 @@
                               Background="Transparent"
                               ColumnDefinitions="*,Auto">
                             <WrapPanel Name="TabLayout" Margin="4,4,0,4">
-                                <ToggleButton IsChecked="{TemplateBinding ShowSearchBox, Mode=TwoWay}" Name="ShowSearchBoxButton">
+                                <ToggleButton IsChecked="{TemplateBinding ShowSearchBox, Mode=TwoWay}"
+                                              Name="ShowSearchBoxButton">
                                     <ui:SymbolIcon Symbol="Find" />
                                 </ToggleButton>
                                 <ToggleButton Name="ShowAllButton" IsChecked="{TemplateBinding ShowAll, Mode=TwoWay}">
@@ -110,6 +111,13 @@
                                 </ListBox.ItemTemplate>
                             </ListBox>
                         </StackPanel>
+
+                        <ProgressRing Name="PART_ProgressRing"
+                                      IsVisible="False"
+                                      IsIndeterminate="False"
+                                      Grid.RowSpan="3"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Center" />
                     </Grid>
                 </ui:FABorder>
             </ControlTemplate>
@@ -124,6 +132,11 @@
 
         <Style Selector="^:search-box /template/ TextBox#SearchTextBox">
             <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:busy /template/ ProgressRing#PART_ProgressRing">
+            <Setter Property="IsVisible" Value="True" />
+            <Setter Property="IsIndeterminate" Value="True" />
         </Style>
 
         <Style Selector="^ /template/ WrapPanel#TabLayout">

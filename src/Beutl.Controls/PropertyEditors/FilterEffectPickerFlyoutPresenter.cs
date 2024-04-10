@@ -91,5 +91,9 @@ public class FilterEffectPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         {
             PseudoClasses.Set(SearchBoxPseudoClass, ShowSearchBox);
         }
+        else if (change.Property == IsBusyProperty)
+        {
+            PseudoClasses.Set(IsBusyPseudoClass, IsBusy);
+        }
     }
 }

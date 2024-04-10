@@ -8,6 +8,7 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.ViewModels.Dialogs;
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views.Editors;
 
@@ -30,6 +31,8 @@ public sealed class FilterEffectPickerFlyout(SelectLibraryItemDialogViewModel vi
             .Subscribe(v => viewModel.ShowAll.Value = v);
         pfp.GetObservable(FilterEffectPickerFlyoutPresenter.SearchTextProperty)
             .Subscribe(v => viewModel.SearchText.Value = v);
+        viewModel.IsBusy.ObserveOnUIDispatcher()
+            .Subscribe(v => pfp.IsBusy = v);
         pfp.KeyDown += (_, e) =>
         {
             switch (e.Key)
