@@ -6,7 +6,7 @@ namespace Beutl.ViewModels.Dialogs;
 public sealed class SelectFilterEffectTypeViewModel : SelectLibraryItemDialogViewModel
 {
     public SelectFilterEffectTypeViewModel()
-        : base(KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect), Strings.SelectFilterEffect)
+        : base(KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect))
     {
     }
 }
