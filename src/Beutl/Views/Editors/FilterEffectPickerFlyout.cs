@@ -1,6 +1,4 @@
-﻿using System;
-using System.Reactive.Linq;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Controls;
@@ -14,9 +12,13 @@ namespace Beutl.Views.Editors;
 
 public sealed class FilterEffectPickerFlyout(SelectLibraryItemDialogViewModel viewModel) : PickerFlyoutBase
 {
-    public event TypedEventHandler<FilterEffectPickerFlyout, EventArgs> Confirmed;
+    public event TypedEventHandler<FilterEffectPickerFlyout, EventArgs>? Confirmed;
 
-    public event TypedEventHandler<FilterEffectPickerFlyout, EventArgs> Dismissed;
+    public event TypedEventHandler<FilterEffectPickerFlyout, EventArgs>? Dismissed;
+
+    public event TypedEventHandler<FilterEffectPickerFlyout, PinnableLibraryItem>? Pinned;
+
+    public event TypedEventHandler<FilterEffectPickerFlyout, PinnableLibraryItem>? Unpinned;
 
     protected override Control CreatePresenter()
     {
@@ -24,6 +26,8 @@ public sealed class FilterEffectPickerFlyout(SelectLibraryItemDialogViewModel vi
         pfp.CloseClicked += (_, _) => Hide();
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;
+        pfp.Pinned += item => Pinned?.Invoke(this, item);
+        pfp.Unpinned += item => Unpinned?.Invoke(this, item);
         pfp.Items = viewModel.Items;
         pfp.GetObservable(FilterEffectPickerFlyoutPresenter.SelectedItemProperty)
             .Subscribe(v => viewModel.SelectedItem.Value = v);

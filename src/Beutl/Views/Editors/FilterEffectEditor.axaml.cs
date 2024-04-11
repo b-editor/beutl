@@ -120,10 +120,12 @@ public partial class FilterEffectEditor : UserControl
         var dialog = new FilterEffectPickerFlyout(viewModel);
         dialog.ShowAt(this);
         var tcs = new TaskCompletionSource<Type?>();
+        dialog.Pinned += (_, item) => viewModel.Pin(item);
+        dialog.Unpinned += (_, item) => viewModel.Unpin(item);
         dialog.Dismissed += (_, _) => tcs.SetResult(null);
         dialog.Confirmed += (_, _) =>
         {
-            switch (viewModel.SelectedItem.Value)
+            switch (viewModel.SelectedItem.Value?.Item)
             {
                 case SingleTypeLibraryItem single:
                     tcs.SetResult(single.ImplementationType);

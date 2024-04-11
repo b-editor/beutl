@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:behaviors="using:Beutl.Controls.Behaviors"
+                    xmlns:int="using:Avalonia.Xaml.Interactivity"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:service="using:Beutl.Services"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
@@ -13,6 +14,151 @@
             </local:FilterEffectPickerFlyoutPresenter>
         </Border>
     </Design.PreviewWith>
+
+    <ControlTheme x:Key="FilterEffectPicker_ToggleButton" TargetType="ToggleButton"
+                  BasedOn="{StaticResource TransparentToggleButton}">
+        <Setter Property="Padding" Value="6,5,6,6" />
+        <Setter Property="CornerRadius" Value="8" />
+    </ControlTheme>
+
+    <ControlTheme TargetType="ListBoxItem" x:Key="FilterEffectPicker_ListBoxItem">
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+        <Setter Property="Background" Value="{DynamicResource ListViewItemBackground}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="Foreground" Value="{DynamicResource ListViewItemForeground}" />
+        <Setter Property="Padding" Value="16,0,12,0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="MinWidth" Value="{DynamicResource ListViewItemMinWidth}" />
+        <Setter Property="MinHeight" Value="{DynamicResource ListViewItemMinHeight}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        Name="Root"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+
+                    <Grid ColumnDefinitions="*,8,Auto">
+                        <ContentPresenter Name="PART_ContentPresenter"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Content="{TemplateBinding Content}"
+                                          Padding="{TemplateBinding Padding}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          Margin="2" />
+
+                        <ToggleButton Name="ToggleButton" Grid.Column="2"
+                                      Margin="0,0,8,0"
+                                      Theme="{StaticResource FilterEffectPicker_ToggleButton}"
+                                      IsVisible="False"
+                                      IsChecked="{Binding $self.((local:PinnableLibraryItem)DataContext).IsPinned, FallbackValue=False}">
+                            <int:Interaction.Behaviors>
+                                <behaviors:FilterEffectPickerItemBehavior />
+                            </int:Interaction.Behaviors>
+                            <ui:SymbolIcon Symbol="Pin" />
+                        </ToggleButton>
+
+                        <!-- added 1px left margin, otherwise we can get strange artifacts while
+                         animating, I'm guessing from bad invalidation rects? -->
+                        <Rectangle Name="SelectionIndicator"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   Width="3" Height="16"
+                                   Margin="2 0 0 0"
+                                   UseLayoutRounding="False"
+                                   RadiusX="2" RadiusY="2"
+                                   IsVisible="False"
+                                   RenderTransform="scaleY(0)"
+                                   Fill="{DynamicResource AccentFillColorDefaultBrush}">
+                            <Rectangle.Transitions>
+                                <Transitions>
+                                    <TransformOperationsTransition Duration="00:00:00.167"
+                                                                   Property="RenderTransform"
+                                                                   Easing="0,0 0,1" />
+                                </Transitions>
+                            </Rectangle.Transitions>
+                        </Rectangle>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ ToggleButton#ToggleButton">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^ /template/ ToggleButton#ToggleButton:checked">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:pointerover">
+            <Style Selector="^ /template/ Border#Root">
+                <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundPointerOver}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:pressed">
+            <Style Selector="^ /template/ Border#Root">
+                <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundPressed}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundPressed}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:selected">
+            <Style Selector="^ /template/ Border#Root">
+                <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundSelected}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundSelected}" />
+            </Style>
+            <Style Selector="^ /template/ Rectangle#SelectionIndicator">
+                <Setter Property="IsVisible" Value="True" />
+                <Setter Property="RenderTransform" Value="scaleY(1)" />
+            </Style>
+            <Style Selector="^:not(:focus) /template/ Border#Root">
+                <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundSelected}" />
+            </Style>
+            <Style Selector="^:not(:focus) /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundSelected}" />
+            </Style>
+
+
+            <Style Selector="^:pointerover">
+                <Style Selector="^ /template/ Border#Root">
+                    <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundSelectedPointerOver}" />
+                </Style>
+                <Style Selector="^ /template/ ContentPresenter">
+                    <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundSelectedPointerOver}" />
+                </Style>
+                <Style Selector="^ /template/ Rectangle#SelectionIndicator">
+                    <Setter Property="Fill" Value="{DynamicResource ListViewItemSelectionIndicatorPointerOverBrush}" />
+                </Style>
+            </Style>
+
+            <Style Selector="^:pressed">
+                <Style Selector="^ /template/ Border#Root">
+                    <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundSelectedPressed}" />
+                </Style>
+                <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundSelectedPressed}" />
+                </Style>
+                <Style Selector="^ /template/ Rectangle#SelectionIndicator">
+                    <Setter Property="Fill" Value="{DynamicResource ListViewItemSelectionIndicatorPressedBrush}" />
+                </Style>
+            </Style>
+
+            <Style Selector="^:disabled /template/ Rectangle#SelectionIndicator">
+                <Setter Property="Fill" Value="{DynamicResource ListViewItemSelectionIndicatorDisabledBrush}" />
+            </Style>
+        </Style>
+    </ControlTheme>
 
     <ControlTheme x:Key="{x:Type local:FilterEffectPickerFlyoutPresenter}"
                   TargetType="local:FilterEffectPickerFlyoutPresenter">
@@ -103,10 +249,12 @@
                                      Watermark="{x:Static lang:Strings.Search}" />
 
                             <ListBox x:Name="PART_ListBox" SelectedItem="{TemplateBinding SelectedItem, Mode=TwoWay}"
+                                     ItemContainerTheme="{StaticResource FilterEffectPicker_ListBoxItem}"
                                      ItemsSource="{TemplateBinding Items}" Height="250">
                                 <ListBox.ItemTemplate>
-                                    <DataTemplate x:DataType="service:LibraryItem">
-                                        <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" />
+                                    <DataTemplate x:DataType="local:PinnableLibraryItem">
+                                        <TextBlock VerticalAlignment="Center"
+                                                   Text="{Binding Item.DisplayName}" />
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>

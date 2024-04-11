@@ -112,7 +112,7 @@ public partial class SoundEffectEditor : UserControl
         dialog.Dismissed += (_, _) => tcs.SetResult(null);
         dialog.Confirmed += (_, _) =>
         {
-            switch (viewModel.SelectedItem.Value)
+            switch (viewModel.SelectedItem.Value?.Item)
             {
                 case SingleTypeLibraryItem single:
                     tcs.SetResult(single.ImplementationType);
