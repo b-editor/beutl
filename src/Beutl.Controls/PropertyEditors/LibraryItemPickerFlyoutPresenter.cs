@@ -1,45 +1,35 @@
 ﻿#nullable enable
 
-using System.Diagnostics;
 using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
-using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.Media;
-using Avalonia.Media.Immutable;
-using Avalonia.Styling;
-using Beutl.Reactive;
 using Beutl.Services;
-using FluentAvalonia.UI.Media;
 using Reactive.Bindings;
 
 namespace Beutl.Controls.PropertyEditors;
 
 public record PinnableLibraryItem(LibraryItem Item, bool IsPinned);
 
-public class FilterEffectPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
+public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
     public static readonly StyledProperty<PinnableLibraryItem?> SelectedItemProperty =
-        AvaloniaProperty.Register<FilterEffectPickerFlyoutPresenter, PinnableLibraryItem?>(nameof(SelectedItem));
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, PinnableLibraryItem?>(nameof(SelectedItem));
 
     public static readonly StyledProperty<ReactiveCollection<PinnableLibraryItem>?> ItemsProperty =
-        AvaloniaProperty.Register<FilterEffectPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(nameof(Items));
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(nameof(Items));
 
     public static readonly StyledProperty<bool> IsBusyProperty =
-        AvaloniaProperty.Register<FilterEffectPickerFlyoutPresenter, bool>(nameof(IsBusy));
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(IsBusy));
 
     public static readonly StyledProperty<bool> ShowAllProperty =
-        AvaloniaProperty.Register<FilterEffectPickerFlyoutPresenter, bool>(nameof(ShowAll));
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(ShowAll));
 
     public static readonly StyledProperty<bool> ShowSearchBoxProperty =
-        AvaloniaProperty.Register<FilterEffectPickerFlyoutPresenter, bool>(nameof(ShowSearchBox));
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(ShowSearchBox));
 
     public static readonly StyledProperty<string?> SearchTextProperty =
-        AvaloniaProperty.Register<FilterEffectPickerFlyoutPresenter, string?>(nameof(SearchText));
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, string?>(nameof(SearchText));
 
     private readonly CompositeDisposable _disposables = [];
     private ListBox? _listBox;

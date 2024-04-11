@@ -106,7 +106,7 @@ public partial class SoundEffectEditor : UserControl
     private Task<Type?> SelectType()
     {
         var viewModel = new SelectSoundEffectTypeViewModel();
-        var dialog = new FilterEffectPickerFlyout(viewModel);
+        var dialog = new LibraryItemPickerFlyout(viewModel);
         dialog.ShowAt(this);
         var tcs = new TaskCompletionSource<Type?>();
         dialog.Dismissed += (_, _) => tcs.SetResult(null);

@@ -117,7 +117,7 @@ public partial class FilterEffectEditor : UserControl
     private Task<Type?> SelectType()
     {
         var viewModel = new SelectFilterEffectTypeViewModel();
-        var dialog = new FilterEffectPickerFlyout(viewModel);
+        var dialog = new LibraryItemPickerFlyout(viewModel);
         dialog.ShowAt(this);
         var tcs = new TaskCompletionSource<Type?>();
         dialog.Pinned += (_, item) => viewModel.Pin(item);

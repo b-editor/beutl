@@ -6,7 +6,7 @@ using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.Controls.Behaviors;
 
-public class FilterEffectPickerItemBehavior : Behavior<ToggleButton>
+public class LibraryItemPickerItemBehavior : Behavior<ToggleButton>
 {
     protected override void OnAttached()
     {
@@ -28,7 +28,7 @@ public class FilterEffectPickerItemBehavior : Behavior<ToggleButton>
 
     private void OnClick(object sender, RoutedEventArgs e)
     {
-        var parent = AssociatedObject?.FindAncestorOfType<FilterEffectPickerFlyoutPresenter>();
+        var parent = AssociatedObject?.FindAncestorOfType<LibraryItemPickerFlyoutPresenter>();
         if (parent != null && AssociatedObject is { DataContext: PinnableLibraryItem item })
         {
             parent.UpdatePinState(item, AssociatedObject.IsChecked == true);
