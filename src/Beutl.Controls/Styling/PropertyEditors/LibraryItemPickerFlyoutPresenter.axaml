@@ -234,12 +234,13 @@
                         <StackPanel Grid.Row="1">
                             <TextBox x:Name="SearchTextBox"
                                      Classes="clearButton"
+                                     Margin="4,0,4,4"
                                      Text="{TemplateBinding SearchText, Mode=TwoWay}"
-                                     Margin="6,0,6,6"
                                      IsVisible="False"
                                      Watermark="{x:Static lang:Strings.Search}" />
 
                             <ListBox x:Name="PART_ListBox" SelectedItem="{TemplateBinding SelectedItem, Mode=TwoWay}"
+                                     Margin="4,4,4,0"
                                      ItemContainerTheme="{StaticResource LibraryItemPicker_ListBoxItem}"
                                      ItemsSource="{TemplateBinding Items}" Height="250">
                                 <ListBox.ItemTemplate>
