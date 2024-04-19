@@ -38,7 +38,7 @@ public class SelectLibraryItemDialogViewModel
                 IsBusy.Value = true;
                 return items.Select(i => LibraryService.Current.FindItem(i))
                     .Where(i => i != null)
-                    .Select(i => new PinnableLibraryItem(i!, false))
+                    .Select(i => new PinnableLibraryItem(i!.DisplayName, false, i))
                     .ToArray();
             }
             finally
@@ -89,7 +89,7 @@ public class SelectLibraryItemDialogViewModel
                         item ??= new SingleTypeLibraryItem(
                             _format, type,
                             type.FullName ?? type.Name);
-                        return new PinnableLibraryItem(item, false);
+                        return new PinnableLibraryItem(item.DisplayName, false, item);
                     })
                     .ToArray();
             }
@@ -102,7 +102,7 @@ public class SelectLibraryItemDialogViewModel
 
     public void Pin(PinnableLibraryItem item)
     {
-        Type? type = GetImplementationType(item.Item);
+        Type? type = GetImplementationType((LibraryItem)item.UserData);
         if (type == null) return;
 
         _pinnedItems.Add(type);
@@ -115,7 +115,7 @@ public class SelectLibraryItemDialogViewModel
 
     public void Unpin(PinnableLibraryItem item)
     {
-        Type? type = GetImplementationType(item.Item);
+        Type? type = GetImplementationType((LibraryItem)item.UserData);
         if (type == null) return;
 
         _pinnedItems.Remove(type);
@@ -147,7 +147,7 @@ public class SelectLibraryItemDialogViewModel
     {
         Items.ClearOnScheduler();
         var items = ShowAll.Value ? await LoadAllItems() : await _itemsTask;
-        items = items.Select(i => i with { IsPinned = IsPinned(i.Item) })
+        items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData))
             .OrderByDescending(t => t.IsPinned)
             .ToArray();
 
@@ -160,12 +160,12 @@ public class SelectLibraryItemDialogViewModel
             Regex[] regexes = RegexHelper.CreateRegexes(SearchText.Value);
 
             var newItems = items
-                .Select(v => (ViewModel: LibraryItemViewModel.CreateFromOperatorRegistryItem(v.Item), IsPinned: v.IsPinned))
+                .Select(v => (ViewModel: LibraryItemViewModel.CreateFromOperatorRegistryItem((LibraryItem)v.UserData), IsPinned: v.IsPinned))
                 .Select(v => (score: v.ViewModel.Match(regexes), item: v.ViewModel, IsPinned: v.IsPinned))
                 .Where(v => v.score > 0)
                 .OrderByDescending(t => t.IsPinned)
                 .ThenByDescending(v => v.score)
-                .Select(v => new PinnableLibraryItem((LibraryItem)v.item.Data!, v.IsPinned))
+                .Select(v => new PinnableLibraryItem(((LibraryItem)v.item.Data!).DisplayName, v.IsPinned, v.item.Data))
                 .ToArray();
             Items.AddRange(newItems);
         }

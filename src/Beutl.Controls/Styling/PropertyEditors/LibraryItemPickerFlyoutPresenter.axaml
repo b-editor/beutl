@@ -239,14 +239,15 @@
                                      IsVisible="False"
                                      Watermark="{x:Static lang:Strings.Search}" />
 
-                            <ListBox x:Name="PART_ListBox" SelectedItem="{TemplateBinding SelectedItem, Mode=TwoWay}"
+                            <ListBox x:Name="PART_ListBox"
+                                     SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}"
                                      Margin="4,4,4,0"
                                      ItemContainerTheme="{StaticResource LibraryItemPicker_ListBoxItem}"
                                      ItemsSource="{TemplateBinding Items}" Height="250">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="local:PinnableLibraryItem">
                                         <TextBlock VerticalAlignment="Center"
-                                                   Text="{Binding Item.DisplayName}" />
+                                                   Text="{Binding DisplayName}" />
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>

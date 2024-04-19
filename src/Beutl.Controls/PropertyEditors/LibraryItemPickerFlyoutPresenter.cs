@@ -1,15 +1,36 @@
 ﻿#nullable enable
 
-using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Beutl.Services;
 using Reactive.Bindings;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public record PinnableLibraryItem(LibraryItem Item, bool IsPinned);
+public class PinnableLibraryItem(string displayName, bool isPinned, object userData) : IEquatable<PinnableLibraryItem?>
+{
+    public string DisplayName { get; } = displayName;
+
+    public bool IsPinned { get; } = isPinned;
+
+    public object UserData { get; } = userData;
+
+    public bool Equals(PinnableLibraryItem? other)
+    {
+        if (ReferenceEquals(null, other)) return false;
+        if (ReferenceEquals(this, other)) return true;
+        return DisplayName == other.DisplayName && IsPinned == other.IsPinned && Equals(UserData, other.UserData);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return ReferenceEquals(this, obj) || obj is PinnableLibraryItem other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(IsPinned, UserData);
+    }
+}
 
 public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
@@ -31,8 +52,6 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     public static readonly StyledProperty<string?> SearchTextProperty =
         AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, string?>(nameof(SearchText));
 
-    private readonly CompositeDisposable _disposables = [];
-    private ListBox? _listBox;
     private const string SearchBoxPseudoClass = ":search-box";
     private const string IsBusyPseudoClass = ":busy";
 
@@ -74,33 +93,6 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         get => GetValue(SearchTextProperty);
         set => SetValue(SearchTextProperty, value);
-    }
-
-    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
-    {
-        if (_listBox != null)
-        {
-            _listBox.ContainerPrepared -= ListBoxOnContainerPrepared;
-            _listBox.ContainerClearing -= ListBoxOnContainerClearing;
-        }
-
-        _disposables.Clear();
-        base.OnApplyTemplate(e);
-        _listBox = e.NameScope.Get<ListBox>("PART_ListBox");
-        _listBox.ContainerPrepared += ListBoxOnContainerPrepared;
-        _listBox.ContainerClearing += ListBoxOnContainerClearing;
-    }
-
-    private void ListBoxOnContainerClearing(object? sender, ContainerClearingEventArgs e)
-    {
-    }
-
-    private void ListBoxOnContainerPrepared(object? sender, ContainerPreparedEventArgs e)
-    {
-        if (e.Container is ListBoxItem listBoxItem)
-        {
-            var btn = listBoxItem.FindControl<ToggleButton>("ToggleButton");
-        }
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

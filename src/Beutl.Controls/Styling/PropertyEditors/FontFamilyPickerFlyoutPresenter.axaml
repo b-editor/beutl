@@ -1,0 +1,27 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:media="using:Beutl.Media"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors">
+
+    <ControlTheme x:Key="FontFamilyPickerFlyoutPresenter"
+                  BasedOn="{StaticResource {x:Type local:LibraryItemPickerFlyoutPresenter}}"
+                  TargetType="local:LibraryItemPickerFlyoutPresenter">
+        <Style Selector="^ /template/ ListBox#PART_ListBox">
+            <Setter Property="ItemTemplate">
+                <DataTemplate x:DataType="local:PinnableLibraryItem">
+                    <TextBlock VerticalAlignment="Center"
+                               FontFamily="{Binding UserData, Converter={x:Static local:BeutlFontFamilyToAvaloniaConverter.Instance}}"
+                               Text="{Binding DisplayName}">
+                        <ToolTip.Tip>
+                            <TextBlock FontFamily="Default" Text="{Binding ((media:FontFamily)UserData).Name}" />
+                        </ToolTip.Tip>
+                    </TextBlock>
+                </DataTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^ /template/ ToggleButton#ShowAllButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

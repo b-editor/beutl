@@ -125,7 +125,7 @@ public partial class FilterEffectEditor : UserControl
         dialog.Dismissed += (_, _) => tcs.SetResult(null);
         dialog.Confirmed += (_, _) =>
         {
-            switch (viewModel.SelectedItem.Value?.Item)
+            switch (viewModel.SelectedItem.Value?.UserData)
             {
                 case SingleTypeLibraryItem single:
                     tcs.SetResult(single.ImplementationType);

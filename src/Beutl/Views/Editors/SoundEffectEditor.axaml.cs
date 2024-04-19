@@ -109,10 +109,12 @@ public partial class SoundEffectEditor : UserControl
         var dialog = new LibraryItemPickerFlyout(viewModel);
         dialog.ShowAt(this);
         var tcs = new TaskCompletionSource<Type?>();
+        dialog.Pinned += (_, item) => viewModel.Pin(item);
+        dialog.Unpinned += (_, item) => viewModel.Unpin(item);
         dialog.Dismissed += (_, _) => tcs.SetResult(null);
         dialog.Confirmed += (_, _) =>
         {
-            switch (viewModel.SelectedItem.Value?.Item)
+            switch (viewModel.SelectedItem.Value?.UserData)
             {
                 case SingleTypeLibraryItem single:
                     tcs.SetResult(single.ImplementationType);
