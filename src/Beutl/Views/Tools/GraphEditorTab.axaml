@@ -4,6 +4,10 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:view="using:Beutl.Views"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModels="using:Beutl.ViewModels.Tools"
+             x:DataType="viewModels:GraphEditorTabViewModel"
+             x:CompileBindings="True"
              d:DesignHeight="450"
              d:DesignWidth="800"
              mc:Ignorable="d">
@@ -14,12 +18,26 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
+        <Grid RowDefinitions="Auto,*">
+            <Button Command="{Binding Refresh}" Theme="{StaticResource TransparentButton}">
+                <ui:SymbolIcon Symbol="Refresh" />
+            </Button>
+            <ListBox Grid.Row="1" ItemsSource="{Binding Items}"
+                     SelectedItem="{Binding SelectedItem.Value}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+
         <GridSplitter x:Name="gridSplitter"
                       Grid.RowSpan="2"
                       Grid.Column="1" />
 
         <view:GraphEditorView Grid.Column="2"
                               DataContext="{Binding SelectedAnimation.Value}"
-                              IsVisible="{Binding SelectedAnimation.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                              IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}" />
     </Grid>
 </UserControl>
