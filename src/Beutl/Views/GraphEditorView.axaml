@@ -296,6 +296,14 @@
                                        Viewport="{Binding #scroll.Viewport, Mode=OneWay}"
                                        ZIndex="6"
                                        Offset="{Binding #scroll.Offset, Mode=OneWay}" />
+
+                <Border Width="{Binding ElementWidth.Value, Mode=OneWay}"
+                        Margin="{Binding ElementMargin.Value, Mode=OneWay}"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Stretch"
+                        BorderBrush="{CompiledBinding ElementColor.Value}"
+                        BorderThickness="1,0" />
+
             </Panel>
         </ScrollViewer>
     </Grid>

@@ -1,19 +1,20 @@
 ﻿using System.Collections.Immutable;
-
 using Avalonia;
+using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Threading;
-
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Commands;
 using Beutl.ProjectSystem;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
 public sealed class GraphEditorViewModel<T>(
-    EditViewModel editViewModel, KeyFrameAnimation<T> animation, Element? element)
+    EditViewModel editViewModel,
+    KeyFrameAnimation<T> animation,
+    Element? element)
     : GraphEditorViewModel(editViewModel, animation, element)
 {
     public override void DropEasing(Easing easing, TimeSpan keyTime)
@@ -46,12 +47,7 @@ public sealed class GraphEditorViewModel<T>(
         if (!kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
         {
             CommandRecorder recorder = EditorContext.CommandRecorder;
-            var keyframe = new KeyFrame<T>
-            {
-                Value = kfAnimation.Interpolate(keyTime),
-                Easing = easing,
-                KeyTime = keyTime
-            };
+            var keyframe = new KeyFrame<T> { Value = kfAnimation.Interpolate(keyTime), Easing = easing, KeyTime = keyTime };
 
             RecordableCommands.Create(GetStorables())
                 .OnDo(() => kfAnimation.KeyFrames.Add(keyframe, out _))
@@ -78,11 +74,28 @@ public abstract class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        ElementMargin = (Element?.GetObservable(Element.StartProperty) ?? Observable.Return<TimeSpan>(default))
+            .CombineLatest(editViewModel.Scale)
+            .Select(t => new Thickness(t.First.ToPixel(t.Second), 0, 0, 0))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        ElementWidth = (Element?.GetObservable(Element.LengthProperty) ?? Observable.Return<TimeSpan>(default))
+            .CombineLatest(editViewModel.Scale)
+            .Select(t => t.First.ToPixel(t.Second))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        ElementColor = (Element?.GetObservable(Element.AccentColorProperty) ?? Observable.Return(Beutl.Media.Colors.Transparent))
+            .Select(v => (IBrush)new ImmutableSolidColorBrush(v.ToAvalonia()))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         Margin = UseGlobalClock.Select(v => !v
-            ? Element?.GetObservable(Element.StartProperty)
-                .CombineLatest(Options)
-                .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
-            : null)
+                ? Element?.GetObservable(Element.StartProperty)
+                    .CombineLatest(Options)
+                    .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
+                : null)
             .Select(v => v ?? Observable.Return<Thickness>(default))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
@@ -146,6 +159,12 @@ public abstract class GraphEditorViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<Thickness> SeekBarMargin { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
+
+    public ReadOnlyReactivePropertySlim<Thickness> ElementMargin { get; }
+
+    public ReadOnlyReactivePropertySlim<double> ElementWidth { get; }
+
+    public ReadOnlyReactivePropertySlim<IBrush?> ElementColor { get; }
 
     public ReactivePropertySlim<GraphEditorViewViewModel?> SelectedView { get; } = new();
 
