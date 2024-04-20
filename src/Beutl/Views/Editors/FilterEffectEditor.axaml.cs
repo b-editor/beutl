@@ -18,6 +18,7 @@ public partial class FilterEffectEditor : UserControl
 
     private CancellationTokenSource? _lastTransitionCts;
     private UnknownObjectView? _unknownObjectView;
+    private bool _flyoutOpen;
 
     public FilterEffectEditor()
     {
@@ -114,30 +115,42 @@ public partial class FilterEffectEditor : UserControl
         }
     }
 
-    private Task<Type?> SelectType()
+    private async Task<Type?> SelectType()
     {
-        var viewModel = new SelectFilterEffectTypeViewModel();
-        var dialog = new FilterEffectPickerFlyout(viewModel);
-        dialog.ShowAt(this);
-        var tcs = new TaskCompletionSource<Type?>();
-        dialog.Dismissed += (_, _) => tcs.SetResult(null);
-        dialog.Confirmed += (_, _) =>
-        {
-            switch (viewModel.SelectedItem.Value)
-            {
-                case SingleTypeLibraryItem single:
-                    tcs.SetResult(single.ImplementationType);
-                    break;
-                case MultipleTypeLibraryItem multi:
-                    tcs.SetResult(multi.Types.GetValueOrDefault(KnownLibraryItemFormats.FilterEffect));
-                    break;
-                default:
-                    tcs.SetResult(null);
-                    break;
-            }
-        };
+        if (_flyoutOpen) return null;
 
-        return tcs.Task;
+        try
+        {
+            _flyoutOpen = true;
+            var viewModel = new SelectFilterEffectTypeViewModel();
+            var dialog = new LibraryItemPickerFlyout(viewModel);
+            dialog.ShowAt(this);
+            var tcs = new TaskCompletionSource<Type?>();
+            dialog.Pinned += (_, item) => viewModel.Pin(item);
+            dialog.Unpinned += (_, item) => viewModel.Unpin(item);
+            dialog.Dismissed += (_, _) => tcs.SetResult(null);
+            dialog.Confirmed += (_, _) =>
+            {
+                switch (viewModel.SelectedItem.Value?.UserData)
+                {
+                    case SingleTypeLibraryItem single:
+                        tcs.SetResult(single.ImplementationType);
+                        break;
+                    case MultipleTypeLibraryItem multi:
+                        tcs.SetResult(multi.Types.GetValueOrDefault(KnownLibraryItemFormats.FilterEffect));
+                        break;
+                    default:
+                        tcs.SetResult(null);
+                        break;
+                }
+            };
+
+            return await tcs.Task;
+        }
+        finally
+        {
+            _flyoutOpen = false;
+        }
     }
 
     private async void ChangeFilterTypeClick(object? sender, RoutedEventArgs e)

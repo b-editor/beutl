@@ -42,14 +42,14 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/EnumEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/StorageFileEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyEditor.axaml" />
-                <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyPicker.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ColorComponentsEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/SimpleColorPicker.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/DraggablePickerFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/SimpleColorPickerFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/BrushEditorFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/GradientStopsSlider.axaml" />
-                <ResourceInclude Source="/Styling/PropertyEditors/FilterEffectPickerFlyoutPresenter.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/LibraryItemPickerFlyoutPresenter.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyPickerFlyoutPresenter.axaml" />
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">

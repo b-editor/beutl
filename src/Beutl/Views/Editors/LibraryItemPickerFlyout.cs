@@ -1,6 +1,4 @@
-﻿using System;
-using System.Reactive.Linq;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Controls;
@@ -12,24 +10,30 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views.Editors;
 
-public sealed class FilterEffectPickerFlyout(SelectLibraryItemDialogViewModel viewModel) : PickerFlyoutBase
+public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel viewModel) : PickerFlyoutBase
 {
-    public event TypedEventHandler<FilterEffectPickerFlyout, EventArgs> Confirmed;
+    public event TypedEventHandler<LibraryItemPickerFlyout, EventArgs>? Confirmed;
 
-    public event TypedEventHandler<FilterEffectPickerFlyout, EventArgs> Dismissed;
+    public event TypedEventHandler<LibraryItemPickerFlyout, EventArgs>? Dismissed;
+
+    public event TypedEventHandler<LibraryItemPickerFlyout, PinnableLibraryItem>? Pinned;
+
+    public event TypedEventHandler<LibraryItemPickerFlyout, PinnableLibraryItem>? Unpinned;
 
     protected override Control CreatePresenter()
     {
-        var pfp = new FilterEffectPickerFlyoutPresenter();
+        var pfp = new LibraryItemPickerFlyoutPresenter();
         pfp.CloseClicked += (_, _) => Hide();
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;
+        pfp.Pinned += item => Pinned?.Invoke(this, item);
+        pfp.Unpinned += item => Unpinned?.Invoke(this, item);
         pfp.Items = viewModel.Items;
-        pfp.GetObservable(FilterEffectPickerFlyoutPresenter.SelectedItemProperty)
+        pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SelectedItemProperty)
             .Subscribe(v => viewModel.SelectedItem.Value = v);
-        pfp.GetObservable(FilterEffectPickerFlyoutPresenter.ShowAllProperty)
+        pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowAllProperty)
             .Subscribe(v => viewModel.ShowAll.Value = v);
-        pfp.GetObservable(FilterEffectPickerFlyoutPresenter.SearchTextProperty)
+        pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SearchTextProperty)
             .Subscribe(v => viewModel.SearchText.Value = v);
         viewModel.IsBusy.ObserveOnUIDispatcher()
             .Subscribe(v => pfp.IsBusy = v);

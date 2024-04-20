@@ -1,4 +1,8 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Beutl.Configuration;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Services;
 using DynamicData;
 using NuGet.Packaging;
@@ -11,14 +15,21 @@ public class SelectLibraryItemDialogViewModel
 {
     private readonly string _format;
     private readonly Type _baseType;
-    private readonly Task<LibraryItem[]> _itemsTask;
-    private Task<LibraryItem[]>? _allItemsTask;
+    private readonly Task<PinnableLibraryItem[]> _itemsTask;
+    private readonly List<Type> _pinnedItems;
+    private Task<PinnableLibraryItem[]>? _allItemsTask;
 
     public SelectLibraryItemDialogViewModel(string format, Type baseType)
     {
         _format = format;
         _baseType = baseType;
         IReadOnlySet<Type> items = LibraryService.Current.GetTypesFromFormat(_format);
+
+        string json = Preferences.Default.Get("LibraryService.PinnedItems", "[]");
+        _pinnedItems = (JsonSerializer.Deserialize<string[]>(json) ?? [])
+            .Select(TypeFormat.ToType)
+            .Where(t => t != null)
+            .ToList()!;
 
         _itemsTask = Task.Run(() =>
         {
@@ -27,6 +38,7 @@ public class SelectLibraryItemDialogViewModel
                 IsBusy.Value = true;
                 return items.Select(i => LibraryService.Current.FindItem(i))
                     .Where(i => i != null)
+                    .Select(i => new PinnableLibraryItem(i!.DisplayName, false, i))
                     .ToArray();
             }
             finally
@@ -43,7 +55,7 @@ public class SelectLibraryItemDialogViewModel
             .Subscribe(_ => ProcessSearchText());
     }
 
-    public ReactiveCollection<LibraryItem> Items { get; } = [];
+    public ReactiveCollection<PinnableLibraryItem> Items { get; } = [];
 
     public ReactiveProperty<bool> ShowAll { get; } = new();
 
@@ -51,9 +63,9 @@ public class SelectLibraryItemDialogViewModel
 
     public ReactiveProperty<string?> SearchText { get; } = new();
 
-    public ReactiveProperty<LibraryItem?> SelectedItem { get; } = new();
+    public ReactiveProperty<PinnableLibraryItem?> SelectedItem { get; } = new();
 
-    public Task<LibraryItem[]> LoadAllItems()
+    public Task<PinnableLibraryItem[]> LoadAllItems()
     {
         return _allItemsTask ??= Task.Run(() =>
         {
@@ -74,9 +86,10 @@ public class SelectLibraryItemDialogViewModel
                     .Select(type =>
                     {
                         LibraryItem? item = LibraryService.Current.FindItem(type);
-                        return item ?? new SingleTypeLibraryItem(
+                        item ??= new SingleTypeLibraryItem(
                             _format, type,
                             type.FullName ?? type.Name);
+                        return new PinnableLibraryItem(item.DisplayName, false, item);
                     })
                     .ToArray();
             }
@@ -87,28 +100,74 @@ public class SelectLibraryItemDialogViewModel
         });
     }
 
+    public void Pin(PinnableLibraryItem item)
+    {
+        Type? type = GetImplementationType((LibraryItem)item.UserData);
+        if (type == null) return;
+
+        _pinnedItems.Add(type);
+        string[] array = _pinnedItems
+            .Select(TypeFormat.ToString)
+            .ToArray();
+        Preferences.Default.Set("LibraryService.PinnedItems", JsonSerializer.Serialize(array));
+        ProcessSearchText();
+    }
+
+    public void Unpin(PinnableLibraryItem item)
+    {
+        Type? type = GetImplementationType((LibraryItem)item.UserData);
+        if (type == null) return;
+
+        _pinnedItems.Remove(type);
+        string[] array = _pinnedItems
+            .Select(TypeFormat.ToString)
+            .ToArray();
+        Preferences.Default.Set("LibraryService.PinnedItems", JsonSerializer.Serialize(array));
+        ProcessSearchText();
+    }
+
+    private Type? GetImplementationType(LibraryItem item)
+    {
+        return item switch
+        {
+            SingleTypeLibraryItem single => single.ImplementationType,
+            MultipleTypeLibraryItem multi => multi.Types.GetValueOrDefault(_format),
+            _ => null
+        };
+    }
+
+    private bool IsPinned(LibraryItem item)
+    {
+        Type? type = GetImplementationType(item);
+        if (type == null) return false;
+        return _pinnedItems.Contains(type);
+    }
+
     private async void ProcessSearchText()
     {
         Items.ClearOnScheduler();
-        if (ShowAll.Value)
+        var items = ShowAll.Value ? await LoadAllItems() : await _itemsTask;
+        items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData))
+            .OrderByDescending(t => t.IsPinned)
+            .ToArray();
+
+        if (string.IsNullOrWhiteSpace(SearchText.Value))
         {
-            Items.AddRange(await LoadAllItems());
+            Items.AddRange(items);
         }
         else
         {
-            Items.AddRange(await _itemsTask);
+            Regex[] regexes = RegexHelper.CreateRegexes(SearchText.Value);
+
+            var newItems = items
+                .Select(v => (ViewModel: LibraryItemViewModel.CreateFromOperatorRegistryItem((LibraryItem)v.UserData), IsPinned: v.IsPinned))
+                .Select(v => (score: v.ViewModel.Match(regexes), item: v.ViewModel, IsPinned: v.IsPinned))
+                .Where(v => v.score > 0)
+                .OrderByDescending(t => t.IsPinned)
+                .ThenByDescending(v => v.score)
+                .Select(v => new PinnableLibraryItem(((LibraryItem)v.item.Data!).DisplayName, v.IsPinned, v.item.Data))
+                .ToArray();
+            Items.AddRange(newItems);
         }
-
-        if (string.IsNullOrWhiteSpace(SearchText.Value)) return;
-        Regex[] regexes = RegexHelper.CreateRegexes(SearchText.Value);
-
-        var newItems = Items.Select(v => LibraryItemViewModel.CreateFromOperatorRegistryItem(v))
-            .Select(v => (score: v.Match(regexes), item: v))
-            .Where(v => v.score > 0)
-            .OrderByDescending(v => v.score)
-            .Select(v => (LibraryItem)v.item.Data!)
-            .ToArray();
-        Items.Clear();
-        Items.AddRange(newItems);
     }
 }

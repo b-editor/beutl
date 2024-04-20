@@ -4,12 +4,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Dialogs;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
@@ -19,6 +17,7 @@ public partial class SoundEffectEditor : UserControl
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
 
     private CancellationTokenSource? _lastTransitionCts;
+    private bool _flyoutOpen;
 
     public SoundEffectEditor()
     {
@@ -103,30 +102,42 @@ public partial class SoundEffectEditor : UserControl
         }
     }
 
-    private Task<Type?> SelectType()
+    private async Task<Type?> SelectType()
     {
-        var viewModel = new SelectSoundEffectTypeViewModel();
-        var dialog = new FilterEffectPickerFlyout(viewModel);
-        dialog.ShowAt(this);
-        var tcs = new TaskCompletionSource<Type?>();
-        dialog.Dismissed += (_, _) => tcs.SetResult(null);
-        dialog.Confirmed += (_, _) =>
-        {
-            switch (viewModel.SelectedItem.Value)
-            {
-                case SingleTypeLibraryItem single:
-                    tcs.SetResult(single.ImplementationType);
-                    break;
-                case MultipleTypeLibraryItem multi:
-                    tcs.SetResult(multi.Types.GetValueOrDefault(KnownLibraryItemFormats.SoundEffect));
-                    break;
-                default:
-                    tcs.SetResult(null);
-                    break;
-            }
-        };
+        if (_flyoutOpen) return null;
 
-        return tcs.Task;
+        try
+        {
+            _flyoutOpen = true;
+            var viewModel = new SelectSoundEffectTypeViewModel();
+            var dialog = new LibraryItemPickerFlyout(viewModel);
+            dialog.ShowAt(this);
+            var tcs = new TaskCompletionSource<Type?>();
+            dialog.Pinned += (_, item) => viewModel.Pin(item);
+            dialog.Unpinned += (_, item) => viewModel.Unpin(item);
+            dialog.Dismissed += (_, _) => tcs.SetResult(null);
+            dialog.Confirmed += (_, _) =>
+            {
+                switch (viewModel.SelectedItem.Value?.UserData)
+                {
+                    case SingleTypeLibraryItem single:
+                        tcs.SetResult(single.ImplementationType);
+                        break;
+                    case MultipleTypeLibraryItem multi:
+                        tcs.SetResult(multi.Types.GetValueOrDefault(KnownLibraryItemFormats.SoundEffect));
+                        break;
+                    default:
+                        tcs.SetResult(null);
+                        break;
+                }
+            };
+
+            return await tcs.Task;
+        }
+        finally
+        {
+            _flyoutOpen = false;
+        }
     }
 
     private async void ChangeEffectTypeClick(object? sender, RoutedEventArgs e)

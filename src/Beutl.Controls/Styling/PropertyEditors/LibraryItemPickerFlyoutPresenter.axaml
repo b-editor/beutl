@@ -1,0 +1,296 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:behaviors="using:Beutl.Controls.Behaviors"
+                    xmlns:int="using:Avalonia.Xaml.Interactivity"
+                    xmlns:lang="using:Beutl.Language"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+                    x:CompileBindings="True">
+    <ControlTheme x:Key="LibraryItemPicker_ToggleButton" TargetType="ToggleButton"
+                  BasedOn="{StaticResource TransparentToggleButton}">
+        <Setter Property="Padding" Value="6,5,6,6" />
+        <Setter Property="CornerRadius" Value="8" />
+    </ControlTheme>
+
+    <ControlTheme TargetType="ListBoxItem" x:Key="LibraryItemPicker_ListBoxItem">
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+        <Setter Property="Background" Value="{DynamicResource ListViewItemBackground}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="Foreground" Value="{DynamicResource ListViewItemForeground}" />
+        <Setter Property="Padding" Value="16,0,12,0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="MinWidth" Value="{DynamicResource ListViewItemMinWidth}" />
+        <Setter Property="MinHeight" Value="{DynamicResource ListViewItemMinHeight}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        Name="Root"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+
+                    <Grid ColumnDefinitions="*,8,Auto">
+                        <ContentPresenter Name="PART_ContentPresenter"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Content="{TemplateBinding Content}"
+                                          Padding="{TemplateBinding Padding}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          Margin="2" />
+
+                        <ToggleButton Name="ToggleButton" Grid.Column="2"
+                                      Margin="0,0,8,0"
+                                      Theme="{StaticResource LibraryItemPicker_ToggleButton}"
+                                      IsVisible="False"
+                                      IsChecked="{Binding $self.((local:PinnableLibraryItem)DataContext).IsPinned, FallbackValue=False}">
+                            <int:Interaction.Behaviors>
+                                <behaviors:LibraryItemPickerItemBehavior />
+                            </int:Interaction.Behaviors>
+                            <ui:SymbolIcon Symbol="Pin" />
+                        </ToggleButton>
+
+                        <!-- added 1px left margin, otherwise we can get strange artifacts while
+                         animating, I'm guessing from bad invalidation rects? -->
+                        <Rectangle Name="SelectionIndicator"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   Width="3" Height="16"
+                                   Margin="2 0 0 0"
+                                   UseLayoutRounding="False"
+                                   RadiusX="2" RadiusY="2"
+                                   IsVisible="False"
+                                   RenderTransform="scaleY(0)"
+                                   Fill="{DynamicResource AccentFillColorDefaultBrush}">
+                            <Rectangle.Transitions>
+                                <Transitions>
+                                    <TransformOperationsTransition Duration="00:00:00.167"
+                                                                   Property="RenderTransform"
+                                                                   Easing="0,0 0,1" />
+                                </Transitions>
+                            </Rectangle.Transitions>
+                        </Rectangle>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ ToggleButton#ToggleButton">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^ /template/ ToggleButton#ToggleButton:checked">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:pointerover">
+            <Style Selector="^ /template/ Border#Root">
+                <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundPointerOver}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:pressed">
+            <Style Selector="^ /template/ Border#Root">
+                <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundPressed}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundPressed}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:selected">
+            <Style Selector="^ /template/ Border#Root">
+                <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundSelected}" />
+            </Style>
+            <Style Selector="^ /template/ ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundSelected}" />
+            </Style>
+            <Style Selector="^ /template/ Rectangle#SelectionIndicator">
+                <Setter Property="IsVisible" Value="True" />
+                <Setter Property="RenderTransform" Value="scaleY(1)" />
+            </Style>
+            <Style Selector="^:not(:focus) /template/ Border#Root">
+                <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundSelected}" />
+            </Style>
+            <Style Selector="^:not(:focus) /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundSelected}" />
+            </Style>
+
+
+            <Style Selector="^:pointerover">
+                <Style Selector="^ /template/ Border#Root">
+                    <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundSelectedPointerOver}" />
+                </Style>
+                <Style Selector="^ /template/ ContentPresenter">
+                    <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundSelectedPointerOver}" />
+                </Style>
+                <Style Selector="^ /template/ Rectangle#SelectionIndicator">
+                    <Setter Property="Fill" Value="{DynamicResource ListViewItemSelectionIndicatorPointerOverBrush}" />
+                </Style>
+            </Style>
+
+            <Style Selector="^:pressed">
+                <Style Selector="^ /template/ Border#Root">
+                    <Setter Property="Background" Value="{DynamicResource ListViewItemBackgroundSelectedPressed}" />
+                </Style>
+                <Style Selector="^ /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Foreground" Value="{DynamicResource ListViewItemForegroundSelectedPressed}" />
+                </Style>
+                <Style Selector="^ /template/ Rectangle#SelectionIndicator">
+                    <Setter Property="Fill" Value="{DynamicResource ListViewItemSelectionIndicatorPressedBrush}" />
+                </Style>
+            </Style>
+
+            <Style Selector="^:disabled /template/ Rectangle#SelectionIndicator">
+                <Setter Property="Fill" Value="{DynamicResource ListViewItemSelectionIndicatorDisabledBrush}" />
+            </Style>
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type local:LibraryItemPickerFlyoutPresenter}"
+                  TargetType="local:LibraryItemPickerFlyoutPresenter">
+        <Setter Property="Width" Value="240" />
+        <Setter Property="ShowHideButtons" Value="True" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Background" Value="{DynamicResource FlyoutPresenterBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource FlyoutBorderThemeBrush}" />
+        <Setter Property="BorderThickness" Value="{StaticResource FlyoutBorderThemeThickness}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
+        <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ui:FABorder Padding="{DynamicResource FlyoutBorderThemePadding}"
+                             Background="{TemplateBinding Background}"
+                             BorderBrush="{TemplateBinding BorderBrush}"
+                             BorderThickness="{TemplateBinding BorderThickness}"
+                             CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid RowDefinitions="Auto,Auto,Auto">
+                        <Grid Name="DragArea"
+                              Height="40"
+                              VerticalAlignment="Top"
+                              Background="Transparent"
+                              ColumnDefinitions="*,Auto">
+                            <WrapPanel Name="TabLayout" Margin="4,4,0,4">
+                                <ToggleButton IsChecked="{TemplateBinding ShowSearchBox, Mode=TwoWay}"
+                                              Name="ShowSearchBoxButton">
+                                    <ui:SymbolIcon Symbol="Find" />
+                                </ToggleButton>
+                                <ToggleButton Name="ShowAllButton" IsChecked="{TemplateBinding ShowAll, Mode=TwoWay}">
+                                    <ui:SymbolIcon Symbol="More" />
+                                </ToggleButton>
+                            </WrapPanel>
+
+                            <Button Name="CloseButton"
+                                    Grid.Column="1"
+                                    Width="32"
+                                    Height="32"
+                                    Margin="4"
+                                    Padding="0"
+                                    HorizontalAlignment="Right"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Theme="{StaticResource TransparentButton}">
+                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
+                            </Button>
+                        </Grid>
+
+                        <Border Grid.Row="2"
+                                BorderBrush="{DynamicResource PickerFlyoutPresenterDivider}"
+                                BorderThickness="0,1,0,0">
+
+                            <Panel Name="AcceptDismissContainer"
+                                   Height="{DynamicResource PickerAcceptDismissRegionHeight}"
+                                   IsVisible="False">
+                                <Grid ColumnDefinitions="*,*">
+                                    <Button Name="AcceptButton"
+                                            Margin="4,4,2,4"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            Theme="{StaticResource FlyoutAcceptDismiss}">
+                                        <ui:SymbolIcon FontSize="18" Symbol="Checkmark" />
+                                    </Button>
+                                    <Button Name="DismissButton"
+                                            Grid.Column="1"
+                                            Margin="2,4,4,4"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            Theme="{StaticResource FlyoutAcceptDismiss}">
+                                        <ui:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                    </Button>
+                                </Grid>
+
+                            </Panel>
+                        </Border>
+
+                        <StackPanel Grid.Row="1">
+                            <TextBox x:Name="SearchTextBox"
+                                     Classes="clearButton"
+                                     Margin="4,0,4,4"
+                                     Text="{TemplateBinding SearchText, Mode=TwoWay}"
+                                     IsVisible="False"
+                                     Watermark="{x:Static lang:Strings.Search}" />
+
+                            <ListBox x:Name="PART_ListBox"
+                                     SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}"
+                                     Margin="4,4,4,0"
+                                     ItemContainerTheme="{StaticResource LibraryItemPicker_ListBoxItem}"
+                                     ItemsSource="{TemplateBinding Items}" Height="250">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="local:PinnableLibraryItem">
+                                        <TextBlock VerticalAlignment="Center"
+                                                   Text="{Binding DisplayName}" />
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
+
+                        <ProgressRing Name="PART_ProgressRing"
+                                      IsVisible="False"
+                                      IsIndeterminate="False"
+                                      Grid.RowSpan="3"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Center" />
+                    </Grid>
+                </ui:FABorder>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:acceptdismiss /template/ Panel#AcceptDismissContainer">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:acceptdismiss /template/ Button#CloseButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <Style Selector="^:search-box /template/ TextBox#SearchTextBox">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^:busy /template/ ProgressRing#PART_ProgressRing">
+            <Setter Property="IsVisible" Value="True" />
+            <Setter Property="IsIndeterminate" Value="True" />
+        </Style>
+
+        <Style Selector="^ /template/ WrapPanel#TabLayout">
+            <Style Selector="^ > ToggleButton">
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="Margin" Value="0,0,4,0" />
+                <Setter Property="Theme" Value="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" />
+
+                <Style Selector="^ > ui|FontIcon">
+                    <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
+                </Style>
+            </Style>
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>
