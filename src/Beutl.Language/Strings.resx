@@ -1198,4 +1198,7 @@ and b-editor maintains the download URL.</value>
   <data name="GeometryShape" xml:space="preserve">
     <value>Geometry</value>
   </data>
+  <data name="CopyAll" xml:space="preserve">
+    <value>Copy All</value>
+  </data>
 </root>

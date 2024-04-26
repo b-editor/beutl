@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
@@ -6,7 +7,11 @@ using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Commands;
+using Beutl.Helpers;
+using Beutl.Logging;
 using Beutl.ProjectSystem;
+using Beutl.Services;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -62,6 +67,7 @@ public abstract class GraphEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly GraphEditorViewViewModelFactory[] _factories;
+    private readonly ILogger _logger = Log.CreateLogger<GraphEditorViewModel>();
     private bool _editting;
 
     protected GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Element? element)
@@ -251,6 +257,42 @@ public abstract class GraphEditorViewModel : IDisposable
                 .Remove(keyframe)
                 .ToCommand(GetStorables())
                 .DoAndRecord(recorder);
+        }
+    }
+
+    public void Paste(string json)
+    {
+        if (JsonNode.Parse(json) is not JsonObject newJson)
+        {
+            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON");
+            return;
+        }
+
+        try
+        {
+            CommandRecorder recorder = EditorContext.CommandRecorder;
+            JsonObject oldJson = CoreSerializerHelper.SerializeToJsonObject(Animation, typeof(IKeyFrameAnimation));
+            IKeyFrameAnimation animation = Animation;
+            CoreProperty property = animation.Property;
+
+            RecordableCommands.Create(
+                    () =>
+                    {
+                        CoreSerializerHelper.PopulateFromJsonObject(animation, typeof(IKeyFrameAnimation), newJson);
+                        if (animation is KeyFrameAnimation kf) kf.Property = property;
+                    },
+                    () =>
+                    {
+                        CoreSerializerHelper.PopulateFromJsonObject(Animation, typeof(IKeyFrameAnimation), oldJson);
+                        if (animation is KeyFrameAnimation kf) kf.Property = property;
+                    },
+                    GetStorables())
+                .DoAndRecord(recorder);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Strings.GraphEditor, ex.Message);
+            _logger.LogError(ex, "An exception occurred while pasting JSON.");
         }
     }
 

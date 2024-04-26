@@ -1198,4 +1198,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="GeometryShape" xml:space="preserve">
     <value>ジオメトリー</value>
   </data>
+  <data name="CopyAll" xml:space="preserve">
+    <value>すべてコピー</value>
+  </data>
 </root>

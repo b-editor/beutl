@@ -1,20 +1,22 @@
 ﻿using System.Numerics;
-
+using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
+using Beutl.Helpers;
+using Beutl.Models;
+using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels;
-
 using Reactive.Bindings.Extensions;
-
 using Path = Avalonia.Controls.Shapes.Path;
 using Shape = Avalonia.Controls.Shapes.Shape;
 
@@ -118,7 +120,7 @@ public partial class GraphEditorView : UserControl
         if (DataContext is GraphEditorViewModel viewModel)
         {
             viewModel.ScrollOffset.Subscribe(offset => scroll.Offset = offset)
-            .DisposeWith(_disposables);
+                .DisposeWith(_disposables);
         }
 
         scroll.ScrollChanged += OnScrollChanged;
@@ -205,11 +207,7 @@ public partial class GraphEditorView : UserControl
             }
 
             Vector2 originalOffset = viewModel.Options.Value.Offset;
-            viewModel.Options.Value = viewModel.Options.Value with
-            {
-                Scale = scale,
-                Offset = new Vector2(offset.X, originalOffset.Y)
-            };
+            viewModel.Options.Value = viewModel.Options.Value with { Scale = scale, Offset = new Vector2(offset.X, originalOffset.Y) };
 
             viewModel.ScrollOffset.Value = new(offset.X, offset.Y);
 
@@ -245,6 +243,7 @@ public partial class GraphEditorView : UserControl
             {
                 _pointerFrame = viewModel.Scene.Duration - TimeSpan.FromSeconds(1d / rate);
             }
+
             if (_pointerFrame < TimeSpan.Zero)
             {
                 _pointerFrame = TimeSpan.Zero;
@@ -299,6 +298,7 @@ public partial class GraphEditorView : UserControl
                     {
                         return;
                     }
+
                     break;
                 case double zoom1:
                     zoom = (float)zoom1;
@@ -555,6 +555,41 @@ public partial class GraphEditorView : UserControl
         if (DataContext is GraphEditorViewModel viewModel)
         {
             viewModel.RemoveKeyFrame(_lastRightClickPoint);
+        }
+    }
+
+    private async void CopyAllClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not GraphEditorViewModel viewModel) return;
+
+        IClipboard? clipboard = App.GetClipboard();
+        if (clipboard == null) return;
+
+        string json = CoreSerializerHelper.SerializeToJsonString(viewModel.Animation, typeof(IKeyFrameAnimation));
+
+        var data = new DataObject();
+        data.Set(DataFormats.Text, json);
+        data.Set(nameof(IKeyFrameAnimation), json);
+
+        await clipboard.SetDataObjectAsync(data);
+    }
+
+    private async void PasteClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not GraphEditorViewModel viewModel) return;
+
+        IClipboard? clipboard = App.GetClipboard();
+        if (clipboard == null) return;
+
+        string[] formats = await clipboard.GetFormatsAsync();
+        if (formats.Contains(nameof(IKeyFrameAnimation)))
+        {
+            string? json = await clipboard.GetTextAsync();
+
+            if (json != null)
+            {
+                viewModel.Paste(json);
+            }
         }
     }
 }
