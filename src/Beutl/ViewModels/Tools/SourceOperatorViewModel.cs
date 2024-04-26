@@ -1,17 +1,13 @@
 ﻿using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.Text.Json.Nodes;
-
 using Beutl.Helpers;
 using Beutl.Operation;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
-
 using DynamicData;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Tools;
@@ -29,7 +25,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         IsEnabled.Skip(1).Subscribe(v =>
         {
             CommandRecorder? recorder = this.GetService<CommandRecorder>();
-            if (recorder!=null)
+            if (recorder != null)
             {
                 RecordableCommands.Edit(Model, SourceOperator.IsEnabledProperty, v)
                     .WithStoables([parent.Element.Value])
@@ -54,6 +50,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         {
             item?.Dispose();
         }
+
         Properties.Clear();
 
         Init();
@@ -114,11 +111,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             }
         }
 
-        return new JsonObject
-        {
-            ["is-expanded"] = IsExpanded.Value,
-            ["properties"] = array
-        };
+        return new JsonObject { ["is-expanded"] = IsExpanded.Value, ["properties"] = array };
     }
 
     public void Dispose()
@@ -128,6 +121,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         {
             item?.Dispose();
         }
+
         Properties.Clear();
         IsEnabled.Dispose();
 
@@ -158,19 +152,19 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         } while (foundItems != null && extension != null);
 
         foreach ((string? Key, IPropertyEditorContext?[] Value) group in tempItems.GroupBy(x =>
-            {
-                if (x is BaseEditorViewModel { WrappedProperty: { } abProperty }
-                    && abProperty.GetCoreProperty() is { } coreProperty
-                    && coreProperty.TryGetMetadata(abProperty.ImplementedType, out CorePropertyMetadata? metadata))
-                {
-                    return metadata.DisplayAttribute?.GetGroupName();
-                }
-                else
-                {
-                    return null;
-                }
-            })
-            .Select(x => (x.Key, x.ToArray())))
+                     {
+                         if (x is BaseEditorViewModel { WrappedProperty: { } abProperty }
+                             && abProperty.GetCoreProperty() is { } coreProperty
+                             && coreProperty.TryGetMetadata(abProperty.ImplementedType, out CorePropertyMetadata? metadata))
+                         {
+                             return metadata.DisplayAttribute?.GetGroupName();
+                         }
+                         else
+                         {
+                             return null;
+                         }
+                     })
+                     .Select(x => (x.Key, x.ToArray())))
         {
             if (group.Key != null)
             {
@@ -211,39 +205,34 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     public void SetJsonString(string? str)
     {
-        if (Model.HierarchicalParent is SourceOperation sourceOperation)
+        if (Model.HierarchicalParent is not SourceOperation sourceOperation) return;
+
+        int index = sourceOperation.Children.IndexOf(Model);
+        if (index < 0) return;
+
+        string message = Strings.InvalidJson;
+        _ = str ?? throw new Exception(message);
+        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
+
+        Type? type = json.GetDiscriminator();
+        SourceOperator? @operator = null;
+        if (type?.IsAssignableTo(typeof(SourceOperator)) ?? false)
         {
-            int index = sourceOperation.Children.IndexOf(Model);
-            if (index < 0) return;
-
-            string message = Strings.InvalidJson;
-            _ = str ?? throw new Exception(message);
-            JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
-
-            Type? type = json.GetDiscriminator();
-            SourceOperator? @operator = null;
-            if (type?.IsAssignableTo(typeof(SourceOperator)) ?? false)
-            {
-                @operator = Activator.CreateInstance(type) as SourceOperator;
-            }
-
-            if (@operator == null) throw new Exception(message);
-
-            var context = new JsonSerializationContext(@operator.GetType(), NullSerializationErrorNotifier.Instance, null, json);
-            using (ThreadLocalSerializationContext.Enter(context))
-            {
-                @operator.Deserialize(context);
-            }
-
-            IStorable? storable = sourceOperation.FindHierarchicalParent<IStorable>();
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-
-            var (newValue, oldValue) = (@operator, Model);
-            RecordableCommands.Create([storable])
-                .OnDo(() => sourceOperation.Children[index] = newValue)
-                .OnUndo(() => sourceOperation.Children[index] = oldValue)
-                .ToCommand()
-                .DoAndRecord(recorder);
+            @operator = Activator.CreateInstance(type) as SourceOperator;
         }
+
+        if (@operator == null) throw new Exception(message);
+
+        CoreSerializerHelper.PopulateFromJsonObject(@operator, type!, json);
+
+        IStorable? storable = sourceOperation.FindHierarchicalParent<IStorable>();
+        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+
+        var (newValue, oldValue) = (@operator, Model);
+        RecordableCommands.Create([storable])
+            .OnDo(() => sourceOperation.Children[index] = newValue)
+            .OnUndo(() => sourceOperation.Children[index] = oldValue)
+            .ToCommand()
+            .DoAndRecord(recorder);
     }
 }

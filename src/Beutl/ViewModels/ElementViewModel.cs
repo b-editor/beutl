@@ -1,10 +1,8 @@
 ﻿using System.Numerics;
 using System.Text.Json.Nodes;
-
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
-
 using Beutl.Commands;
 using Beutl.Helpers;
 using Beutl.Models;
@@ -12,12 +10,9 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Utilities;
-
 using FluentAvalonia.UI.Media;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-
 using HslColor = Avalonia.Media.HslColor;
 
 namespace Beutl.ViewModels;
@@ -281,30 +276,15 @@ public sealed class ElementViewModel : IDisposable
     private async ValueTask<bool> SetClipboard()
     {
         IClipboard? clipboard = App.GetClipboard();
-        if (clipboard != null)
-        {
-            JsonObject? jsonNode;
+        if (clipboard == null) return false;
 
-            var context = new JsonSerializationContext(typeof(Element), NullSerializationErrorNotifier.Instance);
-            using (ThreadLocalSerializationContext.Enter(context))
-            {
-                Model.Serialize(context);
+        string json = CoreSerializerHelper.SerializeToJsonString(Model);
+        var data = new DataObject();
+        data.Set(DataFormats.Text, json);
+        data.Set(Constants.Element, json);
 
-                jsonNode = context.GetJsonObject();
-            }
-
-            string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
-            var data = new DataObject();
-            data.Set(DataFormats.Text, json);
-            data.Set(Constants.Element, json);
-
-            await clipboard.SetDataObjectAsync(data);
-            return true;
-        }
-        else
-        {
-            return false;
-        }
+        await clipboard.SetDataObjectAsync(data);
+        return true;
     }
 
     public PrepareAnimationContext PrepareAnimation()

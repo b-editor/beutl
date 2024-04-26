@@ -1,15 +1,13 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
-
 using Avalonia.Input;
 using Avalonia.Input.Platform;
-
+using Beutl.Helpers;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels.Tools;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -84,17 +82,7 @@ public partial class MenuBarViewModel
 
     private static DataObject CreateElementDataObject(Element element)
     {
-        JsonObject? jsonNode;
-
-        var context = new JsonSerializationContext(typeof(Element), NullSerializationErrorNotifier.Instance);
-        using (ThreadLocalSerializationContext.Enter(context))
-        {
-            element.Serialize(context);
-
-            jsonNode = context.GetJsonObject();
-        }
-
-        string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
+        string json = CoreSerializerHelper.SerializeToJsonString(element);
         var data = new DataObject();
         data.Set(DataFormats.Text, json);
         data.Set(Constants.Element, json);

@@ -2,7 +2,7 @@
 using System.Text.Json.Nodes;
 
 using Avalonia.Platform.Storage;
-
+using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Encoding;
@@ -292,14 +292,7 @@ public sealed class OutputViewModel : IOutputContext
             if (settings == null) return null;
             try
             {
-                var context = new JsonSerializationContext(
-                    settings.GetType(), NullSerializationErrorNotifier.Instance);
-                using (ThreadLocalSerializationContext.Enter(context))
-                {
-                    settings.Serialize(context);
-                }
-
-                return context.GetJsonObject();
+                return CoreSerializerHelper.SerializeToJsonObject(settings, settings.GetType());
             }
             catch (Exception e)
             {
@@ -327,12 +320,7 @@ public sealed class OutputViewModel : IOutputContext
             if (settings == null) return;
             try
             {
-                var context = new JsonSerializationContext(
-                    settings.GetType(), NullSerializationErrorNotifier.Instance, json: json);
-                using (ThreadLocalSerializationContext.Enter(context))
-                {
-                    settings.Deserialize(context);
-                }
+                CoreSerializerHelper.PopulateFromJsonObject(settings, settings.GetType(), json);
             }
             catch (Exception e)
             {
