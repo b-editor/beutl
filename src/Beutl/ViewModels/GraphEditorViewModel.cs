@@ -278,19 +278,26 @@ public abstract class GraphEditorViewModel : IDisposable
         {
             CommandRecorder recorder = EditorContext.CommandRecorder;
             JsonObject oldJson = CoreSerializerHelper.SerializeToJsonObject(Animation, typeof(IKeyFrameAnimation));
-            IKeyFrameAnimation animation = Animation;
+            KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
+            Guid id = animation.Id;
             CoreProperty property = animation.Property;
 
             RecordableCommands.Create(
                     () =>
                     {
                         CoreSerializerHelper.PopulateFromJsonObject(animation, typeof(IKeyFrameAnimation), newJson);
-                        if (animation is KeyFrameAnimation kf) kf.Property = property;
+                        animation.Property = property;
+                        animation.Id = id;
+                        foreach (IKeyFrame item in animation.KeyFrames)
+                        {
+                            item.Id = Guid.NewGuid();
+                        }
                     },
                     () =>
                     {
                         CoreSerializerHelper.PopulateFromJsonObject(Animation, typeof(IKeyFrameAnimation), oldJson);
-                        if (animation is KeyFrameAnimation kf) kf.Property = property;
+                        animation.Property = property;
+                        animation.Id = id;
                     },
                     GetStorables())
                 .DoAndRecord(recorder);
