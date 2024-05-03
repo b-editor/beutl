@@ -182,6 +182,12 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public EditViewModel EditorContext { get; }
 
+    public ReactiveProperty<bool> Symmetry { get; } = new(true);
+
+    public ReactiveProperty<bool> Asymmetry { get; } = new(false);
+
+    public ReactiveProperty<bool> Separately { get; } = new(false);
+
     public void BeginEditing()
     {
         _editting = true;

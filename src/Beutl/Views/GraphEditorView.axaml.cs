@@ -372,26 +372,93 @@ public partial class GraphEditorView : UserControl
     // Behaviorに分ける
     // Todo: EaseLineをSplineEasingの時だけ、ViewModelのControlPointにバインドする
     private bool _cPointPressed;
+
     private Point _cPointstart;
+
+    // コントロールポイントのドラッグ前の位置
     private (float, float) _oldValue;
+
+    // 反対側のコントロールポイントのドラッグ前の位置
+    private (float, float) _oldValue2;
+
+    // 反対側のコントロールポイントのキーフレームを探す
+    private GraphEditorKeyFrameViewModel? FindOppositeKeyFrame(GraphEditorKeyFrameViewModel item, string tag)
+    {
+        if (DataContext is not GraphEditorViewModel { SelectedView.Value: { } selectedView } viewModel) return null;
+        int index = selectedView.KeyFrames.IndexOf(item);
+
+        return tag switch
+        {
+            "ControlPoint1" => index == 0 ? null : selectedView.KeyFrames[index - 1],
+            "ControlPoint2" => index == selectedView.KeyFrames.Count - 1 ? null : selectedView.KeyFrames[index + 1],
+            _ => null
+        };
+    }
 
     private void OnControlPointPointerMoved(object? sender, PointerEventArgs e)
     {
         if (_cPointPressed
+            && DataContext is GraphEditorViewModel editorViewModel
             && sender is Shape { DataContext: GraphEditorKeyFrameViewModel viewModel, Tag: string tag })
         {
             Point position = new(e.GetPosition(views).X, e.GetPosition(grid).Y);
-            position = position.WithX(Math.Clamp(position.X, viewModel.Left.Value, viewModel.Right.Value));
             Point delta = position - _cPointstart;
-            _cPointstart = position;
+            Point d = default;
             switch (tag)
             {
                 case "ControlPoint1":
                     viewModel.UpdateControlPoint1(viewModel.ControlPoint1.Value + delta);
+                    d = viewModel.LeftBottom.Value - viewModel.ControlPoint1.Value;
                     break;
                 case "ControlPoint2":
                     viewModel.UpdateControlPoint2(viewModel.ControlPoint2.Value + delta);
+                    d = viewModel.RightTop.Value - viewModel.ControlPoint2.Value;
                     break;
+            }
+            position = position.WithX(Math.Clamp(position.X, viewModel.Left.Value, viewModel.Right.Value));
+            _cPointstart = position;
+
+            if (!editorViewModel.Separately.Value)
+            {
+                double radians = Math.Atan2(d.X, d.Y);
+                radians -= MathF.PI / 2;
+
+                var oppotite = FindOppositeKeyFrame(viewModel, tag);
+                if (oppotite != null)
+                {
+                    static double Length(Point p)
+                    {
+                        return Math.Sqrt((p.X * p.X) + (p.Y * p.Y));
+                    }
+
+                    static Point CalculatePoint(double radians, double radius)
+                    {
+                        double x = Math.Cos(radians) * radius;
+                        double y = Math.Sin(radians) * radius;
+                        // Y座標は反転
+                        return new Point(x, -y);
+                    }
+
+                    bool symmetry = editorViewModel.Symmetry.Value;
+                    double length;
+                    switch (tag)
+                    {
+                        case "ControlPoint2":
+                            length = symmetry
+                                ? Length(d)
+                                : Length(oppotite.LeftBottom.Value - oppotite.ControlPoint1.Value);
+
+                            oppotite.UpdateControlPoint1(oppotite.LeftBottom.Value + CalculatePoint(radians, length));
+                            break;
+                        case "ControlPoint1":
+                            length = symmetry
+                                ? Length(d)
+                                : Length(oppotite.RightTop.Value - oppotite.ControlPoint2.Value);
+
+                            oppotite.UpdateControlPoint2(oppotite.RightTop.Value + CalculatePoint(radians, length));
+                            break;
+                    }
+                }
             }
 
             e.Handled = true;
@@ -407,7 +474,7 @@ public partial class GraphEditorView : UserControl
                 DataContext: GraphEditorKeyFrameViewModel
                 {
                     Model.Easing: Animation.Easings.SplineEasing splineEasing
-                }
+                } itemViewModel
             } shape)
         {
             if (!e.KeyModifiers.HasFlag(KeyModifiers.Alt)
@@ -428,8 +495,19 @@ public partial class GraphEditorView : UserControl
                     "ControlPoint2" => (splineEasing.X2, splineEasing.Y2),
                     _ => default,
                 };
+                var oppotite = FindOppositeKeyFrame(itemViewModel, tag);
+                if (oppotite is { Model.Easing: Animation.Easings.SplineEasing splineEasing2 })
+                {
+                    _oldValue2 = tag switch
+                    {
+                        "ControlPoint2" => (splineEasing2.X1, splineEasing2.Y1),
+                        "ControlPoint1" => (splineEasing2.X2, splineEasing2.Y2),
+                        _ => default,
+                    };
+                }
+
                 _cPointPressed = true;
-                _cPointstart = new(e.GetPosition(views).X, point.Position.Y);
+                _cPointstart = new Point(e.GetPosition(views).X, point.Position.Y);
                 viewModel.BeginEditing();
                 e.Handled = true;
             }
@@ -450,6 +528,20 @@ public partial class GraphEditorView : UserControl
                 case "ControlPoint2":
                     itemViewModel.SubmitControlPoint2(_oldValue.Item1, _oldValue.Item2);
                     break;
+            }
+
+            var oppotite = FindOppositeKeyFrame(itemViewModel, tag);
+            if (oppotite != null)
+            {
+                switch (tag)
+                {
+                    case "ControlPoint2":
+                        oppotite.SubmitControlPoint1(_oldValue2.Item1, _oldValue2.Item2);
+                        break;
+                    case "ControlPoint1":
+                        oppotite.SubmitControlPoint2(_oldValue2.Item1, _oldValue2.Item2);
+                        break;
+                }
             }
 
             viewModel.EndEditting();
