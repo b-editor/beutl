@@ -19,6 +19,7 @@ using Beutl.ViewModels;
 using Reactive.Bindings.Extensions;
 using Path = Avalonia.Controls.Shapes.Path;
 using Shape = Avalonia.Controls.Shapes.Shape;
+using Vector = Avalonia.Vector;
 
 namespace Beutl.Views;
 
@@ -471,6 +472,9 @@ public partial class GraphEditorView : UserControl
             && _keyframe != null)
         {
             GraphEditorKeyFrameViewModel? itemViewModel = _keyframeViewModel;
+            // ドラッグ中のキーフレームが左右のキーフレームを横断した場合、
+            // Modelから再生成された、ViewModelを探す。
+            // (横断すると、KeyFramesの順番を変える必要があるため)
             if (_crossed)
             {
                 double? y = _keyframeViewModel?.EndY.Value;
@@ -500,6 +504,7 @@ public partial class GraphEditorView : UserControl
 
                     double right = itemViewModel.Right.Value + delta.X;
                     var timeSpan = right.ToTimeSpan(scale);
+                    // 左のキーフレームに横断した場合
                     if (itemViewModel._previous.Value is { Model.KeyTime: TimeSpan prevTime }
                         && prevTime > timeSpan.RoundToRate(rate))
                     {
@@ -513,6 +518,7 @@ public partial class GraphEditorView : UserControl
                         timeSpan = new TimeSpan(Math.Max(0, timeSpan.Ticks));
                     }
 
+                    // 右のキーフレームに横断した場合
                     if (itemViewModel._next is { Model.KeyTime: TimeSpan nextTime }
                         && timeSpan.RoundToRate(rate) > nextTime)
                     {
@@ -527,6 +533,18 @@ public partial class GraphEditorView : UserControl
                     }
 
                     itemViewModel.Right.Value = timeSpan.ToPixel(scale);
+
+                    // マウスがスクロール外に行った時、スクロールを移動する
+                    var scrollPos = e.GetPosition(scroll);
+                    if (scrollPos.X < 0 || scrollPos.X > scroll.Bounds.Width)
+                    {
+                        scroll.Offset = new Vector(scroll.Offset.X + delta.X, scroll.Offset.Y);
+                    }
+
+                    if (scrollPos.Y < 0 || scrollPos.Y > scroll.Bounds.Height)
+                    {
+                        scroll.Offset = new Vector(scroll.Offset.X, scroll.Offset.Y + delta.Y);
+                    }
 
                     e.Handled = true;
                 }
