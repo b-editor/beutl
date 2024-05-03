@@ -4,6 +4,11 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:view="using:Beutl.Views"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModels="using:Beutl.ViewModels.Tools"
+             xmlns:lang="using:Beutl.Language"
+             x:DataType="viewModels:GraphEditorTabViewModel"
+             x:CompileBindings="True"
              d:DesignHeight="450"
              d:DesignWidth="800"
              mc:Ignorable="d">
@@ -14,12 +19,77 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
+        <Grid RowDefinitions="Auto,*">
+            <StackPanel Margin="4"
+                        Orientation="Horizontal">
+                <StackPanel.Styles>
+                    <Style Selector="RadioButton">
+                        <Setter Property="Theme" Value="{StaticResource LiteNavRadioButton}" />
+                        <Setter Property="Padding" Value="7,6,5,6" />
+                    </Style>
+                </StackPanel.Styles>
+                <Button Command="{Binding Refresh}" Theme="{StaticResource TransparentButton}">
+                    <ui:SymbolIcon Symbol="Refresh" />
+                </Button>
+                <RadioButton Click="ToggleDragModeClick"
+                             GroupName="PathEditor_DragMode"
+                             IsEnabled="{Binding SelectedAnimation.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                             IsChecked="{Binding SelectedAnimation.Value.Symmetry.Value, Mode=OneWay}"
+                             Tag="Symmetry"
+                             ToolTip.Tip="{x:Static lang:Strings.Symmetry}">
+                    <Border VerticalAlignment="Center">
+                        <Path Width="16"
+                              VerticalAlignment="Center"
+                              Data="{StaticResource PathEditor_Symmetry}"
+                              Fill="{DynamicResource TextFillColorPrimaryBrush}"
+                              Stretch="Uniform" />
+                    </Border>
+                </RadioButton>
+                <RadioButton Click="ToggleDragModeClick"
+                             GroupName="PathEditor_DragMode"
+                             IsEnabled="{Binding SelectedAnimation.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                             IsChecked="{Binding SelectedAnimation.Value.Asymmetry.Value, Mode=OneWay}"
+                             Tag="Asymmetry"
+                             ToolTip.Tip="{x:Static lang:Strings.Asymmetry}">
+                    <Border VerticalAlignment="Center">
+                        <Path Width="16"
+                              VerticalAlignment="Center"
+                              Data="{StaticResource PathEditor_Asymmetry}"
+                              Fill="{DynamicResource TextFillColorPrimaryBrush}"
+                              Stretch="Uniform" />
+                    </Border>
+                </RadioButton>
+                <RadioButton Click="ToggleDragModeClick"
+                             GroupName="PathEditor_DragMode"
+                             IsEnabled="{Binding SelectedAnimation.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                             IsChecked="{Binding SelectedAnimation.Value.Separately.Value, Mode=OneWay}"
+                             Tag="Separately"
+                             ToolTip.Tip="{x:Static lang:Strings.Separately}">
+                    <Border VerticalAlignment="Center">
+                        <Path Width="16"
+                              VerticalAlignment="Center"
+                              Data="{StaticResource PathEditor_Separately}"
+                              Fill="{DynamicResource TextFillColorPrimaryBrush}"
+                              Stretch="Uniform" />
+                    </Border>
+                </RadioButton>
+            </StackPanel>
+            <ListBox Grid.Row="1" ItemsSource="{Binding Items}"
+                     SelectedItem="{Binding SelectedItem.Value}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Grid>
+
         <GridSplitter x:Name="gridSplitter"
                       Grid.RowSpan="2"
                       Grid.Column="1" />
 
         <view:GraphEditorView Grid.Column="2"
                               DataContext="{Binding SelectedAnimation.Value}"
-                              IsVisible="{Binding SelectedAnimation.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                              IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}" />
     </Grid>
 </UserControl>

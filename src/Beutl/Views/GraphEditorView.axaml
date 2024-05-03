@@ -46,6 +46,7 @@
 
         <local:GraphEditorScale Grid.Row="1"
                                 Width="20"
+                                x:Name="verticalScale"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch"
                                 Baseline="{Binding Baseline.Value}"
@@ -70,6 +71,18 @@
                                   IsEnabled="False">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="Delete" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="{x:Static lang:Strings.CopyAll}"
+                                  Click="CopyAllClick">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="DocumentCopy" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="{x:Static lang:Strings.Paste}"
+                                  Click="PasteClick">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="ClipboardPaste" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Header="{x:Static lang:Strings.TimelineZoom}" MenuItem.Click="ZoomClick">
@@ -232,7 +245,8 @@
                                                               Fill="{DynamicResource SystemFillColorCaution}"
                                                               PointerPressed="OnKeyTimePointerPressed">
                                                             <Path.RenderTransform>
-                                                                <TranslateTransform X="{Binding RightTop.Value.X}" Y="{Binding RightTop.Value.Y}" />
+                                                                <TranslateTransform X="{Binding RightTop.Value.X}"
+                                                                    Y="{Binding RightTop.Value.Y}" />
                                                             </Path.RenderTransform>
                                                             <Path.Data>
                                                                 <PathGeometry>
@@ -257,7 +271,8 @@
                                                               StrokeThickness="3"
                                                               Tag="ControlPoint1">
                                                             <Path.RenderTransform>
-                                                                <TranslateTransform X="{Binding ControlPoint1.Value.X}" Y="{Binding ControlPoint1.Value.Y}" />
+                                                                <TranslateTransform X="{Binding ControlPoint1.Value.X}"
+                                                                    Y="{Binding ControlPoint1.Value.Y}" />
                                                             </Path.RenderTransform>
                                                         </Path>
 
@@ -273,7 +288,8 @@
                                                               StrokeThickness="3"
                                                               Tag="ControlPoint2">
                                                             <Path.RenderTransform>
-                                                                <TranslateTransform X="{Binding ControlPoint2.Value.X}" Y="{Binding ControlPoint2.Value.Y}" />
+                                                                <TranslateTransform X="{Binding ControlPoint2.Value.X}"
+                                                                    Y="{Binding ControlPoint2.Value.Y}" />
                                                             </Path.RenderTransform>
                                                         </Path>
                                                     </Panel>
@@ -296,6 +312,14 @@
                                        Viewport="{Binding #scroll.Viewport, Mode=OneWay}"
                                        ZIndex="6"
                                        Offset="{Binding #scroll.Offset, Mode=OneWay}" />
+
+                <Border Width="{Binding ElementWidth.Value, Mode=OneWay}"
+                        Margin="{Binding ElementMargin.Value, Mode=OneWay}"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Stretch"
+                        BorderBrush="{CompiledBinding ElementColor.Value}"
+                        BorderThickness="1,0" />
+
             </Panel>
         </ScrollViewer>
     </Grid>

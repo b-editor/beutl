@@ -1,16 +1,12 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Commands;
 using Beutl.Graphics.Effects;
 using Beutl.Helpers;
 using Beutl.Operators.Configure;
 using Beutl.Serialization;
 using Beutl.Services;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
-
 using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
@@ -55,28 +51,25 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .Take(1)
             .Subscribe(_ =>
                 Value.Subscribe(v =>
-                {
-                    Properties.Value?.Dispose();
-                    Properties.Value = null;
-                    Group.Value?.Dispose();
-                    Group.Value = null;
-
-                    if (v is FilterEffectGroup group)
                     {
-                        var prop = new CorePropertyImpl<FilterEffects>(FilterEffectGroup.ChildrenProperty, group);
-                        Group.Value = new ListEditorViewModel<FilterEffect>(prop)
+                        Properties.Value?.Dispose();
+                        Properties.Value = null;
+                        Group.Value?.Dispose();
+                        Group.Value = null;
+
+                        if (v is FilterEffectGroup group)
                         {
-                            IsExpanded = { Value = true }
-                        };
-                    }
-                    else if (v is FilterEffect filter)
-                    {
-                        Properties.Value = new PropertiesEditorViewModel(filter, (p, m) => m.Browsable && p != FilterEffect.IsEnabledProperty);
-                    }
+                            var prop = new CorePropertyImpl<FilterEffects>(FilterEffectGroup.ChildrenProperty, group);
+                            Group.Value = new ListEditorViewModel<FilterEffect>(prop) { IsExpanded = { Value = true } };
+                        }
+                        else if (v is FilterEffect filter)
+                        {
+                            Properties.Value = new PropertiesEditorViewModel(filter, (p, m) => m.Browsable && p != FilterEffect.IsEnabledProperty);
+                        }
 
-                    AcceptChild();
-                })
-                .DisposeWith(Disposables))
+                        AcceptChild();
+                    })
+                    .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
         IsEnabled = Value.Select(x => x?.GetObservable(FilterEffect.IsEnabledProperty) ?? Observable.Return(x?.IsEnabled ?? false))
@@ -178,6 +171,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             {
                 IsExpanded.Value = (bool)isExpanded;
             }
+
             Properties.Value?.ReadFromJson(json);
 
             if (Group.Value != null
@@ -239,11 +233,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
         if (instance == null) throw new Exception(message);
 
-        var context = new JsonSerializationContext(instance.GetType(), NullSerializationErrorNotifier.Instance, null, json);
-        using (ThreadLocalSerializationContext.Enter(context))
-        {
-            instance.Deserialize(context);
-        }
+        CoreSerializerHelper.PopulateFromJsonObject(instance, type!, json);
 
         SetValue(Value.Value, instance);
     }

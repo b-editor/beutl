@@ -1,13 +1,11 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-
 using Beutl.Animation;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.ViewModels.Tools;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
@@ -63,11 +61,8 @@ public sealed partial class PropertyEditorMenu : UserControl
 
             // タイムラインのタブを開く
             var anmTimelineViewModel = new GraphEditorTabViewModel(editViewModel);
-
-            Type viewModelType = typeof(GraphEditorViewModel<>).MakeGenericType(animatableProperty.PropertyType);
-            anmTimelineViewModel.SelectedAnimation.Value = (GraphEditorViewModel)Activator.CreateInstance(
-                viewModelType, editViewModel, animatableProperty.Animation, viewModel.GetService<Element>())!;
-
+            anmTimelineViewModel.Element.Value = viewModel.GetService<Element>();
+            anmTimelineViewModel.Select(animatableProperty.Animation as KeyFrameAnimation);
             editViewModel.OpenToolTab(anmTimelineViewModel);
         }
     }

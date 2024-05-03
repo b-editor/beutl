@@ -162,92 +162,85 @@ public sealed partial class Timeline : UserControl
     {
         try
         {
-            if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard })
+            if (TopLevel.GetTopLevel(this) is not { Clipboard: { } clipboard }) return;
+
+            string[] formats = await clipboard.GetFormatsAsync();
+
+            if (formats.Contains(Constants.Element))
             {
-                string[] formats = await clipboard.GetFormatsAsync();
+                string? json = await clipboard.GetTextAsync();
+                if (json == null) return;
 
-                if (formats.Contains(Constants.Element))
+                var oldElement = new Element();
+
+                CoreSerializerHelper.PopulateFromJsonObject(oldElement, JsonNode.Parse(json)!.AsObject());
+
+                CoreObjectReborn.Reborn(oldElement, out Element newElement);
+
+                newElement.Start = ViewModel.ClickedFrame;
+                newElement.ZIndex = ViewModel.CalculateClickedLayer();
+
+                newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
+
+                CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
+                ViewModel.Scene.AddChild(newElement).DoAndRecord(recorder);
+
+                ScrollTimelinePosition(newElement.Range, newElement.ZIndex);
+            }
+            else
+            {
+                string[] imageFormats = ["image/png", "PNG", "image/jpeg", "image/jpg"];
+
+                if (Array.Find(imageFormats, i => formats.Contains(i)) is { } matchFormat)
                 {
-                    string? json = await clipboard.GetTextAsync();
-                    if (json != null)
-                    {
-                        var oldElement = new Element();
+                    object? imageData = await clipboard.GetDataAsync(matchFormat);
+                    Stream? stream = null;
+                    if (imageData is byte[] byteArray)
+                        stream = new MemoryStream(byteArray);
+                    else if (imageData is Stream st)
+                        stream = st;
 
-                        var context = new JsonSerializationContext(
-                            oldElement.GetType(), NullSerializationErrorNotifier.Instance, json: JsonNode.Parse(json)!.AsObject());
-                        using (ThreadLocalSerializationContext.Enter(context))
+                    if (stream?.CanRead != true)
+                    {
+                        NotificationService.ShowWarning(
+                            "タイムライン",
+                            $"この画像データはペーストできません\nFormats: [{string.Join(", ", formats)}]");
+                    }
+                    else
+                    {
+                        string dir = Path.GetDirectoryName(ViewModel.Scene.FileName)!;
+                        // 画像を保存
+                        string resDir = Path.Combine(dir, "resources");
+                        if (!Directory.Exists(resDir))
                         {
-                            oldElement.Deserialize(context);
+                            Directory.CreateDirectory(resDir);
+                        }
+                        string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
+                        using (var bmp = Bitmap<Bgra8888>.FromStream(stream))
+                        {
+                            bmp.Save(imageFile, Graphics.EncodedImageFormat.Png);
                         }
 
-                        CoreObjectReborn.Reborn(oldElement, out Element newElement);
+                        var sp = new SourceImageOperator
+                        {
+                            Source = { Value = BitmapSource.Open(imageFile) }
+                        };
+                        var newElement = new Element
+                        {
+                            Start = ViewModel.ClickedFrame,
+                            Length = TimeSpan.FromSeconds(5),
+                            ZIndex = ViewModel.CalculateClickedLayer(),
+                            Operation = { Children = { sp } },
+                            AccentColor = ColorGenerator.GenerateColor(typeof(SourceImageOperator).FullName!),
+                            Name = Path.GetFileName(imageFile)
+                        };
 
-                        newElement.Start = ViewModel.ClickedFrame;
-                        newElement.ZIndex = ViewModel.CalculateClickedLayer();
-
-                        newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
+                        newElement.Save(RandomFileNameGenerator.Generate(dir, Constants.ElementFileExtension));
 
                         CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
                         ViewModel.Scene.AddChild(newElement).DoAndRecord(recorder);
 
                         ScrollTimelinePosition(newElement.Range, newElement.ZIndex);
-                    }
-                }
-                else
-                {
-                    string[] imageFormats = ["image/png", "PNG", "image/jpeg", "image/jpg"];
-
-                    if (Array.Find(imageFormats, i => formats.Contains(i)) is { } matchFormat)
-                    {
-                        object? imageData = await clipboard.GetDataAsync(matchFormat);
-                        Stream? stream = null;
-                        if (imageData is byte[] byteArray)
-                            stream = new MemoryStream(byteArray);
-                        else if (imageData is Stream st)
-                            stream = st;
-
-                        if (stream?.CanRead != true)
-                        {
-                            NotificationService.ShowWarning(
-                                "タイムライン",
-                                $"この画像データはペーストできません\nFormats: [{string.Join(", ", formats)}]");
-                        }
-                        else
-                        {
-                            string dir = Path.GetDirectoryName(ViewModel.Scene.FileName)!;
-                            // 画像を保存
-                            string resDir = Path.Combine(dir, "resources");
-                            if (!Directory.Exists(resDir))
-                            {
-                                Directory.CreateDirectory(resDir);
-                            }
-                            string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
-                            using (var bmp = Bitmap<Bgra8888>.FromStream(stream))
-                            {
-                                bmp.Save(imageFile, Graphics.EncodedImageFormat.Png);
-                            }
-
-                            var sp = new SourceImageOperator
-                            {
-                                Source = { Value = BitmapSource.Open(imageFile) }
-                            };
-                            var newElement = new Element
-                            {
-                                Start = ViewModel.ClickedFrame,
-                                Length = TimeSpan.FromSeconds(5),
-                                ZIndex = ViewModel.CalculateClickedLayer(),
-                                Operation = { Children = { sp } },
-                                AccentColor = ColorGenerator.GenerateColor(typeof(SourceImageOperator).FullName!),
-                                Name = Path.GetFileName(imageFile)
-                            };
-
-                            newElement.Save(RandomFileNameGenerator.Generate(dir, Constants.ElementFileExtension));
-
-                            CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
-                            ViewModel.Scene.AddChild(newElement).DoAndRecord(recorder);
-
-                            ScrollTimelinePosition(newElement.Range, newElement.ZIndex);
-                        }
                     }
                 }
             }
