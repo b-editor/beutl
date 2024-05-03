@@ -46,6 +46,7 @@
 
         <local:GraphEditorScale Grid.Row="1"
                                 Width="20"
+                                x:Name="verticalScale"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch"
                                 Baseline="{Binding Baseline.Value}"

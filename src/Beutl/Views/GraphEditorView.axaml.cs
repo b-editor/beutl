@@ -47,6 +47,7 @@ public partial class GraphEditorView : UserControl
 
         scale.AddHandler(PointerWheelChangedEvent, OnContentPointerWheelChanged, RoutingStrategies.Tunnel);
         graphPanel.AddHandler(PointerWheelChangedEvent, OnContentPointerWheelChanged, RoutingStrategies.Tunnel);
+        verticalScale.AddHandler(PointerWheelChangedEvent, OnVerticalScalePointerWheelChanged, RoutingStrategies.Tunnel);
 
         this.SubscribeDataContextChange<GraphEditorViewModel>(
             OnDataContextAttached,
@@ -203,6 +204,59 @@ public partial class GraphEditorView : UserControl
                     // オフセット(X) をスクロール
                     offset.X -= (float)(edelta.Y * 50);
                     offset.Y -= (float)(edelta.X * 50);
+                }
+            }
+
+            Vector2 originalOffset = viewModel.Options.Value.Offset;
+            viewModel.Options.Value = viewModel.Options.Value with { Scale = scale, Offset = new Vector2(offset.X, originalOffset.Y) };
+
+            viewModel.ScrollOffset.Value = new(offset.X, offset.Y);
+
+            double delta = aOffset.Y - Math.Max(0, offset.Y);
+            if (_cPointPressed)
+            {
+                _cPointstart += new Point(0, delta);
+            }
+            else if (_keyTimePressed)
+            {
+                _keyTimeStart += new Point(0, delta);
+            }
+
+            e.Handled = true;
+        }
+    }
+
+    private void OnVerticalScalePointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        if (DataContext is GraphEditorViewModel viewModel)
+        {
+            Avalonia.Vector aOffset = scroll.Offset;
+            Avalonia.Vector edelta = e.Delta;
+            float scale = viewModel.Options.Value.Scale;
+            var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
+
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+            {
+                double oldScale = viewModel.ScaleY.Value;
+                double scaleY = Zoom(edelta.Y, oldScale);
+                // double scaleY = Zoom(delta.Y, oldScale);
+                scaleY = Math.Clamp(scaleY, 0.01, 8.75);
+
+                //offset.Y *= scaleY;
+                viewModel.ScaleY.Value = scaleY;
+            }
+            else
+            {
+                if (GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection)
+                {
+                    offset.X -= (float)(edelta.Y * 50);
+                    offset.Y -= (float)(edelta.X * 50);
+                }
+                else
+                {
+                    // オフセット(X) をスクロール
+                    offset.Y -= (float)(edelta.Y * 50);
+                    offset.X -= (float)(edelta.X * 50);
                 }
             }
 
