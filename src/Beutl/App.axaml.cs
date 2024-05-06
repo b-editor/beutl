@@ -84,35 +84,8 @@ public sealed class App : Application
 
         if (OperatingSystem.IsMacOS())
         {
-            SetTextAlignmentOverrides(_theme);
+            _theme.RemoveRange(1, 3);
         }
-    }
-
-    // https://github.com/amwx/FluentAvalonia/blob/ac23275f71cbdb4640342d1ab57e1d30a5f82a91/src/FluentAvalonia/Styling/Core/FluentAvaloniaTheme.axaml.cs
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void SetTextAlignmentOverrides(FluentAvaloniaTheme theme)
-    {
-        Resources.Add("CheckBoxPadding", new Thickness(8, 5, 0, 5));
-        Resources.Add("ComboBoxPadding", new Thickness(12, 5, 0, 5));
-        Resources.Add("ComboBoxItemThemePadding", new Thickness(11, 5, 11, 5));
-        Resources.Add("TextControlThemePadding", new Thickness(10, 8, 6, 6)); //10,5,6,6
-
-        var s = new Style(x => x.OfType(typeof(CheckBox)));
-        s.Setters.Add(new Setter(ContentControl.VerticalContentAlignmentProperty, VerticalAlignment.Center));
-        theme.Add(s);
-
-        // Set Padding & VCA on RadioButton to center the content
-        var s2 = new Style(x => x.OfType(typeof(RadioButton)));
-        s2.Setters.Add(new Setter(ContentControl.VerticalContentAlignmentProperty, VerticalAlignment.Center));
-        s2.Setters.Add(new Setter(Decorator.PaddingProperty, new Thickness(8, 6, 0, 6)));
-        theme.Add(s2);
-
-        // Center the TextBlock in ComboBox
-        // This is special - we only want to do this if the content is a string - otherwise custom content
-        // may get messed up b/c of the centered alignment
-        var s3 = new Style(x => x.OfType<ComboBox>().Template().OfType<ContentControl>().Child().OfType<TextBlock>());
-        s3.Setters.Add(new Setter(Layoutable.VerticalAlignmentProperty, VerticalAlignment.Center));
-        theme.Add(s3);
     }
 
     public override void RegisterServices()
