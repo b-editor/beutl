@@ -78,6 +78,10 @@ internal static class Program
             {
                 WinUICompositionBackdropCornerRadius = 8f
             })
+            .With(new AvaloniaNativePlatformOptions()
+            {
+                OverlayPopups = true
+            })
             .With(new FontManagerOptions
             {
                 DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
