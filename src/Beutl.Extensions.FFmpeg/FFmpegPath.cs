@@ -93,10 +93,17 @@ public static class FFmpegLoader
         }
         if (OperatingSystem.IsMacOS())
         {
-            if (RuntimeInformation.OSArchitecture == Architecture.X64)
-                paths.Add("/usr/local/bin/ffmpeg");
-            if (RuntimeInformation.OSArchitecture == Architecture.Arm64)
-                paths.Add("/opt/homebrew/bin/ffmpeg");
+            switch (RuntimeInformation.OSArchitecture)
+            {
+                case Architecture.X64:
+                    paths.Add("/usr/local/lib/ffmpeg@6/bin/ffmpeg");
+                    paths.Add("/usr/local/bin/ffmpeg");
+                    break;
+                case Architecture.Arm64:
+                    paths.Add("/opt/homebrew/opt/ffmpeg@6/bin/ffmpeg");
+                    paths.Add("/opt/homebrew/bin/ffmpeg");
+                    break;
+            }
         }
 
         foreach (string item in paths)
@@ -137,10 +144,17 @@ public static class FFmpegLoader
         }
         else if (OperatingSystem.IsMacOS())
         {
-            if (RuntimeInformation.OSArchitecture == Architecture.X64)
-                paths.Add("/usr/local/lib");
-            if (RuntimeInformation.OSArchitecture == Architecture.Arm64)
-                paths.Add("/opt/homebrew/lib");
+            switch (RuntimeInformation.OSArchitecture)
+            {
+                case Architecture.X64:
+                    paths.Add("/usr/local/opt/ffmpeg@6/lib");
+                    paths.Add("/usr/local/lib");
+                    break;
+                case Architecture.Arm64:
+                    paths.Add("/opt/homebrew/opt/ffmpeg@6/lib");
+                    paths.Add("/opt/homebrew/lib");
+                    break;
+            }
         }
 
         foreach (string item in paths)
