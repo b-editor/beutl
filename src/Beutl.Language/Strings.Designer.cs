@@ -2222,5 +2222,11 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("ClearBuffer", resourceCulture);
             }
         }
+        
+        public static string Mosaic {
+            get {
+                return ResourceManager.GetString("Mosaic", resourceCulture);
+            }
+        }
     }
 }
