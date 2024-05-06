@@ -39,6 +39,10 @@ public interface ICanvas : IDisposable
 
     void DrawNode(IGraphicNode node);
 
+    void DrawBackdrop(IBackdrop backdrop);
+
+    IBackdrop Snapshot();
+
     Bitmap<Bgra8888> GetBitmap();
 
     void Pop(int count = -1);
@@ -67,4 +71,17 @@ public enum TransformOperator
     Append,
 
     Set
+}
+
+public interface IBackdrop
+{
+    void Draw(ImmediateCanvas canvas);
+}
+
+internal sealed class TmpBackdrop(Bitmap<Bgra8888> bitmap) : IBackdrop
+{
+    public void Draw(ImmediateCanvas canvas)
+    {
+        canvas.DrawBitmap(bitmap, Brushes.White, null);
+    }
 }

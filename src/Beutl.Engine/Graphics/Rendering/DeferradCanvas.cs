@@ -211,6 +211,32 @@ public sealed class DeferradCanvas(ContainerNode container, PixelSize canvasSize
         ++_drawOperationindex;
     }
 
+    public void DrawBackdrop(IBackdrop backdrop)
+    {
+        DrawBackdropNode? next = Next<DrawBackdropNode>();
+
+        var b = new Rect(canvasSize.ToSize(1));
+        if (next == null || !next.Equals(backdrop, b))
+        {
+            Add(new DrawBackdropNode(backdrop, b));
+        }
+
+        ++_drawOperationindex;
+    }
+
+    public IBackdrop Snapshot()
+    {
+        SnapshotBackdropNode? next = Next<SnapshotBackdropNode>();
+
+        if (next == null)
+        {
+            Add(next = new SnapshotBackdropNode());
+        }
+
+        ++_drawOperationindex;
+        return next;
+    }
+
     public Bitmap<Bgra8888> GetBitmap()
     {
         throw new NotImplementedException();
@@ -221,7 +247,7 @@ public sealed class DeferradCanvas(ContainerNode container, PixelSize canvasSize
         if (count < 0)
         {
             while (count < 0
-                && _nodes.TryPop(out (ContainerNode, int) state))
+                   && _nodes.TryPop(out (ContainerNode, int) state))
             {
                 container.RemoveRange(_drawOperationindex, container.Children.Count - _drawOperationindex);
 
@@ -234,7 +260,7 @@ public sealed class DeferradCanvas(ContainerNode container, PixelSize canvasSize
         else
         {
             while (_nodes.Count >= count
-                && _nodes.TryPop(out (ContainerNode, int) state))
+                   && _nodes.TryPop(out (ContainerNode, int) state))
             {
                 container.RemoveRange(_drawOperationindex, container.Children.Count - _drawOperationindex);
 

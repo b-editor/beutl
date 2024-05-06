@@ -208,6 +208,16 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         node.Render(this);
     }
 
+    public void DrawBackdrop(IBackdrop backdrop)
+    {
+        backdrop.Draw(this);
+    }
+
+    public IBackdrop Snapshot()
+    {
+        return new TmpBackdrop(GetBitmap());
+    }
+
     public void DrawBitmap(IBitmap bmp, IBrush? fill, IPen? pen)
     {
         ObjectDisposedException.ThrowIf(bmp.IsDisposed, bmp);

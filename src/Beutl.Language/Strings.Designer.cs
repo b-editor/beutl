@@ -2210,5 +2210,11 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("CopyAll", resourceCulture);
             }
         }
+        
+        public static string Backdrop {
+            get {
+                return ResourceManager.GetString("Backdrop", resourceCulture);
+            }
+        }
     }
 }
