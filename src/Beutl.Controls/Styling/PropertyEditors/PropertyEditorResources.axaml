@@ -61,7 +61,7 @@
 
                     <ContentPresenter Name="ContentPresenter"
                                       Grid.Column="1"
-                                      Margin="0,4"
+                                      Margin="0,0"
                                       HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                                       VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                       Content="{TemplateBinding Content}"
@@ -278,7 +278,8 @@
                                        Text="{StaticResource ExpanderChevronDownGlyph}">
                                 <TextBlock.Transitions>
                                     <Transitions>
-                                        <TransformOperationsTransition Property="RenderTransform" Duration="00:00:00.167" />
+                                        <TransformOperationsTransition Property="RenderTransform"
+                                                                       Duration="00:00:00.167" />
                                     </Transitions>
                                 </TextBlock.Transitions>
                             </TextBlock>
