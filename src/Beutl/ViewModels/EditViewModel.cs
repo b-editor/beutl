@@ -2,10 +2,8 @@
 using System.Numerics;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
-
 using Avalonia.Input;
 using Avalonia.Threading;
-
 using Beutl.Animation;
 using Beutl.Api.Services;
 using Beutl.Configuration;
@@ -23,12 +21,9 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
-
 using Microsoft.Extensions.Logging;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-
 using LibraryService = Beutl.Services.LibraryService;
 
 namespace Beutl.ViewModels;
@@ -49,7 +44,9 @@ public sealed class ToolTabViewModel(IToolContext context) : IDisposable
 public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation, ISupportAutoSaveEditorContext
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
+
     private readonly CompositeDisposable _disposables = [];
+
     // Telemetryで使う
     private readonly string _sceneId;
 
@@ -97,7 +94,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             .DisposeWith(_disposables);
 
         SelectedLayerNumber = SelectedObject.Select(v =>
-            (v as Element)?.GetObservable(Element.ZIndexProperty).Select(i => (int?)i) ?? Observable.Return<int?>(null))
+                (v as Element)?.GetObservable(Element.ZIndexProperty).Select(i => (int?)i) ?? Observable.Return<int?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim();
 
@@ -129,11 +126,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         {
             if (e.PropertyName is nameof(EditorConfig.FrameCacheColorType) or nameof(EditorConfig.FrameCacheScale))
             {
-                FrameCacheManager.Value.Options = FrameCacheManager.Value.Options with
-                {
-                    ColorType = (FrameCacheColorType)config.FrameCacheColorType,
-                    Scale = (FrameCacheScale)config.FrameCacheScale
-                };
+                FrameCacheManager.Value.Options = FrameCacheManager.Value.Options with { ColorType = (FrameCacheColorType)config.FrameCacheColorType, Scale = (FrameCacheScale)config.FrameCacheScale };
             }
             else if (e.PropertyName is nameof(EditorConfig.IsFrameCacheEnabled))
             {
@@ -144,8 +137,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 }
             }
             else if (e.PropertyName is nameof(EditorConfig.IsNodeCacheEnabled)
-                or nameof(EditorConfig.NodeCacheMaxPixels)
-                or nameof(EditorConfig.NodeCacheMinPixels))
+                     or nameof(EditorConfig.NodeCacheMaxPixels)
+                     or nameof(EditorConfig.NodeCacheMinPixels))
             {
                 Rendering.Cache.RenderCacheContext? cacheContext = Renderer.Value.GetCacheContext();
                 if (cacheContext != null)
@@ -262,10 +255,12 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         {
             item.Dispose();
         }
+
         foreach (ToolTabViewModel item in RightTabItems.GetMarshal().Value)
         {
             item.Dispose();
         }
+
         BottomTabItems.Clear();
         RightTabItems.Clear();
 
@@ -337,8 +332,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 return true;
             }
             else if (!item.Extension.CanMultiple
-                && (BottomTabItems.Any(x => x.Context.Extension == item.Extension)
-                || RightTabItems.Any(x => x.Context.Extension == item.Extension)))
+                     && (BottomTabItems.Any(x => x.Context.Extension == item.Extension)
+                         || RightTabItems.Any(x => x.Context.Extension == item.Extension)))
             {
                 return false;
             }
@@ -395,17 +390,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     private void SaveState()
     {
         string viewStateDir = ViewStateDirectory();
-        var json = new JsonObject
-        {
-            ["selected-object"] = SelectedObject.Value?.Id,
-            ["max-layer-count"] = Options.Value.MaxLayerCount,
-            ["scale"] = Options.Value.Scale,
-            ["offset"] = new JsonObject
-            {
-                ["x"] = Options.Value.Offset.X,
-                ["y"] = Options.Value.Offset.Y,
-            }
-        };
+        var json = new JsonObject { ["selected-object"] = SelectedObject.Value?.Id, ["max-layer-count"] = Options.Value.MaxLayerCount, ["scale"] = Options.Value.Scale, ["offset"] = new JsonObject { ["x"] = Options.Value.Offset.X, ["y"] = Options.Value.Offset.Y, } };
 
         var bottomItems = new JsonArray();
         int bottomSelectedIndex = 0;
@@ -478,7 +463,9 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                     SelectedObject.Value = searcher.Search() as CoreObject;
                 }
             }
-            catch { }
+            catch
+            {
+            }
 
             var timelineOptions = new TimelineOptions();
 
@@ -486,20 +473,14 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 && maxLayer is JsonValue maxLayerValue
                 && maxLayerValue.TryGetValue(out int maxLayerCount))
             {
-                timelineOptions = timelineOptions with
-                {
-                    MaxLayerCount = maxLayerCount
-                };
+                timelineOptions = timelineOptions with { MaxLayerCount = maxLayerCount };
             }
 
             if (jsonObject.TryGetPropertyValue("scale", out JsonNode? scaleNode)
                 && scaleNode is JsonValue scaleValue
                 && scaleValue.TryGetValue(out float scale))
             {
-                timelineOptions = timelineOptions with
-                {
-                    Scale = scale
-                };
+                timelineOptions = timelineOptions with { Scale = scale };
             }
 
             if (jsonObject.TryGetPropertyValue("offset", out JsonNode? offsetNode)
@@ -511,10 +492,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 && xValue.TryGetValue(out float x)
                 && yValue.TryGetValue(out float y))
             {
-                timelineOptions = timelineOptions with
-                {
-                    Offset = new Vector2(x, y)
-                };
+                timelineOptions = timelineOptions with { Offset = new Vector2(x, y) };
             }
 
             Options.Value = timelineOptions;
@@ -533,10 +511,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                         && extension.TryCreateContext(this, out IToolContext? context))
                     {
                         context.ReadFromJson(itemObject);
-                        destination.Add(new ToolTabViewModel(context)
-                        {
-                            Order = count
-                        });
+                        destination.Add(new ToolTabViewModel(context) { Order = count });
                         count++;
                     }
                 }
@@ -607,13 +582,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     {
         Element CreateElement()
         {
-            return new Element()
-            {
-                Start = desc.Start,
-                Length = desc.Length,
-                ZIndex = desc.Layer,
-                FileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension)
-            };
+            return new Element() { Start = desc.Start, Length = desc.Length, ZIndex = desc.Layer, FileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension) };
         }
 
         void SetAccentColor(Element element, string str)
@@ -649,6 +618,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 }
             }
         }
+
         TimelineViewModel? timeline = FindToolTab<TimelineViewModel>();
 
         if (desc.FileName != null)
@@ -810,21 +780,32 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         if (timeline != null)
         {
             foreach (InlineAnimationLayerViewModel? item in timeline.Inlines
-                .IntersectBy(animations, v => v.Property.Animation)
-                .ToArray())
+                         .IntersectBy(animations, v => v.Property.Animation)
+                         .ToArray())
             {
                 timeline.DetachInline(item);
             }
         }
 
         // BottomTabItemsから削除する
-        foreach (ToolTabViewModel? item in BottomTabItems
-            .Where(x => x.Context is GraphEditorTabViewModel)
-            .IntersectBy(animations, v => ((GraphEditorTabViewModel)v.Context).SelectedAnimation.Value?.Animation)
-            .ToArray())
+        foreach (var item in BottomTabItems.ToArray())
         {
-            BottomTabItems.Remove(item);
-            item.Dispose();
+            if (item.Context is not GraphEditorTabViewModel graph) continue;
+
+            for (int i = graph.Items.Count - 1; i >= 0; i--)
+            {
+                var animation = graph.Items[i];
+                if (animations.Contains(animation.Object))
+                {
+                    graph.Items.Remove(animation);
+                }
+            }
+
+            if (graph.Items.Count == 0)
+            {
+                BottomTabItems.Remove(item);
+                item.Dispose();
+            }
         }
     }
 
@@ -833,11 +814,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     {
         static KeyBinding KeyBinding(Key key, KeyModifiers modifiers, ICommand command)
         {
-            return new KeyBinding
-            {
-                Gesture = new KeyGesture(key, modifiers),
-                Command = command
-            };
+            return new KeyBinding { Gesture = new KeyGesture(key, modifiers), Command = command };
         }
 
         return
