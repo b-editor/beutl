@@ -87,7 +87,7 @@ public static unsafe partial class Image
 
             var result = new Bitmap<Bgra8888>(self.Width, self.Height);
 
-            Buffer.MemoryCopy((void*)self.GetPixels(), (void*)result.Data, result.ByteCount, result.ByteCount);
+            Buffer.MemoryCopy((void*)bmp.GetPixels(), (void*)result.Data, result.ByteCount, result.ByteCount);
 
             return result;
         }
