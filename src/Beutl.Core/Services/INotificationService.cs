@@ -1,10 +1,5 @@
 ﻿namespace Beutl.Services;
 
-public interface INotificationService
-{
-    void Show(Notification notification);
-}
-
 public static class NotificationService
 {
     private static INotificationServiceHandler? s_handler;
@@ -31,7 +26,7 @@ public static class NotificationService
             title, message, type,
             expiration, onClose, onActionButtonClick, actionButtonText));
     }
-    
+
     public static void ShowInformation(string title, string message,
         TimeSpan? expiration = null,
         Action? onClose = null,

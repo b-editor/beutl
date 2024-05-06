@@ -303,4 +303,7 @@ Please wait a moment.</value>
   <data name="An_exception_occurred_while_parsing_the_SVG_path" xml:space="preserve">
     <value>An exception occurred while parsing the SVG path.</value>
   </data>
+  <data name="Signin has become invalid" xml:space="preserve">
+    <value>Sign-in has become invalid. Please sign in again.</value>
+  </data>
 </root>

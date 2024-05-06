@@ -303,4 +303,7 @@
   <data name="An_exception_occurred_while_parsing_the_SVG_path" xml:space="preserve">
     <value>SVGパスの解析中に例外が発生しました。</value>
   </data>
+  <data name="Signin has become invalid" xml:space="preserve">
+    <value>サインインが無効になりました。再度サインインしてください。</value>
+  </data>
 </root>
