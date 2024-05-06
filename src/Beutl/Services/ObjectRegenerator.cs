@@ -7,12 +7,12 @@ using Beutl.Utilities;
 
 namespace Beutl.Services;
 
-public static class CoreObjectReborn
+public static class ObjectRegenerator
 {
     private const int DefaultGuidStringSize = 36;
     private const int BufferSizeDefault = 16 * 1024;
 
-    private static void RebornCore<T>(T obj, PooledArrayBufferWriter<byte> output)
+    private static void RegenerateCore<T>(T obj, PooledArrayBufferWriter<byte> output)
         where T : class, ICoreObject, new()
     {
         var searcher = new ObjectSearcher(obj, v => v is ICoreObject);
@@ -65,11 +65,11 @@ public static class CoreObjectReborn
         }
     }
 
-    public static void Reborn<T>(T obj, out T newInstance)
+    public static void Regenerate<T>(T obj, out T newInstance)
         where T : class, ICoreObject, new()
     {
         using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
-        RebornCore(obj, output);
+        RegenerateCore(obj, output);
 
         Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
 
@@ -86,11 +86,11 @@ public static class CoreObjectReborn
         newInstance = instance;
     }
 
-    public static void Reborn<T>(T obj, out string json)
+    public static void Regenerate<T>(T obj, out string json)
         where T : class, ICoreObject, new()
     {
         using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
-        RebornCore(obj, output);
+        RegenerateCore(obj, output);
 
         Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
         json = Encoding.UTF8.GetString(buffer);

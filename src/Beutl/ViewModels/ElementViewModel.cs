@@ -353,7 +353,7 @@ public sealed class ElementViewModel : IDisposable
         if (forwardLength < minLength || backwardLength < minLength)
             return;
 
-        CoreObjectReborn.Reborn(Model, out Element backward);
+        ObjectRegenerator.Regenerate(Model, out Element backward);
 
         IRecordableCommand command1 = Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model);
         backward.Start = absTime;

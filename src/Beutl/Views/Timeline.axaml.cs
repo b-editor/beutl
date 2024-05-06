@@ -153,7 +153,7 @@ public sealed partial class Timeline : UserControl
 
                 CoreSerializerHelper.PopulateFromJsonObject(oldElement, JsonNode.Parse(json)!.AsObject());
 
-                CoreObjectReborn.Reborn(oldElement, out Element newElement);
+                ObjectRegenerator.Regenerate(oldElement, out Element newElement);
 
                 newElement.Start = ViewModel.ClickedFrame;
                 newElement.ZIndex = ViewModel.CalculateClickedLayer();
