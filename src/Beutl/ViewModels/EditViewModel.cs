@@ -47,13 +47,10 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     private readonly CompositeDisposable _disposables = [];
 
-    // Telemetryで使う
-    private readonly string _sceneId;
-
     public EditViewModel(Scene scene)
     {
         Scene = scene;
-        _sceneId = scene.Id.ToString();
+        SceneId = scene.Id.ToString();
         CurrentTime = new ReactivePropertySlim<TimeSpan>()
             .DisposeWith(_disposables);
         Renderer = scene.GetObservable(Scene.FrameSizeProperty).Select(_ => new SceneRenderer(Scene))
@@ -196,6 +193,9 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         SelectedObject.Value = null;
     }
 
+    // Telemetryで使う
+    public string SceneId { get; }
+
     public Scene Scene { get; private set; }
 
     public ReactivePropertySlim<TimeSpan> CurrentTime { get; }
@@ -242,6 +242,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public void Dispose()
     {
+        _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         SaveState();
         _disposables.Dispose();
@@ -270,9 +271,10 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         Commands = null!;
         CommandRecorder.Executed -= OnCommandRecorderExecuted;
         CommandRecorder.Clear();
-        CommandRecorder = null!;
+        FrameCacheManager.Value.Dispose();
         FrameCacheManager.Dispose();
-        FrameCacheManager = null!;
+
+        _logger.LogInformation("Disposed EditViewModel ({SceneId}).", SceneId);
     }
 
     public T? FindToolTab<T>(Func<T, bool> condition)
@@ -323,7 +325,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public bool OpenToolTab(IToolContext item)
     {
-        _logger.LogInformation("'{ToolTabName}' has been opened. ({SceneId})", item.Extension.Name, _sceneId);
+        _logger.LogInformation("'{ToolTabName}' has been opened. ({SceneId})", item.Extension.Name, SceneId);
         try
         {
             if (BottomTabItems.Any(x => x.Context == item) || RightTabItems.Any(x => x.Context == item))

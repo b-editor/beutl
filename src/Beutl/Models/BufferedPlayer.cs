@@ -65,7 +65,7 @@ public sealed class BufferedPlayer : IPlayer
 
                     if (_queue.Count >= 120)
                     {
-                        // Debug.WriteLine("wait timer");
+                        _logger.LogTrace("Wait timer. {QueueCount}", _queue.Count);
                         WaitTimer();
                     }
 
@@ -105,6 +105,7 @@ public sealed class BufferedPlayer : IPlayer
                     int? requestedFrame = _requestedFrame;
                     if (requestedFrame > frame)
                     {
+                        _logger.LogTrace("Delay {RequestedFrame} > {Frame}", requestedFrame, frame);
                         frame = requestedFrame.Value + 2;
                         _requestedFrame = null;
                     }
@@ -127,7 +128,7 @@ public sealed class BufferedPlayer : IPlayer
             return true;
         }
 
-        // Debug.WriteLine("wait rendered");
+        _logger.LogTrace("Wait rendered.");
         WaitRender();
 
         return _queue.TryDequeue(out frame);
@@ -153,7 +154,7 @@ public sealed class BufferedPlayer : IPlayer
 
     public void Skipped(int requestedFrame)
     {
-        // Debug.WriteLine($"{requestedFrame} skipped");
+        _logger.LogTrace("Skip. {RequestedFrame}", requestedFrame);
         _requestedFrame = requestedFrame;
     }
 

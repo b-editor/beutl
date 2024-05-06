@@ -1,8 +1,6 @@
 ﻿using System.Reactive.Subjects;
-
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-
 using Beutl.Audio.Platforms.OpenAL;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Configuration;
@@ -19,15 +17,10 @@ using Beutl.ProjectSystem;
 using Beutl.Rendering;
 using Beutl.Rendering.Cache;
 using Beutl.Services;
-
 using Microsoft.Extensions.Logging;
-
 using OpenTK.Audio.OpenAL;
-
 using Reactive.Bindings;
-
 using SkiaSharp;
-
 using Vortice.Multimedia;
 
 namespace Beutl.ViewModels;
@@ -179,18 +172,11 @@ public sealed class PlayerViewModel : IDisposable
                         den++;
                     }
 
-                    frameCacheManager.Options = frameCacheManager.Options with
-                    {
-                        Size = PixelSize.FromSize(frameSize, 1f / den)
-                    };
+                    frameCacheManager.Options = frameCacheManager.Options with { Size = PixelSize.FromSize(frameSize, 1f / den) };
                 }
                 else
                 {
-
-                    frameCacheManager.Options = frameCacheManager.Options with
-                    {
-                        Size = null
-                    };
+                    frameCacheManager.Options = frameCacheManager.Options with { Size = null };
                 }
             }
         }
@@ -209,7 +195,6 @@ public sealed class PlayerViewModel : IDisposable
             if (!_isEnabled.Value || Scene == null)
                 return;
 
-            IRenderer renderer = EditViewModel.Renderer.Value;
             BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
             FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
             Scene.Invalidated -= OnSceneInvalidated;
@@ -228,13 +213,12 @@ public sealed class PlayerViewModel : IDisposable
                 var tcs = new TaskCompletionSource();
                 bufferStatus.StartTime.Value = startTime;
                 bufferStatus.EndTime.Value = startTime;
-                frameCacheManager.Options = frameCacheManager.Options with
-                {
-                    DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock
-                };
+                frameCacheManager.Options = frameCacheManager.Options with { DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock };
 
                 frameCacheManager.CurrentFrame = startFrame;
                 using var playerImpl = new BufferedPlayer(EditViewModel, Scene, IsPlaying, rate);
+                _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
+                    _editViewModel.SceneId, rate, startFrame, durationFrame);
                 playerImpl.Start();
 
                 PlayAudio(Scene);
@@ -297,10 +281,7 @@ public sealed class PlayerViewModel : IDisposable
             }
             finally
             {
-                frameCacheManager.Options = frameCacheManager.Options with
-                {
-                    DeletionStrategy = FrameCacheDeletionStrategy.Old
-                };
+                frameCacheManager.Options = frameCacheManager.Options with { DeletionStrategy = FrameCacheDeletionStrategy.Old };
 
                 _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
                 Scene.Invalidated += OnSceneInvalidated;
@@ -367,6 +348,7 @@ public sealed class PlayerViewModel : IDisposable
             {
                 buffer.BufferData(pcm.DataSpan, fmt);
             }
+
             source.QueueBuffer(buffer);
         }
 
@@ -519,6 +501,7 @@ public sealed class PlayerViewModel : IDisposable
 
     public void Pause()
     {
+        _logger.LogTrace("Pause the playback. ({SceneId})", _editViewModel.SceneId);
         IsPlaying.Value = false;
     }
 
@@ -616,7 +599,7 @@ public sealed class PlayerViewModel : IDisposable
                             canvas.Clear();
 
                             using (canvas.PushTransform(
-                                Matrix.CreateScale(canvas.Size.Width / (float)cache.Value.Width, canvas.Size.Height / (float)cache.Value.Height)))
+                                       Matrix.CreateScale(canvas.Size.Width / (float)cache.Value.Width, canvas.Size.Height / (float)cache.Value.Height)))
                             {
                                 canvas.DrawBitmap(cache.Value, Brushes.White, null);
                             }
@@ -693,12 +676,14 @@ public sealed class PlayerViewModel : IDisposable
 
     public void Dispose()
     {
+        _logger.LogInformation("Disposing PlayerViewModel. ({SceneId})", _editViewModel.SceneId);
         Pause();
         _disposables.Dispose();
         _currentFrameSubscription?.Dispose();
         AfterRendered.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
+        _logger.LogInformation("Disposed PlayerViewModel. ({SceneId})", _editViewModel.SceneId);
     }
 
     public async Task<Rect> StartSelectRect()
@@ -728,7 +713,7 @@ public sealed class PlayerViewModel : IDisposable
             Rect bounds = root.Bounds;
             var rect = PixelRect.FromRect(bounds);
             using SKSurface? surface = renderer.CreateRenderTarget(rect.Width, rect.Height)
-                ?? throw new Exception("surface is null");
+                                       ?? throw new Exception("surface is null");
 
             using ImmediateCanvas icanvas = renderer.CreateCanvas(surface, true);
 
