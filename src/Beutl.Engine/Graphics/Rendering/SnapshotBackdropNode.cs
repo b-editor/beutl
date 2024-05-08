@@ -13,7 +13,7 @@ public class SnapshotBackdropNode() : DrawNode(default), IBackdrop, ISupportRend
     public override void Render(ImmediateCanvas canvas)
     {
         _bitmap?.Dispose();
-        _bitmap = canvas.GetBitmap();
+        _bitmap = canvas.GetRoot().GetBitmap();
     }
 
     public void Draw(ImmediateCanvas canvas)

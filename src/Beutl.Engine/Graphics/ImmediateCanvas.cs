@@ -6,7 +6,6 @@ using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
 using Beutl.Rendering.Cache;
 using Beutl.Threading;
-
 using SkiaSharp;
 using SkiaSharp.HarfBuzz;
 
@@ -76,14 +75,13 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
         if (Factory != null)
         {
-            return Factory.CreateCanvas(surface, leaveOpen);
+            var canvas = Factory.CreateCanvas(surface, leaveOpen);
+            canvas.Factory = this;
+            return canvas;
         }
         else
         {
-            return new ImmediateCanvas(surface, leaveOpen)
-            {
-                Factory = this
-            };
+            return new ImmediateCanvas(surface, leaveOpen) { Factory = this };
         }
     }
 
@@ -97,6 +95,18 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         {
             return SKSurface.Create(
                 new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
+        }
+    }
+
+    internal ImmediateCanvas GetRoot()
+    {
+        if (Factory is ImmediateCanvas parent && parent != this)
+        {
+            return parent.GetRoot();
+        }
+        else
+        {
+            return this;
         }
     }
 
@@ -330,7 +340,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
         if (pen != null
             && pen.Thickness > 0
-            && text.GetStrokePath() is { }stroke)
+            && text.GetStrokePath() is { } stroke)
         {
             ConfigureStrokePaint(new(text.Bounds.Size), pen!);
             _sharedStrokePaint.IsStroke = false;
@@ -396,7 +406,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         if (count < 0)
         {
             while (count < 0
-                && _states.TryPop(out CanvasPushedState? state))
+                   && _states.TryPop(out CanvasPushedState? state))
             {
                 state.Pop(this);
                 count++;
@@ -405,7 +415,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         else
         {
             while (_states.Count >= count
-                && _states.TryPop(out CanvasPushedState? state))
+                   && _states.TryPop(out CanvasPushedState? state))
             {
                 state.Pop(this);
             }
