@@ -113,6 +113,18 @@
         <Setter Property="OnContent" Value="{x:Static lang:Strings.On}" />
         <Setter Property="OffContent" Value="{x:Static lang:Strings.Off}" />
     </Style>
+    <Style Selector="TextBox">
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="CheckBox">
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ToggleSwitch">
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ComboBox">
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
 
     <Style Selector=":is(Control).size-24x24">
         <Setter Property="Width" Value="24" />

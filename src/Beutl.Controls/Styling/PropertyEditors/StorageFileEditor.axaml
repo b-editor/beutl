@@ -78,7 +78,14 @@
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <Grid ColumnDefinitions="2*,3*,Auto">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
                         <TextBlock Name="PART_HeaderTextBlock"
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
@@ -87,7 +94,9 @@
                                    Text="{TemplateBinding Header}"
                                    TextTrimming="CharacterEllipsis" />
 
-                        <Grid Grid.Column="1"
+                        <GridSplitter Grid.Column="1" Background="Transparent" />
+
+                        <Grid Grid.Column="2"
                               MinWidth="120"
                               Margin="4"
                               ColumnDefinitions="*,Auto">

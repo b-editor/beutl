@@ -17,10 +17,10 @@
              mc:Ignorable="d">
     <UserControl.Styles>
         <Style Selector="Button.SmallButton">
-            <Setter Property="Padding" Value="0,0,0,3.5" />
+            <Setter Property="Padding" Value="0,0,0,0" />
             <Setter Property="VerticalAlignment" Value="Stretch" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="VerticalContentAlignment" Value="Bottom" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
         <Style Selector="TextBox.custom">
             <Style.Resources>
@@ -58,7 +58,7 @@
                 Classes="SmallButton"
                 Command="{CompiledBinding Close}"
                 Theme="{StaticResource TransparentButton}">
-            <icons:SymbolIcon VerticalAlignment="Center" Symbol="Dismiss" />
+            <ui:SymbolIcon Symbol="Dismiss" />
         </Button>
 
         <Button Grid.Column="3"
@@ -66,7 +66,7 @@
                 Classes="SmallButton"
                 Click="OpenTab_Click"
                 Theme="{StaticResource TransparentButton}">
-            <icons:SymbolIcon VerticalAlignment="Center" Symbol="Open" />
+            <ui:SymbolIcon Symbol="Open" />
         </Button>
 
 
