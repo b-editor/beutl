@@ -255,6 +255,11 @@ public static class LibraryRegistrar
                     .BindFilterEffect<TransformEffect>()
                 )
 
+                .AddMultiple(Strings.Mosaic, m => m
+                    .BindSourceOperator<Configure.Effects.MosaicOperator>()
+                    .BindFilterEffect<Mosaic>()
+                )
+
                 .AddGroup("OpenCV", gg => gg
                     .AddMultiple("CvBlur", m => m
                         .BindSourceOperator<Configure.Effects.CvBlursOperator>()

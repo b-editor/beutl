@@ -163,3 +163,12 @@ public sealed class SplitEffectOperator : FilterEffectOperator<SplitEffect>
 public sealed class PartsSplitEffectOperator : FilterEffectOperator<PartsSplitEffect>
 {
 }
+
+public sealed class MosaicOperator : FilterEffectOperator<Mosaic>
+{
+    public Setter<float> Scale { get; set; } = new(Mosaic.ScaleProperty);
+
+    public Setter<float> ScaleX { get; set; } = new(Mosaic.ScaleXProperty);
+
+    public Setter<float> ScaleY { get; set; } = new(Mosaic.ScaleYProperty);
+}
