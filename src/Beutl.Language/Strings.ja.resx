@@ -1201,4 +1201,10 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="CopyAll" xml:space="preserve">
     <value>すべてコピー</value>
   </data>
+  <data name="Backdrop" xml:space="preserve">
+    <value>バックドロップ</value>
+  </data>
+  <data name="ClearBuffer" xml:space="preserve">
+    <value>バッファをクリア</value>
+  </data>
 </root>

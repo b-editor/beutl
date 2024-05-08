@@ -14,7 +14,7 @@ namespace Beutl.Operators;
 public static class LibraryRegistrar
 {
     public static void RegisterAll()
-    {   
+    {
         LibraryService.Current
             .AddMultiple(Strings.Ellipse, m => m
                 .BindSourceOperator<Source.EllipseOperator>()
@@ -38,7 +38,7 @@ public static class LibraryRegistrar
                 .BindNode<NodeTree.Nodes.Geometry.RoundedRectGeometryNode>()
                 .BindGeometry<RoundedRectGeometry>()
             );
-        
+
         LibraryService.Current
             .AddMultiple(Strings.GeometryShape, m => m
                 .BindSourceOperator<Source.GeometryOperator>()
@@ -61,6 +61,12 @@ public static class LibraryRegistrar
             .AddMultiple(Strings.Image, m => m
                 .BindSourceOperator<Source.SourceImageOperator>()
                 .BindDrawable<SourceImage>()
+            );
+
+        LibraryService.Current
+            .AddMultiple(Strings.Backdrop, m => m
+                .BindSourceOperator<Source.SourceBackdropOperator>()
+                .BindDrawable<SourceBackdrop>()
             );
 
         LibraryService.Current
@@ -116,7 +122,7 @@ public static class LibraryRegistrar
                     .BindNode<Rotation3DTransformNode>()
                 )
             );
-        
+
         LibraryService.Current
             .RegisterGroup(Strings.FilterEffect, g => g
                 .AddMultiple(Strings.Blur, m => m
@@ -133,17 +139,17 @@ public static class LibraryRegistrar
                     .BindSourceOperator<Configure.Effects.InnerShadowOperator>()
                     .BindFilterEffect<InnerShadow>()
                 )
-                
+
                 .AddMultiple(Strings.FlatShadow, m => m
                     .BindSourceOperator<Configure.Effects.FlatShadowOperator>()
                     .BindFilterEffect<FlatShadow>()
                 )
-                
+
                 .AddMultiple($"{Strings.Border} (deprecated)", m => m
                     .BindSourceOperator<Configure.Effects.BorderOperator>()
                     .BindFilterEffect<Border>()
                 )
-                
+
                 .AddMultiple(Strings.StrokeEffect, m => m
                     .BindSourceOperator<Configure.Effects.StrokeEffectOperator>()
                     .BindFilterEffect<StrokeEffect>()
@@ -213,22 +219,22 @@ public static class LibraryRegistrar
                     .BindSourceOperator<Configure.Effects.LutEffectOperator>()
                     .BindFilterEffect<LutEffect>()
                 )
-                
+
                 .AddMultiple(Strings.BlendEffect, m => m
                     .BindSourceOperator<Configure.Effects.BlendEffectOperator>()
                     .BindFilterEffect<BlendEffect>()
                 )
-                
+
                 .AddMultiple(Strings.Negaposi, m => m
                     .BindSourceOperator<Configure.Effects.NegaposiOperator>()
                     .BindFilterEffect<Negaposi>()
                 )
-                
+
                 .AddMultiple(Strings.ChromaKey, m => m
                     .BindSourceOperator<Configure.Effects.ChromaKeyOperator>()
                     .BindFilterEffect<ChromaKey>()
                 )
-                
+
                 .AddMultiple(Strings.ColorKey, m => m
                     .BindSourceOperator<Configure.Effects.ColorKeyOperator>()
                     .BindFilterEffect<ColorKey>()
