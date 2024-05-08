@@ -1204,4 +1204,7 @@ and b-editor maintains the download URL.</value>
   <data name="Backdrop" xml:space="preserve">
     <value>Backdrop</value>
   </data>
+  <data name="ClearBuffer" xml:space="preserve">
+    <value>Clear Buffer</value>
+  </data>
 </root>

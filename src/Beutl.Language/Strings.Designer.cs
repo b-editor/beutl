@@ -2216,5 +2216,11 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Backdrop", resourceCulture);
             }
         }
+        
+        public static string ClearBuffer {
+            get {
+                return ResourceManager.GetString("ClearBuffer", resourceCulture);
+            }
+        }
     }
 }

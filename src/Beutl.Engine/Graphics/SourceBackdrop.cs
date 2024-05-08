@@ -1,4 +1,7 @@
-﻿namespace Beutl.Graphics;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Language;
+
+namespace Beutl.Graphics;
 
 public class SourceBackdrop : Drawable
 {
@@ -15,6 +18,7 @@ public class SourceBackdrop : Drawable
         AffectsRender<SourceBackdrop>(ClearProperty);
     }
 
+    [Display(Name = nameof(Strings.ClearBuffer), ResourceType = typeof(Strings))]
     public bool Clear
     {
         get => _clear;
@@ -33,7 +37,7 @@ public class SourceBackdrop : Drawable
     public override void Render(ICanvas canvas)
     {
         base.Render(canvas);
-        
+
         if (IsVisible)
         {
             var backdrop = canvas.Snapshot();
@@ -41,7 +45,7 @@ public class SourceBackdrop : Drawable
             {
                 canvas.Clear();
             }
-            
+
             Size availableSize = canvas.Size.ToSize(1);
             Size size = MeasureCore(availableSize);
             var rect = new Rect(size);
