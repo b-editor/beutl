@@ -2,48 +2,26 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:editor="using:Beutl.Controls.PropertyEditors"
              xmlns:vm="using:Beutl.ViewModels.Editors"
-             Margin="4,0"
              d:DesignWidth="300"
              x:CompileBindings="True"
              x:DataType="vm:SoundSourceEditorViewModel"
              mc:Ignorable="d">
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="2*" />
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
-            <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <TextBlock Margin="4,0,0,0"
-                   HorizontalAlignment="Left"
-                   VerticalAlignment="Center"
-                   Text="{Binding Header}" />
-
-        <GridSplitter Grid.Column="1" Background="Transparent" />
-
-
-        <Button x:Name="button"
-                Grid.Column="2"
-                Margin="4"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Stretch"
-                VerticalContentAlignment="Stretch"
-                IsEnabled="{Binding CanEdit.Value}"
-                ToolTip.Tip="{Binding Value.Value.Name, Mode=OneWay}">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBlock VerticalAlignment="Center" Text="{Binding ShortName.Value, Mode=OneWay}" />
-
-                <icons:SymbolIcon Grid.Column="1"
-                                  VerticalAlignment="Center"
-                                  Symbol="Open" />
-            </Grid>
-        </Button>
-
-        <local:PropertyEditorMenu Grid.Column="3" />
-    </Grid>
+    <StackPanel>
+        <editor:StorageFileEditor x:Name="FileEditor"
+                                  Value="{Binding FileInfo.Value}"
+                                  KeyFrameCount="{Binding KeyFrameCount.Value}"
+                                  KeyFrameIndex="{Binding KeyFrameIndex.Value}"
+                                  IsReadOnly="{Binding IsReadOnly.Value}"
+                                  Header="{Binding Header, Mode=OneTime}"
+                                  Description="{Binding Description, Mode=OneTime}">
+            <editor:StorageFileEditor.MenuContent>
+                <local:PropertyEditorMenu />
+            </editor:StorageFileEditor.MenuContent>
+        </editor:StorageFileEditor>
+        <TextBlock x:Name="message" Theme="{StaticResource ErrorTextBlockStyle}" IsVisible="False" />
+    </StackPanel>
 </UserControl>

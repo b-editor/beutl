@@ -1,6 +1,5 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Platform.Storage;
-
+using Beutl.Controls.PropertyEditors;
 using Beutl.Media.Source;
 using Beutl.ViewModels.Editors;
 
@@ -11,20 +10,19 @@ public partial class ImageSourceEditor : UserControl
     public ImageSourceEditor()
     {
         InitializeComponent();
-        button.Click += Button_Click;
+        FileEditor.OpenOptions = SharedFilePickerOptions.OpenImage();
+        FileEditor.ValueConfirmed += FileEditorOnValueConfirmed;
     }
 
-    private async void Button_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not ImageSourceEditorViewModel vm || VisualRoot is not TopLevel topLevel) return;
+        if (DataContext is not ImageSourceEditorViewModel vm) return;
+        if (e.NewValue is not FileInfo fi) return;
 
-        IReadOnlyList<IStorageFile> result = await topLevel.StorageProvider.OpenFilePickerAsync(SharedFilePickerOptions.OpenImage());
-        if (result.Count > 0
-            && result[0].TryGetLocalPath() is string localPath
-            && BitmapSource.TryOpen(localPath, out BitmapSource? imageSource))
-        {
-            IImageSource? oldValue = vm.WrappedProperty.GetValue();
-            vm.SetValueAndDispose(oldValue, imageSource);
-        }
+        // 画像を開く
+        if (!BitmapSource.TryOpen(fi.FullName, out BitmapSource? bitmapSource)) return;
+
+        IImageSource? oldValue = vm.WrappedProperty.GetValue();
+        vm.SetValueAndDispose(oldValue, bitmapSource);
     }
 }

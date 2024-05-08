@@ -1,14 +1,11 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Platform.Storage;
-
+using Beutl.Controls.PropertyEditors;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-
-using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
@@ -18,15 +15,8 @@ public partial class VideoSourceEditor : UserControl
     public VideoSourceEditor()
     {
         InitializeComponent();
-        button.Click += Button_Click;
-    }
-
-    private async void Button_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (DataContext is not VideoSourceEditorViewModel vm || VisualRoot is not TopLevel topLevel) return;
-
         string[] fileExtensions = DecoderRegistry.EnumerateDecoder()
-            .SelectMany(x => x.VideoExtensions().Concat(x.VideoExtensions()))
+            .SelectMany(x => x.VideoExtensions())
             .Distinct()
             .Select(x =>
             {
@@ -34,67 +24,42 @@ public partial class VideoSourceEditor : UserControl
                 {
                     return x;
                 }
+                else if (x.StartsWith('.'))
+                {
+                    return $"*{x}";
+                }
                 else
                 {
-                    if (x.StartsWith('.'))
-                    {
-                        return $"*{x}";
-                    }
-                    else
-                    {
-                        return $"*.{x}";
-                    }
+                    return $"*.{x}";
                 }
             })
             .ToArray();
-
         if (fileExtensions.Length == 0)
         {
-            var contentDialog = new ContentDialog()
-            {
-                Title = Message.No_supported_extensions_were_found,
-                CloseButtonText = Strings.Close,
-                PrimaryButtonText = Strings.OpenDocument
-            };
-
-            if (await contentDialog.ShowAsync() == ContentDialogResult.Primary)
-            {
-                Process.Start(new ProcessStartInfo("https://github.com/b-editor/beutl-docs")
-                {
-                    UseShellExecute = true,
-                    Verb = "open"
-                });
-            }
+            message.Text = Message.No_supported_extensions_were_found;
+            message.IsVisible = true;
         }
-        else
-        {
-            var options = new FilePickerOpenOptions
-            {
-                FileTypeFilter = new FilePickerFileType[]
-                {
-                    new FilePickerFileType("Video File")
-                    {
-                        Patterns = fileExtensions
-                    }
-                }
-            };
 
-            IReadOnlyList<IStorageFile> result = await topLevel.StorageProvider.OpenFilePickerAsync(options);
-            if (result.Count > 0
-                && result[0].TryGetLocalPath() is string localPath
-                && VideoSource.TryOpen(localPath, out VideoSource? videoSource))
-            {
-                IVideoSource? oldValue = vm.WrappedProperty.GetValue();
-                vm.SetValueAndDispose(oldValue, videoSource);
+        FileEditor.OpenOptions = new FilePickerOpenOptions { FileTypeFilter = new[] { new FilePickerFileType("Video File") { Patterns = fileExtensions } } };
+        FileEditor.ValueConfirmed += FileEditorOnValueConfirmed;
+    }
 
-                if (vm.GetService<Element>() is Element element)
-                {
-                    TimelineViewModel? timeline = vm.GetService<EditViewModel>()?.FindToolTab<TimelineViewModel>();
-                    ElementViewModel? elmViewModel = timeline?.GetViewModelFor(element);
+    private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
+    {
+        if (DataContext is not VideoSourceEditorViewModel vm) return;
+        if (e.NewValue is not FileInfo fi) return;
 
-                    elmViewModel?.ChangeToOriginalLength?.Execute();
-                }
-            }
-        }
+        // 動画を開く
+        if (!VideoSource.TryOpen(fi.FullName, out VideoSource? videoSource)) return;
+
+        IVideoSource? oldValue = vm.WrappedProperty.GetValue();
+        vm.SetValueAndDispose(oldValue, videoSource);
+
+        // 動画の長さに要素の長さを合わせる
+        if (vm.GetService<Element>() is not { } element) return;
+        TimelineViewModel? timeline = vm.GetService<EditViewModel>()?.FindToolTab<TimelineViewModel>();
+        ElementViewModel? elmViewModel = timeline?.GetViewModelFor(element);
+
+        elmViewModel?.ChangeToOriginalLength.Execute();
     }
 }

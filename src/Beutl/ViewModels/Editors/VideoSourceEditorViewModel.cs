@@ -1,10 +1,7 @@
 ﻿using System.Collections.Immutable;
-
 using Beutl.Animation;
 using Beutl.Media.Source;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -14,12 +11,18 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
     public VideoSourceEditorViewModel(IAbstractProperty<IVideoSource?> property)
         : base(property)
     {
-        ShortName = Value.Select(x => Path.GetFileName(x?.Name))
+        FullName = Value.Select(x => x?.Name)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        FileInfo = Value.Select(x => x != null ? new FileInfo(x.Name) : null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<string?> ShortName { get; }
+    public ReadOnlyReactivePropertySlim<string?> FullName { get; }
+
+    public ReadOnlyReactivePropertySlim<FileInfo?> FileInfo { get; }
 
     public void SetValueAndDispose(IVideoSource? oldValue, IVideoSource? newValue)
     {
@@ -40,7 +43,9 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
     }
 
     private sealed class SetKeyFrameValueCommand(
-        KeyFrame<IVideoSource?> setter, IVideoSource? oldValue, IVideoSource? newValue,
+        KeyFrame<IVideoSource?> setter,
+        IVideoSource? oldValue,
+        IVideoSource? newValue,
         ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
@@ -83,7 +88,9 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
     }
 
     private sealed class SetCommand(
-        IAbstractProperty<IVideoSource?> setter, IVideoSource? oldValue, IVideoSource? newValue,
+        IAbstractProperty<IVideoSource?> setter,
+        IVideoSource? oldValue,
+        IVideoSource? newValue,
         ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;

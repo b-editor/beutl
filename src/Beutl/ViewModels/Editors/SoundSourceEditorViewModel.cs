@@ -14,12 +14,18 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
     public SoundSourceEditorViewModel(IAbstractProperty<ISoundSource?> property)
         : base(property)
     {
-        ShortName = Value.Select(x => Path.GetFileName(x?.Name))
+        FullName = Value.Select(x => x?.Name)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        FileInfo = Value.Select(x => x != null ? new FileInfo(x.Name) : null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<string?> ShortName { get; }
+    public ReadOnlyReactivePropertySlim<string?> FullName { get; }
+
+    public ReadOnlyReactivePropertySlim<FileInfo?> FileInfo { get; }
 
     public void SetValueAndDispose(ISoundSource? oldValue, ISoundSource? newValue)
     {
