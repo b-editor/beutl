@@ -86,7 +86,7 @@ public class ColorEditor : PropertyEditor
             _flyout.ColorPicker.ColorChanged += OnColorPickerColorChanged;
         }
 
-        _flyout.ShowAt(this, true);
+        _flyout.ShowAt(this);
 
         _flyoutActive = true;
 

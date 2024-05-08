@@ -82,7 +82,7 @@ public sealed partial class BrushEditor : UserControl
 
             _flyout.Brush = Brush;
 
-            _flyout.ShowAt(this, true);
+            _flyout.ShowAt(this);
         }
     }
 
