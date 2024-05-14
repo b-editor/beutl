@@ -5,7 +5,6 @@ using Avalonia.Controls.PanAndZoom;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-
 using Beutl.Collections.Pooled;
 using Beutl.NodeTree;
 using Beutl.Services;
@@ -41,6 +40,7 @@ public partial class NodeTreeView : UserControl
     private void OnDrop(object? sender, DragEventArgs e)
     {
         if (DataContext is NodeTreeViewModel viewModel
+            && e.Data.Contains(KnownLibraryItemFormats.Node)
             && e.Data.Get(KnownLibraryItemFormats.Node) is Type item)
         {
             Point point = e.GetPosition(canvas) - new Point(215 / 2, 0);
@@ -151,11 +151,7 @@ public partial class NodeTreeView : UserControl
 
         foreach (NodeRegistry.BaseRegistryItem item in NodeRegistry.GetRegistered())
         {
-            var menuItem = new MenuItem
-            {
-                Header = item.DisplayName,
-                DataContext = item,
-            };
+            var menuItem = new MenuItem { Header = item.DisplayName, DataContext = item, };
             menuItem.Click += AddNodeClick;
             menulist.Add(menuItem);
 
@@ -172,11 +168,7 @@ public partial class NodeTreeView : UserControl
         menuItem.ItemsSource = alist;
         foreach (NodeRegistry.BaseRegistryItem item in list.Items)
         {
-            var menuItem2 = new MenuItem
-            {
-                Header = item.DisplayName,
-                DataContext = item,
-            };
+            var menuItem2 = new MenuItem { Header = item.DisplayName, DataContext = item, };
 
             if (item is NodeRegistry.GroupableRegistryItem inner)
             {
@@ -186,6 +178,7 @@ public partial class NodeTreeView : UserControl
             {
                 menuItem2.Click += AddNodeClick;
             }
+
             alist.Add(menuItem2);
         }
     }
@@ -206,76 +199,67 @@ public partial class NodeTreeView : UserControl
 
     internal static ConnectionLine CreateLine(InputSocketViewModel input, OutputSocketViewModel output)
     {
-        return new ConnectionLine()
-        {
-            [!Line.StartPointProperty] = input.SocketPosition.ToBinding(),
-            [!Line.EndPointProperty] = output.SocketPosition.ToBinding(),
-            InputSocket = input,
-            OutputSocket = output
-        };
+        return new ConnectionLine() { [!Line.StartPointProperty] = input.SocketPosition.ToBinding(), [!Line.EndPointProperty] = output.SocketPosition.ToBinding(), InputSocket = input, OutputSocket = output };
     }
 
     private void OnDataContextAttached(NodeTreeViewModel obj)
     {
         obj.Nodes.ForEachItem(
-            node =>
-            {
-                var control = new NodeView()
+                node =>
                 {
-                    DataContext = node
-                };
-                canvas.Children.Add(control);
+                    var control = new NodeView() { DataContext = node };
+                    canvas.Children.Add(control);
 
-                using var list = new PooledList<Connection>();
-                foreach (NodeItemViewModel item in node.Items)
-                {
-                    if (item is InputSocketViewModel { Model.Connection: { } connection })
+                    using var list = new PooledList<Connection>();
+                    foreach (NodeItemViewModel item in node.Items)
                     {
-                        list.Add(connection);
-                    }
-                    else if (item is OutputSocketViewModel { Model: { } outputSocket })
-                    {
-                        list.AddRange(outputSocket.Connections);
-                    }
-                }
-
-                foreach (Connection connection in list.Span)
-                {
-                    if (!canvas.Children.OfType<ConnectionLine>().Any(x => x.Match(connection.Input, connection.Output)) &&
-                        obj.FindSocketViewModel(connection.Input) is InputSocketViewModel inputViewModel &&
-                        obj.FindSocketViewModel(connection.Output) is OutputSocketViewModel outputViewModel)
-                    {
-                        ConnectionLine line = CreateLine(inputViewModel, outputViewModel);
-                        canvas.Children.Insert(0, line);
-                    }
-                }
-            },
-            node =>
-            {
-                Control? control = canvas.Children.FirstOrDefault(x => x.DataContext == node);
-                if (control != null)
-                {
-                    canvas.Children.Remove(control);
-                }
-
-                foreach (NodeItemViewModel item in node.Items)
-                {
-                    if (item is InputSocketViewModel { Model: { } input })
-                    {
-                        ConnectionLine? line = canvas.Children.OfType<ConnectionLine>()
-                            .FirstOrDefault(x => x.Match(input));
-                        if (line != null)
+                        if (item is InputSocketViewModel { Model.Connection: { } connection })
                         {
-                            canvas.Children.Remove(line);
+                            list.Add(connection);
+                        }
+                        else if (item is OutputSocketViewModel { Model: { } outputSocket })
+                        {
+                            list.AddRange(outputSocket.Connections);
                         }
                     }
-                    else if (item is OutputSocketViewModel { Model: { } output })
+
+                    foreach (Connection connection in list.Span)
                     {
-                        canvas.Children.RemoveAll(canvas.Children.OfType<ConnectionLine>().Where(x => x.Match(output)));
+                        if (!canvas.Children.OfType<ConnectionLine>().Any(x => x.Match(connection.Input, connection.Output)) &&
+                            obj.FindSocketViewModel(connection.Input) is InputSocketViewModel inputViewModel &&
+                            obj.FindSocketViewModel(connection.Output) is OutputSocketViewModel outputViewModel)
+                        {
+                            ConnectionLine line = CreateLine(inputViewModel, outputViewModel);
+                            canvas.Children.Insert(0, line);
+                        }
                     }
-                }
-            },
-            canvas.Children.Clear)
+                },
+                node =>
+                {
+                    Control? control = canvas.Children.FirstOrDefault(x => x.DataContext == node);
+                    if (control != null)
+                    {
+                        canvas.Children.Remove(control);
+                    }
+
+                    foreach (NodeItemViewModel item in node.Items)
+                    {
+                        if (item is InputSocketViewModel { Model: { } input })
+                        {
+                            ConnectionLine? line = canvas.Children.OfType<ConnectionLine>()
+                                .FirstOrDefault(x => x.Match(input));
+                            if (line != null)
+                            {
+                                canvas.Children.Remove(line);
+                            }
+                        }
+                        else if (item is OutputSocketViewModel { Model: { } output })
+                        {
+                            canvas.Children.RemoveAll(canvas.Children.OfType<ConnectionLine>().Where(x => x.Match(output)));
+                        }
+                    }
+                },
+                canvas.Children.Clear)
             .DisposeWith(_disposables);
 
         obj.Matrix.Where(_ => !_matrixUpdating)

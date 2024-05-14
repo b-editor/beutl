@@ -68,7 +68,8 @@ public partial class TransformEditor : UserControl
                 return KnownTransformType.Unknown;
         }
 
-        if (e.Data.Get(KnownLibraryItemFormats.Transform) is Type type
+        if (e.Data.Contains(KnownLibraryItemFormats.Transform)
+            && e.Data.Get(KnownLibraryItemFormats.Transform) is Type type
             && DataContext is TransformEditorViewModel viewModel)
         {
             KnownTransformType knownType = ToKnownType(type);

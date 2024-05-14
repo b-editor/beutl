@@ -59,7 +59,8 @@ public partial class FilterEffectEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get(KnownLibraryItemFormats.FilterEffect) is Type type
+        if (e.Data.Contains(KnownLibraryItemFormats.FilterEffect)
+            && e.Data.Get(KnownLibraryItemFormats.FilterEffect) is Type type
             && DataContext is FilterEffectEditorViewModel viewModel)
         {
             if (viewModel.IsGroup.Value)

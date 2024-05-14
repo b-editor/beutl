@@ -1,6 +1,5 @@
 ﻿using Avalonia.Input;
 using Avalonia.Platform.Storage;
-
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
@@ -11,7 +10,6 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
-
 using AvaPoint = Avalonia.Point;
 
 namespace Beutl.Views;
@@ -29,8 +27,9 @@ public partial class PlayerView
         Point scaledPosition = (position / scaleX).ToBtlPoint();
         Point centerePosition = scaledPosition - new Point(scene.FrameSize.Width / 2, scene.FrameSize.Height / 2);
 
-        if (e.Data.Contains(KnownLibraryItemFormats.FilterEffect)
-            || e.Data.Contains(KnownLibraryItemFormats.Transform))
+        bool containsFe = e.Data.Contains(KnownLibraryItemFormats.FilterEffect);
+        bool containsTra = e.Data.Contains(KnownLibraryItemFormats.Transform);
+        if (containsFe || containsTra)
         {
             Drawable? drawable = editViewModel.Renderer.Value.HitTest(new((float)scaledPosition.X, (float)scaledPosition.Y));
 
@@ -48,15 +47,17 @@ public partial class PlayerView
                     editViewModel.SelectedObject.Value = element;
                 }
 
-                if (e.Data.Get(KnownLibraryItemFormats.FilterEffect) is Type feType
+                if (containsFe
+                    && e.Data.Get(KnownLibraryItemFormats.FilterEffect) is Type feType
                     && Activator.CreateInstance(feType) is FilterEffect newFe)
                 {
                     FilterEffect? fe = drawable.FilterEffect;
                     AddOrSetHelper.AddOrSet(ref fe, newFe, [element], editViewModel.CommandRecorder);
                     drawable.FilterEffect = fe;
                 }
-                else if (e.Data.Get(KnownLibraryItemFormats.Transform) is Type traType
-                    && Activator.CreateInstance(traType) is ITransform newTra)
+                else if (containsTra
+                         && e.Data.Get(KnownLibraryItemFormats.Transform) is Type traType
+                         && Activator.CreateInstance(traType) is ITransform newTra)
                 {
                     ITransform? tra = drawable.Transform;
                     AddOrSetHelper.AddOrSet(ref tra, newTra, [element], editViewModel.CommandRecorder);
@@ -76,7 +77,8 @@ public partial class PlayerView
                 return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex) + 1;
             }
 
-            if (e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type type)
+            if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator)
+                && e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type type)
             {
                 e.Handled = true;
 
@@ -86,10 +88,7 @@ public partial class PlayerView
                 {
                     var desc = new ElementDescription(frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centerePosition);
                     var dialogViewModel = new AddElementDialogViewModel(scene, desc, editViewModel.CommandRecorder);
-                    var dialog = new AddElementDialog
-                    {
-                        DataContext = dialogViewModel
-                    };
+                    var dialog = new AddElementDialog { DataContext = dialogViewModel };
                     await dialog.ShowAsync();
                 }
                 else
@@ -98,10 +97,11 @@ public partial class PlayerView
                         frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centerePosition));
                 }
             }
-            else if (e.Data.GetFiles()
-                ?.Where(v => v is IStorageFile)
-                ?.Select(v => v.TryGetLocalPath())
-                .FirstOrDefault(v => v != null) is { } fileName)
+            else if (e.Data.Contains(DataFormats.Files)
+                     && e.Data.GetFiles()
+                         ?.Where(v => v is IStorageFile)
+                         ?.Select(v => v.TryGetLocalPath())
+                         .FirstOrDefault(v => v != null) is { } fileName)
             {
                 int zindex = CalculateZIndex(scene);
 
@@ -118,7 +118,7 @@ public partial class PlayerView
         if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator)
             || e.Data.Contains(KnownLibraryItemFormats.FilterEffect)
             || e.Data.Contains(KnownLibraryItemFormats.Transform)
-            || (e.Data.GetFiles()?.Any() ?? false))
+            || e.Data.Contains(DataFormats.Files))
         {
             e.DragEffects = DragDropEffects.Copy;
         }

@@ -46,7 +46,8 @@ public partial class SoundEffectEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get(KnownLibraryItemFormats.SoundEffect) is Type type
+        if (e.Data.Contains(KnownLibraryItemFormats.SoundEffect)
+            && e.Data.Get(KnownLibraryItemFormats.SoundEffect) is Type type
             && DataContext is SoundEffectEditorViewModel viewModel)
         {
             if (viewModel.IsGroup.Value)

@@ -4,15 +4,12 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
-
 using Beutl.Api.Objects;
-
 using Beutl.Pages.ExtensionsPages.DevelopPages;
 using Beutl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 using Beutl.ViewModels.ExtensionsPages;
 using Beutl.ViewModels.ExtensionsPages.DevelopPages;
 using Beutl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
@@ -55,10 +52,7 @@ public sealed partial class DevelopPage : UserControl
                     UpdatePackageDialogViewModel dialogViewModel = factory.UpdatePackageDialog();
                     dialogViewModel.SelectedFile.Value = file;
 
-                    var dialog = new UpdatePackageDialog()
-                    {
-                        DataContext = dialogViewModel
-                    };
+                    var dialog = new UpdatePackageDialog() { DataContext = dialogViewModel };
 
                     if (await dialog.ShowAsync() == ContentDialogResult.Primary
                         && dialogViewModel.Result != null)
@@ -81,7 +75,8 @@ public sealed partial class DevelopPage : UserControl
 
     private void OnDragEnter(object? sender, DragEventArgs e)
     {
-        if (e.Data.GetFiles()?.Any(x => x.Name.EndsWith(".nupkg") || x.Name.EndsWith(".nuspec")) == true)
+        if (e.Data.Contains(DataFormats.Files)
+            && e.Data.GetFiles()?.Any(x => x.Name.EndsWith(".nupkg") || x.Name.EndsWith(".nuspec")) == true)
         {
             e.DragEffects = DragDropEffects.Copy;
         }
@@ -108,6 +103,7 @@ public sealed partial class DevelopPage : UserControl
             {
                 frame.Navigate(typeof(PackageDetailsPage), selectedItem, SharedNavigationTransitionInfo.Instance);
             }
+
             _flag = false;
         }
     }
@@ -136,10 +132,7 @@ public sealed partial class DevelopPage : UserControl
         {
             DataContextFactory factory = viewModel.DataContextFactory;
             CreatePackageDialogViewModel dialogViewModel = factory.CreatePackageDialog();
-            var dialog = new CreatePackageDialog()
-            {
-                DataContext = dialogViewModel
-            };
+            var dialog = new CreatePackageDialog() { DataContext = dialogViewModel };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary
                 && dialogViewModel.Result != null)

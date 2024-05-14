@@ -1,11 +1,9 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
-
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels.Tools;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Tools;
@@ -56,7 +54,8 @@ public sealed partial class SourceOperatorsTab : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type item
+        if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator)
+            && e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type item
             && DataContext is SourceOperatorsTabViewModel vm
             && vm.Element.Value is Element element)
         {

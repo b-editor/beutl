@@ -6,7 +6,6 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
-
 using Beutl.Animation.Easings;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -33,7 +32,8 @@ public partial class InlineAnimationLayer : UserControl
 
     private void OnDrap(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get(KnownLibraryItemFormats.Easing) is Easing easing
+        if (e.Data.Contains(KnownLibraryItemFormats.Easing)
+            && e.Data.Get(KnownLibraryItemFormats.Easing) is Easing easing
             && DataContext is InlineAnimationLayerViewModel { Timeline: { Options.Value.Scale: { } scale } } viewModel)
         {
             TimeSpan time = e.GetPosition(this).X.ToTimeSpan(scale);
@@ -76,56 +76,8 @@ public partial class InlineAnimationLayer : UserControl
         {
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                var animation1 = new Avalonia.Animation.Animation
-                {
-                    Easing = new Avalonia.Animation.Easings.SplineEasing(0.1, 0.9, 0.2, 1.0),
-                    Duration = TimeSpan.FromSeconds(0.25),
-                    FillMode = FillMode.Forward,
-                    Children =
-                    {
-                        new KeyFrame()
-                        {
-                            Cue = new Cue(0),
-                            Setters =
-                            {
-                                new Setter(MarginProperty, Margin)
-                            }
-                        },
-                        new KeyFrame()
-                        {
-                            Cue = new Cue(1),
-                            Setters =
-                            {
-                                new Setter(MarginProperty, margin)
-                            }
-                        }
-                    }
-                };
-                var animation2 = new Avalonia.Animation.Animation
-                {
-                    Easing = new Avalonia.Animation.Easings.SplineEasing(0.1, 0.9, 0.2, 1.0),
-                    Duration = TimeSpan.FromSeconds(0.25),
-                    FillMode = FillMode.Forward,
-                    Children =
-                    {
-                        new KeyFrame()
-                        {
-                            Cue = new Cue(0),
-                            Setters =
-                            {
-                                new Setter(MarginProperty, items.Margin)
-                            }
-                        },
-                        new KeyFrame()
-                        {
-                            Cue = new Cue(1),
-                            Setters =
-                            {
-                                new Setter(MarginProperty, leftMargin)
-                            }
-                        }
-                    }
-                };
+                var animation1 = new Avalonia.Animation.Animation { Easing = new Avalonia.Animation.Easings.SplineEasing(0.1, 0.9, 0.2, 1.0), Duration = TimeSpan.FromSeconds(0.25), FillMode = FillMode.Forward, Children = { new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, Margin) } }, new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, margin) } } } };
+                var animation2 = new Avalonia.Animation.Animation { Easing = new Avalonia.Animation.Easings.SplineEasing(0.1, 0.9, 0.2, 1.0), Duration = TimeSpan.FromSeconds(0.25), FillMode = FillMode.Forward, Children = { new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, items.Margin) } }, new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, leftMargin) } } } };
 
                 Task task1 = animation1.RunAsync(this, token);
                 Task task2 = animation2.RunAsync(items, token);

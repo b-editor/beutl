@@ -4,13 +4,11 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
-
 using Beutl.Controls.Behaviors;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels.Tools;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Tools;
@@ -22,11 +20,7 @@ public sealed partial class SourceOperatorView : UserControl
         InitializeComponent();
         Interaction.SetBehaviors(this,
         [
-            new _DragBehavior()
-            {
-                Orientation = Orientation.Vertical,
-                DragControl = dragBorder
-            },
+            new _DragBehavior() { Orientation = Orientation.Vertical, DragControl = dragBorder },
         ]);
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
@@ -46,7 +40,8 @@ public sealed partial class SourceOperatorView : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type item2
+        if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator)
+            && e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type item2
             && DataContext is SourceOperatorViewModel viewModel2)
         {
             CommandRecorder recorder = viewModel2.GetRequiredService<CommandRecorder>();

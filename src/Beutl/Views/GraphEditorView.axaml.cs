@@ -64,7 +64,8 @@ public partial class GraphEditorView : UserControl
 
     private void OnDrap(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get(KnownLibraryItemFormats.Easing) is Easing easing
+        if (e.Data.Contains(KnownLibraryItemFormats.Easing)
+            && e.Data.Get(KnownLibraryItemFormats.Easing) is Easing easing
             && DataContext is GraphEditorViewModel { Options.Value.Scale: { } scale } viewModel)
         {
             TimeSpan time = e.GetPosition(graphPanel).X.ToTimeSpan(scale);
@@ -415,6 +416,7 @@ public partial class GraphEditorView : UserControl
                     d = viewModel.RightTop.Value - viewModel.ControlPoint2.Value;
                     break;
             }
+
             position = position.WithX(Math.Clamp(position.X, viewModel.Left.Value, viewModel.Right.Value));
             _cPointstart = position;
 

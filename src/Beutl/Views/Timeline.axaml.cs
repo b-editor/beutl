@@ -509,7 +509,8 @@ public sealed partial class Timeline : UserControl
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
         viewModel.ClickedPosition = pt;
 
-        if (e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type type)
+        if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator)
+            && e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type type)
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {
