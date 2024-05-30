@@ -6,7 +6,7 @@ public static class Preferences
 {
     static Preferences()
     {
-        Default = new DefaultPreferences(Path.Combine(BeutlEnvironment.HomeVariable, "preferences.json"));
+        Default = new DefaultPreferences(Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "preferences.json"));
     }
 
     public static IPreferences Default { get; }
