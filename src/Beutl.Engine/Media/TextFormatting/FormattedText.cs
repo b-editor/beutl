@@ -236,14 +236,22 @@ public class FormattedText : IEquatable<FormattedText>
             point.X += i * Spacing;
             positions[i] = point;
 
-            SKPath tmp = font.GetGlyphPath(glyphs[i]);
-            fillPath.AddPath(tmp, point.X, point.Y);
+            SKPath? tmp = font.GetGlyphPath(glyphs[i]);
+            if (tmp != null)
+            {
+                fillPath.AddPath(tmp, point.X, point.Y);
 
-            tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
+                tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
 
-            ref SKPathGeometry? exist = ref pathList[i]!;
-            exist ??= new SKPathGeometry();
-            exist.SetSKPath(tmp, false);
+                ref SKPathGeometry? exist = ref pathList[i]!;
+                exist ??= new SKPathGeometry();
+                exist.SetSKPath(tmp, false);
+            }
+            else
+            {
+                ref SKPathGeometry? exist = ref pathList[i]!;
+                exist ??= new SKPathGeometry();
+            }
         }
 
         SKPath? strokePath = null;
