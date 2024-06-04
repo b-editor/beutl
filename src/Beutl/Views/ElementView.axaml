@@ -19,7 +19,6 @@
              x:DataType="vm:ElementViewModel"
              ClipToBounds="True"
              Focusable="True"
-             IsEnabled="{CompiledBinding IsEnabled.Value}"
              mc:Ignorable="d">
     <Border x:Name="border"
             Width="{Binding Width.Value}"
@@ -27,8 +26,12 @@
             HorizontalAlignment="Left"
             Background="{Binding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
             BorderThickness="1"
+            Classes.elm-disabled="{Binding !IsEnabled.Value}"
             Classes.selected="{Binding IsSelected.Value}">
         <Border.Styles>
+            <Style Selector="Border.elm-disabled">
+                <Setter Property="Opacity" Value="0.5" />
+            </Style>
             <Style Selector="Border.selected">
                 <Setter Property="BorderBrush" Value="{DynamicResource TextControlForeground}" />
             </Style>

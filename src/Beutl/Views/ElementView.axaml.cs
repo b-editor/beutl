@@ -153,11 +153,6 @@ public sealed partial class ElementView : UserControl
         };
         obj.GetClickedTime = () => _pointerPosition;
 
-        obj.Model.GetObservable(Element.IsEnabledProperty)
-            .ObserveOnUIDispatcher()
-            .Subscribe(b => border.Opacity = b ? 1 : 0.5)
-            .DisposeWith(_disposables);
-
         obj.IsSelected
             .ObserveOnUIDispatcher()
             .Subscribe(v => ZIndex = v ? 5 : 0)
@@ -666,7 +661,7 @@ public sealed partial class ElementView : UserControl
                             _pressedWithModifier = true;
                         }
 
-                        obj.border.Opacity = 0.8;
+                        obj.border.Opacity = obj.ViewModel.IsEnabled.Value ? 0.8 : 0.4;
                     }
                 }
             }
@@ -689,7 +684,7 @@ public sealed partial class ElementView : UserControl
                     _pressedWithModifier = false;
                 }
 
-                obj.border.Opacity = 1;
+                obj.border.Opacity = obj.ViewModel.IsEnabled.Value ? 1 : 0.5;
             }
         }
     }
