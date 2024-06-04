@@ -15,10 +15,12 @@ public sealed class Clipping : FilterEffect
     public static readonly CoreProperty<float> TopProperty;
     public static readonly CoreProperty<float> RightProperty;
     public static readonly CoreProperty<float> BottomProperty;
+    public static readonly CoreProperty<bool> AutoCenterProperty;
     private float _left;
     private float _top;
     private float _right;
     private float _bottom;
+    private bool _autoCenter;
 
     static Clipping()
     {
@@ -43,12 +45,18 @@ public sealed class Clipping : FilterEffect
             .Accessor(o => o.Thickness.Bottom, (o, v) => o.Thickness = o.Thickness.WithBottom(v))
             .Register();
 
+        AutoCenterProperty = ConfigureProperty<bool, Clipping>(nameof(AutoCenter))
+            .Accessor(o => o.AutoCenter, (o, v) => o.AutoCenter = v)
+            .DefaultValue(false)
+            .Register();
+
         AffectsRender<Clipping>(
             ThicknessProperty,
             LeftProperty,
             TopProperty,
             RightProperty,
-            BottomProperty);
+            BottomProperty,
+            AutoCenterProperty);
 #pragma warning restore CS0618
     }
 
@@ -95,23 +103,37 @@ public sealed class Clipping : FilterEffect
         set => SetAndRaise(BottomProperty, ref _bottom, value);
     }
 
+    public bool AutoCenter
+    {
+        get => _autoCenter;
+        set => SetAndRaise(AutoCenterProperty, ref _autoCenter, value);
+    }
+
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.CustomEffect(new Thickness(Left, Top, Right, Bottom), Apply, TransformBounds);
+        context.CustomEffect((new Thickness(Left, Top, Right, Bottom), AutoCenter), Apply, TransformBounds);
     }
 
     public override Rect TransformBounds(Rect bounds)
     {
-        return TransformBounds(new Thickness(Left, Top, Right, Bottom), bounds);
+        return TransformBounds((new Thickness(Left, Top, Right, Bottom), _autoCenter), bounds);
     }
 
-    private Rect TransformBounds(Thickness thickness, Rect rect)
+    private Rect TransformBounds((Thickness thickness, bool autoCenter) data, Rect rect)
     {
-        return rect.Deflate(thickness).Normalize();
+        var result = rect.Deflate(data.thickness).Normalize();
+        if (data.autoCenter)
+        {
+            result = rect.CenterRect(result);
+        }
+
+        return result;
     }
 
-    private void Apply(Thickness thickness, CustomFilterEffectContext context)
+    private void Apply((Thickness thickness, bool autoCenter) data, CustomFilterEffectContext context)
     {
+        Thickness thickness = data.thickness;
+        bool autoCenter = data.autoCenter;
         for (int i = 0; i < context.Targets.Count; i++)
         {
             var target = context.Targets[i];
@@ -153,7 +175,16 @@ public sealed class Clipping : FilterEffect
                     pointY = 0;
                 }
 
-                EffectTarget newTarget = context.CreateTarget(newBounds);
+                EffectTarget newTarget;
+                // センタリング
+                if (autoCenter)
+                {
+                    newTarget = context.CreateTarget(target.Bounds.CenterRect(newBounds));
+                }
+                else
+                {
+                    newTarget = context.CreateTarget(newBounds);
+                }
 
                 newTarget.Surface?.Value?.Canvas?.DrawImage(
                     skImage,
