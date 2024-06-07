@@ -10,6 +10,8 @@
     <Version>1.0.1</Version>
     <AssemblyVersion>1.0.1.0</AssemblyVersion>
     <Authors>b-editor</Authors>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <EnableAvaloniaXamlCompilation>false</EnableAvaloniaXamlCompilation>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Debug' And '$(CI)'!='true'">
