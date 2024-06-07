@@ -1,11 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!--Directory.Build.props-->
-    <!--<TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>-->
-
     <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
     <PackageId>Beutl.Extensions.SamplePackage</PackageId>
     <Title>サンプルパッケージ</Title>
@@ -15,9 +10,11 @@
     <Version>1.0.1</Version>
     <AssemblyVersion>1.0.1.0</AssemblyVersion>
     <Authors>b-editor</Authors>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <EnableAvaloniaXamlCompilation>false</EnableAvaloniaXamlCompilation>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+  <PropertyGroup Condition="'$(Configuration)'=='Debug' And '$(CI)'!='true'">
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <EnableDynamicLoading>true</EnableDynamicLoading>
@@ -32,17 +29,6 @@
     <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" />
     <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
-    
-    <!--<ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Configuration\Beutl.Configuration.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Core\Beutl.Core.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Language\Beutl.Language.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Operators\Beutl.Operators.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Threading\Beutl.Threading.csproj" Private="false" ExcludeAssets="runtime" />
-    <ProjectReference Include="..\..\src\Beutl.Utilities\Beutl.Utilities.csproj" Private="false" ExcludeAssets="runtime" />-->
   </ItemGroup>
 
 </Project>
