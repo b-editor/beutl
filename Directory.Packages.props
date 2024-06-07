@@ -9,10 +9,10 @@
     <PackageVersion Include="Avalonia.Desktop" Version="11.0.10" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.0.10" />
     <PackageVersion Include="Avalonia.ReactiveUI" Version="11.0.10" />
-    <PackageVersion Include="Avalonia.Svg.Skia" Version="11.0.0.17" />
+    <PackageVersion Include="Avalonia.Svg.Skia" Version="11.0.0.18" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.0.10" />
-    <PackageVersion Include="Avalonia.Xaml.Behaviors" Version="11.0.10.2" />
-    <PackageVersion Include="Avalonia.Xaml.Interactivity" Version="11.0.10.2" />
+    <PackageVersion Include="Avalonia.Xaml.Behaviors" Version="11.0.10.9" />
+    <PackageVersion Include="Avalonia.Xaml.Interactivity" Version="11.0.10.9" />
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.2.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.13.12" />
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
@@ -28,7 +28,7 @@
     <PackageVersion Include="ILGPU.Algorithms" Version="1.5.1" />
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.49-beta" />
     <PackageVersion Include="NAudio.Wasapi" Version="2.2.1" />
-    <PackageVersion Include="Nerdbank.GitVersioning" Version="3.6.133" />
+    <PackageVersion Include="Nerdbank.GitVersioning" Version="3.6.139" />
     <PackageVersion Include="HarfBuzzSharp" Version="7.3.0.1" />
     <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="7.3.0.1" />
     <PackageVersion Include="ILGPU" Version="1.5.1" />
@@ -55,7 +55,7 @@
     <PackageVersion Include="OpenCvSharp4.runtime.osx_arm64" Version="4.8.1-rc" />
     <PackageVersion Include="OpenCvSharp4.runtime.win" Version="4.9.0.20240103" />
     <PackageVersion Include="OpenTelemetry" Version="1.8.1" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.7.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.8.1" />
     <PackageVersion Include="OpenTelemetry.Exporter.Zipkin" Version="1.8.1" />
     <PackageVersion Include="OpenTK.OpenAL" Version="5.0.0-pre.8" />
     <PackageVersion Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="5.0.0-pre.9" />
