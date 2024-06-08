@@ -2228,5 +2228,17 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Mosaic", resourceCulture);
             }
         }
+        
+        public static string AutomaticCentering {
+            get {
+                return ResourceManager.GetString("AutomaticCentering", resourceCulture);
+            }
+        }
+        
+        public static string ClipTransparentArea {
+            get {
+                return ResourceManager.GetString("ClipTransparentArea", resourceCulture);
+            }
+        }
     }
 }

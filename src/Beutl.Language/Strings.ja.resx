@@ -1210,4 +1210,10 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Mosaic" xml:space="preserve">
     <value>モザイク</value>
   </data>
+  <data name="AutomaticCentering" xml:space="preserve">
+    <value>自動センタリング</value>
+  </data>
+  <data name="ClipTransparentArea" xml:space="preserve">
+    <value>透明部分をクリップ</value>
+  </data>
 </root>

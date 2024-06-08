@@ -1210,4 +1210,10 @@ and b-editor maintains the download URL.</value>
   <data name="Mosaic" xml:space="preserve">
     <value>Mosaic</value>
   </data>
+  <data name="AutomaticCentering" xml:space="preserve">
+    <value>Automatic Centering</value>
+  </data>
+  <data name="ClipTransparentArea" xml:space="preserve">
+    <value>Clip transparent area</value>
+  </data>
 </root>
