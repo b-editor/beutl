@@ -1,7 +1,8 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
 using Beutl.Language;
+using Beutl.Media;
+using Beutl.Media.Pixel;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -16,11 +17,13 @@ public sealed class Clipping : FilterEffect
     public static readonly CoreProperty<float> RightProperty;
     public static readonly CoreProperty<float> BottomProperty;
     public static readonly CoreProperty<bool> AutoCenterProperty;
+    public static readonly CoreProperty<bool> AutoClipProperty;
     private float _left;
     private float _top;
     private float _right;
     private float _bottom;
     private bool _autoCenter;
+    private bool _autoClip;
 
     static Clipping()
     {
@@ -50,13 +53,19 @@ public sealed class Clipping : FilterEffect
             .DefaultValue(false)
             .Register();
 
+        AutoClipProperty = ConfigureProperty<bool, Clipping>(nameof(AutoClip))
+            .Accessor(o => o.AutoClip, (o, v) => o.AutoClip = v)
+            .DefaultValue(true)
+            .Register();
+
         AffectsRender<Clipping>(
             ThicknessProperty,
             LeftProperty,
             TopProperty,
             RightProperty,
             BottomProperty,
-            AutoCenterProperty);
+            AutoCenterProperty,
+            AutoClipProperty);
 #pragma warning restore CS0618
     }
 
@@ -109,18 +118,26 @@ public sealed class Clipping : FilterEffect
         set => SetAndRaise(AutoCenterProperty, ref _autoCenter, value);
     }
 
+    public bool AutoClip
+    {
+        get => _autoClip;
+        set => SetAndRaise(AutoClipProperty, ref _autoClip, value);
+    }
+
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.CustomEffect((new Thickness(Left, Top, Right, Bottom), AutoCenter), Apply, TransformBounds);
+        context.CustomEffect((new Thickness(Left, Top, Right, Bottom), AutoCenter, AutoClip), Apply, TransformBounds);
     }
 
     public override Rect TransformBounds(Rect bounds)
     {
-        return TransformBounds((new Thickness(Left, Top, Right, Bottom), _autoCenter), bounds);
+        return TransformBounds((new Thickness(Left, Top, Right, Bottom), AutoCenter, AutoClip), bounds);
     }
 
-    private Rect TransformBounds((Thickness thickness, bool autoCenter) data, Rect rect)
+    private Rect TransformBounds((Thickness thickness, bool autoCenter, bool autoClip) data, Rect rect)
     {
+        if (data.autoClip) return Rect.Invalid;
+
         var result = rect.Deflate(data.thickness).Normalize();
         if (data.autoCenter)
         {
@@ -130,14 +147,55 @@ public sealed class Clipping : FilterEffect
         return result;
     }
 
-    private void Apply((Thickness thickness, bool autoCenter) data, CustomFilterEffectContext context)
+    private static Thickness FindRectAndReturnThickness(SKSurface surface)
     {
-        Thickness thickness = data.thickness;
+        using var image = surface.Snapshot();
+        // 透明度のみ
+        using var bitmap = new Bitmap<Grayscale8>(image.Width, image.Height);
+        image.ReadPixels(
+            new SKImageInfo(bitmap.Width, bitmap.Height, SKColorType.Alpha8),
+            bitmap.Data,
+            bitmap.Width,
+            0, 0);
+
+        int x0 = bitmap.Width;
+        int y0 = bitmap.Height;
+        int x1 = 0;
+        int y1 = 0;
+
+        // 透明でないピクセルを探す
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                if (bitmap[x, y].Value != 0)
+                {
+                    if (x0 > x) x0 = x;
+                    if (y0 > y) y0 = y;
+                    if (x1 < x) x1 = x;
+                    if (y1 < y) y1 = y;
+                }
+            }
+        }
+
+        return new Thickness(x0, y0, bitmap.Width - x1, bitmap.Height - y1);
+    }
+
+    private static void Apply((Thickness thickness, bool autoCenter, bool autoClip) data, CustomFilterEffectContext context)
+    {
+        Thickness originalThickness = data.thickness;
         bool autoCenter = data.autoCenter;
         for (int i = 0; i < context.Targets.Count; i++)
         {
+            Thickness thickness = originalThickness;
             var target = context.Targets[i];
             var surface = target.Surface!.Value;
+            if (data.autoClip)
+            {
+                thickness += FindRectAndReturnThickness(surface);
+            }
+
+
             Rect originalRect = target.Bounds.WithX(0).WithY(0);
             // 結果的なrect (originalRect内)
             Rect clipRect = originalRect.Deflate(thickness).Normalize();
