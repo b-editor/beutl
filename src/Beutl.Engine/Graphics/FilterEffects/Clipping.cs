@@ -112,12 +112,14 @@ public sealed class Clipping : FilterEffect
         set => SetAndRaise(BottomProperty, ref _bottom, value);
     }
 
+    [Display(Name = nameof(Strings.AutomaticCentering), ResourceType = typeof(Strings))]
     public bool AutoCenter
     {
         get => _autoCenter;
         set => SetAndRaise(AutoCenterProperty, ref _autoCenter, value);
     }
 
+    [Display(Name = nameof(Strings.ClipTransparentArea), ResourceType = typeof(Strings))]
     public bool AutoClip
     {
         get => _autoClip;
