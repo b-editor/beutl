@@ -70,7 +70,7 @@
     <PackageVersion Include="SharpDX.Direct3D9" Version="4.2.0" />
     <PackageVersion Include="SharpDX.MediaFoundation" Version="4.2.0" />
     <PackageVersion Include="Sharprompt" Version="2.4.5" />
-    <PackageVersion Include="SkiaSharp" Version="2.88.7" />
+    <PackageVersion Include="SkiaSharp" Version="2.88.8" />
     <PackageVersion Include="SkiaSharp.HarfBuzz" Version="2.88.7" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="2.88.7" />
     <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
