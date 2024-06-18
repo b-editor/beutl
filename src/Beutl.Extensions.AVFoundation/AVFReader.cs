@@ -1,180 +1,60 @@
 using System.Diagnostics.CodeAnalysis;
-using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
-using Microsoft.Extensions.Logging;
 using MonoMac.AVFoundation;
-using MonoMac.CoreMedia;
-using MonoMac.CoreVideo;
 using MonoMac.Foundation;
 
 namespace Beutl.Extensions.AVFoundation.Decoding;
 
-public unsafe sealed class AVFReader : MediaReader
+public sealed class AVFReader : MediaReader
 {
-    private readonly ILogger _logger = Log.CreateLogger<AVFReader>();
     private readonly AVAsset _asset;
-    private readonly AVAssetTrack _videoTrack;
-    private AVAssetReader _assetReader;
-    private AVAssetReaderTrackOutput _videoReaderOutput;
-    private string _file;
-    private MediaOptions _options;
-    private AVFDecodingExtension _extension;
-    private CMTime _currentVideoTimestamp;
-    private AVFSampleCache _sampleCache;
 
-    // 現在のフレームからどれくらいの範囲ならシーケンシャル読み込みさせるかの閾値
-    private readonly int _thresholdFrameCount = 30;
+    private AVFVideoStreamReader? _videoReader;
+    private AVFAudioStreamReader? _audioReader;
 
-    public AVFReader(string file, MediaOptions options, AVFDecodingExtension extension)
+    public AVFReader(string file, MediaOptions options)
     {
-        _file = file;
-        _options = options;
-        _extension = extension;
-
-        _sampleCache = new AVFSampleCache(new AVFSampleCacheOptions());
         var url = NSUrl.FromFilename(file);
         _asset = AVAsset.FromUrl(url);
-        _assetReader = AVAssetReader.FromAsset(_asset, out var error);
-        if (error != null) throw new Exception(error.LocalizedDescription);
+        if (options.StreamsToLoad.HasFlag(MediaMode.Video))
+        {
+            _videoReader = new AVFVideoStreamReader(_asset);
+        }
 
-        _videoTrack = _asset.TracksWithMediaType(AVMediaType.Video)[0];
-        _videoReaderOutput = new AVAssetReaderTrackOutput(
-            _videoTrack,
-            NSDictionary.FromObjectsAndKeys(
-                [CVPixelFormatType.CV32ARGB],
-                [CVPixelBuffer.PixelFormatTypeKey]));
-        _videoReaderOutput.AlwaysCopiesSampleData = false;
-        _assetReader.AddOutput(_videoReaderOutput);
-
-        _assetReader.StartReading();
-
-        var desc = _videoTrack.FormatDescriptions[0];
-        var frameSize = new PixelSize(desc.VideoDimensions.Width, desc.VideoDimensions.Height);
-        string codec = desc.VideoCodecType.ToString();
-        float framerate = _videoTrack.NominalFrameRate;
-        double duration = _videoTrack.TotalSampleDataLength / _videoTrack.EstimatedDataRate * 8d;
-        VideoInfo = new VideoStreamInfo(
-            codec,
-            Rational.FromDouble(duration),
-            frameSize,
-            Rational.FromSingle(framerate));
+        if (options.StreamsToLoad.HasFlag(MediaMode.Audio))
+        {
+            _audioReader = new AVFAudioStreamReader(_asset, options);
+        }
     }
 
-    public override VideoStreamInfo VideoInfo { get; }
+    public override VideoStreamInfo VideoInfo =>
+        _videoReader?.VideoInfo ?? throw new Exception("VideoInfo is not available.");
 
-    public override AudioStreamInfo AudioInfo => throw new NotImplementedException();
+    public override AudioStreamInfo AudioInfo =>
+        _audioReader?.AudioInfo ?? throw new Exception("AudioInfo is not available.");
 
-    public override bool HasVideo => true;
+    public override bool HasVideo => _videoReader != null;
 
-    public override bool HasAudio => false;
+    public override bool HasAudio => _audioReader != null;
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
     {
-        throw new NotImplementedException();
-    }
-
-    private CMSampleBuffer? ReadSample()
-    {
-        var buffer = _videoReaderOutput.CopyNextSampleBuffer();
-        if (!buffer.DataIsReady)
+        if (_audioReader != null)
         {
-            _logger.LogTrace("buffer.DataIsReady = false");
-            return null;
+            return _audioReader.ReadAudio(start, length, out sound);
         }
 
-        if (!buffer.IsValid)
-        {
-            _logger.LogTrace("buffer is invalid.");
-            return null;
-        }
-
-        // success!
-        // add cache
-        // timestamp -= _firstGapTimeStamp;
-        int frame = CMTimeUtilities.ConvertFrameFromTimeStamp(_currentVideoTimestamp, _videoTrack.NominalFrameRate);
-        _sampleCache.AddFrameSample(frame, buffer);
-        _currentVideoTimestamp = buffer.PresentationTimeStamp;
-
-        return buffer;
-    }
-
-    private void Seek(CMTime timestamp)
-    {
-        _sampleCache.ResetVideo();
-        _assetReader.Dispose();
-        _videoReaderOutput.Dispose();
-
-        _assetReader = AVAssetReader.FromAsset(_asset, out var error);
-        if (error != null) throw new Exception(error.LocalizedDescription);
-        _assetReader.TimeRange = new CMTimeRange { Start = timestamp, Duration = CMTime.PositiveInfinity };
-
-        _videoReaderOutput = new AVAssetReaderTrackOutput(
-            _videoTrack,
-            NSDictionary.FromObjectsAndKeys(
-                [CVPixelFormatType.CV32ARGB],
-                [CVPixelBuffer.PixelFormatTypeKey]));
-        _videoReaderOutput.AlwaysCopiesSampleData = false;
-        _assetReader.AddOutput(_videoReaderOutput);
-
-        _assetReader.StartReading();
+        sound = null;
+        return false;
     }
 
     public override bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
     {
-        CMSampleBuffer? sample = _sampleCache.SearchFrameSample(frame);
-        if (sample != null)
+        if (_videoReader != null)
         {
-            image = AVFSampleUtilities.ConvertToBgra(sample);
-            if (image != null)
-                return true;
-        }
-
-        int currentFrame = _sampleCache.LastFrameNumber();
-
-        if (currentFrame == -1)
-        {
-            currentFrame =
-                CMTimeUtilities.ConvertFrameFromTimeStamp(_currentVideoTimestamp, _videoTrack.NominalFrameRate);
-        }
-
-        if (frame < currentFrame || (currentFrame + _thresholdFrameCount) < frame)
-        {
-            CMTime destTimePosition = CMTimeUtilities.ConvertTimeStampFromFrame(frame, _videoTrack.NominalFrameRate);
-            Seek(destTimePosition);
-            _logger.LogDebug(
-                "ReadFrame Seek currentFrame: {currentFrame}, destFrame: {destFrame} - destTimePos: {destTimePos} relativeFrame: {relativeFrame}",
-                currentFrame, frame, destTimePosition.Seconds, frame - currentFrame);
-        }
-
-        sample = ReadSample();
-        while (sample != null)
-        {
-            try
-            {
-                int readSampleFrame = _sampleCache.LastFrameNumber();
-
-                if (frame <= readSampleFrame)
-                {
-                    if ((readSampleFrame - frame) > 0)
-                    {
-                        _logger.LogWarning(
-                            "wrong frame currentFrame: {currentFrame} targetFrame: {frame} readSampleFrame: {readSampleFrame} distance: {distance}",
-                            currentFrame, frame, readSampleFrame, readSampleFrame - frame);
-                    }
-
-                    image = AVFSampleUtilities.ConvertToBgra(sample);
-                    if (image != null)
-                        return true;
-                }
-
-                sample = ReadSample();
-            }
-            catch
-            {
-                break;
-            }
+            return _videoReader.ReadVideo(frame, out image);
         }
 
         image = null;
@@ -184,10 +64,11 @@ public unsafe sealed class AVFReader : MediaReader
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
+        _audioReader?.Dispose();
+        _videoReader?.Dispose();
         _asset.Dispose();
-        _assetReader.Dispose();
-        _sampleCache.ResetVideo();
-        _videoTrack.Dispose();
-        _videoReaderOutput.Dispose();
+
+        _audioReader = null;
+        _videoReader = null;
     }
 }

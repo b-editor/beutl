@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using System.Diagnostics;
+using Beutl.Media;
 using Beutl.Media.Pixel;
 using MonoMac.CoreGraphics;
 using MonoMac.CoreImage;
@@ -55,5 +56,20 @@ public class AVFSampleUtilities
         pixelBuffer.Unlock(CVOptionFlags.None);
 
         return bitmap;
+    }
+
+    public static int SampleCopyToBuffer(CMSampleBuffer buffer, nint buf, int copyBufferPos,
+        int copyBufferSize)
+    {
+        using var dataBuffer = buffer.GetDataBuffer();
+        Debug.Assert((copyBufferPos + copyBufferSize) <= dataBuffer.DataLength);
+        dataBuffer.CopyDataBytes((uint)copyBufferPos, (uint)copyBufferSize, buf);
+
+        return copyBufferSize;
+    }
+
+    public static int SampleCopyToBuffer(CMSampleBuffer buffer, nint buf, int copyBufferSize)
+    {
+        return SampleCopyToBuffer(buffer, buf, 0, copyBufferSize);
     }
 }
