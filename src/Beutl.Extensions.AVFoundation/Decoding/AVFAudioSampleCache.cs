@@ -3,7 +3,7 @@ using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using MonoMac.CoreMedia;
 
-namespace Beutl.Extensions.AVFoundation;
+namespace Beutl.Extensions.AVFoundation.Decoding;
 
 public class AVFAudioSampleCache(AVFSampleCacheOptions options)
 {

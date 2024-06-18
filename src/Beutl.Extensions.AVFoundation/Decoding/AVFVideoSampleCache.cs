@@ -1,10 +1,9 @@
-﻿using System.Diagnostics;
-using Beutl.Collections;
+﻿using Beutl.Collections;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using MonoMac.CoreMedia;
 
-namespace Beutl.Extensions.AVFoundation;
+namespace Beutl.Extensions.AVFoundation.Decoding;
 
 public class AVFVideoSampleCache(AVFSampleCacheOptions options)
 {

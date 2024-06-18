@@ -1,8 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Beutl.Extensions.AVFoundation;
-using Beutl.Media;
-using Beutl.Media.Decoding;
-using Beutl.Media.Music;
+﻿using Beutl.Media.Decoding;
 
 namespace Beutl.Extensions.AVFoundation.Decoding;
 
@@ -36,7 +32,7 @@ public sealed class AVFDecoderInfo(AVFDecodingExtension extension) : IDecoderInf
     {
         try
         {
-            return new AVFReader(file, options, extension);
+            return new AVFReader(file, options);
         }
         catch
         {
