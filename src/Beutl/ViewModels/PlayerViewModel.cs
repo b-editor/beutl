@@ -172,7 +172,10 @@ public sealed class PlayerViewModel : IDisposable
                         den++;
                     }
 
-                    frameCacheManager.Options = frameCacheManager.Options with { Size = PixelSize.FromSize(frameSize, 1f / den) };
+                    frameCacheManager.Options = frameCacheManager.Options with
+                    {
+                        Size = PixelSize.FromSize(frameSize, 1f / den)
+                    };
                 }
                 else
                 {
@@ -210,10 +213,12 @@ public sealed class PlayerViewModel : IDisposable
                 TimeSpan durationTime = Scene.Duration;
                 int startFrame = (int)startTime.ToFrameNumber(rate);
                 int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
-                var tcs = new TaskCompletionSource();
                 bufferStatus.StartTime.Value = startTime;
                 bufferStatus.EndTime.Value = startTime;
-                frameCacheManager.Options = frameCacheManager.Options with { DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock };
+                frameCacheManager.Options = frameCacheManager.Options with
+                {
+                    DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock
+                };
 
                 frameCacheManager.CurrentFrame = startFrame;
                 using var playerImpl = new BufferedPlayer(EditViewModel, Scene, IsPlaying, rate);
@@ -223,29 +228,13 @@ public sealed class PlayerViewModel : IDisposable
 
                 PlayAudio(Scene);
 
-                using var timer = new System.Timers.Timer(tick);
-                bool timerProcessing = false;
-                timer.Elapsed += (_, e) =>
+                await await Task.Factory.StartNew(async () =>
                 {
-                    startFrame++;
-
-                    if (startFrame >= durationFrame || !IsPlaying.Value)
+                    using var periodicTimer = new PeriodicTimer(tick);
+                    DateTime startDateTime = DateTime.UtcNow;
+                    while (await periodicTimer.WaitForNextTickAsync() && IsPlaying.Value)
                     {
-                        timer.Stop();
-                        tcs.TrySetResult();
-                        return;
-                    }
-
-                    if (timerProcessing)
-                    {
-                        playerImpl.Skipped(startFrame);
-                        return;
-                    }
-
-                    try
-                    {
-                        timerProcessing = true;
-
+                        var start = DateTime.UtcNow;
                         if (playerImpl.TryDequeue(out IPlayer.Frame frame))
                         {
                             // 所有権が移転したので
@@ -255,20 +244,21 @@ public sealed class PlayerViewModel : IDisposable
 
                                 if (Scene != null)
                                 {
-                                    EditViewModel.CurrentTime.Value = TimeSpanExtensions.ToTimeSpan(frame.Time, rate);
+                                    EditViewModel.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
                                     EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
                                 }
                             }
                         }
-                    }
-                    finally
-                    {
-                        timerProcessing = false;
-                    }
-                };
-                timer.Start();
 
-                await tcs.Task;
+                        var elapsed = DateTime.UtcNow - start;
+                        if (elapsed > tick)
+                        {
+                            playerImpl.Skipped((int)((DateTime.UtcNow - startDateTime) / tick));
+                            Thread.Sleep(elapsed - tick);
+                        }
+                    }
+                }, TaskCreationOptions.LongRunning);
+
                 frameCacheManager.UpdateBlocks();
                 IsPlaying.Value = false;
                 bufferStatus.StartTime.Value = TimeSpan.Zero;
@@ -281,7 +271,10 @@ public sealed class PlayerViewModel : IDisposable
             }
             finally
             {
-                frameCacheManager.Options = frameCacheManager.Options with { DeletionStrategy = FrameCacheDeletionStrategy.Old };
+                frameCacheManager.Options = frameCacheManager.Options with
+                {
+                    DeletionStrategy = FrameCacheDeletionStrategy.Old
+                };
 
                 _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
                 Scene.Invalidated += OnSceneInvalidated;
@@ -388,7 +381,8 @@ public sealed class PlayerViewModel : IDisposable
         }
         catch (Exception ex)
         {
-            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_during_audio_playback);
+            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
+                Message.An_exception_occurred_during_audio_playback);
             _logger.LogError(ex, "An exception occurred during audio playback.");
             IsPlaying.Value = false;
         }
@@ -493,7 +487,8 @@ public sealed class PlayerViewModel : IDisposable
         }
         catch (Exception ex)
         {
-            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_during_audio_playback);
+            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
+                Message.An_exception_occurred_during_audio_playback);
             _logger.LogError(ex, "An exception occurred during audio playback.");
             IsPlaying.Value = false;
         }
@@ -599,7 +594,8 @@ public sealed class PlayerViewModel : IDisposable
                             canvas.Clear();
 
                             using (canvas.PushTransform(
-                                       Matrix.CreateScale(canvas.Size.Width / (float)cache.Value.Width, canvas.Size.Height / (float)cache.Value.Height)))
+                                       Matrix.CreateScale(canvas.Size.Width / (float)cache.Value.Width,
+                                           canvas.Size.Height / (float)cache.Value.Height)))
                             {
                                 canvas.DrawBitmap(cache.Value, Brushes.White, null);
                             }
@@ -635,7 +631,8 @@ public sealed class PlayerViewModel : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
+                    NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
+                        Message.An_exception_occurred_while_drawing_frame);
                     _logger.LogError(ex, "An exception occurred while drawing the frame.");
                 }
             }, ct: token);
