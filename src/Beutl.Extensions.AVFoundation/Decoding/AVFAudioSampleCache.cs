@@ -61,7 +61,7 @@ public class AVFAudioSampleCache(AVFSampleCacheOptions options)
     {
         _nBlockAlign = nBlockAlign;
         CircularBuffer<AudioCache> old = _audioCircularBuffer;
-        _audioCircularBuffer = new CircularBuffer<AudioCache>(options.MaxVideoBufferSize);
+        _audioCircularBuffer = new CircularBuffer<AudioCache>(options.MaxAudioBufferSize);
         foreach (AudioCache item in old)
         {
             item.Sample.Dispose();
@@ -86,9 +86,7 @@ public class AVFAudioSampleCache(AVFSampleCacheOptions options)
             startSample = lastAudioSampleNum + _audioCircularBuffer.Back().AudioSampleCount;
         }
 
-        // int totalLength = buffer.NumSamples;
         int audioSampleCount = buffer.NumSamples;
-        // Debug.Assert((totalLength % _nBlockAlign) == 0);
 
         if (_audioCircularBuffer.IsFull)
         {

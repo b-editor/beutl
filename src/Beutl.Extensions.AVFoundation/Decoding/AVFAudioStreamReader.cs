@@ -16,12 +16,13 @@ public class AVFAudioStreamReader : IDisposable
     private readonly AVAsset _asset;
     private readonly MediaOptions _options;
     private readonly AVFAudioSampleCache _sampleCache;
-    
+
     private readonly AVAssetTrack _audioTrack;
     private AVAssetReader _assetAudioReader;
     private AVAssetReaderTrackOutput _audioReaderOutput;
-    private CMTime _currentAudioTimestamp;
+    private CMTime _currentAudioTimestamp = CMTime.Zero;
     private readonly int _thresholdSampleCount = 30000;
+    private CMTime _firstGapTimestamp = CMTime.Zero;
 
     public AVFAudioStreamReader(AVAsset asset, MediaOptions options)
     {
@@ -56,6 +57,8 @@ public class AVFAudioStreamReader : IDisposable
             Rational.FromDouble(_audioTrack.TotalSampleDataLength / _audioTrack.EstimatedDataRate * 8d),
             _audioTrack.NaturalTimeScale,
             audioDesc.AudioChannelLayout.Channels.Length);
+
+        TestFirstReadSample();
     }
 
     ~AVFAudioStreamReader()
@@ -92,6 +95,7 @@ public class AVFAudioStreamReader : IDisposable
                 SampleRate = _options.SampleRate,
                 NumberChannels = 2,
             }.Dictionary);
+        _audioReaderOutput.AlwaysCopiesSampleData = false;
         _assetAudioReader.AddOutput(_audioReaderOutput);
 
         _assetAudioReader.StartReading();
@@ -99,6 +103,8 @@ public class AVFAudioStreamReader : IDisposable
 
     public bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
     {
+        start = (int)((long)_options.SampleRate * start / AudioInfo.SampleRate);
+        length = (int)((long)_options.SampleRate * length / AudioInfo.SampleRate);
         var buffer = new Pcm<Stereo32BitFloat>(_options.SampleRate, length);
         bool hitCache = _sampleCache.SearchAudioSampleAndCopyBuffer(start, length, buffer.Data);
         if (hitCache)
@@ -110,22 +116,17 @@ public class AVFAudioStreamReader : IDisposable
         int currentSample = _sampleCache.LastAudioSampleNumber();
         if (currentSample == -1)
         {
-            currentSample =
-                CMTimeUtilities.ConvertFrameFromTimeStamp(_currentAudioTimestamp, _audioTrack.NaturalTimeScale);
+            currentSample = (int)_currentAudioTimestamp.Value;
         }
 
         if (start < currentSample || (currentSample + _thresholdSampleCount) < start)
         {
-            CMTime destTimePosition = CMTimeUtilities.ConvertTimeStampFromFrame(start, _audioTrack.NaturalTimeScale);
+            var destTimePosition = new CMTime(start, _options.SampleRate);
             SeekAudio(destTimePosition);
-            // _logger.LogInformation(
-            //     "ReadAudio Seek currentTimestamp: {currentTimestamp} - destTimePos: {destTimePos} relativeSample: {relativeSample}",
-            //     TimestampUtilities.ConvertSecFrom100ns(_currentAudioTimeStamp),
-            //     TimestampUtilities.ConvertSecFrom100ns(destTimePosition),
-            //     start - currentSample);
         }
 
         CMSampleBuffer? sample = ReadAudioSample();
+
         while (sample != null)
         {
             try
@@ -149,9 +150,8 @@ public class AVFAudioStreamReader : IDisposable
             }
         }
 
-        buffer.Dispose();
-        sound = null;
-        return false;
+        sound = buffer;
+        return true;
     }
 
     private CMSampleBuffer? ReadAudioSample()
@@ -160,7 +160,15 @@ public class AVFAudioStreamReader : IDisposable
         if (!buffer.DataIsReady)
         {
             _logger.LogTrace("buffer.DataIsReady = false");
-            return null;
+
+            buffer = _audioReaderOutput.CopyNextSampleBuffer();
+            if (!buffer.DataIsReady)
+            {
+                _logger.LogTrace("2 buffer.DataIsReady = false");
+                return null;
+            }
+
+            // return null;
         }
 
         if (!buffer.IsValid)
@@ -171,13 +179,27 @@ public class AVFAudioStreamReader : IDisposable
 
         // success!
         // add cache
-        // timestamp -= _firstGapTimeStamp;
-        int startSample =
-            CMTimeUtilities.ConvertFrameFromTimeStamp(_currentAudioTimestamp, _audioTrack.NaturalTimeScale);
+        var timestamp = buffer.PresentationTimeStamp;
+        timestamp -= _firstGapTimestamp;
+        int startSample = (int)timestamp.Value;
         _sampleCache.Add(startSample, buffer);
-        _currentAudioTimestamp = buffer.PresentationTimeStamp;
+        _currentAudioTimestamp = timestamp;
 
         return buffer;
+    }
+
+    private void TestFirstReadSample()
+    {
+        _ = ReadAudioSample() ?? throw new Exception("TestFirstReadSample() failed");
+        _logger.LogInformation(
+            "TestFirstReadSample firstTimeStamp: {currentAudioTimeStamp}",
+            _currentAudioTimestamp);
+        CMTime firstAudioTimeStamp = _currentAudioTimestamp;
+        SeekAudio(CMTime.Zero);
+        _currentAudioTimestamp = CMTime.Zero;
+
+        _firstGapTimestamp = firstAudioTimeStamp;
+        _logger.LogInformation("TestFirstReadSample - firstGapTimeStamp: {firstGapTimeStamp}", _firstGapTimestamp);
     }
 
     private void DisposeCore(bool disposing)
