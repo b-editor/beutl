@@ -1,28 +1,23 @@
-## Beutlへの貢献についてのガイドライン
+## Guidelines for Contributing to Beutl
 
 ### Pull request
-既に作業中である可能性もあるので、
-PRを送る前にIssueを開くことをおすすめします。
+To avoid duplicating work that may already be in progress, it is recommended to open an issue before submitting a PR.
 
-変更内容が少ない場合はIssueを開かなくても良いです。
+If the changes are minor, you may not need to open an issue.
 
-履歴を見やすくするために
-**リベースと強制プッシュを忘れないで下さい。**
+To keep the history clean, **do not forget to rebase and force push.**
 
-### コードガイドライン
+### Code Guidelines
 
-[.NETのコードスタイル](https://github.com/dotnet/runtime/blob/main/docs/coding-guidelines/coding-style.md)を使います。
+We use the [.NET Coding Style](https://github.com/dotnet/runtime/blob/main/docs/coding-guidelines/coding-style.md).
 
-**UIの実装**
-- UserControlのイベントハンドラが複雑になる場合は、Behaviorに分けるか、
-  `partial`でファイルを分割してください。
+**UI Implementation**
+- If the event handler of a UserControl becomes complex, separate it into a Behavior or split the file using `partial`.
 
-XAMLファイル
-- インデントは4つのスペースにして下さい。
-- コントロールにプロパティを追加する場合、
-  最初のプロパティは項目と同じ行に配置し、
-  残りのすべてのプロパティは最初のプロパティに合わせて別の行に配置します。
-- `Binding`を使う場合、[コンパイル済みのバインディング](https://docs.avaloniaui.net/docs/next/basics/data/data-binding/compiled-bindings)を使用して下さい。
+XAML Files
+- Use four spaces for indentation.
+- When adding properties to a control, place the first property on the same line as the element, and align all subsequent properties on separate lines with the first property.
+- When using `Binding`, use [compiled bindings](https://docs.avaloniaui.net/docs/next/basics/data/data-binding/compiled-bindings).
 ```xaml
 <UserControl x:CompileBindings="True"
              x:DataType="viewModel:MyViewModel">

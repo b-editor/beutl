@@ -1,5 +1,7 @@
 # 🎬 Beutl
 
+__English__ / [Japanese](README.ja.md)
+
 ![](https://img.shields.io/github/issues/b-editor/beutl)
 ![](https://img.shields.io/github/forks/b-editor/beutl)
 ![](https://img.shields.io/github/stars/b-editor/beutl)
@@ -10,30 +12,29 @@
 [![Daily build](https://github.com/b-editor/beutl/actions/workflows/daily-build.yml/badge.svg)](https://github.com/b-editor/beutl/actions/workflows/daily-build.yml)
 [![Discord](https://img.shields.io/discord/868076100511760385.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/Bm3pnVc928)
 
-Beutlはクロスプラットフォームで動作する動画編集 (コンポジット) ソフトウェアです。  
+Beutl is a cross-platform video editing (compositing) software.  
 
-
-[古いバージョン(BEditor)のソースコード](https://github.com/b-editor/beutl/tree/old/develop)
+[Source code of the old version (BEditor)](https://github.com/b-editor/beutl/tree/old/develop)
 
 ![](https://raw.github.com/b-editor/beutl/main/assets/screenshots/screenshot-light-dark.png)
-_画像は開発中のバージョンです。_
+_The image is from a development version._
 
-## 📖 機能
+## 📖 Features
 
-### 💻 クロスプラットフォーム
-Beutl は常に最新の .NET を使用しているため、いろいろな OS で動作します。 Windows, Linuxをサポートしており、macOSも対応する予定です！
+### 💻 Cross-Platform
+Beutl uses the latest .NET, enabling it to run on various operating systems. It supports Windows, Linux, and macOS.
 
-### ⏳ キーフレーム
-キーフレームを使用して、フェードインアウト、スライドインなど基本的なアニメーションや、 さまざまなオブジェクトをアニメーションすることができます。
+### ⏳ Keyframes
+Using keyframes, you can create basic animations such as fade-ins and slide-ins, as well as animate various objects.
 
-### 🔌 拡張機能
-Beutl アカウントを作成して、拡張機能を取得したり、自身で開発した拡張機能を公開できます。 拡張機能では、エフェクト、オブジェクト、コーデック、UIなどを追加できます。
+### 🔌 Extensions
+Create a Beutl account to acquire extensions or publish your own developed extensions. Extensions can add effects, objects, codecs, UI, and more.
 
-### 🧰 豊富なエフェクト
-色フィルター、ぼかし、シャドウ、LUT などの基本的なエフェクトから 縁取り、内側シャドウ、ロングシャドウなどのマイナーなエフェクトがあります。 もちろんこれらは拡張機能で増やすことができます。
+### 🧰 Rich Effects
+From basic effects like color filters, blurs, shadows, and LUTs, to minor effects like outlines, inner shadows, and long shadows, Beutl offers a wide range of effects. These can be further expanded through extensions.
 
-## 📥 インストール
-[こちら](https://beutl.beditor.net/docs/get-started/install)のドキュメントを参照してください。
+## 📥 Installation
+Refer to the [documentation](https://beutl.beditor.net/docs/get-started/install) here.
 
 ## License
 
