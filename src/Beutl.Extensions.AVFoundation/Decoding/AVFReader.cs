@@ -14,18 +14,18 @@ public sealed class AVFReader : MediaReader
     private AVFVideoStreamReader? _videoReader;
     private AVFAudioStreamReader? _audioReader;
 
-    public AVFReader(string file, MediaOptions options)
+    public AVFReader(string file, MediaOptions options, AVFDecodingExtension extension)
     {
         var url = NSUrl.FromFilename(file);
         _asset = AVAsset.FromUrl(url);
         if (options.StreamsToLoad.HasFlag(MediaMode.Video))
         {
-            _videoReader = new AVFVideoStreamReader(_asset);
+            _videoReader = new AVFVideoStreamReader(_asset, extension);
         }
 
         if (options.StreamsToLoad.HasFlag(MediaMode.Audio))
         {
-            _audioReader = new AVFAudioStreamReader(_asset, options);
+            _audioReader = new AVFAudioStreamReader(_asset, options, extension);
         }
     }
 

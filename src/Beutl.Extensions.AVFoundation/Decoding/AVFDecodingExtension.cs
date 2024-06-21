@@ -11,6 +11,8 @@ public class AVFDecodingExtension : DecodingExtension
 
     public override string DisplayName => "AVFoundation Decoding";
 
+    public override AVFDecodingSettings? Settings { get; } = new();
+
     public override IDecoderInfo GetDecoderInfo()
     {
         return new AVFDecoderInfo(this);

@@ -32,7 +32,7 @@ public sealed class AVFDecoderInfo(AVFDecodingExtension extension) : IDecoderInf
     {
         try
         {
-            return new AVFReader(file, options);
+            return new AVFReader(file, options, extension);
         }
         catch
         {

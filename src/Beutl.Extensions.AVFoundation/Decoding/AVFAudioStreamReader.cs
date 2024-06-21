@@ -16,19 +16,23 @@ public class AVFAudioStreamReader : IDisposable
     private readonly AVAsset _asset;
     private readonly MediaOptions _options;
     private readonly AVFAudioSampleCache _sampleCache;
+    private readonly int _thresholdSampleCount;
 
     private readonly AVAssetTrack _audioTrack;
     private AVAssetReader _assetAudioReader;
     private AVAssetReaderTrackOutput _audioReaderOutput;
     private CMTime _currentAudioTimestamp = CMTime.Zero;
-    private readonly int _thresholdSampleCount = 30000;
     private CMTime _firstGapTimestamp = CMTime.Zero;
 
-    public AVFAudioStreamReader(AVAsset asset, MediaOptions options)
+    public AVFAudioStreamReader(AVAsset asset, MediaOptions options, AVFDecodingExtension extension)
     {
         _asset = asset;
         _options = options;
-        _sampleCache = new AVFAudioSampleCache(new AVFSampleCacheOptions());
+        _sampleCache =
+            new AVFAudioSampleCache(
+                new AVFSampleCacheOptions(MaxAudioBufferSize: extension.Settings?.MaxAudioBufferSize ?? 20));
+        _thresholdSampleCount = extension.Settings?.ThresholdSampleCount ?? 30000;
+
         _sampleCache.Reset(4 * 2);
 
         _audioTrack = _asset.TracksWithMediaType(AVMediaType.Audio)[0];

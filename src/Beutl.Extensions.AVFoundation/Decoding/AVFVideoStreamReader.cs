@@ -14,19 +14,21 @@ public class AVFVideoStreamReader : IDisposable
     private readonly ILogger _logger = Log.CreateLogger<AVFVideoStreamReader>();
     private readonly AVAsset _asset;
     private readonly AVFVideoSampleCache _sampleCache;
+    // 現在のフレームからどれくらいの範囲ならシーケンシャル読み込みさせるかの閾値
+    private readonly int _thresholdFrameCount;
 
     private readonly AVAssetTrack _track;
     private AVAssetReader _reader;
     private AVAssetReaderTrackOutput _output;
     private CMTime _currentTimestamp;
 
-    // 現在のフレームからどれくらいの範囲ならシーケンシャル読み込みさせるかの閾値
-    private readonly int _thresholdFrameCount = 30;
 
-    public AVFVideoStreamReader(AVAsset asset)
+    public AVFVideoStreamReader(AVAsset asset, AVFDecodingExtension extension)
     {
         _asset = asset;
-        _sampleCache = new AVFVideoSampleCache(new AVFSampleCacheOptions());
+        _sampleCache = new AVFVideoSampleCache(
+            new AVFSampleCacheOptions(MaxVideoBufferSize: extension.Settings?.MaxVideoBufferSize ?? 4));
+        _thresholdFrameCount = extension.Settings?.ThresholdFrameCount ?? 30;
 
         _track = _asset.TracksWithMediaType(AVMediaType.Video)[0];
 
