@@ -13,7 +13,9 @@ public class AVFVideoStreamReader : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<AVFVideoStreamReader>();
     private readonly AVAsset _asset;
+
     private readonly AVFVideoSampleCache _sampleCache;
+
     // 現在のフレームからどれくらいの範囲ならシーケンシャル読み込みさせるかの閾値
     private readonly int _thresholdFrameCount;
 
@@ -85,9 +87,9 @@ public class AVFVideoStreamReader : IDisposable
         // success!
         // add cache
         // timestamp -= _firstGapTimeStamp;
+        _currentTimestamp = buffer.PresentationTimeStamp;
         int frame = CMTimeUtilities.ConvertFrameFromTimeStamp(_currentTimestamp, _track.NominalFrameRate);
         _sampleCache.Add(frame, buffer);
-        _currentTimestamp = buffer.PresentationTimeStamp;
 
         return buffer;
     }
