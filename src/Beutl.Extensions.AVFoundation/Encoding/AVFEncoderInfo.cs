@@ -4,11 +4,18 @@ namespace Beutl.Extensions.AVFoundation.Encoding;
 
 public sealed class AVFEncoderInfo(AVFEncodingExtension extension) : IEncoderInfo
 {
-    public string Name =>"AVFoundation";
+    public string Name => "AVFoundation";
 
     public MediaWriter? Create(string file, VideoEncoderSettings videoConfig, AudioEncoderSettings audioConfig)
     {
-        
+        try
+        {
+            return new AVFWriter(file, (AVFVideoEncoderSettings)videoConfig, (AVFAudioEncoderSettings)audioConfig);
+        }
+        catch (Exception e)
+        {
+            return null;
+        }
     }
 
     public IEnumerable<string> SupportExtensions()
@@ -29,11 +36,11 @@ public sealed class AVFEncoderInfo(AVFEncodingExtension extension) : IEncoderInf
 
     public VideoEncoderSettings DefaultVideoConfig()
     {
-        return new VideoEncoderSettings();
+        return new AVFVideoEncoderSettings();
     }
 
     public AudioEncoderSettings DefaultAudioConfig()
     {
-        return new AudioEncoderSettings();
+        return new AVFAudioEncoderSettings();
     }
 }

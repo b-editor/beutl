@@ -19,7 +19,7 @@ public sealed class AVFAudioEncoderSettings : AudioEncoderSettings
             .Register();
 
         LinearPcmBitDepthProperty = ConfigureProperty<BitDepth, AVFAudioEncoderSettings>(nameof(LinearPcmBitDepth))
-            .DefaultValue(BitDepth.Default)
+            .DefaultValue(BitDepth.Bits16)
             .Register();
 
         LinearPcmBigEndianProperty = ConfigureProperty<bool, AVFAudioEncoderSettings>(nameof(LinearPcmBigEndian))
@@ -91,11 +91,10 @@ public sealed class AVFAudioEncoderSettings : AudioEncoderSettings
 
     public enum BitDepth
     {
-        Default,
-        Bits8,
-        Bits16,
-        Bits24,
-        Bits32
+        Bits8 = 8,
+        Bits16 = 16,
+        Bits24 = 24,
+        Bits32 = 32
     }
 
     public enum AudioQuality
