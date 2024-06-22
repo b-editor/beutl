@@ -15,7 +15,7 @@ public sealed class AVFAudioEncoderSettings : AudioEncoderSettings
     static AVFAudioEncoderSettings()
     {
         FormatProperty = ConfigureProperty<AudioFormatType, AVFAudioEncoderSettings>(nameof(Format))
-            .DefaultValue(AudioFormatType.Default)
+            .DefaultValue(AudioFormatType.MPEG4AAC)
             .Register();
 
         LinearPcmBitDepthProperty = ConfigureProperty<BitDepth, AVFAudioEncoderSettings>(nameof(LinearPcmBitDepth))
@@ -109,7 +109,6 @@ public sealed class AVFAudioEncoderSettings : AudioEncoderSettings
 
     public enum AudioFormatType
     {
-        Default = 0,
         MPEGLayer1 = 778924081, // 0x2E6D7031
         MPEGLayer2 = 778924082, // 0x2E6D7032
         MPEGLayer3 = 778924083, // 0x2E6D7033

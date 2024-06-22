@@ -1,7 +1,9 @@
-﻿using Beutl.Media.Encoding;
+﻿using System.Runtime.Versioning;
+using Beutl.Media.Encoding;
 
 namespace Beutl.Extensions.AVFoundation.Encoding;
 
+[SupportedOSPlatform("macos")]
 public sealed class AVFEncoderInfo(AVFEncodingExtension extension) : IEncoderInfo
 {
     public string Name => "AVFoundation";

@@ -1,6 +1,6 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Media.Music;
@@ -8,13 +8,13 @@ using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using MonoMac.AudioToolbox;
 using MonoMac.AVFoundation;
-using MonoMac.CoreFoundation;
 using MonoMac.CoreMedia;
 using MonoMac.CoreVideo;
 using MonoMac.Foundation;
 
 namespace Beutl.Extensions.AVFoundation.Encoding;
 
+[SupportedOSPlatform("macos")]
 public class AVFWriter : MediaWriter
 {
     private readonly AVAssetWriter _assetWriter;
@@ -22,9 +22,6 @@ public class AVFWriter : MediaWriter
     private readonly AVAssetWriterInputPixelBufferAdaptor _videoAdaptor;
     private long _numberOfFrames;
     private readonly AVAssetWriterInput _audioInput;
-    private readonly AudioSettings _audioSettings;
-    private AudioConverter? _audioConverter;
-    private AudioStreamBasicDescription? _audioSourceFormat;
     private long _numberOfSamples;
 
     public AVFWriter(string file, AVFVideoEncoderSettings videoConfig, AVFAudioEncoderSettings audioConfig)
@@ -47,18 +44,21 @@ public class AVFWriter : MediaWriter
                 ProfileLevelH264 = ToAVVideoProfileLevelH264(videoConfig.ProfileLevelH264),
             },
         });
-
+        _videoInput.ExpectsMediaDataInRealTime = true;
+        _videoAdaptor = AVAssetWriterInputPixelBufferAdaptor.Create(_videoInput,
+            new CVPixelBufferAttributes
+            {
+                PixelFormatType = CVPixelFormatType.CV32ARGB,
+                Width = videoConfig.SourceSize.Width,
+                Height = videoConfig.SourceSize.Width,
+            });
         _assetWriter.AddInput(_videoInput);
 
-        _audioSettings = new AudioSettings
+        var audioSettings = new AudioSettings
         {
             SampleRate = audioConfig.SampleRate,
             EncoderBitRate = audioConfig.Bitrate == -1 ? null : audioConfig.Bitrate,
             NumberChannels = audioConfig.Channels,
-            LinearPcmFloat = audioConfig.LinearPcmFloat,
-            LinearPcmBigEndian = audioConfig.LinearPcmBigEndian,
-            LinearPcmBitDepth = (int?)audioConfig.LinearPcmBitDepth,
-            LinearPcmNonInterleaved = audioConfig.LinearPcmNonInterleaved,
             Format = ToAudioFormatType(audioConfig.Format),
             AudioQuality =
                 audioConfig.Quality == AVFAudioEncoderSettings.AudioQuality.Default
@@ -69,18 +69,17 @@ public class AVFWriter : MediaWriter
                     ? null
                     : (AVAudioQuality?)audioConfig.SampleRateConverterQuality,
         };
-        _audioInput = AVAssetWriterInput.Create(AVMediaType.Audio, _audioSettings);
-        _assetWriter.AddInput(_audioInput);
-        _audioInput.ExpectsMediaDataInRealTime = true;
+        if (audioSettings.Format == AudioFormatType.LinearPCM)
+        {
+            audioSettings.LinearPcmFloat = audioConfig.LinearPcmFloat;
+            audioSettings.LinearPcmBigEndian = audioConfig.LinearPcmBigEndian;
+            audioSettings.LinearPcmBitDepth = (int?)audioConfig.LinearPcmBitDepth;
+            audioSettings.LinearPcmNonInterleaved = audioConfig.LinearPcmNonInterleaved;
+        }
 
-        _videoAdaptor = AVAssetWriterInputPixelBufferAdaptor.Create(_videoInput,
-            new CVPixelBufferAttributes
-            {
-                PixelFormatType = CVPixelFormatType.CV32ARGB,
-                Width = videoConfig.SourceSize.Width,
-                Height = videoConfig.SourceSize.Width,
-            });
-        _videoInput.ExpectsMediaDataInRealTime = true;
+        _audioInput = AVAssetWriterInput.Create(AVMediaType.Audio, audioSettings);
+        _audioInput.ExpectsMediaDataInRealTime = true;
+        _assetWriter.AddInput(_audioInput);
 
         if (!_assetWriter.StartWriting())
         {
@@ -96,9 +95,15 @@ public class AVFWriter : MediaWriter
 
     public override bool AddVideo(IBitmap image)
     {
-        if (!_videoAdaptor.AssetWriterInput.ReadyForMoreMediaData)
+        int count = 0;
+        while (!_videoAdaptor.AssetWriterInput.ReadyForMoreMediaData)
         {
-            return false;
+            Thread.Sleep(10);
+            count++;
+            if (count > 100)
+            {
+                return false;
+            }
         }
 
         var time = new CMTime(_numberOfFrames * VideoConfig.FrameRate.Denominator,
@@ -129,78 +134,88 @@ public class AVFWriter : MediaWriter
     }
 
     [DllImport("/System/Library/PrivateFrameworks/CoreMedia.framework/Versions/A/CoreMedia")]
-    private static extern CMBlockBufferError CMBlockBufferReplaceDataBytes(
-        IntPtr sourceBytes,
-        IntPtr handle,
-        uint offsetIntoDestination,
-        uint dataLength);
+    private static extern unsafe CMFormatDescriptionError CMAudioFormatDescriptionCreate(
+        IntPtr allocator,
+        void* asbd,
+        uint layoutSize,
+        void* layout,
+        uint magicCookieSize,
+        void* magicCookie,
+        IntPtr extensions,
+        out IntPtr handle);
 
-    [DllImport("/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox")]
-    private static unsafe extern AudioConverterError AudioConverterConvertBuffer(
-        IntPtr handle,
-        uint inInputDataSize, IntPtr inInputData,
-        uint* ioOutputDataSize, IntPtr outOutputData);
+    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
+    private static extern CMAudioFormatDescription NewCMAudioFormatDescription(IntPtr handle);
 
-    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "handle")]
-    private static extern IntPtr GetHandle(AudioConverter self);
+    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
+    private static extern CMBlockBuffer NewCMBlockBuffer(IntPtr handle);
 
-    public override unsafe bool AddAudio(IPcm sound)
+    [DllImport("/System/Library/PrivateFrameworks/CoreMedia.framework/Versions/A/CoreMedia")]
+    private static extern CMBlockBufferError CMBlockBufferCreateWithMemoryBlock(
+        IntPtr allocator,
+        IntPtr memoryBlock,
+        uint blockLength,
+        IntPtr blockAllocator,
+        IntPtr customBlockSource,
+        uint offsetToData,
+        uint dataLength,
+        CMBlockBufferFlags flags,
+        out IntPtr handle);
+
+    private static unsafe CMAudioFormatDescription CreateAudioFormatDescription(AudioStreamBasicDescription asbd)
+    {
+        var error = CMAudioFormatDescriptionCreate(
+            IntPtr.Zero,
+            &asbd,
+            0,
+            null,
+            0,
+            null,
+            IntPtr.Zero,
+            out var handle);
+        if (error != CMFormatDescriptionError.None) throw new Exception(error.ToString());
+        return NewCMAudioFormatDescription(handle);
+    }
+
+    private static CMBlockBuffer CreateCMBlockBufferWithMemoryBlock(uint length, IntPtr memoryBlock,
+        CMBlockBufferFlags flags)
+    {
+        var error = CMBlockBufferCreateWithMemoryBlock(
+            IntPtr.Zero,
+            memoryBlock,
+            length,
+            IntPtr.Zero,
+            IntPtr.Zero,
+            0,
+            length,
+            flags,
+            out var handle);
+        if (error != CMBlockBufferError.None) throw new Exception(error.ToString());
+        return NewCMBlockBuffer(handle);
+    }
+
+    public override bool AddAudio(IPcm sound)
     {
         if (!_audioInput.ReadyForMoreMediaData)
         {
             return false;
         }
 
-        var audioConfig = (AVFAudioEncoderSettings)AudioConfig;
-        if (_audioConverter == null
-            || !_audioSourceFormat.HasValue
-            || (int)_audioSourceFormat.Value.SampleRate != sound.SampleRate
-            || _audioSourceFormat.Value.BitsPerChannel != GetBits()
-            || _audioSourceFormat.Value.ChannelsPerFrame != sound.NumChannels)
-        {
-            var sourceFormat = AudioStreamBasicDescription.CreateLinearPCM(sound.SampleRate, (uint)sound.NumChannels);
-            sourceFormat.FormatFlags = GetFormatFlags();
-            sourceFormat.BitsPerChannel = GetBits();
-            _audioSourceFormat = sourceFormat;
+        var sourceFormat = AudioStreamBasicDescription.CreateLinearPCM(sound.SampleRate, (uint)sound.NumChannels);
+        sourceFormat.FormatFlags = GetFormatFlags();
+        sourceFormat.BitsPerChannel = GetBits();
+        var fmtError = AudioStreamBasicDescription.GetFormatInfo(ref sourceFormat);
+        if (fmtError != AudioFormatError.None) throw new Exception(fmtError.ToString());
 
-            var destinationFormat =
-                AudioStreamBasicDescription.CreateLinearPCM(AudioConfig.SampleRate, (uint)AudioConfig.Channels,
-                    (uint)audioConfig.LinearPcmBitDepth, audioConfig.LinearPcmBigEndian);
-            destinationFormat.FormatFlags =
-                (audioConfig.LinearPcmFloat ? AudioFormatFlags.IsFloat : AudioFormatFlags.IsSignedInteger) |
-                AudioFormatFlags.IsPacked;
+        uint inputDataSize = (uint)(sound.SampleSize * sound.NumSamples);
+        var time = new CMTime(_numberOfSamples, sound.SampleRate);
+        using var dataBuffer =
+            CreateCMBlockBufferWithMemoryBlock(inputDataSize, sound.Data, CMBlockBufferFlags.AlwaysCopyData);
 
-            _audioConverter?.Dispose();
-            _audioConverter = AudioConverter.Create(_audioSourceFormat.Value, destinationFormat);
-        }
+        using var formatDescription = CreateAudioFormatDescription(sourceFormat);
 
-        uint inputDataSize = (uint)(sound.SampleSize * sound.NumSamples * sound.NumChannels);
-        uint bytes = (uint)audioConfig.LinearPcmBitDepth / 8;
-        uint outputSamples = (uint)Math.Ceiling(AudioConfig.SampleRate * sound.NumSamples / (double)sound.SampleRate);
-        uint outputDataSize = bytes * outputSamples * (uint)AudioConfig.Channels;
-        var outputData = NativeMemory.Alloc(outputDataSize);
-
-        AudioConverterConvertBuffer(
-            GetHandle(_audioConverter),
-            inputDataSize, sound.Data,
-            &outputDataSize, (IntPtr)outputData);
-        Debug.Assert(outputDataSize == bytes * outputSamples * (uint)AudioConfig.Channels);
-
-        var time = new CMTime(_numberOfSamples, AudioConfig.SampleRate);
-        using var dataBuffer = CMBlockBuffer.CreateEmpty(
-            outputDataSize,
-            CMBlockBufferFlags.AlwaysCopyData, out var error1);
-        if (error1 != CMBlockBufferError.None) throw new Exception(error1.ToString());
-
-        var error2 = CMBlockBufferReplaceDataBytes((IntPtr)outputData, dataBuffer.Handle, 0, dataBuffer.DataLength);
-        if (error2 != CMBlockBufferError.None) throw new Exception(error2.ToString());
-
-        using var formatDescription =
-            CMFormatDescription.Create(CMMediaType.Audio, (uint)AudioFormatType.LinearPCM, out var error3);
-        if (error3 != CMFormatDescriptionError.None) throw new Exception(error3.ToString());
-
-        using var sampleBuffer = CMSampleBuffer.CreateWithPacketDescriptions(dataBuffer, formatDescription,
-            (int)outputSamples, time, null, out var error4);
+        var sampleBuffer = CMSampleBuffer.CreateWithPacketDescriptions(dataBuffer, formatDescription,
+            sound.NumSamples, time, null, out var error4);
         if (error4 != CMSampleBufferError.None) throw new Exception(error4.ToString());
 
         if (!_audioInput.AppendSampleBuffer(sampleBuffer))
@@ -208,7 +223,7 @@ public class AVFWriter : MediaWriter
             return false;
         }
 
-        _numberOfSamples += outputSamples;
+        _numberOfSamples += sound.NumSamples;
         return true;
 
         int GetBits()
@@ -225,7 +240,7 @@ public class AVFWriter : MediaWriter
         {
             return sound switch
             {
-                Pcm<Stereo32BitFloat> => AudioFormatFlags.IsSignedInteger | AudioFormatFlags.IsPacked,
+                Pcm<Stereo32BitFloat> => AudioFormatFlags.IsFloat | AudioFormatFlags.IsPacked,
                 Pcm<Stereo16BitInteger> or Pcm<Stereo32BitInteger> => AudioFormatFlags.IsSignedInteger |
                                                                       AudioFormatFlags.IsPacked,
                 _ => throw new NotSupportedException()
