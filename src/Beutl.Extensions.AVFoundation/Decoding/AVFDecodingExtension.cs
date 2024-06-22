@@ -22,7 +22,14 @@ public class AVFDecodingExtension : DecodingExtension
     {
         if (OperatingSystem.IsMacOS())
         {
-            NSApplication.Init();
+            try
+            {
+                NSApplication.Init();
+            }
+            catch
+            {
+            }
+
             DecoderRegistry.Register(GetDecoderInfo());
         }
     }

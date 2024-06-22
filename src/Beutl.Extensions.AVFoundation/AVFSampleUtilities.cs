@@ -11,6 +11,29 @@ namespace Beutl.Extensions.AVFoundation;
 
 public class AVFSampleUtilities
 {
+    public static unsafe CVPixelBuffer? ConvertToCVPixelBuffer(Bitmap<Bgra8888> bitmap)
+    {
+        int width = bitmap.Width;
+        int height = bitmap.Height;
+        var pixelBuffer = new CVPixelBuffer(width, height, CVPixelFormatType.CV32BGRA, new CVPixelBufferAttributes
+        {
+            PixelFormatType = CVPixelFormatType.CV32BGRA,
+            Width = width,
+            Height = height
+        });
+
+        var r = pixelBuffer.Lock(CVOptionFlags.None);
+        if (r != CVReturn.Success) return null;
+
+        Buffer.MemoryCopy(
+            (void*)bitmap.Data, (void*)pixelBuffer.GetBaseAddress(0),
+            bitmap.ByteCount, bitmap.ByteCount);
+
+        pixelBuffer.Unlock(CVOptionFlags.None);
+
+        return pixelBuffer;
+    }
+
     public static unsafe Bitmap<Bgra8888>? ConvertToBgra(CMSampleBuffer buffer)
     {
         using var imageBuffer = buffer.GetImageBuffer();
