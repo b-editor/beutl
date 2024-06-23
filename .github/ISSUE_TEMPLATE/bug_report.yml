@@ -40,4 +40,6 @@ body:
   - type: markdown
     id: additional-info
     attributes:
-      value: ""
+      value: |
+        Add any other context about the problem here.
+        If applicable, add screenshots to help explain your problem.
