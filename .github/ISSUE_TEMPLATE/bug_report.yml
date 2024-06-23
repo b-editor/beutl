@@ -33,13 +33,14 @@ body:
     attributes:
       label: OS
       multiple: true
-      options:        
+      options:
         - Windows
         - macOS
         - Linux
-  - type: markdown
+  - type: textarea
     id: additional-info
     attributes:
-      value: |
+      label: Additional context
+      description: |
         Add any other context about the problem here.
         If applicable, add screenshots to help explain your problem.
