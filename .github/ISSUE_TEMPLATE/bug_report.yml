@@ -1,0 +1,45 @@
+name: Bug Report
+description: File a bug report
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: To Reproduce
+      description: Steps to reproduce the behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: what-expected
+    attributes:
+      label: Expected behavior
+      description: A clear and concise description of what you expected to happen.
+  - type: input
+    id: beutl-version
+    attributes:
+      label: Beutl version
+      placeholder: e.g. 1.0.0-preview.5
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      multiple: true
+      options:        
+        - Windows
+        - macOS
+        - Linux
+  - type: markdown
+    id: additional-info
+    attributes:
+      value: |
+        Add any other context about the problem here.
+        If applicable, add screenshots to help explain your problem.
