@@ -164,11 +164,19 @@ public class AVFWriter : MediaWriter
 
     private static unsafe CMAudioFormatDescription CreateAudioFormatDescription(AudioStreamBasicDescription asbd)
     {
+        var channelLayout = new AudioChannelLayout
+        {
+            AudioTag = asbd.ChannelsPerFrame == 2 ? AudioChannelLayoutTag.Stereo : AudioChannelLayoutTag.Mono,
+            Channels = [],
+            Bitmap = 0,
+        };
+        var data = channelLayout.AsData();
+
         var error = CMAudioFormatDescriptionCreate(
             IntPtr.Zero,
             &asbd,
-            0,
-            null,
+            (uint)data.Length,
+            (void*)data.Bytes,
             0,
             null,
             IntPtr.Zero,
