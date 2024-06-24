@@ -600,8 +600,6 @@ public sealed partial class ElementView : UserControl
                             _snapshot = new Thickness(borderMargin.Left, margin.Top, 0, 0);
                             _pressedWithModifier = true;
                         }
-
-                        obj.border.Opacity = obj.ViewModel.IsEnabled.Value ? 0.8 : 0.4;
                     }
                 }
             }
@@ -625,8 +623,6 @@ public sealed partial class ElementView : UserControl
 
                     _pressedWithModifier = false;
                 }
-
-                obj.border.Opacity = obj.ViewModel.IsEnabled.Value ? 1 : 0.5;
             }
         }
     }

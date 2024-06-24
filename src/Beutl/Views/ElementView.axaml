@@ -29,8 +29,14 @@
             Classes.elm-disabled="{Binding !IsEnabled.Value}"
             Classes.selected="{Binding IsSelected.Value}">
         <Border.Styles>
+            <Style Selector="Border:pressed">
+                <Setter Property="Opacity" Value="0.8" />
+            </Style>
             <Style Selector="Border.elm-disabled">
                 <Setter Property="Opacity" Value="0.5" />
+            </Style>
+            <Style Selector="Border.elm-disabled:pressed">
+                <Setter Property="Opacity" Value="0.4" />
             </Style>
             <Style Selector="Border.selected">
                 <Setter Property="BorderBrush" Value="{DynamicResource TextControlForeground}" />
