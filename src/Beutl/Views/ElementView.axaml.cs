@@ -8,16 +8,12 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
-
 using Beutl.Commands;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.NodeTree;
-
 using FluentAvalonia.UI.Controls;
-
 using Reactive.Bindings.Extensions;
-
 using Setter = Avalonia.Styling.Setter;
 
 namespace Beutl.Views;
@@ -202,6 +198,15 @@ public sealed partial class ElementView : UserControl
         Element model = ViewModel.Model;
         CommandRecorder recorder = ViewModel.Timeline.EditorContext.CommandRecorder;
         RecordableCommands.Edit(model, Element.UseNodeProperty, !model.UseNode)
+            .WithStoables([model])
+            .DoAndRecord(recorder);
+    }
+
+    private void EnableElementClick(object? sender, RoutedEventArgs e)
+    {
+        Element model = ViewModel.Model;
+        CommandRecorder recorder = ViewModel.Timeline.EditorContext.CommandRecorder;
+        RecordableCommands.Edit(model, Element.IsEnabledProperty, !model.IsEnabled)
             .WithStoables([model])
             .DoAndRecord(recorder);
     }

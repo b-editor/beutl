@@ -1216,4 +1216,7 @@ and b-editor maintains the download URL.</value>
   <data name="ClipTransparentArea" xml:space="preserve">
     <value>Clip transparent area</value>
   </data>
+  <data name="EnableElement" xml:space="preserve">
+    <value>Enable element</value>
+  </data>
 </root>
