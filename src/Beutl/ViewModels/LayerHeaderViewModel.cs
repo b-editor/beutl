@@ -1,12 +1,9 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
-
 using Avalonia.Media;
-
 using Beutl.Commands;
 using Beutl.ProjectSystem;
 using Beutl.Reactive;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -15,6 +12,9 @@ namespace Beutl.ViewModels;
 public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
 {
     private readonly CompositeDisposable _disposables = [];
+    private readonly List<ElementViewModel> _elements = [];
+    private IDisposable? _elementsSubscription;
+    private bool _skipSubscription;
 
     public LayerHeaderViewModel(int num, TimelineViewModel timeline)
     {
@@ -26,30 +26,40 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsEnabled.Skip(1).Subscribe(b =>
-        {
-            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-            Timeline.Scene.Children.Where(i => i.ZIndex == Number.Value && i.IsEnabled != b)
-                .Select(item => RecordableCommands.Edit(item, Element.IsEnabledProperty, b).WithStoables([item]))
-                .ToArray()
-                .ToCommand()
-                .DoAndRecord(recorder);
-        }).DisposeWith(_disposables);
+        SwitchEnabledCommand = new ReactiveCommand()
+            .WithSubscribe(() =>
+            {
+                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+                try
+                {
+                    _skipSubscription = true;
+                    IsEnabled.Value = !IsEnabled.Value;
+                    Timeline.Scene.Children.Where(i => i.ZIndex == Number.Value && i.IsEnabled != IsEnabled.Value)
+                        .Select(item => RecordableCommands.Edit(item, Element.IsEnabledProperty, IsEnabled.Value).WithStoables([item]))
+                        .ToArray()
+                        .ToCommand()
+                        .DoAndRecord(recorder);
+                }
+                finally
+                {
+                    _skipSubscription = false;
+                }
+            });
 
         Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).DisposeWith(_disposables);
 
         Inlines.ForEachItem(
-            (idx, x) =>
-            {
-                Height.Value += FrameNumberHelper.LayerHeight;
-                x.Index.Value = idx;
-            },
-            (_, x) =>
-            {
-                Height.Value -= FrameNumberHelper.LayerHeight;
-                x.Index.Value = -1;
-            },
-            () => { })
+                (idx, x) =>
+                {
+                    Height.Value += FrameNumberHelper.LayerHeight;
+                    x.Index.Value = idx;
+                },
+                (_, x) =>
+                {
+                    Height.Value -= FrameNumberHelper.LayerHeight;
+                    x.Index.Value = -1;
+                },
+                () => { })
             .DisposeWith(_disposables);
 
         Inlines.CollectionChangedAsObservable()
@@ -118,6 +128,8 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new() { ResetBehavior = ResetBehavior.Remove };
 
+    public ReactiveCommand SwitchEnabledCommand { get; }
+
     public void AnimationRequest(int layerNum, bool affectModel = true)
     {
         if (affectModel)
@@ -125,6 +137,37 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
 
         //await AnimationRequested(0, cancellationToken);
         PosY.Value = 0;
+    }
+
+    public void ElementAdded(ElementViewModel element)
+    {
+        ItemsCount.Value++;
+        _elements.Add(element);
+        BuildSubscription();
+    }
+
+    public void ElementRemoved(ElementViewModel element)
+    {
+        ItemsCount.Value--;
+        _elements.Remove(element);
+        BuildSubscription();
+    }
+
+    private void BuildSubscription()
+    {
+        _elementsSubscription?.Dispose();
+        _elementsSubscription = null;
+        if (_elements.Count == 0)
+        {
+            IsEnabled.Value = true;
+            return;
+        }
+
+        _elementsSubscription = _elements.Select(obj => obj.IsEnabled.Select(b => (bool?)b))
+            .Aggregate((x, y) => x.CombineLatest(y)
+                .Select(t => t.First == t.Second ? t.First : null))
+            .Where(b => b.HasValue && !_skipSubscription)
+            .Subscribe(b => IsEnabled.Value = b!.Value);
     }
 
     public void Dispose()
