@@ -209,10 +209,10 @@ public class AVFWriter : MediaWriter
 
         uint inputDataSize = (uint)(sound.SampleSize * sound.NumSamples);
         var time = new CMTime(_numberOfSamples, sound.SampleRate);
-        using var dataBuffer =
-            CreateCMBlockBufferWithMemoryBlock(inputDataSize, sound.Data, CMBlockBufferFlags.AlwaysCopyData);
+        var dataBuffer = CreateCMBlockBufferWithMemoryBlock(
+            inputDataSize, sound.Data, CMBlockBufferFlags.AlwaysCopyData);
 
-        using var formatDescription = CreateAudioFormatDescription(sourceFormat);
+        var formatDescription = CreateAudioFormatDescription(sourceFormat);
 
         var sampleBuffer = CMSampleBuffer.CreateWithPacketDescriptions(dataBuffer, formatDescription,
             sound.NumSamples, time, null, out var error4);
