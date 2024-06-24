@@ -8,16 +8,12 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
-
 using Beutl.Commands;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.NodeTree;
-
 using FluentAvalonia.UI.Controls;
-
 using Reactive.Bindings.Extensions;
-
 using Setter = Avalonia.Styling.Setter;
 
 namespace Beutl.Views;
@@ -51,37 +47,35 @@ public sealed partial class ElementView : UserControl
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (DataContext is ElementViewModel viewModel)
-        {
-            if (e.Key == Key.F2)
-            {
-                Rename_Click(null, null!);
-                e.Handled = true;
-                return;
-            }
-            else if (e.Key == Key.LeftCtrl)
-            {
-                _resizeBehavior?.OnLeftCtrlPressed(e);
-                return;
-            }
+        if (DataContext is not ElementViewModel viewModel) return;
 
-            // KeyBindingsは変更してはならない。
-            foreach (KeyBinding binding in viewModel.KeyBindings)
-            {
-                if (e.Handled)
-                    break;
-                binding.TryHandle(e);
-            }
+        if (e.Key == Key.F2)
+        {
+            Rename_Click(null, null!);
+            e.Handled = true;
+            return;
+        }
+        else if (e.Key == Key.LeftCtrl)
+        {
+            _resizeBehavior?.OnLeftCtrlPressed(e);
+            return;
+        }
+
+        // KeyBindingsは変更してはならない。
+        foreach (KeyBinding binding in viewModel.KeyBindings)
+        {
+            if (e.Handled)
+                break;
+            binding.TryHandle(e);
         }
     }
 
     private void OnContextFlyoutOpening(object? sender, EventArgs e)
     {
-        if (DataContext is ElementViewModel viewModel)
-        {
-            change2OriginalLength.IsEnabled = viewModel.HasOriginalLength();
-            splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.CurrentTime.Value);
-        }
+        if (DataContext is not ElementViewModel viewModel) return;
+
+        change2OriginalLength.IsEnabled = viewModel.HasOriginalLength();
+        splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.CurrentTime.Value);
     }
 
     private void OnDataContextDetached(ElementViewModel obj)
@@ -97,58 +91,8 @@ public sealed partial class ElementView : UserControl
         {
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                var animation1 = new Avalonia.Animation.Animation
-                {
-                    Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                    Duration = TimeSpan.FromSeconds(0.25),
-                    FillMode = FillMode.Forward,
-                    Children =
-                    {
-                        new KeyFrame()
-                        {
-                            Cue = new Cue(0),
-                            Setters =
-                            {
-                                new Setter(MarginProperty, border.Margin),
-                                new Setter(WidthProperty, border.Width),
-                            }
-                        },
-                        new KeyFrame()
-                        {
-                            Cue = new Cue(1),
-                            Setters =
-                            {
-                                new Setter(MarginProperty, args.BorderMargin),
-                                new Setter(WidthProperty, args.Width)
-                            }
-                        }
-                    }
-                };
-                var animation2 = new Avalonia.Animation.Animation
-                {
-                    Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                    Duration = TimeSpan.FromSeconds(0.25),
-                    FillMode = FillMode.Forward,
-                    Children =
-                        {
-                            new KeyFrame()
-                            {
-                                Cue = new Cue(0),
-                                Setters =
-                                {
-                                    new Setter(MarginProperty, obj.Margin.Value)
-                                }
-                            },
-                            new KeyFrame()
-                            {
-                                Cue = new Cue(1),
-                                Setters =
-                                {
-                                    new Setter(MarginProperty, args.Margin)
-                                }
-                            }
-                        }
-                };
+                var animation1 = new Avalonia.Animation.Animation { Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0), Duration = TimeSpan.FromSeconds(0.25), FillMode = FillMode.Forward, Children = { new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, border.Margin), new Setter(WidthProperty, border.Width), } }, new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, args.BorderMargin), new Setter(WidthProperty, args.Width) } } } };
+                var animation2 = new Avalonia.Animation.Animation { Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0), Duration = TimeSpan.FromSeconds(0.25), FillMode = FillMode.Forward, Children = { new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, obj.Margin.Value) } }, new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, args.Margin) } } } };
 
                 Task task1 = animation1.RunAsync(border, token);
                 Task task2 = animation2.RunAsync(this, token);
@@ -156,11 +100,6 @@ public sealed partial class ElementView : UserControl
             });
         };
         obj.GetClickedTime = () => _pointerPosition;
-
-        obj.Model.GetObservable(Element.IsEnabledProperty)
-            .ObserveOnUIDispatcher()
-            .Subscribe(b => border.Opacity = b ? 1 : 0.5)
-            .DisposeWith(_disposables);
 
         obj.IsSelected
             .ObserveOnUIDispatcher()
@@ -206,6 +145,15 @@ public sealed partial class ElementView : UserControl
             .DoAndRecord(recorder);
     }
 
+    private void EnableElementClick(object? sender, RoutedEventArgs e)
+    {
+        Element model = ViewModel.Model;
+        CommandRecorder recorder = ViewModel.Timeline.EditorContext.CommandRecorder;
+        RecordableCommands.Edit(model, Element.IsEnabledProperty, !model.IsEnabled)
+            .WithStoables([model])
+            .DoAndRecord(recorder);
+    }
+
     private void OnTextBoxLostFocus(object? sender, RoutedEventArgs e)
     {
         textBlock.IsVisible = true;
@@ -222,28 +170,27 @@ public sealed partial class ElementView : UserControl
 
     private void ChangeColor_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is ElementViewModel viewModel)
+        if (DataContext is not ElementViewModel viewModel) return;
+
+        // ContextMenuから開いているので、閉じるのを待つ
+        s_colorPickerFlyout ??= new ColorPickerFlyout();
+        s_colorPickerFlyout.ColorPicker.Color = viewModel.Color.Value;
+        s_colorPickerFlyout.ColorPicker.IsAlphaEnabled = false;
+        s_colorPickerFlyout.ColorPicker.UseColorPalette = true;
+        s_colorPickerFlyout.ColorPicker.IsCompact = true;
+        s_colorPickerFlyout.ColorPicker.IsMoreButtonVisible = true;
+        s_colorPickerFlyout.Placement = PlacementMode.Top;
+
+        if (this.TryFindResource("PaletteColors", out object? colors)
+            && colors is IEnumerable<Color> tcolors)
         {
-            // ContextMenuから開いているので、閉じるのを待つ
-            s_colorPickerFlyout ??= new ColorPickerFlyout();
-            s_colorPickerFlyout.ColorPicker.Color = viewModel.Color.Value;
-            s_colorPickerFlyout.ColorPicker.IsAlphaEnabled = false;
-            s_colorPickerFlyout.ColorPicker.UseColorPalette = true;
-            s_colorPickerFlyout.ColorPicker.IsCompact = true;
-            s_colorPickerFlyout.ColorPicker.IsMoreButtonVisible = true;
-            s_colorPickerFlyout.Placement = PlacementMode.Top;
-
-            if (this.TryFindResource("PaletteColors", out object? colors)
-                && colors is IEnumerable<Color> tcolors)
-            {
-                s_colorPickerFlyout.ColorPicker.CustomPaletteColors = tcolors;
-            }
-
-            s_colorPickerFlyout.Confirmed += OnColorPickerFlyoutConfirmed;
-            s_colorPickerFlyout.Closed += OnColorPickerFlyoutClosed;
-
-            s_colorPickerFlyout.ShowAt(border);
+            s_colorPickerFlyout.ColorPicker.CustomPaletteColors = tcolors;
         }
+
+        s_colorPickerFlyout.Confirmed += OnColorPickerFlyoutConfirmed;
+        s_colorPickerFlyout.Closed += OnColorPickerFlyoutClosed;
+
+        s_colorPickerFlyout.ShowAt(border);
     }
 
     private void OnColorPickerFlyoutClosed(object? sender, EventArgs e)
@@ -325,13 +272,12 @@ public sealed partial class ElementView : UserControl
         protected override void OnAttached()
         {
             base.OnAttached();
-            if (AssociatedObject != null)
-            {
-                AssociatedObject.AddHandler(PointerMovedEvent, OnPointerMoved);
-                AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
-                AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
-                AssociatedObject.border.AddHandler(PointerMovedEvent, OnBorderPointerMoved);
-            }
+            if (AssociatedObject == null) return;
+
+            AssociatedObject.AddHandler(PointerMovedEvent, OnPointerMoved);
+            AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
+            AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
+            AssociatedObject.border.AddHandler(PointerMovedEvent, OnBorderPointerMoved);
         }
 
         protected override void OnDetaching()
@@ -398,11 +344,11 @@ public sealed partial class ElementView : UserControl
 
         private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject is { _timeline: { }, ViewModel: { } viewModel } view)
+            if (AssociatedObject is { _timeline: not null, ViewModel: { } viewModel } view)
             {
                 PointerPoint point = e.GetCurrentPoint(view.border);
                 if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
-                    && view.Cursor != Cursors.Arrow && view.Cursor is { })
+                                                         && view.Cursor != Cursors.Arrow && view.Cursor is not null)
                 {
                     _before = viewModel.Model.GetBefore(viewModel.Model.ZIndex, viewModel.Model.Start);
                     _after = viewModel.Model.GetAfter(viewModel.Model.ZIndex, viewModel.Model.Range.End);
@@ -483,29 +429,26 @@ public sealed partial class ElementView : UserControl
         protected override void OnAttached()
         {
             base.OnAttached();
-            if (AssociatedObject != null)
-            {
-                AssociatedObject.AddHandler(PointerMovedEvent, OnPointerMoved);
-                AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
-                AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
-            }
+            if (AssociatedObject == null) return;
+
+            AssociatedObject.AddHandler(PointerMovedEvent, OnPointerMoved);
+            AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
+            AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
         }
 
         protected override void OnDetaching()
         {
             base.OnDetaching();
-            if (AssociatedObject != null)
-            {
-                AssociatedObject.RemoveHandler(PointerMovedEvent, OnPointerMoved);
-                AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
-                AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
-            }
+            if (AssociatedObject == null) return;
+
+            AssociatedObject.RemoveHandler(PointerMovedEvent, OnPointerMoved);
+            AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
+            AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
         }
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (AssociatedObject is { ViewModel: { } viewModel } view
-                && view._timeline is { } timeline && _pressed)
+            if (AssociatedObject is { ViewModel: { } viewModel, _timeline: { } timeline } view && _pressed)
             {
                 Point point = e.GetPosition(view);
                 float scale = viewModel.Timeline.Options.Value.Scale;
@@ -601,39 +544,36 @@ public sealed partial class ElementView : UserControl
         protected override void OnAttached()
         {
             base.OnAttached();
-            if (AssociatedObject != null)
-            {
-                AssociatedObject.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
-                AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
-                AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
-            }
+            if (AssociatedObject == null) return;
+
+            AssociatedObject.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
+            AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
+            AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
         }
 
         protected override void OnDetaching()
         {
             base.OnDetaching();
-            if (AssociatedObject != null)
-            {
-                AssociatedObject.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
-                AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
-                AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
-            }
+            if (AssociatedObject == null) return;
+
+            AssociatedObject.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
+            AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
+            AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
         }
 
         private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject is { } obj)
+            if (AssociatedObject is not { } obj) return;
+
+            if (!obj.textBox.IsFocused)
             {
-                if (!obj.textBox.IsFocused)
-                {
-                    obj.Focus();
-                }
+                obj.Focus();
             }
         }
 
         private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject is { _timeline: { } } obj)
+            if (AssociatedObject is { _timeline.ViewModel: not null } obj)
             {
                 PointerPoint point = e.GetCurrentPoint(obj.border);
                 if (point.Properties.IsLeftButtonPressed)
@@ -657,11 +597,9 @@ public sealed partial class ElementView : UserControl
                         {
                             Thickness margin = obj.ViewModel.Margin.Value;
                             Thickness borderMargin = obj.ViewModel.BorderMargin.Value;
-                            _snapshot = new(borderMargin.Left, margin.Top, 0, 0);
+                            _snapshot = new Thickness(borderMargin.Left, margin.Top, 0, 0);
                             _pressedWithModifier = true;
                         }
-
-                        obj.border.Opacity = 0.8;
                     }
                 }
             }
@@ -669,22 +607,22 @@ public sealed partial class ElementView : UserControl
 
         private void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            if (AssociatedObject is { _timeline: { } } obj)
+            if (AssociatedObject is { _timeline: not null } obj)
             {
                 if (_pressedWithModifier)
                 {
                     Thickness margin = obj.ViewModel.Margin.Value;
                     Thickness borderMargin = obj.ViewModel.BorderMargin.Value;
+                    // ReSharper disable CompareOfFloatsByEqualityOperator
                     if (borderMargin.Left == _snapshot.Left
                         && margin.Top == _snapshot.Top)
                     {
                         obj.ViewModel.IsSelected.Value = !obj.ViewModel.IsSelected.Value;
                     }
+                    // ReSharper restore CompareOfFloatsByEqualityOperator
 
                     _pressedWithModifier = false;
                 }
-
-                obj.border.Opacity = 1;
             }
         }
     }

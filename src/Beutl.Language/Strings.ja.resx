@@ -1216,4 +1216,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="ClipTransparentArea" xml:space="preserve">
     <value>透明部分をクリップ</value>
   </data>
+  <data name="EnableElement" xml:space="preserve">
+    <value>要素を有効化</value>
+  </data>
 </root>

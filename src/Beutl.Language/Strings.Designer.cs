@@ -2240,5 +2240,11 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("ClipTransparentArea", resourceCulture);
             }
         }
+        
+        public static string EnableElement {
+            get {
+                return ResourceManager.GetString("EnableElement", resourceCulture);
+            }
+        }
     }
 }

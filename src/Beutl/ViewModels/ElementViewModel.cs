@@ -121,11 +121,9 @@ public sealed class ElementViewModel : IDisposable
             {
                 LayerHeaderViewModel? newLH = Timeline.LayerHeaders.FirstOrDefault(i => i.Number.Value == number);
 
-                if (LayerHeader.Value != null)
-                    LayerHeader.Value.ItemsCount.Value--;
+                LayerHeader.Value?.ElementRemoved(this);
 
-                if (newLH != null)
-                    newLH.ItemsCount.Value++;
+                newLH?.ElementAdded(this);
                 LayerHeader.Value = newLH;
             })
             .AddTo(_disposables);

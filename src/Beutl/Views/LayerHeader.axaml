@@ -57,7 +57,8 @@
         </Border>
 
         <ToggleButton Grid.Column="1"
-                      IsChecked="{Binding IsEnabled.Value}"
+                      Command="{Binding SwitchEnabledCommand}"
+                      IsChecked="{Binding IsEnabled.Value, Mode=OneWay}"
                       Theme="{StaticResource VisibilityToggleButtonStyle}" />
 
         <ui:ColorPickerButton Grid.Column="2"
