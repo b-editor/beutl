@@ -204,9 +204,15 @@ public class AVFWriter : MediaWriter
 
     public override bool AddAudio(IPcm sound)
     {
-        if (!_audioInput.ReadyForMoreMediaData)
+        int count = 0;
+        while (!_audioInput.ReadyForMoreMediaData)
         {
-            return false;
+            Thread.Sleep(10);
+            count++;
+            if (count > 100)
+            {
+                return false;
+            }
         }
 
         var sourceFormat = AudioStreamBasicDescription.CreateLinearPCM(sound.SampleRate, (uint)sound.NumChannels);
