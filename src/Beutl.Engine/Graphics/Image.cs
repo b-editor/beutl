@@ -157,7 +157,7 @@ public static unsafe partial class Image
 
     public static Mat ToMat(this Bitmap<Bgra8888> self)
     {
-        return new Mat(self.Height, self.Width, MatType.CV_8UC4, self.Data);
+        return Mat.FromPixelData(self.Height, self.Width, MatType.CV_8UC4, self.Data);
     }
 
     internal static EncodedImageFormat ToImageFormat(string filename)
