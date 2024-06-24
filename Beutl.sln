@@ -109,6 +109,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.Extensions.MediaFound
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Beutl.PackageTools.UI", "src\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj", "{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.Extensions.AVFoundation", "src\Beutl.Extensions.AVFoundation\Beutl.Extensions.AVFoundation.csproj", "{8B040DCA-6C9C-4009-8FE5-8F764D80907B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -371,6 +373,14 @@ Global
 		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Release|x64.ActiveCfg = Release|Any CPU
 		{D8A8061C-CE79-4DF7-B9E8-2002BAD47DD8}.Release|x64.Build.0 = Release|Any CPU
+		{8B040DCA-6C9C-4009-8FE5-8F764D80907B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8B040DCA-6C9C-4009-8FE5-8F764D80907B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8B040DCA-6C9C-4009-8FE5-8F764D80907B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8B040DCA-6C9C-4009-8FE5-8F764D80907B}.Debug|x64.Build.0 = Debug|Any CPU
+		{8B040DCA-6C9C-4009-8FE5-8F764D80907B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8B040DCA-6C9C-4009-8FE5-8F764D80907B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8B040DCA-6C9C-4009-8FE5-8F764D80907B}.Release|x64.ActiveCfg = Release|Any CPU
+		{8B040DCA-6C9C-4009-8FE5-8F764D80907B}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -6,6 +6,7 @@ namespace Beutl.Services.StartupTasks;
 public sealed class LoadPrimitiveExtensionTask : StartupTask
 {
     private readonly PackageManager _manager;
+
     public static readonly Extension[] PrimitiveExtensions =
     [
         EditPageExtension.Instance,
@@ -40,6 +41,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     _manager.SetupExtensionSettings(item);
                     item.Load();
                 }
+
                 provider.AddExtensions(LocalPackage.Reserved0, PrimitiveExtensions);
                 activity?.AddEvent(new("Loaded_Extensions"));
 
@@ -56,7 +58,16 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                         Name = "Beutl.Embedding.FFmpeg",
                         DisplayName = "Beutl.Embedding.FFmpeg",
                         InstalledPath = AppContext.BaseDirectory,
-                        Tags = { "ffmpeg", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
+                        Tags =
+                        {
+                            "ffmpeg",
+                            "decoder",
+                            "decoding",
+                            "encoder",
+                            "encoding",
+                            "video",
+                            "audio"
+                        },
                         Version = GitVersionInformation.NuGetVersionV2,
                         WebSite = "https://github.com/b-editor/beutl",
                         Publisher = "b-editor"
@@ -95,7 +106,8 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                         Name = "Beutl.Embedding.MediaFoundation",
                         DisplayName = "Beutl.Embedding.MediaFoundation",
                         InstalledPath = AppContext.BaseDirectory,
-                        Tags = { "windows", "media-foundation", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
+                        Tags =
+ { "windows", "media-foundation", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
                         Version = GitVersionInformation.NuGetVersionV2,
                         WebSite = "https://github.com/b-editor/beutl",
                         Publisher = "b-editor"
@@ -117,6 +129,53 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                 }
 #pragma warning restore CS0436
 #endif
+
+#pragma warning disable CS0436
+                if (OperatingSystem.IsMacOS())
+                {
+                    activity?.AddEvent(new("Loading_AVFoundation"));
+
+                    // Beutl.Extensions.FFmpeg.csproj
+                    var pkg = new LocalPackage
+                    {
+                        ShortDescription = "AVFoundation for beutl",
+                        Name = "Beutl.Embedding.AVFoundation",
+                        DisplayName = "Beutl.Embedding.AVFoundation",
+                        InstalledPath = AppContext.BaseDirectory,
+                        Tags =
+                        {
+                            "macos",
+                            "avfoundation",
+                            "decoder",
+                            "decoding",
+                            "encoder",
+                            "encoding",
+                            "video",
+                            "audio"
+                        },
+                        Version = GitVersionInformation.NuGetVersionV2,
+                        WebSite = "https://github.com/b-editor/beutl",
+                        Publisher = "b-editor"
+                    };
+                    try
+                    {
+                        var decoding = new Extensions.AVFoundation.Decoding.AVFDecodingExtension();
+                        var encoding = new Extensions.AVFoundation.Encoding.AVFEncodingExtension();
+                        _manager.SetupExtensionSettings(decoding);
+                        _manager.SetupExtensionSettings(encoding);
+                        decoding.Load();
+                        encoding.Load();
+
+                        provider.AddExtensions(pkg.LocalId, [decoding, encoding]);
+                    }
+                    catch (Exception ex)
+                    {
+                        Failures.Add((pkg, ex));
+                    }
+
+                    activity?.AddEvent(new("Loaded_AVFoundation"));
+                }
+#pragma warning restore CS0436
             }
         });
     }
