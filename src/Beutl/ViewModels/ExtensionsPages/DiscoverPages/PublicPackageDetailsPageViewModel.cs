@@ -104,9 +104,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
 
         CanInstallOrUpdate = SelectedRelease.Select(v =>
             {
-#pragma warning disable CS0436 // 型がインポートされた型と競合しています
-                const string beutlVersion = ThisAssembly.NuGetPackageVersion;
-#pragma warning restore CS0436 // 型がインポートされた型と競合しています
+                string beutlVersion = BeutlApplication.Version;
 
                 if (v?.TargetVersion?.Value is { } target
                     && VersionRange.TryParse(target, out VersionRange? versionRange)

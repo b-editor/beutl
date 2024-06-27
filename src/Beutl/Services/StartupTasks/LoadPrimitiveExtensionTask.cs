@@ -68,7 +68,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                             "video",
                             "audio"
                         },
-                        Version = GitVersionInformation.NuGetVersionV2,
+                        Version = BeutlApplication.Version,
                         WebSite = "https://github.com/b-editor/beutl",
                         Publisher = "b-editor"
                     };
@@ -108,7 +108,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                         InstalledPath = AppContext.BaseDirectory,
                         Tags =
  { "windows", "media-foundation", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
-                        Version = GitVersionInformation.NuGetVersionV2,
+                        Version = BeutlApplication.Version,
                         WebSite = "https://github.com/b-editor/beutl",
                         Publisher = "b-editor"
                     };
@@ -153,7 +153,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                             "video",
                             "audio"
                         },
-                        Version = GitVersionInformation.NuGetVersionV2,
+                        Version = BeutlApplication.Version,
                         WebSite = "https://github.com/b-editor/beutl",
                         Publisher = "b-editor"
                     };

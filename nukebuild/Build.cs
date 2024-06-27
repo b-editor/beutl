@@ -1,18 +1,11 @@
-﻿
-using System;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
-using System.Xml.Linq;
+﻿using System.Text;
 
 using static Nuke.Common.Tools.InnoSetup.InnoSetupTasks;
-using Nuke.Common.Tools.NerdbankGitVersioning;
 
 using Serilog;
 using Nuke.Common.Tools.InnoSetup;
 
-partial class Build : NukeBuild
+class Build : NukeBuild
 {
     /// Support plugins are available for:
     ///   - JetBrains ReSharper        https://nuke.build/resharper
@@ -22,19 +15,26 @@ partial class Build : NukeBuild
 
     public static int Main() => Execute<Build>(x => x.Compile);
 
-    [Parameter()]
+    [Parameter]
     Configuration Configuration = Configuration.Release;
 
-    [Parameter()]
+    [Parameter]
     RuntimeIdentifier Runtime = null;
 
-    [Parameter()]
+    [Parameter]
     bool SelfContained = false;
+
+    [Parameter]
+    string Version = "1.0.0";
+
+    [Parameter]
+    string AssemblyVersion = "1.0.0.0";
+
+    [Parameter]
+    string InformationalVersion = "1.0.0.0";
 
     [Solution] readonly Solution Solution;
     [GitRepository] readonly GitRepository GitRepository;
-
-    [NerdbankGitVersioning] readonly NerdbankGitVersioning NerdbankVersioning;
 
 
     AbsolutePath SourceDirectory => RootDirectory / "src";
@@ -65,6 +65,7 @@ partial class Build : NukeBuild
             DotNetBuild(s => s
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
+                .SetVersions(Version, AssemblyVersion, InformationalVersion)
                 .EnableNoRestore());
         });
 
@@ -92,6 +93,7 @@ partial class Build : NukeBuild
                 .When(Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
                 .When(Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
                 .SetConfiguration(Configuration)
+                .SetVersions(Version, AssemblyVersion, InformationalVersion)
                 .SetProject(mainProj)
                 .SetOutput(mainOutput)
                 .SetProperty("NukePublish", true));
@@ -112,6 +114,7 @@ partial class Build : NukeBuild
                     .When(Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
                     .EnableNoRestore()
                     .SetConfiguration(Configuration)
+                    .SetVersions(Version, AssemblyVersion, InformationalVersion)
                     .SetProject(SourceDirectory / item / $"{item}.csproj")
                     .SetOutput(output));
 
@@ -160,7 +163,7 @@ partial class Build : NukeBuild
             }
 
             fileName.Append('-');
-            fileName.Append(NerdbankVersioning.SemVer2);
+            fileName.Append(Version);
             fileName.Append(".zip");
 
             mainOutput.CompressTo(ArtifactsDirectory / fileName.ToString());
@@ -171,7 +174,7 @@ partial class Build : NukeBuild
         .Executes(() =>
         {
             InnoSetup(c => c
-                .SetKeyValueDefinition("MyAppVersion", NerdbankVersioning.AssemblyFileVersion)
+                .SetKeyValueDefinition("MyAppVersion", AssemblyVersion)
                 .SetKeyValueDefinition("MyOutputDir", ArtifactsDirectory)
                 .SetKeyValueDefinition("MyLicenseFile", RootDirectory / "LICENSE")
                 .SetKeyValueDefinition("MySetupIconFile", RootDirectory / "assets/logos/logo.ico")
@@ -191,9 +194,10 @@ partial class Build : NukeBuild
                 .SetProcessWorkingDirectory(directory)
                 .SetTargets("BundleApp")
                 .SetConfiguration(Configuration)
+                .SetVersions(Version, AssemblyVersion, InformationalVersion)
                 .SetProperty("PublishDir", output)
-                .SetProperty("CFBundleVersion", NerdbankVersioning.AssemblyFileVersion)
-                .SetProperty("CFBundleShortVersionString", NerdbankVersioning.AssemblyFileVersion)
+                .SetProperty("CFBundleVersion", AssemblyVersion)
+                .SetProperty("CFBundleShortVersionString", AssemblyVersion)
                 .SetProperty("RuntimeIdentifier", Runtime.ToString())
                 .SetProperty("TargetFramework", tfm)
                 .SetProperty("UseAppHost", true)
@@ -224,11 +228,13 @@ partial class Build : NukeBuild
                     .EnableNoRestore()
                     .SetFramework(tfm)
                     .SetConfiguration(Configuration)
+                    .SetVersions(Version, AssemblyVersion, InformationalVersion)
                     .SetProjectFile(SourceDirectory / proj / $"{proj}.csproj"));
 
                 DotNetPack(s => s
                     .EnableNoRestore()
                     .SetConfiguration(Configuration)
+                    .SetVersions(Version, AssemblyVersion, InformationalVersion)
                     .SetOutputDirectory(ArtifactsDirectory)
                     .SetProject(SourceDirectory / proj / $"{proj}.csproj"));
             }

@@ -1,12 +1,8 @@
 <Project>
-  <Target Name="AddNuGetPackageVersionToThisAssembly"
-          DependsOnTargets="GetBuildVersion"
-          BeforeTargets="GenerateAssemblyNBGVVersionInfo">
-    <ItemGroup>
-      <AdditionalThisAssemblyFields Include="NuGetPackageVersion" String="$(NuGetPackageVersion)" />
-      <AdditionalThisAssemblyFields Include="BuildVersion3Components" String="$(BuildVersion3Components)" />
-      <AdditionalThisAssemblyFields Include="PrereleaseVersion" String="$(PrereleaseVersion)" />
-      <AdditionalThisAssemblyFields Include="SemVerBuildSuffix" String="$(SemVerBuildSuffix)" />
-    </ItemGroup>
-  </Target>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>NuGetVersion</_Parameter1>
+      <_Parameter2>$(Version)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>

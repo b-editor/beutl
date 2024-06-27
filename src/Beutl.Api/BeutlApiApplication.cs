@@ -45,7 +45,7 @@ public class BeutlApiApplication
         RegisterAll();
     }
 
-    public ActivitySource ActivitySource { get; } = new("Beutl.Api.Client", GitVersionInformation.SemVer);
+    public ActivitySource ActivitySource { get; } = new("Beutl.Api.Client", BeutlApplication.Version);
 
     public PackagesClient Packages { get; }
 

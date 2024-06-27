@@ -2,8 +2,10 @@
 
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.Pages.SettingsPages;
+
 public sealed partial class InfomationPage : UserControl
 {
     public InfomationPage()
@@ -13,9 +15,10 @@ public sealed partial class InfomationPage : UserControl
 
     private async void CopyVersion_Click(object? sender, RoutedEventArgs e)
     {
-        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard
+            && DataContext is InfomationPageViewModel vm)
         {
-            await clipboard.SetTextAsync(GitVersionInformation.InformationalVersion);
+            await clipboard.SetTextAsync(vm.BuildMetadata);
         }
     }
 }

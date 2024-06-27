@@ -5,7 +5,24 @@ on:
   workflow_dispatch:
 
 jobs:
+  determine-version:
+    runs-on: ubuntu-latest
+    outputs:
+      nugetVer: ${{ steps.nbgv.outputs.NuGetPackageVersion }}
+      asmVer: ${{ steps.nbgv.outputs.AssemblyFileVersion }}
+      infoVer: ${{ steps.nbgv.outputs.AssemblyInformationalVersion }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Nerdbank.GitVersioning
+        id: nbgv
+        uses: dotnet/nbgv@v0.4.2
+
   daily-build:
+    needs: [determine-version]
     runs-on: windows-latest
     strategy:
       matrix:
@@ -13,8 +30,10 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+
+    - name: Nerdbank.GitVersioning
+      id: nbgv
+      uses: dotnet/nbgv@v0.4.2
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -22,10 +41,16 @@ jobs:
         global-json-file: global.json
 
     - name: Restore
-      run: ./build.cmd Restore
+      run: ./build.cmd restore
 
     - name: Build
-      run: ./build.cmd Publish --runtime ${{matrix.rid}} --skip Restore
+      run: |
+        ./build.cmd publish \
+          --runtime ${{ matrix.rid }} \
+          --skip restore \
+          --version ${{ needs.determine-version.outputs.nugetVer }} \
+          --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
+          --informational-version ${{ needs.determine-version.outputs.infoVer }}
 
     - if: ${{ matrix.rid == 'linux_x64' }}
       name: Download libOpenCvSharpExtern.so
@@ -53,10 +78,10 @@ jobs:
         gh api -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/assets/$AssetId > libOpenCvSharpExtern.so
 
     - name: Zip
-      run: ./build.cmd Zip --runtime ${{matrix.rid}} --skip Publish
+      run: ./build.cmd zip --runtime ${{ matrix.rid }} --skip publish --version ${{ needs.determine-version.outputs.nugetVer }}
 
     - name: Save
       uses: actions/upload-artifact@v4
       with:
-        name: beutl_${{matrix.rid}}
+        name: beutl_${{ matrix.rid }}
         path: ./artifacts/

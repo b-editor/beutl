@@ -6,6 +6,9 @@
     "build": {
       "type": "object",
       "properties": {
+        "AssemblyVersion": {
+          "type": "string"
+        },
         "Configuration": {
           "type": "string",
           "enum": [
@@ -41,6 +44,9 @@
             "VisualStudio",
             "VSCode"
           ]
+        },
+        "InformationalVersion": {
+          "type": "string"
         },
         "NoLogo": {
           "type": "boolean",
@@ -127,6 +133,9 @@
             "Quiet",
             "Verbose"
           ]
+        },
+        "Version": {
+          "type": "string"
         }
       }
     }
