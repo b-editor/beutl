@@ -1,5 +1,6 @@
 ﻿#pragma warning disable CS0436
 
+using System.Reflection;
 using Avalonia.Controls;
 
 using Beutl.Controls.Navigation;
@@ -40,11 +41,15 @@ public sealed class InfomationPageViewModel : PageContext
                     x => x is not null,
                     () => Telemetry);
             });
+
+        BuildMetadata = typeof(InfomationPageViewModel).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion ?? "Unknown";
     }
 
-    public string CurrentVersion { get; } = GitVersionInformation.NuGetVersion;
+    public string CurrentVersion { get; } = BeutlApplication.Version;
 
-    public string BuildMetadata { get; } = GitVersionInformation.FullBuildMetaData;
+    public string BuildMetadata { get; }
 
     public string GitRepositoryUrl { get; } = "https://github.com/b-editor/beutl";
 

@@ -59,7 +59,7 @@ public sealed class Project : Hierarchical, IStorable
 
     public string FileName => _fileName ?? throw new Exception("The file name is not set.");
 
-    public string AppVersion { get; private set; } = GitVersionInformation.NuGetVersionV2;
+    public string AppVersion { get; private set; } = BeutlApplication.Version;
 
     public string MinAppVersion { get; private set; }
 

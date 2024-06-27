@@ -16,8 +16,4 @@
   <PropertyGroup Condition="'$(Configuration)'=='Debug'">
     <Optimize>false</Optimize>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all" />
-  </ItemGroup>
 </Project>

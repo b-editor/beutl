@@ -60,7 +60,7 @@ public sealed class CheckForUpdatesTask : StartupTask
 #pragma warning disable CS0436
         try
         {
-            return await _beutlApiApplication.App.CheckForUpdatesAsync(GitVersionInformation.NuGetVersion);
+            return await _beutlApiApplication.App.CheckForUpdatesAsync(BeutlApplication.Version);
         }
         catch (Exception ex)
         {

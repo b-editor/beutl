@@ -1,21 +1,16 @@
 ﻿#pragma warning disable CS0436
 
 using System.IO.Compression;
+using System.Reflection;
 using System.Runtime.CompilerServices;
-
 using Avalonia.Threading;
-
 using Azure.Monitor.OpenTelemetry.Exporter;
-
 using Beutl.Configuration;
-
 using Microsoft.Extensions.Logging;
-
 using OpenTelemetry;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-
 using Serilog;
 
 namespace Beutl.Services;
@@ -23,6 +18,7 @@ namespace Beutl.Services;
 internal class Telemetry : IDisposable
 {
     private static readonly KeyValuePair<string, object>[] s_attributes;
+    private static readonly string s_version;
     private readonly TracerProvider? _tracerProvider;
     private readonly Lazy<ResourceBuilder> _resourceBuilder;
     internal readonly string _sessionId;
@@ -38,15 +34,19 @@ internal class Telemetry : IDisposable
             else return Environment.OSVersion.Platform.ToString();
         }
 
+        var asm = Assembly.GetEntryAssembly()!;
+        var att = asm.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(i => i.Key == "NuGetVersion");
+        s_version = att?.Value ?? "Unknown";
         s_attributes =
         [
-            new("service.version", GitVersionInformation.NuGetVersion),
+            new("service.version", s_version),
             new("os.type", GetSystemType()),
             new("os.description", Environment.OSVersion.VersionString),
             new("os.name", OperatingSystem.IsLinux() ? LinuxDistro.Id
-                         : OperatingSystem.IsWindows() ? "Windows"
-                         : OperatingSystem.IsMacOS() ? "Mac OS X"
-                         : "Unknown"),
+                : OperatingSystem.IsWindows() ? "Windows"
+                : OperatingSystem.IsMacOS() ? "Mac OS X"
+                : "Unknown"),
         ];
     }
 
@@ -56,7 +56,7 @@ internal class Telemetry : IDisposable
         _resourceBuilder = new(() =>
         {
             return ResourceBuilder.CreateDefault()
-                .AddService("Beutl", serviceVersion: GitVersionInformation.NuGetVersion, serviceInstanceId: _sessionId)
+                .AddService("Beutl", serviceVersion: s_version, serviceInstanceId: _sessionId)
                 .AddAttributes(s_attributes);
         });
         _tracerProvider = CreateTracer();
@@ -64,7 +64,7 @@ internal class Telemetry : IDisposable
         SetupLogger();
     }
 
-    public static ActivitySource Applilcation { get; } = new("Beutl.Application", GitVersionInformation.SemVer);
+    public static ActivitySource Applilcation { get; } = new("Beutl.Application", s_version);
 
     public static Telemetry Instance { get; private set; } = null!;
 
@@ -102,7 +102,8 @@ internal class Telemetry : IDisposable
         return Instance;
     }
 
-    public static Activity? StartActivity([CallerMemberName] string name = "", ActivityKind kind = ActivityKind.Internal)
+    public static Activity? StartActivity([CallerMemberName] string name = "",
+        ActivityKind kind = ActivityKind.Internal)
     {
         return Applilcation.StartActivity(name, kind);
     }
@@ -120,7 +121,8 @@ internal class Telemetry : IDisposable
 
         string logDir = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log");
         string logFile = Path.Combine(logDir, $"log{timestamp}-{pid}.txt");
-        const string OutputTemplate = "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext:l}] {Message:lj}{NewLine}{Exception}";
+        const string OutputTemplate =
+            "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext:l}] {Message:lj}{NewLine}{Exception}";
         LoggerConfiguration config = new LoggerConfiguration()
             .Enrich.FromLogContext();
 

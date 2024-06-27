@@ -34,13 +34,13 @@ public sealed class GlobalConfiguration
     public ExtensionConfig ExtensionConfig { get; } = new();
 
     public BackupConfig BackupConfig { get; } = new();
-    
+
     public TelemetryConfig TelemetryConfig { get; } = new();
-    
+
     public EditorConfig EditorConfig { get; } = new();
 
     [AllowNull]
-    public string LastStartedVersion { get; private set; } = GitVersionInformation.SemVer;
+    public string LastStartedVersion { get; private set; } = BeutlApplication.Version;
 
     public void Save(string file)
     {
@@ -65,7 +65,7 @@ public sealed class GlobalConfiguration
 
             var json = new JsonObject()
             {
-                ["Version"] = GitVersionInformation.NuGetVersionV2
+                ["Version"] = BeutlApplication.Version
             };
 
             var fontNode = new JsonObject();
@@ -83,11 +83,11 @@ public sealed class GlobalConfiguration
             var backupNode = new JsonObject();
             Serialize(BackupConfig, backupNode);
             json["Backup"] = backupNode;
-            
+
             var telemetryNode = new JsonObject();
             Serialize(TelemetryConfig, telemetryNode);
             json["Telemetry"] = telemetryNode;
-            
+
             var editorNode = new JsonObject();
             Serialize(EditorConfig, editorNode);
             json["Editor"] = editorNode;
@@ -137,10 +137,10 @@ public sealed class GlobalConfiguration
 
                 if (GetNode("backup", "Backup") is JsonObject backup)
                     Deserialize(BackupConfig, backup);
-                
+
                 if (GetNode("telemetry", "Telemetry") is JsonObject telemetry)
                     Deserialize(TelemetryConfig, telemetry);
-                
+
                 if (json["Editor"] is JsonObject editor)
                     Deserialize(EditorConfig, editor);
 

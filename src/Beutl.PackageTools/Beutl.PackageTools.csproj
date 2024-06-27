@@ -28,7 +28,6 @@
   <ItemGroup>
     <Compile Include="..\Beutl\Services\Telemetry.cs" />
     <Compile Include="..\Beutl\Services\LinuxDistro.cs" />
-    <Compile Include="..\Beutl\GitVersionInformation.cs" />
   </ItemGroup>
 
   <ItemGroup>

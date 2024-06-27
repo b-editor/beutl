@@ -45,7 +45,7 @@ internal static class CoreLibraries
 #if DEBUG
         library.Add(new("Beutl.Sdk", "1.0.0-preview.5"));
 #else
-        library.Add(new("Beutl.Sdk", GitVersionInformation.NuGetVersionV2));
+        library.Add(new("Beutl.Sdk", BeutlApplication.Version));
 #endif
 
         return library;
@@ -90,7 +90,7 @@ internal static class CoreLibraries
                             case "Beutl.WaitingDialog":
                             case "Beutl.PackageTools":
                             case "Beutl.ExceptionHandler":
-                                version = GitVersionInformation.AssemblySemVer;
+                                version = BeutlApplication.Version;
                                 break;
                             default:
                                 break;
