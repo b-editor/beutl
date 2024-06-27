@@ -10,6 +10,9 @@ jobs:
     runs-on: windows-latest
     outputs:
       semVer: ${{ steps.nbgv.outputs.SemVer2 }}
+      nugetVer: ${{ steps.nbgv.outputs.NuGetPackageVersion }}
+      asmVer: ${{ steps.nbgv.outputs.AssemblyFileVersion }}
+      infoVer: ${{ steps.nbgv.outputs.AssemblyInformationalVersion }}
       simpleVer: ${{ steps.nbgv.outputs.SimpleVersion }}
       revision: ${{ steps.nbgv.outputs.VersionRevision }}
     steps:
@@ -32,18 +35,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
       - name: Restore
-        run: ./build.cmd Restore
+        run: ./build.cmd restore
 
       - name: Publish
-        run: ./build.cmd Publish --runtime ${{matrix.rid}} --skip Restore
+        run: |
+          ./build.cmd publish \
+            --runtime ${{ matrix.rid }} \
+            --skip restore \
+            --version ${{ needs.determine-version.outputs.nugetVer }} \
+            --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
+            --informational-version ${{ needs.determine-version.outputs.infoVer }}
 
       - if: ${{ matrix.rid == 'linux_x64' }}
         name: Download libOpenCvSharpExtern.so
@@ -52,10 +60,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $Packages = dotnet list src/Beutl.Engine/Beutl.Engine.csproj package --framework net8.0 --format json
-          
+
           #4.9.0.2024
           $OpenCvSharpVersion = (echo $Packages | jq -r '.projects[0].frameworks[0].topLevelPackages | map(select(.id == "OpenCvSharp4"))[0].requestedVersion')
-          
+
           #4.9.0
           $OpenCvVersion = [System.String]::Join('.', [System.Linq.Enumerable]::Take($OpenCvSharpVersion.Split('.'), 3))
 
@@ -71,42 +79,40 @@ jobs:
           gh api -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/assets/$AssetId > libOpenCvSharpExtern.so
 
       - name: Zip
-        run: ./build.cmd Zip --runtime ${{matrix.rid}} --skip Publish
+        run: ./build.cmd zip --runtime ${{ matrix.rid }} --skip publish --version ${{ needs.determine-version.outputs.nugetVer }}
 
       - name: Save
         uses: actions/upload-artifact@v4
         with:
-          name: beutl-${{matrix.rid}}-${{needs.determine-version.outputs.semVer}}
+          name: beutl-${{ matrix.rid }}-${{ needs.determine-version.outputs.semVer }}
           path: ./artifacts/*.zip
 
   build-windows-installer:
     needs: [determine-version, build-executable]
     runs-on: windows-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-          
+
       - uses: actions/download-artifact@v4
         with:
-          name: beutl-win_x64-${{needs.determine-version.outputs.semVer}}
+          name: beutl-win_x64-${{ needs.determine-version.outputs.semVer }}
           path: artifacts
 
       - name: Extract zip
         run: |
           mkdir output/Beutl
           cd output/Beutl
-          7z x ../../artifacts/beutl-win-x64-${{needs.determine-version.outputs.semVer}}.zip
+          7z x ../../artifacts/beutl-win-x64-${{ needs.determine-version.outputs.semVer }}.zip
 
       - name: Build installer
-        run: ./build.cmd BuildInstaller --skip Publish
+        run: ./build.cmd build-installer --skip publish --assembly-version ${{ needs.determine-version.outputs.asmVer }}
 
       - name: Save installer
         uses: actions/upload-artifact@v4
@@ -117,7 +123,7 @@ jobs:
   build-debian-package:
     needs: [determine-version, build-executable]
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -126,10 +132,10 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-          
+
       - uses: actions/download-artifact@v4
         with:
-          name: beutl-linux_x64-${{needs.determine-version.outputs.semVer}}
+          name: beutl-linux_x64-${{ needs.determine-version.outputs.semVer }}
           path: artifacts
 
       - name: Extract zip
@@ -137,7 +143,7 @@ jobs:
           cd packages/ubuntu22.04_amd64/usr
           mkdir -p lib/beutl
           cd lib/beutl
-          unzip ${{ github.workspace }}/artifacts/Beutl-linux-x64-${{needs.determine-version.outputs.semVer}}.zip
+          unzip ${{ github.workspace }}/artifacts/Beutl-linux-x64-${{ needs.determine-version.outputs.semVer }}.zip
 
       - name: Change mode
         run: |
@@ -157,7 +163,7 @@ jobs:
       - name: Set Version
         run: |
            cd packages/ubuntu22.04_amd64/DEBIAN
-           echo "Version: ${{needs.determine-version.outputs.simpleVer}}-${{needs.determine-version.outputs.revision}}ubuntu22.04" >> control
+           echo "Version: ${{ needs.determine-version.outputs.simpleVer }}-${{ needs.determine-version.outputs.revision }}ubuntu22.04" >> control
 
       - name: Set Installed-Size
         run: |
@@ -174,9 +180,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ubuntu22.04_amd64
-          path: ./packages/beutl_${{needs.determine-version.outputs.simpleVer}}-${{needs.determine-version.outputs.revision}}ubuntu22.04_amd64.deb
+          path: ./packages/beutl_${{ needs.determine-version.outputs.simpleVer }}-${{ needs.determine-version.outputs.revision }}ubuntu22.04_amd64.deb
 
   build-app-bundle:
+    needs: [determine-version]
     runs-on: macos-latest
     strategy:
       matrix:
@@ -185,8 +192,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -196,21 +202,27 @@ jobs:
         run: |
           chmod +x build.sh
           ./build.sh Restore
-  
+
       - name: Bundle
-        run: ./build.sh bundleApp --runtime ${{matrix.rid}} --skip restore
+        run: |
+          ./build.sh bundle-app \
+            --runtime ${{ matrix.rid }} \
+            --skip restore \
+            --version ${{ needs.determine-version.outputs.nugetVer }} \
+            --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
+            --informational-version ${{ needs.determine-version.outputs.infoVer }}
 
       - name: Zip
         run: |
           mkdir -p artifacts
           cd output/AppBundle
-          zip ../../artifacts/Beutl.${{matrix.rid}}.app.zip -r Beutl.app 
-  
+          zip ../../artifacts/Beutl.${{ matrix.rid }}.app.zip -r Beutl.app
+
       - name: Save
         uses: actions/upload-artifact@v4
         with:
-          name: Beutl_${{matrix.rid}}
-          path: artifacts/Beutl.${{matrix.rid}}.app.zip
+          name: Beutl_${{ matrix.rid }}
+          path: artifacts/Beutl.${{ matrix.rid }}.app.zip
 
   build-nuget:
     needs: [determine-version]
@@ -219,19 +231,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
 
       - name: Restore
-        run: ./build.cmd Restore
-  
+        run: ./build.cmd restore
+
       - name: Build & Pack
-        run: ./build.cmd NuGetPack --skip Restore
-  
+        run: |
+          ./build.cmd nuget-pack --skip restore \
+            --version ${{ needs.determine-version.outputs.nugetVer }} \
+            --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
+            --informational-version ${{ needs.determine-version.outputs.infoVer }}
+
       - name: Save
         uses: actions/upload-artifact@v4
         with:
