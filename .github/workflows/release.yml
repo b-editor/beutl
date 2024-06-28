@@ -7,7 +7,7 @@ on:
 
 jobs:
   determine-version:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     outputs:
       semVer: ${{ steps.nbgv.outputs.SemVer2 }}
       nugetVer: ${{ steps.nbgv.outputs.NuGetPackageVersion }}
@@ -27,10 +27,10 @@ jobs:
 
   build-executable:
     needs: [determine-version]
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        rid: [linux_x64, win_x64, osx_arm64]
+        rid: [linux_x64, win_x64, osx_x64, osx_arm64]
 
     steps:
       - name: Checkout
@@ -42,11 +42,13 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: ./build.cmd restore
+        run: |
+          chmod +x build.sh
+          ./build.sh restore
 
       - name: Publish
         run: |
-          ./build.cmd publish \
+          ./build.sh publish \
             --runtime ${{ matrix.rid }} \
             --skip restore \
             --version ${{ needs.determine-version.outputs.nugetVer }} \
@@ -79,7 +81,7 @@ jobs:
           gh api -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/assets/$AssetId > libOpenCvSharpExtern.so
 
       - name: Zip
-        run: ./build.cmd zip --runtime ${{ matrix.rid }} --skip publish --version ${{ needs.determine-version.outputs.nugetVer }}
+        run: ./build.sh zip --runtime ${{ matrix.rid }} --skip publish --version ${{ needs.determine-version.outputs.nugetVer }}
 
       - name: Save
         uses: actions/upload-artifact@v4
@@ -226,7 +228,7 @@ jobs:
 
   build-nuget:
     needs: [determine-version]
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -238,11 +240,13 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: ./build.cmd restore
+        run: |
+          chmod +x build.sh
+          ./build.sh restore
 
       - name: Build & Pack
         run: |
-          ./build.cmd nuget-pack --skip restore \
+          ./build.sh nuget-pack --skip restore \
             --version ${{ needs.determine-version.outputs.nugetVer }} \
             --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
             --informational-version ${{ needs.determine-version.outputs.infoVer }}
@@ -255,7 +259,7 @@ jobs:
 
   create-release:
     needs: [build-executable, build-windows-installer, build-debian-package, build-nuget, build-app-bundle]
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
