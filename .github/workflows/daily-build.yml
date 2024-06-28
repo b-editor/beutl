@@ -52,28 +52,30 @@ jobs:
 
     - if: ${{ matrix.rid == 'linux_x64' }}
       name: Download libOpenCvSharpExtern.so
-      shell: pwsh
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        $Packages = dotnet list src/Beutl.Engine/Beutl.Engine.csproj package --framework net8.0 --format json
+        PACKAGES_JSON=`dotnet list src/Beutl.Engine/Beutl.Engine.csproj package --framework net8.0 --format json`
 
         #4.9.0.2024
-        $OpenCvSharpVersion = (echo $Packages | jq -r '.projects[0].frameworks[0].topLevelPackages | map(select(.id == "OpenCvSharp4"))[0].requestedVersion')
+        OPENCVSHARP_VERSION=`echo $PACKAGES_JSON | jq -r '.projects[0].frameworks[0].topLevelPackages | map(select(.id == "OpenCvSharp4"))[0].requestedVersion'`
+        echo $OPENCVSHARP_VERSION
 
         #4.9.0
-        $OpenCvVersion = [System.String]::Join('.', [System.Linq.Enumerable]::Take($OpenCvSharpVersion.Split('.'), 3))
+        OPENCV_VERSION=`echo $OPENCVSHARP_VERSION | cut -d '.' -f 1-3`
+        echo $OPENCV_VERSION
 
         #GitのタグとNuGetのバージョンが違う場合があるので
-        $Filter = 'map(select(.tag_name | startswith("'+$OpenCvVersion+'")))[0].tag_name'
-        $OpenCvSharpTag = (gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/shimat/opencvsharp/releases | jq -r $Filter)
+        RELEASES_JSON=`gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/shimat/opencvsharp/releases`
+        FILTER='map(select(.tag_name | startswith("'$OPENCV_VERSION'")))[0].tag_name'
+        OPENCVSHARP_TAG=`echo $RELEASES_JSON | tr -d '\000-\037' | jq -r $FILTER`
 
         #ダウンロード
-        $Release = (gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/tags/$OpenCvSharpTag)
-        $AssetId = (echo $Release | jq '.assets | map(select(.name == "libOpenCvSharpExtern.so"))[0].id')
+        RELEASE=`gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/tags/$OPENCVSHARP_TAG`
+        ASSET_ID=`echo $RELEASE | jq '.assets | map(select(.name == "libOpenCvSharpExtern.so"))[0].id'`
 
         cd output/Beutl
-        gh api -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/assets/$AssetId > libOpenCvSharpExtern.so
+        gh api -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/assets/$ASSET_ID > libOpenCvSharpExtern.so
 
     - name: Zip
       run: |
