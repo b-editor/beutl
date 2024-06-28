@@ -23,7 +23,7 @@ jobs:
 
   daily-build:
     needs: [determine-version]
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         rid: [linux_x64, win_x64, osx_x64, osx_arm64]
@@ -37,11 +37,13 @@ jobs:
         global-json-file: global.json
 
     - name: Restore
-      run: ./build.cmd restore
+      run: |
+        chmod +x build.sh
+        ./build.sh restore
 
     - name: Build
       run: |
-        ./build.cmd publish \
+        ./build.sh publish \
           --runtime ${{ matrix.rid }} \
           --skip restore \
           --version ${{ needs.determine-version.outputs.nugetVer }} \
@@ -74,7 +76,11 @@ jobs:
         gh api -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/assets/$AssetId > libOpenCvSharpExtern.so
 
     - name: Zip
-      run: ./build.cmd zip --runtime ${{ matrix.rid }} --skip publish --version ${{ needs.determine-version.outputs.nugetVer }}
+      run: |
+        ./build.sh zip \
+          --runtime ${{ matrix.rid }} \
+          --skip publish \
+          --version ${{ needs.determine-version.outputs.nugetVer }}
 
     - name: Save
       uses: actions/upload-artifact@v4
