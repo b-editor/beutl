@@ -31,10 +31,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Nerdbank.GitVersioning
-      id: nbgv
-      uses: dotnet/nbgv@v0.4.2
-
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
