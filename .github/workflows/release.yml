@@ -26,11 +26,11 @@ jobs:
         uses: dotnet/nbgv@v0.4.2
 
   build-executable:
-    needs: [determine-version]
+    needs: [ determine-version ]
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rid: [linux_x64, win_x64, osx_x64, osx_arm64]
+        rid: [ linux_x64, win_x64, osx_x64, osx_arm64 ]
 
     steps:
       - name: Checkout
@@ -73,11 +73,11 @@ jobs:
           #GitのタグとNuGetのバージョンが違う場合があるので
           RELEASES_JSON=`gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/shimat/opencvsharp/releases`
           FILTER='map(select(.tag_name | startswith("'$OPENCV_VERSION'")))[0].tag_name'
-          OPENCVSHARP_TAG=`echo $RELEASES_JSON | tr -d '\000-\037' | jq -r $FILTER`
+          OPENCVSHARP_TAG=`echo "$RELEASES_JSON" | jq -r "$FILTER"`
 
           #ダウンロード
           RELEASE=`gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/tags/$OPENCVSHARP_TAG`
-          ASSET_ID=`echo $RELEASE | jq '.assets | map(select(.name == "libOpenCvSharpExtern.so"))[0].id'`
+          ASSET_ID=`echo "$RELEASE" | jq '.assets | map(select(.name == "libOpenCvSharpExtern.so"))[0].id'`
 
           cd output/Beutl
           gh api -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/assets/$ASSET_ID > libOpenCvSharpExtern.so
@@ -92,7 +92,7 @@ jobs:
           path: ./artifacts/*.zip
 
   build-windows-installer:
-    needs: [determine-version, build-executable]
+    needs: [ determine-version, build-executable ]
     runs-on: windows-latest
 
     steps:
@@ -125,7 +125,7 @@ jobs:
           path: ./artifacts/beutl-setup.exe
 
   build-debian-package:
-    needs: [determine-version, build-executable]
+    needs: [ determine-version, build-executable ]
     runs-on: ubuntu-latest
 
     steps:
@@ -166,14 +166,14 @@ jobs:
 
       - name: Set Version
         run: |
-           cd packages/ubuntu22.04_amd64/DEBIAN
-           echo "Version: ${{ needs.determine-version.outputs.simpleVer }}-${{ needs.determine-version.outputs.revision }}ubuntu22.04" >> control
+          cd packages/ubuntu22.04_amd64/DEBIAN
+          echo "Version: ${{ needs.determine-version.outputs.simpleVer }}-${{ needs.determine-version.outputs.revision }}ubuntu22.04" >> control
 
       - name: Set Installed-Size
         run: |
-           SizeInKiloBytes=`du -s -k packages/ubuntu22.04_amd64 | awk '{print $1}'`
-           cd packages/ubuntu22.04_amd64/DEBIAN
-           echo "Installed-Size: $SizeInKiloBytes" >> control
+          SizeInKiloBytes=`du -s -k packages/ubuntu22.04_amd64 | awk '{print $1}'`
+          cd packages/ubuntu22.04_amd64/DEBIAN
+          echo "Installed-Size: $SizeInKiloBytes" >> control
 
       - name: Build package
         run: |
@@ -187,11 +187,11 @@ jobs:
           path: ./packages/beutl_${{ needs.determine-version.outputs.simpleVer }}-${{ needs.determine-version.outputs.revision }}ubuntu22.04_amd64.deb
 
   build-app-bundle:
-    needs: [determine-version]
+    needs: [ determine-version ]
     runs-on: macos-latest
     strategy:
       matrix:
-        rid: [osx_x64, osx_arm64]
+        rid: [ osx_x64, osx_arm64 ]
 
     steps:
       - name: Checkout
@@ -229,7 +229,7 @@ jobs:
           path: artifacts/Beutl.${{ matrix.rid }}.app.zip
 
   build-nuget:
-    needs: [determine-version]
+    needs: [ determine-version ]
     runs-on: ubuntu-latest
 
     steps:
@@ -260,7 +260,7 @@ jobs:
           path: ./artifacts/*.nupkg
 
   create-release:
-    needs: [build-executable, build-windows-installer, build-debian-package, build-nuget, build-app-bundle]
+    needs: [ build-executable, build-windows-installer, build-debian-package, build-nuget, build-app-bundle ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
