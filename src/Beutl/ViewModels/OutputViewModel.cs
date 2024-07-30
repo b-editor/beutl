@@ -1,7 +1,8 @@
 ﻿using System.Collections.ObjectModel;
+using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
-
 using Avalonia.Platform.Storage;
+using Beutl.Api.Services;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
@@ -9,6 +10,7 @@ using Beutl.Media.Encoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Rendering;
 using Beutl.Rendering.Cache;
@@ -16,10 +18,8 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using DynamicData;
-
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -30,7 +30,7 @@ public sealed class OutputViewModel : IOutputContext
     private readonly ReactiveProperty<bool> _isIndeterminate = new();
     private readonly ReactiveProperty<bool> _isEncoding = new();
     private readonly ReactivePropertySlim<double> _progress = new();
-    private readonly ReadOnlyObservableCollection<IEncoderInfo> _encoders;
+    private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
     private readonly IDisposable _disposable1;
     private readonly ProjectItemContainer _itemContainer = ProjectItemContainer.Current;
     private CancellationTokenSource? _lastCts;
@@ -39,36 +39,37 @@ public sealed class OutputViewModel : IOutputContext
     {
         Model = model;
 
-        SelectedEncoder.Subscribe(obj =>
-        {
-            if (obj != null)
-            {
-                var settings = obj.DefaultVideoConfig();
-                settings.SourceSize = new(Model.Width, Model.Height);
-                settings.DestinationSize = new(Model.Width, Model.Height);
-                VideoSettings.Value = new EncoderSettingsViewModel(settings);
-            }
-            else
-            {
-                VideoSettings.Value = null;
-            }
+        Controller = SelectedEncoder.CombineLatest(DestinationFile)
+            .Select(obj => obj is { First: not null, Second: not null }
+                ? obj.First.CreateController(obj.Second)
+                : null)
+            .ToReadOnlyReactivePropertySlim();
 
-            if (obj != null)
+        VideoSettings = Controller.Select(c => c?.VideoSettings)
+            .DistinctUntilChanged()
+            .Select(s =>
             {
-                AudioSettings.Value = new EncoderSettingsViewModel(obj.DefaultAudioConfig());
-            }
-            else
-            {
-                AudioSettings.Value = null;
-            }
-        });
+                if (s == null) return null;
+
+                s.SourceSize = new PixelSize(Model.Width, Model.Height);
+                s.DestinationSize = new PixelSize(Model.Width, Model.Height);
+                return new EncoderSettingsViewModel(s);
+            })
+            .ToReadOnlyReactivePropertySlim();
+
+        AudioSettings = Controller.Select(c => c?.AudioSettings)
+            .DistinctUntilChanged()
+            .Select(s => s == null ? null : new EncoderSettingsViewModel(s))
+            .ToReadOnlyReactivePropertySlim();
 
         CanEncode = DestinationFile.Select(x => x != null)
             .AreTrue(SelectedEncoder.Select(x => x != null))
             .ToReadOnlyReactivePropertySlim();
 
-        _disposable1 = EncoderRegistry.EnumerateEncoders().AsObservableChangeSet()
-            .Filter(DestinationFile.Select<string?, Func<IEncoderInfo, bool>>(
+        _disposable1 = ExtensionProvider.Current
+            .GetExtensions<ControllableEncodingExtension>()
+            .AsObservableChangeSet()
+            .Filter(DestinationFile.Select<string?, Func<ControllableEncodingExtension, bool>>(
                 f => f == null
                     ? _ => false
                     : ext => ext.IsSupported(f)))
@@ -84,17 +85,19 @@ public sealed class OutputViewModel : IOutputContext
 
     public ReactivePropertySlim<string?> DestinationFile { get; } = new();
 
-    public ReactivePropertySlim<IEncoderInfo?> SelectedEncoder { get; } = new();
+    public ReactivePropertySlim<ControllableEncodingExtension?> SelectedEncoder { get; } = new();
 
-    public ReadOnlyObservableCollection<IEncoderInfo> Encoders => _encoders;
+    public ReadOnlyObservableCollection<ControllableEncodingExtension> Encoders => _encoders;
 
     public ReactivePropertySlim<bool> IsEncodersExpanded { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> CanEncode { get; }
 
-    public ReactiveProperty<EncoderSettingsViewModel?> VideoSettings { get; } = new();
+    public ReadOnlyReactivePropertySlim<EncodingController?> Controller { get; }
 
-    public ReactiveProperty<EncoderSettingsViewModel?> AudioSettings { get; } = new();
+    public ReadOnlyReactivePropertySlim<EncoderSettingsViewModel?> VideoSettings { get; }
+
+    public ReadOnlyReactivePropertySlim<EncoderSettingsViewModel?> AudioSettings { get; }
 
     public ReactivePropertySlim<Avalonia.Vector> ScrollOffset { get; } = new();
 
@@ -116,7 +119,7 @@ public sealed class OutputViewModel : IOutputContext
 
     public static FilePickerFileType[] GetFilePickerFileTypes()
     {
-        static string[] ToPatterns(IEncoderInfo encoder)
+        static string[] ToPatterns(ControllableEncodingExtension encoder)
         {
             return encoder.SupportExtensions()
                 .Select(x =>
@@ -140,7 +143,8 @@ public sealed class OutputViewModel : IOutputContext
                 .ToArray();
         }
 
-        return EncoderRegistry.EnumerateEncoders()
+        return ExtensionProvider.Current
+            .GetExtensions<ControllableEncodingExtension>()
             .Select(x => new FilePickerFileType(x.Name) { Patterns = ToPatterns(x) })
             .ToArray();
     }
@@ -153,7 +157,7 @@ public sealed class OutputViewModel : IOutputContext
             _isEncoding.Value = true;
             Started?.Invoke(this, EventArgs.Empty);
 
-            await RenderThread.Dispatcher.InvokeAsync(() =>
+            await RenderThread.Dispatcher.InvokeAsync(async () =>
             {
                 _isIndeterminate.Value = true;
                 if (!_itemContainer.TryGetOrCreateItem(TargetFile, out Scene? scene))
@@ -171,31 +175,34 @@ public sealed class OutputViewModel : IOutputContext
                         _logger.LogWarning("EncoderSettings is null. ({Encoder})", SelectedEncoder.Value);
                         return;
                     }
+
                     videoSettings.SourceSize = scene.FrameSize;
 
-                    TimeSpan duration = scene.Duration;
-                    Rational frameRate = videoSettings.FrameRate;
-                    double frameRateD = frameRate.ToDouble();
-                    double frames = duration.TotalSeconds * frameRateD;
-                    double samples = duration.TotalSeconds;
-                    ProgressMax.Value = frames + samples;
+                    ProgressMax.Value = scene.Duration.TotalSeconds * 2;
 
-                    MediaWriter? writer = SelectedEncoder.Value!.Create(DestinationFile.Value!, videoSettings, audioSettings);
-                    if (writer == null) return;
+                    EncodingController? controller = Controller.Value;
+                    if (controller == null) return;
+                    // フレームプロバイダー作成
+                    using var renderer = new SceneRenderer(scene);
+                    var frameProgress = new Subject<TimeSpan>();
+                    var frameProvider = new FrameProviderImpl(scene, videoSettings.FrameRate, renderer, frameProgress);
+                    // サンプルプロバイダー作成
+                    using var composer = new SceneComposer(scene, renderer);
+                    var sampleProgress = new Subject<TimeSpan>();
+                    var sampleProvider = new SampleProviderImpl(
+                        scene, composer, audioSettings.SampleRate, sampleProgress);
 
-                    try
+                    using (frameProgress.CombineLatest(sampleProgress).Subscribe(t =>
+                               ProgressValue.Value = t.Item1.TotalSeconds + t.Item2.TotalSeconds))
                     {
-                        using var renderer = new SceneRenderer(scene);
-                        OutputVideo(frames, frameRateD, renderer, writer);
+                        RenderCacheContext? cacheContext = renderer.GetCacheContext();
 
-                        using var composer = new SceneComposer(scene, renderer);
-                        OutputAudio(samples, composer, writer);
-                    }
-                    finally
-                    {
-                        _isIndeterminate.Value = true;
-                        writer.Dispose();
-                        _isIndeterminate.Value = false;
+                        if (cacheContext != null)
+                        {
+                            cacheContext.CacheOptions = RenderCacheOptions.Disabled;
+                        }
+
+                        await controller.Encode(frameProvider, sampleProvider, _lastCts.Token);
                     }
                 }
             });
@@ -235,7 +242,7 @@ public sealed class OutputViewModel : IOutputContext
 
             var ts = TimeSpan.FromSeconds(i / frameRate);
             int retry = 0;
-        Retry:
+            Retry:
             if (!renderer.Render(ts))
             {
                 if (retry > 3)
@@ -244,6 +251,7 @@ public sealed class OutputViewModel : IOutputContext
                 retry++;
                 goto Retry;
             }
+
             using (Bitmap<Bgra8888> result = renderer.Snapshot())
             {
                 writer.AddVideo(result);
@@ -338,8 +346,9 @@ public sealed class OutputViewModel : IOutputContext
         if (json.TryGetPropertyValue(nameof(SelectedEncoder), out JsonNode? encoderNode)
             && encoderNode is JsonValue encoderValue
             && encoderValue.TryGetValue(out string? encoderStr)
-            && TypeFormat.ToType(encoderStr) is Type encoderType
-            && EncoderRegistry.EnumerateEncoders().FirstOrDefault(x => x.GetType() == encoderType) is { } encoder)
+            && TypeFormat.ToType(encoderStr) is { } encoderType
+            && ExtensionProvider.Current.GetExtensions<ControllableEncodingExtension>()
+                .FirstOrDefault(x => x.GetType() == encoderType) is { } encoder)
         {
             SelectedEncoder.Value = encoder;
         }
