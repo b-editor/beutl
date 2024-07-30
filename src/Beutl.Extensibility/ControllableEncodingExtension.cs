@@ -9,6 +9,5 @@ public abstract class ControllableEncodingExtension : Extension
 
     public abstract IEnumerable<string> SupportExtensions();
 
-    public abstract EncodingController CreateController(
-        string file, IFrameProvider frameProvider, ISampleProvider sampleProvider);
+    public abstract EncodingController CreateController(string file);
 }
