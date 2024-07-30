@@ -1,5 +1,6 @@
 ﻿namespace Beutl.Media.Encoding;
 
+[Obsolete("Use EncodingController instead.")]
 public static class EncoderRegistry
 {
     private static readonly List<IEncoderInfo> s_registerd = [];

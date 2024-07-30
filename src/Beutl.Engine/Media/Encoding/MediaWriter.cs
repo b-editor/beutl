@@ -7,6 +7,7 @@ using Beutl.Media.Music;
 
 namespace Beutl.Media.Encoding;
 
+[Obsolete("Use EncodingController instead.")]
 public abstract class MediaWriter : IDisposable
 {
     protected MediaWriter(VideoEncoderSettings videoConfig, AudioEncoderSettings audioConfig)
