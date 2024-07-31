@@ -1,4 +1,5 @@
-﻿using Beutl.Extensibility;
+﻿using Beutl.Embedding.FFmpeg.Encoding;
+using Beutl.Extensibility;
 using Beutl.Media.Encoding;
 
 namespace Beutl.Embedding.FFmpeg.ControlledEncoding;
@@ -9,6 +10,8 @@ public class FFmpegControlledEncodingExtension : ControllableEncodingExtension
     public override string Name => "FFmpeg Encoding";
 
     public override string DisplayName => "FFmpeg Encoding";
+
+    public override FFmpegEncodingSettings Settings { get; } = new();
 
     public override IEnumerable<string> SupportExtensions()
     {
@@ -28,7 +31,7 @@ public class FFmpegControlledEncodingExtension : ControllableEncodingExtension
 
     public override EncodingController CreateController(string file)
     {
-        return new FFmpegEncodingController(file);
+        return new FFmpegEncodingController(file, Settings);
     }
 
 
