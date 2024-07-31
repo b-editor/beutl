@@ -12,6 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="EmguFFmpeg" />
     <PackageReference Include="FFmpeg.AutoGen" />
     <PackageReference Include="FFMpegCore" />
   </ItemGroup>
