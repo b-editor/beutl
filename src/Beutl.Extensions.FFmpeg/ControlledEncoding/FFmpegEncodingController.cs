@@ -1,9 +1,8 @@
 ﻿using Beutl.Embedding.FFmpeg.Encoding;
 using Beutl.Extensibility;
 using Beutl.Media.Encoding;
-using EmguFFmpeg;
+using FFmpegSharp;
 using FFmpeg.AutoGen;
-using MediaWriter = EmguFFmpeg.MediaWriter;
 
 namespace Beutl.Embedding.FFmpeg.ControlledEncoding;
 
@@ -34,15 +33,15 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             FFmpegEncodingSettings.AccelerationOptions.VDPAU => AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU,
             FFmpegEncodingSettings.AccelerationOptions.VAAPI => AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI,
             FFmpegEncodingSettings.AccelerationOptions.LibMFX => AVHWDeviceType.AV_HWDEVICE_TYPE_QSV,
-            _ => codec.SupportedHardware
+            _ => codec.GetHWConfigs()
                 .First(i => (i.methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) == 0 && i.pix_fmt == pixelFormat)
                 .device_type
         };
     }
 
     private void ConfigureAudioStream(
-        OutFormat outFormat, MediaWriter writer,
-        AudioFrame audioFrame, out MediaEncoder encoder, out MediaStream stream, out SampleConverter swr)
+        OutFormat outFormat, MediaMuxer muxer,
+        MediaFrame audioFrame, out MediaEncoder encoder, out MediaStream stream, out SampleConverter swr)
     {
         var audioCodec = AudioSettings.Codec == FFmpegAudioEncoderSettings.AudioCodec.Default
             ? outFormat.AudioCodec
@@ -56,68 +55,71 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         int sampleRate = AudioSettings.SampleRate;
         var format = (AVSampleFormat)AudioSettings.Format;
         int bitRate = AudioSettings.Bitrate;
-        encoder = MediaEncoder.CreateEncode(audioCodec, outFormat.Flags, codec =>
+        var codec = MediaCodec.FindEncoder(audioCodec);
+        encoder = MediaEncoder.Create(codec, codecContext =>
         {
-            unsafe
+            if (channelLayout.nb_channels <= 0 || sampleRate <= 0 || bitRate < 0)
+                throw new InvalidOperationException("Invalid audio settings");
+            if (!codec.GetSampelFmts().Any() || !codec.GetSupportedSamplerates().Any())
+                throw new InvalidOperationException("Invalid audio codec");
+
+            if (sampleRate <= 0)
             {
-                AVCodecContext* codecContext = codec;
-                if (channelLayout.nb_channels <= 0 || sampleRate <= 0 || bitRate < 0)
-                    throw new FFmpegException(FFmpegException.NonNegative);
-                if (!codec.SupportedSampelFmts.Any() || !codec.SupportedSampleRates.Any())
-                    throw new FFmpegException(FFmpegException.NotSupportCodecId);
+                sampleRate = codec.GetSupportedSamplerates().First();
+            }
+            else if (codec.GetSupportedSamplerates().All(i => i != sampleRate))
+            {
+                throw new InvalidOperationException("Invalid sample rate");
+            }
 
-                if (sampleRate <= 0)
-                {
-                    sampleRate = codec.SupportedSampleRates.First();
-                }
-                else if (codec.SupportedSampleRates.All(i => i != sampleRate))
-                {
-                    throw new FFmpegException(FFmpegException.NotSupportSampleRate);
-                }
+            if (format == AVSampleFormat.AV_SAMPLE_FMT_NONE)
+            {
+                format = codec.GetSampelFmts().First();
+            }
+            else if (codec.GetSampelFmts().All(i => i != format))
+            {
+                throw new InvalidOperationException("Invalid sample format");
+            }
 
-                if (format == AVSampleFormat.AV_SAMPLE_FMT_NONE)
-                {
-                    format = codec.SupportedSampelFmts.First();
-                }
-                else if (codec.SupportedSampelFmts.All(i => i != format))
-                {
-                    throw new FFmpegException(FFmpegException.NotSupportFormat);
-                }
+            if (codec.GetChLayouts().Any()
+                && codec.GetChLayouts().All(i => !i.IsContentEqual(channelLayout)))
+            {
+                throw new InvalidOperationException("Invalid channel layout");
+            }
 
-                if (codec.SupportedChannelLayout.Any()
-                    && codec.SupportedChannelLayout.All(i => i != channelLayout.u.mask))
-                {
-                    throw new FFmpegException(FFmpegException.NotSupportChLayout);
-                }
+            codecContext.SampleRate = sampleRate;
+            codecContext.ChLayout = channelLayout;
+            codecContext.SampleFmt = format;
+            codecContext.BitRate = bitRate;
+            codecContext.TimeBase = new AVRational { num = 1, den = sampleRate };
+            codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
 
-                codecContext->sample_rate = sampleRate;
-                codecContext->ch_layout = channelLayout;
-                codecContext->sample_fmt = format;
-                codecContext->bit_rate = bitRate;
-                codecContext->time_base = new AVRational { num = 1, den = sampleRate };
-                codecContext->thread_count = Math.Min(Environment.ProcessorCount, 16);
+            if ((outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
+            {
+                codecContext.Flags |= ffmpeg.AV_CODEC_FLAG_GLOBAL_HEADER;
             }
         });
-        stream = writer.AddStream(encoder);
+        stream = muxer.AddStream(encoder);
 
-        int nbsamples = (encoder.AVCodec.capabilities & ffmpeg.AV_CODEC_CAP_VARIABLE_FRAME_SIZE) != 0
+        int nbsamples = (codec.Capabilities & ffmpeg.AV_CODEC_CAP_VARIABLE_FRAME_SIZE) != 0
             ? 10000
-            : encoder.AVCodecContext.frame_size;
+            : encoder.FrameSize;
 
-        swr = new SampleConverter((AVSampleFormat)AudioSettings.Format, AudioSettings.Channels, nbsamples,
-            encoder.AVCodecContext.sample_rate);
+        swr = new SampleConverter();
+        swr.SetOpts(encoder.ChLayout, encoder.SampleRate,
+            (AVSampleFormat)AudioSettings.Format, nbsamples);
 
         // src
-        audioFrame.Init(
-            encoder.AVCodecContext.ch_layout,
-            nbsamples,
-            AVSampleFormat.AV_SAMPLE_FMT_FLT,
-            44100);
+        audioFrame.ChLayout = encoder.ChLayout;
+        audioFrame.NbSamples = nbsamples;
+        audioFrame.Format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLT;
+        audioFrame.SampleRate = 44100;
+        audioFrame.AllocateBuffer();
     }
 
     private void ConfigureVideoStream(
-        OutFormat outFormat, MediaWriter writer,
-        VideoFrame videoFrame, out MediaEncoder encoder, out MediaStream stream, out PixelConverter sws)
+        OutFormat outFormat, MediaMuxer muxer,
+        MediaFrame videoFrame, out MediaEncoder encoder, out MediaStream stream, out PixelConverter sws)
     {
         var videoCodec = VideoSettings.Codec == FFmpegVideoEncoderSettings.VideoCodec.Default
             ? outFormat.VideoCodec
@@ -134,121 +136,99 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             { "profile", VideoSettings.Profile },
             { "level", "4.0" },
         };
-        encoder = MediaEncoder.CreateEncode(videoCodec, outFormat.Flags, codec =>
+        var codec = MediaCodec.FindEncoder(videoCodec);
+        encoder = MediaEncoder.Create(codec, codecContext =>
         {
-            unsafe
+            if (width <= 0 || height <= 0 || fps.ToDouble() <= 0 || bitRate < 0)
+                throw new InvalidOperationException("Invalid video settings");
+            if (!codec.GetPixelFmts().Any())
+                throw new InvalidOperationException("Invalid video codec");
+
+            if (format == AVPixelFormat.AV_PIX_FMT_NONE)
+                format = codec.GetPixelFmts().First();
+            else if (codec.GetPixelFmts().All(i => i != format))
+                throw new InvalidOperationException("Invalid pixel format");
+            codecContext.Width = width;
+            codecContext.Height = height;
+            codecContext.TimeBase =
+                new AVRational { num = (int)fps.Denominator, den = (int)fps.Numerator };
+            codecContext.Framerate =
+                new AVRational { num = (int)fps.Numerator, den = (int)fps.Denominator };
+            codecContext.PixFmt = format;
+            codecContext.BitRate = bitRate;
+            codecContext.GopSize = VideoSettings.KeyframeRate;
+            codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
+
+            var hwType = GetAVHWDeviceType(codec, format);
+            codecContext.InitHWDeviceContext(hwType);
+
+            if ((outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
             {
-                AVCodecContext* codecContext = codec;
-                if (width <= 0 || height <= 0 || fps.ToDouble() <= 0 || bitRate < 0)
-                    throw new FFmpegException(FFmpegException.NonNegative);
-                if (!codec.SupportedPixelFmts.Any())
-                    throw new FFmpegException(FFmpegException.NotSupportCodecId);
-
-                if (format == AVPixelFormat.AV_PIX_FMT_NONE)
-                    format = codec.SupportedPixelFmts.First();
-                else if (codec.SupportedPixelFmts.All(i => i != format))
-                    throw new FFmpegException(FFmpegException.NotSupportFormat);
-                codecContext->width = width;
-                codecContext->height = height;
-                codecContext->time_base =
-                    new AVRational { num = (int)fps.Denominator, den = (int)fps.Numerator };
-                codecContext->framerate =
-                    new AVRational { num = (int)fps.Numerator, den = (int)fps.Denominator };
-                codecContext->pix_fmt = format;
-                codecContext->bit_rate = bitRate;
-                codecContext->gop_size = VideoSettings.KeyframeRate;
-                codecContext->thread_count = Math.Min(Environment.ProcessorCount, 16);
-
-                var hwType = GetAVHWDeviceType(codec, format);
-                if (hwType != AVHWDeviceType.AV_HWDEVICE_TYPE_NONE && codecContext->codec != null &&
-                    codecContext->hw_device_ctx == null)
-                {
-                    if (codec.SupportedHardware.Select(i => (AVCodecHWConfig?)i)
-                            .FirstOrDefault(i =>
-                                (i!.Value.device_type == hwType) &&
-                                (i.Value.methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) != 0) is { } hWConfig)
-                    {
-                        ffmpeg.av_hwdevice_ctx_create(
-                            &codecContext->hw_device_ctx, hWConfig.device_type, null, null, 0).ThrowIfError();
-                        codecContext->get_format = (AVCodecContext_get_format)((_, pix_fmt) =>
-                        {
-                            while (*pix_fmt != AVPixelFormat.AV_PIX_FMT_NONE)
-                            {
-                                if (*pix_fmt == hWConfig.pix_fmt)
-                                {
-                                    return *pix_fmt;
-                                }
-
-                                pix_fmt++;
-                            }
-
-                            return AVPixelFormat.AV_PIX_FMT_NONE;
-                        });
-                    }
-                }
+                codecContext.Flags |= ffmpeg.AV_CODEC_FLAG_GLOBAL_HEADER;
             }
         }, options);
-        stream = writer.AddStream(encoder);
+        stream = muxer.AddStream(encoder);
 
-        sws = new PixelConverter(encoder.AVCodecContext.pix_fmt,
-            VideoSettings.DestinationSize.Width, VideoSettings.DestinationSize.Height);
+        sws = new PixelConverter();
+        sws.SetOpts(VideoSettings.DestinationSize.Width, VideoSettings.DestinationSize.Height, encoder.PixFmt);
 
-        videoFrame.Init(
-            VideoSettings.SourceSize.Width, VideoSettings.SourceSize.Height,
-            AVPixelFormat.AV_PIX_FMT_BGRA);
+        videoFrame.Width = VideoSettings.SourceSize.Width;
+        videoFrame.Height = VideoSettings.SourceSize.Height;
+        videoFrame.Format = (int)AVPixelFormat.AV_PIX_FMT_BGRA;
+        videoFrame.AllocateBuffer();
     }
 
     public override async ValueTask Encode(IFrameProvider frameProvider, ISampleProvider sampleProvider,
         CancellationToken cancellationToken)
     {
         bool encodeVideo = false, encodeAudio = false;
-        using (var writer = new MediaWriter(OutputFile))
-        using (var videoFrame = new VideoFrame())
-        using (var audioFrame = new AudioFrame())
+        using (var muxer = MediaMuxer.Create(OutputFile))
+        using (var videoFrame = new MediaFrame())
+        using (var audioFrame = new MediaFrame())
         {
             PixelConverter? sws = null;
             SampleConverter? swr = null;
-            var outFormat = writer.Format;
+            var outFormat = muxer.Format;
 
             var encoders = new List<(MediaEncoder, MediaStream)>();
             if (outFormat.AudioCodec != AVCodecID.AV_CODEC_ID_NONE)
             {
-                ConfigureAudioStream(outFormat, writer, audioFrame, out var encoder, out var stream, out swr);
+                ConfigureAudioStream(outFormat, muxer, audioFrame, out var encoder, out var stream, out swr);
                 encoders.Add((encoder, stream));
                 encodeAudio = true;
             }
 
             if (outFormat.VideoCodec != AVCodecID.AV_CODEC_ID_NONE)
             {
-                ConfigureVideoStream(outFormat, writer, videoFrame, out var encoder, out var stream, out sws);
+                ConfigureVideoStream(outFormat, muxer, videoFrame, out var encoder, out var stream, out sws);
                 encoders.Add((encoder, stream));
                 encodeVideo = true;
             }
 
-            writer.DumpFormat();
-            writer.Initialize();
+            muxer.DumpFormat();
+            muxer.WriteHeader();
 
             var videoState = new EncodeState();
             var audioState = new EncodeState();
             while (encodeVideo || encodeAudio)
             {
                 if (encodeVideo &&
-                    (!encodeAudio || ffmpeg.av_compare_ts(videoState.NextPts, encoders[1].Item1.AVCodecContext.time_base,
-                        audioState.NextPts, encoders[0].Item1.AVCodecContext.time_base) <= 0))
+                    (!encodeAudio || ffmpeg.av_compare_ts(videoState.NextPts,
+                        encoders[1].Item1.TimeBase,
+                        audioState.NextPts, encoders[0].Item1.TimeBase) <= 0))
                 {
                     encodeVideo = await WriteVideoFrame(
-                        writer, sws!, encoders[1].Item1, encoders[1].Item2, videoFrame, videoState, frameProvider);
+                        muxer, sws!, encoders[1].Item1, encoders[1].Item2, videoFrame, videoState, frameProvider);
                 }
                 else
                 {
                     encodeAudio = await WriteAudioFrame(
-                        writer, swr!, encoders[0].Item1, encoders[0].Item2, audioFrame, audioState, sampleProvider);
+                        muxer, swr!, encoders[0].Item1, encoders[0].Item2, audioFrame, audioState, sampleProvider);
                 }
             }
 
-            // oc.FlushCodecs(encoders);
-            // oc.WriteTrailer();
-            writer.FlushMuxer();
+            muxer.FlushCodecs(encoders.Select(i=>i.Item1));
+            muxer.WriteTrailer();
             encoders.ForEach(t => t.Item1.Dispose());
         }
     }
@@ -274,12 +254,12 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     }
 
     private static async ValueTask<bool> WriteAudioFrame(
-        MediaWriter writer, SampleConverter swr, MediaEncoder encoder, MediaStream stream,
+        MediaMuxer muxer, SampleConverter swr, MediaEncoder encoder, MediaStream stream,
         MediaFrame src, EncodeState state,
         ISampleProvider sampleProvider)
     {
         var f = await GetAudioFrame(src, swr, state, sampleProvider);
-        return WriteFrame(writer, encoder, stream, f);
+        return WriteFrame(muxer, encoder, stream, f);
     }
 
     private static async ValueTask<MediaFrame?> GetVideoFrame(
@@ -302,22 +282,23 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     }
 
     private static async ValueTask<bool> WriteVideoFrame(
-        MediaWriter writer, PixelConverter sws, MediaEncoder encoder,
+        MediaMuxer muxer, PixelConverter sws, MediaEncoder encoder,
         MediaStream stream, MediaFrame srcFrame,
         EncodeState state, IFrameProvider frameProvider)
     {
-        return WriteFrame(writer, encoder, stream, await GetVideoFrame(srcFrame, sws, state, frameProvider));
+        return WriteFrame(muxer, encoder, stream, await GetVideoFrame(srcFrame, sws, state, frameProvider));
     }
 
-    private static unsafe bool WriteFrame(MediaWriter writer, MediaEncoder encoder, MediaStream stream, MediaFrame? frame)
+    private static unsafe bool WriteFrame(MediaMuxer muxer, MediaEncoder encoder, MediaStream stream,
+        MediaFrame? frame)
     {
         foreach (var pkt in encoder.EncodeFrame(frame))
         {
             pkt.StreamIndex = stream.Index;
             // Console.WriteLine(
             //     $"pts:{pkt.Pts} pts_time:{0} dst:{pkt.Dts} dts_time:{0} duration:{pkt.Duration} duration_time:{0} stream_index:{streamIndex}");
-            ffmpeg.av_packet_rescale_ts(pkt, encoder.AVCodecContext.time_base, stream.TimeBase);
-            writer.WritePacket(pkt);
+            ffmpeg.av_packet_rescale_ts(pkt, encoder.TimeBase, stream.TimeBase);
+            muxer.WritePacket(pkt);
         }
 
         return frame != null;

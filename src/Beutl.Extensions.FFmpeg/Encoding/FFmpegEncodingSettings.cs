@@ -1,7 +1,5 @@
 ﻿using Beutl.Extensibility;
 
-using FFMpegCore.Enums;
-
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Encoding;
 #else
