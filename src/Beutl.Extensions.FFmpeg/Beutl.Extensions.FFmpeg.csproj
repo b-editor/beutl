@@ -12,9 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="EmguFFmpeg" />
     <PackageReference Include="FFmpeg.AutoGen" />
-    <PackageReference Include="FFMpegCore" />
+    <PackageReference Include="FFmpeg4Sharp" />
   </ItemGroup>
 
   <ItemGroup>
