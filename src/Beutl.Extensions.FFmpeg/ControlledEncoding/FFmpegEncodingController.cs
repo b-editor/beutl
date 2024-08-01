@@ -1,4 +1,4 @@
-using Beutl.Embedding.FFmpeg.Encoding;
+﻿using Beutl.Embedding.FFmpeg.Encoding;
 using Beutl.Extensibility;
 using Beutl.Media.Encoding;
 using FFmpegSharp;
@@ -219,7 +219,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
             var videoState = new EncodeState();
             var audioState = new EncodeState();
-            while (encodeVideo || encodeAudio)
+            while (encodeVideo || encodeAudio && !cancellationToken.IsCancellationRequested)
             {
                 if (encodeVideo &&
                     (!encodeAudio || ffmpeg.av_compare_ts(videoState.NextPts,
@@ -236,7 +236,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                 }
             }
 
-            muxer.FlushCodecs(encoders.Select(i=>i.Item1));
+            muxer.FlushCodecs(encoders.Select(i => i.Item1));
             muxer.WriteTrailer();
             encoders.ForEach(t => t.Item1.Dispose());
         }
