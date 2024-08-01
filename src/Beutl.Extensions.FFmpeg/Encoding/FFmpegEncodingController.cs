@@ -1,4 +1,4 @@
-using Beutl.Extensibility;
+﻿using Beutl.Extensibility;
 using FFmpegSharp;
 using FFmpeg.AutoGen;
 
@@ -219,7 +219,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
             var videoState = new EncodeState();
             var audioState = new EncodeState();
-            while (encodeVideo || encodeAudio && !cancellationToken.IsCancellationRequested)
+            while ((encodeVideo || encodeAudio) && !cancellationToken.IsCancellationRequested)
             {
                 if (encodeVideo &&
                     (!encodeAudio || ffmpeg.av_compare_ts(videoState.NextPts,
