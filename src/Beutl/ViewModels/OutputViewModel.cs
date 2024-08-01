@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
@@ -223,63 +223,6 @@ public sealed class OutputViewModel : IOutputContext
             _isEncoding.Value = false;
             _lastCts = null;
             Finished?.Invoke(this, EventArgs.Empty);
-        }
-    }
-
-    private void OutputVideo(double frames, double frameRate, SceneRenderer renderer, MediaWriter writer)
-    {
-        RenderCacheContext? cacheContext = renderer.GetCacheContext();
-
-        if (cacheContext != null)
-        {
-            cacheContext.CacheOptions = RenderCacheOptions.Disabled;
-        }
-
-        for (double i = 0; i < frames; i++)
-        {
-            if (_lastCts!.IsCancellationRequested)
-                break;
-
-            var ts = TimeSpan.FromSeconds(i / frameRate);
-            int retry = 0;
-            Retry:
-            if (!renderer.Render(ts))
-            {
-                if (retry > 3)
-                    throw new Exception("Renderer.RenderがFalseでした。他にこのシーンを使用していないか確認してください。");
-
-                retry++;
-                goto Retry;
-            }
-
-            using (Bitmap<Bgra8888> result = renderer.Snapshot())
-            {
-                writer.AddVideo(result);
-            }
-
-            ProgressValue.Value++;
-            _progress.Value = ProgressValue.Value / ProgressMax.Value;
-            ProgressText.Value = $"{Strings.OutputtingVideo}: {ts:hh\\:mm\\:ss\\.ff}";
-        }
-    }
-
-    private void OutputAudio(double samples, SceneComposer composer, MediaWriter writer)
-    {
-        for (double i = 0; i < samples; i++)
-        {
-            if (_lastCts!.IsCancellationRequested)
-                break;
-
-            var ts = TimeSpan.FromSeconds(i);
-
-            using (Pcm<Stereo32BitFloat> result = composer.Compose(ts)!)
-            {
-                writer.AddAudio(result);
-            }
-
-            ProgressValue.Value++;
-            _progress.Value = ProgressValue.Value / ProgressMax.Value;
-            ProgressText.Value = $"{Strings.OutputtingAudio}: {ts:hh\\:mm\\:ss\\.ff}";
         }
     }
 
