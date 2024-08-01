@@ -1,5 +1,4 @@
 ﻿using Beutl.Api.Services;
-using Beutl.Embedding.FFmpeg.ControlledEncoding;
 using Beutl.Services.PrimitiveImpls;
 
 namespace Beutl.Services.StartupTasks;
@@ -76,7 +75,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     try
                     {
                         var decoding = new Embedding.FFmpeg.Decoding.FFmpegDecodingExtension();
-                        var encoding = new FFmpegControlledEncodingExtension();
+                        var encoding = new Embedding.FFmpeg.Encoding.FFmpegControlledEncodingExtension();
                         _manager.SetupExtensionSettings(decoding);
                         _manager.SetupExtensionSettings(encoding);
                         decoding.Load();
