@@ -1,4 +1,4 @@
-﻿using Beutl.Extensibility;
+using Beutl.Extensibility;
 using FFmpegSharp;
 using FFmpeg.AutoGen;
 
@@ -46,10 +46,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         OutFormat outFormat, MediaMuxer muxer,
         MediaFrame audioFrame, out MediaEncoder encoder, out MediaStream stream, out SampleConverter swr)
     {
-        string? codecName = AudioSettings.Codec.Equals(CodecRecord.Default)
-            ? ffmpeg.avcodec_get_name(outFormat.AudioCodec)
-            : AudioSettings.Codec.Name;
-        var codec = MediaCodec.FindEncoder(codecName);
+        var codec = AudioSettings.Codec.Equals(CodecRecord.Default)
+            ? MediaCodec.FindEncoder(outFormat.AudioCodec)
+            : MediaCodec.FindEncoder(AudioSettings.Codec.Name);
         var channelLayout = new AVChannelLayout
         {
             order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
@@ -124,10 +123,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         OutFormat outFormat, MediaMuxer muxer,
         MediaFrame videoFrame, out MediaEncoder encoder, out MediaStream stream, out PixelConverter sws)
     {
-        string? codecName = VideoSettings.Codec.Equals(CodecRecord.Default)
-            ? ffmpeg.avcodec_get_name(outFormat.VideoCodec)
-            : VideoSettings.Codec.Name;
-        var codec = MediaCodec.FindEncoder(codecName);
+        var codec = VideoSettings.Codec.Equals(CodecRecord.Default)
+            ? MediaCodec.FindEncoder(outFormat.VideoCodec)
+            : MediaCodec.FindEncoder(VideoSettings.Codec.Name);
         int width = VideoSettings.DestinationSize.Width;
         int height = VideoSettings.DestinationSize.Height;
         var fps = VideoSettings.FrameRate;
