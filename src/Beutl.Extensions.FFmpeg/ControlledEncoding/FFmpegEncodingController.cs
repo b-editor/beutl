@@ -1,4 +1,4 @@
-﻿using Beutl.Embedding.FFmpeg.Encoding;
+using Beutl.Embedding.FFmpeg.Encoding;
 using Beutl.Extensibility;
 using Beutl.Media.Encoding;
 using FFmpegSharp;
@@ -20,22 +20,23 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
     public override FFmpegAudioEncoderSettings AudioSettings { get; } = new();
 
-    private AVHWDeviceType GetAVHWDeviceType(MediaCodec codec, AVPixelFormat pixelFormat)
+    private AVHWDeviceType? GetAVHWDeviceType()
     {
         return settings.Acceleration switch
         {
             FFmpegEncodingSettings.AccelerationOptions.Software => AVHWDeviceType.AV_HWDEVICE_TYPE_NONE,
-            FFmpegEncodingSettings.AccelerationOptions.D3D11VA => AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA,
+            FFmpegEncodingSettings.AccelerationOptions.VDPAU => AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU,
+            FFmpegEncodingSettings.AccelerationOptions.CUDA => AVHWDeviceType.AV_HWDEVICE_TYPE_CUDA,
+            FFmpegEncodingSettings.AccelerationOptions.VAAPI => AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI,
             FFmpegEncodingSettings.AccelerationOptions.DXVA2 => AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2,
             FFmpegEncodingSettings.AccelerationOptions.QSV => AVHWDeviceType.AV_HWDEVICE_TYPE_QSV,
-            FFmpegEncodingSettings.AccelerationOptions.CUVID => AVHWDeviceType.AV_HWDEVICE_TYPE_CUDA,
-            FFmpegEncodingSettings.AccelerationOptions.CUDA => AVHWDeviceType.AV_HWDEVICE_TYPE_CUDA,
-            FFmpegEncodingSettings.AccelerationOptions.VDPAU => AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU,
-            FFmpegEncodingSettings.AccelerationOptions.VAAPI => AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI,
-            FFmpegEncodingSettings.AccelerationOptions.LibMFX => AVHWDeviceType.AV_HWDEVICE_TYPE_QSV,
-            _ => codec.GetHWConfigs()
-                .First(i => (i.methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) == 0 && i.pix_fmt == pixelFormat)
-                .device_type
+            FFmpegEncodingSettings.AccelerationOptions.VideoToolbox => AVHWDeviceType.AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+            FFmpegEncodingSettings.AccelerationOptions.D3D11VA => AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA,
+            FFmpegEncodingSettings.AccelerationOptions.DRM => AVHWDeviceType.AV_HWDEVICE_TYPE_DRM,
+            FFmpegEncodingSettings.AccelerationOptions.OpenCL => AVHWDeviceType.AV_HWDEVICE_TYPE_OPENCL,
+            FFmpegEncodingSettings.AccelerationOptions.MediaCodec => AVHWDeviceType.AV_HWDEVICE_TYPE_MEDIACODEC,
+            FFmpegEncodingSettings.AccelerationOptions.Vulkan => AVHWDeviceType.AV_HWDEVICE_TYPE_VULKAN,
+            _ => null
         };
     }
 
@@ -145,7 +146,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                 throw new InvalidOperationException("Invalid video codec");
 
             if (format == AVPixelFormat.AV_PIX_FMT_NONE)
-                format = codec.GetPixelFmts().First();
+                format = codec.GetPixelFmts().First(i => ffmpeg.sws_isSupportedInput(i) != 0);
             else if (codec.GetPixelFmts().All(i => i != format))
                 throw new InvalidOperationException("Invalid pixel format");
             codecContext.Width = width;
@@ -159,7 +160,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             codecContext.GopSize = VideoSettings.KeyframeRate;
             codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
 
-            var hwType = GetAVHWDeviceType(codec, format);
+            var hwType = GetAVHWDeviceType();
             codecContext.InitHWDeviceContext(hwType);
 
             if ((outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)

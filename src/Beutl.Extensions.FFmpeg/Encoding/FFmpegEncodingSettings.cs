@@ -40,13 +40,16 @@ public sealed class FFmpegEncodingSettings : ExtensionSettings
     {
         Software,
         Auto,
-        D3D11VA,
+        VDPAU,
+        CUDA,
+        VAAPI,
         DXVA2,
         QSV,
-        CUVID,
-        CUDA,
-        VDPAU,
-        VAAPI,
-        LibMFX,
+        VideoToolbox,
+        D3D11VA,
+        DRM,
+        OpenCL,
+        MediaCodec,
+        Vulkan
     }
 }
