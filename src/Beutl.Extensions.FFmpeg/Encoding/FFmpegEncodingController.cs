@@ -1,10 +1,12 @@
-﻿using Beutl.Embedding.FFmpeg.Encoding;
-using Beutl.Extensibility;
-using Beutl.Media.Encoding;
+﻿using Beutl.Extensibility;
 using FFmpegSharp;
 using FFmpeg.AutoGen;
 
-namespace Beutl.Embedding.FFmpeg.ControlledEncoding;
+#if FFMPEG_BUILD_IN
+namespace Beutl.Embedding.FFmpeg.Encoding;
+#else
+namespace Beutl.Extensions.FFmpeg.Encoding;
+#endif
 
 public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings settings)
     : EncodingController(outputFile)

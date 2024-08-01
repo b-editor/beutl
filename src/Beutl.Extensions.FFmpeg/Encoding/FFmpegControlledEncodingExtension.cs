@@ -1,15 +1,17 @@
-﻿using Beutl.Embedding.FFmpeg.Encoding;
-using Beutl.Extensibility;
-using Beutl.Media.Encoding;
+﻿using Beutl.Extensibility;
 
-namespace Beutl.Embedding.FFmpeg.ControlledEncoding;
+#if FFMPEG_BUILD_IN
+namespace Beutl.Embedding.FFmpeg.Encoding;
+#else
+namespace Beutl.Extensions.FFmpeg.Encoding;
+#endif
 
 [Export]
 public class FFmpegControlledEncodingExtension : ControllableEncodingExtension
 {
-    public override string Name => "FFmpeg Encoding";
+    public override string Name => "FFmpeg Encoder";
 
-    public override string DisplayName => "FFmpeg Encoding";
+    public override string DisplayName => "FFmpeg Encoder";
 
     public override FFmpegEncodingSettings Settings { get; } = new();
 
