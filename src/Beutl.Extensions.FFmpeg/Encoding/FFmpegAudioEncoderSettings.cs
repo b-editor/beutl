@@ -1,6 +1,7 @@
 using Beutl.Media.Encoding;
 
 using FFmpeg.AutoGen;
+using FFmpegSharp;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Encoding;
@@ -10,13 +11,13 @@ namespace Beutl.Extensions.FFmpeg.Encoding;
 
 public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
 {
-    public static readonly CoreProperty<AudioCodec> CodecProperty;
+    public static readonly CoreProperty<CodecRecord> CodecProperty;
     public static readonly CoreProperty<AudioFormat> FormatProperty;
 
     static FFmpegAudioEncoderSettings()
     {
-        CodecProperty = ConfigureProperty<AudioCodec, FFmpegAudioEncoderSettings>(nameof(Codec))
-            .DefaultValue(AudioCodec.Default)
+        CodecProperty = ConfigureProperty<CodecRecord, FFmpegAudioEncoderSettings>(nameof(Codec))
+            .DefaultValue(CodecRecord.Default)
             .Register();
 
         FormatProperty = ConfigureProperty<AudioFormat, FFmpegAudioEncoderSettings>(nameof(Format))
@@ -24,7 +25,9 @@ public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
             .Register();
     }
 
-    public AudioCodec Codec
+    [ChoicesProvider(typeof(AudioCodecChoicesProvider))]
+    [NotAutoSerialized]
+    public CodecRecord Codec
     {
         get => GetValue(CodecProperty);
         set => SetValue(CodecProperty, value);
@@ -50,14 +53,16 @@ public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
         Fltp = AVSampleFormat.AV_SAMPLE_FMT_FLTP,
         Dblp = AVSampleFormat.AV_SAMPLE_FMT_DBLP,
     }
+}
 
-    public enum AudioCodec
+public class AudioCodecChoicesProvider : IChoicesProvider
+{
+    public static IReadOnlyList<object> GetChoices()
     {
-        Default = AVCodecID.AV_CODEC_ID_NONE,
-        AAC = AVCodecID.AV_CODEC_ID_AAC,
-        AC3 = AVCodecID.AV_CODEC_ID_AC3,
-        MP3 = AVCodecID.AV_CODEC_ID_MP3,
-        WMA = AVCodecID.AV_CODEC_ID_WMAV2,
-        Vorbis = AVCodecID.AV_CODEC_ID_VORBIS,
+        return MediaCodec.GetCodecs()
+            .Where(i => i.IsEncoder && i.Type == AVMediaType.AVMEDIA_TYPE_AUDIO)
+            .Select(i => new CodecRecord(i.Name, i.LongName))
+            .Prepend(CodecRecord.Default)
+            .ToArray();
     }
 }
