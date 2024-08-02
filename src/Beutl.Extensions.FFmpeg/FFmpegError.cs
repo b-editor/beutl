@@ -1,6 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-
 using FFmpeg.AutoGen;
 
 #if FFMPEG_BUILD_IN
@@ -14,7 +13,7 @@ public static class FFmpegError
     internal delegate void ErrorHandler(int errorCode);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void ThrowIfError(this int errorCode, string exceptionMessage)
+    internal static void ThrowIfError(this int errorCode, string exceptionMessage = "")
     {
         if (errorCode < 0)
         {

@@ -1,5 +1,6 @@
 ﻿namespace Beutl.Media.Encoding;
 
+[Obsolete("Use EncodingController instead.")]
 public interface IEncoderInfo
 {
     string Name { get; }

@@ -1,25 +1,16 @@
-﻿using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ObjectiveC;
-using System.Runtime.Versioning;
+﻿using System.Runtime.Versioning;
 using Beutl.Extensibility;
-using Beutl.Media.Decoding;
-using Beutl.Media.Encoding;
 using MonoMac.AppKit;
 
 namespace Beutl.Extensions.AVFoundation.Encoding;
 
 [Export]
-public class AVFEncodingExtension : EncodingExtension
+[SupportedOSPlatform("macos")]
+public class AVFEncodingExtension : ControllableEncodingExtension
 {
-    public override string Name => "AVFoundation Encoding";
+    public override string Name => "AVFoundation Encoder";
 
-    public override string DisplayName => "AVFoundation Encoding";
-
-    [SupportedOSPlatform("macos")]
-    public override IEncoderInfo GetEncoderInfo()
-    {
-        return new AVFEncoderInfo(this);
-    }
+    public override string DisplayName => "AVFoundation Encoder";
 
     public override void Load()
     {
@@ -32,8 +23,27 @@ public class AVFEncodingExtension : EncodingExtension
             catch
             {
             }
-
-            EncoderRegistry.Register(GetEncoderInfo());
         }
+    }
+
+    public override IEnumerable<string> SupportExtensions()
+    {
+        yield return ".mp4";
+        yield return ".mov";
+        yield return ".m4v";
+        yield return ".avi";
+        yield return ".wmv";
+        yield return ".sami";
+        yield return ".smi";
+        yield return ".adts";
+        yield return ".asf";
+        yield return ".3gp";
+        yield return ".3gp2";
+        yield return ".3gpp";
+    }
+
+    public override EncodingController CreateController(string file)
+    {
+        return new AVFEncodingController(file);
     }
 }
