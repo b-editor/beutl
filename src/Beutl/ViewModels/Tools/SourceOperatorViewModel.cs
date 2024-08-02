@@ -164,7 +164,8 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
                              return null;
                          }
                      })
-                     .Select(x => (x.Key, x.ToArray())))
+                     .Select(x => (x.Key, x.ToArray()))
+                     .ToArray())
         {
             if (group.Key != null)
             {

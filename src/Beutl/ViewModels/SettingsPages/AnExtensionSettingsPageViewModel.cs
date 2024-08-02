@@ -91,7 +91,8 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
                 return null;
             }
         })
-            .Select(x => (x.Key, x.ToArray())))
+            .Select(x => (x.Key, x.ToArray()))
+            .ToArray())
         {
             if (group.Key != null)
             {

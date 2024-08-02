@@ -35,7 +35,8 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
     {
     }
 
-    private void InitializeCoreObject(MediaEncoderSettings obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
+    private void InitializeCoreObject(MediaEncoderSettings obj,
+        Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
     {
         Type objType = obj.GetType();
         Type wrapperType = typeof(CorePropertyImpl<>);
@@ -76,8 +77,9 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
         });
 
         foreach ((string? Key, IPropertyEditorContext?[] Value) group in tempItems
-            .GroupBy(x => GetDisplayAttribute(x)?.GetGroupName())
-            .Select(x => (x.Key, x.ToArray())))
+                     .GroupBy(x => GetDisplayAttribute(x)?.GetGroupName())
+                     .Select(x => (x.Key, x.ToArray()))
+                     .ToArray())
         {
             if (group.Key != null)
             {
