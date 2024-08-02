@@ -21,6 +21,7 @@ using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 
@@ -55,11 +56,13 @@ public sealed class OutputViewModel : IOutputContext
                 s.DestinationSize = new PixelSize(Model.Width, Model.Height);
                 return new EncoderSettingsViewModel(s);
             })
+            .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim();
 
         AudioSettings = Controller.Select(c => c?.AudioSettings)
             .DistinctUntilChanged()
             .Select(s => s == null ? null : new EncoderSettingsViewModel(s))
+            .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim();
 
         CanEncode = DestinationFile.Select(x => x != null)

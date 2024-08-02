@@ -1,15 +1,13 @@
 using System.ComponentModel.DataAnnotations;
-
 using Beutl.Media.Encoding;
 using Beutl.Operation;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
-
 using DynamicData;
 
 namespace Beutl.ViewModels;
 
-public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IServiceProvider
+public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IServiceProvider, IDisposable
 {
     private readonly CommandRecorder _recorder = new();
 
@@ -107,6 +105,16 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
         else
         {
             return null;
+        }
+    }
+
+    public void Dispose()
+    {
+        for (int i = Properties.Count - 1; i >= 0; i--)
+        {
+            var item = Properties[i];
+            Properties.RemoveAt(i);
+            item?.Dispose();
         }
     }
 }
