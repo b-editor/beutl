@@ -11,8 +11,11 @@
                   CloseButtonText="{x:Static lang:Strings.Disagree}"
                   PrimaryButtonText="{x:Static lang:Strings.Agree}"
                   mc:Ignorable="d">
+    <ui:ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMaxWidth">400</x:Double>
+    </ui:ContentDialog.Resources>
     <StackPanel Spacing="16">
-        <SelectableTextBlock Text="{x:Static lang:SettingsPage.Telemetry_Description}" />
+        <SelectableTextBlock TextWrapping="WrapWithOverflow" Text="{x:Static lang:SettingsPage.Telemetry_Description}" />
 
         <Button Height="48"
                 HorizontalAlignment="Stretch"
