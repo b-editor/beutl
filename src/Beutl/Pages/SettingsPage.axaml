@@ -20,6 +20,7 @@
                 <Setter Property="CornerRadius" Value="{DynamicResource NavigationViewContentGridCornerRadius}" />
             </Style>
         </ui:NavigationView.Styles>
-        <ui:Frame x:Name="frame" />
+        <!-- InvalidCastException対策に{x:Null}を指定 -->
+        <ui:Frame DataContext="{x:Null}" x:Name="frame" />
     </ui:NavigationView>
 </UserControl>

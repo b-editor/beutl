@@ -44,7 +44,8 @@
                 </TextBox>
             </ui:NavigationView.PaneCustomContent>
 
-            <ui:Frame x:Name="frame" />
+            <!-- InvalidCastException対策に{x:Null}を指定 -->
+            <ui:Frame DataContext="{x:Null}" x:Name="frame" />
         </ui:NavigationView>
 
         <StackPanel HorizontalAlignment="Center"
