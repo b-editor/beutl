@@ -12,7 +12,7 @@
 [![Daily build](https://github.com/b-editor/beutl/actions/workflows/daily-build.yml/badge.svg)](https://github.com/b-editor/beutl/actions/workflows/daily-build.yml)
 [![Discord](https://img.shields.io/discord/868076100511760385.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/Bm3pnVc928)
 
-Beutlはクロスプラットフォームで動作する動画編集 (コンポジット) ソフトウェアです。  
+Beutl (ビュートルと発音) はクロスプラットフォームで動作する動画編集 (コンポジット) ソフトウェアです。  
 
 [古いバージョン(BEditor)のソースコード](https://github.com/b-editor/beutl/tree/old/develop)
 

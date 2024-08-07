@@ -12,7 +12,7 @@ __English__ / [Japanese](README.ja.md)
 [![Daily build](https://github.com/b-editor/beutl/actions/workflows/daily-build.yml/badge.svg)](https://github.com/b-editor/beutl/actions/workflows/daily-build.yml)
 [![Discord](https://img.shields.io/discord/868076100511760385.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/Bm3pnVc928)
 
-Beutl is a cross-platform video editing (compositing) software.  
+Beutl (pronounced /bjútəl/) is a cross-platform video editing (compositing) software.  
 
 [Source code of the old version (BEditor)](https://github.com/b-editor/beutl/tree/old/develop)
 
