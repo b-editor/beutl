@@ -1,8 +1,7 @@
 ﻿using Beutl.Logging;
 using Microsoft.Extensions.Logging;
-using NUnit.Framework;
 
-namespace Beutl.Core.UnitTests;
+namespace Beutl.UnitTests.Core;
 
 public class CommandRecorderTests
 {

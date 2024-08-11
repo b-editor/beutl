@@ -1,11 +1,8 @@
 ﻿using System.Text;
-
 using Beutl.Utilities;
-
-using NUnit.Framework;
 using NUnit.Framework.Legacy;
 
-namespace Beutl.Engine.UnitTests;
+namespace Beutl.UnitTests.Engine;
 
 public class RefUtf8StringTokenizerTests
 {

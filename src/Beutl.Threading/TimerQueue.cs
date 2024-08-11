@@ -2,25 +2,25 @@
 
 namespace Beutl.Threading;
 
-internal sealed class TimerQueue
+internal sealed class TimerQueue(TimeProvider timeProvider)
 {
     private readonly object _lock = new();
-    private readonly SortedDictionary<DateTime, List<DispatcherOperation>> _operations = [];
+    private readonly SortedDictionary<DateTimeOffset, List<DispatcherOperation>> _operations = [];
 
-    public DateTime? Next
+    public DateTimeOffset? Next
     {
         get
         {
             lock (_lock)
             {
-                SortedDictionary<DateTime, List<DispatcherOperation>>.Enumerator enumerator;
+                SortedDictionary<DateTimeOffset, List<DispatcherOperation>>.Enumerator enumerator;
                 enumerator = _operations.GetEnumerator();
                 return enumerator.MoveNext() ? enumerator.Current.Key : null;
             }
         }
     }
 
-    public void Enqueue(DateTime timestamp, DispatchPriority priority, Action operation, CancellationToken ct)
+    public void Enqueue(DateTimeOffset timestamp, DispatchPriority priority, Action operation, CancellationToken ct)
     {
         lock (_lock)
         {
@@ -39,9 +39,9 @@ internal sealed class TimerQueue
     {
         lock (_lock)
         {
-            SortedDictionary<DateTime, List<DispatcherOperation>>.Enumerator enumerator;
+            SortedDictionary<DateTimeOffset, List<DispatcherOperation>>.Enumerator enumerator;
             enumerator = _operations.GetEnumerator();
-            if (enumerator.MoveNext() && enumerator.Current.Key <= DateTime.UtcNow)
+            if (enumerator.MoveNext() && enumerator.Current.Key <= timeProvider.GetUtcNow())
             {
                 operations = enumerator.Current.Value;
                 _operations.Remove(enumerator.Current.Key);

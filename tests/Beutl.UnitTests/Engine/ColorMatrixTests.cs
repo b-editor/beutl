@@ -1,8 +1,6 @@
-﻿using NUnit.Framework;
+﻿using static Beutl.Graphics.ColorMatrix;
 
-using static Beutl.Graphics.ColorMatrix;
-
-namespace Beutl.Graphics.UnitTests;
+namespace Beutl.UnitTests.Engine;
 
 public class ColorMatrixTests
 {

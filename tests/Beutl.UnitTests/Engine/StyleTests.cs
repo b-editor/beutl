@@ -1,13 +1,13 @@
 ﻿using Beutl.Animation;
+using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Styling;
 using Microsoft.Extensions.Logging;
-using NUnit.Framework;
 using NUnit.Framework.Legacy;
 
-namespace Beutl.Graphics.UnitTests;
+namespace Beutl.UnitTests.Engine;
 
 #nullable disable
 

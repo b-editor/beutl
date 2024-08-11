@@ -1,11 +1,9 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
-
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media.Immutable;
 using Beutl.Reactive;
-
 using SkiaSharp;
 using SkiaSharp.HarfBuzz;
 
@@ -77,6 +75,7 @@ public class FormattedText : IEquatable<FormattedText>
             {
                 throw new Exception("Cannot contain newline codes.");
             }
+
             SetProperty(ref _text, value);
         }
     }
@@ -129,11 +128,7 @@ public class FormattedText : IEquatable<FormattedText>
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
 
-        using SKPaint paint = new()
-        {
-            TextSize = Size,
-            Typeface = font.Typeface
-        };
+        using SKPaint paint = new() { TextSize = Size, Typeface = font.Typeface };
         SKShaper.Result result = shaper.Shape(buffer, paint);
 
         // create the text blob
@@ -159,8 +154,9 @@ public class FormattedText : IEquatable<FormattedText>
             ushort glyph = glyphs[i];
             SKPoint p = positions[i] + point.ToSKPoint();
 
-            using SKPath glyphPath = font.GetGlyphPath(glyph);
-            path.AddPath(glyphPath, p.X, p.Y);
+            using SKPath? glyphPath = font.GetGlyphPath(glyph);
+            if (glyphPath != null)
+                path.AddPath(glyphPath, p.X, p.Y);
         }
 
         return point;
@@ -212,11 +208,7 @@ public class FormattedText : IEquatable<FormattedText>
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
 
-        using SKPaint paint = new()
-        {
-            TextSize = Size,
-            Typeface = font.Typeface,
-        };
+        using SKPaint paint = new() { TextSize = Size, Typeface = font.Typeface, };
         SKShaper.Result result = shaper.Shape(buffer, paint);
 
         // create the text blob
@@ -301,14 +293,14 @@ public class FormattedText : IEquatable<FormattedText>
     public bool Equals(FormattedText? other)
     {
         return Weight == other?.Weight
-            && Style == other?.Style
-            && Font.Equals(other?.Font)
-            && Size == other?.Size
-            && Spacing == other?.Spacing
-            && Text.Equals(other?.Text)
-            && BeginOnNewLine == other?.BeginOnNewLine
-            && EqualityComparer<IBrush>.Default.Equals(Brush, other?.Brush)
-            && EqualityComparer<IPen>.Default.Equals(Pen, other?.Pen);
+               && Style == other?.Style
+               && Font.Equals(other?.Font)
+               && Size == other?.Size
+               && Spacing == other?.Spacing
+               && Text.Equals(other?.Text)
+               && BeginOnNewLine == other?.BeginOnNewLine
+               && EqualityComparer<IBrush>.Default.Equals(Brush, other?.Brush)
+               && EqualityComparer<IPen>.Default.Equals(Pen, other?.Pen);
     }
 
     public override int GetHashCode()

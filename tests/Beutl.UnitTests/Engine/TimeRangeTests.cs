@@ -1,9 +1,7 @@
 ﻿using Beutl.Media;
-
-using NUnit.Framework;
 using NUnit.Framework.Legacy;
 
-namespace Beutl.Graphics.UnitTests;
+namespace Beutl.UnitTests.Engine;
 
 public class TimeRangeTests
 {

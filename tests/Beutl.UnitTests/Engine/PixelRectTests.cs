@@ -1,8 +1,6 @@
 ﻿using Beutl.Media;
 
-using NUnit.Framework;
-
-namespace Beutl.Graphics.UnitTests;
+namespace Beutl.UnitTests.Engine;
 
 public class PixelRectTests
 {

@@ -1,9 +1,8 @@
 ﻿using System.Globalization;
 using System.Text;
+using Beutl.Graphics;
 
-using NUnit.Framework;
-
-namespace Beutl.Graphics.UnitTests;
+namespace Beutl.UnitTests.Engine;
 
 public class RectTests
 {

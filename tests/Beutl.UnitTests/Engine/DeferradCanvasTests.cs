@@ -1,12 +1,12 @@
-﻿using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Microsoft.Extensions.Logging;
-using NUnit.Framework;
 
-namespace Beutl.Graphics.UnitTests;
+namespace Beutl.UnitTests.Engine;
 
 public class DeferradCanvasTests
 {

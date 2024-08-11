@@ -1,6 +1,4 @@
-﻿using NUnit.Framework;
-
-namespace Beutl.Core.UnitTests;
+﻿namespace Beutl.UnitTests.Core;
 
 public class CommandStackTests
 {

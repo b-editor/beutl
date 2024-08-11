@@ -1,10 +1,9 @@
 ﻿using System.Globalization;
 using System.Text;
-
-using NUnit.Framework;
+using Beutl.Graphics;
 using NUnit.Framework.Legacy;
 
-namespace Beutl.Graphics.UnitTests;
+namespace Beutl.UnitTests.Engine;
 
 public class SizeTests
 {

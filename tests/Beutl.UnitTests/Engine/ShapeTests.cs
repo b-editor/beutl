@@ -1,13 +1,12 @@
-﻿using Beutl.Collections;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Microsoft.Extensions.Logging;
-using NUnit.Framework;
 using NUnit.Framework.Legacy;
 
-namespace Beutl.Graphics.UnitTests;
+namespace Beutl.UnitTests.Engine;
 
 public class ShapeTests
 {

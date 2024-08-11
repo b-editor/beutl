@@ -9,9 +9,8 @@ using Beutl.Operators.Configure.Transform;
 using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
-using NUnit.Framework;
 
-namespace Beutl.Core.UnitTests;
+namespace Beutl.UnitTests.Core;
 
 public class JsonSerializationTest
 {

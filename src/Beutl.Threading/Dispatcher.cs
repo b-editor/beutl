@@ -8,10 +8,14 @@ public class Dispatcher
     private static Dispatcher? s_current;
 
     private readonly QueueSynchronizationContext _synchronizationContext;
+    private readonly TimeProvider _timeProvider;
+    // For tests
+    private bool _catchExceptions;
 
-    private Dispatcher()
+    private Dispatcher(TimeProvider timeProvider)
     {
-        _synchronizationContext = new(this);
+        _synchronizationContext = new(this, timeProvider);
+        _timeProvider = timeProvider;
         Thread = new Thread(Start);
         Thread.TrySetApartmentState(ApartmentState.STA);
     }
@@ -55,6 +59,9 @@ public class Dispatcher
 
             _synchronizationContext.Start();
         }
+        catch when (_catchExceptions)
+        {
+        }
         finally
         {
             s_current = oldDispatcher;
@@ -87,7 +94,7 @@ public class Dispatcher
 
     public static Dispatcher Spawn()
     {
-        var dispatcher = new Dispatcher();
+        var dispatcher = new Dispatcher(TimeProvider.System);
         dispatcher.Thread.Start();
         return dispatcher;
     }
@@ -95,6 +102,20 @@ public class Dispatcher
     public static Dispatcher Spawn(Action operation)
     {
         Dispatcher dispatcher = Spawn();
+        dispatcher.Dispatch(operation, DispatchPriority.High);
+        return dispatcher;
+    }
+
+    public static Dispatcher Spawn(TimeProvider timeProvider)
+    {
+        var dispatcher = new Dispatcher(timeProvider);
+        dispatcher.Thread.Start();
+        return dispatcher;
+    }
+
+    public static Dispatcher Spawn(Action operation,TimeProvider timeProvider)
+    {
+        Dispatcher dispatcher = Spawn(timeProvider);
         dispatcher.Dispatch(operation, DispatchPriority.High);
         return dispatcher;
     }
@@ -185,12 +206,12 @@ public class Dispatcher
 
     public void Schedule(TimeSpan delay, Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
-        _synchronizationContext.PostDelayed(DateTime.UtcNow + delay, priority, operation, ct);
+        _synchronizationContext.PostDelayed(_timeProvider.GetUtcNow() + delay, priority, operation, ct);
     }
 
     public void Schedule(TimeSpan delay, Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
-        _synchronizationContext.PostDelayed(DateTime.UtcNow + delay, priority, () => operation(), ct);
+        _synchronizationContext.PostDelayed(_timeProvider.GetUtcNow() + delay, priority, () => operation(), ct);
     }
 
     public static YieldTask Yield(DispatchPriority priority = DispatchPriority.Low)

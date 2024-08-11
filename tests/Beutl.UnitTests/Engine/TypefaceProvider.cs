@@ -1,9 +1,8 @@
 ﻿using System.Reflection;
-
 using Beutl.Configuration;
 using Beutl.Media;
 
-namespace Beutl.Graphics.UnitTests;
+namespace Beutl.UnitTests.Engine;
 
 public static class TypefaceProvider
 {
@@ -26,7 +25,7 @@ public static class TypefaceProvider
 
         foreach (string item in array)
         {
-            Stream? stream = asm.GetManifestResourceStream("Beutl.Engine.UnitTests.Assets.Font." + item);
+            Stream? stream = asm.GetManifestResourceStream("Beutl.UnitTests.Assets.Font." + item);
 
             if (stream != null)
             {

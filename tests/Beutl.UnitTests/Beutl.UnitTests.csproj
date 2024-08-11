@@ -2,10 +2,15 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
+    <PackageReference Include="coverlet.msbuild">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit3TestAdapter" />
@@ -13,12 +18,25 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Beutl.Core\Beutl.Core.csproj" />
+    <Using Include="NUnit.Framework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
     <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Operators\Beutl.Operators.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Engine\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\**\*.*" />
   </ItemGroup>
 
 </Project>
