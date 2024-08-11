@@ -1,6 +1,6 @@
 ﻿using Beutl.Extensibility;
-using FFmpegSharp;
 using FFmpeg.AutoGen;
+using FFmpegSharp;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Encoding;

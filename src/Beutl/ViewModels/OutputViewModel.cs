@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;

@@ -16,7 +16,7 @@ public class FrameProviderImpl(Scene scene, Rational rate, SceneRenderer rendere
     private Bitmap<Bgra8888> RenderCore(TimeSpan time)
     {
         int retry = 0;
-        Retry:
+    Retry:
         if (renderer.Render(time))
         {
             return renderer.Snapshot();

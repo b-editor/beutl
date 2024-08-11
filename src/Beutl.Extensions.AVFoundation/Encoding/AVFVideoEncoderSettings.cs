@@ -1,4 +1,4 @@
-using Beutl.Media.Encoding;
+﻿using Beutl.Media.Encoding;
 
 namespace Beutl.Extensions.AVFoundation.Encoding;
 

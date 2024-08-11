@@ -20,7 +20,7 @@ public static class AvaloniaTypeConverter
     {
         return new(vector.X, vector.Y);
     }
-    
+
     public static Graphics.Vector ToBtlVector(this in Avalonia.Vector vector)
     {
         return new((float)vector.X, (float)vector.Y);

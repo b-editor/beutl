@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
@@ -7,10 +8,7 @@ using Beutl.NodeTree.Nodes.Geometry;
 using Beutl.Operators.Configure.Transform;
 using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
-using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
-
 using NUnit.Framework;
 
 namespace Beutl.Core.UnitTests;

@@ -34,9 +34,9 @@ public class MainViewModel
 
         _pkgProcesses =
         [
-            ..Process.GetProcessesByName("Beutl.PackageTools"),
-            ..Process.GetProcessesByName("Beutl.PackageTools.UI"),
-            ..Process.GetProcessesByName("beutl-pkg"),
+            .. Process.GetProcessesByName("Beutl.PackageTools"),
+            .. Process.GetProcessesByName("Beutl.PackageTools.UI"),
+            .. Process.GetProcessesByName("beutl-pkg"),
         ];
 
         Task.Run(async () =>

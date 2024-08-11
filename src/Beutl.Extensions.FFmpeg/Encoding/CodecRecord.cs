@@ -1,4 +1,4 @@
-#if FFMPEG_BUILD_IN
+﻿#if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Encoding;
 #else
 namespace Beutl.Extensions.FFmpeg.Encoding;

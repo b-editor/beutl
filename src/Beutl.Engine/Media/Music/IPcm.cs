@@ -7,7 +7,7 @@ public interface IPcm : IDisposable, ICloneable
     int SampleRate { get; }
 
     int NumSamples { get; }
-    
+
     int NumChannels { get; }
 
     nint SampleSize { get; }
@@ -23,7 +23,7 @@ public interface IPcm : IDisposable, ICloneable
     Type SampleType { get; }
 
     IPcm Slice(int start);
-    
+
     IPcm Slice(int start, int length);
 
     Pcm<TConvert> Convert<TConvert>()

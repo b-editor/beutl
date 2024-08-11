@@ -81,7 +81,7 @@ public sealed partial class PackageSettingsPage : UserControl
             {
                 frame.RemoveAllStack(
                     item => (item is Package p1 && p1.Id == viewModel.Package.Id)
-                          ||(item is Release p2 && p2.Package.Id == viewModel.Package.Id));
+                          || (item is Release p2 && p2.Package.Id == viewModel.Package.Id));
 
                 using (await viewModel.Package.Lock.LockAsync())
                 {

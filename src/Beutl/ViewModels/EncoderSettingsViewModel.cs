@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Media.Encoding;
 using Beutl.Operation;
 using Beutl.Services;

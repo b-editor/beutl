@@ -378,7 +378,7 @@ public partial class PlayerView
 
             e.Handled = _imagePressed;
 
-            if (e.ClickCount == 2&& Drawable is Graphics.Shapes.Shape shape)
+            if (e.ClickCount == 2 && Drawable is Graphics.Shapes.Shape shape)
             {
                 SourceOperatorsTabViewModel? tab = EditViewModel.FindToolTab<SourceOperatorsTabViewModel>();
                 if (tab != null)

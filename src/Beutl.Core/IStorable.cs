@@ -11,7 +11,7 @@ public interface IStorable
     DateTime LastSavedTime { get; }
 
     event EventHandler Saved;
-    
+
     event EventHandler Restored;
 
     void Save(string filename);

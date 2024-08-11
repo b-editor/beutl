@@ -19,7 +19,7 @@ public sealed class LineSegment : PathSegment
     public LineSegment()
     {
     }
-    
+
     public LineSegment(Point point)
     {
         Point = point;

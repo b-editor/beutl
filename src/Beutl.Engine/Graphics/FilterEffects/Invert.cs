@@ -34,7 +34,7 @@ public sealed class Invert : FilterEffect
         get => _amount;
         set => SetAndRaise(AmountProperty, ref _amount, value);
     }
-    
+
     [Display(Name = nameof(Strings.ExcludeAlphaChannel), ResourceType = typeof(Strings))]
     public bool ExcludeAlphaChannel
     {

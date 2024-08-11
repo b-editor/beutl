@@ -59,13 +59,13 @@ public class InternalMethods
         out IntPtr handle);
 
     [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
-    public  static extern CMAudioFormatDescription NewCMAudioFormatDescription(IntPtr handle);
+    public static extern CMAudioFormatDescription NewCMAudioFormatDescription(IntPtr handle);
 
     [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
-    public  static extern CMBlockBuffer NewCMBlockBuffer(IntPtr handle);
+    public static extern CMBlockBuffer NewCMBlockBuffer(IntPtr handle);
 
     [DllImport("/System/Library/PrivateFrameworks/CoreMedia.framework/Versions/A/CoreMedia")]
-    public  static extern CMBlockBufferError CMBlockBufferCreateWithMemoryBlock(
+    public static extern CMBlockBufferError CMBlockBufferCreateWithMemoryBlock(
         IntPtr allocator,
         IntPtr memoryBlock,
         uint blockLength,

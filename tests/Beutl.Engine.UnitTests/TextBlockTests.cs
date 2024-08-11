@@ -1,11 +1,9 @@
 ﻿
 using Beutl.Graphics.Shapes;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Pixel;
-using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
-
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 

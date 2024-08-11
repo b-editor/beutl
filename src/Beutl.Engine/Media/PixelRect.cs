@@ -459,7 +459,7 @@ public readonly struct PixelRect
     {
         return Parse(s.AsSpan());
     }
-    
+
     /// <summary>
     /// Parses a <see cref="PixelRect"/> string.
     /// </summary>

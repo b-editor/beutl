@@ -8,7 +8,7 @@ namespace Beutl.Converters;
 
 public sealed class MatrixToTransformConverter : IValueConverter
 {
-    public static readonly MatrixToTransformConverter Instance = new ();
+    public static readonly MatrixToTransformConverter Instance = new();
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {

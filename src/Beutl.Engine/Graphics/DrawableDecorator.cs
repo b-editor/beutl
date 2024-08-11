@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
-
-using Beutl.Media;
 using Beutl.Graphics.Effects;
+using Beutl.Media;
 
 namespace Beutl.Graphics;
 

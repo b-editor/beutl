@@ -19,7 +19,7 @@ internal static class TimestampUtilities
     {
         return (long)(sec * 10000000);
     }
-    
+
     public static int ConvertFrameFromTimeStamp(long nsTimeStamp, MFRatio rate)
     {
         double frame = ConvertSecFrom100ns(nsTimeStamp) * rate.Numerator / rate.Denominator;

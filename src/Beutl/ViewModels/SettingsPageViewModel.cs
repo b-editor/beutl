@@ -31,7 +31,7 @@ public sealed class SettingsPageViewModel : IPageContext
     public AccountSettingsPageViewModel Account => _account.Value;
 
     public ViewSettingsPageViewModel View => _view.Value;
-    
+
     public EditorSettingsPageViewModel Editor => _editor.Value;
 
     public FontSettingsPageViewModel Font => _font.Value;

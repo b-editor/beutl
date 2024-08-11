@@ -53,7 +53,7 @@ public sealed class MultiTransform : Transform
             {
                 (null or { IsEnabled: false }, { IsEnabled: true })
                     => Right.Value,
-                ({ IsEnabled: true }, null or { IsEnabled: false})
+                ({ IsEnabled: true }, null or { IsEnabled: false })
                     => Left.Value,
                 ({ IsEnabled: true }, { IsEnabled: true })
                     => Left.Value * Right.Value,

@@ -39,7 +39,7 @@ public class ImmutableLinearGradientBrush : ImmutableGradientBrush, ILinearGradi
     public bool Equals(ILinearGradientBrush? other)
     {
         return other is not null
-            && GradientStops.SequenceEqual( other.GradientStops)
+            && GradientStops.SequenceEqual(other.GradientStops)
             && Opacity == other.Opacity
             && EqualityComparer<ITransform?>.Default.Equals(Transform, other.Transform)
             && TransformOrigin.Equals(other.TransformOrigin)

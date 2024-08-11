@@ -16,7 +16,7 @@ public static class TimeSpanExtensions
     {
         return ts.TotalSeconds * rate;
     }
-    
+
     public static double ToFrameNumber(this TimeSpan ts, int rate)
     {
         return ts.TotalSeconds * rate;

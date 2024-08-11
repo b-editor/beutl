@@ -14,7 +14,7 @@ public sealed class TelemetryConfig : ConfigurationBase
         Beutl_LoggingProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_Logging))
             .DefaultValue(null)
             .Register();
-        
+
         Beutl_ApplicationProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_Application))
             .DefaultValue(null)
             .Register();
@@ -33,7 +33,7 @@ public sealed class TelemetryConfig : ConfigurationBase
         get => GetValue(Beutl_LoggingProperty);
         set => SetValue(Beutl_LoggingProperty, value);
     }
-    
+
     public bool? Beutl_Application
     {
         get => GetValue(Beutl_ApplicationProperty);
@@ -51,7 +51,7 @@ public sealed class TelemetryConfig : ConfigurationBase
         get => GetValue(Beutl_Api_ClientProperty);
         set => SetValue(Beutl_Api_ClientProperty, value);
     }
-    
+
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);

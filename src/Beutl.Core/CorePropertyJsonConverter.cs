@@ -15,7 +15,7 @@ public sealed class CorePropertyJsonConverter : JsonConverter<CoreProperty>
             string? owner = (string?)jsonObject["Owner"];
             if (name != null
                 && owner != null
-                && TypeFormat.ToType(owner) is { }ownerType)
+                && TypeFormat.ToType(owner) is { } ownerType)
             {
                 return PropertyRegistry.GetRegistered(ownerType)
                     .FirstOrDefault(x => x.Name == name);
@@ -32,7 +32,7 @@ public sealed class CorePropertyJsonConverter : JsonConverter<CoreProperty>
             ["Name"] = value.Name,
             ["Owner"] = TypeFormat.ToString(value.OwnerType)
         };
-        
+
         json.WriteTo(writer, options);
     }
 }

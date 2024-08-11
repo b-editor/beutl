@@ -39,7 +39,7 @@ public sealed class FilterEffectGroup : FilterEffect
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        if(context.GetValue<FilterEffects>(nameof(Children)) is { } children)
+        if (context.GetValue<FilterEffects>(nameof(Children)) is { } children)
         {
             Children = children;
         }

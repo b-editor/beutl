@@ -17,9 +17,9 @@ public static class WaitForProcessExited
 
         s_bptProcesses =
         [
-            ..Process.GetProcessesByName("Beutl.PackageTools"),
-            ..Process.GetProcessesByName("Beutl.PackageTools.UI"),
-            ..Process.GetProcessesByName("beutl-pkg"),
+            .. Process.GetProcessesByName("Beutl.PackageTools"),
+            .. Process.GetProcessesByName("Beutl.PackageTools.UI"),
+            .. Process.GetProcessesByName("beutl-pkg"),
         ];
     }
 

@@ -1,4 +1,4 @@
-using NUnit.Framework;
+﻿using NUnit.Framework;
 
 namespace Beutl.Configiration.UnitTests;
 public class Tests

@@ -1,14 +1,11 @@
 ﻿
 using System.Runtime.InteropServices;
 using System.Text;
-
 using Beutl.Graphics.Shapes;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
-using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
-
 using NUnit.Framework;
 
 namespace Beutl.Graphics.UnitTests;

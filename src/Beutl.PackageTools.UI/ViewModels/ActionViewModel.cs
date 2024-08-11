@@ -48,9 +48,9 @@ public class ActionViewModel
     public ReactiveProperty<bool> Succeeded { get; } = new();
 
     public ReactiveProperty<bool> Failed { get; } = new();
-    
+
     public ReactiveProperty<bool> Canceled { get; } = new();
-    
+
     public ReadOnlyReactiveProperty<bool> Finished { get; }
 
     public PackageChangeModel Model { get; }

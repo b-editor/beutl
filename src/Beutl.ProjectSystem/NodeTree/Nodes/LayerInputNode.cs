@@ -148,7 +148,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
                 if (itemJson.TryGetDiscriminator(out Type? type)
                     && Activator.CreateInstance(type) is ILayerInputSocket socket)
                 {
-                    if(socket is ICoreSerializable serializable)
+                    if (socket is ICoreSerializable serializable)
                     {
                         if (LocalSerializationErrorNotifier.Current is not { } notifier)
                         {

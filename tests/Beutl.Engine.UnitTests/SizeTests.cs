@@ -16,7 +16,7 @@ public class SizeTests
 
         ClassicAssert.AreEqual(new Size(1920, 1080), size);
     }
-    
+
     [Test]
     public void ParseSpan()
     {

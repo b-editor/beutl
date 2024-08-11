@@ -50,7 +50,7 @@ public sealed class CubicBezierSegment : PathSegment
         get => _controlPoint2;
         set => SetAndRaise(ControlPoint2Property, ref _controlPoint2, value);
     }
-    
+
     public Point EndPoint
     {
         get => _endPoint;
@@ -59,7 +59,7 @@ public sealed class CubicBezierSegment : PathSegment
 
     public override void ApplyTo(IGeometryContext context)
     {
-        context.CubicTo(ControlPoint1, ControlPoint2,EndPoint);
+        context.CubicTo(ControlPoint1, ControlPoint2, EndPoint);
     }
 
     public override CoreProperty<Point> GetEndPointProperty() => EndPointProperty;

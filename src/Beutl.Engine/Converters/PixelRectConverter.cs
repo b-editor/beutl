@@ -90,7 +90,7 @@ public sealed class PixelRectConverter : TypeConverter
         }
         else if (value is Size size)
         {
-            return new PixelRect(0,0, (int)size.Width, (int)size.Height);
+            return new PixelRect(0, 0, (int)size.Width, (int)size.Height);
         }
         else if (value is PixelPoint pxpoint)
         {

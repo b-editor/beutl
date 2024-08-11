@@ -110,7 +110,7 @@ public sealed partial class FrameCacheManager : IDisposable
     {
         lock (_lock)
         {
-            foreach (KeyValuePair<int, CacheEntry> item in GetRange( _entries, start, end))
+            foreach (KeyValuePair<int, CacheEntry> item in GetRange(_entries, start, end))
             {
                 if (!item.Value.IsLocked)
                 {
@@ -126,7 +126,7 @@ public sealed partial class FrameCacheManager : IDisposable
     {
         lock (_lock)
         {
-            foreach (KeyValuePair<int, CacheEntry> item in GetRange( _entries, start, end))
+            foreach (KeyValuePair<int, CacheEntry> item in GetRange(_entries, start, end))
             {
                 if (item.Value.IsLocked)
                 {

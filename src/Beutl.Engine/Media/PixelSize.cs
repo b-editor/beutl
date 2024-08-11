@@ -114,7 +114,7 @@ public readonly struct PixelSize(int width, int height)
     {
         return Parse(s.AsSpan());
     }
-    
+
     /// <summary>
     /// Parses a <see cref="PixelSize"/> string.
     /// </summary>

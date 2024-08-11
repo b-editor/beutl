@@ -9,7 +9,7 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
     public EffectTargets()
     {
     }
-    
+
     public EffectTargets(EffectTargets obj)
     {
         foreach (EffectTarget item in obj)

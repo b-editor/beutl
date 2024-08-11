@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using Avalonia;
-using Avalonia.Input;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Beutl.Controls.PropertyEditors;
 using Beutl.ViewModels.Dialogs;
 using FluentAvalonia.Core;
