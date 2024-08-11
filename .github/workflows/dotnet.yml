@@ -29,10 +29,6 @@ jobs:
       - name: Test
         run: dotnet test Beutl.sln --no-build --verbosity normal -f net8.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 
-      - name: Find coverage output path
-        run: |
-          cp $(find . -name "coverage.cobertura.xml") .
-
       - name: Code Coverage Report
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
