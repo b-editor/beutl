@@ -12,7 +12,7 @@ namespace Beutl.ViewModels;
 public sealed class OutputPageViewModel : BasePageViewModel, IPageContext
 {
     private readonly OutputService _outputService;
-    private readonly ILogger _logger=Log.CreateLogger<OutputPageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<OutputPageViewModel>();
 
     public OutputPageViewModel()
     {

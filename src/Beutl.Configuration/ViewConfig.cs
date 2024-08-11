@@ -24,7 +24,10 @@ public sealed class ViewConfig : ConfigurationBase
     public static readonly CoreProperty<CoreList<string>> RecentProjectsProperty;
     private readonly CoreList<string> _primaryProperties =
     [
-        "AlignmentX", "AlignmentY", "TransformOrigin", "BlendMode"
+        "AlignmentX",
+        "AlignmentY",
+        "TransformOrigin",
+        "BlendMode"
     ];
     private readonly CoreList<string> _recentFiles = [];
     private readonly CoreList<string> _recentProjects = [];

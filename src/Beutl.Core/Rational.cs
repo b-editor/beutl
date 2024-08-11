@@ -281,7 +281,7 @@ public readonly partial struct Rational(long numerator, long denominator)
     {
         return new Rational(left.Numerator * right, left.Denominator);
     }
-    
+
     public static Rational operator *(Rational left, long right)
     {
         return new Rational(left.Numerator * right, left.Denominator);

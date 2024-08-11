@@ -144,7 +144,7 @@ public class ItemDragBehavior : Behavior<Control>
         }
 
         object draggedItem = items[draggedIndex];
-        if(items is AvaloniaList<BcTabItem> alist)
+        if (items is AvaloniaList<BcTabItem> alist)
         {
             alist.Move(draggedIndex, targetIndex);
         }

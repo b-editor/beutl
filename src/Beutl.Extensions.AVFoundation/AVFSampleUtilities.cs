@@ -69,7 +69,7 @@ public class AVFSampleUtilities
                    CGBitmapFlags.ByteOrderDefault | CGBitmapFlags.PremultipliedFirst))
         using (var ciImage = CIImage.FromImageBuffer(imageBuffer))
         using (var ciContext = new CIContext(NSObjectFlag.Empty))
-            // CreateCGImageで落ちる、例外なしに
+        // CreateCGImageで落ちる、例外なしに
         using (var cgImage = ciContext.CreateCGImage(
                    ciImage, new CGRect(0, 0, width, height), (long)CIFormat.ARGB8, colorSpace))
         {

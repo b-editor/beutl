@@ -19,7 +19,7 @@ public static partial class RecordableCommands
     {
         return new RecordableCommandBuilder(storables);
     }
-    
+
     public static RecordableCommandBuilder Create()
     {
         return new RecordableCommandBuilder([]);

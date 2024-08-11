@@ -32,7 +32,7 @@ internal static class SkiaSharpExtensions
     {
         return new SKPoint(p.X, p.Y);
     }
-    
+
     public static SKPointI ToSKPointI(this PixelPoint p)
     {
         return new SKPointI(p.X, p.Y);
@@ -67,7 +67,7 @@ internal static class SkiaSharpExtensions
     {
         return new Size(s.Width, s.Height);
     }
-    
+
     public static PixelSize ToGraphicsSize(this in SKSizeI s)
     {
         return new PixelSize(s.Width, s.Height);

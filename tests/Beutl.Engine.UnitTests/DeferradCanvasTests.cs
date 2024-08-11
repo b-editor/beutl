@@ -1,11 +1,9 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Pixel;
-using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
-
 using NUnit.Framework;
 
 namespace Beutl.Graphics.UnitTests;

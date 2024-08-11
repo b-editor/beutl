@@ -50,7 +50,7 @@ public readonly struct Hsv : IEquatable<Hsv>
         float r;
         float g;
         float b;
-        float a=A;
+        float a = A;
         if (S == 0)
         {
             r = g = b = MathF.Round(V * 2.55F);

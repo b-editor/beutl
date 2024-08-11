@@ -13,14 +13,14 @@ namespace System.Runtime.Loader
 
         static LibraryNameVariation()
         {
-            if(OperatingSystem.IsMacOS()
+            if (OperatingSystem.IsMacOS()
                 || OperatingSystem.IsMacCatalyst()
                 || OperatingSystem.IsIOS()
                 || OperatingSystem.IsTvOS())
             {
                 s_libraryNameSuffix = ".dylib";
             }
-            else if(OperatingSystem.IsWindows())
+            else if (OperatingSystem.IsWindows())
             {
                 s_libraryNameSuffix = ".dll";
                 s_libraryNamePrefix = "";

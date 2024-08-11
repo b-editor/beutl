@@ -22,7 +22,7 @@ public sealed class LutEffect : FilterEffect
 {
     public static readonly CoreProperty<FileInfo?> SourceProperty;
     public static readonly CoreProperty<float> StrengthProperty;
-    private static readonly ILogger<LutEffect> s_logger=BeutlApplication.Current.LoggerFactory.CreateLogger<LutEffect>();
+    private static readonly ILogger<LutEffect> s_logger = BeutlApplication.Current.LoggerFactory.CreateLogger<LutEffect>();
     private FileInfo? _source;
     private float _strength = 100;
     private CubeFile? _cube;
@@ -104,7 +104,7 @@ public sealed class LutEffect : FilterEffect
     {
         for (int i = 0; i < context.Targets.Count; i++)
         {
-            var target= context.Targets[i];
+            var target = context.Targets[i];
             var surface = target.Surface!.Value;
             Accelerator accelerator = SharedGPUContext.Accelerator;
             var kernel = accelerator.LoadAutoGroupedStreamKernel<

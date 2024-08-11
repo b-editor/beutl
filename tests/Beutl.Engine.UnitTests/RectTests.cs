@@ -15,7 +15,7 @@ public class RectTests
 
         Assert.That(rect, Is.EqualTo(new Rect(20, 80, 1900, 1000)));
     }
-    
+
     [Test]
     public void ParseWithProvider()
     {
@@ -24,7 +24,7 @@ public class RectTests
 
         Assert.That(rect, Is.EqualTo(new Rect(20, 80, 1900, 1000)));
     }
-    
+
     [Test]
     public void ParseUtf8()
     {
@@ -33,7 +33,7 @@ public class RectTests
 
         Assert.That(rect, Is.EqualTo(new Rect(20, 80, 1900, 1000)));
     }
-    
+
     [Test]
     public void ParseUtf8WithProvider()
     {

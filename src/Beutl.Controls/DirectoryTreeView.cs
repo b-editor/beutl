@@ -105,7 +105,7 @@ public sealed class DirectoryTreeView : TreeView
             new MenuItem
             {
                 Header = Strings.CreateNew,
-                Items = 
+                Items =
                 {
                     _addfolder,
                 },

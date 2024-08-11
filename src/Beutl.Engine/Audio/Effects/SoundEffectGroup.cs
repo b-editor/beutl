@@ -46,7 +46,7 @@ public sealed class SoundEffectGroup : SoundEffect
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        if(context.GetValue<SoundEffects>(nameof(Children)) is { } children)
+        if (context.GetValue<SoundEffects>(nameof(Children)) is { } children)
         {
             Children = children;
         }

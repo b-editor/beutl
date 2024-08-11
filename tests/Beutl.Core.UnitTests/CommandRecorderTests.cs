@@ -1,8 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
-
+﻿using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
-
-using Beutl.Logging;
 
 namespace Beutl.Core.UnitTests;
 

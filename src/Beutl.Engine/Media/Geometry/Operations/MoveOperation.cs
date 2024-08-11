@@ -20,7 +20,7 @@ public sealed class MoveOperation : PathSegment
     public MoveOperation()
     {
     }
-    
+
     public MoveOperation(Point point)
     {
         Point = point;

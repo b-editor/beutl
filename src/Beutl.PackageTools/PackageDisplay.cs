@@ -65,7 +65,7 @@ public static class PackageDisplay
         var items = licenses
             .Select(x => (x.Item1.Id, x.Item1.Version.ToString(), LicenseToString(x.Item2)))
             .ToArray();
-        
+
         Build
             .TextTable<(string PackageId, string Version, string License)>(builder =>
                 builder.Columns.Add(x => x.PackageId).NameAs(Resources.PackageId)

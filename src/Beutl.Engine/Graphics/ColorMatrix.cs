@@ -119,10 +119,26 @@ public readonly struct ColorMatrix(
     {
         return
         [
-            M11, M12, M13, M14, M15,
-            M21, M22, M23, M24, M25,
-            M31, M32, M33, M34, M35,
-            M41, M42, M43, M44, M45,
+            M11,
+            M12,
+            M13,
+            M14,
+            M15,
+            M21,
+            M22,
+            M23,
+            M24,
+            M25,
+            M31,
+            M32,
+            M33,
+            M34,
+            M35,
+            M41,
+            M42,
+            M43,
+            M44,
+            M45,
         ];
     }
 

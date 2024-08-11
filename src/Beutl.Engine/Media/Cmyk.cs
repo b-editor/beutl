@@ -29,7 +29,7 @@ public readonly struct Cmyk : IEquatable<Cmyk>
     public float Y { get; }
 
     public float K { get; }
-    
+
     public float A { get; }
 
     public static bool operator ==(Cmyk left, Cmyk right)

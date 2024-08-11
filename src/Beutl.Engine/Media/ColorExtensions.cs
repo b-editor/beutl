@@ -8,7 +8,7 @@ public static class ColorExtensions
     {
         return new SolidColorBrush(color);
     }
-    
+
     public static ISolidColorBrush ToImmutableBrush(this Color color)
     {
         return new ImmutableSolidColorBrush(color, 100);

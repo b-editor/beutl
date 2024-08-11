@@ -1,5 +1,5 @@
-﻿using Beutl.Language;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Language;
 
 namespace Beutl.Media.Encoding;
 

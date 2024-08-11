@@ -40,7 +40,7 @@ public sealed class DrawableGroup : Drawable
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        if(context.GetValue<Drawables>(nameof(Children)) is { } children)
+        if (context.GetValue<Drawables>(nameof(Children)) is { } children)
         {
             Children = children;
         }

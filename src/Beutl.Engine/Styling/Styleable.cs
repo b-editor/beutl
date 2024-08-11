@@ -117,7 +117,7 @@ public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchica
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        if(context.GetValue<Styles>(nameof(Styles)) is { } styles)
+        if (context.GetValue<Styles>(nameof(Styles)) is { } styles)
         {
             Styles = styles;
         }

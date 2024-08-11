@@ -80,8 +80,11 @@ public class SimpleColorPicker : TemplatedControl
     }
 
     private ColorSlider?[] GetColorSliders() => [
-        _thirdComponentSlider, _spectrumAlphaSlider,
-        _component1Slider, _component2Slider, _component3Slider];
+        _thirdComponentSlider,
+        _spectrumAlphaSlider,
+        _component1Slider,
+        _component2Slider,
+        _component3Slider];
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {

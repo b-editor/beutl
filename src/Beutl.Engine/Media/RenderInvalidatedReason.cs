@@ -5,6 +5,6 @@ public enum RenderInvalidatedReason
     None,
 
     PropertyChanged,
-    
+
     CollectionChanged
 }

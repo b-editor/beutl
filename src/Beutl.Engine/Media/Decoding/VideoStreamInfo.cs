@@ -14,7 +14,7 @@ public sealed record VideoStreamInfo : StreamInfo
 
         if (Rational.IsInfinity(frameRate) || Rational.IsNaN(frameRate))
             throw new ArgumentException($"{nameof(frameRate)} cannot be specified as Infinity or NaN.", nameof(frameRate));
-        
+
         if (Rational.IsInfinity(duration) || Rational.IsNaN(duration))
             throw new ArgumentException($"{nameof(duration)} cannot be specified as Infinity or NaN.", nameof(duration));
 

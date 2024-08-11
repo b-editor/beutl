@@ -98,7 +98,7 @@ public class GenericDragBehavior : Behavior<Control>
     protected virtual void OnStartedDragging()
     {
     }
-    
+
     protected virtual void OnFinishedDragging()
     {
     }

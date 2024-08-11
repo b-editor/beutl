@@ -37,7 +37,7 @@ public class Release
     public IReadOnlyReactiveProperty<string?> Title { get; }
 
     public IReadOnlyReactiveProperty<string?> Body { get; }
-    
+
     public IReadOnlyReactiveProperty<string?> TargetVersion { get; }
 
     public IReadOnlyReactiveProperty<long?> AssetId { get; }

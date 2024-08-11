@@ -92,7 +92,7 @@ public class SourceOperator : Hierarchical, ISourceOperator
     {
         return false;
     }
-    
+
     public virtual bool TryGetOriginalLength(out TimeSpan timeSpan)
     {
         timeSpan = default;

@@ -111,7 +111,7 @@ public sealed class PackageManager(
                         }
                     }
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     _logger.LogError(ex, "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
                 }

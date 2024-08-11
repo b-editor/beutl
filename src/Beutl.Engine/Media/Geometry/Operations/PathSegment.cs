@@ -24,7 +24,7 @@ public abstract class PathSegment : Animatable, IAffectsRender
     {
         return GetValue(GetEndPointProperty());
     }
-    
+
     public Point GetEndPoint(TimeSpan localTime, TimeSpan globalTime)
     {
         CoreProperty<Point> prop = GetEndPointProperty();

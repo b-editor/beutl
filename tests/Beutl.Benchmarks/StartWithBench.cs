@@ -16,7 +16,7 @@ public class StartWithBench
             str.StartsWith(other);
         }
     }
-    
+
     [Benchmark]
     public void MemX_StartWith_Ordinal()
     {

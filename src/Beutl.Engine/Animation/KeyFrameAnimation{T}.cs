@@ -10,7 +10,7 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
         : base(property)
     {
     }
-    
+
     public KeyFrameAnimation()
     {
     }

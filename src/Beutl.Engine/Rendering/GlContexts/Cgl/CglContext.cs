@@ -12,7 +12,8 @@ internal class CglContext : GlContext
     {
         CGLPixelFormatAttribute[] attributes =
         [
-            CGLPixelFormatAttribute.kCGLPFAOpenGLProfile, (CGLPixelFormatAttribute)CGLOpenGLProfile.kCGLOGLPVersion_3_2_Core,
+            CGLPixelFormatAttribute.kCGLPFAOpenGLProfile,
+            (CGLPixelFormatAttribute)CGLOpenGLProfile.kCGLOGLPVersion_3_2_Core,
             CGLPixelFormatAttribute.kCGLPFADoubleBuffer,
             CGLPixelFormatAttribute.kCGLPFANone
         ];

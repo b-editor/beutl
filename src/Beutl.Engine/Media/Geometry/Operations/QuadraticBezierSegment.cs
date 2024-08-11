@@ -25,7 +25,7 @@ public sealed class QuadraticBezierSegment : PathSegment
     public QuadraticBezierSegment()
     {
     }
-    
+
     public QuadraticBezierSegment(Point controlPoint, Point endPoint)
     {
         ControlPoint = controlPoint;

@@ -33,16 +33,25 @@ internal class WglContext : GlContext
 
         int[] iAttrs =
         [
-            Wgl.WGL_ACCELERATION_ARB, Wgl.WGL_FULL_ACCELERATION_ARB,
-            Wgl.WGL_DRAW_TO_WINDOW_ARB, Wgl.TRUE,
+            Wgl.WGL_ACCELERATION_ARB,
+            Wgl.WGL_FULL_ACCELERATION_ARB,
+            Wgl.WGL_DRAW_TO_WINDOW_ARB,
+            Wgl.TRUE,
             //Wgl.WGL_DOUBLE_BUFFER_ARB, (doubleBuffered ? TRUE : FALSE),
-            Wgl.WGL_SUPPORT_OPENGL_ARB, Wgl.TRUE,
-            Wgl.WGL_RED_BITS_ARB, 8,
-            Wgl.WGL_GREEN_BITS_ARB, 8,
-            Wgl.WGL_BLUE_BITS_ARB, 8,
-            Wgl.WGL_ALPHA_BITS_ARB, 8,
-            Wgl.WGL_STENCIL_BITS_ARB, 8,
-            Wgl.NONE, Wgl.NONE
+            Wgl.WGL_SUPPORT_OPENGL_ARB,
+            Wgl.TRUE,
+            Wgl.WGL_RED_BITS_ARB,
+            8,
+            Wgl.WGL_GREEN_BITS_ARB,
+            8,
+            Wgl.WGL_BLUE_BITS_ARB,
+            8,
+            Wgl.WGL_ALPHA_BITS_ARB,
+            8,
+            Wgl.WGL_STENCIL_BITS_ARB,
+            8,
+            Wgl.NONE,
+            Wgl.NONE
         ];
         int[] piFormats = new int[1];
         uint nFormats;

@@ -9,6 +9,6 @@ public interface ITupleConvertible<TSelf, T>
     static abstract int TupleLength { get; }
 
     static abstract void ConvertTo(TSelf self, Span<T> tuple);
-    
+
     static abstract void ConvertFrom(Span<T> tuple, out TSelf self);
 }

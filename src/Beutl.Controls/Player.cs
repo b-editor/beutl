@@ -77,19 +77,19 @@ public class Player : RangeBase
         get => GetValue(DurationProperty);
         set => SetValue(DurationProperty, value);
     }
-    
+
     public object Content
     {
         get => GetValue(ContentProperty);
         set => SetValue(ContentProperty, value);
     }
-    
+
     public object InnerLeftContent
     {
         get => GetValue(InnerLeftContentProperty);
         set => SetValue(InnerLeftContentProperty, value);
     }
-    
+
     public object InnerRightContent
     {
         get => GetValue(InnerRightContentProperty);

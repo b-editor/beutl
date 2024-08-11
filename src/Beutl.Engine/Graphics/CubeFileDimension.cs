@@ -1,4 +1,4 @@
-namespace Beutl.Graphics;
+﻿namespace Beutl.Graphics;
 
 public enum CubeFileDimension
 {

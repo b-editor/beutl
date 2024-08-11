@@ -8,7 +8,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics.RelativePoint>,IConfigureUniformEditor
+public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics.RelativePoint>, IConfigureUniformEditor
 {
     public RelativePointEditorViewModel(IAbstractProperty<Graphics.RelativePoint> property)
         : base(property)

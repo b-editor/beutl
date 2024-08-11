@@ -1,11 +1,9 @@
 ﻿using Beutl.Animation;
 using Beutl.Graphics.Shapes;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Styling;
-using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
-
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 

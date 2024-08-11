@@ -121,7 +121,7 @@ public class AlignmentXEditor : PropertyEditor
         {
             case AlignmentX.Left:
                 pseudoClass = LeftSelected;
-                radioButton=_leftButton;
+                radioButton = _leftButton;
                 break;
 
             case AlignmentX.Center:

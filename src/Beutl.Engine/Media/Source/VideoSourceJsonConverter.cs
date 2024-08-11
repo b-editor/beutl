@@ -8,7 +8,7 @@ public sealed class VideoSourceJsonConverter : JsonConverter<IVideoSource?>
     public override IVideoSource? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         string? s = reader.GetString();
-        
+
         return s != null && VideoSource.TryOpen(s, out var videoSource)
             ? videoSource
             : null;

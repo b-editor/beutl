@@ -97,7 +97,7 @@ public sealed class LutEffectOperator : FilterEffectOperator<LutEffect>
 
 public sealed class BlendEffectOperator : FilterEffectOperator<BlendEffect>
 {
-    public Setter<IBrush?> Brush{ get; set; } = new(BlendEffect.BrushProperty, new SolidColorBrush(Colors.White));
+    public Setter<IBrush?> Brush { get; set; } = new(BlendEffect.BrushProperty, new SolidColorBrush(Colors.White));
 
     public Setter<BlendMode> BlendMode { get; set; } = new(BlendEffect.BlendModeProperty);
 }

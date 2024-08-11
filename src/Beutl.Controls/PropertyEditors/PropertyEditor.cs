@@ -30,7 +30,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 {
     public static readonly StyledProperty<string> HeaderProperty =
         AvaloniaProperty.Register<PropertyEditor, string>(nameof(Header));
-    
+
     public static readonly StyledProperty<string> DescriptionProperty =
         AvaloniaProperty.Register<PropertyEditor, string>(nameof(Description));
 
@@ -73,7 +73,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         get => GetValue(HeaderProperty);
         set => SetValue(HeaderProperty, value);
     }
-    
+
     public string Description
     {
         get => GetValue(DescriptionProperty);

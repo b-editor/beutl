@@ -40,7 +40,7 @@ public sealed class TimelineOverlay : Control
 
     public static readonly StyledProperty<IBrush?> SeekBarBrushProperty
         = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(SeekBarBrush));
-    
+
     public static readonly StyledProperty<IBrush?> EndingBarBrushProperty
         = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(EndingBarBrush));
 
@@ -104,7 +104,7 @@ public sealed class TimelineOverlay : Control
         get => GetValue(SeekBarBrushProperty);
         set => SetValue(SeekBarBrushProperty, value);
     }
-    
+
     public IBrush? EndingBarBrush
     {
         get => GetValue(EndingBarBrushProperty);

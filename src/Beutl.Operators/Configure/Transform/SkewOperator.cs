@@ -7,5 +7,5 @@ public sealed class SkewOperator : TransformOperator<SkewTransform>
 {
     public Setter<float> SkewX { get; set; } = new(SkewTransform.SkewXProperty);
 
-    public Setter<float> SkewY {get;set;}=new(SkewTransform.SkewYProperty);
+    public Setter<float> SkewY { get; set; } = new(SkewTransform.SkewYProperty);
 }

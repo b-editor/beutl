@@ -50,7 +50,7 @@ public sealed class ConicSegment : PathSegment
         get => _endPoint;
         set => SetAndRaise(EndPointProperty, ref _endPoint, value);
     }
-    
+
     public float Weight
     {
         get => _weight;

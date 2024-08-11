@@ -149,7 +149,7 @@ public partial class AssetsClient
                 client_.Dispose();
         }
     }
-    
+
     /// <exception cref="BeutlApiException">A server side error occurred.</exception>
     public virtual Task<AssetMetadataResponse> PostAsync(string owner, string name, CreateVirtualAssetRequest request)
     {

@@ -1,4 +1,4 @@
-using Beutl.Media.Encoding;
+﻿using Beutl.Media.Encoding;
 
 using FFmpeg.AutoGen;
 using FFmpegSharp;

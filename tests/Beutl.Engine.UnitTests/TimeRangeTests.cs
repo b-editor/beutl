@@ -21,7 +21,7 @@ public class TimeRangeTests
         ClassicAssert.AreEqual(false, range2.Contains(range3));
         ClassicAssert.AreEqual(false, range1.Contains(TimeSpan.FromSeconds(7)));
     }
-    
+
     [Test]
     public void Union()
     {
@@ -35,7 +35,7 @@ public class TimeRangeTests
         ClassicAssert.AreEqual(TimeRange.FromSeconds(7), range1.Union(range2));
         ClassicAssert.AreEqual(TimeRange.FromSeconds(2, 8), range2.Union(range3));
     }
-    
+
     [Test]
     public void Intersect()
     {
