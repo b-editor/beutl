@@ -45,6 +45,8 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     public BlendMode BlendMode { get; set; } = BlendMode.SrcOver;
 
+    public float Opacity { get; set; } = 1;
+
     public PixelSize Size { get; }
 
     public Matrix Transform
@@ -481,6 +483,19 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         ClipPath(geometry, operation);
 
         _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        return new PushedState(this, _states.Count);
+    }
+
+    public PushedState PushOpacity(float opacity)
+    {
+        VerifyAccess();
+        float oldOpacity = Opacity;
+        Opacity *= opacity;
+        var paint = new SKPaint();
+
+        int count = Canvas.SaveLayer(paint);
+        paint.Color = new SKColor(0, 0, 0, (byte)(Opacity * 255));
+        _states.Push(new CanvasPushedState.OpacityPushedState(oldOpacity, count, paint));
         return new PushedState(this, _states.Count);
     }
 

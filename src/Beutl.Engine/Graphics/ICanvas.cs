@@ -55,6 +55,8 @@ public interface ICanvas : IDisposable
 
     PushedState PushClip(Geometry geometry, ClipOperation operation = ClipOperation.Intersect);
 
+    PushedState PushOpacity(float opacity);
+
     PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false);
 
     PushedState PushFilterEffect(FilterEffect effect);

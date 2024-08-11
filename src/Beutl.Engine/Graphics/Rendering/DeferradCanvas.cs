@@ -350,6 +350,22 @@ public sealed class DeferradCanvas(ContainerNode container, PixelSize canvasSize
         return new(this, _nodes.Count);
     }
 
+    public PushedState PushOpacity(float opacity)
+    {
+        OpacityNode? next = Next<OpacityNode>();
+
+        if (next == null || !next.Equals(opacity))
+        {
+            AddAndPush(new OpacityNode(opacity), next);
+        }
+        else
+        {
+            Push(next);
+        }
+
+        return new(this, _nodes.Count);
+    }
+
     public PushedState PushFilterEffect(FilterEffect effect)
     {
         FilterEffectNode? next = Next<FilterEffectNode>();
