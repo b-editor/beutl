@@ -21,11 +21,11 @@ public sealed class SourceImageOperator : DrawablePublishOperator<SourceImage>
 
     public Setter<RelativePoint> TransformOrigin { get; set; } = new(Drawable.TransformOriginProperty, RelativePoint.Center);
 
-    public Setter<IBrush?> Fill { get; set; } = new(Drawable.FillProperty, new SolidColorBrush(Colors.White));
-
     public Setter<FilterEffect?> FilterEffect { get; set; } = new(Drawable.FilterEffectProperty, new FilterEffectGroup());
 
     public Setter<BlendMode> BlendMode { get; set; } = new Setter<BlendMode>(Drawable.BlendModeProperty, Graphics.BlendMode.SrcOver);
+
+    public Setter<float> Opacity { get; set; } = new Setter<float>(Drawable.OpacityProperty, 100);
 
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
