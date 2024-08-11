@@ -1,0 +1,45 @@
+name: Daily code format check
+on:
+  schedule:
+    - cron: 0 0 * * * # Every day at midnight (UTC)
+  workflow_dispatch:
+
+jobs:
+  dotnet-format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Run dotnet format
+        run: dotnet format --verbosity diagnostic
+
+      - name: Check for modified files
+        id: git-check
+        run: echo "::set-output name=modified::$(if git diff-index --quiet HEAD --; then echo "false"; else echo "true"; fi)"
+
+      - name: Commit files
+        if: steps.git-check.outputs.modified == 'true'
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -a -m 'Automated dotnet-format update'
+
+      - name: Create Pull Request
+        if: steps.git-check.outputs.modified == 'true'
+        uses: peter-evans/create-pull-request@v3
+        with:
+          title: 'chore: Automated PR to fix formatting errors'
+          body: |
+            Automated PR to fix formatting errors
+          committer: GitHub <noreply@github.com>
+          author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          labels: housekeeping
+          assignees: indigo-san
+          reviewers: indigo-san
+          branch: chore/fix-codeformatting
