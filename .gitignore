@@ -360,3 +360,5 @@ packages/ubuntu22.04_amd64/usr/bin/
 /output
 
 .DS_Store
+
+coverage_report/
