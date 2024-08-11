@@ -30,4 +30,6 @@ public sealed class RoundedRectOperator : DrawablePublishOperator<RoundedRectSha
     public Setter<FilterEffect?> FilterEffect { get; set; } = new(Drawable.FilterEffectProperty, new FilterEffectGroup());
 
     public Setter<BlendMode> BlendMode { get; set; } = new Setter<BlendMode>(Drawable.BlendModeProperty, Graphics.BlendMode.SrcOver);
+
+    public Setter<float> Opacity { get; set; } = new Setter<float>(Drawable.OpacityProperty, 100);
 }

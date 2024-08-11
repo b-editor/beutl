@@ -42,6 +42,26 @@ public partial class ImmediateCanvas
             }
         }
 
+        internal record OpacityPushedState(float Opacity, int Count, SKPaint Paint) : CanvasPushedState
+        {
+            public override void Pop(ImmediateCanvas canvas)
+            {
+                canvas._sharedFillPaint.Reset();
+                canvas._sharedFillPaint.BlendMode = SKBlendMode.DstIn;
+
+                canvas.Canvas.SaveLayer(canvas._sharedFillPaint);
+                using (SKPaint maskPaint = Paint)
+                {
+                    canvas.Canvas.DrawPaint(maskPaint);
+                }
+
+                canvas.Canvas.Restore();
+
+                canvas.Canvas.RestoreToCount(Count);
+                canvas.Opacity = Opacity;
+            }
+        }
+
         public abstract void Pop(ImmediateCanvas canvas);
     }
 }

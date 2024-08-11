@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-
 using Beutl.Animation;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
@@ -21,6 +20,7 @@ public abstract class Drawable : Renderable
     public static readonly CoreProperty<IBrush?> FillProperty;
     public static readonly CoreProperty<IBrush?> OpacityMaskProperty;
     public static readonly CoreProperty<BlendMode> BlendModeProperty;
+    public static readonly CoreProperty<float> OpacityProperty;
     private ITransform? _transform;
     private FilterEffect? _filterEffect;
     private AlignmentX _alignX = AlignmentX.Center;
@@ -29,6 +29,7 @@ public abstract class Drawable : Renderable
     private IBrush? _fill = null;
     private IBrush? _opacityMask;
     private BlendMode _blendMode = BlendMode.SrcOver;
+    private float _opacity = 100;
 
     static Drawable()
     {
@@ -71,18 +72,24 @@ public abstract class Drawable : Renderable
             .DefaultValue(BlendMode.SrcOver)
             .Register();
 
+        OpacityProperty = ConfigureProperty<float, Drawable>(nameof(Opacity))
+            .Accessor(o => o.Opacity, (o, v) => o.Opacity = v)
+            .DefaultValue(100)
+            .Register();
+
         AffectsRender<Drawable>(
             TransformProperty, FilterEffectProperty,
             AlignmentXProperty, AlignmentYProperty,
             TransformOriginProperty,
             FillProperty, OpacityMaskProperty,
-            BlendModeProperty);
+            BlendModeProperty, OpacityProperty);
     }
 
     // DrawableBrushで使われる
     public Rect Bounds { get; protected set; }
 
-    [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings), GroupName = nameof(Strings.ImageFilter))]
+    [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings),
+        GroupName = nameof(Strings.ImageFilter))]
     public FilterEffect? FilterEffect
     {
         get => _filterEffect;
@@ -110,7 +117,8 @@ public abstract class Drawable : Renderable
         set => SetAndRaise(AlignmentYProperty, ref _alignY, value);
     }
 
-    [Display(Name = nameof(Strings.TransformOrigin), ResourceType = typeof(Strings), GroupName = nameof(Strings.Transform))]
+    [Display(Name = nameof(Strings.TransformOrigin), ResourceType = typeof(Strings),
+        GroupName = nameof(Strings.Transform))]
     public RelativePoint TransformOrigin
     {
         get => _transformOrigin;
@@ -136,6 +144,14 @@ public abstract class Drawable : Renderable
     {
         get => _blendMode;
         set => SetAndRaise(BlendModeProperty, ref _blendMode, value);
+    }
+
+    [Display(Name = nameof(Strings.Opacity), ResourceType = typeof(Strings))]
+    [Range(0, 100)]
+    public float Opacity
+    {
+        get => _opacity;
+        set => SetAndRaise(OpacityProperty, ref _opacity, value);
     }
 
     public virtual void Measure(Size availableSize)
@@ -191,6 +207,7 @@ public abstract class Drawable : Renderable
             Rect transformedBounds = rect.TransformToAABB(transform);
             using (canvas.PushBlendMode(BlendMode))
             using (canvas.PushTransform(transform))
+            using (canvas.PushOpacity(Opacity / 100f))
             using (_filterEffect == null ? new() : canvas.PushFilterEffect(_filterEffect))
             using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
             {
