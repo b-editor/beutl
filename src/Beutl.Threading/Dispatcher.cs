@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Beutl.Threading;
 
@@ -31,18 +32,21 @@ public class Dispatcher
     public event EventHandler<DispatcherUnhandledExceptionEventArgs>? UnhandledException
     {
         add => _synchronizationContext.UnhandledException += value;
+        [ExcludeFromCodeCoverage]
         remove => _synchronizationContext.UnhandledException -= value;
     }
 
     public event EventHandler? ShutdownStarted
     {
         add => _synchronizationContext.ShutdownStarted += value;
+        [ExcludeFromCodeCoverage]
         remove => _synchronizationContext.ShutdownStarted -= value;
     }
 
     public event EventHandler? ShutdownFinished
     {
         add => _synchronizationContext.ShutdownFinished += value;
+        [ExcludeFromCodeCoverage]
         remove => _synchronizationContext.ShutdownFinished -= value;
     }
 
@@ -70,6 +74,7 @@ public class Dispatcher
     }
 
     [Obsolete("Use Shutdown.")]
+    [ExcludeFromCodeCoverage]
     public void Stop()
     {
         Shutdown();
@@ -92,28 +97,14 @@ public class Dispatcher
             throw new InvalidOperationException("Call from invalid thread");
     }
 
-    public static Dispatcher Spawn()
+    public static Dispatcher Spawn(TimeProvider? timeProvider=null)
     {
-        var dispatcher = new Dispatcher(TimeProvider.System);
+        var dispatcher = new Dispatcher(timeProvider??TimeProvider.System);
         dispatcher.Thread.Start();
         return dispatcher;
     }
 
-    public static Dispatcher Spawn(Action operation)
-    {
-        Dispatcher dispatcher = Spawn();
-        dispatcher.Dispatch(operation, DispatchPriority.High);
-        return dispatcher;
-    }
-
-    public static Dispatcher Spawn(TimeProvider timeProvider)
-    {
-        var dispatcher = new Dispatcher(timeProvider);
-        dispatcher.Thread.Start();
-        return dispatcher;
-    }
-
-    public static Dispatcher Spawn(Action operation,TimeProvider timeProvider)
+    public static Dispatcher Spawn(Action operation, TimeProvider? timeProvider=null)
     {
         Dispatcher dispatcher = Spawn(timeProvider);
         dispatcher.Dispatch(operation, DispatchPriority.High);

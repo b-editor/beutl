@@ -19,6 +19,18 @@ public class DispatcherTests
     }
 
     [Test]
+    public async Task InvokeAsync()
+    {
+        int id = Environment.CurrentManagedThreadId;
+        var dispatcher = Dispatcher.Spawn();
+
+        int dispatcherId = await dispatcher.InvokeAsync(async () => await Task.FromResult(Environment.CurrentManagedThreadId));
+        Assert.That(id, Is.Not.EqualTo(dispatcherId));
+
+        dispatcher.Shutdown();
+    }
+
+    [Test]
     public void InvokeVoid_Cancel()
     {
         var dispatcher = Dispatcher.Spawn();
@@ -207,6 +219,26 @@ public class DispatcherTests
     }
 
     [Test]
+    public async Task ScheduleAsync()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        var scheduledAt = DateTime.UtcNow;
+        var tcs = new TaskCompletionSource<DateTime>();
+
+        dispatcher.Schedule(TimeSpan.FromMilliseconds(100), async () =>
+        {
+            await Task.CompletedTask;
+            tcs.SetResult(DateTime.UtcNow);
+        });
+
+        var responseAt = await tcs.Task;
+
+        Assert.That(responseAt - scheduledAt, Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100)));
+
+        dispatcher.Shutdown();
+    }
+
+    [Test]
     public async Task Schedule_Multiple()
     {
         var timeProvider = new FakeTimeProvider();
@@ -322,5 +354,124 @@ public class DispatcherTests
 
         [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_catchExceptions")]
         static extern ref bool SetCatchExceptions(Dispatcher self);
+    }
+
+    [Test]
+    public void HasShutdownStarted_Be_True_When_ShutdownStarted()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        Assert.That(dispatcher.HasShutdownStarted, Is.False);
+        dispatcher.ShutdownStarted += (_, _) =>
+        {
+            Assert.That(dispatcher.HasShutdownStarted, Is.True);
+        };
+
+        dispatcher.Shutdown();
+    }
+
+    [Test]
+    public void HasShutdownFinished_Be_True_When_ShutdownFinished()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        Assert.That(dispatcher.HasShutdownFinished, Is.False);
+        dispatcher.ShutdownFinished += (_, _) =>
+        {
+            Assert.That(dispatcher.HasShutdownFinished, Is.True);
+        };
+
+        dispatcher.Shutdown();
+    }
+
+    [Test]
+    public void VerifyAccess_Throws_OutsideDispatcherThread()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        Assert.Catch<InvalidOperationException>(() => dispatcher.VerifyAccess());
+        dispatcher.Shutdown();
+    }
+
+    [Test]
+    public void VerifyAccess_DoesNot_Throws_InsideDispatcherThread()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Invoke(() => Assert.DoesNotThrow(() => dispatcher.VerifyAccess()));
+
+        dispatcher.Shutdown();
+    }
+
+    [Test]
+    public void Spawn_With_InitialOperation()
+    {
+        bool flag = false;
+        var dispatcher = Dispatcher.Spawn(() => flag = true);
+        dispatcher.Invoke(() => Assert.That(flag, Is.True));
+        dispatcher.Shutdown();
+    }
+
+    [Test]
+    public void Invoke_Inside_DispatcherThread()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Invoke(() =>
+        {
+            dispatcher.Invoke(() => Assert.That(dispatcher.CheckAccess(), Is.True));
+            Assert.That(dispatcher.Invoke(() => dispatcher.CheckAccess()), Is.True);
+        });
+
+        dispatcher.Shutdown();
+    }
+
+    [Test]
+    public void Run()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Run(() =>
+        {
+            Assert.That(dispatcher.CheckAccess(), Is.True);
+        });
+        dispatcher.Shutdown();
+    }
+
+    [Test]
+    public void RunAsync()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Run(async () =>
+        {
+            Assert.That(dispatcher.CheckAccess(), Is.True);
+            await Task.CompletedTask;
+        });
+        dispatcher.Shutdown();
+    }
+
+    [Test]
+    public void Run_InsideDispatcherThread()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Run(() =>
+        {
+            Assert.That(dispatcher.CheckAccess(), Is.True);
+            dispatcher.Run(() =>
+            {
+                Assert.That(dispatcher.CheckAccess(), Is.True);
+            });
+        });
+        dispatcher.Shutdown();
+    }
+
+    [Test]
+    public void RunAsync_InsideDispatcherThread()
+    {
+        var dispatcher = Dispatcher.Spawn();
+        dispatcher.Run(() =>
+        {
+            Assert.That(dispatcher.CheckAccess(), Is.True);
+            dispatcher.Run(async () =>
+            {
+                Assert.That(dispatcher.CheckAccess(), Is.True);
+                await Task.CompletedTask;
+            });
+        });
+        dispatcher.Shutdown();
     }
 }
