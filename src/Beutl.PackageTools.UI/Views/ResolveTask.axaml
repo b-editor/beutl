@@ -23,7 +23,7 @@
                     IsVisible="{Binding ShowDetails.Value, FallbackValue=False}" />
         </Grid>
         <Grid Grid.Column="2" RowDefinitions="Auto,Auto">
-            <TextBlock Classes.tip="{Binding, Converter={x:Static ObjectConverters.IsNotNull}}"
+            <TextBlock Classes.tip="{Binding Converter={x:Static ObjectConverters.IsNotNull}}"
                        PointerPressed="OnTaskNamePointerPressed"
                        PointerReleased="OnTaskNamePointerReleased"
                        Text="{x:Static res:Strings.ResolveDependencies}" />

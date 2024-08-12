@@ -1,6 +1,8 @@
-﻿using Beutl.Logging;
+﻿using Avalonia.Data.Converters;
+using Beutl.Logging;
 
 using Reactive.Bindings;
+using Reactive.Bindings.TinyLinq;
 
 namespace Beutl.PackageTools.UI.Models;
 
@@ -16,6 +18,8 @@ public class DownloadTaskModel : IProgress<double>
         _app = app;
         _model = model;
         PackageFileName = $"{_model.Id}.{_model.Version}.nupkg";
+        IsLocalSourcePreferredNull = IsLocalSourcePreferred.Select(v => v.HasValue)
+            .ToReadOnlyReactivePropertySlim();
     }
 
     public string PackageFileName { get; }
@@ -36,6 +40,8 @@ public class DownloadTaskModel : IProgress<double>
     public bool Conflict => _model.Conflict;
 
     public ReactiveProperty<bool?> IsLocalSourcePreferred { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> IsLocalSourcePreferredNull { get; }
 
     public PackageInstallContext? Context { get; private set; }
 

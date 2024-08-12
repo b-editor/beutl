@@ -23,7 +23,7 @@
                     IsVisible="{Binding ShowDetails.Value, FallbackValue=False}" />
         </Grid>
         <Grid Grid.Column="2" RowDefinitions="Auto,Auto">
-            <TextBlock Classes.tip="{Binding, Converter={x:Static ObjectConverters.IsNotNull}}"
+            <TextBlock Classes.tip="{Binding Converter={x:Static ObjectConverters.IsNotNull}}"
                        PointerPressed="OnTaskNamePointerPressed"
                        PointerReleased="OnTaskNamePointerReleased"
                        Text="{x:Static res:Strings.Verify}" />
@@ -48,13 +48,13 @@
                                       Command="{Binding Continue}"
                                       CommandParameter="{x:False}"
                                       Content="{x:Static res:Strings.No}"
-                                      IsHitTestVisible="{Binding !IsContinued.Value.HasValue}" />
+                                      IsHitTestVisible="{Binding !IsContinuedNull.Value}" />
                         <ToggleButton Grid.Column="2"
                                       HorizontalAlignment="Stretch"
                                       Command="{Binding Continue}"
                                       CommandParameter="{x:True}"
                                       Content="{x:Static res:Strings.Yes}"
-                                      IsHitTestVisible="{Binding !IsContinued.Value.HasValue}" />
+                                      IsHitTestVisible="{Binding !IsContinuedNull.Value}" />
                     </Grid>
                 </Grid>
 

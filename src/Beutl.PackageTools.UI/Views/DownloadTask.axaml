@@ -23,7 +23,7 @@
                     IsVisible="{Binding ShowDetails.Value, FallbackValue=False}" />
         </Grid>
         <Grid Grid.Column="2" RowDefinitions="Auto,Auto">
-            <TextBlock Classes.tip="{Binding, Converter={x:Static ObjectConverters.IsNotNull}}"
+            <TextBlock Classes.tip="{Binding Converter={x:Static ObjectConverters.IsNotNull}}"
                        PointerPressed="OnTaskNamePointerPressed"
                        PointerReleased="OnTaskNamePointerReleased"
                        Text="{x:Static res:Strings.Download}" />
@@ -40,13 +40,13 @@
                                       Command="{Binding SetPreferLocalSource}"
                                       CommandParameter="{x:False}"
                                       Content="{x:Static res:Strings.No}"
-                                      IsHitTestVisible="{Binding !IsLocalSourcePreferred.Value.HasValue}" />
+                                      IsHitTestVisible="{Binding !IsLocalSourcePreferredNull.Value}" />
                         <ToggleButton Grid.Column="2"
                                       HorizontalAlignment="Stretch"
                                       Command="{Binding SetPreferLocalSource}"
                                       CommandParameter="{x:True}"
                                       Content="{x:Static res:Strings.Yes}"
-                                      IsHitTestVisible="{Binding !IsLocalSourcePreferred.Value.HasValue}" />
+                                      IsHitTestVisible="{Binding !IsLocalSourcePreferredNull.Value}" />
                     </Grid>
                 </Grid>
 

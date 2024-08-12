@@ -4,6 +4,7 @@ using NuGet.Packaging;
 using NuGet.Packaging.Core;
 
 using Reactive.Bindings;
+using Reactive.Bindings.TinyLinq;
 
 namespace Beutl.PackageTools.UI.Models;
 
@@ -39,6 +40,8 @@ public class AcceptLicenseTaskModel
         _app = app;
         _context = context;
         _acceptedLicenseManager = _app.GetResource<AcceptedLicenseManager>();
+        IsAcceptedNull = IsAccepted.Select(v => v.HasValue)
+            .ToReadOnlyReactivePropertySlim();
 
         var licensesRequiringApproval = _context.LicensesRequiringApproval
             .Where(x => !_acceptedLicenseManager.Accepted.ContainsKey(x.Item1))
@@ -60,6 +63,8 @@ public class AcceptLicenseTaskModel
     public ReactiveProperty<bool> IsRunning { get; } = new();
 
     public ReactiveProperty<bool?> IsAccepted { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> IsAcceptedNull { get; }
 
     public ReactiveProperty<bool> Succeeded { get; } = new();
 
