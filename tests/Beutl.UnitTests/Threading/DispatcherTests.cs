@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using Beutl.Threading;
 using Microsoft.Extensions.Time.Testing;
 
@@ -334,7 +334,8 @@ public class DispatcherTests
     public async Task SyncContext_Post_Throws_Unhandled()
     {
         var dispatcher = Dispatcher.Spawn();
-        SetCatchExceptions(dispatcher) = true;
+        typeof(Dispatcher).GetField("_catchExceptions",
+            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.SetField)!.SetValue(dispatcher, true);
 
         var context = dispatcher.Invoke(() => SynchronizationContext.Current);
         Assert.That(context, Is.Not.Null, "SynchronizationContext.Current is null");
@@ -351,9 +352,6 @@ public class DispatcherTests
 
         await tcs.Task;
         dispatcher.Shutdown();
-
-        [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_catchExceptions")]
-        static extern ref bool SetCatchExceptions(Dispatcher self);
     }
 
     [Test]
