@@ -1,4 +1,5 @@
-﻿using System.Reactive;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Reactive;
 using System.Reactive.Linq;
 
 using Beutl.Animation;
@@ -8,6 +9,7 @@ using Beutl.Validation;
 
 namespace Beutl.Styling;
 
+[ExcludeFromCodeCoverage]
 public class Setter<T> : LightweightObservableBase<T?>, ISetter
 {
     private CoreProperty<T>? _property;

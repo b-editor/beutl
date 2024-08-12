@@ -1,10 +1,12 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 using Beutl.Animation;
 using Beutl.Serialization;
 
 namespace Beutl.Styling;
 
+[ExcludeFromCodeCoverage]
 public static class StyleSerializer
 {
     public static ISetter? ToSetter(this JsonNode? json, string name, Type targetType, ICoreSerializationContext context)

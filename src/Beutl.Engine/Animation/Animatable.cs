@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
 using Beutl.Media;
@@ -29,6 +30,7 @@ public abstract class Animatable : CoreObject, IAnimatable
     public event EventHandler<RenderInvalidatedEventArgs> AnimationInvalidated
     {
         add => Animations.Invalidated += value;
+        [ExcludeFromCodeCoverage]
         remove => Animations.Invalidated -= value;
     }
 

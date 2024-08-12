@@ -89,7 +89,7 @@ public static class AnimatorRegistry
         }
     }
 
-    private sealed class _Animator<T> : Animator<T>
+    internal sealed class _Animator<T> : Animator<T>
     {
         public override T Interpolate(float progress, T oldValue, T newValue)
         {

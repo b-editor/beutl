@@ -1,7 +1,9 @@
-﻿using Beutl.Collections;
+﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Collections;
 
 namespace Beutl.Styling;
 
+[ExcludeFromCodeCoverage]
 public class Style : IStyle
 {
     private readonly Setters _setters;
