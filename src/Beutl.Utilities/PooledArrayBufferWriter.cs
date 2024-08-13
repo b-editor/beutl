@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Beutl.Utilities;
@@ -10,7 +11,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
 
     private const int DefaultInitialBufferSize = 256;
 
-    private readonly ArrayPool<T> _pool = ArrayPool<T>.Shared;
+    private readonly ArrayPool<T> _pool;
     private T[] _buffer;
 
     public PooledArrayBufferWriter(ArrayPool<T>? pool = null)
@@ -29,6 +30,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
         WrittenCount = 0;
     }
 
+    [ExcludeFromCodeCoverage]
     ~PooledArrayBufferWriter()
     {
         Dispose();
@@ -54,6 +56,7 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
 
     public int WrittenCount { get; private set; }
 
+    [ExcludeFromCodeCoverage]
     public int Capacity => _buffer.Length;
 
     public int FreeCapacity => _buffer.Length - WrittenCount;
