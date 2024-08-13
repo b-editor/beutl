@@ -109,7 +109,7 @@ public class PooledArrayBufferWriterTests
     [Test]
     public void GetArray_ShouldReturnInternalBuffer()
     {
-        var writer = new PooledArrayBufferWriter<int>();
+        using var writer = new PooledArrayBufferWriter<int>();
         int[] buffer = PooledArrayBufferWriter<int>.GetArray(writer);
         Assert.That(buffer, Is.Not.Null);
     }
@@ -117,7 +117,7 @@ public class PooledArrayBufferWriterTests
     [Test]
     public void GetArray_ShouldReturnSameBufferAfterAdvance()
     {
-        var writer = new PooledArrayBufferWriter<int>(10);
+        using var writer = new PooledArrayBufferWriter<int>(10);
         int[] initialBuffer = PooledArrayBufferWriter<int>.GetArray(writer);
         writer.Advance(10);
         int[] bufferAfterAdvance = PooledArrayBufferWriter<int>.GetArray(writer);
@@ -127,7 +127,7 @@ public class PooledArrayBufferWriterTests
     [Test]
     public void GetArray_ShouldReturnSameBufferAfterClear()
     {
-        var writer = new PooledArrayBufferWriter<int>(10);
+        using var writer = new PooledArrayBufferWriter<int>(10);
         int[] initialBuffer = PooledArrayBufferWriter<int>.GetArray(writer);
         writer.Clear();
         int[] bufferAfterClear = PooledArrayBufferWriter<int>.GetArray(writer);
@@ -137,7 +137,7 @@ public class PooledArrayBufferWriterTests
     [Test]
     public void GetArray_ShouldReturnDifferentBufferAfterResize()
     {
-        var writer = new PooledArrayBufferWriter<int>(1);
+        using var writer = new PooledArrayBufferWriter<int>(1);
         int[] initialBuffer = PooledArrayBufferWriter<int>.GetArray(writer);
         writer.GetMemory(100);
         int[] bufferAfterResize = PooledArrayBufferWriter<int>.GetArray(writer);
