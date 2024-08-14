@@ -1,11 +1,10 @@
 ﻿using System.Reactive.Linq;
 
 using Beutl.Animation;
-using Beutl.Animation.Easings;
 
 namespace Beutl.Extensibility;
 
-public interface IAbstractProperty
+public interface IPropertyAdapter
 {
     Type ImplementedType { get; }
 
@@ -28,7 +27,7 @@ public interface IAbstractProperty
     IObservable<object?> GetObservable();
 }
 
-public interface IAbstractProperty<T> : IAbstractProperty
+public interface IPropertyAdapter<T> : IPropertyAdapter
 {
     void SetValue(T? value);
 
@@ -36,7 +35,7 @@ public interface IAbstractProperty<T> : IAbstractProperty
 
     new IObservable<T?> GetObservable();
 
-    void IAbstractProperty.SetValue(object? value)
+    void IPropertyAdapter.SetValue(object? value)
     {
         if (value is T typed)
         {
@@ -48,47 +47,47 @@ public interface IAbstractProperty<T> : IAbstractProperty
         }
     }
 
-    object? IAbstractProperty.GetValue()
+    object? IPropertyAdapter.GetValue()
     {
         return GetValue();
     }
 
-    IObservable<object?> IAbstractProperty.GetObservable()
+    IObservable<object?> IPropertyAdapter.GetObservable()
     {
         return GetObservable().Select(x => (object?)x);
     }
 }
 
-public interface IAbstractAnimatableProperty : IAbstractProperty
+public interface IAnimatablePropertyAdapter : IPropertyAdapter
 {
     IAnimation? Animation { get; set; }
 
     IObservable<IAnimation?> ObserveAnimation { get; }
 
-    internal IAbstractProperty CreateKeyFrameProperty(IKeyFrameAnimation animation, IKeyFrame keyFrame);
+    internal IPropertyAdapter CreateKeyFrameProperty(IKeyFrameAnimation animation, IKeyFrame keyFrame);
 }
 
-public interface IAbstractAnimatableProperty<T> : IAbstractProperty<T>, IAbstractAnimatableProperty
+public interface IAnimatablePropertyAdapter<T> : IPropertyAdapter<T>, IAnimatablePropertyAdapter
 {
     new IAnimation<T>? Animation { get; set; }
 
     new IObservable<IAnimation<T>?> ObserveAnimation { get; }
 
-    IAnimation? IAbstractAnimatableProperty.Animation
+    IAnimation? IAnimatablePropertyAdapter.Animation
     {
         get => Animation;
         set => Animation = value as IAnimation<T>;
     }
 
-    IObservable<IAnimation?> IAbstractAnimatableProperty.ObserveAnimation => ObserveAnimation;
+    IObservable<IAnimation?> IAnimatablePropertyAdapter.ObserveAnimation => ObserveAnimation;
 
-    IAbstractProperty IAbstractAnimatableProperty.CreateKeyFrameProperty(IKeyFrameAnimation animation, IKeyFrame keyFrame)
+    IPropertyAdapter IAnimatablePropertyAdapter.CreateKeyFrameProperty(IKeyFrameAnimation animation, IKeyFrame keyFrame)
     {
-        return new KeyFramePropertyWrapper<T>((KeyFrame<T>)keyFrame, (KeyFrameAnimation<T>)animation);
+        return new KeyFramePropertyAdapter<T>((KeyFrame<T>)keyFrame, (KeyFrameAnimation<T>)animation);
     }
 }
 
-internal sealed class KeyFramePropertyWrapper<T>(KeyFrame<T> keyFrame, KeyFrameAnimation<T> animation) : IAbstractProperty<T>
+internal sealed class KeyFramePropertyAdapter<T>(KeyFrame<T> keyFrame, KeyFrameAnimation<T> animation) : IPropertyAdapter<T>
 {
     public Type ImplementedType => animation.Property.OwnerType;
 
@@ -115,7 +114,7 @@ internal sealed class KeyFramePropertyWrapper<T>(KeyFrame<T> keyFrame, KeyFrameA
         keyFrame.SetValue(GetProperty(), value);
     }
 
-    CoreProperty? IAbstractProperty.GetCoreProperty() => animation.Property;
+    CoreProperty? IPropertyAdapter.GetCoreProperty() => animation.Property;
 
     private static CoreProperty<T?> GetProperty()
     {

@@ -17,7 +17,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 {
     private IDisposable? _revoker;
 
-    public BrushEditorViewModel(IAbstractProperty property)
+    public BrushEditorViewModel(IPropertyAdapter property)
         : base(property)
     {
         Value = property.GetObservable()
@@ -109,7 +109,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         if (!EqualityComparer<IBrush>.Default.Equals(oldValue, newValue))
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            IAbstractProperty prop = WrappedProperty;
+            IPropertyAdapter prop = PropertyAdapter;
 
             RecordableCommands.Create(GetStorables())
                 .OnDo(() => prop.SetValue(newValue))

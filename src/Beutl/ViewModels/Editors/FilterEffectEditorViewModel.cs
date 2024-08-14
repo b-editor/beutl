@@ -13,7 +13,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEffect?>, IUnknownObjectViewModel
 {
-    public FilterEffectEditorViewModel(IAbstractProperty<FilterEffect?> property)
+    public FilterEffectEditorViewModel(IPropertyAdapter<FilterEffect?> property)
         : base(property)
     {
         IsDummy = Value.Select(v => v is IDummy)
@@ -59,7 +59,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
                         if (v is FilterEffectGroup group)
                         {
-                            var prop = new CorePropertyImpl<FilterEffects>(FilterEffectGroup.ChildrenProperty, group);
+                            var prop = new CorePropertyAdapter<FilterEffects>(FilterEffectGroup.ChildrenProperty, group);
                             Group.Value = new ListEditorViewModel<FilterEffect>(prop) { IsExpanded = { Value = true } };
                         }
                         else if (v is FilterEffect filter)

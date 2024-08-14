@@ -8,7 +8,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSource?>
 {
-    public VideoSourceEditorViewModel(IAbstractProperty<IVideoSource?> property)
+    public VideoSourceEditorViewModel(IPropertyAdapter<IVideoSource?> property)
         : base(property)
     {
         FullName = Value.Select(x => x?.Name)
@@ -37,7 +37,7 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
             else
             {
                 recorder.DoAndPush(
-                    new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
+                    new SetCommand(PropertyAdapter, oldValue, newValue, GetStorables()));
             }
         }
     }
@@ -88,7 +88,7 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
     }
 
     private sealed class SetCommand(
-        IAbstractProperty<IVideoSource?> setter,
+        IPropertyAdapter<IVideoSource?> setter,
         IVideoSource? oldValue,
         IVideoSource? newValue,
         ImmutableArray<IStorable?> storables) : IRecordableCommand

@@ -32,7 +32,7 @@ public abstract class NodeItem : Hierarchical
 
 public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
 {
-    public IAbstractProperty<T>? Property { get; protected set; }
+    public IPropertyAdapter<T>? Property { get; protected set; }
 
     // レンダリング時に変更されるので、変更通知は必要ない
     public T? Value { get; set; }
@@ -47,7 +47,7 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
     {
         if (Property is { } property)
         {
-            if (property is IAbstractAnimatableProperty<T> { Animation: IAnimation<T> animation })
+            if (property is IAnimatablePropertyAdapter<T> { Animation: IAnimation<T> animation })
             {
                 Value = animation.GetAnimatedValue(context.Clock);
             }
@@ -97,7 +97,7 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
         OnDetachedFromNodeTree(nodeTree);
     }
 
-    IAbstractProperty? INodeItem.Property => Property;
+    IPropertyAdapter? INodeItem.Property => Property;
 
     object? INodeItem.Value => Value;
 

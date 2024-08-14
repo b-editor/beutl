@@ -15,7 +15,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffect?>
 {
-    public SoundEffectEditorViewModel(IAbstractProperty<ISoundEffect?> property)
+    public SoundEffectEditorViewModel(IPropertyAdapter<ISoundEffect?> property)
         : base(property)
     {
         FilterName = Value.Select(v =>
@@ -53,7 +53,7 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffe
 
                     if (v is SoundEffectGroup group)
                     {
-                        var prop = new CorePropertyImpl<SoundEffects>(SoundEffectGroup.ChildrenProperty, group);
+                        var prop = new CorePropertyAdapter<SoundEffects>(SoundEffectGroup.ChildrenProperty, group);
                         Group.Value = new ListEditorViewModel<ISoundEffect>(prop)
                         {
                             IsExpanded = { Value = true }

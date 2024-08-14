@@ -12,7 +12,7 @@ using Reactive.Bindings;
 namespace Beutl.ViewModels;
 
 public sealed class InlineAnimationLayerViewModel<T>(
-    IAbstractAnimatableProperty<T> property, TimelineViewModel timeline, ElementViewModel element)
+    IAnimatablePropertyAdapter<T> property, TimelineViewModel timeline, ElementViewModel element)
     : InlineAnimationLayerViewModel(property, timeline, element)
 {
     public override void DropEasing(Easing easing, TimeSpan keyTime)
@@ -74,7 +74,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     private LayerHeaderViewModel? _lastLayerHeader;
 
     protected InlineAnimationLayerViewModel(
-        IAbstractAnimatableProperty property,
+        IAnimatablePropertyAdapter property,
         TimelineViewModel timeline,
         ElementViewModel element)
     {
@@ -142,7 +142,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public Func<Thickness, Thickness, CancellationToken, Task>? AnimationRequested { get; set; }
 
-    public IAbstractAnimatableProperty Property { get; }
+    public IAnimatablePropertyAdapter Property { get; }
 
     public TimelineViewModel Timeline { get; }
 

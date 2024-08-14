@@ -11,7 +11,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSource?>
 {
-    public ImageSourceEditorViewModel(IAbstractProperty<IImageSource?> property)
+    public ImageSourceEditorViewModel(IPropertyAdapter<IImageSource?> property)
         : base(property)
     {
         FullName = Value.Select(x => x?.Name)
@@ -40,7 +40,7 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
             else
             {
                 recorder.DoAndPush(
-                    new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
+                    new SetCommand(PropertyAdapter, oldValue, newValue, GetStorables()));
             }
         }
     }
@@ -89,7 +89,7 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
     }
 
     private sealed class SetCommand(
-        IAbstractProperty<IImageSource?> setter, IImageSource? oldValue, IImageSource? newValue,
+        IPropertyAdapter<IImageSource?> setter, IImageSource? oldValue, IImageSource? newValue,
         ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;

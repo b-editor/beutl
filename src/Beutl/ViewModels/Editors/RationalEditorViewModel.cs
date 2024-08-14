@@ -5,7 +5,7 @@ using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class RationalEditorViewModel(IAbstractProperty<Rational> property) : ValueEditorViewModel<Rational>(property)
+public sealed class RationalEditorViewModel(IPropertyAdapter<Rational> property) : ValueEditorViewModel<Rational>(property)
 {
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {

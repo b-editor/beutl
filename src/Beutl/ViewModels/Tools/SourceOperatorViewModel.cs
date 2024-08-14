@@ -131,9 +131,9 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     private void Init()
     {
-        List<IAbstractProperty> props = [.. Model.Properties];
+        List<IPropertyAdapter> props = [.. Model.Properties];
         var tempItems = new List<IPropertyEditorContext?>(props.Count);
-        IAbstractProperty[]? foundItems;
+        IPropertyAdapter[]? foundItems;
         PropertyEditorExtension? extension;
 
         do
@@ -153,9 +153,9 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
         foreach ((string? Key, IPropertyEditorContext?[] Value) group in tempItems.GroupBy(x =>
                      {
-                         if (x is BaseEditorViewModel { WrappedProperty: { } abProperty }
-                             && abProperty.GetCoreProperty() is { } coreProperty
-                             && coreProperty.TryGetMetadata(abProperty.ImplementedType, out CorePropertyMetadata? metadata))
+                         if (x is BaseEditorViewModel { PropertyAdapter: { } adapter }
+                             && adapter.GetCoreProperty() is { } coreProperty
+                             && coreProperty.TryGetMetadata(adapter.ImplementedType, out CorePropertyMetadata? metadata))
                          {
                              return metadata.DisplayAttribute?.GetGroupName();
                          }

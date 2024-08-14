@@ -596,7 +596,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         {
             if (!desc.Position.IsDefault)
             {
-                if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IAbstractProperty<ITransform?> transformp)
+                if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IPropertyAdapter<ITransform?> transformp)
                 {
                     ITransform? transform = transformp.GetValue();
                     AddOrSetHelper.AddOrSet(

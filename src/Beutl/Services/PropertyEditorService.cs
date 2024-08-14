@@ -21,18 +21,18 @@ namespace Beutl.Services;
 
 public static class PropertyEditorService
 {
-    public static IAbstractProperty<T> ToTyped<T>(this IAbstractProperty pi)
+    public static IPropertyAdapter<T> ToTyped<T>(this IPropertyAdapter pi)
     {
-        return (IAbstractProperty<T>)pi;
+        return (IPropertyAdapter<T>)pi;
     }
 
-    public static (IAbstractProperty[] Properties, PropertyEditorExtension Extension) MatchProperty(IReadOnlyList<IAbstractProperty> properties)
+    public static (IPropertyAdapter[] Properties, PropertyEditorExtension Extension) MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
     {
         PropertyEditorExtension[] items = ExtensionProvider.Current.GetExtensions<PropertyEditorExtension>();
         for (int i = items.Length - 1; i >= 0; i--)
         {
             PropertyEditorExtension item = items[i];
-            IAbstractProperty[] array = item.MatchProperty(properties).ToArray();
+            IPropertyAdapter[] array = item.MatchProperty(properties).ToArray();
             if (array.Length > 0)
             {
                 return (array, item);
@@ -42,47 +42,47 @@ public static class PropertyEditorService
         return default;
     }
 
-    private static Control? CreateEnumEditor(IAbstractProperty s)
+    private static Control? CreateEnumEditor(IPropertyAdapter s)
     {
         Type type = typeof(EnumEditor<>).MakeGenericType(s.PropertyType);
         return (Control?)Activator.CreateInstance(type);
     }
 
-    private static BaseEditorViewModel? CreateEnumViewModel(IAbstractProperty s)
+    private static BaseEditorViewModel? CreateEnumViewModel(IPropertyAdapter s)
     {
         Type type = typeof(EnumEditorViewModel<>).MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(type, s) as BaseEditorViewModel;
     }
 
-    private static Control? CreateNavigationButton(IAbstractProperty s)
+    private static Control? CreateNavigationButton(IPropertyAdapter s)
     {
         Type controlType = typeof(NavigateButton<>);
         controlType = controlType.MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(controlType) as Control;
     }
 
-    private static BaseEditorViewModel? CreateNavigationButtonViewModel(IAbstractProperty s)
+    private static BaseEditorViewModel? CreateNavigationButtonViewModel(IPropertyAdapter s)
     {
         Type viewModelType = typeof(NavigationButtonViewModel<>);
         viewModelType = viewModelType.MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
     }
 
-    private static Control? CreateParsableEditor(IAbstractProperty s)
+    private static Control? CreateParsableEditor(IPropertyAdapter s)
     {
         Type controlType = typeof(ParsableEditor<>);
         controlType = controlType.MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(controlType) as Control;
     }
 
-    private static BaseEditorViewModel? CreateParsableEditorViewModel(IAbstractProperty s)
+    private static BaseEditorViewModel? CreateParsableEditorViewModel(IPropertyAdapter s)
     {
         Type viewModelType = typeof(ParsableEditorViewModel<>);
         viewModelType = viewModelType.MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
     }
 
-    private static Control? CreateListEditor(IAbstractProperty s)
+    private static Control? CreateListEditor(IPropertyAdapter s)
     {
         Type? itemtype = GetItemTypeFromListType(s.PropertyType);
         if (itemtype != null)
@@ -97,7 +97,7 @@ public static class PropertyEditorService
         }
     }
 
-    private static BaseEditorViewModel? CreateListEditorViewModel(IAbstractProperty s)
+    private static BaseEditorViewModel? CreateListEditorViewModel(IPropertyAdapter s)
     {
         Type? itemtype = GetItemTypeFromListType(s.PropertyType);
         if (itemtype != null)
@@ -118,7 +118,7 @@ public static class PropertyEditorService
         return interfaceType?.GenericTypeArguments?.FirstOrDefault();
     }
 
-    private static BaseEditorViewModel? CreateChoiceViewModel(IAbstractProperty s, Type providerType)
+    private static BaseEditorViewModel? CreateChoiceViewModel(IPropertyAdapter s, Type providerType)
     {
         Type type = typeof(ProvidedChoiceEditorViewModel<,>).MakeGenericType(s.PropertyType, providerType);
         return Activator.CreateInstance(type, s) as BaseEditorViewModel;
@@ -126,9 +126,9 @@ public static class PropertyEditorService
 
     internal sealed class PropertyEditorExtensionImpl : IPropertyEditorExtensionImpl
     {
-        private record struct Editor(Func<IAbstractProperty, Control?> CreateEditor, Func<IAbstractProperty, BaseEditorViewModel?> CreateViewModel);
+        private record struct Editor(Func<IPropertyAdapter, Control?> CreateEditor, Func<IPropertyAdapter, BaseEditorViewModel?> CreateViewModel);
 
-        private record struct ListItemEditor(Func<IAbstractProperty, IListItemEditor?> CreateEditor, Func<IAbstractProperty, BaseEditorViewModel?> CreateViewModel);
+        private record struct ListItemEditor(Func<IPropertyAdapter, IListItemEditor?> CreateEditor, Func<IPropertyAdapter, BaseEditorViewModel?> CreateViewModel);
 
         private static readonly Dictionary<Type, ListItemEditor> s_listItemEditorsOverride = new()
         {
@@ -204,11 +204,11 @@ public static class PropertyEditorService
             new(typeof(IParsable<>), new(CreateParsableEditor, CreateParsableEditorViewModel)),
         }.ToFrozenDictionary();
 
-        public IEnumerable<IAbstractProperty> MatchProperty(IReadOnlyList<IAbstractProperty> properties)
+        public IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
         {
             for (int i = 0; i < properties.Count; i++)
             {
-                IAbstractProperty item = properties[i];
+                IPropertyAdapter item = properties[i];
                 if (item.GetCoreProperty() is { Id: int id } coreProp)
                 {
                     if (coreProp.TryGetMetadata(item.ImplementedType, out CorePropertyMetadata? metadata))
@@ -247,17 +247,17 @@ public static class PropertyEditorService
             }
         }
 
-        public bool TryCreateContext(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+        public bool TryCreateContext(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
         {
             return TryCreateContextCore(extension, properties, out context);
         }
 
-        public bool TryCreateContextForNode(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+        public bool TryCreateContextForNode(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
         {
             return TryCreateContextCore(extension, properties, out context);
         }
 
-        public bool TryCreateContextForListItem(PropertyEditorExtension extension, IAbstractProperty property, [NotNullWhen(true)] out IPropertyEditorContext? context)
+        public bool TryCreateContextForListItem(PropertyEditorExtension extension, IPropertyAdapter property, [NotNullWhen(true)] out IPropertyEditorContext? context)
         {
             BaseEditorViewModel? viewModel = null;
             bool result = false;
@@ -287,7 +287,7 @@ public static class PropertyEditorService
                 }
             }
 
-            if (!result && TryCreateContextCore(extension, new IAbstractProperty[] { property }, out IPropertyEditorContext? tmp1))
+            if (!result && TryCreateContextCore(extension, new IPropertyAdapter[] { property }, out IPropertyEditorContext? tmp1))
             {
                 context = tmp1;
                 return true;
@@ -298,12 +298,12 @@ public static class PropertyEditorService
             return result;
         }
 
-        public bool TryCreateContextForSettings(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+        public bool TryCreateContextForSettings(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
         {
             return TryCreateContextCore(extension, properties, out context);
         }
 
-        private static bool TryCreateContextCore(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+        private static bool TryCreateContextCore(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
         {
             BaseEditorViewModel? viewModel = null;
             bool result = false;
@@ -405,7 +405,7 @@ public static class PropertyEditorService
             control = null;
             try
             {
-                if (context is BaseEditorViewModel { WrappedProperty: { } property })
+                if (context is BaseEditorViewModel { PropertyAdapter: { } property })
                 {
                     if (s_listItemEditorsOverride.TryGetValue(property.PropertyType, out ListItemEditor editor))
                     {
@@ -497,7 +497,7 @@ public static class PropertyEditorService
             control = null;
             try
             {
-                if (context is BaseEditorViewModel { WrappedProperty: { } property })
+                if (context is BaseEditorViewModel { PropertyAdapter: { } property })
                 {
                     if (property.GetCoreProperty() is { Id: int propId } coreProp)
                     {

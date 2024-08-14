@@ -39,19 +39,19 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
         Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
     {
         Type objType = obj.GetType();
-        Type wrapperType = typeof(CorePropertyImpl<>);
+        Type adapterType = typeof(CorePropertyAdapter<>);
 
         List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
         cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
-        List<IAbstractProperty> props = cprops.ConvertAll(x =>
+        List<IPropertyAdapter> props = cprops.ConvertAll(x =>
         {
             CorePropertyMetadata metadata = x.GetMetadata<CorePropertyMetadata>(objType);
-            Type wrapperGType = wrapperType.MakeGenericType(x.PropertyType);
-            return (IAbstractProperty)Activator.CreateInstance(wrapperGType, x, obj)!;
+            Type adapterGType = adapterType.MakeGenericType(x.PropertyType);
+            return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
         });
 
         var tempItems = new List<IPropertyEditorContext?>(props.Count);
-        IAbstractProperty[]? foundItems;
+        IPropertyAdapter[]? foundItems;
         PropertyEditorExtension? extension;
 
         do
@@ -98,9 +98,9 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
 
     private static DisplayAttribute? GetDisplayAttribute(IPropertyEditorContext? context)
     {
-        if (context is BaseEditorViewModel { WrappedProperty: { } abProperty }
-            && abProperty.GetCoreProperty() is { } coreProperty
-            && coreProperty.TryGetMetadata(abProperty.ImplementedType, out CorePropertyMetadata? metadata))
+        if (context is BaseEditorViewModel { PropertyAdapter: { } adapter }
+            && adapter.GetCoreProperty() is { } coreProperty
+            && coreProperty.TryGetMetadata(adapter.ImplementedType, out CorePropertyMetadata? metadata))
         {
             return metadata.DisplayAttribute;
         }

@@ -54,7 +54,7 @@ public sealed partial class PropertyEditorMenu : UserControl
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel viewModel
-            && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty
+            && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
             && viewModel.GetService<EditViewModel>() is { } editViewModel)
         {
             viewModel.PrepareToEditAnimation();
@@ -70,7 +70,7 @@ public sealed partial class PropertyEditorMenu : UserControl
     private void RemoveAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel viewModel
-            && viewModel.WrappedProperty is IAbstractAnimatableProperty { Animation: { } animation }
+            && viewModel.PropertyAdapter is IAnimatablePropertyAdapter { Animation: { } animation }
             && viewModel.GetService<EditViewModel>() is { } editViewModel)
         {
             (editViewModel as ISupportCloseAnimation).Close(animation);
@@ -81,7 +81,7 @@ public sealed partial class PropertyEditorMenu : UserControl
     private void EditInlineAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel viewModel
-            && viewModel.WrappedProperty is IAbstractAnimatableProperty animatableProperty
+            && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
             && viewModel.GetService<EditViewModel>() is { } editViewModel
             && viewModel.GetService<Element>() is { } element
             && editViewModel.FindToolTab<TimelineViewModel>() is { } timeline)

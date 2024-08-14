@@ -5,8 +5,8 @@ using Beutl.Reactive;
 
 namespace Beutl.Operators.Configure;
 
-public sealed class AnimatableCorePropertyImpl<T>(CoreProperty<T> property, Animatable obj)
-    : CorePropertyImpl<T>(property, obj), IAbstractAnimatableProperty<T>
+public sealed class AnimatablePropertyAdapter<T>(CoreProperty<T> property, Animatable obj)
+    : CorePropertyAdapter<T>(property, obj), IAnimatablePropertyAdapter<T>
 {
     private sealed class AnimationObservable(CoreProperty<T> property, Animatable obj) : LightweightObservableBase<IAnimation<T>?>
     {

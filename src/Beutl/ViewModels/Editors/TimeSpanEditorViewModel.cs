@@ -4,7 +4,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class TimeSpanEditorViewModel : ValueEditorViewModel<TimeSpan>
 {
-    public TimeSpanEditorViewModel(IAbstractProperty<TimeSpan> property)
+    public TimeSpanEditorViewModel(IPropertyAdapter<TimeSpan> property)
         : base(property)
     {
         Text = Value

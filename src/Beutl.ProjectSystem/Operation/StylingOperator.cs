@@ -20,14 +20,14 @@ using static Beutl.Operation.StylingOperatorPropertyDefinition;
 
 namespace Beutl.Operation;
 
-public interface IStylingSetterPropertyImpl : IAbstractProperty
+public interface ISetterAdapter : IPropertyAdapter
 {
     ISetter Setter { get; }
 
     IStyle Style { get; }
 }
 
-public sealed class StylingSetterPropertyImpl<T>(Setter<T> setter, Style style) : IAbstractAnimatableProperty<T>, IStylingSetterPropertyImpl
+public sealed class SetterAdapter<T>(Setter<T> setter, Style style) : IAnimatablePropertyAdapter<T>, ISetterAdapter
 {
     private sealed class AnimationObservable : LightweightObservableBase<IAnimation<T>?>
     {
@@ -104,11 +104,11 @@ public sealed class StylingSetterPropertyImpl<T>(Setter<T> setter, Style style) 
 
     public Type ImplementedType => Style.TargetType;
 
-    CoreProperty? IAbstractProperty.GetCoreProperty() => Property;
+    CoreProperty? IPropertyAdapter.GetCoreProperty() => Property;
 
-    ISetter IStylingSetterPropertyImpl.Setter => Setter;
+    ISetter ISetterAdapter.Setter => Setter;
 
-    IStyle IStylingSetterPropertyImpl.Style => Style;
+    IStyle ISetterAdapter.Style => Style;
 
     public IObservable<T?> GetObservable()
     {
@@ -272,12 +272,12 @@ public abstract class StylingOperator : SourceOperator
 
                     value.Invalidated += OnInvalidated;
                     value.Setters.CollectionChanged += Setters_CollectionChanged;
-                    Type propType = typeof(StylingSetterPropertyImpl<>);
+                    Type propType = typeof(SetterAdapter<>);
                     Properties.AddRange(value.Setters.OfType<ISetter>()
                         .Select(x =>
                         {
                             Type type = propType.MakeGenericType(x.Property.PropertyType);
-                            return (IAbstractProperty)Activator.CreateInstance(type, x, _style)!;
+                            return (IPropertyAdapter)Activator.CreateInstance(type, x, _style)!;
                         }));
                 }
             }
@@ -333,13 +333,13 @@ public abstract class StylingOperator : SourceOperator
     {
         void Add(int index, IList list)
         {
-            Type propType = typeof(StylingSetterPropertyImpl<>);
+            Type propType = typeof(SetterAdapter<>);
 
             Properties.InsertRange(index, list.OfType<ISetter>()
                 .Select(x =>
                 {
                     Type type = propType.MakeGenericType(x.Property.PropertyType);
-                    return (IAbstractProperty)Activator.CreateInstance(type, x, Style)!;
+                    return (IPropertyAdapter)Activator.CreateInstance(type, x, Style)!;
                 }));
         }
 

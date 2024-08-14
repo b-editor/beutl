@@ -427,7 +427,7 @@ public sealed class TimelineViewModel : IToolContext
                 y => y.Id,
                 (x, y) => (y, x.AnimationId)))
         {
-            IAbstractAnimatableProperty? anmProp = null;
+            IAnimatablePropertyAdapter? anmProp = null;
             Animatable? animatable = null;
 
             void FindAndSetAncestor(Span<object> span, KeyFrameAnimation kfAnm)
@@ -436,7 +436,7 @@ public sealed class TimelineViewModel : IToolContext
                 {
                     switch (span[i])
                     {
-                        case IAbstractAnimatableProperty anmProp2 when ReferenceEquals(anmProp2.Animation, kfAnm):
+                        case IAnimatablePropertyAdapter anmProp2 when ReferenceEquals(anmProp2.Animation, kfAnm):
                             anmProp = anmProp2;
                             return;
                         case Animatable animatable2:
@@ -477,8 +477,8 @@ public sealed class TimelineViewModel : IToolContext
                 {
                     try
                     {
-                        Type type = typeof(AnimatableCorePropertyImpl<>).MakeGenericType(anm.Property.PropertyType);
-                        var createdProp = (IAbstractAnimatableProperty)Activator.CreateInstance(type, anm.Property, animatable)!;
+                        Type type = typeof(AnimatablePropertyAdapter<>).MakeGenericType(anm.Property.PropertyType);
+                        var createdProp = (IAnimatablePropertyAdapter)Activator.CreateInstance(type, anm.Property, animatable)!;
                         AttachInline(createdProp!, element);
                     }
                     catch (Exception ex)
@@ -524,7 +524,7 @@ public sealed class TimelineViewModel : IToolContext
         json[nameof(Inlines)] = inlines;
     }
 
-    public void AttachInline(IAbstractAnimatableProperty property, Element element)
+    public void AttachInline(IAnimatablePropertyAdapter property, Element element)
     {
         if (!Inlines.Any(x => x.Element.Model == element && x.Property == property)
             && GetViewModelFor(element) is { } viewModel)

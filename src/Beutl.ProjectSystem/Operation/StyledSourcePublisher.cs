@@ -83,7 +83,7 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
 
     private void RemovePrimaryProperties()
     {
-        ICoreList<IAbstractProperty> props = Properties;
+        ICoreList<IPropertyAdapter> props = Properties;
         for (int i = props.Count - 1; i >= 0; i--)
         {
             if (IsPrimaryProperty(props[i]))
@@ -93,7 +93,7 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
         }
     }
 
-    private static bool IsPrimaryProperty(IAbstractProperty property)
+    private static bool IsPrimaryProperty(IPropertyAdapter property)
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         CoreProperty? coreProp = property.GetCoreProperty();

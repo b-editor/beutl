@@ -10,7 +10,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class ListItemAccessorImpl<T> : IAbstractProperty<T>
+public sealed class ListItemAccessorImpl<T> : IPropertyAdapter<T>
 {
     private readonly ReactivePropertySlim<T?> _inner = new();
     private readonly IList<T?> _list;
@@ -77,7 +77,7 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEdito
         Parent = parent;
         ItemAccessor = itemAccessor;
 
-        var tmp = new IAbstractProperty[] { itemAccessor };
+        var tmp = new IPropertyAdapter[] { itemAccessor };
         (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(tmp);
         if (ext?.TryCreateContextForListItem(itemAccessor, out IPropertyEditorContext? context) == true)
         {
@@ -117,7 +117,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
     private static readonly NotifyCollectionChangedEventArgs s_resetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
     private INotifyCollectionChanged? _incc;
 
-    public ListEditorViewModel(IAbstractProperty property)
+    public ListEditorViewModel(IPropertyAdapter property)
         : base(property)
     {
         List = property.GetObservable()
@@ -256,8 +256,8 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         if (List.Value == null)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            Type listType = WrappedProperty.PropertyType;
-            if (WrappedProperty.IsReadOnly)
+            Type listType = PropertyAdapter.PropertyType;
+            if (PropertyAdapter.IsReadOnly)
                 throw new InvalidOperationException("読み取り専用です。");
 
             if (listType.IsInterface || listType.IsAbstract)
@@ -265,7 +265,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
             var list = Activator.CreateInstance(listType) as IList<TItem>;
 
-            IAbstractProperty prop = WrappedProperty;
+            IPropertyAdapter prop = PropertyAdapter;
 
             RecordableCommands.Create(GetStorables())
                 .OnDo(() => prop.SetValue(list))
@@ -284,10 +284,10 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         if (List.Value != null)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            if (WrappedProperty.IsReadOnly)
+            if (PropertyAdapter.IsReadOnly)
                 throw new InvalidOperationException("読み取り専用です。");
 
-            IAbstractProperty prop = WrappedProperty;
+            IPropertyAdapter prop = PropertyAdapter;
             IList<TItem?> oldValue = List.Value;
 
             RecordableCommands.Create(GetStorables())

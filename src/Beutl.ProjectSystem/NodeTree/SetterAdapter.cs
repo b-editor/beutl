@@ -8,7 +8,7 @@ using Beutl.Styling;
 
 namespace Beutl.NodeTree;
 
-public sealed class SetterPropertyImpl<T>(Setter<T> setter, Type implementedType) : IAbstractAnimatableProperty<T>
+public sealed class SetterAdapter<T>(Setter<T> setter, Type implementedType) : IAnimatablePropertyAdapter<T>
 {
     private sealed class AnimationObservable : LightweightObservableBase<IAnimation<T>?>
     {
@@ -83,7 +83,7 @@ public sealed class SetterPropertyImpl<T>(Setter<T> setter, Type implementedType
 
     public bool IsReadOnly => false;
 
-    CoreProperty? IAbstractProperty.GetCoreProperty() => Property;
+    CoreProperty? IPropertyAdapter.GetCoreProperty() => Property;
 
     public IObservable<T?> GetObservable()
     {

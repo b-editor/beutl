@@ -17,7 +17,7 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
 {
     private IDisposable? _disposable;
 
-    public GradientStopsEditorViewModel(IAbstractProperty<GradientStops> property)
+    public GradientStopsEditorViewModel(IPropertyAdapter<GradientStops> property)
         : base(property)
     {
         GradientStops? initValue = property.GetValue();

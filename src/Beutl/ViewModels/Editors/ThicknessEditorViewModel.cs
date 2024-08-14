@@ -10,7 +10,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thickness>, IConfigureUniformEditor
 {
-    public ThicknessEditorViewModel(IAbstractProperty<Graphics.Thickness> property)
+    public ThicknessEditorViewModel(IPropertyAdapter<Graphics.Thickness> property)
         : base(property)
     {
         FirstValue = Value

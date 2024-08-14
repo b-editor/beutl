@@ -11,7 +11,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSource?>
 {
-    public SoundSourceEditorViewModel(IAbstractProperty<ISoundSource?> property)
+    public SoundSourceEditorViewModel(IPropertyAdapter<ISoundSource?> property)
         : base(property)
     {
         FullName = Value.Select(x => x?.Name)
@@ -40,7 +40,7 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
             else
             {
                 recorder.DoAndPush(
-                    new SetCommand(WrappedProperty, oldValue, newValue, GetStorables()));
+                    new SetCommand(PropertyAdapter, oldValue, newValue, GetStorables()));
             }
         }
     }
@@ -89,7 +89,7 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
     }
 
     private sealed class SetCommand(
-        IAbstractProperty<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue,
+        IPropertyAdapter<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue,
         ImmutableArray<IStorable?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;

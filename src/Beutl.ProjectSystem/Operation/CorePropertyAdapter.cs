@@ -1,8 +1,8 @@
 ﻿using Beutl.Extensibility;
 
-namespace Beutl.Operators.Configure;
+namespace Beutl.Operation;
 
-public class CorePropertyImpl<T>(CoreProperty<T> property, ICoreObject obj) : IAbstractProperty<T>
+internal class CorePropertyAdapter<T>(CoreProperty<T> property, ICoreObject obj) : IPropertyAdapter<T>
 {
     private Type? _implementedType;
     private IObservable<T?>? _observable;
@@ -35,7 +35,7 @@ public class CorePropertyImpl<T>(CoreProperty<T> property, ICoreObject obj) : IA
 
     public bool IsReadOnly => Property is IStaticProperty { CanRead: false };
 
-    CoreProperty? IAbstractProperty.GetCoreProperty() => Property;
+    CoreProperty? IPropertyAdapter.GetCoreProperty() => Property;
 
     public object? GetDefaultValue()
     {

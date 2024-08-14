@@ -68,7 +68,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
         };
     }
 
-    public TransformEditorViewModel(IAbstractProperty<ITransform?> property)
+    public TransformEditorViewModel(IPropertyAdapter<ITransform?> property)
         : base(property)
     {
         TransformType = Value.Select(GetTransformType)
@@ -99,7 +99,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
 
                     if (v is TransformGroup group)
                     {
-                        var prop = new CorePropertyImpl<Transforms>(TransformGroup.ChildrenProperty, group);
+                        var prop = new CorePropertyAdapter<Transforms>(TransformGroup.ChildrenProperty, group);
                         Group.Value = new ListEditorViewModel<ITransform?>(prop)
                         {
                             IsExpanded = { Value = true }

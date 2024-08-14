@@ -226,9 +226,9 @@ public abstract class Node : Hierarchical
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
         var setter = new Setter<T>(property);
-        var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
+        var adapter = new SetterAdapter<T>(setter, property.OwnerType);
         var socket = new InputSocketForSetter<T>() { LocalId = localId };
-        socket.SetProperty(propImpl);
+        socket.SetPropertyAdapter(adapter);
         return socket;
     }
 
@@ -241,10 +241,10 @@ public abstract class Node : Hierarchical
 
         Type propertyType = property.PropertyType;
         object setter = Activator.CreateInstance(typeof(Setter<>).MakeGenericType(propertyType), property)!;
-        object propImpl = Activator.CreateInstance(typeof(SetterPropertyImpl<>).MakeGenericType(propertyType), setter, property.OwnerType)!;
+        object adapter = Activator.CreateInstance(typeof(SetterAdapter<>).MakeGenericType(propertyType), setter, property.OwnerType)!;
         var socket = (IInputSocketForSetter)Activator.CreateInstance(typeof(InputSocketForSetter<>).MakeGenericType(propertyType))!;
         socket.LocalId = localId;
-        socket.SetProperty(propImpl);
+        socket.SetPropertyAdapter(adapter);
         return socket;
     }
 
@@ -256,9 +256,9 @@ public abstract class Node : Hierarchical
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
         var setter = new Setter<T>(property);
-        var propImpl = new SetterPropertyImpl<T>(setter, typeof(TOwner));
+        var adapter = new SetterAdapter<T>(setter, typeof(TOwner));
         var socket = new InputSocketForSetter<T>() { LocalId = localId };
-        socket.SetProperty(propImpl);
+        socket.SetPropertyAdapter(adapter);
         return socket;
     }
 
@@ -270,9 +270,9 @@ public abstract class Node : Hierarchical
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
         var setter = new Setter<T>(property, value);
-        var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
+        var adapter = new SetterAdapter<T>(setter, property.OwnerType);
         var socket = new InputSocketForSetter<T>() { LocalId = localId };
-        socket.SetProperty(propImpl);
+        socket.SetPropertyAdapter(adapter);
         return socket;
     }
 
@@ -284,9 +284,9 @@ public abstract class Node : Hierarchical
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
         var setter = new Setter<T>(property, value);
-        var propImpl = new SetterPropertyImpl<T>(setter, typeof(TOwner));
+        var adapter = new SetterAdapter<T>(setter, typeof(TOwner));
         var socket = new InputSocketForSetter<T>() { LocalId = localId };
-        socket.SetProperty(propImpl);
+        socket.SetPropertyAdapter(adapter);
         return socket;
     }
 
@@ -370,9 +370,9 @@ public abstract class Node : Hierarchical
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
         var setter = new Setter<T>(property);
-        var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
+        var adapter = new SetterAdapter<T>(setter, property.OwnerType);
         var socket = new NodeItemForSetter<T>();
-        socket.SetProperty(propImpl);
+        socket.SetProperty(adapter);
         socket.LocalId = localId;
         return socket;
     }
@@ -385,9 +385,9 @@ public abstract class Node : Hierarchical
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
         var setter = new Setter<T>(property, value);
-        var propImpl = new SetterPropertyImpl<T>(setter, property.OwnerType);
+        var adapter = new SetterAdapter<T>(setter, property.OwnerType);
         var socket = new NodeItemForSetter<T>();
-        socket.SetProperty(propImpl);
+        socket.SetProperty(adapter);
         socket.LocalId = localId;
         return socket;
     }

@@ -6,7 +6,7 @@ using Beutl.Media;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class FontFamilyEditorViewModel(IAbstractProperty<FontFamily?> property) : ValueEditorViewModel<FontFamily?>(property)
+public sealed class FontFamilyEditorViewModel(IPropertyAdapter<FontFamily?> property) : ValueEditorViewModel<FontFamily?>(property)
 {
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {

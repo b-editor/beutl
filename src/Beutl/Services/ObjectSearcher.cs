@@ -80,7 +80,7 @@ public class ObjectSearcher
                     }
                     break;
 
-                case IAbstractProperty property:
+                case IPropertyAdapter property:
                     {
                         if (!property.PropertyType.IsValueType
                             && property.GetValue() is { } value
@@ -89,7 +89,7 @@ public class ObjectSearcher
                             return result1;
                         }
 
-                        if (property is IAbstractAnimatableProperty { Animation: { } animation }
+                        if (property is IAnimatablePropertyAdapter { Animation: { } animation }
                             && SearchRecursive(animation) is { } result2)
                         {
                             return result2;
@@ -140,7 +140,7 @@ public class ObjectSearcher
                     }
                     break;
 
-                case IAbstractProperty property:
+                case IPropertyAdapter property:
                     {
                         if (!property.PropertyType.IsValueType
                             && property.GetValue() is { } value)
@@ -148,7 +148,7 @@ public class ObjectSearcher
                             SearchAllRecursive(value, list);
                         }
 
-                        if (property is IAbstractAnimatableProperty { Animation: { } animation })
+                        if (property is IAnimatablePropertyAdapter { Animation: { } animation })
                         {
                             SearchAllRecursive(animation, list);
                         }
