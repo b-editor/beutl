@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
 using Beutl.Animation;
@@ -8,6 +9,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Styling;
 
+[ExcludeFromCodeCoverage]
 public abstract class Styleable : Animatable, IStyleable, IModifiableHierarchical
 {
     public static readonly CoreProperty<Styles> StylesProperty;

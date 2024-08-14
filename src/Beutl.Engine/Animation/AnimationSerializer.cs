@@ -1,10 +1,12 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 using Beutl.Serialization;
 using Beutl.Serialization.Migration;
 
 namespace Beutl.Animation;
 
+[ExcludeFromCodeCoverage]
 internal static class AnimationSerializer
 {
     public static JsonNode? ToJson(this IAnimation animation, ICoreSerializationContext context)

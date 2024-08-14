@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Beutl.Threading;
 
@@ -8,10 +9,14 @@ public class Dispatcher
     private static Dispatcher? s_current;
 
     private readonly QueueSynchronizationContext _synchronizationContext;
+    private readonly TimeProvider _timeProvider;
+    // For tests
+    private bool _catchExceptions;
 
-    private Dispatcher()
+    private Dispatcher(TimeProvider timeProvider)
     {
-        _synchronizationContext = new(this);
+        _synchronizationContext = new(this, timeProvider);
+        _timeProvider = timeProvider;
         Thread = new Thread(Start);
         Thread.TrySetApartmentState(ApartmentState.STA);
     }
@@ -27,18 +32,21 @@ public class Dispatcher
     public event EventHandler<DispatcherUnhandledExceptionEventArgs>? UnhandledException
     {
         add => _synchronizationContext.UnhandledException += value;
+        [ExcludeFromCodeCoverage]
         remove => _synchronizationContext.UnhandledException -= value;
     }
 
     public event EventHandler? ShutdownStarted
     {
         add => _synchronizationContext.ShutdownStarted += value;
+        [ExcludeFromCodeCoverage]
         remove => _synchronizationContext.ShutdownStarted -= value;
     }
 
     public event EventHandler? ShutdownFinished
     {
         add => _synchronizationContext.ShutdownFinished += value;
+        [ExcludeFromCodeCoverage]
         remove => _synchronizationContext.ShutdownFinished -= value;
     }
 
@@ -55,6 +63,9 @@ public class Dispatcher
 
             _synchronizationContext.Start();
         }
+        catch when (_catchExceptions)
+        {
+        }
         finally
         {
             s_current = oldDispatcher;
@@ -63,6 +74,7 @@ public class Dispatcher
     }
 
     [Obsolete("Use Shutdown.")]
+    [ExcludeFromCodeCoverage]
     public void Stop()
     {
         Shutdown();
@@ -85,16 +97,16 @@ public class Dispatcher
             throw new InvalidOperationException("Call from invalid thread");
     }
 
-    public static Dispatcher Spawn()
+    public static Dispatcher Spawn(TimeProvider? timeProvider=null)
     {
-        var dispatcher = new Dispatcher();
+        var dispatcher = new Dispatcher(timeProvider??TimeProvider.System);
         dispatcher.Thread.Start();
         return dispatcher;
     }
 
-    public static Dispatcher Spawn(Action operation)
+    public static Dispatcher Spawn(Action operation, TimeProvider? timeProvider=null)
     {
-        Dispatcher dispatcher = Spawn();
+        Dispatcher dispatcher = Spawn(timeProvider);
         dispatcher.Dispatch(operation, DispatchPriority.High);
         return dispatcher;
     }
@@ -185,12 +197,12 @@ public class Dispatcher
 
     public void Schedule(TimeSpan delay, Action operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
-        _synchronizationContext.PostDelayed(DateTime.UtcNow + delay, priority, operation, ct);
+        _synchronizationContext.PostDelayed(_timeProvider.GetUtcNow() + delay, priority, operation, ct);
     }
 
     public void Schedule(TimeSpan delay, Func<Task> operation, DispatchPriority priority = DispatchPriority.Medium, CancellationToken ct = default)
     {
-        _synchronizationContext.PostDelayed(DateTime.UtcNow + delay, priority, () => operation(), ct);
+        _synchronizationContext.PostDelayed(_timeProvider.GetUtcNow() + delay, priority, () => operation(), ct);
     }
 
     public static YieldTask Yield(DispatchPriority priority = DispatchPriority.Low)

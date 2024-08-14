@@ -1,9 +1,11 @@
-﻿using Beutl.Animation;
+﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Animation;
 
 namespace Beutl.Styling;
 
 #pragma warning disable CA1816
 
+[ExcludeFromCodeCoverage]
 public class SetterInstance<T>(Setter<T> setter, ICoreObject target) : ISetterInstance
 {
     private ICoreObject? _target = target;

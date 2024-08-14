@@ -1,9 +1,11 @@
-﻿namespace Beutl.Utilities;
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Beutl.Utilities;
 
 public static class MathUtilities
 {
     // smallest such that 1.0+DoubleEpsilon != 1.0
-    internal static readonly double s_doubleEpsilon = 2.2204460492503131e-016;
+    public const double DoubleEpsilon = 2.2204460492503131e-016;
 
     public const float FloatEpsilon = 1.192092896e-07F;
 
@@ -29,16 +31,16 @@ public static class MathUtilities
     }
 
     /// <summary>
-    /// AreClose - Returns whether or not two doubles are "close".  That is, whether or 
+    /// AreClose - Returns whether or not two doubles are "close".  That is, whether or
     /// not they are within epsilon of each other.
-    /// </summary> 
+    /// </summary>
     /// <param name="value1"> The first double to compare. </param>
     /// <param name="value2"> The second double to compare. </param>
     public static bool AreClose(double value1, double value2)
     {
         //in case they are Infinities (then epsilon check does not work)
         if (value1 == value2) return true;
-        double eps = (Math.Abs(value1) + Math.Abs(value2) + 10.0) * s_doubleEpsilon;
+        double eps = (Math.Abs(value1) + Math.Abs(value2) + 10.0) * DoubleEpsilon;
         double delta = value1 - value2;
         return (-eps < delta) && (eps > delta);
     }
@@ -59,9 +61,9 @@ public static class MathUtilities
     }
 
     /// <summary>
-    /// AreClose - Returns whether or not two floats are "close".  That is, whether or 
+    /// AreClose - Returns whether or not two floats are "close".  That is, whether or
     /// not they are within epsilon of each other.
-    /// </summary> 
+    /// </summary>
     /// <param name="value1"> The first float to compare. </param>
     /// <param name="value2"> The second float to compare. </param>
     public static bool AreClose(float value1, float value2)
@@ -176,7 +178,7 @@ public static class MathUtilities
     /// <param name="value"> The double to compare to 1. </param>
     public static bool IsOne(double value)
     {
-        return Math.Abs(value - 1.0) < 10.0 * s_doubleEpsilon;
+        return Math.Abs(value - 1.0) < 10.0 * DoubleEpsilon;
     }
 
     /// <summary>
@@ -196,7 +198,7 @@ public static class MathUtilities
     /// <param name="value"> The double to compare to 0. </param>
     public static bool IsZero(double value)
     {
-        return Math.Abs(value) < 10.0 * s_doubleEpsilon;
+        return Math.Abs(value) < 10.0 * DoubleEpsilon;
     }
 
     /// <summary>
@@ -207,6 +209,34 @@ public static class MathUtilities
     public static bool IsZero(float value)
     {
         return Math.Abs(value) < 10.0f * FloatEpsilon;
+    }
+
+    /// <summary>
+    /// Clamps a value between a minimum and maximum value.
+    /// </summary>
+    /// <param name="val">The value.</param>
+    /// <param name="min">The minimum value.</param>
+    /// <param name="max">The maximum value.</param>
+    /// <returns>The clamped value.</returns>
+    public static float Clamp(float val, float min, float max)
+    {
+        if (min > max)
+        {
+            ThrowCannotBeGreaterThanException(min, max);
+        }
+
+        if (val < min)
+        {
+            return min;
+        }
+        else if (val > max)
+        {
+            return max;
+        }
+        else
+        {
+            return val;
+        }
     }
 
     /// <summary>
@@ -343,6 +373,7 @@ public static class MathUtilities
         return angle * 2 * MathF.PI;
     }
 
+    [DoesNotReturn]
     private static void ThrowCannotBeGreaterThanException<T>(T min, T max)
     {
         throw new ArgumentException($"{min} cannot be greater than {max}.");

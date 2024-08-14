@@ -1,9 +1,9 @@
 ﻿namespace Beutl.Threading;
 
-internal sealed class QueueSynchronizationContext(Dispatcher dispatcher) : SynchronizationContext
+internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimeProvider timeProvider) : SynchronizationContext
 {
     private readonly OperationQueue _operationQueue = new();
-    private readonly TimerQueue _timerQueue = new();
+    private readonly TimerQueue _timerQueue = new(timeProvider);
 
     private bool _running;
     private CancellationTokenSource? _waitToken;
@@ -77,8 +77,8 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher) : Synch
         {
             _waitToken = new CancellationTokenSource();
 
-            if (_timerQueue.Next is DateTime next)
-                _waitToken.CancelAfter(next - DateTime.UtcNow);
+            if (_timerQueue.Next is { } next)
+                _waitToken.CancelAfter(next - timeProvider.GetUtcNow());
         }
 
         _waitToken.Token.WaitHandle.WaitOne();
@@ -131,7 +131,7 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher) : Synch
         }
     }
 
-    internal void PostDelayed(DateTime dateTime, DispatchPriority priority, Action action, CancellationToken ct)
+    internal void PostDelayed(DateTimeOffset dateTime, DispatchPriority priority, Action action, CancellationToken ct)
     {
         _timerQueue.Enqueue(dateTime, priority, action, ct);
         lock (this)

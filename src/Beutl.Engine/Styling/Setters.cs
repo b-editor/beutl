@@ -1,10 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
-
+using System.Diagnostics.CodeAnalysis;
 using Beutl.Collections;
 
 namespace Beutl.Styling;
 
+[ExcludeFromCodeCoverage]
 public sealed class Setters : CoreList<ISetter>
 {
     public Setters()

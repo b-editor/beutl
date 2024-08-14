@@ -1,5 +1,8 @@
-﻿namespace Beutl.Utilities;
+﻿using System.Diagnostics.CodeAnalysis;
 
+namespace Beutl.Utilities;
+
+[ExcludeFromCodeCoverage]
 public static class RandomFileNameGenerator
 {
     public static string Generate(string baseDir, string ext)

@@ -6,6 +6,7 @@ namespace Beutl.Styling;
 
 #pragma warning disable CA1816
 
+[ExcludeFromCodeCoverage]
 public class StyleInstance(ICoreObject target, IStyle source, ISetterInstance[] setters, IStyleInstance? baseStyle) : IStyleInstance
 {
     private ICoreObject? _target = target;

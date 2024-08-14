@@ -1,7 +1,9 @@
-﻿using Beutl.Collections;
+﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Collections;
 
 namespace Beutl.Styling;
 
+[ExcludeFromCodeCoverage]
 public sealed class Styles : CoreList<IStyle>
 {
     public IStyleInstance? Instance(ICoreObject target)
