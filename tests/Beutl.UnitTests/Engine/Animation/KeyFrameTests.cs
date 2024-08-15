@@ -29,7 +29,8 @@ public class KeyFrameTests
     {
         var keyFrame = new KeyFrame<int>
         {
-            Easing = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f), KeyTime = TimeSpan.FromSeconds(1)
+            Easing = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f),
+            KeyTime = TimeSpan.FromSeconds(1)
         };
         var context = new Mock<ICoreSerializationContext>();
         var jsonObject = new JsonObject();
