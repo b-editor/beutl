@@ -97,14 +97,14 @@ public class Dispatcher
             throw new InvalidOperationException("Call from invalid thread");
     }
 
-    public static Dispatcher Spawn(TimeProvider? timeProvider=null)
+    public static Dispatcher Spawn(TimeProvider? timeProvider = null)
     {
-        var dispatcher = new Dispatcher(timeProvider??TimeProvider.System);
+        var dispatcher = new Dispatcher(timeProvider ?? TimeProvider.System);
         dispatcher.Thread.Start();
         return dispatcher;
     }
 
-    public static Dispatcher Spawn(Action operation, TimeProvider? timeProvider=null)
+    public static Dispatcher Spawn(Action operation, TimeProvider? timeProvider = null)
     {
         Dispatcher dispatcher = Spawn(timeProvider);
         dispatcher.Dispatch(operation, DispatchPriority.High);
