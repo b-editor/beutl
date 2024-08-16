@@ -4,7 +4,7 @@ using System.Reflection;
 using Avalonia.Controls;
 
 using Beutl.Controls.Navigation;
-using Beutl.Rendering;
+using Beutl.Graphics.Rendering;
 using Beutl.Threading;
 
 using Reactive.Bindings;

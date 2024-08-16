@@ -1,5 +1,4 @@
-﻿using Beutl.Rendering.Cache;
-
+﻿using Beutl.Graphics.Rendering.Cache;
 using SkiaSharp;
 
 namespace Beutl.Graphics;

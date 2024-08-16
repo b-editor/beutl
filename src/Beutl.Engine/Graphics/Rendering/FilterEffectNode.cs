@@ -2,10 +2,9 @@
 using System.Diagnostics;
 
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Source;
-using Beutl.Rendering.Cache;
-
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;

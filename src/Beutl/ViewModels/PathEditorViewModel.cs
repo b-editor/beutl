@@ -4,7 +4,6 @@ using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.Rendering;
 using Beutl.ViewModels.Editors;
 
 using DynamicData;

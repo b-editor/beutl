@@ -3,7 +3,6 @@ using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
-using Beutl.Rendering;
 
 namespace Beutl.Graphics.Rendering;
 

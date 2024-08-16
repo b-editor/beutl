@@ -8,7 +8,6 @@ using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Rendering.Cache;
 using Beutl.Serialization;
 using Beutl.Utilities;
 

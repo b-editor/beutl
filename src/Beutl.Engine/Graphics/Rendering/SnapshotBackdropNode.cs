@@ -1,6 +1,6 @@
-﻿using Beutl.Media;
+﻿using Beutl.Graphics.Rendering.Cache;
+using Beutl.Media;
 using Beutl.Media.Pixel;
-using Beutl.Rendering.Cache;
 
 namespace Beutl.Graphics.Rendering;
 

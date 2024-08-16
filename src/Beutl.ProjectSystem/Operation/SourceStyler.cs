@@ -2,7 +2,7 @@
 
 using Beutl.Animation;
 using Beutl.Collections;
-using Beutl.Rendering;
+using Beutl.Graphics.Rendering;
 using Beutl.Styling;
 
 namespace Beutl.Operation;

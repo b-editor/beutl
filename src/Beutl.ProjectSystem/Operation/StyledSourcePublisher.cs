@@ -5,7 +5,7 @@ using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Extensibility;
 using Beutl.Graphics;
-using Beutl.Rendering;
+using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 using Beutl.Styling;
 

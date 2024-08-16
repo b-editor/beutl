@@ -1,9 +1,9 @@
 ﻿using Beutl.Animation;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using Beutl.Rendering;
 using Beutl.Styling;
 
 namespace Beutl.Operation;

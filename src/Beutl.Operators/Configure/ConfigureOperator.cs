@@ -1,7 +1,7 @@
 ﻿using Beutl.Animation;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Operation;
-using Beutl.Rendering;
 using Beutl.Styling;
 
 namespace Beutl.Operators.Configure;
