@@ -7,7 +7,7 @@ namespace Beutl.NodeTree;
 
 public sealed class NodeItemForSetter<T> : NodeItem<T>
 {
-    public void SetProperty(SetterPropertyImpl<T> property)
+    public void SetProperty(SetterAdapter<T> property)
     {
         Property = property;
         property.Setter.Invalidated += OnSetterInvalidated;
@@ -18,9 +18,9 @@ public sealed class NodeItemForSetter<T> : NodeItem<T>
         RaiseInvalidated(new RenderInvalidatedEventArgs(this));
     }
 
-    public SetterPropertyImpl<T>? GetProperty()
+    public SetterAdapter<T>? GetProperty()
     {
-        return Property as SetterPropertyImpl<T>;
+        return Property as SetterAdapter<T>;
     }
 
     public override void Serialize(ICoreSerializationContext context)

@@ -6,15 +6,15 @@ namespace Beutl.Extensibility;
 
 internal interface IPropertyEditorExtensionImpl
 {
-    IEnumerable<IAbstractProperty> MatchProperty(IReadOnlyList<IAbstractProperty> properties);
+    IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties);
 
-    bool TryCreateContext(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
+    bool TryCreateContext(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
 
-    bool TryCreateContextForNode(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
+    bool TryCreateContextForNode(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
 
-    bool TryCreateContextForListItem(PropertyEditorExtension extension, IAbstractProperty property, [NotNullWhen(true)] out IPropertyEditorContext? context);
+    bool TryCreateContextForListItem(PropertyEditorExtension extension, IPropertyAdapter property, [NotNullWhen(true)] out IPropertyEditorContext? context);
 
-    bool TryCreateContextForSettings(PropertyEditorExtension extension, IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
+    bool TryCreateContextForSettings(PropertyEditorExtension extension, IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context);
 
     bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control);
 
@@ -42,12 +42,12 @@ public class PropertyEditorExtension : Extension
 
     public override string DisplayName => "";
 
-    public virtual IEnumerable<IAbstractProperty> MatchProperty(IReadOnlyList<IAbstractProperty> properties)
+    public virtual IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
     {
         return DefaultHandler.MatchProperty(properties);
     }
 
-    public virtual bool TryCreateContext(IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+    public virtual bool TryCreateContext(IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
     {
         return DefaultHandler.TryCreateContext(this, properties, out context);
     }
@@ -57,7 +57,7 @@ public class PropertyEditorExtension : Extension
         return DefaultHandler.TryCreateControl(context, out control);
     }
 
-    public virtual bool TryCreateContextForNode(IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+    public virtual bool TryCreateContextForNode(IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
     {
         return DefaultHandler.TryCreateContextForNode(this, properties, out context);
     }
@@ -68,7 +68,7 @@ public class PropertyEditorExtension : Extension
     }
 
     public virtual bool TryCreateContextForListItem(
-        IAbstractProperty property,
+        IPropertyAdapter property,
         [NotNullWhen(true)] out IPropertyEditorContext? context)
     {
         return DefaultHandler.TryCreateContextForListItem(this, property, out context);
@@ -81,7 +81,7 @@ public class PropertyEditorExtension : Extension
         return DefaultHandler.TryCreateControlForListItem(context, out control);
     }
 
-    public virtual bool TryCreateContextForSettings(IReadOnlyList<IAbstractProperty> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
+    public virtual bool TryCreateContextForSettings(IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
     {
         return DefaultHandler.TryCreateContextForSettings(this, properties, out context);
     }

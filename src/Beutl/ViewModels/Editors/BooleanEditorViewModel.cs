@@ -5,7 +5,7 @@ using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class BooleanEditorViewModel(IAbstractProperty<bool> property) : ValueEditorViewModel<bool>(property)
+public sealed class BooleanEditorViewModel(IPropertyAdapter<bool> property) : ValueEditorViewModel<bool>(property)
 {
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {

@@ -18,7 +18,7 @@ public interface INavigationButtonViewModel
 public sealed class NavigationButtonViewModel<T> : BaseEditorViewModel<T>, INavigationButtonViewModel
     where T : ICoreObject
 {
-    public NavigationButtonViewModel(IAbstractProperty<T> property)
+    public NavigationButtonViewModel(IPropertyAdapter<T> property)
         : base(property)
     {
         CanWrite = !property.IsReadOnly;

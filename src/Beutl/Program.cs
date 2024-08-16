@@ -5,8 +5,8 @@ using Avalonia.Media;
 using Avalonia.ReactiveUI;
 
 using Beutl.Configuration;
+using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
-using Beutl.Rendering;
 using Beutl.Services;
 
 namespace Beutl;

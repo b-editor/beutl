@@ -15,7 +15,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegment?>
 {
-    public PathOperationEditorViewModel(IAbstractProperty<PathSegment?> property)
+    public PathOperationEditorViewModel(IPropertyAdapter<PathSegment?> property)
         : base(property)
     {
         OpName = Value.Select(v =>

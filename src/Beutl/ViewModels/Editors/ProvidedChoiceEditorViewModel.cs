@@ -20,7 +20,7 @@ public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : ValueEditorVie
     private readonly ReadOnlyObservableCollection<string> _choices;
     private readonly IReadOnlyList<object> _originalChoices;
 
-    public ProvidedChoiceEditorViewModel(IAbstractProperty<T?> property)
+    public ProvidedChoiceEditorViewModel(IPropertyAdapter<T?> property)
         : base(property)
     {
         _originalChoices = TProvider.GetChoices();

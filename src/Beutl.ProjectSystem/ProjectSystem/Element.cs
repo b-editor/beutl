@@ -5,11 +5,11 @@ using System.Text.Json.Nodes;
 
 using Beutl.Animation;
 using Beutl.Collections.Pooled;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeTree;
 using Beutl.Operation;
-using Beutl.Rendering;
 using Beutl.Serialization;
 
 namespace Beutl.ProjectSystem;

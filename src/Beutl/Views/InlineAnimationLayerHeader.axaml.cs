@@ -27,7 +27,7 @@ public partial class InlineAnimationLayerHeader : UserControl
     {
         if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
             && DataContext is InlineAnimationLayerViewModel viewModel
-            && viewModel.Property is IAbstractAnimatableProperty { Animation: KeyFrameAnimation kfAnimation, PropertyType: Type propType })
+            && viewModel.Property is IAnimatablePropertyAdapter { Animation: KeyFrameAnimation kfAnimation, PropertyType: Type propType })
         {
             // タイムラインのタブを開く
             var anmTimelineViewModel = new GraphEditorTabViewModel(editViewModel);

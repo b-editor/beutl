@@ -15,7 +15,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class PenEditorViewModel : BaseEditorViewModel
 {
-    public PenEditorViewModel(IAbstractProperty property)
+    public PenEditorViewModel(IPropertyAdapter property)
         : base(property)
     {
         Value = property.GetObservable()
@@ -29,9 +29,9 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     private void Update(IPen? pen)
     {
-        static void CreateContexts(PooledList<IAbstractProperty> props, CoreList<IPropertyEditorContext> dst)
+        static void CreateContexts(PooledList<IPropertyAdapter> props, CoreList<IPropertyEditorContext> dst)
         {
-            IAbstractProperty[]? foundItems;
+            IPropertyAdapter[]? foundItems;
             PropertyEditorExtension? extension;
 
             do
@@ -53,21 +53,21 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         MinorProperties.Clear();
         if (pen is Pen mutablePen)
         {
-            using var props = new PooledList<IAbstractProperty>();
-            Span<IAbstractProperty> span = props.AddSpan(4);
-            span[0] = new AnimatableCorePropertyImpl<float>(Pen.ThicknessProperty, mutablePen);
-            span[1] = new AnimatableCorePropertyImpl<StrokeJoin>(Pen.StrokeJoinProperty, mutablePen);
-            span[2] = new AnimatableCorePropertyImpl<StrokeAlignment>(Pen.StrokeAlignmentProperty, mutablePen);
-            span[3] = new AnimatableCorePropertyImpl<IBrush?>(Pen.BrushProperty, mutablePen);
+            using var props = new PooledList<IPropertyAdapter>();
+            Span<IPropertyAdapter> span = props.AddSpan(4);
+            span[0] = new AnimatablePropertyAdapter<float>(Pen.ThicknessProperty, mutablePen);
+            span[1] = new AnimatablePropertyAdapter<StrokeJoin>(Pen.StrokeJoinProperty, mutablePen);
+            span[2] = new AnimatablePropertyAdapter<StrokeAlignment>(Pen.StrokeAlignmentProperty, mutablePen);
+            span[3] = new AnimatablePropertyAdapter<IBrush?>(Pen.BrushProperty, mutablePen);
 
             CreateContexts(props, MajorProperties);
 
             props.Clear();
             span = props.AddSpan(4);
-            span[0] = new AnimatableCorePropertyImpl<float>(Pen.MiterLimitProperty, mutablePen);
-            span[1] = new AnimatableCorePropertyImpl<StrokeCap>(Pen.StrokeCapProperty, mutablePen);
-            span[2] = new AnimatableCorePropertyImpl<CoreList<float>?>(Pen.DashArrayProperty, mutablePen);
-            span[3] = new AnimatableCorePropertyImpl<float>(Pen.DashOffsetProperty, mutablePen);
+            span[0] = new AnimatablePropertyAdapter<float>(Pen.MiterLimitProperty, mutablePen);
+            span[1] = new AnimatablePropertyAdapter<StrokeCap>(Pen.StrokeCapProperty, mutablePen);
+            span[2] = new AnimatablePropertyAdapter<CoreList<float>?>(Pen.DashArrayProperty, mutablePen);
+            span[3] = new AnimatablePropertyAdapter<float>(Pen.DashOffsetProperty, mutablePen);
 
             CreateContexts(props, MinorProperties);
         }
@@ -112,7 +112,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         if (!EqualityComparer<IPen>.Default.Equals(oldValue, newValue))
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            IAbstractProperty prop = WrappedProperty;
+            IPropertyAdapter prop = PropertyAdapter;
 
             RecordableCommands.Create(GetStorables())
                 .OnDo(() => prop.SetValue(newValue))

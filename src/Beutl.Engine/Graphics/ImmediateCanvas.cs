@@ -1,10 +1,10 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
-using Beutl.Rendering.Cache;
 using Beutl.Threading;
 using SkiaSharp;
 using SkiaSharp.HarfBuzz;

@@ -10,7 +10,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class CornerRadiusEditorViewModel : ValueEditorViewModel<Media.CornerRadius>, IConfigureUniformEditor
 {
-    public CornerRadiusEditorViewModel(IAbstractProperty<Media.CornerRadius> property)
+    public CornerRadiusEditorViewModel(IPropertyAdapter<Media.CornerRadius> property)
         : base(property)
     {
         FirstValue = Value

@@ -53,7 +53,7 @@ public partial class SoundSourceEditor : UserControl
         // 音声ファイルを開く
         if (!SoundSource.TryOpen(fi.FullName, out SoundSource? soundSource)) return;
 
-        ISoundSource? oldValue = vm.WrappedProperty.GetValue();
+        ISoundSource? oldValue = vm.PropertyAdapter.GetValue();
         vm.SetValueAndDispose(oldValue, soundSource);
 
         // 動画の長さに要素の長さを合わせる

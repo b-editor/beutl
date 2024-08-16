@@ -22,7 +22,7 @@ public partial class ImageSourceEditor : UserControl
         // 画像を開く
         if (!BitmapSource.TryOpen(fi.FullName, out BitmapSource? bitmapSource)) return;
 
-        IImageSource? oldValue = vm.WrappedProperty.GetValue();
+        IImageSource? oldValue = vm.PropertyAdapter.GetValue();
         vm.SetValueAndDispose(oldValue, bitmapSource);
     }
 }

@@ -14,7 +14,7 @@ public interface IParsableEditorViewModel
 public sealed class ParsableEditorViewModel<T> : BaseEditorViewModel<T>, IParsableEditorViewModel
     where T : IParsable<T>
 {
-    public ParsableEditorViewModel(IAbstractProperty<T> property)
+    public ParsableEditorViewModel(IPropertyAdapter<T> property)
         : base(property)
     {
         Value = property.GetObservable()

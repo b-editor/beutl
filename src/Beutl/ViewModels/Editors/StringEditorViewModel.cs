@@ -7,18 +7,18 @@ using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class StringEditorViewModel(IAbstractProperty<string?> property) : ValueEditorViewModel<string?>(property)
+public sealed class StringEditorViewModel(IPropertyAdapter<string?> property) : ValueEditorViewModel<string?>(property)
 {
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
         if (visitor is StringEditor editor && !Disposables.IsDisposed)
         {
-            CoreProperty? prop = WrappedProperty.GetCoreProperty();
+            CoreProperty? prop = PropertyAdapter.GetCoreProperty();
             bool multiline = false;
             if (prop != null)
             {
-                CorePropertyMetadata metadata = prop.GetMetadata<CorePropertyMetadata>(WrappedProperty.ImplementedType);
+                CorePropertyMetadata metadata = prop.GetMetadata<CorePropertyMetadata>(PropertyAdapter.ImplementedType);
                 multiline = metadata.Attributes.Any(v => v is DataTypeAttribute { DataType: DataType.MultilineText });
             }
 

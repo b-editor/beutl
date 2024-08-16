@@ -13,7 +13,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
 {
-    public GeometryEditorViewModel(IAbstractProperty<Geometry?> property)
+    public GeometryEditorViewModel(IPropertyAdapter<Geometry?> property)
         : base(property)
     {
         IsGroup = Value.Select(v => v is PathGeometry)
@@ -36,7 +36,7 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
 
                     if (v is PathGeometry group)
                     {
-                        var prop = new CorePropertyImpl<PathFigures>(PathGeometry.FiguresProperty, group);
+                        var prop = new CorePropertyAdapter<PathFigures>(PathGeometry.FiguresProperty, group);
                         Group.Value = new ListEditorViewModel<PathFigure>(prop)
                         {
                             IsExpanded = { Value = true }

@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 using Beutl.Collections;
 using Beutl.Graphics.Rendering;
-using Beutl.Rendering.Cache;
+using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.Graphics.Effects;
 

@@ -6,9 +6,9 @@ using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Collections.Pooled;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Rendering;
 using Beutl.Serialization;
 
 namespace Beutl.Operation;

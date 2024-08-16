@@ -16,7 +16,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
     private readonly ReactivePropertySlim<EditViewModel?> _editViewModel = new();
     private bool _invalidated = true;
 
-    public PathFigureEditorViewModel(IAbstractProperty<PathFigure> property)
+    public PathFigureEditorViewModel(IPropertyAdapter<PathFigure> property)
         : base(property)
     {
         _editViewModel.DisposeWith(Disposables);
@@ -33,7 +33,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 
                     if (v is PathFigure group)
                     {
-                        var prop = new CorePropertyImpl<PathSegments>(PathFigure.SegmentsProperty, group);
+                        var prop = new CorePropertyAdapter<PathSegments>(PathFigure.SegmentsProperty, group);
                         Group.Value = new ListEditorViewModel<PathSegment>(prop)
                         {
                             IsExpanded = { Value = true }

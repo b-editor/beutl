@@ -10,7 +10,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics.RelativePoint>, IConfigureUniformEditor
 {
-    public RelativePointEditorViewModel(IAbstractProperty<Graphics.RelativePoint> property)
+    public RelativePointEditorViewModel(IPropertyAdapter<Graphics.RelativePoint> property)
         : base(property)
     {
         FirstValue = Value

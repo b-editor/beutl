@@ -94,7 +94,7 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
 
     private void InitializeProperties()
     {
-        var atmp = new IAbstractProperty[1];
+        var atmp = new IPropertyAdapter[1];
         foreach (INodeItem item in Node.Items)
         {
             Properties.Add(CreatePropertyContext(atmp, item));
@@ -107,7 +107,7 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
     {
         void Add(int index, IList items)
         {
-            var atmp = new IAbstractProperty[1];
+            var atmp = new IPropertyAdapter[1];
             foreach (INodeItem item in items)
             {
                 Properties.Insert(index++, CreatePropertyContext(atmp, item));
@@ -150,12 +150,12 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
         }
     }
 
-    private IPropertyEditorContext? CreatePropertyContext(IAbstractProperty[] atmp, INodeItem item)
+    private IPropertyEditorContext? CreatePropertyContext(IPropertyAdapter[] atmp, INodeItem item)
     {
         IPropertyEditorContext? context = null;
         if (item is LayerInputNode.ILayerInputSocket socket)
         {
-            IAbstractProperty? aproperty = socket.GetProperty();
+            IPropertyAdapter? aproperty = socket.GetProperty();
             if (aproperty != null)
             {
                 atmp[0] = aproperty;

@@ -113,7 +113,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
 
     private void InitItems()
     {
-        var atmp = new IAbstractProperty[1];
+        var atmp = new IPropertyAdapter[1];
         foreach (INodeItem item in Node.Items)
         {
             Items.Add(CreateNodeItemViewModel(atmp, item));
@@ -126,7 +126,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
     {
         void Add(int index, IList items)
         {
-            var atmp = new IAbstractProperty[1];
+            var atmp = new IPropertyAdapter[1];
             foreach (INodeItem item in items)
             {
                 Items.Insert(index++, CreateNodeItemViewModel(atmp, item));
@@ -169,7 +169,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
         }
     }
 
-    private NodeItemViewModel CreateNodeItemViewModel(IAbstractProperty[] atmp, INodeItem item)
+    private NodeItemViewModel CreateNodeItemViewModel(IPropertyAdapter[] atmp, INodeItem item)
     {
         IPropertyEditorContext? context = null;
         if (item.Property is { } aproperty)

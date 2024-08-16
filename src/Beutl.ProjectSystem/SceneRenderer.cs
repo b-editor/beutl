@@ -3,10 +3,10 @@
 using Beutl.Animation;
 using Beutl.Collections.Pooled;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.Rendering;
 
 namespace Beutl;
 

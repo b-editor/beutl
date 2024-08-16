@@ -75,7 +75,7 @@ public sealed class NavigateButton<T> : NavigateButton
         {
             await Task.Run(async () =>
             {
-                Type type = viewModel.WrappedProperty.PropertyType;
+                Type type = viewModel.PropertyAdapter.PropertyType;
                 Type[] types = AppDomain.CurrentDomain.GetAssemblies()
                     .SelectMany(x => x.GetTypes())
                     .Where(x => !x.IsAbstract

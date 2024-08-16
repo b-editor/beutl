@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
 using Beutl.Logging;
@@ -137,10 +138,10 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                      or nameof(EditorConfig.NodeCacheMaxPixels)
                      or nameof(EditorConfig.NodeCacheMinPixels))
             {
-                Rendering.Cache.RenderCacheContext? cacheContext = Renderer.Value.GetCacheContext();
+                RenderCacheContext? cacheContext = Renderer.Value.GetCacheContext();
                 if (cacheContext != null)
                 {
-                    cacheContext.CacheOptions = Rendering.Cache.RenderCacheOptions.CreateFromGlobalConfiguration();
+                    cacheContext.CacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
                 }
             }
         }
@@ -596,7 +597,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         {
             if (!desc.Position.IsDefault)
             {
-                if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IAbstractProperty<ITransform?> transformp)
+                if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IPropertyAdapter<ITransform?> transformp)
                 {
                     ITransform? transform = transformp.GetValue();
                     AddOrSetHelper.AddOrSet(

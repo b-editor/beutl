@@ -13,7 +13,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>, IConfigureLivePreview
 {
-    public ColorEditorViewModel(IAbstractProperty<Color> property)
+    public ColorEditorViewModel(IPropertyAdapter<Color> property)
         : base(property)
     {
         Value2 = Value

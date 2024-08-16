@@ -52,7 +52,7 @@ public partial class VideoSourceEditor : UserControl
         // 動画を開く
         if (!VideoSource.TryOpen(fi.FullName, out VideoSource? videoSource)) return;
 
-        IVideoSource? oldValue = vm.WrappedProperty.GetValue();
+        IVideoSource? oldValue = vm.PropertyAdapter.GetValue();
         vm.SetValueAndDispose(oldValue, videoSource);
 
         // 動画の長さに要素の長さを合わせる

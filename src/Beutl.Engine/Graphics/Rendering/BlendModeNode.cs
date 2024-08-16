@@ -1,6 +1,5 @@
-﻿using Beutl.Media.Source;
-using Beutl.Rendering.Cache;
-
+﻿using Beutl.Graphics.Rendering.Cache;
+using Beutl.Media.Source;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;

@@ -621,7 +621,7 @@ public sealed partial class Timeline : UserControl
 
     private void OnRemovedInline(InlineAnimationLayerViewModel viewModel)
     {
-        IAbstractAnimatableProperty prop = viewModel.Property;
+        IAnimatablePropertyAdapter prop = viewModel.Property;
         for (int i = 0; i < TimelinePanel.Children.Count; i++)
         {
             Control item = TimelinePanel.Children[i];

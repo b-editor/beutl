@@ -1,6 +1,6 @@
 ﻿using Beutl.Collections.Pooled;
+using Beutl.Graphics.Rendering;
 using Beutl.ProjectSystem;
-using Beutl.Rendering;
 
 namespace Beutl.Operation;
 
@@ -19,7 +19,7 @@ public sealed class TakeAfterOperator : SourceOperator
 
     public TakeAfterOperator()
     {
-        Properties.Add(new CorePropertyImpl<int>(CountProperty, this));
+        Properties.Add(new CorePropertyAdapter<int>(CountProperty, this));
     }
 
     // SourceOperationがこの個数を取得して、Rendererに返す。

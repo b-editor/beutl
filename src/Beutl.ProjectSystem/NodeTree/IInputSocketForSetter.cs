@@ -4,5 +4,5 @@ internal interface IInputSocketForSetter : IInputSocket
 {
     new int LocalId { get; set; }
 
-    void SetProperty(object property);
+    void SetPropertyAdapter(object property);
 }

@@ -9,7 +9,7 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class StorageFileEditorViewModel : BaseEditorViewModel<FileInfo>
 {
-    public StorageFileEditorViewModel(IAbstractProperty<FileInfo> property)
+    public StorageFileEditorViewModel(IPropertyAdapter<FileInfo> property)
         : base(property)
     {
         Value = property.GetObservable()

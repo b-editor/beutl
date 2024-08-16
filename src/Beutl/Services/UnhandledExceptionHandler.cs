@@ -1,9 +1,8 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
 using Beutl.Logging;
-using Beutl.Rendering;
-
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services;

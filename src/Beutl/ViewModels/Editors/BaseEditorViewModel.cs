@@ -29,14 +29,14 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private EditViewModel? _editViewModel;
     private IServiceProvider? _parentServices;
 
-    protected BaseEditorViewModel(IAbstractProperty property)
+    protected BaseEditorViewModel(IPropertyAdapter property)
     {
-        WrappedProperty = property;
+        PropertyAdapter = property;
 
         Header = property.DisplayName;
         Description = property.Description;
 
-        IObservable<bool> hasAnimation = property is IAbstractAnimatableProperty anm
+        IObservable<bool> hasAnimation = property is IAnimatablePropertyAdapter anm
             ? anm.ObserveAnimation.Select(x => x != null)
             : Observable.Return(false);
 
@@ -55,7 +55,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             .ToReadOnlyReactiveProperty()
             .AddTo(Disposables);
 
-        if (property is IAbstractAnimatableProperty animatableProperty)
+        if (property is IAnimatablePropertyAdapter animatableProperty)
         {
             KeyFrameCount = animatableProperty.ObserveAnimation
                 .Select(x => (x as IKeyFrameAnimation)?.KeyFrames.ObserveProperty(y => y.Count) ?? Observable.Return(0))
@@ -120,7 +120,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             Dispose(false);
     }
 
-    public IAbstractProperty WrappedProperty { get; private set; }
+    public IPropertyAdapter PropertyAdapter { get; private set; }
 
     public bool CanReset => GetDefaultValue() != null;
 
@@ -142,9 +142,9 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public ReactivePropertySlim<float> KeyFrameIndex { get; } = new();
 
-    public bool IsAnimatable => WrappedProperty is IAbstractAnimatableProperty;
+    public bool IsAnimatable => PropertyAdapter is IAnimatablePropertyAdapter;
 
-    public bool IsStylingSetter => WrappedProperty is IStylingSetterPropertyImpl;
+    public bool IsStylingSetter => PropertyAdapter is ISetterAdapter;
 
     [AllowNull]
     public PropertyEditorExtension Extension { get; set; }
@@ -173,7 +173,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public IAnimation? GetAnimation()
     {
-        return (WrappedProperty as IAbstractAnimatableProperty)?.Animation;
+        return (PropertyAdapter as IAnimatablePropertyAdapter)?.Animation;
     }
 
     public virtual void Accept(IPropertyEditorContextVisitor visitor)
@@ -190,7 +190,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                 _currentFrameRevoker?.Dispose();
                 _currentFrameRevoker = null;
 
-                if (WrappedProperty is IAbstractAnimatableProperty animatableProperty)
+                if (PropertyAdapter is IAnimatablePropertyAdapter animatableProperty)
                 {
                     _currentFrameRevoker = _editViewModel.CurrentTime
                         .CombineLatest(animatableProperty.ObserveAnimation
@@ -232,7 +232,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             editor[!PropertyEditor.IsReadOnlyProperty] = IsReadOnly.ToBinding();
             editor.Header = Header;
             editor.Description = Description;
-            if (WrappedProperty is IAbstractAnimatableProperty animatableProperty)
+            if (PropertyAdapter is IAnimatablePropertyAdapter animatableProperty)
             {
                 editor[!PropertyEditor.KeyFrameCountProperty] = KeyFrameCount.ToBinding();
                 editor[!PropertyEditor.KeyFrameIndexProperty] = KeyFrameIndex.ToPropertyBinding(BindingMode.TwoWay);
@@ -242,7 +242,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected object? GetDefaultValue()
     {
-        return WrappedProperty.GetDefaultValue();
+        return PropertyAdapter.GetDefaultValue();
     }
 
     protected virtual void Dispose(bool disposing)
@@ -253,7 +253,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         _editViewModel = null!;
         _parentServices = null;
         _element = null;
-        WrappedProperty = null!;
+        PropertyAdapter = null!;
     }
 
     public virtual void InsertKeyFrame(TimeSpan keyTime)
@@ -274,8 +274,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public virtual object? GetService(Type serviceType)
     {
-        if (serviceType.IsAssignableTo(typeof(IAbstractProperty)))
-            return WrappedProperty;
+        if (serviceType.IsAssignableTo(typeof(IPropertyAdapter)))
+            return PropertyAdapter;
 
         return _parentServices?.GetService(serviceType) ?? _editViewModel?.GetService(serviceType);
     }
@@ -299,7 +299,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
 public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 {
-    protected BaseEditorViewModel(IAbstractProperty<T> property)
+    protected BaseEditorViewModel(IPropertyAdapter<T> property)
         : base(property)
     {
         EditingKeyFrame = base.EditingKeyFrame
@@ -308,7 +308,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             .DisposeWith(Disposables);
     }
 
-    public new IAbstractProperty<T> WrappedProperty => (IAbstractProperty<T>)base.WrappedProperty;
+    public new IPropertyAdapter<T> PropertyAdapter => (IPropertyAdapter<T>)base.PropertyAdapter;
 
     public new ReadOnlyReactiveProperty<KeyFrame<T>?> EditingKeyFrame { get; }
 
@@ -316,7 +316,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (GetDefaultValue() is { } defaultValue)
         {
-            SetValue(WrappedProperty.GetValue(), (T?)defaultValue);
+            SetValue(PropertyAdapter.GetValue(), (T?)defaultValue);
         }
     }
 
@@ -333,7 +333,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             }
             else
             {
-                IAbstractProperty<T> prop = WrappedProperty;
+                IPropertyAdapter<T> prop = PropertyAdapter;
                 RecordableCommands.Create(GetStorables())
                     .OnDo(() => prop.SetValue(newValue))
                     .OnUndo(() => prop.SetValue(oldValue))
@@ -353,9 +353,9 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         }
         else
         {
-            WrappedProperty.SetValue(value);
+            PropertyAdapter.SetValue(value);
             InvalidateFrameCache();
-            return WrappedProperty.GetValue();
+            return PropertyAdapter.GetValue();
         }
     }
 
@@ -402,7 +402,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void RemoveKeyFrame(TimeSpan keyTime)
     {
-        if (WrappedProperty is IAbstractAnimatableProperty
+        if (PropertyAdapter is IAnimatablePropertyAdapter
             {
                 Animation: IKeyFrameAnimation kfAnimation,
                 PropertyType: { } ptype
@@ -423,7 +423,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void PrepareToEditAnimation()
     {
-        if (WrappedProperty is IAbstractAnimatableProperty<T> animatableProperty
+        if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty
             && animatableProperty.Animation is not KeyFrameAnimation<T>
             && animatableProperty.GetCoreProperty() is CoreProperty<T> coreProperty)
         {
@@ -448,7 +448,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void RemoveAnimation()
     {
-        if (WrappedProperty is IAbstractAnimatableProperty<T> animatableProperty)
+        if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             IAnimation<T>? oldAnimation = animatableProperty.Animation;

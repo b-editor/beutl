@@ -12,7 +12,7 @@ public interface INodeItem : ICoreObject, IHierarchical, IAffectsRender
 {
     int LocalId { get; }
 
-    IAbstractProperty? Property { get; }
+    IPropertyAdapter? Property { get; }
 
     Type? AssociatedType { get; }
 

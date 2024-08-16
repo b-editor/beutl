@@ -27,12 +27,12 @@ public sealed partial class TimeSpanEditor : UserControl
     {
         if (DataContext is not TimeSpanEditorViewModel vm) return;
 
-        _oldValue = vm.WrappedProperty.GetValue();
+        _oldValue = vm.PropertyAdapter.GetValue();
     }
 
     private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is TimeSpanEditorViewModel { WrappedProperty: { } property } viewModel
+        if (DataContext is TimeSpanEditorViewModel { PropertyAdapter: { } property } viewModel
             && TimeSpan.TryParse(textBox.Text, out TimeSpan newValue))
         {
             viewModel.SetValue(_oldValue, newValue);
@@ -43,7 +43,7 @@ public sealed partial class TimeSpanEditor : UserControl
     {
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            if (DataContext is TimeSpanEditorViewModel { WrappedProperty: { } property } viewModel)
+            if (DataContext is TimeSpanEditorViewModel { PropertyAdapter: { } property } viewModel)
             {
                 await Task.Delay(10);
 
@@ -57,7 +57,7 @@ public sealed partial class TimeSpanEditor : UserControl
 
     private void TextBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        if (DataContext is TimeSpanEditorViewModel { WrappedProperty: { } property } viewModel
+        if (DataContext is TimeSpanEditorViewModel { PropertyAdapter: { } property } viewModel
             && textBox.IsKeyboardFocusWithin
             && TimeSpan.TryParse(textBox.Text, out TimeSpan value))
         {

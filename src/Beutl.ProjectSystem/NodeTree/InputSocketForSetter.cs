@@ -7,15 +7,15 @@ namespace Beutl.NodeTree;
 
 public sealed class InputSocketForSetter<T> : InputSocket<T>, IInputSocketForSetter
 {
-    public void SetProperty(SetterPropertyImpl<T> property)
+    public void SetPropertyAdapter(SetterAdapter<T> property)
     {
         Property = property;
         property.Setter.Invalidated += OnSetterInvalidated;
     }
 
-    void IInputSocketForSetter.SetProperty(object property)
+    void IInputSocketForSetter.SetPropertyAdapter(object property)
     {
-        var obj = (SetterPropertyImpl<T>)property;
+        var obj = (SetterAdapter<T>)property;
         Property = obj;
         obj.Setter.Invalidated += OnSetterInvalidated;
     }
@@ -25,9 +25,9 @@ public sealed class InputSocketForSetter<T> : InputSocket<T>, IInputSocketForSet
         RaiseInvalidated(new RenderInvalidatedEventArgs(this));
     }
 
-    public SetterPropertyImpl<T>? GetProperty()
+    public SetterAdapter<T>? GetProperty()
     {
-        return Property as SetterPropertyImpl<T>;
+        return Property as SetterAdapter<T>;
     }
 
     public override void Serialize(ICoreSerializationContext context)

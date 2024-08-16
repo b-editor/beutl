@@ -33,7 +33,7 @@ public sealed class ParsableEditor<T> : ParsableEditor
     {
         if (DataContext is not ParsableEditorViewModel<T> vm) return;
 
-        _oldValue = vm.WrappedProperty.GetValue();
+        _oldValue = vm.PropertyAdapter.GetValue();
     }
 
     private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
@@ -55,7 +55,7 @@ public sealed class ParsableEditor<T> : ParsableEditor
 
             if (T.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out T? newValue))
             {
-                vm.WrappedProperty.SetValue(newValue);
+                vm.PropertyAdapter.SetValue(newValue);
             }
         });
     }

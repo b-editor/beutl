@@ -79,21 +79,21 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable
     private void InitializeCoreObject(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
     {
         Type objType = obj.GetType();
-        Type wrapperType = typeof(CorePropertyImpl<>);
-        Type animatableWrapperType = typeof(AnimatableCorePropertyImpl<>);
+        Type adapterType = typeof(CorePropertyAdapter<>);
+        Type animatableAdapterType = typeof(AnimatablePropertyAdapter<>);
         bool isAnimatable = obj is IAnimatable;
 
         List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
         cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
-        List<IAbstractProperty> props = cprops.ConvertAll(x =>
+        List<IPropertyAdapter> props = cprops.ConvertAll(x =>
         {
             CorePropertyMetadata metadata = x.GetMetadata<CorePropertyMetadata>(objType);
-            Type wtype = isAnimatable ? animatableWrapperType : wrapperType;
-            Type wrapperGType = wtype.MakeGenericType(x.PropertyType);
-            return (IAbstractProperty)Activator.CreateInstance(wrapperGType, x, obj)!;
+            Type determinedType = isAnimatable ? animatableAdapterType : adapterType;
+            Type adapterGType = determinedType.MakeGenericType(x.PropertyType);
+            return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
         });
         Properties.EnsureCapacity(props.Count);
-        IAbstractProperty[]? foundItems;
+        IPropertyAdapter[]? foundItems;
         PropertyEditorExtension? extension;
 
         do

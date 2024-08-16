@@ -7,12 +7,12 @@ namespace Beutl.ViewModels.Editors;
 
 public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
 {
-    public ValueEditorViewModel(IAbstractProperty<T> property)
+    public ValueEditorViewModel(IPropertyAdapter<T> property)
         : base(property)
     {
         Value = EditingKeyFrame
             .Select(x => x?.GetObservable(KeyFrame<T>.ValueProperty))
-            .Select(x => x ?? WrappedProperty.GetObservable())
+            .Select(x => x ?? PropertyAdapter.GetObservable())
             //https://qiita.com/hiki_neet_p/items/4a8873920b566568d63b
             .Switch()
             .ToReadOnlyReactiveProperty()

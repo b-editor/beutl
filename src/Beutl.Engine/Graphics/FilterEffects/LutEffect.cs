@@ -2,11 +2,9 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Rendering;
-
 using ILGPU;
 using ILGPU.Runtime;
 
