@@ -1219,4 +1219,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="EnableElement" xml:space="preserve">
     <value>要素を有効化</value>
   </data>
+  <data name="Smoothing" xml:space="preserve">
+    <value>なめらかさ</value>
+  </data>
 </root>

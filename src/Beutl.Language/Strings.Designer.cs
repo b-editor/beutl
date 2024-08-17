@@ -2246,5 +2246,11 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("EnableElement", resourceCulture);
             }
         }
+        
+        public static string Smoothing {
+            get {
+                return ResourceManager.GetString("Smoothing", resourceCulture);
+            }
+        }
     }
 }
