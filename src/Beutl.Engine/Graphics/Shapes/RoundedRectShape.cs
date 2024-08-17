@@ -40,7 +40,7 @@ public sealed class RoundedRectShape : Shape
         set => SetAndRaise(CornerRadiusProperty, ref _cornerRadius, value);
     }
 
-    [Range(0, int.MaxValue)]
+    [Range(0, 100)]
     [Display(Name = nameof(Strings.Smoothing), ResourceType = typeof(Strings))]
     public float Smoothing
     {
