@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-
 using Beutl.Language;
 using Beutl.Media;
 
@@ -8,7 +7,9 @@ namespace Beutl.Graphics.Shapes;
 public sealed partial class RoundedRectShape : Shape
 {
     public static readonly CoreProperty<CornerRadius> CornerRadiusProperty;
+    public static readonly CoreProperty<float> SmoothingProperty;
     private CornerRadius _cornerRadius;
+    private float _smoothing;
     private RoundedRectGeometry? _geometry;
 
     static RoundedRectShape()
@@ -21,7 +22,14 @@ public sealed partial class RoundedRectShape : Shape
             .DefaultValue(new CornerRadius())
             .Register();
 
-        AffectsGeometry<RoundedRectShape>(WidthProperty, HeightProperty, CornerRadiusProperty);
+        SmoothingProperty = ConfigureProperty<float, RoundedRectShape>(nameof(Smoothing))
+            .Accessor(o => o.Smoothing, (o, v) => o.Smoothing = v)
+            .DefaultValue(0)
+            .Register();
+
+        AffectsGeometry<RoundedRectShape>(
+            WidthProperty, HeightProperty,
+            CornerRadiusProperty, SmoothingProperty);
     }
 
     [Display(Name = nameof(Strings.CornerRadius), ResourceType = typeof(Strings))]
@@ -32,12 +40,20 @@ public sealed partial class RoundedRectShape : Shape
         set => SetAndRaise(CornerRadiusProperty, ref _cornerRadius, value);
     }
 
+    [Range(0, int.MaxValue)]
+    public float Smoothing
+    {
+        get => _smoothing;
+        set => SetAndRaise(SmoothingProperty, ref _smoothing, value);
+    }
+
     protected override Geometry CreateGeometry()
     {
         _geometry ??= new RoundedRectGeometry();
         _geometry.Width = Math.Max(Width, 0);
         _geometry.Height = Math.Max(Height, 0);
         _geometry.CornerRadius = CornerRadius;
+        _geometry.Smoothing = Smoothing;
         return _geometry;
     }
 }

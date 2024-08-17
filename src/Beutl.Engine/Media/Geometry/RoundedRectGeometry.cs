@@ -7,9 +7,11 @@ public sealed class RoundedRectGeometry : Geometry
     public static readonly CoreProperty<float> WidthProperty;
     public static readonly CoreProperty<float> HeightProperty;
     public static readonly CoreProperty<CornerRadius> CornerRadiusProperty;
+    public static readonly CoreProperty<float> SmoothingProperty;
     private float _width = 0;
     private float _height = 0;
     private CornerRadius _cornerRadius;
+    private float _smoothing;
 
     static RoundedRectGeometry()
     {
@@ -28,7 +30,12 @@ public sealed class RoundedRectGeometry : Geometry
             .DefaultValue(new CornerRadius())
             .Register();
 
-        AffectsRender<RoundedRectGeometry>(WidthProperty, HeightProperty, CornerRadiusProperty);
+        SmoothingProperty = ConfigureProperty<float, RoundedRectGeometry>(nameof(Smoothing))
+            .Accessor(o => o.Smoothing, (o, v) => o.Smoothing = v)
+            .DefaultValue(0)
+            .Register();
+
+        AffectsRender<RoundedRectGeometry>(WidthProperty, HeightProperty, CornerRadiusProperty, SmoothingProperty);
     }
 
     public float Width
@@ -47,6 +54,12 @@ public sealed class RoundedRectGeometry : Geometry
     {
         get => _cornerRadius;
         set => SetAndRaise(CornerRadiusProperty, ref _cornerRadius, value);
+    }
+
+    public float Smoothing
+    {
+        get => _smoothing;
+        set => SetAndRaise(SmoothingProperty, ref _smoothing, value);
     }
 
     public override void ApplyTo(IGeometryContext context)

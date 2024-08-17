@@ -15,6 +15,8 @@ public sealed class RoundedRectOperator : DrawablePublishOperator<RoundedRectSha
 
     public Setter<CornerRadius> CornerRadius { get; set; } = new(RoundedRectShape.CornerRadiusProperty, new(25));
 
+    public Setter<float> Smoothing { get; set; } = new(RoundedRectShape.SmoothingProperty, 0);
+
     public Setter<ITransform?> Transform { get; set; } = new(Drawable.TransformProperty, new TransformGroup());
 
     public Setter<AlignmentX> AlignmentX { get; set; } = new(Drawable.AlignmentXProperty, Media.AlignmentX.Center);
