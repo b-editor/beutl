@@ -4,7 +4,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
-public sealed partial class RoundedRectShape : Shape
+public sealed class RoundedRectShape : Shape
 {
     public static readonly CoreProperty<CornerRadius> CornerRadiusProperty;
     public static readonly CoreProperty<float> SmoothingProperty;
@@ -41,6 +41,7 @@ public sealed partial class RoundedRectShape : Shape
     }
 
     [Range(0, int.MaxValue)]
+    [Display(Name = nameof(Strings.Smoothing), ResourceType = typeof(Strings))]
     public float Smoothing
     {
         get => _smoothing;
