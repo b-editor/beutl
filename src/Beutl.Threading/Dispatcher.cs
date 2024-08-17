@@ -11,7 +11,7 @@ public class Dispatcher
     private readonly QueueSynchronizationContext _synchronizationContext;
     private readonly TimeProvider _timeProvider;
     // For tests
-    private bool _catchExceptions;
+    internal bool _catchExceptions;
 
     private Dispatcher(TimeProvider timeProvider)
     {
