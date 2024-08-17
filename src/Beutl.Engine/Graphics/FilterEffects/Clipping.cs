@@ -55,7 +55,7 @@ public sealed class Clipping : FilterEffect
 
         AutoClipProperty = ConfigureProperty<bool, Clipping>(nameof(AutoClip))
             .Accessor(o => o.AutoClip, (o, v) => o.AutoClip = v)
-            .DefaultValue(true)
+            .DefaultValue(false)
             .Register();
 
         AffectsRender<Clipping>(

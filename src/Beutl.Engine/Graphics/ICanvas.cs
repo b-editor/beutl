@@ -13,10 +13,6 @@ public interface ICanvas : IDisposable
 
     bool IsDisposed { get; }
 
-    BlendMode BlendMode { get; }
-
-    Matrix Transform { get; }
-
     void Clear();
 
     void Clear(Color color);

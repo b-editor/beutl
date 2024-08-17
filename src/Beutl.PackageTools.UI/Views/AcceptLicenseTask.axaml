@@ -23,7 +23,7 @@
                     IsVisible="{Binding ShowDetails.Value, FallbackValue=False}" />
         </Grid>
         <Grid Grid.Column="2" RowDefinitions="Auto,Auto">
-            <TextBlock Classes.tip="{Binding, Converter={x:Static ObjectConverters.IsNotNull}}"
+            <TextBlock Classes.tip="{Binding Converter={x:Static ObjectConverters.IsNotNull}}"
                        PointerPressed="OnTaskNamePointerPressed"
                        PointerReleased="OnTaskNamePointerReleased"
                        Text="{x:Static res:Strings.Acceptance_of_License}" />
@@ -66,13 +66,13 @@
                                       Command="{Binding AcceptAll}"
                                       CommandParameter="{x:False}"
                                       Content="{x:Static res:Strings.No}"
-                                      IsHitTestVisible="{Binding !IsAccepted.Value.HasValue}" />
+                                      IsHitTestVisible="{Binding !IsAcceptedNull.Value}" />
                         <ToggleButton Grid.Column="2"
                                       HorizontalAlignment="Stretch"
                                       Command="{Binding AcceptAll}"
                                       CommandParameter="{x:True}"
                                       Content="{x:Static res:Strings.AcceptAll}"
-                                      IsHitTestVisible="{Binding !IsAccepted.Value.HasValue}" />
+                                      IsHitTestVisible="{Binding !IsAcceptedNull.Value}" />
                     </Grid>
                 </Grid>
 

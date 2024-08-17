@@ -11,13 +11,9 @@ public sealed class DeferradCanvas(ContainerNode container, PixelSize canvasSize
     private readonly Stack<(ContainerNode, int)> _nodes = [];
     private int _drawOperationindex;
 
-    public PixelSize Size { get; } = canvasSize;
+    public PixelSize Size => canvasSize;
 
-    public bool IsDisposed { get; }
-
-    public BlendMode BlendMode { get; } = BlendMode.SrcOver;
-
-    public Matrix Transform { get; } = Matrix.Identity;
+    public bool IsDisposed => false;
 
     private void Add(IGraphicNode node)
     {

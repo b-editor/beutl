@@ -8,7 +8,17 @@ namespace Beutl.Operators.Configure.Effects;
 
 public sealed class ClippingOperator : FilterEffectOperator<Clipping>
 {
-    public Setter<Thickness> Thickness { get; set; } = new(Clipping.ThicknessProperty, default);
+    public Setter<float> Left { get; set; } = new(Clipping.LeftProperty, 0);
+
+    public Setter<float> Top { get; set; } = new(Clipping.TopProperty, 0);
+
+    public Setter<float> Right { get; set; } = new(Clipping.RightProperty, 0);
+
+    public Setter<float> Bottom { get; set; } = new(Clipping.BottomProperty, 0);
+
+    public Setter<bool> AutoCenter { get; set; } = new(Clipping.AutoCenterProperty, false);
+
+    public Setter<bool> AudoClip { get; set; } = new(Clipping.AutoClipProperty, false);
 }
 
 public sealed class DilateOperator : FilterEffectOperator<Dilate>

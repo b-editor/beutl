@@ -1,29 +1,22 @@
-﻿using System.Collections;
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 
 using Avalonia;
 
 using Beutl.Reactive;
-
-using DynamicData;
-using DynamicData.Binding;
-
-using Reactive.Bindings;
-using Reactive.Bindings.Binding;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl;
 
 public static class AvaloniaTypeConverter
 {
-    public static Avalonia.Vector ToAvaVector(this in Graphics.Vector vector)
+    public static Vector ToAvaVector(this in Graphics.Vector vector)
     {
-        return new(vector.X, vector.Y);
+        return new Vector(vector.X, vector.Y);
     }
 
-    public static Graphics.Vector ToBtlVector(this in Avalonia.Vector vector)
+    public static Graphics.Vector ToBtlVector(this in Vector vector)
     {
-        return new((float)vector.X, (float)vector.Y);
+        return new Graphics.Vector((float)vector.X, (float)vector.Y);
     }
 
     public static Media.Color ToBtlColor(this FluentAvalonia.UI.Media.Color2 c)
@@ -59,90 +52,90 @@ public static class AvaloniaTypeConverter
         return (s, Disposable.Create((d1, d2), t => t.DisposeAll()));
     }
 
-    public static Avalonia.Matrix ToAvaMatrix(this in Graphics.Matrix matrix)
+    public static Matrix ToAvaMatrix(this in Graphics.Matrix matrix)
     {
-        return new(
+        return new Matrix(
             matrix.M11, matrix.M12, matrix.M13,
             matrix.M21, matrix.M22, matrix.M23,
             matrix.M31, matrix.M32, matrix.M33);
     }
 
-    public static Graphics.Matrix ToBtlMatrix(this in Avalonia.Matrix matrix)
+    public static Graphics.Matrix ToBtlMatrix(this in Matrix matrix)
     {
-        return new(
+        return new Graphics.Matrix(
             (float)matrix.M11, (float)matrix.M12, (float)matrix.M13,
             (float)matrix.M21, (float)matrix.M22, (float)matrix.M23,
             (float)matrix.M31, (float)matrix.M32, (float)matrix.M33);
     }
 
-    public static Avalonia.Point ToAvaPoint(this in Graphics.Point point)
+    public static Point ToAvaPoint(this in Graphics.Point point)
     {
-        return new(point.X, point.Y);
+        return new Point(point.X, point.Y);
     }
 
-    public static Graphics.Point ToBtlPoint(this in Avalonia.Point point)
+    public static Graphics.Point ToBtlPoint(this in Point point)
     {
-        return new((float)point.X, (float)point.Y);
+        return new Graphics.Point((float)point.X, (float)point.Y);
     }
 
-    public static Avalonia.PixelPoint ToAvaPixelPoint(this in Media.PixelPoint point)
+    public static PixelPoint ToAvaPixelPoint(this in Media.PixelPoint point)
     {
-        return new(point.X, point.Y);
+        return new PixelPoint(point.X, point.Y);
     }
 
-    public static Media.PixelPoint ToBtlPixelPoint(this in Avalonia.PixelPoint point)
+    public static Media.PixelPoint ToBtlPixelPoint(this in PixelPoint point)
     {
-        return new(point.X, point.Y);
+        return new Media.PixelPoint(point.X, point.Y);
     }
 
-    public static Avalonia.Size ToAvaSize(this in Graphics.Size size)
+    public static Size ToAvaSize(this in Graphics.Size size)
     {
-        return new(size.Width, size.Height);
+        return new Size(size.Width, size.Height);
     }
 
-    public static Graphics.Size ToBtlSize(this in Avalonia.Size size)
+    public static Graphics.Size ToBtlSize(this in Size size)
     {
-        return new((float)size.Width, (float)size.Height);
+        return new Graphics.Size((float)size.Width, (float)size.Height);
     }
 
-    public static Avalonia.PixelSize ToAvaPixelSize(this in Media.PixelSize size)
+    public static PixelSize ToAvaPixelSize(this in Media.PixelSize size)
     {
-        return new(size.Width, size.Height);
+        return new PixelSize(size.Width, size.Height);
     }
 
-    public static Media.PixelSize ToBtlPixelSize(this in Avalonia.PixelSize size)
+    public static Media.PixelSize ToBtlPixelSize(this in PixelSize size)
     {
-        return new(size.Width, size.Height);
+        return new Media.PixelSize(size.Width, size.Height);
     }
 
-    public static Avalonia.Rect ToAvaRect(this in Graphics.Rect rect)
+    public static Rect ToAvaRect(this in Graphics.Rect rect)
     {
-        return new(rect.X, rect.Y, rect.Width, rect.Height);
+        return new Rect(rect.X, rect.Y, rect.Width, rect.Height);
     }
 
-    public static Graphics.Rect ToBtlRect(this in Avalonia.Rect rect)
+    public static Graphics.Rect ToBtlRect(this in Rect rect)
     {
-        return new((float)rect.X, (float)rect.Y, (float)rect.Width, (float)rect.Height);
+        return new Graphics.Rect((float)rect.X, (float)rect.Y, (float)rect.Width, (float)rect.Height);
     }
 
-    public static Avalonia.PixelRect ToAvaPixelRect(this in Media.PixelRect rect)
+    public static PixelRect ToAvaPixelRect(this in Media.PixelRect rect)
     {
-        return new(rect.X, rect.Y, rect.Width, rect.Height);
+        return new PixelRect(rect.X, rect.Y, rect.Width, rect.Height);
     }
 
-    public static Media.PixelRect ToBtlPixelRect(this in Avalonia.PixelRect rect)
+    public static Media.PixelRect ToBtlPixelRect(this in PixelRect rect)
     {
-        return new(rect.X, rect.Y, rect.Width, rect.Height);
+        return new Media.PixelRect(rect.X, rect.Y, rect.Width, rect.Height);
     }
 
-    public static Avalonia.RelativePoint ToAvaRelativePoint(this in Graphics.RelativePoint pt)
+    public static RelativePoint ToAvaRelativePoint(this in Graphics.RelativePoint pt)
     {
-        return new(
+        return new RelativePoint(
             pt.Point.X,
             pt.Point.Y,
             pt.Unit == Graphics.RelativeUnit.Relative
-                ? Avalonia.RelativeUnit.Relative
-                : Avalonia.RelativeUnit.Absolute);
+                ? RelativeUnit.Relative
+                : RelativeUnit.Absolute);
     }
 
     // SolidColorBrush.Color, GradientBrush.GradientStopsのみ
@@ -162,21 +155,21 @@ public static class AvaloniaTypeConverter
 
                     switch (g)
                     {
-                        case Media.ILinearGradientBrush l:
+                        case Media.ILinearGradientBrush:
                             return new Avalonia.Media.LinearGradientBrush
                             {
                                 GradientStops = stops,
                             };
 
 
-                        case Media.IConicGradientBrush c:
+                        case Media.IConicGradientBrush:
                             return new Avalonia.Media.ConicGradientBrush
                             {
                                 GradientStops = stops,
                             };
 
 
-                        case Media.IRadialGradientBrush r:
+                        case Media.IRadialGradientBrush:
                             return new Avalonia.Media.RadialGradientBrush
                             {
                                 GradientStops = stops,
@@ -197,7 +190,7 @@ public static class AvaloniaTypeConverter
 
         for (int i = 0; i < obj.Count; i++)
         {
-            Media.GradientStop? item = obj[i];
+            Media.GradientStop item = obj[i];
             var t = item.ToAvaGradientStopSync();
             subscription[item] = t.Item2;
             stops.Insert(i, t.Item1);
@@ -224,9 +217,9 @@ public static class AvaloniaTypeConverter
                         for (int i = e.OldItems!.Count - 1; i >= 0; --i)
                         {
                             var item = (Media.GradientStop)e.OldItems[i]!;
-                            if (subscription.TryGetValue(item, out var d))
+                            if (subscription.TryGetValue(item, out var disposable))
                             {
-                                d.Dispose();
+                                disposable.Dispose();
                                 subscription.Remove(item);
                             }
                             stops.RemoveAt(index + i);
@@ -240,12 +233,12 @@ public static class AvaloniaTypeConverter
                         {
                             var oldItem = (Media.GradientStop)e.OldItems![i]!;
                             var newItem = (Media.GradientStop)e.NewItems![i]!;
-                            if (subscription.TryGetValue(oldItem, out var d))
+                            if (subscription.TryGetValue(oldItem, out var disposable))
                             {
-                                d.Dispose();
+                                disposable.Dispose();
                                 subscription.Remove(oldItem);
                             }
-                            (Avalonia.Media.GradientStop, IDisposable) t = newItem!.ToAvaGradientStopSync();
+                            (Avalonia.Media.GradientStop, IDisposable) t = newItem.ToAvaGradientStopSync();
 
                             stops[index] = t.Item1;
                             index++;
@@ -268,6 +261,8 @@ public static class AvaloniaTypeConverter
                         }
                         subscription.Clear();
                         break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(e));
                 }
             })
             .DisposeWith(d);
@@ -288,7 +283,6 @@ public static class AvaloniaTypeConverter
         {
             case Media.SolidColorBrush s:
                 {
-
                     var ss = new Avalonia.Media.SolidColorBrush();
                     var d = ss.Bind(Avalonia.Media.SolidColorBrush.ColorProperty, s.GetObservable(Media.SolidColorBrush.ColorProperty)
                         .Select(v => v.ToAvalonia())
@@ -299,25 +293,23 @@ public static class AvaloniaTypeConverter
 
             case Media.GradientBrush g:
                 {
-                    var (stops, d) = g.GradientStops.ToAvaGradientStopsSync();
+                    (Avalonia.Media.GradientStops stops, IDisposable d) = g.GradientStops.ToAvaGradientStopsSync();
 
                     switch (g)
                     {
-                        case Media.ILinearGradientBrush l:
+                        case Media.ILinearGradientBrush:
                             return (new Avalonia.Media.LinearGradientBrush
                             {
                                 GradientStops = stops,
                             }, d);
 
-
-                        case Media.IConicGradientBrush c:
+                        case Media.IConicGradientBrush:
                             return (new Avalonia.Media.ConicGradientBrush
                             {
                                 GradientStops = stops,
                             }, d);
 
-
-                        case Media.IRadialGradientBrush r:
+                        case Media.IRadialGradientBrush:
                             return (new Avalonia.Media.RadialGradientBrush
                             {
                                 GradientStops = stops,
@@ -347,21 +339,19 @@ public static class AvaloniaTypeConverter
 
                     switch (g)
                     {
-                        case Avalonia.Media.ILinearGradientBrush l:
+                        case Avalonia.Media.ILinearGradientBrush:
                             return new Media.LinearGradientBrush
                             {
                                 GradientStops = stops,
                             };
 
-
-                        case Avalonia.Media.IConicGradientBrush c:
+                        case Avalonia.Media.IConicGradientBrush:
                             return new Media.ConicGradientBrush
                             {
                                 GradientStops = stops,
                             };
 
-
-                        case Avalonia.Media.IRadialGradientBrush r:
+                        case Avalonia.Media.IRadialGradientBrush:
                             return new Media.RadialGradientBrush
                             {
                                 GradientStops = stops,
@@ -376,6 +366,6 @@ public static class AvaloniaTypeConverter
 
     public static Vector SwapAxis(this Vector vector)
     {
-        return new(vector.Y, vector.X);
+        return new Vector(vector.Y, vector.X);
     }
 }

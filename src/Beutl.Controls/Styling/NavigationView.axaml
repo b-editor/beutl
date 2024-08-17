@@ -9,9 +9,9 @@
             <ui:NavigationView Classes="SideNavigationView">
                 <ui:NavigationView.MenuItems>
                     <ui:NavigationViewItem Classes="SideNavigationViewItem" Content="Home">
-                        <ui:NavigationViewItem.Icon>
-                            <icons:SymbolIcon Symbol="Home" />
-                        </ui:NavigationViewItem.Icon>
+                        <ui:NavigationViewItem.IconSource>
+                            <icons:SymbolIconSource Symbol="Home" />
+                        </ui:NavigationViewItem.IconSource>
                     </ui:NavigationViewItem>
                 </ui:NavigationView.MenuItems>
             </ui:NavigationView>

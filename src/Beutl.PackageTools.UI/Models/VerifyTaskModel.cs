@@ -1,6 +1,7 @@
 ﻿using Beutl.Logging;
 
 using Reactive.Bindings;
+using Reactive.Bindings.TinyLinq;
 
 namespace Beutl.PackageTools.UI.Models;
 
@@ -15,6 +16,8 @@ public class VerifyTaskModel : IProgress<double>
     {
         _app = app;
         _context = context;
+        IsContinuedNull = IsContinued.Select(v => v.HasValue)
+            .ToReadOnlyReactivePropertySlim();
     }
 
     public ReactiveProperty<bool> ShowDetails { get; } = new(false);
@@ -35,6 +38,8 @@ public class VerifyTaskModel : IProgress<double>
     public ReactiveProperty<bool> IsRunning { get; } = new();
 
     public ReactiveProperty<bool?> IsContinued { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> IsContinuedNull { get; }
 
     public ReactiveProperty<bool> Skipped { get; } = new();
 

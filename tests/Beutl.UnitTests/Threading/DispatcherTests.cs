@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-using System.Runtime.CompilerServices;
-using Beutl.Threading;
+﻿using Beutl.Threading;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Threading;
@@ -335,8 +333,7 @@ public class DispatcherTests
     public async Task SyncContext_Post_Throws_Unhandled()
     {
         var dispatcher = Dispatcher.Spawn();
-        typeof(Dispatcher).GetField("_catchExceptions",
-            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.SetField)!.SetValue(dispatcher, true);
+        dispatcher._catchExceptions = true;
 
         var context = dispatcher.Invoke(() => SynchronizationContext.Current);
         Assert.That(context, Is.Not.Null, "SynchronizationContext.Current is null");

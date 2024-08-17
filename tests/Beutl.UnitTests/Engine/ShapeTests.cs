@@ -162,18 +162,21 @@ public class ShapeTests
     [Test]
     public void DrawGeometry()
     {
-        var geometry = new PathGeometry();
+        var figure = new PathFigure();
+        var geometry = new PathGeometry { Figures = [figure] };
         var center = new Point(100, 100);
         float radius = 0.45f * Math.Min(200, 200);
 
-        geometry.MoveTo(new Point(100, 100 - radius));
+        figure.StartPoint = new Point(100, 100 - radius);
 
         for (int i = 1; i < 5; i++)
         {
             float angle = i * 4 * MathF.PI / 5;
-            geometry.LineTo(center + new Point(radius * MathF.Sin(angle), -radius * MathF.Cos(angle)));
+            figure.Segments.Add(
+                new LineSegment(center + new Point(radius * MathF.Sin(angle), -radius * MathF.Cos(angle))));
         }
-        geometry.Close();
+
+        figure.IsClosed = true;
 
         var shape = new GeometryShape
         {
@@ -204,21 +207,21 @@ public class ShapeTests
     [TestCase(StrokeAlignment.Outside, PathFillType.EvenOdd)]
     public void DrawGeometryWithPen(StrokeAlignment alignment, PathFillType fillType)
     {
-        var geometry = new PathGeometry()
-        {
-            FillType = fillType
-        };
+        var figure = new PathFigure();
+        var geometry = new PathGeometry { Figures = [figure], FillType = fillType };
         var center = new Point(100, 100);
         float radius = 0.45f * Math.Min(200, 200);
 
-        geometry.MoveTo(new Point(100, 100 - radius));
+        figure.StartPoint = new Point(100, 100 - radius);
 
         for (int i = 1; i < 5; i++)
         {
             float angle = i * 4 * MathF.PI / 5;
-            geometry.LineTo(center + new Point(radius * MathF.Sin(angle), -radius * MathF.Cos(angle)));
+            figure.Segments.Add(
+                new LineSegment(center + new Point(radius * MathF.Sin(angle), -radius * MathF.Cos(angle))));
         }
-        geometry.Close();
+
+        figure.IsClosed = true;
 
         var shape = new GeometryShape
         {
