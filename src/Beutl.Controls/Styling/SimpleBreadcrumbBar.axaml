@@ -40,23 +40,19 @@
             </Setter>
         </Style>
 
-        <Style Selector="^:pointerover /template/ ui|FABorder#Root">
+        <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="Background" Value="Transparent" />
-        </Style>
-        <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
         </Style>
 
-        <Style Selector="^:pressed /template/ ui|FABorder#Root">
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
         <Style Selector="^:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
             <Setter Property="Opacity" Value="0.5" />
         </Style>
 
-        <Style Selector="^:disabled /template/ ui|FABorder#Root">
+        <Style Selector="^:disabled /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
         </Style>
     </ControlTheme>

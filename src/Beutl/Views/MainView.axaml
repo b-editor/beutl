@@ -33,8 +33,8 @@
 
     <Grid RowDefinitions="Auto,*">
         <Grid x:Name="Titlebar" ColumnDefinitions="Auto,Auto,Auto,*">
-            <Image MaxWidth="24"
-                   Name="WindowIcon"
+            <Image Name="WindowIcon"
+                   MaxWidth="24"
                    MaxHeight="24"
                    Margin="8,0"
                    VerticalAlignment="Center"
@@ -296,7 +296,7 @@
                             </Animation>
                         </Style.Animations>
 
-                        <Style Selector="^ /template/ ui|FABorder#ContentRoot">
+                        <Style Selector="^ /template/ Border#ContentRoot">
                             <Setter Property="IsVisible" Value="True" />
                         </Style>
 

@@ -48,16 +48,15 @@
                 <Grid Name="PART_Grid"
                       Background="{TemplateBinding Background}"
                       ColumnDefinitions="Auto,*">
-                    <ui:FABorder Name="PART_Root"
-                                 Width="24"
-                                 Height="24"
-                                 Margin="8,0"
-                                 Padding="4"
-                                 BorderBrush="{TemplateBinding BorderBrush}"
-                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                 CornerRadius="{TemplateBinding CornerRadius}">
-                        <ContentPresenter Name="TagContentPresenter" Content="{TemplateBinding Tag}" />
-                    </ui:FABorder>
+                    <ContentPresenter Name="TagContentPresenter"
+                                      Width="24"
+                                      Height="24"
+                                      Margin="8,0"
+                                      Padding="4"
+                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                      Content="{TemplateBinding Tag}"
+                                      CornerRadius="{TemplateBinding CornerRadius}" />
 
                     <ContentPresenter Name="ContentPresenter"
                                       Grid.Column="1"
@@ -71,7 +70,7 @@
             </ControlTemplate>
         </Setter>
 
-        <Style Selector="^ /template/ ui|FABorder#PART_Root">
+        <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
             <Setter Property="Transitions">
                 <Transitions>
                     <BrushTransition Property="Background" Duration="00:00:00.083" />
@@ -80,74 +79,47 @@
         </Style>
 
 
-        <Style Selector="^:pointerover">
-            <Style Selector="^ /template/ ui|FABorder#PART_Root">
-                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPointerOver}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPointerOver}" />
-            </Style>
-            <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
-                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
-            </Style>
+        <Style Selector="^:pointerover /template/ ContentPresenter#TagContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPointerOver}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPointerOver}" />
+            <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
         </Style>
 
-        <Style Selector="^:pressed">
-            <Style Selector="^ /template/ ui|FABorder#PART_Root">
-                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPressed}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPressed}" />
-            </Style>
-            <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
-                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundPressed}" />
-            </Style>
+        <Style Selector="^:pressed /template/ ContentPresenter#TagContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPressed}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPressed}" />
+            <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundPressed}" />
         </Style>
 
-        <Style Selector="^:disabled">
-            <Style Selector="^ /template/ ui|FABorder#PART_Root">
-                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundDisabled}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushDisabled}" />
-            </Style>
-            <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
-                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundDisabled}" />
-            </Style>
+        <Style Selector="^:disabled /template/ ContentPresenter#TagContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundDisabled}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushDisabled}" />
+            <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundDisabled}" />
         </Style>
 
         <Style Selector="^:checked">
-            <Style Selector="^ /template/ ui|FABorder#PART_Root">
+            <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
                 <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundChecked}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushChecked}" />
-            </Style>
-            <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
                 <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundChecked}" />
             </Style>
 
-
-            <Style Selector="^:pointerover">
-                <Style Selector="^ /template/ ui|FABorder#PART_Root">
-                    <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundCheckedPointerOver}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushCheckedPointerOver}" />
-                </Style>
-                <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
-                    <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundCheckedPointerOver}" />
-                </Style>
+            <Style Selector="^:pointerover /template/ ContentPresenter#TagContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundCheckedPointerOver}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushCheckedPointerOver}" />
+                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundCheckedPointerOver}" />
             </Style>
 
-            <Style Selector="^:pressed">
-                <Style Selector="^ /template/ ui|FABorder#PART_Root">
-                    <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundCheckedPressed}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushCheckedPressed}" />
-                </Style>
-                <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
-                    <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundCheckedPressed}" />
-                </Style>
+            <Style Selector="^:pressed /template/ ContentPresenter#TagContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundCheckedPressed}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushCheckedPressed}" />
+                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundCheckedPressed}" />
             </Style>
 
-            <Style Selector="^:disabled">
-                <Style Selector="^ /template/ ui|FABorder#PART_Root">
-                    <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundCheckedDisabled}" />
-                    <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushCheckedDisabled}" />
-                </Style>
-                <Style Selector="^ /template/ ContentPresenter#TagContentPresenter">
-                    <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundCheckedDisabled}" />
-                </Style>
+            <Style Selector="^:disabled /template/ ContentPresenter#TagContentPresenter">
+                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundCheckedDisabled}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushCheckedDisabled}" />
+                <Setter Property="Foreground" Value="{DynamicResource ToggleButtonForegroundCheckedDisabled}" />
             </Style>
         </Style>
     </ControlTheme>
@@ -278,8 +250,7 @@
                                        Text="{StaticResource ExpanderChevronDownGlyph}">
                                 <TextBlock.Transitions>
                                     <Transitions>
-                                        <TransformOperationsTransition Property="RenderTransform"
-                                                                       Duration="00:00:00.167" />
+                                        <TransformOperationsTransition Property="RenderTransform" Duration="00:00:00.167" />
                                     </Transitions>
                                 </TextBlock.Transitions>
                             </TextBlock>

@@ -18,7 +18,7 @@
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
 
-        <Style Selector="^:pointerover /template/ ui|FABorder#Root">
+        <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Opacity" Value="0.8" />
             <Setter Property="Background" Value="Transparent" />
         </Style>
