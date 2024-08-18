@@ -200,9 +200,9 @@
                                Theme="{StaticResource SubtitleTextBlockStyle}" />
 
                     <HyperlinkButton HorizontalAlignment="Right"
-                                        Click="MoreRanking_Click"
-                                        Content="{x:Static lang:Strings.ShowMore}"
-                                        Tag="Overall" />
+                                     Click="MoreRanking_Click"
+                                     Content="{x:Static lang:Strings.ShowMore}"
+                                     Tag="Overall" />
                 </Panel>
                 <ScrollViewer Margin="0,8,0,0"
                               HorizontalScrollBarVisibility="Auto"
@@ -235,9 +235,9 @@
                     </StackPanel>
 
                     <HyperlinkButton HorizontalAlignment="Right"
-                                        Click="MoreRanking_Click"
-                                        Content="{x:Static lang:Strings.ShowMore}"
-                                        Tag="" />
+                                     Click="MoreRanking_Click"
+                                     Content="{x:Static lang:Strings.ShowMore}"
+                                     Tag="" />
                 </Panel>
                 <ScrollViewer Margin="0,8,0,0"
                               HorizontalScrollBarVisibility="Auto"
@@ -255,9 +255,9 @@
                                Theme="{StaticResource SubtitleTextBlockStyle}" />
 
                     <HyperlinkButton HorizontalAlignment="Right"
-                                        Click="MoreRanking_Click"
-                                        Content="{x:Static lang:Strings.ShowMore}"
-                                        Tag="Recently" />
+                                     Click="MoreRanking_Click"
+                                     Content="{x:Static lang:Strings.ShowMore}"
+                                     Tag="Recently" />
                 </Panel>
                 <ScrollViewer Margin="0,8,0,0"
                               HorizontalScrollBarVisibility="Auto"

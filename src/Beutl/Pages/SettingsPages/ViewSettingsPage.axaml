@@ -114,19 +114,20 @@
                                                 </Panel>
                                             </ControlTemplate>
                                         </Setter>
-                                    </Style>
-                                    <Style Selector="ListBoxItem /template/ Border#Check">
-                                        <Setter Property="IsVisible" Value="False" />
-                                    </Style>
-                                    <Style Selector="ListBoxItem:pointerover /template/ Border#Root">
-                                        <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuter}" />
-                                    </Style>
 
-                                    <Style Selector="ListBoxItem:selected /template/ Border#Root">
-                                        <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuter}" />
-                                    </Style>
-                                    <Style Selector="ListBoxItem:selected /template/ Border#Check">
-                                        <Setter Property="IsVisible" Value="True" />
+                                        <Style Selector="^ /template/ Border#Check">
+                                            <Setter Property="IsVisible" Value="False" />
+                                        </Style>
+                                        <Style Selector="^:pointerover /template/ Border#Root">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuter}" />
+                                        </Style>
+
+                                        <Style Selector="^:selected /template/ Border#Root">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource FocusStrokeColorOuter}" />
+                                        </Style>
+                                        <Style Selector="^:selected /template/ Border#Check">
+                                            <Setter Property="IsVisible" Value="True" />
+                                        </Style>
                                     </Style>
                                 </ListBox.Styles>
 
