@@ -71,12 +71,12 @@
                 <ctrls:OptionsDisplayItem.Content>
                     <Grid Margin="32,16" ColumnDefinitions="*,*">
                         <StackPanel>
-                            <ui:HyperlinkButton Content="{x:Static lang:Strings.SourceCode}" NavigateUri="{Binding GitRepositoryUrl}" />
+                            <HyperlinkButton Content="{x:Static lang:Strings.SourceCode}" NavigateUri="{Binding GitRepositoryUrl}" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="1">
-                            <ui:HyperlinkButton Content="{x:Static lang:Strings.License}" NavigateUri="{Binding LicenseUrl}" />
-                            <ui:HyperlinkButton Content="{x:Static lang:Strings.ThirdPartyLicenses}" NavigateUri="{Binding ThirdPartyNoticesUrl}" />
+                            <HyperlinkButton Content="{x:Static lang:Strings.License}" NavigateUri="{Binding LicenseUrl}" />
+                            <HyperlinkButton Content="{x:Static lang:Strings.ThirdPartyLicenses}" NavigateUri="{Binding ThirdPartyNoticesUrl}" />
                         </StackPanel>
                     </Grid>
                 </ctrls:OptionsDisplayItem.Content>

@@ -25,7 +25,7 @@
                         Orientation="Vertical"
                         Spacing="4">
                 <SelectableTextBlock Text="{x:Static lang:SettingsPage.Telemetry_Description}" />
-                <ui:HyperlinkButton Content="{x:Static lang:Strings.ShowDetails}" NavigateUri="https://beutl.beditor.net/about/telemetry" />
+                <HyperlinkButton Content="{x:Static lang:Strings.ShowDetails}" NavigateUri="https://beutl.beditor.net/about/telemetry" />
 
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.Telemetry_Description_Beutl_Logging}" Header="{x:Static lang:SettingsPage.Telemetry_Beutl_Logging}">
                     <ctrls:OptionsDisplayItem.ActionButton>

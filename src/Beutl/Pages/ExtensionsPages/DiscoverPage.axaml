@@ -199,7 +199,7 @@
                                Text="{x:Static lang:ExtensionsPage.Top10}"
                                Theme="{StaticResource SubtitleTextBlockStyle}" />
 
-                    <ui:HyperlinkButton HorizontalAlignment="Right"
+                    <HyperlinkButton HorizontalAlignment="Right"
                                         Click="MoreRanking_Click"
                                         Content="{x:Static lang:Strings.ShowMore}"
                                         Tag="Overall" />
@@ -234,7 +234,7 @@
                         </ComboBox>
                     </StackPanel>
 
-                    <ui:HyperlinkButton HorizontalAlignment="Right"
+                    <HyperlinkButton HorizontalAlignment="Right"
                                         Click="MoreRanking_Click"
                                         Content="{x:Static lang:Strings.ShowMore}"
                                         Tag="" />
@@ -254,7 +254,7 @@
                                Text="{x:Static lang:ExtensionsPage.Recently}"
                                Theme="{StaticResource SubtitleTextBlockStyle}" />
 
-                    <ui:HyperlinkButton HorizontalAlignment="Right"
+                    <HyperlinkButton HorizontalAlignment="Right"
                                         Click="MoreRanking_Click"
                                         Content="{x:Static lang:Strings.ShowMore}"
                                         Tag="Recently" />

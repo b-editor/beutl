@@ -219,11 +219,11 @@
                                                   Symbol="Link" />
                                 <TextBlock Grid.Column="1" Text="{x:Static lang:Strings.Link}" />
 
-                                <ui:HyperlinkButton Grid.Row="1"
-                                                    Grid.Column="1"
-                                                    Click="OpenWebSite_Click"
-                                                    Content="{Binding Package.WebSite.Value}"
-                                                    IsVisible="{Binding Package.WebSite.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                <HyperlinkButton Grid.Row="1"
+                                                 Grid.Column="1"
+                                                 Click="OpenWebSite_Click"
+                                                 Content="{Binding Package.WebSite.Value}"
+                                                 IsVisible="{Binding Package.WebSite.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                             </Grid>
                             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
                                 <icons:SymbolIcon Margin="0,0,8,0"
