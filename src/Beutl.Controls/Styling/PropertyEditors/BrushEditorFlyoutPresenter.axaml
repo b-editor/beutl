@@ -118,7 +118,7 @@
                                   IsVisible="False"
                                   RowDefinitions="Auto,Auto">
                                 <ComboBox Name="GradientTypeBox"
-                                          Padding="6,5,0,7"
+                                          Padding="6,5,0,5"
                                           Theme="{StaticResource LiteComboBoxStyle}">
                                     <ComboBoxItem Content="{x:Static lang:Strings.Linear}" />
                                     <ComboBoxItem Content="{x:Static lang:Strings.Conical}" />

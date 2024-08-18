@@ -13,7 +13,7 @@
     <ControlTheme x:Key="LiteComboBoxStyle"
                   BasedOn="{StaticResource ResourceKey={x:Type ComboBox}}"
                   TargetType="ComboBox">
-        <Setter Property="Padding" Value="0,5,0,7" />
+        <Setter Property="Padding" Value="0,5,0,5" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />

@@ -122,8 +122,11 @@
     <Style Selector="ToggleSwitch">
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
-    <Style Selector="ComboBox">
-        <Setter Property="VerticalContentAlignment" Value="Center" />
+    <!-- <Style Selector="ComboBox"> -->
+    <!--     <Setter Property="VerticalContentAlignment" Value="Center" /> -->
+    <!-- </Style> -->
+    <Style Selector="ComboBox /template/ ContentPresenter#ContentPresenter">
+        <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
     <Style Selector=":is(Control).size-24x24">

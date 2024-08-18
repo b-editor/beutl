@@ -68,7 +68,7 @@
                               RowDefinitions="Auto,6,Auto">
                             <ComboBox Name="ColorType"
                                       Grid.ColumnSpan="2"
-                                      Padding="6,5,0,7"
+                                      Padding="6,5,0,5"
                                       SelectedIndex="0"
                                       Theme="{StaticResource LiteComboBoxStyle}">
                                 <ComboBoxItem Content="Hex" />
