@@ -21,6 +21,16 @@
 
         <WrapPanel Margin="-6">
             <ui:CommandBar DefaultLabelPosition="Right">
+                <ui:CommandBar.Styles>
+                    <Style Selector="ui|CommandBarButton /template/ TextBlock#TextLabel">
+                        <Setter Property="VerticalAlignment" Value="Center" />
+                        <Setter Property="Margin" Value="8,0,12,0" />
+                    </Style>
+                    <Style Selector="ui|CommandBarToggleButton /template/ TextBlock#TextLabel">
+                        <Setter Property="VerticalAlignment" Value="Center" />
+                        <Setter Property="Margin" Value="8,0,12,0" />
+                    </Style>
+                </ui:CommandBar.Styles>
                 <ui:CommandBar.PrimaryCommands>
                     <ui:CommandBarToggleButton x:Name="editJsonToggle"
                                                IconSource="Edit"
