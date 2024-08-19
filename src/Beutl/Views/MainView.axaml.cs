@@ -46,8 +46,8 @@ public sealed partial class MainView : UserControl
         {
             WindowIcon.IsVisible = false;
             MenuBar.IsVisible = false;
-            Titlebar.Height = 30;
-            NotificationPanel.Margin = new(0, 30 + 8, 8, 0);
+            Titlebar.Height = 40;
+            NotificationPanel.Margin = new(0, 40 + 8, 8, 0);
             OpenNotificationsButton.Margin = default;
             OpenNotificationsButton.Padding = default;
             NotificationInfoBadge.Height = 16;

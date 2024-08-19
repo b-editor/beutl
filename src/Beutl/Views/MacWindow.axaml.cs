@@ -18,14 +18,14 @@ public sealed partial class MacWindow : Window
 {
     public MacWindow()
     {
-        InitializeComponent();
         if (OperatingSystem.IsMacOS())
         {
             ExtendClientAreaToDecorationsHint = true;
-            //ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.SystemChrome;
-            ExtendClientAreaTitleBarHeightHint = 30;
+            ExtendClientAreaTitleBarHeightHint = 40;
+            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.OSXThickTitleBar | ExtendClientAreaChromeHints.PreferSystemChrome;
         }
 
+        InitializeComponent();
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         (int X, int Y)? pos = viewConfig.WindowPosition;
         (int Width, int Height)? size = viewConfig.WindowSize;
