@@ -15,6 +15,7 @@
     <PackageReference Include="Avalonia.ReactiveUI" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
+    <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.FluentAvalonia" />
     <PackageReference Include="AsyncImageLoader.Avalonia" />
