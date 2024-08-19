@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <PackageReference Include="Nuke.Common" />
+    <PackageReference Include="Serilog.Sinks.File" />
   </ItemGroup>
 
   <ItemGroup>
