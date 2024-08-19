@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="DynamicData" />
     <PackageReference Include="System.CommandLine" />
 
     <PackageReference Include="Avalonia" />
