@@ -18,6 +18,7 @@
 
     <!-- CS8032 -->
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+    <PackageReference Include="System.Reactive" />
   </ItemGroup>
 
 </Project>
