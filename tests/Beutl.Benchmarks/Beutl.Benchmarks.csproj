@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="System.Management" />
   </ItemGroup>
 
   <ItemGroup>
