@@ -160,6 +160,11 @@ public static unsafe partial class Image
         return new Mat(self.Height, self.Width, MatType.CV_8UC4, self.Data);
     }
 
+    public static Mat AsMat(this Bitmap<Bgra8888> self)
+    {
+        return new Mat(self.Height, self.Width, MatType.CV_8UC4, self.Data);
+    }
+
     internal static EncodedImageFormat ToImageFormat(string filename)
     {
         string? ex = Path.GetExtension(filename);

@@ -182,3 +182,14 @@ public sealed class MosaicOperator : FilterEffectOperator<Mosaic>
 
     public Setter<float> ScaleY { get; set; } = new(Mosaic.ScaleYProperty);
 }
+
+public sealed class ColorShiftOperator : FilterEffectOperator<ColorShift>
+{
+    public Setter<PixelPoint> RedOffset { get; set; } = new(ColorShift.RedOffsetProperty);
+
+    public Setter<PixelPoint> GreenOffset { get; set; } = new(ColorShift.GreenOffsetProperty);
+
+    public Setter<PixelPoint> BlueOffset { get; set; } = new(ColorShift.BlueOffsetProperty);
+
+    public Setter<PixelPoint> AlphaOffset { get; set; } = new(ColorShift.AlphaOffsetProperty);
+}

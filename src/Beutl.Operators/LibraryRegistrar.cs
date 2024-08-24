@@ -260,6 +260,11 @@ public static class LibraryRegistrar
                     .BindFilterEffect<Mosaic>()
                 )
 
+                .AddMultiple("Color Shift", m => m
+                    .BindSourceOperator<Configure.Effects.ColorShiftOperator>()
+                    .BindFilterEffect<ColorShift>()
+                )
+
                 .AddGroup("OpenCV", gg => gg
                     .AddMultiple("CvBlur", m => m
                         .BindSourceOperator<Configure.Effects.CvBlursOperator>()
