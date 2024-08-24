@@ -6,7 +6,7 @@ using Beutl.Styling;
 
 namespace Beutl.Operators.Configure;
 
-public abstract class ConfigureOperator<TTarget, TValue> : StylingOperator, ISourceTransformer
+public abstract class ConfigureOperator<TTarget, TValue> : StylingOperator
     where TTarget : Renderable
     where TValue : CoreObject, IAffectsRender, new()
 {
@@ -32,6 +32,11 @@ public abstract class ConfigureOperator<TTarget, TValue> : StylingOperator, ISou
         var style = new Style<TValue>();
         style.Setters.AddRange(setters());
         return style;
+    }
+
+    public override void Evaluate(OperatorEvaluationContext context)
+    {
+        Transform(context.FlowRenderables, context.Clock);
     }
 
     public void Transform(IList<Renderable> value, IClock clock)

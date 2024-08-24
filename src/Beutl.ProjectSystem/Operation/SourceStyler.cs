@@ -7,9 +7,14 @@ using Beutl.Styling;
 
 namespace Beutl.Operation;
 
-public abstract class SourceStyler : StylingOperator, ISourceTransformer
+public abstract class SourceStyler : StylingOperator
 {
     internal ConditionalWeakTable<Renderable, IStyleInstance> Table { get; } = [];
+
+    public override void Evaluate(OperatorEvaluationContext context)
+    {
+        Transform(context.FlowRenderables, context.Clock);
+    }
 
     public virtual void Transform(IList<Renderable> value, IClock clock)
     {

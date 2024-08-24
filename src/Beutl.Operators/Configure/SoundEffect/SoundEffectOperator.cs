@@ -7,7 +7,7 @@ namespace Beutl.Operators.Configure.SoundEffect;
 #pragma warning disable IDE0065
 using SoundEffect = Audio.Effects.SoundEffect;
 
-public abstract class SoundEffectOperator<T> : ConfigureOperator<Sound, T>, ISourceTransformer
+public abstract class SoundEffectOperator<T> : ConfigureOperator<Sound, T>
     where T : SoundEffect, new()
 {
     protected override void PreProcess(Sound target, T value)

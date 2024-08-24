@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Nodes;
-
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Extensibility;
@@ -11,7 +9,7 @@ using Beutl.Styling;
 
 namespace Beutl.Operation;
 
-public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
+public abstract class StyledSourcePublisher : StylingOperator
 {
     protected StyledSourcePublisher()
     {
@@ -23,6 +21,15 @@ public abstract class StyledSourcePublisher : StylingOperator, ISourcePublisher
     }
 
     public IStyleInstance? Instance { get; protected set; }
+
+    public override void Evaluate(OperatorEvaluationContext context)
+    {
+        Renderable? renderable = Publish(context.Clock);
+        if (renderable != null)
+        {
+            context.AddFlowRenderable(renderable);
+        }
+    }
 
     public virtual Renderable? Publish(IClock clock)
     {
