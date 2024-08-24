@@ -1222,4 +1222,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Smoothing" xml:space="preserve">
     <value>なめらかさ</value>
   </data>
+  <data name="ColorShift" xml:space="preserve">
+    <value>色ずれ</value>
+  </data>
 </root>

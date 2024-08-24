@@ -260,7 +260,7 @@ public static class LibraryRegistrar
                     .BindFilterEffect<Mosaic>()
                 )
 
-                .AddMultiple("Color Shift", m => m
+                .AddMultiple(Strings.ColorShift, m => m
                     .BindSourceOperator<Configure.Effects.ColorShiftOperator>()
                     .BindFilterEffect<ColorShift>()
                 )
