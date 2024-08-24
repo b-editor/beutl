@@ -1,6 +1,10 @@
-﻿using ILGPU;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using ILGPU;
 using ILGPU.Runtime;
 using Microsoft.Extensions.Logging;
+using OpenCvSharp;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -43,5 +47,45 @@ public class SharedGPUContext
             s_context?.Dispose();
             s_context = null;
         });
+    }
+
+    public static unsafe void CopyFromCPU(MemoryBuffer1D<Vec4b, Stride1D.Dense> source, SKSurface surface, SKImageInfo imageInfo)
+    {
+        void* tmp = NativeMemory.Alloc((nuint)source.LengthInBytes);
+        try
+        {
+            bool result = surface.ReadPixels(imageInfo, (nint)tmp, imageInfo.Width * 4, 0, 0);
+
+            source.View.CopyFromCPU(ref Unsafe.AsRef<Vec4b>(tmp), source.Length);
+        }
+        finally
+        {
+            NativeMemory.Free(tmp);
+        }
+    }
+
+    public static unsafe void CopyToCPU(MemoryBuffer1D<Vec4b, Stride1D.Dense> source, SKBitmap bitmap)
+    {
+        source.View.CopyToCPU(ref Unsafe.AsRef<Vec4b>((void*)bitmap.GetPixels()), source.Length);
+    }
+
+    public static unsafe void CopyFromCPU(MemoryBuffer2D<Vec4b, Stride2D.DenseX> source, SKSurface surface, SKImageInfo imageInfo)
+    {
+        void* tmp = NativeMemory.Alloc((nuint)source.LengthInBytes);
+        try
+        {
+            bool result = surface.ReadPixels(imageInfo, (nint)tmp, imageInfo.Width * 4, 0, 0);
+
+            source.View.BaseView.CopyFromCPU(ref Unsafe.AsRef<Vec4b>(tmp), source.Length);
+        }
+        finally
+        {
+            NativeMemory.Free(tmp);
+        }
+    }
+
+    public static unsafe void CopyToCPU(MemoryBuffer2D<Vec4b, Stride2D.DenseX> source, SKBitmap bitmap)
+    {
+        source.View.BaseView.CopyToCPU(ref Unsafe.AsRef<Vec4b>((void*)bitmap.GetPixels()), source.Length);
     }
 }

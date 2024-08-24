@@ -1222,4 +1222,7 @@ and b-editor maintains the download URL.</value>
   <data name="Smoothing" xml:space="preserve">
     <value>Smoothing</value>
   </data>
+  <data name="ColorShift" xml:space="preserve">
+    <value>Color Shift</value>
+  </data>
 </root>

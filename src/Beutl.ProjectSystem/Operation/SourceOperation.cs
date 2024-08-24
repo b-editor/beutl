@@ -18,6 +18,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
     public static readonly CoreProperty<ICoreList<SourceOperator>> ChildrenProperty;
     private readonly HierarchicalList<SourceOperator> _children;
     private OperatorEvaluationContext[]? _contexts;
+    private IRenderer? _lastRenderer;
     private int _contextsLength;
     private bool _isDirty = true;
 
@@ -146,6 +147,12 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
 
     private void Initialize(IRenderer renderer, IClock clock)
     {
+        if (_lastRenderer != renderer)
+        {
+            _lastRenderer = renderer;
+            _isDirty = true;
+        }
+
         if (_isDirty)
         {
             Uninitialize();

@@ -90,6 +90,7 @@ public sealed class DrawableGroup : Drawable
             using (canvas.PushTransform(transform))
             using (FilterEffect == null ? new() : canvas.PushFilterEffect(FilterEffect))
             using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(rect.Size)))
+            using (canvas.PushLayer())
             {
                 OnDraw(canvas);
             }

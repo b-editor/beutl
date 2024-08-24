@@ -2252,5 +2252,11 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Smoothing", resourceCulture);
             }
         }
+        
+        public static string ColorShift {
+            get {
+                return ResourceManager.GetString("ColorShift", resourceCulture);
+            }
+        }
     }
 }
