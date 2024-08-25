@@ -119,7 +119,7 @@ public class ColorShift : FilterEffect
             SharedGPUContext.CopyToCPU(dest, skBmp);
 
             EffectTarget newTarget = context.CreateTarget(bounds);
-            newTarget.Surface!.Value.Canvas.DrawBitmap(skBmp, 0,0);
+            newTarget.Surface!.Value.Canvas.DrawBitmap(skBmp, 0, 0);
 
             target.Dispose();
             context.Targets[i] = newTarget;
