@@ -288,17 +288,5 @@ public static class LibraryRegistrar
                     .BindSoundEffect<Delay>()
                 )
             );
-
-        LibraryService.Current.RegisterGroup(Strings.Configure, group => group
-            .AddSourceOperator<Configure.ConfigureTransformOperator>(Strings.Transform)
-
-            .AddSourceOperator<Configure.AlignmentOperator>(Strings.Alignment)
-
-            .AddSourceOperator<Configure.BlendOperator>(Strings.BlendMode)
-
-            .AddSourceOperator<Configure.FillOperator>(Strings.Fill)
-
-            .AddSourceOperator<Configure.OpacityMaskOperator>(Strings.OpacityMask)
-        );
     }
 }
