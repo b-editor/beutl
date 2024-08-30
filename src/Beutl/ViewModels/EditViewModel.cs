@@ -609,15 +609,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 }
                 else
                 {
-                    var configure = new ConfigureTransformOperator();
-                    ITransform? transform = configure.Transform.Value;
-                    AddOrSetHelper.AddOrSet(
-                        ref transform,
-                        new TranslateTransform(desc.Position),
-                        [operation.FindHierarchicalParent<IStorable>()],
-                        CommandRecorder);
-                    configure.Transform.Value = transform;
-                    operation.Children.Add(configure);
+                    _logger.LogWarning("The operator does not have a transform property.");
                 }
             }
         }
