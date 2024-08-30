@@ -16,7 +16,6 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.Operation;
-using Beutl.Operators.Configure;
 using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;

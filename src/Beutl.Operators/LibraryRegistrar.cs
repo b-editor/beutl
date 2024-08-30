@@ -174,10 +174,7 @@ public static class LibraryRegistrar
 
                 .AddFilterEffect<Mosaic>(Strings.Mosaic)
 
-                .AddMultiple(Strings.ColorShift, m => m
-                    .BindSourceOperator<Configure.Effects.ColorShiftOperator>()
-                    .BindFilterEffect<ColorShift>()
-                )
+                .AddFilterEffect<ColorShift>(Strings.ColorShift)
 
                 .AddGroup("OpenCV", gg => gg
                     .AddFilterEffect<Graphics.Effects.OpenCv.Blur>("CvBlur")

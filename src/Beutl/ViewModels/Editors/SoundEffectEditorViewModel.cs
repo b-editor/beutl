@@ -1,8 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Audio.Effects;
-using Beutl.Commands;
-using Beutl.Operators.Configure;
+using Beutl.Operation;
 using Beutl.Services;
 
 using Microsoft.Extensions.DependencyInjection;
