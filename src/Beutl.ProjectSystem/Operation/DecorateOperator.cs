@@ -10,7 +10,7 @@ public sealed class DecorateOperator : StylingOperator
 {
     private readonly List<IStyleInstance> _instances = [];
 
-    public new Setter<ITransform?> Transform { get; set; } =
+    public Setter<ITransform?> Transform { get; set; } =
         new(Drawable.TransformProperty, new TransformGroup());
 
     public Setter<RelativePoint> TransformOrigin { get; set; } =
