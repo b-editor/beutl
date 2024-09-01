@@ -46,7 +46,11 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public ToolTabExtension.TabPlacement Placement { get; } = ToolTabExtension.TabPlacement.Bottom;
+    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
+        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.BottomLeft);
+
+    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
+        new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
 
     public void Dispose()
     {

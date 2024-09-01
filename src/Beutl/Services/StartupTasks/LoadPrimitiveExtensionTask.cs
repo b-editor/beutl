@@ -26,6 +26,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         SceneSettingsTabExtension.Instance,
         WaveReaderExtension.Instance,
         PathEditorTabExtension.Instance,
+        LibraryTabExtension.Instance,
     ];
 
     public LoadPrimitiveExtensionTask(PackageManager manager)

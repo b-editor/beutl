@@ -5,6 +5,9 @@ using Avalonia.Controls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
+using FluentAvalonia.UI.Controls;
+using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
+using Symbol = FluentIcons.Common.Symbol;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -20,6 +23,11 @@ public sealed class SourceOperatorsTabExtension : ToolTabExtension
     public override string DisplayName => "Operators editor";
 
     public override string? Header => Strings.SourceOperators;
+
+    public override IconSource GetIcon()
+    {
+        return new SymbolIconSource { Symbol = Symbol.Wrench };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

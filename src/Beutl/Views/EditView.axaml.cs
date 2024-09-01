@@ -1,5 +1,4 @@
 ﻿using System.Collections.Specialized;
-
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -11,40 +10,25 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
-
 using Beutl.Controls;
+using Beutl.ExceptionHandler;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels;
-
 using Microsoft.Extensions.Logging;
-
+using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using ReDocking;
 
 namespace Beutl.Views;
 
 public sealed partial class EditView : UserControl
 {
-    private static readonly Binding s_isSelectedBinding = new("Context.IsSelected.Value", BindingMode.TwoWay);
-    private static readonly Binding s_headerBinding = new("Context.Header");
     private readonly ILogger _logger = Log.CreateLogger<EditView>();
-    private readonly AvaloniaList<BcTabItem> _bottomTabItems = [];
-    private readonly AvaloniaList<BcTabItem> _rightTabItems = [];
-    private readonly CompositeDisposable _disposables = [];
 
     public EditView()
     {
         InitializeComponent();
-
-        // 下部のタブ
-        BottomTabView.ItemsSource = _bottomTabItems;
-        BottomTabView.GetObservable(SelectingItemsControl.SelectedItemProperty).Subscribe(OnTabViewSelectedItemChanged);
-        _bottomTabItems.CollectionChanged += TabItems_CollectionChanged;
-
-        // 右側のタブ
-        RightTabView.ItemsSource = _rightTabItems;
-        RightTabView.GetObservable(SelectingItemsControl.SelectedItemProperty).Subscribe(OnTabViewSelectedItemChanged);
-        _rightTabItems.CollectionChanged += TabItems_CollectionChanged;
 
         this.GetObservable(IsKeyboardFocusWithinProperty)
             .Subscribe(v => Player.Player.SetSeekBarOpacity(v ? 1 : 0.8));
@@ -79,171 +63,88 @@ public sealed partial class EditView : UserControl
         }
     }
 
-    private void TabItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void OnSideBarButtonDisplayModeChanged(object? sender, SideBarButtonDisplayModeChangedEventArgs e)
     {
-        static void OnAdded(NotifyCollectionChangedEventArgs e, AvaloniaList<BcTabItem> tabItems)
-        {
-            for (int i = e.NewStartingIndex; i < tabItems.Count; i++)
-            {
-                BcTabItem? item = tabItems[i];
-                if (item.DataContext is ToolTabViewModel itemViewModel)
-                {
-                    itemViewModel.Order = i;
-                }
-            }
-        }
-
-        static void OnRemoved(NotifyCollectionChangedEventArgs e, AvaloniaList<BcTabItem> tabItems)
-        {
-            for (int i = e.OldStartingIndex; i < tabItems.Count; i++)
-            {
-                BcTabItem? item = tabItems[i];
-                if (item.DataContext is ToolTabViewModel itemViewModel)
-                {
-                    itemViewModel.Order = i;
-                }
-            }
-        }
-
-        if (sender is BcTabView { ItemsSource: AvaloniaList<BcTabItem> tabItems })
-        {
-            switch (e.Action)
-            {
-                case NotifyCollectionChangedAction.Add:
-                    OnAdded(e, tabItems);
-                    break;
-
-                case NotifyCollectionChangedAction.Move:
-                    OnRemoved(e, tabItems);
-                    OnAdded(e, tabItems);
-                    break;
-
-                case NotifyCollectionChangedAction.Replace:
-                case NotifyCollectionChangedAction.Reset:
-                    throw new Exception("Not supported action (Move, Replace, Reset).");
-
-                case NotifyCollectionChangedAction.Remove:
-                    OnRemoved(e, tabItems);
-                    break;
-            }
-        }
     }
 
-    protected override void OnDataContextChanged(EventArgs e)
+    private static ReactiveCollection<ToolTabViewModel> GetItemsSource(EditViewModel viewModel,
+        DockAreaLocation location)
     {
-        base.OnDataContextChanged(e);
-        _disposables.Clear();
-        if (DataContext is EditViewModel vm)
+        return location switch
         {
-            vm.BottomTabItems.ForEachItem(
-                (item) =>
-                {
-                    ToolTabExtension ext = item.Context.Extension;
-                    if (DataContext is not IEditorContext editorContext || !item.Context.Extension.TryCreateContent(editorContext, out Control? control))
-                    {
-                        control = new TextBlock()
-                        {
-                            Text = @$"
-Error:
-    {Message.CannotDisplayThisContext}"
-                        };
-                    }
+            DockAreaLocation.Left => viewModel.LeftTools,
+            DockAreaLocation.Right => viewModel.RightTools,
+            DockAreaLocation.TopLeft => viewModel.LeftTopTools,
+            DockAreaLocation.BottomLeft => viewModel.LeftBottomTools,
+            DockAreaLocation.TopRight => viewModel.RightTopTools,
+            DockAreaLocation.BottomRight => viewModel.RightBottomTools,
+            _ => throw new ArgumentOutOfRangeException(nameof(location), location, null)
+        };
+    }
 
-                    control.DataContext = item.Context;
-                    var tabItem = new BcTabItem
-                    {
-                        [!HeaderedContentControl.HeaderProperty] = s_headerBinding,
-                        [!TabItem.IsSelectedProperty] = s_isSelectedBinding,
-                        DataContext = item,
-                        Content = control,
-                    };
+    private static ReactiveProperty<ToolTabViewModel?> GetSelectedItem(EditViewModel viewModel,
+        DockAreaLocation location)
+    {
+        return location switch
+        {
+            DockAreaLocation.Left => viewModel.SelectedLeftTool,
+            DockAreaLocation.Right => viewModel.SelectedRightTool,
+            DockAreaLocation.TopLeft => viewModel.SelectedLeftTopTool,
+            DockAreaLocation.BottomLeft => viewModel.SelectedLeftBottomTool,
+            DockAreaLocation.TopRight => viewModel.SelectedRightTopTool,
+            DockAreaLocation.BottomRight => viewModel.SelectedRightBottomTool,
+            _ => throw new ArgumentOutOfRangeException(nameof(location), location, null)
+        };
+    }
 
-                    tabItem.CloseButtonClick += (s, _) =>
-                    {
-                        if (s is BcTabItem { DataContext: ToolTabViewModel tabViewModel } && DataContext is IEditorContext viewModel)
-                        {
-                            viewModel.CloseToolTab(tabViewModel.Context);
-                        }
-                    };
+    private void OnSideBarButtonDrop(object? sender, SideBarButtonMoveEventArgs e)
+    {
+        if (DataContext is not EditViewModel viewModel) return;
+        var oldItems = GetItemsSource(viewModel, e.SourceLocation);
+        var oldSelectedItem = GetSelectedItem(viewModel, e.SourceLocation);
+        var newItems = GetItemsSource(viewModel, e.DestinationLocation);
 
-                    if (item.Order < 0 || item.Order > _bottomTabItems.Count)
-                    {
-                        item.Order = _bottomTabItems.Count;
-                    }
-
-                    _bottomTabItems.Insert(item.Order, tabItem);
-                },
-                (item) =>
-                {
-                    for (int i = 0; i < _bottomTabItems.Count; i++)
-                    {
-                        BcTabItem tabItem = _bottomTabItems[i];
-                        if (tabItem.DataContext is ToolTabViewModel itemViewModel
-                            && itemViewModel.Context == item.Context)
-                        {
-                            itemViewModel.Order = -1;
-                            _bottomTabItems.RemoveAt(i);
-                            return;
-                        }
-                    }
-                },
-                () => throw new Exception())
-                .DisposeWith(_disposables);
-
-            vm.RightTabItems.ForEachItem(
-                (item) =>
-                {
-                    ToolTabExtension ext = item.Context.Extension;
-                    if (DataContext is not IEditorContext editorContext || !item.Context.Extension.TryCreateContent(editorContext, out Control? control))
-                    {
-                        control = new TextBlock()
-                        {
-                            Text = @$"
-Error:
-    {Message.CannotDisplayThisContext}"
-                        };
-                    }
-
-                    control.DataContext = item.Context;
-                    var tabItem = new BcTabItem
-                    {
-                        [!HeaderedContentControl.HeaderProperty] = s_headerBinding,
-                        [!TabItem.IsSelectedProperty] = s_isSelectedBinding,
-                        DataContext = item,
-                        Content = control,
-                    };
-
-                    tabItem.CloseButtonClick += (s, _) =>
-                    {
-                        if (s is BcTabItem { DataContext: ToolTabViewModel tabViewModel } && DataContext is IEditorContext viewModel)
-                        {
-                            viewModel.CloseToolTab(tabViewModel.Context);
-                        }
-                    };
-
-                    if (item.Order < 0 || item.Order > _rightTabItems.Count)
-                    {
-                        item.Order = _rightTabItems.Count;
-                    }
-
-                    _rightTabItems.Insert(item.Order, tabItem);
-                },
-                (item) =>
-                {
-                    for (int i = 0; i < _rightTabItems.Count; i++)
-                    {
-                        BcTabItem tabItem = _rightTabItems[i];
-                        if (tabItem.DataContext is ToolTabViewModel itemViewModel
-                            && itemViewModel.Context == item.Context)
-                        {
-                            itemViewModel.Order = -1;
-                            _rightTabItems.RemoveAt(i);
-                            return;
-                        }
-                    }
-                },
-                () => throw new Exception())
-                .DisposeWith(_disposables);
+        if (e.Item is not ToolTabViewModel item)
+        {
+            return;
         }
+
+        if (oldSelectedItem.Value == item)
+        {
+            oldSelectedItem.Value = null;
+        }
+
+        if (oldItems == newItems)
+        {
+            var sourceIndex = oldItems.IndexOf(item);
+            var destinationIndex = e.DestinationIndex;
+            if (sourceIndex < destinationIndex)
+            {
+                destinationIndex--;
+            }
+
+            oldItems.Move(sourceIndex, destinationIndex);
+            item.Context.IsSelected.Value = true;
+        }
+        else
+        {
+            oldItems.Remove(item);
+            var newItem = item;
+            // var newItem = new ToolTabViewModel(item.Context, viewModel);
+            newItems.Insert(e.DestinationIndex, newItem);
+            newItem.Context.IsSelected.Value = true;
+            newItem.Context.Placement.Value = e.DestinationLocation switch
+            {
+                DockAreaLocation.Left => ToolTabExtension.TabPlacement.Left,
+                DockAreaLocation.Right => ToolTabExtension.TabPlacement.Right,
+                DockAreaLocation.TopLeft => ToolTabExtension.TabPlacement.TopLeft,
+                DockAreaLocation.BottomLeft => ToolTabExtension.TabPlacement.BottomLeft,
+                DockAreaLocation.TopRight => ToolTabExtension.TabPlacement.TopRight,
+                DockAreaLocation.BottomRight => ToolTabExtension.TabPlacement.BottomRight,
+                _ => ToolTabExtension.TabPlacement.Left
+            };
+        }
+
+        e.Handled = true;
     }
 }

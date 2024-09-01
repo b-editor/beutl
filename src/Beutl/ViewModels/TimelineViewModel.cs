@@ -3,11 +3,9 @@ using System.Numerics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
-
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
-
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Logging;
@@ -18,16 +16,13 @@ using Beutl.ProjectSystem;
 using Beutl.Reactive;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
-
 using DynamicData;
-
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-
 using static Beutl.ViewModels.BufferStatusViewModel;
+using PixelPoint = Avalonia.PixelPoint;
 
 namespace Beutl.ViewModels;
 
@@ -74,7 +69,8 @@ public sealed class TimelineViewModel : IToolContext
         AddElement.Subscribe(editViewModel.AddElement).AddTo(_disposables);
 
         TimelineOptions options = editViewModel.Options.Value;
-        LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount).Select(num => new LayerHeaderViewModel(num, this)));
+        LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount)
+            .Select(num => new LayerHeaderViewModel(num, this)));
         if (Scene.Children.Count > 0)
         {
             AddLayerHeaders(Scene.Children.Max(i => i.ZIndex) + 1);
@@ -86,27 +82,27 @@ public sealed class TimelineViewModel : IToolContext
         }
 
         Scene.Children.TrackCollectionChanged(
-            (idx, item) =>
-            {
-                AddLayerHeaders(item.ZIndex + 1);
-                Elements.Insert(idx, new ElementViewModel(item, this));
-            },
-            (idx, _) =>
-            {
-                ElementViewModel element = Elements[idx];
-                this.GetService<ISupportCloseAnimation>()?.Close(element.Model);
-                Elements.RemoveAt(idx);
-                element.Dispose();
-            },
-            () =>
-            {
-                ElementViewModel[] tmp = [.. Elements];
-                Elements.Clear();
-                foreach (ElementViewModel? item in Elements.GetMarshal().Value)
+                (idx, item) =>
                 {
-                    item.Dispose();
-                }
-            })
+                    AddLayerHeaders(item.ZIndex + 1);
+                    Elements.Insert(idx, new ElementViewModel(item, this));
+                },
+                (idx, _) =>
+                {
+                    ElementViewModel element = Elements[idx];
+                    this.GetService<ISupportCloseAnimation>()?.Close(element.Model);
+                    Elements.RemoveAt(idx);
+                    element.Dispose();
+                },
+                () =>
+                {
+                    ElementViewModel[] tmp = [.. Elements];
+                    Elements.Clear();
+                    foreach (ElementViewModel? item in Elements.GetMarshal().Value)
+                    {
+                        item.Dispose();
+                    }
+                })
             .AddTo(_disposables);
 
         editViewModel.Options.Select(x => x.MaxLayerCount)
@@ -117,7 +113,8 @@ public sealed class TimelineViewModel : IToolContext
         AdjustDurationToCurrent.Subscribe(OnAdjustDurationToCurrent);
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
-        AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty).ToReactiveProperty();
+        AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
+            .ToReactiveProperty();
         AutoAdjustSceneDuration.Subscribe(b => editorConfig.AutoAdjustSceneDuration = b);
 
         IsLockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: false })
@@ -279,7 +276,11 @@ public sealed class TimelineViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Bottom;
+    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
+        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.BottomLeft);
+
+    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
+        new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
 
     public IObservable<LayerHeaderViewModel> LayerHeightChanged => _layerHeightChanged;
 
@@ -294,10 +295,12 @@ public sealed class TimelineViewModel : IToolContext
         {
             item.Dispose();
         }
+
         foreach (LayerHeaderViewModel item in LayerHeaders)
         {
             item.Dispose();
         }
+
         foreach (InlineAnimationLayerViewModel item in Inlines)
         {
             item.Dispose();
@@ -343,10 +346,7 @@ public sealed class TimelineViewModel : IToolContext
 
             if (Options.Value.MaxLayerCount != LayerHeaders.Count)
             {
-                Options.Value = Options.Value with
-                {
-                    MaxLayerCount = LayerHeaders.Count
-                };
+                Options.Value = Options.Value with { MaxLayerCount = LayerHeaders.Count };
 
                 _logger.LogDebug("The number of layers has been changed. ({Count})", count);
             }
@@ -368,10 +368,7 @@ public sealed class TimelineViewModel : IToolContext
 
             if (Options.Value.MaxLayerCount != LayerHeaders.Count)
             {
-                Options.Value = Options.Value with
-                {
-                    MaxLayerCount = LayerHeaders.Count
-                };
+                Options.Value = Options.Value with { MaxLayerCount = LayerHeaders.Count };
 
                 _logger.LogDebug("The number of layers has been changed. ({Count})", LayerHeaders.Count);
             }
@@ -388,13 +385,16 @@ public sealed class TimelineViewModel : IToolContext
             && layersNode is JsonArray layersArray)
         {
             foreach ((LayerHeaderViewModel layer, JsonObject item) in layersArray.OfType<JsonObject>()
-                .Select(v => v.TryGetPropertyValueAsJsonValue(nameof(LayerHeaderViewModel.Number), out int number) ? (number, v) : (-1, null))
-                .Where(v => v.Item2 != null)
-                .Join(
-                    LayerHeaders,
-                    x => x.Item1,
-                    y => y.Number.Value,
-                    (x, y) => (y, x.Item2!)))
+                         .Select(v =>
+                             v.TryGetPropertyValueAsJsonValue(nameof(LayerHeaderViewModel.Number), out int number)
+                                 ? (number, v)
+                                 : (-1, null))
+                         .Where(v => v.Item2 != null)
+                         .Join(
+                             LayerHeaders,
+                             x => x.Item1,
+                             y => y.Number.Value,
+                             (x, y) => (y, x.Item2!)))
             {
                 layer.ReadFromJson(item);
             }
@@ -412,18 +412,18 @@ public sealed class TimelineViewModel : IToolContext
         static (Guid ElementId, Guid AnimationId) GetIds(JsonObject v)
         {
             return v.TryGetPropertyValueAsJsonValue("ElementId", out Guid elementId)
-                && v.TryGetPropertyValueAsJsonValue("AnimationId", out Guid anmId)
-                    ? (elementId, anmId)
-                    : (Guid.Empty, Guid.Empty);
+                   && v.TryGetPropertyValueAsJsonValue("AnimationId", out Guid anmId)
+                ? (elementId, anmId)
+                : (Guid.Empty, Guid.Empty);
         }
 
         foreach ((Element element, Guid anmId) in inlinesArray.OfType<JsonObject>()
-            .Select(GetIds)
-            .Where(x => x.AnimationId != Guid.Empty && x.ElementId != Guid.Empty)
-            .Join(Scene.Children,
-                x => x.ElementId,
-                y => y.Id,
-                (x, y) => (y, x.AnimationId)))
+                     .Select(GetIds)
+                     .Where(x => x.AnimationId != Guid.Empty && x.ElementId != Guid.Empty)
+                     .Join(Scene.Children,
+                         x => x.ElementId,
+                         y => y.Id,
+                         (x, y) => (y, x.AnimationId)))
         {
             IAnimatablePropertyAdapter? anmProp = null;
             Animatable? animatable = null;
@@ -476,7 +476,8 @@ public sealed class TimelineViewModel : IToolContext
                     try
                     {
                         Type type = typeof(AnimatablePropertyAdapter<>).MakeGenericType(anm.Property.PropertyType);
-                        var createdProp = (IAnimatablePropertyAdapter)Activator.CreateInstance(type, anm.Property, animatable)!;
+                        var createdProp =
+                            (IAnimatablePropertyAdapter)Activator.CreateInstance(type, anm.Property, animatable)!;
                         AttachInline(createdProp!, element);
                     }
                     catch (Exception ex)
@@ -494,10 +495,7 @@ public sealed class TimelineViewModel : IToolContext
         array.AddRange(LayerHeaders.Where(v => v.ShouldSaveState())
             .Select(v =>
             {
-                var obj = new JsonObject
-                {
-                    [nameof(LayerHeaderViewModel.Number)] = v.Number.Value
-                };
+                var obj = new JsonObject { [nameof(LayerHeaderViewModel.Number)] = v.Number.Value };
                 v.WriteToJson(obj);
                 return obj;
             }));
@@ -511,11 +509,7 @@ public sealed class TimelineViewModel : IToolContext
             {
                 Guid elementId = item.Element.Model.Id;
 
-                inlines.Add(new JsonObject
-                {
-                    ["AnimationId"] = anmId,
-                    ["ElementId"] = elementId
-                });
+                inlines.Add(new JsonObject { ["AnimationId"] = anmId, ["ElementId"] = elementId });
             }
         }
 
@@ -529,7 +523,8 @@ public sealed class TimelineViewModel : IToolContext
         {
             // タイムラインのタブを開く
             Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.PropertyType);
-            if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel anmTimelineViewModel)
+            if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel
+                anmTimelineViewModel)
             {
                 Inlines.Add(anmTimelineViewModel);
             }
@@ -667,21 +662,13 @@ public sealed class TimelineViewModel : IToolContext
     {
         static KeyBinding KeyBinding(Key key, KeyModifiers modifiers, ICommand command)
         {
-            return new KeyBinding
-            {
-                Gesture = new KeyGesture(key, modifiers),
-                Command = command
-            };
+            return new KeyBinding { Gesture = new KeyGesture(key, modifiers), Command = command };
         }
 
         PlatformHotkeyConfiguration? keyConf = Application.Current?.PlatformSettings?.HotkeyConfiguration;
         if (keyConf != null)
         {
-            KeyBindings.AddRange(keyConf.Paste.Select(i => new KeyBinding
-            {
-                Command = Paste,
-                Gesture = i
-            }));
+            KeyBindings.AddRange(keyConf.Paste.Select(i => new KeyBinding { Command = Paste, Gesture = i }));
         }
         else
         {
@@ -691,7 +678,8 @@ public sealed class TimelineViewModel : IToolContext
         //KeyBindings.Add(KeyBinding(Key.))
     }
 
-    private sealed class TrackedLayerTopObservable(int layerNum, TimelineViewModel timeline) : LightweightObservableBase<double>, IDisposable
+    private sealed class TrackedLayerTopObservable(int layerNum, TimelineViewModel timeline)
+        : LightweightObservableBase<double>, IDisposable
     {
         private IDisposable? _disposable1;
         private IDisposable? _disposable2;
@@ -730,7 +718,7 @@ public sealed class TimelineViewModel : IToolContext
             {
                 if (layerNum != obj.OldStartingIndex
                     && ((layerNum > obj.OldStartingIndex && layerNum <= obj.NewStartingIndex)
-                    || (layerNum < obj.OldStartingIndex && layerNum >= obj.NewStartingIndex)))
+                        || (layerNum < obj.OldStartingIndex && layerNum >= obj.NewStartingIndex)))
                 {
                     PublishNext(timeline.CalculateLayerTop(layerNum));
                 }

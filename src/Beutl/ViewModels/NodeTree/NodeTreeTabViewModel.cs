@@ -110,7 +110,11 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected => _isSelected;
 
-    public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Bottom;
+    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
+        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.BottomLeft);
+
+    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
+        new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
 
     public ReactivePropertySlim<Element?> Element { get; } = new();
 

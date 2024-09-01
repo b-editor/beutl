@@ -69,13 +69,13 @@ public sealed partial class SourceOperatorsTab : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator))
-        {
-            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
-        }
-        else
-        {
-            e.DragEffects = DragDropEffects.None;
-        }
+        // if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator))
+        // {
+        //     e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
+        // }
+        // else
+        // {
+        //     e.DragEffects = DragDropEffects.None;
+        // }
     }
 }

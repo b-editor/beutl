@@ -21,6 +21,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -28,11 +29,13 @@ using LibraryService = Beutl.Services.LibraryService;
 
 namespace Beutl.ViewModels;
 
-public sealed class ToolTabViewModel(IToolContext context) : IDisposable
+public sealed class ToolTabViewModel(IToolContext context, EditViewModel editViewModel) : IDisposable
 {
     public IToolContext Context { get; private set; } = context;
 
-    public int Order { get; set; } = -1;
+    public IconSource Icon { get; } = context.Extension.GetIcon();
+
+    public EditViewModel EditViewModel { get; } = editViewModel;
 
     public void Dispose()
     {
@@ -41,7 +44,8 @@ public sealed class ToolTabViewModel(IToolContext context) : IDisposable
     }
 }
 
-public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation, ISupportAutoSaveEditorContext
+public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation,
+    ISupportAutoSaveEditorContext
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
 
@@ -74,9 +78,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         SelectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
 
-        BottomTabItems = new CoreList<ToolTabViewModel>() { ResetBehavior = ResetBehavior.Remove };
-        RightTabItems = new CoreList<ToolTabViewModel>() { ResetBehavior = ResetBehavior.Remove };
-
         Scale = Options.Select(o => o.Scale);
         Offset = Options.Select(o => o.Offset);
         SelectedObject.CombineWithPrevious()
@@ -91,12 +92,11 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             .DisposeWith(_disposables);
 
         SelectedLayerNumber = SelectedObject.Select(v =>
-                (v as Element)?.GetObservable(Element.ZIndexProperty).Select(i => (int?)i) ?? Observable.Return<int?>(null))
+                (v as Element)?.GetObservable(Element.ZIndexProperty).Select(i => (int?)i) ??
+                Observable.Return<int?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim();
 
-        Library = new LibraryViewModel(this)
-            .DisposeWith(_disposables);
         Player = new PlayerViewModel(this)
             .DisposeWith(_disposables);
         Commands = new KnownCommandsImpl(scene, this);
@@ -108,13 +108,61 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         CommandRecorder.Executed += OnCommandRecorderExecuted;
 
+        void ConfigureToolsList(ReactiveCollection<ToolTabViewModel> list,
+            ReactiveProperty<ToolTabViewModel?> selected)
+        {
+            var disposables = new List<(ToolTabViewModel, IDisposable)>();
+
+            selected.Subscribe(x =>
+                list.ToObservable()
+                    .Where(y => y != x && y.Context.DisplayMode.Value == ToolTabExtension.TabDisplayMode.Docked)
+                    .Subscribe(y => y.Context.IsSelected.Value = false));
+
+            list.ObserveAddChanged()
+                .Subscribe(x =>
+                {
+                    var disposable = x.Context.IsSelected.Subscribe(w =>
+                    {
+                        if (w && x.Context.DisplayMode.Value == ToolTabExtension.TabDisplayMode.Docked)
+                        {
+                            selected.Value = x;
+                        }
+                        else
+                        {
+                            selected.Value = list.FirstOrDefault(xx =>
+                                xx.Context.IsSelected.Value && xx.Context.DisplayMode.Value ==
+                                ToolTabExtension.TabDisplayMode.Docked);
+                        }
+                    });
+                    disposables.Add((x, disposable));
+                });
+
+            list.ObserveRemoveChanged()
+                .Subscribe(i =>
+                {
+                    int index = disposables.FindIndex(x => x.Item1 == i);
+                    if (0 > index) return;
+
+                    disposables[index].Item2.Dispose();
+                    disposables.RemoveAt(index);
+                });
+        }
+
+        ConfigureToolsList(LeftTopTools, SelectedLeftTopTool);
+        ConfigureToolsList(LeftTools, SelectedLeftTool);
+        ConfigureToolsList(LeftBottomTools, SelectedLeftBottomTool);
+        ConfigureToolsList(RightTopTools, SelectedRightTopTool);
+        ConfigureToolsList(RightTools, SelectedRightTool);
+        ConfigureToolsList(RightBottomTools, SelectedRightBottomTool);
+
         RestoreState();
     }
 
     private static FrameCacheOptions CreateFrameCacheOptions()
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        return new FrameCacheOptions(Scale: (FrameCacheScale)config.FrameCacheScale, ColorType: (FrameCacheColorType)config.FrameCacheColorType);
+        return new FrameCacheOptions(Scale: (FrameCacheScale)config.FrameCacheScale,
+            ColorType: (FrameCacheColorType)config.FrameCacheColorType);
     }
 
     private void OnEditorConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -123,7 +171,11 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         {
             if (e.PropertyName is nameof(EditorConfig.FrameCacheColorType) or nameof(EditorConfig.FrameCacheScale))
             {
-                FrameCacheManager.Value.Options = FrameCacheManager.Value.Options with { ColorType = (FrameCacheColorType)config.FrameCacheColorType, Scale = (FrameCacheScale)config.FrameCacheScale };
+                FrameCacheManager.Value.Options = FrameCacheManager.Value.Options with
+                {
+                    ColorType = (FrameCacheColorType)config.FrameCacheColorType,
+                    Scale = (FrameCacheScale)config.FrameCacheScale
+                };
             }
             else if (e.PropertyName is nameof(EditorConfig.IsFrameCacheEnabled))
             {
@@ -156,7 +208,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 : e.Storables.OfType<Element>().Select(v => v.Range);
 
             FrameCacheManager.Value.DeleteAndUpdateBlocks(affectedRange
-                .Select(item => (Start: (int)item.Start.ToFrameNumber(rate), End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
+                .Select(item => (Start: (int)item.Start.ToFrameNumber(rate),
+                    End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
         });
 
         if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
@@ -172,7 +225,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "An exception occurred while saving the file.");
-                        NotificationService.ShowError(string.Empty, Message.An_exception_occurred_while_saving_the_file);
+                        NotificationService.ShowError(string.Empty,
+                            Message.An_exception_occurred_while_saving_the_file);
                     }
                 }
 
@@ -204,11 +258,29 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }
 
-    public LibraryViewModel Library { get; private set; }
+    public ReactiveCollection<ToolTabViewModel> LeftTopTools { get; } = [];
 
-    public CoreList<ToolTabViewModel> BottomTabItems { get; }
+    public ReactiveProperty<ToolTabViewModel?> SelectedLeftTopTool { get; } = new();
 
-    public CoreList<ToolTabViewModel> RightTabItems { get; }
+    public ReactiveCollection<ToolTabViewModel> LeftTools { get; } = [];
+
+    public ReactiveProperty<ToolTabViewModel?> SelectedLeftTool { get; } = new();
+
+    public ReactiveCollection<ToolTabViewModel> LeftBottomTools { get; } = [];
+
+    public ReactiveProperty<ToolTabViewModel?> SelectedLeftBottomTool { get; } = new();
+
+    public ReactiveCollection<ToolTabViewModel> RightTopTools { get; } = [];
+
+    public ReactiveProperty<ToolTabViewModel?> SelectedRightTopTool { get; } = new();
+
+    public ReactiveCollection<ToolTabViewModel> RightTools { get; } = [];
+
+    public ReactiveProperty<ToolTabViewModel?> SelectedRightTool { get; } = new();
+
+    public ReactiveCollection<ToolTabViewModel> RightBottomTools { get; } = [];
+
+    public ReactiveProperty<ToolTabViewModel?> SelectedRightBottomTool { get; } = new();
 
     public ReactiveProperty<CoreObject?> SelectedObject { get; }
 
@@ -230,7 +302,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public IKnownEditorCommands? Commands { get; private set; }
 
-    public IReactiveProperty<TimelineOptions> Options { get; } = new ReactiveProperty<TimelineOptions>(new TimelineOptions());
+    public IReactiveProperty<TimelineOptions> Options { get; } =
+        new ReactiveProperty<TimelineOptions>(new TimelineOptions());
 
     public IObservable<float> Scale { get; }
 
@@ -240,6 +313,34 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public List<KeyBinding> KeyBindings { get; }
 
+    private ReactiveCollection<ToolTabViewModel>[] GetNestedTools()
+    {
+        return
+        [
+            LeftTopTools, LeftTools, LeftBottomTools,
+            RightTopTools, RightTools, RightBottomTools
+        ];
+    }
+
+    private (ReactiveCollection<ToolTabViewModel> List, ToolTabExtension.TabPlacement Placement)[]
+        GetNestedToolsWithPlacement()
+    {
+        return
+        [
+            (LeftTopTools, ToolTabExtension.TabPlacement.TopLeft),
+            (LeftTools, ToolTabExtension.TabPlacement.Left),
+            (LeftBottomTools, ToolTabExtension.TabPlacement.BottomLeft),
+            (RightTopTools, ToolTabExtension.TabPlacement.TopRight),
+            (RightTools, ToolTabExtension.TabPlacement.Right),
+            (RightBottomTools, ToolTabExtension.TabPlacement.BottomRight)
+        ];
+    }
+
+    private IEnumerable<ToolTabViewModel> GetAllTools()
+    {
+        return GetNestedTools().SelectMany(i => i);
+    }
+
     public void Dispose()
     {
         _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
@@ -248,22 +349,18 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         _disposables.Dispose();
         Options.Dispose();
         IsEnabled.Dispose();
-        Library = null!;
         Player = null!;
         BufferStatus = null!;
 
-        foreach (ToolTabViewModel item in BottomTabItems.GetMarshal().Value)
+        foreach (var tools in GetNestedTools())
         {
-            item.Dispose();
-        }
+            foreach (ToolTabViewModel item in tools)
+            {
+                item.Dispose();
+            }
 
-        foreach (ToolTabViewModel item in RightTabItems.GetMarshal().Value)
-        {
-            item.Dispose();
+            tools.Clear();
         }
-
-        BottomTabItems.Clear();
-        RightTabItems.Clear();
 
         SelectedObject.Value = null;
 
@@ -280,47 +377,16 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     public T? FindToolTab<T>(Func<T, bool> condition)
         where T : IToolContext
     {
-        for (int i = 0; i < BottomTabItems.Count; i++)
-        {
-            ToolTabViewModel item = BottomTabItems[i];
-            if (item.Context is T typed && condition(typed))
-            {
-                return typed;
-            }
-        }
-
-        for (int i = 0; i < RightTabItems.Count; i++)
-        {
-            ToolTabViewModel item = RightTabItems[i];
-            if (item.Context is T typed && condition(typed))
-            {
-                return typed;
-            }
-        }
-
-        return default;
+        return GetAllTools()
+            .Select(i => i.Context)
+            .OfType<T>()
+            .FirstOrDefault(condition);
     }
 
     public T? FindToolTab<T>()
         where T : IToolContext
     {
-        for (int i = 0; i < BottomTabItems.Count; i++)
-        {
-            if (BottomTabItems[i].Context is T typed)
-            {
-                return typed;
-            }
-        }
-
-        for (int i = 0; i < RightTabItems.Count; i++)
-        {
-            if (RightTabItems[i].Context is T typed)
-            {
-                return typed;
-            }
-        }
-
-        return default;
+        return FindToolTab<T>(_ => true);
     }
 
     public bool OpenToolTab(IToolContext item)
@@ -328,24 +394,37 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         _logger.LogInformation("'{ToolTabName}' has been opened. ({SceneId})", item.Extension.Name, SceneId);
         try
         {
-            if (BottomTabItems.Any(x => x.Context == item) || RightTabItems.Any(x => x.Context == item))
+            var tools = GetAllTools();
+            // ReSharper disable PossibleMultipleEnumeration
+            if (tools.Any(x => x.Context == item))
             {
                 item.IsSelected.Value = true;
                 return true;
             }
             else if (!item.Extension.CanMultiple
-                     && (BottomTabItems.Any(x => x.Context.Extension == item.Extension)
-                         || RightTabItems.Any(x => x.Context.Extension == item.Extension)))
+                     && tools.Any(x => x.Context.Extension == item.Extension))
             {
                 return false;
             }
             else
             {
-                CoreList<ToolTabViewModel> list = item.Placement == ToolTabExtension.TabPlacement.Bottom ? BottomTabItems : RightTabItems;
+                ReactiveCollection<ToolTabViewModel> list = item.Placement.Value switch
+                {
+                    ToolTabExtension.TabPlacement.Right => RightTools,
+                    ToolTabExtension.TabPlacement.Left => LeftTools,
+                    ToolTabExtension.TabPlacement.TopRight => RightTopTools,
+                    ToolTabExtension.TabPlacement.BottomRight => RightBottomTools,
+                    ToolTabExtension.TabPlacement.TopLeft => LeftTools,
+#pragma warning disable CS0618 // 型またはメンバーが旧型式です
+                    ToolTabExtension.TabPlacement.BottomLeft or ToolTabExtension.TabPlacement.Bottom => LeftBottomTools,
+#pragma warning restore CS0618 // 型またはメンバーが旧型式です
+                    _ => RightTools
+                };
                 item.IsSelected.Value = true;
-                list.Add(new ToolTabViewModel(item));
+                list.Add(new ToolTabViewModel(item, this));
                 return true;
             }
+            // ReSharper restore PossibleMultipleEnumeration
         }
         catch (Exception ex)
         {
@@ -359,13 +438,13 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         _logger.LogInformation("CloseToolTab {ToolName}", item.Extension.Name);
         try
         {
-            if (BottomTabItems.FirstOrDefault(x => x.Context == item) is { } found0)
+            foreach (ReactiveCollection<ToolTabViewModel> tools in GetNestedTools())
             {
-                BottomTabItems.Remove(found0);
-            }
-            else if (RightTabItems.FirstOrDefault(x => x.Context == item) is { } found1)
-            {
-                RightTabItems.Remove(found1);
+                if (tools.FirstOrDefault(x => x.Context == item) is { } found)
+                {
+                    tools.Remove(found);
+                    break;
+                }
             }
 
             item.Dispose();
@@ -392,52 +471,42 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     private void SaveState()
     {
         string viewStateDir = ViewStateDirectory();
-        var json = new JsonObject { ["selected-object"] = SelectedObject.Value?.Id, ["max-layer-count"] = Options.Value.MaxLayerCount, ["scale"] = Options.Value.Scale, ["offset"] = new JsonObject { ["x"] = Options.Value.Offset.X, ["y"] = Options.Value.Offset.Y, } };
-
-        var bottomItems = new JsonArray();
-        int bottomSelectedIndex = 0;
-
-        foreach (ToolTabViewModel? item in BottomTabItems.OrderBy(x => x.Order))
+        var json = new JsonObject
         {
-            var itemJson = new JsonObject();
-            item.Context.WriteToJson(itemJson);
+            ["selected-object"] = SelectedObject.Value?.Id,
+            ["max-layer-count"] = Options.Value.MaxLayerCount,
+            ["scale"] = Options.Value.Scale,
+            ["offset"] = new JsonObject { ["x"] = Options.Value.Offset.X, ["y"] = Options.Value.Offset.Y, }
+        };
 
-            itemJson.WriteDiscriminator(item.Context.Extension.GetType());
-            bottomItems.Add(itemJson);
-
-            if (item.Context.IsSelected.Value)
-            {
-                json["selected-bottom-item-index"] = bottomSelectedIndex;
-            }
-            else
-            {
-                bottomSelectedIndex++;
-            }
-        }
-
-        json["bottom-items"] = bottomItems;
-
-        var rightItems = new JsonArray();
-        int rightSelectedIndex = 0;
-        foreach (ToolTabViewModel? item in RightTabItems.OrderBy(x => x.Order))
+        foreach (var (list, placement) in GetNestedToolsWithPlacement())
         {
-            var itemJson = new JsonObject();
-            item.Context.WriteToJson(itemJson);
+            var jsonObject = new JsonObject();
+            var jsonArray = new JsonArray();
+            int selectedIndex = 0;
 
-            itemJson.WriteDiscriminator(item.Context.Extension.GetType());
-            rightItems.Add(itemJson);
+            foreach (ToolTabViewModel? item in list)
+            {
+                var itemJson = new JsonObject();
+                item.Context.WriteToJson(itemJson);
 
-            if (item.Context.IsSelected.Value)
-            {
-                json["selected-right-item-index"] = rightSelectedIndex;
+                itemJson.WriteDiscriminator(item.Context.Extension.GetType());
+                jsonArray.Add(itemJson);
+
+                if (item.Context.IsSelected.Value &&
+                    item.Context.DisplayMode.Value == ToolTabExtension.TabDisplayMode.Docked)
+                {
+                    jsonObject["SelectedIndex"] = selectedIndex;
+                }
+                else
+                {
+                    selectedIndex++;
+                }
             }
-            else
-            {
-                rightSelectedIndex++;
-            }
+
+            jsonObject["Items"] = jsonArray;
+            json[placement.ToString()] = jsonObject;
         }
-
-        json["right-items"] = rightItems;
 
         json["current-time"] = JsonValue.Create(CurrentTime.Value);
 
@@ -499,47 +568,36 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
             Options.Value = timelineOptions;
 
-            BottomTabItems.Clear();
-            RightTabItems.Clear();
-
-            void RestoreTabItems(JsonArray source, CoreList<ToolTabViewModel> destination)
+            void RestoreTabItems(JsonArray source, ReactiveCollection<ToolTabViewModel> destination)
             {
-                int count = 0;
+                destination.Clear();
                 foreach (JsonNode? item in source)
                 {
                     if (item is JsonObject itemObject
                         && itemObject.TryGetDiscriminator(out Type? type)
-                        && ExtensionProvider.Current.AllExtensions.FirstOrDefault(x => x.GetType() == type) is ToolTabExtension extension
+                        && ExtensionProvider.Current.AllExtensions.FirstOrDefault(x => x.GetType() == type) is
+                            ToolTabExtension extension
                         && extension.TryCreateContext(this, out IToolContext? context))
                     {
                         context.ReadFromJson(itemObject);
-                        destination.Add(new ToolTabViewModel(context) { Order = count });
-                        count++;
+                        destination.Add(new ToolTabViewModel(context, this));
                     }
                 }
             }
 
-            if (jsonObject.TryGetPropertyValue("bottom-items", out JsonNode? bottomNode)
-                && bottomNode is JsonArray bottomItems)
+            foreach (var (list, placement) in GetNestedToolsWithPlacement())
             {
-                RestoreTabItems(bottomItems, BottomTabItems);
+                if (!jsonObject.TryGetPropertyValue(placement.ToString(), out JsonNode? node)) continue;
+                if (node is not JsonObject tabObject) continue;
+                if (!tabObject.TryGetPropertyValue("Items", out JsonNode? itemsNode)) continue;
+                if (itemsNode is not JsonArray listItems) continue;
 
-                if (jsonObject.TryGetPropertyValueAsJsonValue("selected-bottom-item-index", out int index)
-                    && 0 <= index && index < BottomTabItems.Count)
+                RestoreTabItems(listItems, list);
+
+                if (tabObject.TryGetPropertyValueAsJsonValue("SelectedIndex", out int index)
+                    && 0 <= index && index < list.Count)
                 {
-                    BottomTabItems[index].Context.IsSelected.Value = true;
-                }
-            }
-
-            if (jsonObject.TryGetPropertyValue("right-items", out JsonNode? rightNode)
-                && rightNode is JsonArray rightItems)
-            {
-                RestoreTabItems(rightItems, RightTabItems);
-
-                if (jsonObject.TryGetPropertyValueAsJsonValue("selected-right-item-index", out int index)
-                    && 0 <= index && index < RightTabItems.Count)
-                {
-                    RightTabItems[index].Context.IsSelected.Value = true;
+                    list[index].Context.IsSelected.Value = true;
                 }
             }
 
@@ -559,6 +617,11 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             if (SourceOperatorsTabExtension.Instance.TryCreateContext(this, out IToolContext? tab2))
             {
                 OpenToolTab(tab2);
+            }
+
+            if (LibraryTabExtension.Instance.TryCreateContext(this, out IToolContext? tab3))
+            {
+                OpenToolTab(tab3);
             }
         }
     }
@@ -584,7 +647,14 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     {
         Element CreateElement()
         {
-            return new Element() { Start = desc.Start, Length = desc.Length, ZIndex = desc.Layer, FileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension) };
+            return new Element()
+            {
+                Start = desc.Start,
+                Length = desc.Length,
+                ZIndex = desc.Layer,
+                FileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!,
+                    Constants.ElementFileExtension)
+            };
         }
 
         void SetAccentColor(Element element, string str)
@@ -596,7 +666,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         {
             if (!desc.Position.IsDefault)
             {
-                if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IPropertyAdapter<ITransform?> transformp)
+                if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is
+                    IPropertyAdapter<ITransform?> transformp)
                 {
                     ITransform? transform = transformp.GetValue();
                     AddOrSetHelper.AddOrSet(
@@ -701,7 +772,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
                 //Todo: レイヤーのアクセントカラー
                 //sLayer.AccentColor = item.InitialOperator.AccentColor;
-                element.AccentColor = ColorGenerator.GenerateColor(desc.InitialOperator.FullName ?? desc.InitialOperator.Name);
+                element.AccentColor =
+                    ColorGenerator.GenerateColor(desc.InitialOperator.FullName ?? desc.InitialOperator.Name);
                 var operatour = (SourceOperator)Activator.CreateInstance(desc.InitialOperator)!;
                 element.Operation.AddChild(operatour).Do();
                 SetTransform(element.Operation, operatour);
@@ -782,23 +854,27 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         }
 
         // BottomTabItemsから削除する
-        foreach (var item in BottomTabItems.ToArray())
+        foreach (var list in GetNestedTools())
         {
-            if (item.Context is not GraphEditorTabViewModel graph) continue;
-
-            for (int i = graph.Items.Count - 1; i >= 0; i--)
+            for (int index = list.Count - 1; index >= 0; index--)
             {
-                var animation = graph.Items[i];
-                if (animations.Contains(animation.Object))
+                ToolTabViewModel item = list[index];
+                if (item.Context is not GraphEditorTabViewModel graph) continue;
+
+                for (int i = graph.Items.Count - 1; i >= 0; i--)
                 {
-                    graph.Items.Remove(animation);
+                    var animation = graph.Items[i];
+                    if (animations.Contains(animation.Object))
+                    {
+                        graph.Items.Remove(animation);
+                    }
                 }
-            }
 
-            if (graph.Items.Count == 0)
-            {
-                BottomTabItems.Remove(item);
-                item.Dispose();
+                if (graph.Items.Count == 0)
+                {
+                    list.Remove(item);
+                    item.Dispose();
+                }
             }
         }
     }

@@ -4,6 +4,9 @@ using Avalonia.Controls;
 
 using Beutl.ViewModels;
 using Beutl.Views;
+using FluentAvalonia.UI.Controls;
+using Symbol = FluentIcons.Common.Symbol;
+using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -19,6 +22,14 @@ public sealed class TimelineTabExtension : ToolTabExtension
     public override bool CanMultiple => false;
 
     public override string? Header => Strings.Timeline;
+
+    public override IconSource GetIcon()
+    {
+        return new SymbolIconSource()
+        {
+            Symbol = Symbol.GlanceHorizontal
+        };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

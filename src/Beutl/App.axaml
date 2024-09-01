@@ -2,9 +2,9 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:aconverters="using:Avalonia.Markup.Xaml.Converters"
-             Name="Beutl"
              xmlns:asyncImageLoader="using:AsyncImageLoader"
-             xmlns:sty="using:FluentAvalonia.Styling">
+             xmlns:sty="using:FluentAvalonia.Styling"
+             Name="Beutl">
     <Application.Resources>
         <ResourceDictionary>
             <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
@@ -33,10 +33,11 @@
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>
-        <sty:FluentAvaloniaTheme TextVerticalAlignmentOverrideBehavior="Disabled" PreferUserAccentColor="True" />
+        <sty:FluentAvaloniaTheme PreferUserAccentColor="True" TextVerticalAlignmentOverrideBehavior="Disabled" />
         <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
         <StyleInclude Source="avares://FluentAvalonia.BreadcrumbBar/Styling/Styles.axaml" />
         <StyleInclude Source="avares://AsyncImageLoader.Avalonia/AdvancedImage.axaml" />
+        <StyleInclude Source="avares://ReDocking/Styles.axaml" />
 
         <Style Selector="asyncImageLoader|AdvancedImage">
             <Setter Property="Template">

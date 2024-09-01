@@ -5,6 +5,9 @@ using Avalonia.Controls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
+using FluentAvalonia.UI.Controls;
+using Symbol = FluentIcons.Common.Symbol;
+using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -18,6 +21,11 @@ public sealed class GraphEditorTabExtension : ToolTabExtension
     public override string Name => "Graph Editor Tab";
 
     public override string DisplayName => "Graph Editor Tab";
+
+    public override IconSource GetIcon()
+    {
+        return new SymbolIconSource { Symbol = Symbol.StarEmphasis };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

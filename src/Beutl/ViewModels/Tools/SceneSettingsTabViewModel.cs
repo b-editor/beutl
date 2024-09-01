@@ -123,7 +123,11 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
     public string Header => Strings.SceneSettings;
 
-    public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
+    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
+        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.Right);
+
+    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
+        new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
 
     private string? ValidateSize(int observable)
     {

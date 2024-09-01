@@ -5,6 +5,9 @@ using Avalonia.Controls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.NodeTree;
 using Beutl.Views.NodeTree;
+using FluentAvalonia.UI.Controls;
+using Symbol = FluentIcons.Common.Symbol;
+using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -20,6 +23,11 @@ public sealed class NodeTreeInputTabExtension : ToolTabExtension
     public override string DisplayName => "Node Input";
 
     public override string? Header => "Node Input";
+
+    public override IconSource GetIcon()
+    {
+        return new SymbolIconSource { Symbol = Symbol.PlugConnectedSettings };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
