@@ -93,31 +93,26 @@ public static class LibraryRegistrar
         LibraryService.Current
             .RegisterGroup(Strings.Transform, g => g
                 .AddMultiple(Strings.Translate, m => m
-                    .BindSourceOperator<Configure.Transform.TranslateOperator>()
                     .BindTransform<TranslateTransform>()
                     .BindNode<TranslateTransformNode>()
                 )
 
                 .AddMultiple(Strings.Skew, m => m
-                    .BindSourceOperator<Configure.Transform.SkewOperator>()
                     .BindTransform<SkewTransform>()
                     .BindNode<SkewTransformNode>()
                 )
 
                 .AddMultiple(Strings.Scale, m => m
-                    .BindSourceOperator<Configure.Transform.ScaleOperator>()
                     .BindTransform<ScaleTransform>()
                     .BindNode<ScaleTransformNode>()
                 )
 
                 .AddMultiple(Strings.Rotation, m => m
-                    .BindSourceOperator<Configure.Transform.RotationOperator>()
                     .BindTransform<RotationTransform>()
                     .BindNode<RotationTransformNode>()
                 )
 
                 .AddMultiple(Strings.Rotation3D, m => m
-                    .BindSourceOperator<Configure.Transform.Rotation3DOperator>()
                     .BindTransform<Rotation3DTransform>()
                     .BindNode<Rotation3DTransformNode>()
                 )
@@ -125,180 +120,72 @@ public static class LibraryRegistrar
 
         LibraryService.Current
             .RegisterGroup(Strings.FilterEffect, g => g
-                .AddMultiple(Strings.Blur, m => m
-                    .BindSourceOperator<Configure.Effects.BlurOperator>()
-                    .BindFilterEffect<Blur>()
-                )
+                .AddFilterEffect<Blur>(Strings.Blur)
 
-                .AddMultiple(Strings.DropShadow, m => m
-                    .BindSourceOperator<Configure.Effects.DropShadowOperator>()
-                    .BindFilterEffect<DropShadow>()
-                )
+                .AddFilterEffect<DropShadow>(Strings.DropShadow)
 
-                .AddMultiple(Strings.InnerShadow, m => m
-                    .BindSourceOperator<Configure.Effects.InnerShadowOperator>()
-                    .BindFilterEffect<InnerShadow>()
-                )
+                .AddFilterEffect<InnerShadow>(Strings.InnerShadow)
 
-                .AddMultiple(Strings.FlatShadow, m => m
-                    .BindSourceOperator<Configure.Effects.FlatShadowOperator>()
-                    .BindFilterEffect<FlatShadow>()
-                )
+                .AddFilterEffect<FlatShadow>(Strings.FlatShadow)
 
-                .AddMultiple($"{Strings.Border} (deprecated)", m => m
-                    .BindSourceOperator<Configure.Effects.BorderOperator>()
-                    .BindFilterEffect<Border>()
-                )
+                .AddFilterEffect<Border>($"{Strings.Border} (deprecated)")
 
-                .AddMultiple(Strings.StrokeEffect, m => m
-                    .BindSourceOperator<Configure.Effects.StrokeEffectOperator>()
-                    .BindFilterEffect<StrokeEffect>()
-                )
+                .AddFilterEffect<StrokeEffect>(Strings.StrokeEffect)
 
-                .AddMultiple(Strings.Clipping, m => m
-                    .BindSourceOperator<Configure.Effects.ClippingOperator>()
-                    .BindFilterEffect<Clipping>()
-                )
+                .AddFilterEffect<Clipping>(Strings.Clipping)
 
-                .AddMultiple(Strings.Dilate, m => m
-                    .BindSourceOperator<Configure.Effects.DilateOperator>()
-                    .BindFilterEffect<Dilate>()
-                )
+                .AddFilterEffect<Dilate>(Strings.Dilate)
 
-                .AddMultiple(Strings.Erode, m => m
-                    .BindSourceOperator<Configure.Effects.ErodeOperator>()
-                    .BindFilterEffect<Erode>()
-                )
+                .AddFilterEffect<Erode>(Strings.Erode)
 
-                .AddMultiple(Strings.HighContrast, m => m
-                    .BindSourceOperator<Configure.Effects.HighContrastOperator>()
-                    .BindFilterEffect<HighContrast>()
-                )
+                .AddFilterEffect<HighContrast>(Strings.HighContrast)
 
-                .AddMultiple(Strings.HueRotate, m => m
-                    .BindSourceOperator<Configure.Effects.HueRotateOperator>()
-                    .BindFilterEffect<HueRotate>()
-                )
+                .AddFilterEffect<HueRotate>(Strings.HueRotate)
 
-                .AddMultiple(Strings.Lighting, m => m
-                    .BindSourceOperator<Configure.Effects.LightingOperator>()
-                    .BindFilterEffect<Lighting>()
-                )
+                .AddFilterEffect<Lighting>(Strings.Lighting)
 
-                .AddMultiple(Strings.LumaColor, m => m
-                    .BindSourceOperator<Configure.Effects.LumaColorOperator>()
-                    .BindFilterEffect<LumaColor>()
-                )
+                .AddFilterEffect<LumaColor>(Strings.LumaColor)
 
-                .AddMultiple(Strings.Saturate, m => m
-                    .BindSourceOperator<Configure.Effects.SaturateOperator>()
-                    .BindFilterEffect<Saturate>()
-                )
+                .AddFilterEffect<Saturate>(Strings.Saturate)
 
-                .AddMultiple(Strings.Threshold, m => m
-                    .BindSourceOperator<Configure.Effects.ThresholdOperator>()
-                    .BindFilterEffect<Threshold>()
-                )
+                .AddFilterEffect<Threshold>(Strings.Threshold)
 
-                .AddMultiple(Strings.Brightness, m => m
-                    .BindSourceOperator<Configure.Effects.BrightnessOperator>()
-                    .BindFilterEffect<Brightness>()
-                )
+                .AddFilterEffect<Brightness>(Strings.Brightness)
 
-                .AddMultiple(Strings.Gamma, m => m
-                    .BindSourceOperator<Configure.Effects.GammaOperator>()
-                    .BindFilterEffect<Gamma>()
-                )
+                .AddFilterEffect<Gamma>(Strings.Gamma)
 
-                .AddMultiple(Strings.Invert, m => m
-                    .BindSourceOperator<Configure.Effects.InvertOperator>()
-                    .BindFilterEffect<Invert>()
-                )
+                .AddFilterEffect<Invert>(Strings.Invert)
 
-                .AddMultiple(Strings.LUT_Cube_File, m => m
-                    .BindSourceOperator<Configure.Effects.LutEffectOperator>()
-                    .BindFilterEffect<LutEffect>()
-                )
+                .AddFilterEffect<LutEffect>(Strings.LUT_Cube_File)
 
-                .AddMultiple(Strings.BlendEffect, m => m
-                    .BindSourceOperator<Configure.Effects.BlendEffectOperator>()
-                    .BindFilterEffect<BlendEffect>()
-                )
+                .AddFilterEffect<BlendEffect>(Strings.BlendEffect)
 
-                .AddMultiple(Strings.Negaposi, m => m
-                    .BindSourceOperator<Configure.Effects.NegaposiOperator>()
-                    .BindFilterEffect<Negaposi>()
-                )
+                .AddFilterEffect<Negaposi>(Strings.Negaposi)
 
-                .AddMultiple(Strings.ChromaKey, m => m
-                    .BindSourceOperator<Configure.Effects.ChromaKeyOperator>()
-                    .BindFilterEffect<ChromaKey>()
-                )
+                .AddFilterEffect<ChromaKey>(Strings.ChromaKey)
 
-                .AddMultiple(Strings.ColorKey, m => m
-                    .BindSourceOperator<Configure.Effects.ColorKeyOperator>()
-                    .BindFilterEffect<ColorKey>()
-                )
+                .AddFilterEffect<ColorKey>(Strings.ColorKey)
 
-                .AddMultiple(Strings.SplitEquallyEffect, m => m
-                    .BindSourceOperator<Configure.Effects.SplitEffectOperator>()
-                    .BindFilterEffect<SplitEffect>()
-                )
+                .AddFilterEffect<SplitEffect>(Strings.SplitEquallyEffect)
 
-                .AddMultiple(Strings.SplitByPartsEffect, m => m
-                    .BindSourceOperator<Configure.Effects.PartsSplitEffectOperator>()
-                    .BindFilterEffect<PartsSplitEffect>()
-                )
+                .AddFilterEffect<PartsSplitEffect>(Strings.SplitByPartsEffect)
 
-                .AddMultiple(Strings.Transform, m => m
-                    .BindSourceOperator<Configure.Effects.TransformEffectOperator>()
-                    .BindFilterEffect<TransformEffect>()
-                )
+                .AddFilterEffect<TransformEffect>(Strings.Transform)
 
-                .AddMultiple(Strings.Mosaic, m => m
-                    .BindSourceOperator<Configure.Effects.MosaicOperator>()
-                    .BindFilterEffect<Mosaic>()
-                )
+                .AddFilterEffect<Mosaic>(Strings.Mosaic)
 
-                .AddMultiple(Strings.ColorShift, m => m
-                    .BindSourceOperator<Configure.Effects.ColorShiftOperator>()
-                    .BindFilterEffect<ColorShift>()
-                )
+                .AddFilterEffect<ColorShift>(Strings.ColorShift)
 
                 .AddGroup("OpenCV", gg => gg
-                    .AddMultiple("CvBlur", m => m
-                        .BindSourceOperator<Configure.Effects.CvBlursOperator>()
-                        .BindFilterEffect<Graphics.Effects.OpenCv.Blur>()
-                    )
-                    .AddMultiple("CvGaussianBlur", m => m
-                        .BindSourceOperator<Configure.Effects.CvGaussianBlurOperator>()
-                        .BindFilterEffect<Graphics.Effects.OpenCv.GaussianBlur>()
-                    )
-                    .AddMultiple("CvMedianBlur", m => m
-                        .BindSourceOperator<Configure.Effects.CvMedianBlurOperator>()
-                        .BindFilterEffect<Graphics.Effects.OpenCv.MedianBlur>()
-                    )
+                    .AddFilterEffect<Graphics.Effects.OpenCv.Blur>("CvBlur")
+                    .AddFilterEffect<Graphics.Effects.OpenCv.GaussianBlur>("CvGaussianBlur")
+                    .AddFilterEffect<Graphics.Effects.OpenCv.MedianBlur>("CvMedianBlur")
                 )
             );
 
         LibraryService.Current
             .RegisterGroup("SoundEffect", g => g
-                .AddMultiple("Delay", m => m
-                    .BindSourceOperator<Configure.SoundEffect.DelayOperator>()
-                    .BindSoundEffect<Delay>()
-                )
+                .AddSoundEffect<Delay>("Delay")
             );
-
-        LibraryService.Current.RegisterGroup(Strings.Configure, group => group
-            .AddSourceOperator<Configure.ConfigureTransformOperator>(Strings.Transform)
-
-            .AddSourceOperator<Configure.AlignmentOperator>(Strings.Alignment)
-
-            .AddSourceOperator<Configure.BlendOperator>(Strings.BlendMode)
-
-            .AddSourceOperator<Configure.FillOperator>(Strings.Fill)
-
-            .AddSourceOperator<Configure.OpacityMaskOperator>(Strings.OpacityMask)
-        );
     }
 }

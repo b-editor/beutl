@@ -1,6 +1,5 @@
 ﻿using Beutl.Collections;
 using Beutl.Extensibility;
-using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Serialization;
 
@@ -64,20 +63,6 @@ public class SourceOperator : Hierarchical, ISourceOperator
 
     public virtual void Evaluate(OperatorEvaluationContext context)
     {
-        switch (this)
-        {
-            case ISourceTransformer selector:
-                selector.Transform(context.FlowRenderables, context.Clock);
-                break;
-            case ISourcePublisher source:
-                if (source.Publish(context.Clock) is Renderable renderable)
-                {
-                    context.AddFlowRenderable(renderable);
-                }
-                break;
-            default:
-                break;
-        }
     }
 
     public virtual void Enter()

@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Numerics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
@@ -10,12 +9,11 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 
 using Beutl.Animation;
-using Beutl.Commands;
 using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Models;
-using Beutl.Operators.Configure;
+using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Reactive;
 using Beutl.Services;

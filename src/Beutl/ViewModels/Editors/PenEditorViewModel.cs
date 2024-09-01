@@ -2,7 +2,7 @@
 
 using Beutl.Collections.Pooled;
 using Beutl.Media;
-using Beutl.Operators.Configure;
+using Beutl.Operation;
 using Beutl.Services;
 
 using DynamicData;

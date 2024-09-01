@@ -1,10 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Animation;
-using Beutl.Commands;
 using Beutl.Graphics.Transformation;
-using Beutl.Operators.Configure;
-
+using Beutl.Operation;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;

@@ -47,16 +47,8 @@ public sealed class EditorSettingsPageViewModel
         EnablePointerLockInProperty = _editorConfig.GetObservable(EditorConfig.EnablePointerLockInPropertyProperty).ToReactiveProperty();
         EnablePointerLockInProperty.Subscribe(b => _editorConfig.EnablePointerLockInProperty = b);
 
-        HidePrimaryProperties = _viewConfig.GetObservable(ViewConfig.HidePrimaryPropertiesProperty).ToReactiveProperty();
-        HidePrimaryProperties.Subscribe(b => _viewConfig.HidePrimaryProperties = b);
-
         SwapTimelineScrollDirection = _editorConfig.GetObservable(EditorConfig.SwapTimelineScrollDirectionProperty).ToReactiveProperty();
         SwapTimelineScrollDirection.Subscribe(b => _editorConfig.SwapTimelineScrollDirection = b);
-
-        PrimaryProperties = _viewConfig.PrimaryProperties;
-
-        RemovePrimaryProperty.Subscribe(v => PrimaryProperties.Remove(v));
-        ResetPrimaryProperty.Subscribe(_ => _viewConfig.ResetPrimaryProperties());
     }
 
     public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }
@@ -74,14 +66,6 @@ public sealed class EditorSettingsPageViewModel
     public ReactiveProperty<int> FrameCacheColorType { get; }
 
     public ReactiveProperty<bool> EnablePointerLockInProperty { get; }
-
-    public ReactiveProperty<bool> HidePrimaryProperties { get; }
-
-    public CoreList<string> PrimaryProperties { get; }
-
-    public ReactiveCommand<string> RemovePrimaryProperty { get; } = new();
-
-    public ReactiveCommand ResetPrimaryProperty { get; } = new();
 
     public ReactiveProperty<bool> IsNodeCacheEnabled { get; }
 

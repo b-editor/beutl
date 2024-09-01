@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Animation;
-using Beutl.Operators.Configure;
+using Beutl.Operation;
 using Beutl.Services;
 
 using DynamicData;

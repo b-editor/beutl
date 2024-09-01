@@ -1,8 +1,5 @@
 ﻿using System.ComponentModel;
 using System.Globalization;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-
 using Beutl.Collections;
 using Beutl.Serialization;
 
@@ -12,14 +9,12 @@ public sealed class ViewConfig : ConfigurationBase
 {
     public static readonly CoreProperty<ViewTheme> ThemeProperty;
     public static readonly CoreProperty<CultureInfo> UICultureProperty;
-    public static readonly CoreProperty<bool> HidePrimaryPropertiesProperty;
     public static readonly CoreProperty<(int X, int Y)?> WindowPositionProperty;
     public static readonly CoreProperty<(int Width, int Height)?> WindowSizeProperty;
     public static readonly CoreProperty<bool?> IsWindowMaximizedProperty;
     public static readonly CoreProperty<bool> UseCustomAccentColorProperty;
     public static readonly CoreProperty<string?> CustomAccentColorProperty;
     public static readonly CoreProperty<bool> ShowExactBoundariesProperty;
-    public static readonly CoreProperty<CoreList<string>> PrimaryPropertiesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentFilesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentProjectsProperty;
     private readonly CoreList<string> _primaryProperties =
@@ -41,10 +36,6 @@ public sealed class ViewConfig : ConfigurationBase
 
         UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>(nameof(UICulture))
             .DefaultValue(CultureInfo.InstalledUICulture)
-            .Register();
-
-        HidePrimaryPropertiesProperty = ConfigureProperty<bool, ViewConfig>(nameof(HidePrimaryProperties))
-            .DefaultValue(false)
             .Register();
 
         WindowPositionProperty = ConfigureProperty<(int X, int Y)?, ViewConfig>(nameof(WindowPosition))
@@ -70,10 +61,6 @@ public sealed class ViewConfig : ConfigurationBase
         ShowExactBoundariesProperty = ConfigureProperty<bool, ViewConfig>(nameof(ShowExactBoundaries))
             .Accessor(o => o.ShowExactBoundaries, (o, v) => o.ShowExactBoundaries = v)
             .DefaultValue(false)
-            .Register();
-
-        PrimaryPropertiesProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(PrimaryProperties))
-            .Accessor(o => o.PrimaryProperties, (o, v) => o.PrimaryProperties = v)
             .Register();
 
         RecentFilesProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(RecentFiles))
@@ -102,12 +89,6 @@ public sealed class ViewConfig : ConfigurationBase
     {
         get => GetValue(UICultureProperty);
         set => SetValue(UICultureProperty, value);
-    }
-
-    public bool HidePrimaryProperties
-    {
-        get => GetValue(HidePrimaryPropertiesProperty);
-        set => SetValue(HidePrimaryPropertiesProperty, value);
     }
 
     [NotAutoSerialized]
@@ -149,13 +130,6 @@ public sealed class ViewConfig : ConfigurationBase
     }
 
     [NotAutoSerialized]
-    public CoreList<string> PrimaryProperties
-    {
-        get => _primaryProperties;
-        set => _primaryProperties.Replace(value);
-    }
-
-    [NotAutoSerialized]
     public CoreList<string> RecentFiles
     {
         get => _recentFiles;
@@ -180,7 +154,6 @@ public sealed class ViewConfig : ConfigurationBase
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        PrimaryProperties = context.GetValue<CoreList<string>>(nameof(PrimaryProperties))!;
         RecentFiles = context.GetValue<CoreList<string>>(nameof(RecentFiles))!;
         RecentProjects = context.GetValue<CoreList<string>>(nameof(RecentProjects))!;
 
@@ -200,7 +173,6 @@ public sealed class ViewConfig : ConfigurationBase
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue(nameof(PrimaryProperties), PrimaryProperties);
         context.SetValue(nameof(RecentFiles), RecentFiles);
         context.SetValue(nameof(RecentProjects), RecentProjects);
 
@@ -229,15 +201,10 @@ public sealed class ViewConfig : ConfigurationBase
         _recentProjects.Insert(0, filename);
     }
 
-    public void ResetPrimaryProperties()
-    {
-        PrimaryProperties.Replace(["AlignmentX", "AlignmentY", "TransformOrigin", "BlendMode"]);
-    }
-
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(HidePrimaryProperties) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor) or nameof(ShowExactBoundaries))
+        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor) or nameof(ShowExactBoundaries))
         {
             OnChanged();
         }

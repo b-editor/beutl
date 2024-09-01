@@ -5,7 +5,7 @@ using Beutl.Media;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
 using Beutl.NodeTree.Nodes.Geometry;
-using Beutl.Operators.Configure.Transform;
+using Beutl.Operation;
 using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
@@ -36,7 +36,7 @@ public class JsonSerializationTest
         elm1.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.layer"));
         scene.AddChild(elm1).Do();
         elm1.Operation.Children.Add(new EllipseOperator());
-        elm1.Operation.Children.Add(new TranslateOperator());
+        elm1.Operation.Children.Add(new DecorateOperator());
 
         var elm2 = new Element { ZIndex = 2 };
         elm2.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"1.layer"));

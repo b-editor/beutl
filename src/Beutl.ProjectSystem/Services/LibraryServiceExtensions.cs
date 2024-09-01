@@ -78,4 +78,58 @@ public static class LibraryServiceExtensions
         return self.Add<T>(KnownLibraryItemFormats.SourceOperator, displayName, description);
     }
 
+    public static GroupLibraryItem AddNode<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : Node
+    {
+        return self.Add<T>(KnownLibraryItemFormats.Node, displayName, description);
+    }
+
+    public static GroupLibraryItem AddEasing<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : Easing
+    {
+        return self.Add<T>(KnownLibraryItemFormats.Easing, displayName, description);
+    }
+
+    public static GroupLibraryItem AddFilterEffect<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : FilterEffect
+    {
+        return self.Add<T>(KnownLibraryItemFormats.FilterEffect, displayName, description);
+    }
+
+    public static GroupLibraryItem AddTransform<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : Transform
+    {
+        return self.Add<T>(KnownLibraryItemFormats.Transform, displayName, description);
+    }
+
+    public static GroupLibraryItem AddDrawable<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : Drawable
+    {
+        return self.Add<T>(KnownLibraryItemFormats.Drawable, displayName, description);
+    }
+
+    public static GroupLibraryItem AddSound<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : Sound
+    {
+        return self.Add<T>(KnownLibraryItemFormats.Sound, displayName, description);
+    }
+
+    public static GroupLibraryItem AddSoundEffect<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : SoundEffect
+    {
+        return self.Add<T>(KnownLibraryItemFormats.SoundEffect, displayName, description);
+    }
+
+    public static GroupLibraryItem AddBrush<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : Brush
+    {
+        return self.Add<T>(KnownLibraryItemFormats.Brush, displayName, description);
+    }
+
+    public static GroupLibraryItem AddGeometry<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : Geometry
+    {
+        return self.Add<T>(KnownLibraryItemFormats.Geometry, displayName, description);
+    }
+
 }

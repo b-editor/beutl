@@ -1,8 +1,7 @@
 ﻿using System.Text.Json.Nodes;
-using Beutl.Commands;
 using Beutl.Graphics.Effects;
 using Beutl.Helpers;
-using Beutl.Operators.Configure;
+using Beutl.Operation;
 using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;

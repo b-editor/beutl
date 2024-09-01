@@ -3,7 +3,7 @@ using Beutl.Collections;
 using Beutl.Extensibility;
 using Beutl.Reactive;
 
-namespace Beutl.Operators.Configure;
+namespace Beutl.Operation;
 
 public sealed class AnimatablePropertyAdapter<T>(CoreProperty<T> property, Animatable obj)
     : CorePropertyAdapter<T>(property, obj), IAnimatablePropertyAdapter<T>

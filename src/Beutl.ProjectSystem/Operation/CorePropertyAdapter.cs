@@ -2,7 +2,7 @@
 
 namespace Beutl.Operation;
 
-internal class CorePropertyAdapter<T>(CoreProperty<T> property, ICoreObject obj) : IPropertyAdapter<T>
+public class CorePropertyAdapter<T>(CoreProperty<T> property, ICoreObject obj) : IPropertyAdapter<T>
 {
     private Type? _implementedType;
     private IObservable<T?>? _observable;
