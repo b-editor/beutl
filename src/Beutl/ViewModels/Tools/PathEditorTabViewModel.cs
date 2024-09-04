@@ -82,7 +82,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
     public string Header => Strings.PathEditor;
 
     public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.BottomLeft);
+        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.LeftLowerBottom);
 
     public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
         new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();

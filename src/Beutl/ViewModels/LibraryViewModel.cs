@@ -358,7 +358,7 @@ public sealed class LibraryViewModel : IDisposable, IToolContext
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
     public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
-        new ReactiveProperty<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.TopLeft);
+        new ReactiveProperty<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.LeftUpperTop);
 
     public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
         new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();

@@ -1,23 +1,11 @@
-﻿using System.Collections.Specialized;
-using Avalonia;
-using Avalonia.Collections;
+﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Data;
 using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Media.Immutable;
-using Avalonia.Threading;
 using Beutl.Controls;
-using Beutl.ExceptionHandler;
 using Beutl.Logging;
-using Beutl.Services;
 using Beutl.ViewModels;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 using ReDocking;
 
 namespace Beutl.Views;
@@ -67,17 +55,45 @@ public sealed partial class EditView : UserControl
     {
     }
 
-    private static ReactiveCollection<ToolTabViewModel> GetItemsSource(EditViewModel viewModel,
-        DockAreaLocation location)
+    private ReactiveCollection<ToolTabViewModel> GetItemsSource(DockAreaLocation location)
     {
-        return location switch
+        var sideBar = DockHost.DockAreas.FirstOrDefault(i => i.SideBar?.Location == location.LeftRight)?.SideBar;
+
+        if (sideBar == null)
         {
-            DockAreaLocation.Left => viewModel.LeftTools,
-            DockAreaLocation.Right => viewModel.RightTools,
-            DockAreaLocation.TopLeft => viewModel.LeftTopTools,
-            DockAreaLocation.BottomLeft => viewModel.LeftBottomTools,
-            DockAreaLocation.TopRight => viewModel.RightTopTools,
-            DockAreaLocation.BottomRight => viewModel.RightBottomTools,
+            throw new InvalidOperationException("SideBar not found.");
+        }
+
+        return location.ButtonLocation switch
+        {
+            SideBarButtonLocation.UpperTop => sideBar.UpperTopToolsSource,
+            SideBarButtonLocation.UpperBottom => sideBar.UpperBottomToolsSource,
+            SideBarButtonLocation.LowerTop => sideBar.LowerTopToolsSource,
+            SideBarButtonLocation.LowerBottom => sideBar.LowerBottomToolsSource,
+            _ => throw new ArgumentOutOfRangeException(nameof(location), location, null)
+        } as ReactiveCollection<ToolTabViewModel> ?? throw new InvalidOperationException();
+    }
+
+    private static ToolTabExtension.TabPlacement ToTabPlacementEnum(DockAreaLocation location)
+    {
+        return (location.ButtonLocation, location.LeftRight) switch
+        {
+            (SideBarButtonLocation.UpperTop, SideBarLocation.Left) =>
+                ToolTabExtension.TabPlacement.LeftUpperTop,
+            (SideBarButtonLocation.UpperBottom, SideBarLocation.Left) =>
+                ToolTabExtension.TabPlacement.LeftUpperBottom,
+            (SideBarButtonLocation.LowerTop, SideBarLocation.Left) =>
+                ToolTabExtension.TabPlacement.LeftLowerTop,
+            (SideBarButtonLocation.LowerBottom, SideBarLocation.Left) =>
+                ToolTabExtension.TabPlacement.LeftLowerBottom,
+            (SideBarButtonLocation.UpperTop, SideBarLocation.Right) =>
+                ToolTabExtension.TabPlacement.RightUpperTop,
+            (SideBarButtonLocation.UpperBottom, SideBarLocation.Right) =>
+                ToolTabExtension.TabPlacement.RightUpperBottom,
+            (SideBarButtonLocation.LowerTop, SideBarLocation.Right) =>
+                ToolTabExtension.TabPlacement.RightLowerTop,
+            (SideBarButtonLocation.LowerBottom, SideBarLocation.Right) =>
+                ToolTabExtension.TabPlacement.RightLowerBottom,
             _ => throw new ArgumentOutOfRangeException(nameof(location), location, null)
         };
     }
@@ -85,14 +101,16 @@ public sealed partial class EditView : UserControl
     private static ReactiveProperty<ToolTabViewModel?> GetSelectedItem(EditViewModel viewModel,
         DockAreaLocation location)
     {
-        return location switch
+        return (location.ButtonLocation, location.LeftRight) switch
         {
-            DockAreaLocation.Left => viewModel.SelectedLeftTool,
-            DockAreaLocation.Right => viewModel.SelectedRightTool,
-            DockAreaLocation.TopLeft => viewModel.SelectedLeftTopTool,
-            DockAreaLocation.BottomLeft => viewModel.SelectedLeftBottomTool,
-            DockAreaLocation.TopRight => viewModel.SelectedRightTopTool,
-            DockAreaLocation.BottomRight => viewModel.SelectedRightBottomTool,
+            (SideBarButtonLocation.UpperTop, SideBarLocation.Left) => viewModel.SelectedLeftUpperTopTool,
+            (SideBarButtonLocation.UpperBottom, SideBarLocation.Left) => viewModel.SelectedLeftUpperBottomTool,
+            (SideBarButtonLocation.LowerTop, SideBarLocation.Left) => viewModel.SelectedLeftLowerTopTool,
+            (SideBarButtonLocation.LowerBottom, SideBarLocation.Left) => viewModel.SelectedLeftLowerBottomTool,
+            (SideBarButtonLocation.UpperTop, SideBarLocation.Right) => viewModel.SelectedRightUpperTopTool,
+            (SideBarButtonLocation.UpperBottom, SideBarLocation.Right) => viewModel.SelectedRightUpperBottomTool,
+            (SideBarButtonLocation.LowerTop, SideBarLocation.Right) => viewModel.SelectedRightLowerTopTool,
+            (SideBarButtonLocation.LowerBottom, SideBarLocation.Right) => viewModel.SelectedRightLowerBottomTool,
             _ => throw new ArgumentOutOfRangeException(nameof(location), location, null)
         };
     }
@@ -100,9 +118,9 @@ public sealed partial class EditView : UserControl
     private void OnSideBarButtonDrop(object? sender, SideBarButtonMoveEventArgs e)
     {
         if (DataContext is not EditViewModel viewModel) return;
-        var oldItems = GetItemsSource(viewModel, e.SourceLocation);
+        var oldItems = GetItemsSource(e.SourceLocation);
         var oldSelectedItem = GetSelectedItem(viewModel, e.SourceLocation);
-        var newItems = GetItemsSource(viewModel, e.DestinationLocation);
+        var newItems = GetItemsSource(e.DestinationLocation);
 
         if (e.Item is not ToolTabViewModel item)
         {
@@ -133,16 +151,7 @@ public sealed partial class EditView : UserControl
             // var newItem = new ToolTabViewModel(item.Context, viewModel);
             newItems.Insert(e.DestinationIndex, newItem);
             newItem.Context.IsSelected.Value = true;
-            newItem.Context.Placement.Value = e.DestinationLocation switch
-            {
-                DockAreaLocation.Left => ToolTabExtension.TabPlacement.Left,
-                DockAreaLocation.Right => ToolTabExtension.TabPlacement.Right,
-                DockAreaLocation.TopLeft => ToolTabExtension.TabPlacement.TopLeft,
-                DockAreaLocation.BottomLeft => ToolTabExtension.TabPlacement.BottomLeft,
-                DockAreaLocation.TopRight => ToolTabExtension.TabPlacement.TopRight,
-                DockAreaLocation.BottomRight => ToolTabExtension.TabPlacement.BottomRight,
-                _ => ToolTabExtension.TabPlacement.Left
-            };
+            newItem.Context.Placement.Value = ToTabPlacementEnum(e.DestinationLocation);
         }
 
         e.Handled = true;

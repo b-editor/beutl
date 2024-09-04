@@ -38,85 +38,110 @@
             <local:ToolTabContent />
         </DataTemplate>
     </UserControl.Resources>
-    <dock:ReDockHost ButtonDisplayModeChanged="OnSideBarButtonDisplayModeChanged"
+    <dock:ReDockHost Name="DockHost"
+                     ButtonDisplayModeChanged="OnSideBarButtonDisplayModeChanged"
                      ButtonMove="OnSideBarButtonDrop"
                      IsFloatingEnabled="True">
         <dock:ReDockHost.DockAreas>
             <dock:DockArea LocalizedName="Left"
-                           Location="Left"
+                           Location="LeftUpperBottom"
                            SideBar="LeftSideBar"
-                           Target="LeftContent"
-                           View="LeftRightArea" />
+                           Target="TopContent"
+                           View="LeftTopBottomArea" />
+            <dock:DockArea LocalizedName="Left Bottom"
+                           Location="LeftLowerTop"
+                           SideBar="LeftSideBar"
+                           Target="BottomContent"
+                           View="LeftTopBottomArea" />
+
             <dock:DockArea LocalizedName="Right"
-                           Location="Right"
+                           Location="RightUpperBottom"
                            SideBar="RightSideBar"
-                           Target="RightContent"
-                           View="LeftRightArea" />
+                           Target="TopContent"
+                           View="RightTopBottomArea" />
+
+            <dock:DockArea LocalizedName="Right Bottom"
+                           Location="RightLowerTop"
+                           SideBar="RightSideBar"
+                           Target="BottomContent"
+                           View="RightTopBottomArea" />
+
             <dock:DockArea LocalizedName="TopLeft"
-                           Location="TopLeft"
+                           Location="LeftUpperTop"
                            SideBar="LeftSideBar"
                            Target="LeftContent"
                            View="TopLeftRightArea" />
             <dock:DockArea LocalizedName="TopRight"
-                           Location="TopRight"
+                           Location="RightUpperTop"
                            SideBar="RightSideBar"
                            Target="RightContent"
                            View="TopLeftRightArea" />
             <dock:DockArea LocalizedName="BottomLeft"
-                           Location="BottomLeft"
+                           Location="LeftLowerBottom"
                            SideBar="LeftSideBar"
                            Target="LeftContent"
                            View="BottomLeftRightArea" />
             <dock:DockArea LocalizedName="BottomRight"
-                           Location="BottomRight"
+                           Location="RightLowerBottom"
                            SideBar="RightSideBar"
                            Target="RightContent"
                            View="BottomLeftRightArea" />
         </dock:ReDockHost.DockAreas>
         <Grid ColumnDefinitions="40,*,40">
             <dock:SideBar Name="LeftSideBar"
-                          BorderBrush="{DynamicResource SideDividerBrush}"
+                          BorderBrush="{DynamicResource ReDockingDividerBrush}"
                           BorderThickness="0,0,1,0"
-                          BottomToolsSource="{Binding LeftBottomTools}"
                           ItemTemplate="{StaticResource LeftSideBarButtonDataTemplate}"
                           Location="Left"
-                          ToolsSource="{Binding LeftTools}"
-                          TopToolsSource="{Binding LeftTopTools}" />
+                          LowerBottomToolsSource="{Binding LeftLowerBottomTools}"
+                          LowerTopToolsSource="{Binding LeftLowerTopTools}"
+                          UpperBottomToolsSource="{Binding LeftUpperBottomTools}"
+                          UpperTopToolsSource="{Binding LeftUpperTopTools}" />
 
-            <dock:ReDock Name="LeftRightArea"
-                         Grid.Column="1"
-                         LeftContent="{Binding SelectedLeftTool.Value}"
-                         LeftContentTemplate="{StaticResource ToolTabContentDataTemplate}"
-                         RightContent="{Binding SelectedRightTool.Value}"
-                         RightContentTemplate="{StaticResource ToolTabContentDataTemplate}">
+            <dock:ReDock Name="LeftRightArea" Grid.Column="1">
+                <dock:ReDock.LeftContent>
+                    <dock:VerticallySplittedView Name="LeftTopBottomArea"
+                                                 BottomContent="{Binding SelectedLeftLowerTopTool.Value}"
+                                                 BottomContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                 TopContent="{Binding SelectedLeftUpperBottomTool.Value}"
+                                                 TopContentTemplate="{StaticResource ToolTabContentDataTemplate}" />
+                </dock:ReDock.LeftContent>
                 <dock:VerticallySplittedView>
                     <dock:VerticallySplittedView.TopContent>
                         <dock:ReDock Name="TopLeftRightArea"
-                                     LeftContent="{Binding SelectedLeftTopTool.Value}"
+                                     LeftContent="{Binding SelectedLeftUpperTopTool.Value}"
                                      LeftContentTemplate="{StaticResource ToolTabContentDataTemplate}"
-                                     RightContent="{Binding SelectedRightTopTool.Value}"
+                                     RightContent="{Binding SelectedRightUpperTopTool.Value}"
                                      RightContentTemplate="{StaticResource ToolTabContentDataTemplate}">
                             <local:PlayerView x:Name="Player" DataContext="{Binding Player}" />
                         </dock:ReDock>
                     </dock:VerticallySplittedView.TopContent>
                     <dock:VerticallySplittedView.BottomContent>
                         <dock:HorizontallySplittedView Name="BottomLeftRightArea"
-                                                       LeftContent="{Binding SelectedLeftBottomTool.Value}"
+                                                       LeftContent="{Binding SelectedLeftLowerBottomTool.Value}"
                                                        LeftContentTemplate="{StaticResource ToolTabContentDataTemplate}"
-                                                       RightContent="{Binding SelectedRightBottomTool.Value}"
+                                                       RightContent="{Binding SelectedRightLowerBottomTool.Value}"
                                                        RightContentTemplate="{StaticResource ToolTabContentDataTemplate}" />
                     </dock:VerticallySplittedView.BottomContent>
                 </dock:VerticallySplittedView>
+                <dock:ReDock.RightContent>
+                    <dock:VerticallySplittedView Name="RightTopBottomArea"
+                                                 BottomContent="{Binding SelectedRightLowerTopTool.Value}"
+                                                 BottomContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                 TopContent="{Binding SelectedRightUpperBottomTool.Value}"
+                                                 TopContentTemplate="{StaticResource ToolTabContentDataTemplate}" />
+                </dock:ReDock.RightContent>
             </dock:ReDock>
             <dock:SideBar Name="RightSideBar"
                           Grid.Column="2"
-                          BorderBrush="{DynamicResource SideDividerBrush}"
+                          BorderBrush="{DynamicResource ReDockingDividerBrush}"
                           BorderThickness="1,0,0,0"
-                          BottomToolsSource="{Binding RightBottomTools}"
                           ItemTemplate="{StaticResource RightSideBarButtonDataTemplate}"
                           Location="Right"
-                          ToolsSource="{Binding RightTools}"
-                          TopToolsSource="{Binding RightTopTools}" />
+                          LowerBottomToolsSource="{Binding RightLowerBottomTools}"
+                          LowerTopToolsSource="{Binding RightLowerTopTools}"
+                          UpperBottomToolsSource="{Binding RightUpperBottomTools}"
+                          UpperTopToolsSource="{Binding RightUpperTopTools}" />
         </Grid>
     </dock:ReDockHost>
 </UserControl>

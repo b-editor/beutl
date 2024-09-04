@@ -148,12 +148,14 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 });
         }
 
-        ConfigureToolsList(LeftTopTools, SelectedLeftTopTool);
-        ConfigureToolsList(LeftTools, SelectedLeftTool);
-        ConfigureToolsList(LeftBottomTools, SelectedLeftBottomTool);
-        ConfigureToolsList(RightTopTools, SelectedRightTopTool);
-        ConfigureToolsList(RightTools, SelectedRightTool);
-        ConfigureToolsList(RightBottomTools, SelectedRightBottomTool);
+        ConfigureToolsList(LeftUpperTopTools, SelectedLeftUpperTopTool);
+        ConfigureToolsList(LeftUpperBottomTools, SelectedLeftUpperBottomTool);
+        ConfigureToolsList(LeftLowerTopTools, SelectedLeftLowerTopTool);
+        ConfigureToolsList(LeftLowerBottomTools, SelectedLeftLowerBottomTool);
+        ConfigureToolsList(RightUpperTopTools, SelectedRightUpperTopTool);
+        ConfigureToolsList(RightUpperBottomTools, SelectedRightUpperBottomTool);
+        ConfigureToolsList(RightLowerTopTools, SelectedRightLowerTopTool);
+        ConfigureToolsList(RightLowerBottomTools, SelectedRightLowerBottomTool);
 
         RestoreState();
     }
@@ -258,29 +260,37 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }
 
-    public ReactiveCollection<ToolTabViewModel> LeftTopTools { get; } = [];
+    public ReactiveCollection<ToolTabViewModel> LeftUpperTopTools { get; } = [];
 
-    public ReactiveProperty<ToolTabViewModel?> SelectedLeftTopTool { get; } = new();
+    public ReactiveProperty<ToolTabViewModel?> SelectedLeftUpperTopTool { get; } = new();
 
-    public ReactiveCollection<ToolTabViewModel> LeftTools { get; } = [];
+    public ReactiveCollection<ToolTabViewModel> LeftUpperBottomTools { get; } = [];
 
-    public ReactiveProperty<ToolTabViewModel?> SelectedLeftTool { get; } = new();
+    public ReactiveProperty<ToolTabViewModel?> SelectedLeftUpperBottomTool { get; } = new();
 
-    public ReactiveCollection<ToolTabViewModel> LeftBottomTools { get; } = [];
+    public ReactiveCollection<ToolTabViewModel> LeftLowerTopTools { get; } = [];
 
-    public ReactiveProperty<ToolTabViewModel?> SelectedLeftBottomTool { get; } = new();
+    public ReactiveProperty<ToolTabViewModel?> SelectedLeftLowerTopTool { get; } = new();
 
-    public ReactiveCollection<ToolTabViewModel> RightTopTools { get; } = [];
+    public ReactiveCollection<ToolTabViewModel> LeftLowerBottomTools { get; } = [];
 
-    public ReactiveProperty<ToolTabViewModel?> SelectedRightTopTool { get; } = new();
+    public ReactiveProperty<ToolTabViewModel?> SelectedLeftLowerBottomTool { get; } = new();
 
-    public ReactiveCollection<ToolTabViewModel> RightTools { get; } = [];
+    public ReactiveCollection<ToolTabViewModel> RightUpperTopTools { get; } = [];
 
-    public ReactiveProperty<ToolTabViewModel?> SelectedRightTool { get; } = new();
+    public ReactiveProperty<ToolTabViewModel?> SelectedRightUpperTopTool { get; } = new();
 
-    public ReactiveCollection<ToolTabViewModel> RightBottomTools { get; } = [];
+    public ReactiveCollection<ToolTabViewModel> RightUpperBottomTools { get; } = [];
 
-    public ReactiveProperty<ToolTabViewModel?> SelectedRightBottomTool { get; } = new();
+    public ReactiveProperty<ToolTabViewModel?> SelectedRightUpperBottomTool { get; } = new();
+
+    public ReactiveCollection<ToolTabViewModel> RightLowerTopTools { get; } = [];
+
+    public ReactiveProperty<ToolTabViewModel?> SelectedRightLowerTopTool { get; } = new();
+
+    public ReactiveCollection<ToolTabViewModel> RightLowerBottomTools { get; } = [];
+
+    public ReactiveProperty<ToolTabViewModel?> SelectedRightLowerBottomTool { get; } = new();
 
     public ReactiveProperty<CoreObject?> SelectedObject { get; }
 
@@ -317,8 +327,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     {
         return
         [
-            LeftTopTools, LeftTools, LeftBottomTools,
-            RightTopTools, RightTools, RightBottomTools
+            LeftUpperTopTools, LeftUpperBottomTools, LeftLowerTopTools, LeftLowerBottomTools,
+            RightUpperTopTools, RightUpperBottomTools, RightLowerTopTools, RightLowerBottomTools
         ];
     }
 
@@ -327,12 +337,14 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     {
         return
         [
-            (LeftTopTools, ToolTabExtension.TabPlacement.TopLeft),
-            (LeftTools, ToolTabExtension.TabPlacement.Left),
-            (LeftBottomTools, ToolTabExtension.TabPlacement.BottomLeft),
-            (RightTopTools, ToolTabExtension.TabPlacement.TopRight),
-            (RightTools, ToolTabExtension.TabPlacement.Right),
-            (RightBottomTools, ToolTabExtension.TabPlacement.BottomRight)
+            (LeftUpperTopTools, ToolTabExtension.TabPlacement.LeftUpperTop),
+            (LeftUpperBottomTools, ToolTabExtension.TabPlacement.LeftUpperBottom),
+            (LeftLowerTopTools, ToolTabExtension.TabPlacement.LeftLowerTop),
+            (LeftLowerBottomTools, ToolTabExtension.TabPlacement.LeftLowerBottom),
+            (RightUpperTopTools, ToolTabExtension.TabPlacement.RightUpperTop),
+            (RightUpperBottomTools, ToolTabExtension.TabPlacement.RightUpperBottom),
+            (RightLowerTopTools, ToolTabExtension.TabPlacement.RightLowerTop),
+            (RightLowerBottomTools, ToolTabExtension.TabPlacement.RightLowerBottom)
         ];
     }
 
@@ -408,18 +420,15 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             }
             else
             {
-                ReactiveCollection<ToolTabViewModel> list = item.Placement.Value switch
+                var list = GetNestedToolsWithPlacement()
+                    .FirstOrDefault(i => i.Placement == item.Placement.Value)
+                    .List;
+                if (list == null)
                 {
-                    ToolTabExtension.TabPlacement.Right => RightTools,
-                    ToolTabExtension.TabPlacement.Left => LeftTools,
-                    ToolTabExtension.TabPlacement.TopRight => RightTopTools,
-                    ToolTabExtension.TabPlacement.BottomRight => RightBottomTools,
-                    ToolTabExtension.TabPlacement.TopLeft => LeftTools,
-#pragma warning disable CS0618 // 型またはメンバーが旧型式です
-                    ToolTabExtension.TabPlacement.BottomLeft or ToolTabExtension.TabPlacement.Bottom => LeftBottomTools,
-#pragma warning restore CS0618 // 型またはメンバーが旧型式です
-                    _ => RightTools
-                };
+                    _logger.LogWarning("Placement is invalid. ({Placement}, {SceneId})", item.Placement.Value, SceneId);
+                    return false;
+                }
+
                 item.IsSelected.Value = true;
                 list.Add(new ToolTabViewModel(item, this));
                 return true;

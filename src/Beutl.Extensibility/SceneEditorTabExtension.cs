@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
@@ -26,12 +25,18 @@ public abstract class ToolTabExtension : ViewExtension
         [Obsolete("Use 'BottomLeft' or 'BottomRight' instead.")]
         Bottom = 0,
 
+        [Obsolete("Use 'BottomLeft' or 'BottomRight' instead.")]
         Right = 1,
-        Left = 2,
-        TopRight = 3,
-        BottomRight = 4,
-        TopLeft = 5,
-        BottomLeft = 6,
+
+        LeftUpperTop = 5,
+        LeftUpperBottom = 2,
+        LeftLowerTop = 6,
+        LeftLowerBottom = 0,
+
+        RightUpperTop = 3,
+        RightUpperBottom = 1,
+        RightLowerTop = 7,
+        RightLowerBottom = 4,
     }
 
     public enum TabDisplayMode
