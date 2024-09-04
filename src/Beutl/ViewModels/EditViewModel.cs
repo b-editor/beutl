@@ -292,6 +292,18 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public ReactiveProperty<ToolTabViewModel?> SelectedRightLowerBottomTool { get; } = new();
 
+    public ReDockSizeProportionViewModel LeftRightProportion { get; } = new();
+
+    public ReDockSizeProportionViewModel TopLeftRightProportion { get; } = new();
+
+    public SplittedViewSizeProportionViewModel LeftTopBottomProportion { get; } = new();
+
+    public SplittedViewSizeProportionViewModel CenterTopBottomProportion { get; } = new();
+
+    public SplittedViewSizeProportionViewModel RightTopBottomProportion { get; } = new();
+
+    public SplittedViewSizeProportionViewModel BottomLeftRightProportion { get; } = new();
+
     public ReactiveProperty<CoreObject?> SelectedObject { get; }
 
     public ReactivePropertySlim<bool> IsEnabled { get; } = new(true);
@@ -517,9 +529,24 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             json[placement.ToString()] = jsonObject;
         }
 
+        json[nameof(LeftRightProportion)] = CreateJson(LeftRightProportion);
+        json[nameof(TopLeftRightProportion)] = CreateJson(TopLeftRightProportion);
+        json[nameof(LeftTopBottomProportion)] = CreateJson(LeftTopBottomProportion);
+        json[nameof(CenterTopBottomProportion)] = CreateJson(CenterTopBottomProportion);
+        json[nameof(RightTopBottomProportion)] = CreateJson(RightTopBottomProportion);
+        json[nameof(BottomLeftRightProportion)] = CreateJson(BottomLeftRightProportion);
+
         json["current-time"] = JsonValue.Create(CurrentTime.Value);
 
         json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(EdittingFile)}.config"));
+        return;
+
+        static JsonObject CreateJson(IJsonSerializable serializable)
+        {
+            var obj = new JsonObject();
+            serializable.WriteToJson(obj);
+            return obj;
+        }
     }
 
     private void RestoreState()
@@ -565,12 +592,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
             if (jsonObject.TryGetPropertyValue("offset", out JsonNode? offsetNode)
                 && offsetNode is JsonObject offsetObj
-                && offsetObj.TryGetPropertyValue("x", out JsonNode? xNode)
-                && offsetObj.TryGetPropertyValue("y", out JsonNode? yNode)
-                && xNode is JsonValue xValue
-                && yNode is JsonValue yValue
-                && xValue.TryGetValue(out float x)
-                && yValue.TryGetValue(out float y))
+                && offsetObj.TryGetPropertyValueAsJsonValue("x", out float x)
+                && offsetObj.TryGetPropertyValueAsJsonValue("y", out float y))
             {
                 timelineOptions = timelineOptions with { Offset = new Vector2(x, y) };
             }
@@ -610,27 +633,53 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 }
             }
 
+            // Restore proportions safely
+            void RestoreProportion(IJsonSerializable serializable, string name)
+            {
+                if (jsonObject.TryGetPropertyValue(name, out JsonNode? proportionNode)
+                    && proportionNode is JsonObject proportion)
+                {
+                    serializable.ReadFromJson(proportion);
+                }
+            }
+            RestoreProportion(LeftRightProportion, nameof(LeftRightProportion));
+            RestoreProportion(TopLeftRightProportion, nameof(TopLeftRightProportion));
+            RestoreProportion(LeftTopBottomProportion, nameof(LeftTopBottomProportion));
+            RestoreProportion(CenterTopBottomProportion, nameof(CenterTopBottomProportion));
+            RestoreProportion(RightTopBottomProportion, nameof(RightTopBottomProportion));
+            RestoreProportion(BottomLeftRightProportion, nameof(BottomLeftRightProportion));
+
             if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out string? currentTimeStr)
                 && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime))
             {
                 CurrentTime.Value = currentTime;
             }
+
+            // 何もタブを開いていない場合、デフォルトのタブを開く
+            if (!GetAllTools().Any())
+            {
+                OpenDefaultTabs();
+            }
         }
         else
         {
-            if (TimelineTabExtension.Instance.TryCreateContext(this, out IToolContext? tab1))
-            {
-                OpenToolTab(tab1);
-            }
+            OpenDefaultTabs();
+        }
 
-            if (SourceOperatorsTabExtension.Instance.TryCreateContext(this, out IToolContext? tab2))
-            {
-                OpenToolTab(tab2);
-            }
+        return;
 
-            if (LibraryTabExtension.Instance.TryCreateContext(this, out IToolContext? tab3))
+        void OpenDefaultTabs()
+        {
+            var tabs = new ToolTabExtension[]
             {
-                OpenToolTab(tab3);
+                TimelineTabExtension.Instance,
+                SourceOperatorsTabExtension.Instance,
+                LibraryTabExtension.Instance
+            };
+            foreach (var ext in tabs)
+            {
+                if (ext.TryCreateContext(this, out IToolContext? tab))
+                    OpenToolTab(tab);
             }
         }
     }
@@ -935,5 +984,55 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
             return ValueTask.FromResult(true);
         }
+    }
+}
+
+public sealed class ReDockSizeProportionViewModel : IJsonSerializable
+{
+    public ReactivePropertySlim<double> Left { get; } = new(1 / 4d);
+
+    public ReactivePropertySlim<double> Center { get; } = new(1 / 2d);
+
+    public ReactivePropertySlim<double> Right { get; } = new(1 / 4d);
+
+    public void WriteToJson(JsonObject json)
+    {
+        json[nameof(Left)] = Left.Value;
+        json[nameof(Center)] = Center.Value;
+        json[nameof(Right)] = Right.Value;
+    }
+
+    public void ReadFromJson(JsonObject json)
+    {
+        if (json.TryGetPropertyValueAsJsonValue(nameof(Left), out double left))
+            Left.Value = left;
+
+        if (json.TryGetPropertyValueAsJsonValue(nameof(Center), out double center))
+            Center.Value = center;
+
+        if (json.TryGetPropertyValueAsJsonValue(nameof(Right), out double right))
+            Right.Value = right;
+    }
+}
+
+public sealed class SplittedViewSizeProportionViewModel : IJsonSerializable
+{
+    public ReactivePropertySlim<double> First { get; } = new(1 / 2d);
+
+    public ReactivePropertySlim<double> Second { get; } = new(1 / 2d);
+
+    public void WriteToJson(JsonObject json)
+    {
+        json[nameof(First)] = First.Value;
+        json[nameof(Second)] = Second.Value;
+    }
+
+    public void ReadFromJson(JsonObject json)
+    {
+        if (json.TryGetPropertyValueAsJsonValue(nameof(First), out double first))
+            First.Value = first;
+
+        if (json.TryGetPropertyValueAsJsonValue(nameof(Second), out double second))
+            Second.Value = second;
     }
 }

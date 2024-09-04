@@ -9,9 +9,10 @@
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="720"
              d:DesignWidth="1280"
+             x:CompileBindings="True"
              x:DataType="vm:EditViewModel"
              Focusable="True"
-             IsEnabled="{CompiledBinding IsEnabled.Value}"
+             IsEnabled="{Binding IsEnabled.Value}"
              mc:Ignorable="d">
     <UserControl.Resources>
         <DataTemplate x:Key="LeftSideBarButtonDataTemplate" x:DataType="vm:ToolTabViewModel">
@@ -98,21 +99,30 @@
                           UpperBottomToolsSource="{Binding LeftUpperBottomTools}"
                           UpperTopToolsSource="{Binding LeftUpperTopTools}" />
 
-            <dock:ReDock Name="LeftRightArea" Grid.Column="1">
+            <dock:ReDock Name="LeftRightArea"
+                         Grid.Column="1"
+                         LeftWidthProportion="{Binding LeftRightProportion.Left.Value, Mode=TwoWay}"
+                         RightWidthProportion="{Binding LeftRightProportion.Right.Value, Mode=TwoWay}"
+                         WidthProportion="{Binding LeftRightProportion.Center.Value, Mode=TwoWay}">
                 <dock:ReDock.LeftContent>
                     <dock:VerticallySplittedView Name="LeftTopBottomArea"
                                                  BottomContent="{Binding SelectedLeftLowerTopTool.Value}"
                                                  BottomContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                 BottomHeightProportion="{Binding LeftTopBottomProportion.Second.Value, Mode=TwoWay}"
                                                  TopContent="{Binding SelectedLeftUpperBottomTool.Value}"
-                                                 TopContentTemplate="{StaticResource ToolTabContentDataTemplate}" />
+                                                 TopContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                 TopHeightProportion="{Binding LeftTopBottomProportion.First.Value, Mode=TwoWay}" />
                 </dock:ReDock.LeftContent>
-                <dock:VerticallySplittedView>
+                <dock:VerticallySplittedView BottomHeightProportion="{Binding CenterTopBottomProportion.Second.Value, Mode=TwoWay}" TopHeightProportion="{Binding CenterTopBottomProportion.First.Value, Mode=TwoWay}">
                     <dock:VerticallySplittedView.TopContent>
                         <dock:ReDock Name="TopLeftRightArea"
                                      LeftContent="{Binding SelectedLeftUpperTopTool.Value}"
                                      LeftContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                     LeftWidthProportion="{Binding TopLeftRightProportion.Left.Value, Mode=TwoWay}"
                                      RightContent="{Binding SelectedRightUpperTopTool.Value}"
-                                     RightContentTemplate="{StaticResource ToolTabContentDataTemplate}">
+                                     RightContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                     RightWidthProportion="{Binding TopLeftRightProportion.Right.Value, Mode=TwoWay}"
+                                     WidthProportion="{Binding TopLeftRightProportion.Center.Value, Mode=TwoWay}">
                             <local:PlayerView x:Name="Player" DataContext="{Binding Player}" />
                         </dock:ReDock>
                     </dock:VerticallySplittedView.TopContent>
@@ -120,16 +130,20 @@
                         <dock:HorizontallySplittedView Name="BottomLeftRightArea"
                                                        LeftContent="{Binding SelectedLeftLowerBottomTool.Value}"
                                                        LeftContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                       LeftWidthProportion="{Binding BottomLeftRightProportion.First.Value, Mode=TwoWay}"
                                                        RightContent="{Binding SelectedRightLowerBottomTool.Value}"
-                                                       RightContentTemplate="{StaticResource ToolTabContentDataTemplate}" />
+                                                       RightContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                       RightWidthProportion="{Binding BottomLeftRightProportion.Second.Value, Mode=TwoWay}" />
                     </dock:VerticallySplittedView.BottomContent>
                 </dock:VerticallySplittedView>
                 <dock:ReDock.RightContent>
                     <dock:VerticallySplittedView Name="RightTopBottomArea"
                                                  BottomContent="{Binding SelectedRightLowerTopTool.Value}"
                                                  BottomContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                 BottomHeightProportion="{Binding RightTopBottomProportion.Second.Value, Mode=TwoWay}"
                                                  TopContent="{Binding SelectedRightUpperBottomTool.Value}"
-                                                 TopContentTemplate="{StaticResource ToolTabContentDataTemplate}" />
+                                                 TopContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                 TopHeightProportion="{Binding RightTopBottomProportion.First.Value, Mode=TwoWay}" />
                 </dock:ReDock.RightContent>
             </dock:ReDock>
             <dock:SideBar Name="RightSideBar"
