@@ -133,6 +133,10 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>GraphEditorViewViewModelFactory.Impl.tt</DependentUpon>
     </Compile>
+    <Compile Update="Views\EditorHostFallback.axaml.cs">
+      <DependentUpon>EditPageFallback.axaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />

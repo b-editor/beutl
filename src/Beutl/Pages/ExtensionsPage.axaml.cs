@@ -63,10 +63,11 @@ public sealed partial class ExtensionsPage : UserControl
 
     private void OpenSettings_Click(object? sender, RoutedEventArgs e)
     {
-        if (this.FindLogicalAncestorOfType<MainView>() is { DataContext: MainViewModel viewModel })
-        {
-            viewModel.SelectedPage.Value = viewModel.SettingsPage;
-        }
+        // TODO: 設定ウィンドウを開く
+        // if (this.FindLogicalAncestorOfType<MainView>() is { DataContext: MainViewModel viewModel })
+        // {
+        //     viewModel.SelectedPage.Value = viewModel.SettingsPage;
+        // }
     }
 
     private static List<NavigationViewItem> GetItems()

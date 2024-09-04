@@ -9,7 +9,6 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
 
     public static readonly Extension[] PrimitiveExtensions =
     [
-        EditPageExtension.Instance,
         ExtensionsPageExtension.Instance,
         OutputPageExtension.Instance,
         SettingsPageExtension.Instance,

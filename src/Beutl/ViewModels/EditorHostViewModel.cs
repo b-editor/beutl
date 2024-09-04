@@ -1,20 +1,15 @@
 ﻿using System.Collections.Specialized;
-
 using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
-
 using Reactive.Bindings;
-
-using TabViewModel = Beutl.Services.EditorTabItem;
 
 namespace Beutl.ViewModels;
 
-public sealed class EditPageViewModel : IPageContext
+public class EditorHostViewModel
 {
     private readonly ProjectService _projectService = ProjectService.Current;
     private readonly EditorService _editorService = EditorService.Current;
 
-    public EditPageViewModel()
+    public EditorHostViewModel()
     {
         _projectService.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
     }
@@ -23,13 +18,9 @@ public sealed class EditPageViewModel : IPageContext
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened => _projectService.IsOpened;
 
-    public ICoreList<TabViewModel> TabItems => _editorService.TabItems;
+    public ICoreList<EditorTabItem> TabItems => _editorService.TabItems;
 
-    public IReactiveProperty<TabViewModel?> SelectedTabItem => _editorService.SelectedTabItem;
-
-    public PageExtension Extension => EditPageExtension.Instance;
-
-    public string Header => Strings.Edit;
+    public IReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;
 
     private void ProjectChanged(Project? @new, Project? old)
     {

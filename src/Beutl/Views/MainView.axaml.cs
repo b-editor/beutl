@@ -36,10 +36,6 @@ public sealed partial class MainView : UserControl
     {
         InitializeComponent();
 
-        // NavigationViewの設定
-        Navi.MenuItemsSource = _navigationItems;
-        Navi.ItemInvoked += NavigationView_ItemInvoked;
-
         recentFiles.ItemsSource = _rawRecentFileItems;
         recentProjects.ItemsSource = _rawRecentProjItems;
         if (OperatingSystem.IsMacOS())
@@ -80,7 +76,6 @@ public sealed partial class MainView : UserControl
         _disposables.Clear();
         if (DataContext is MainViewModel viewModel)
         {
-            InitializePages(viewModel);
             InitializeCommands(viewModel);
             InitializeRecentItems(viewModel);
         }
@@ -291,11 +286,12 @@ public sealed partial class MainView : UserControl
 
     private void GoToInfomationPage(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainViewModel viewModel)
-        {
-            viewModel.SelectedPage.Value = viewModel.SettingsPage;
-            (viewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToSettingsPage();
-        }
+        // TODO: 情報ウィンドウを開く
+        // if (DataContext is MainViewModel viewModel)
+        // {
+        //     viewModel.SelectedPage.Value = viewModel.SettingsPage;
+        //     (viewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToSettingsPage();
+        // }
     }
 
     private void OpenNotificationsClick(object? sender, RoutedEventArgs e)

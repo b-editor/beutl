@@ -30,25 +30,6 @@ public sealed class MainViewModel : BasePageViewModel
     private readonly BeutlApiApplication _beutlClients;
     private readonly HttpClient _authorizedHttpClient;
 
-    public sealed class NavItemViewModel
-    {
-        public NavItemViewModel(PageExtension extension)
-        {
-            Extension = extension;
-            Context = extension.CreateContext() ?? throw new Exception("Could not create context.");
-        }
-
-        public NavItemViewModel(PageExtension extension, IPageContext context)
-        {
-            Extension = extension;
-            Context = context;
-        }
-
-        public PageExtension Extension { get; }
-
-        public IPageContext Context { get; }
-    }
-
     public MainViewModel()
     {
         _authorizedHttpClient = new HttpClient();
@@ -61,15 +42,6 @@ public sealed class MainViewModel : BasePageViewModel
             .ToReadOnlyReactivePropertySlim();
         WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");
-
-        Pages =
-        [
-            new(EditPageExtension.Instance),
-            new(ExtensionsPageExtension.Instance, new ExtensionsPageViewModel(_beutlClients)),
-            new(OutputPageExtension.Instance),
-        ];
-        SettingsPage = new(SettingsPageExtension.Instance, new SettingsPageViewModel(_beutlClients));
-        SelectedPage.Value = Pages[0];
 
         KeyBindings = CreateKeyBindings();
 
@@ -89,13 +61,6 @@ public sealed class MainViewModel : BasePageViewModel
             .Bind(out ReadOnlyObservableCollection<EditorExtension>? list2)
             .Subscribe();
 
-        changeSet.Filter(i => i is PageExtension)
-            .Filter(item => !LoadPrimitiveExtensionTask.PrimitiveExtensions.Contains(item))
-            .Cast(item => (PageExtension)item)
-            .OnItemAdded(item => Pages.Add(new NavItemViewModel(item)))
-            .OnItemRemoved(item => Pages.RemoveAll(Pages.Where(v => v.Extension == item)))
-            .Subscribe();
-
         ToolTabExtensions = list1;
         EditorExtensions = list2;
     }
@@ -110,13 +75,9 @@ public sealed class MainViewModel : BasePageViewModel
 
     public MenuBarViewModel MenuBar { get; }
 
-    public NavItemViewModel SettingsPage { get; }
-
-    public CoreList<NavItemViewModel> Pages { get; }
-
     public List<KeyBinding> KeyBindings { get; }
 
-    public ReactiveProperty<NavItemViewModel?> SelectedPage { get; } = new();
+    public EditorHostViewModel EditorHost { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 

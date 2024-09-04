@@ -1,17 +1,14 @@
-<UserControl x:Class="Beutl.Pages.EditPageFallback"
+<UserControl x:Class="Beutl.Views.EditorHostFallback"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:sys="using:System"
              xmlns:sysIO="using:System.IO"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:viewModel="using:Beutl.ViewModels"
              d:DesignHeight="720"
              d:DesignWidth="1280"
-             x:DataType="viewModel:EditPageViewModel"
              mc:Ignorable="d">
     <Grid Margin="32">
         <Grid.ColumnDefinitions>

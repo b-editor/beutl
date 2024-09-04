@@ -120,6 +120,7 @@ public sealed class EditorService
             if (TryGetTabItem(file, out EditorTabItem? tabItem))
             {
                 tabItem.IsSelected.Value = true;
+                SelectedTabItem.Value = tabItem;
             }
             else
             {
@@ -128,13 +129,15 @@ public sealed class EditorService
                 if (ext?.TryCreateContext(file, out IEditorContext? context) == true)
                 {
                     context.IsEnabled.Value = !OutputService.Current.Items.Any(x => x.Context.TargetFile == file && x.Context.IsEncoding.Value);
-                    TabItems.Add(new EditorTabItem(context, tabOpenMode)
+                    var tabItem2 = new EditorTabItem(context, tabOpenMode)
                     {
                         IsSelected =
                         {
                             Value = true
                         }
-                    });
+                    };
+                    TabItems.Add(tabItem2);
+                    SelectedTabItem.Value = tabItem2;
                 }
             }
         }

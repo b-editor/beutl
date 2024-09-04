@@ -1,5 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -8,28 +7,23 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-
 using Beutl.Configuration;
 using Beutl.Helpers;
 using Beutl.Models;
 using Beutl.Services;
 using Beutl.ViewModels;
-using Beutl.Views;
-
 using DynamicData;
-using DynamicData.Alias;
 using DynamicData.Binding;
-
 using FluentAvalonia.Styling;
 using FluentAvalonia.UI.Controls;
 
-namespace Beutl.Pages;
+namespace Beutl.Views;
 
-public partial class EditPageFallback : UserControl
+public partial class EditorHostFallback : UserControl
 {
     private bool _flag;
 
-    public EditPageFallback()
+    public EditorHostFallback()
     {
         InitializeComponent();
         recentList.AddHandler(PointerPressedEvent, OnRecentListPointerPressed, RoutingStrategies.Tunnel);
@@ -218,7 +212,7 @@ public partial class EditPageFallback : UserControl
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
 
-        IObservable<int> filter = FilterComboBox.GetObservable(SelectingItemsControl.SelectedIndexProperty);
+        IObservable<int> filter = AvaloniaObjectExtensions.GetObservable(FilterComboBox, SelectingItemsControl.SelectedIndexProperty);
 
         viewConfig.RecentFiles.ToObservableChangeSet<CoreList<string>, string>()
             .Filter(filter.Select<int, Func<string, bool>>(

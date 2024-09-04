@@ -1,16 +1,13 @@
 <UserControl x:Class="Beutl.Views.MainView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctrl="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
-             xmlns:interactivity="using:Avalonia.Xaml.Interactivity"
              xmlns:lang="using:Beutl.Language"
-             xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:pages="using:Beutl.Pages"
+             xmlns:pages="clr-namespace:Beutl.Pages"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+             xmlns:views="clr-namespace:Beutl.Views"
              xmlns:vm="using:Beutl.ViewModels"
              xmlns:wnd="using:FluentAvalonia.UI.Windowing"
              x:Name="root"
@@ -31,7 +28,7 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,1,*">
         <Grid x:Name="Titlebar" ColumnDefinitions="Auto,Auto,Auto,*">
             <Image Name="WindowIcon"
                    MaxWidth="24"
@@ -180,12 +177,26 @@
                 </MenuItem>
             </Menu>
 
+            <StackPanel Grid.Column="2"
+                        Margin="8,0"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                <ComboBox VerticalAlignment="Center"
+                          ItemsSource="{Binding EditorHost.TabItems}"
+                          SelectedItem="{Binding EditorHost.SelectedTabItem.Value}"
+                          Theme="{StaticResource LiteComboBoxStyle}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding FileName.Value}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
 
-            <TextBlock Grid.Column="2"
-                       Margin="8,0"
-                       VerticalAlignment="Center"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       Text="{Binding NameOfOpenProject.Value}" />
+
+                <TextBlock VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{Binding NameOfOpenProject.Value}" />
+            </StackPanel>
 
             <StackPanel Grid.Column="3"
                         Margin="0,0,16,0"
@@ -229,36 +240,19 @@
                 </Button>
             </StackPanel>
         </Grid>
+        <Border Grid.Row="1"
+                HorizontalAlignment="Stretch"
+                Background="{DynamicResource ReDockingDividerBrush}" />
 
-        <ui:NavigationView x:Name="Navi"
-                           Grid.Row="1"
-                           Classes="SideNavigationView"
-                           IsSettingsVisible="False">
-            <ui:NavigationView.FooterMenuItems>
-                <ui:NavigationViewItem x:Name="SettingsPageItem"
-                                       Classes="SideNavigationViewItem"
-                                       Content="{x:Static lang:Strings.Settings}"
-                                       DataContext="{CompiledBinding SettingsPage}">
-                    <interactivity:Interaction.Behaviors>
-                        <interactivity:BehaviorCollection>
-                            <ctrl:NavItemHelper>
-                                <ctrl:NavItemHelper.FilledIcon>
-                                    <icons:SymbolIconSource Symbol="Settings" />
-                                </ctrl:NavItemHelper.FilledIcon>
-                                <ctrl:NavItemHelper.RegularIcon>
-                                    <icons:SymbolIconSource Symbol="Settings" />
-                                </ctrl:NavItemHelper.RegularIcon>
-                            </ctrl:NavItemHelper>
-                        </interactivity:BehaviorCollection>
-                    </interactivity:Interaction.Behaviors>
-                </ui:NavigationViewItem>
-            </ui:NavigationView.FooterMenuItems>
+        <views:EditorHostView Name="EditorHost"
+                              Grid.Row="2"
+                              DataContext="{Binding EditorHost.SelectedTabItem.Value.Context.Value}"
+                              IsVisible="{Binding EditorHost.SelectedTabItem.Value.Context.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
-            <ui:Frame x:Name="frame" />
-        </ui:NavigationView>
+        <views:EditorHostFallback Grid.Row="2" IsVisible="{Binding EditorHost.SelectedTabItem.Value.Context.Value, Converter={x:Static ObjectConverters.IsNull}}" />
 
         <StackPanel x:Name="NotificationPanel"
-                    Grid.RowSpan="2"
+                    Grid.RowSpan="3"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
                     Spacing="4">

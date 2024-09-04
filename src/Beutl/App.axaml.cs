@@ -11,7 +11,6 @@ using Avalonia.Media;
 using Avalonia.ReactiveUI;
 using Avalonia.Styling;
 using Avalonia.Threading;
-
 using Beutl.Configuration;
 using Beutl.NodeTree.Nodes;
 using Beutl.Operators;
@@ -19,10 +18,8 @@ using Beutl.Services;
 using Beutl.Services.StartupTasks;
 using Beutl.ViewModels;
 using Beutl.Views;
-
 using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
-
 using Reactive.Bindings;
 
 namespace Beutl;
@@ -113,27 +110,18 @@ public sealed class App : Application
         {
             if (OperatingSystem.IsMacOS())
             {
-                desktop.MainWindow = new MacWindow
-                {
-                    DataContext = GetMainViewModel(),
-                };
+                desktop.MainWindow = new MacWindow { DataContext = GetMainViewModel(), };
             }
             else
             {
-                desktop.MainWindow = new MainWindow
-                {
-                    DataContext = GetMainViewModel(),
-                };
+                desktop.MainWindow = new MainWindow { DataContext = GetMainViewModel(), };
             }
 
             desktop.MainWindow.Opened += (_, _) => _windowOpenTcs.SetResult();
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
-            singleViewPlatform.MainView = new MainView
-            {
-                DataContext = GetMainViewModel(),
-            };
+            singleViewPlatform.MainView = new MainView { DataContext = GetMainViewModel(), };
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -190,19 +178,20 @@ public sealed class App : Application
 
     private void AboutBeutlClicked(object? sender, EventArgs e)
     {
-        if (_mainViewModel != null)
-        {
-            _mainViewModel.SelectedPage.Value = _mainViewModel.SettingsPage;
-            (_mainViewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToSettingsPage();
-        }
+        // TODO: 情報ウィンドウを表示
+        // if (_mainViewModel != null)
+        // {
+        //     _mainViewModel.SelectedPage.Value = _mainViewModel.SettingsPage;
+        //     (_mainViewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToSettingsPage();
+        // }
     }
 
     private void OpenSettingsClicked(object? sender, EventArgs e)
     {
-        if (_mainViewModel != null)
-        {
-            _mainViewModel.SelectedPage.Value = _mainViewModel.SettingsPage;
-            (_mainViewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToAccountSettingsPage();
-        }
+        // if (_mainViewModel != null)
+        // {
+        //     _mainViewModel.SelectedPage.Value = _mainViewModel.SettingsPage;
+        //     (_mainViewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToAccountSettingsPage();
+        // }
     }
 }
