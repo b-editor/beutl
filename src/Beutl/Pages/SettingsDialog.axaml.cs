@@ -25,6 +25,7 @@ public sealed partial class SettingsDialog : AppWindow
         if (OperatingSystem.IsWindows())
         {
             TitleBar.ExtendsContentIntoTitleBar = true;
+            TitleBar.Height = 40;
         }
         else if (OperatingSystem.IsMacOS())
         {

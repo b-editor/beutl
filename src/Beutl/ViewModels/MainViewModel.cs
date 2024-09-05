@@ -21,7 +21,7 @@ namespace Beutl.ViewModels;
 
 public sealed class MainViewModel : BasePageViewModel
 {
-    private readonly BeutlApiApplication _beutlClients;
+    internal readonly BeutlApiApplication _beutlClients;
     private readonly HttpClient _authorizedHttpClient;
 
     public MainViewModel()
@@ -58,8 +58,14 @@ public sealed class MainViewModel : BasePageViewModel
             .Bind(out ReadOnlyObservableCollection<EditorExtension>? list2)
             .Subscribe();
 
+        changeSet.Filter(i => i is PageExtension)
+            .Cast(item => (PageExtension)item)
+            .Bind(out ReadOnlyObservableCollection<PageExtension>? list3)
+            .Subscribe();
+
         ToolTabExtensions = list1;
         EditorExtensions = list2;
+        PageExtensions = list3;
     }
 
     public bool IsDebuggerAttached { get; } = Debugger.IsAttached;
@@ -83,6 +89,8 @@ public sealed class MainViewModel : BasePageViewModel
     public ReadOnlyObservableCollection<ToolTabExtension> ToolTabExtensions { get; }
 
     public ReadOnlyObservableCollection<EditorExtension> EditorExtensions { get; }
+
+    public ReadOnlyObservableCollection<PageExtension> PageExtensions { get; }
 
     public SettingsPageViewModel SettingsPage { get; }
 

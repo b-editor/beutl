@@ -141,6 +141,7 @@
                     <MenuItem x:Name="editorTabMenuItem" Header="{x:Static lang:Strings.Editors}" />
                     <MenuItem x:Name="toolTabMenuItem" Header="{x:Static lang:Strings.Tools}" />
                 </MenuItem>
+                <MenuItem x:Name="toolWindowMenuItem" Header="{x:Static lang:Strings.Tools}" />
                 <!--  シーン  -->
                 <MenuItem Header="{x:Static lang:Strings.Scene}">
                     <MenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />

@@ -1,11 +1,9 @@
 ﻿using System.Collections.ObjectModel;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
-
 using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Pages;
@@ -13,17 +11,12 @@ using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels;
 using Beutl.Views.Dialogs;
-
 using DynamicData;
 using DynamicData.Binding;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
-
 using Microsoft.Extensions.Logging;
-
 using Reactive.Bindings.Extensions;
-
 using ReactiveUI;
 
 namespace Beutl.Views;
@@ -122,9 +115,9 @@ public sealed partial class MainView : UserControl
     {
         TelemetryConfig tconfig = GlobalConfiguration.Instance.TelemetryConfig;
         if (!(tconfig.Beutl_Api_Client.HasValue
-            && tconfig.Beutl_Application.HasValue
-            && tconfig.Beutl_PackageManagement.HasValue
-            && tconfig.Beutl_Logging.HasValue))
+              && tconfig.Beutl_Application.HasValue
+              && tconfig.Beutl_PackageManagement.HasValue
+              && tconfig.Beutl_Logging.HasValue))
         {
             var dialog = new TelemetryDialog();
 
@@ -142,11 +135,7 @@ public sealed partial class MainView : UserControl
         // ToolTabExtensionをメニューに表示する
         static MenuItem CreateToolTabMenuItem(ToolTabExtension item)
         {
-            var menuItem = new MenuItem()
-            {
-                Header = item.Header,
-                DataContext = item
-            };
+            var menuItem = new MenuItem() { Header = item.Header, DataContext = item };
 
             menuItem.Click += (s, e) =>
             {
@@ -180,10 +169,7 @@ public sealed partial class MainView : UserControl
         {
             var menuItem = new MenuItem()
             {
-                Header = item.DisplayName,
-                DataContext = item,
-                IsVisible = false,
-                Icon = item.GetIcon()
+                Header = item.DisplayName, DataContext = item, IsVisible = false, Icon = item.GetIcon()
             };
 
             menuItem.Click += async (s, e) =>
@@ -242,6 +228,70 @@ public sealed partial class MainView : UserControl
                 }
             }
         };
+
+        viewMenuItem.SubmenuOpened += (s, e) =>
+        {
+            EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
+            if (selectedTab != null)
+            {
+                foreach (MenuItem item in list2.OfType<MenuItem>())
+                {
+                    if (item.DataContext is EditorExtension editorExtension)
+                    {
+                        item.IsVisible = editorExtension.IsSupported(selectedTab.FilePath.Value);
+                    }
+                }
+            }
+        };
+
+        // PageExtension(Dialog)をメニューに表示する
+        static MenuItem CreateToolWindowMenuItem(PageExtension item)
+        {
+            var menuItem = new MenuItem()
+            {
+                Header = item.DisplayName, DataContext = item, Icon = item.GetRegularIcon()
+            };
+
+            menuItem.Click += async (s, e) =>
+            {
+                try
+                {
+                    if (s is not MenuItem { DataContext: PageExtension pageExtension } menuItem)
+                        return;
+
+                    if (TopLevel.GetTopLevel(menuItem) is not Window topLevel)
+                        return;
+
+                    var controlOrDialog = pageExtension.CreateControl();
+                    var dataContext = pageExtension.CreateContext();
+                    controlOrDialog.DataContext = dataContext;
+                    if (controlOrDialog is Window dialog)
+                    {
+                        await dialog.ShowDialog(topLevel);
+                    }
+                    else
+                    {
+                        var window = new Window { Content = controlOrDialog, Title = dataContext.Header };
+                        await window.ShowDialog(topLevel);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ex.Handle();
+                }
+            };
+
+            return menuItem;
+        }
+
+        viewModel.PageExtensions.ToObservableChangeSet()
+            .ObserveOnUIDispatcher()
+            .Cast(CreateToolWindowMenuItem)
+            .Bind(out ReadOnlyObservableCollection<MenuItem>? list3)
+            .Subscribe()
+            .DisposeWith(_disposables);
+
+        toolWindowMenuItem.ItemsSource = list3;
     }
 
     [Conditional("DEBUG")]
@@ -262,9 +312,9 @@ public sealed partial class MainView : UserControl
         NotificationService.ShowInformation(
             "結果",
             $"""
-                    経過時間: {elapsed.TotalMilliseconds}ms
-                    差: {str}
-                    """);
+             経過時間: {elapsed.TotalMilliseconds}ms
+             差: {str}
+             """);
     }
 
     [Conditional("DEBUG")]

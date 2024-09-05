@@ -105,6 +105,9 @@
                     </NativeMenuItem>
                 </NativeMenu>
             </NativeMenuItem>
+            <NativeMenuItem Header="{x:Static lang:Strings.Tools}">
+                <NativeMenu />
+            </NativeMenuItem>
             <!--  シーン  -->
             <NativeMenuItem Header="{x:Static lang:Strings.Scene}">
                 <NativeMenu>

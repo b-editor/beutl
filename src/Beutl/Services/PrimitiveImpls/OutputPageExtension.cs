@@ -1,10 +1,7 @@
 ﻿using Avalonia.Controls;
-
 using Beutl.Pages;
 using Beutl.ViewModels;
-
 using FluentAvalonia.UI.Controls;
-
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
@@ -17,7 +14,7 @@ public sealed class OutputPageExtension : PageExtension
 
     public override string Name => "OutputPage";
 
-    public override string DisplayName => "OutputPage";
+    public override string DisplayName => Strings.Output;
 
     public override IPageContext CreateContext()
     {
@@ -26,23 +23,17 @@ public sealed class OutputPageExtension : PageExtension
 
     public override Control CreateControl()
     {
-        return new OutputPage();
+        return new OutputDialog();
     }
 
+    [Obsolete]
     public override IconSource GetFilledIcon()
     {
-        return new SymbolIconSource()
-        {
-            Symbol = Symbol.ArrowExportLtr,
-            IsFilled = true
-        };
+        return new SymbolIconSource() { Symbol = Symbol.ArrowExportLtr, IsFilled = true };
     }
 
     public override IconSource GetRegularIcon()
     {
-        return new SymbolIconSource()
-        {
-            Symbol = Symbol.ArrowExportLtr
-        };
+        return new SymbolIconSource() { Symbol = Symbol.ArrowExportLtr };
     }
 }

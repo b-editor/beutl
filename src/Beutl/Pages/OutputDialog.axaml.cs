@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Platform;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
@@ -6,31 +7,47 @@ using Avalonia.Interactivity;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
+using FluentAvalonia.UI.Windowing;
 
 namespace Beutl.Pages;
 
-public partial class OutputPage : UserControl
+public partial class OutputDialog : AppWindow
 {
     private static readonly IDataTemplate s_sharedDataTemplate = new _DataTemplate();
 
-    public OutputPage()
+    public OutputDialog()
     {
         InitializeComponent();
+        if (OperatingSystem.IsWindows())
+        {
+            TitleBar.ExtendsContentIntoTitleBar = true;
+            TitleBar.Height = 40;
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            Padding=new Thickness(0, 22, 0, 0);
+            ExtendClientAreaToDecorationsHint = true;
+            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
+        }
+
         contentControl.ContentTemplate = s_sharedDataTemplate;
+#if DEBUG
+        this.AttachDevTools();
+#endif
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnOpened(EventArgs e)
     {
-        base.OnAttachedToVisualTree(e);
+        base.OnOpened(e);
         if (DataContext is OutputPageViewModel viewModel)
         {
             viewModel.Restore();
         }
     }
 
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnClosed(EventArgs e)
     {
-        base.OnDetachedFromVisualTree(e);
+        base.OnClosed(e);
         if (DataContext is OutputPageViewModel viewModel)
         {
             viewModel.Save();

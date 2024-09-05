@@ -12,6 +12,7 @@ public abstract class PageExtension : Extension
 
     public abstract IPageContext CreateContext();
 
+    [Obsolete]
     public abstract IconSource GetFilledIcon();
 
     public abstract IconSource GetRegularIcon();
