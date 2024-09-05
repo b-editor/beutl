@@ -12,7 +12,7 @@ namespace Beutl.Pages;
 
 public partial class OutputDialog : AppWindow
 {
-    private static readonly IDataTemplate s_sharedDataTemplate = new _DataTemplate();
+    private readonly IDataTemplate _sharedDataTemplate = new _DataTemplate();
 
     public OutputDialog()
     {
@@ -24,12 +24,12 @@ public partial class OutputDialog : AppWindow
         }
         else if (OperatingSystem.IsMacOS())
         {
-            Grid.Margin = new Thickness(0, 22, 0, 0);
+            Grid.Margin = new Thickness(8, 30, 0, 0);
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
         }
 
-        contentControl.ContentTemplate = s_sharedDataTemplate;
+        contentControl.ContentTemplate = _sharedDataTemplate;
 #if DEBUG
         this.AttachDevTools();
 #endif
