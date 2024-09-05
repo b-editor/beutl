@@ -245,7 +245,7 @@ public sealed partial class MainView : UserControl
         };
 
         // PageExtension(Dialog)をメニューに表示する
-        static MenuItem CreateToolWindowMenuItem(PageExtension item)
+        MenuItem CreateToolWindowMenuItem(PageExtension item)
         {
             var menuItem = new MenuItem()
             {
@@ -256,10 +256,10 @@ public sealed partial class MainView : UserControl
             {
                 try
                 {
-                    if (s is not MenuItem { DataContext: PageExtension pageExtension } menuItem)
+                    if (s is not MenuItem { DataContext: PageExtension pageExtension })
                         return;
 
-                    if (TopLevel.GetTopLevel(menuItem) is not Window topLevel)
+                    if (TopLevel.GetTopLevel(this) is not Window topLevel)
                         return;
 
                     var controlOrDialog = pageExtension.CreateControl();
