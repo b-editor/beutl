@@ -3,7 +3,6 @@ using Avalonia.Platform;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
-
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
@@ -25,7 +24,7 @@ public partial class OutputDialog : AppWindow
         }
         else if (OperatingSystem.IsMacOS())
         {
-            Padding=new Thickness(0, 22, 0, 0);
+            Padding = new Thickness(0, 22, 0, 0);
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
         }
@@ -59,10 +58,7 @@ public partial class OutputDialog : AppWindow
         if (DataContext is OutputPageViewModel viewModel)
         {
             var dialogViewModel = new AddOutputQueueViewModel();
-            var dialog = new AddOutputQueueDialog
-            {
-                DataContext = dialogViewModel
-            };
+            var dialog = new AddOutputQueueDialog { DataContext = dialogViewModel };
 
             await dialog.ShowAsync();
             dialogViewModel.Dispose();
