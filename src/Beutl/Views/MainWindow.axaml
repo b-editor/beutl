@@ -11,5 +11,5 @@
                d:DesignWidth="1280"
                Icon="avares://Beutl.Controls/Assets/logo.png"
                mc:Ignorable="d">
-    <local:MainView x:Name="mainView" Background="{DynamicResource MainViewBackground}" />
+    <local:MainView x:Name="mainView" />
 </wnd:AppWindow>
