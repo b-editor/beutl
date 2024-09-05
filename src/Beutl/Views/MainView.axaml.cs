@@ -351,4 +351,18 @@ public sealed partial class MainView : UserControl
             btn.Flyout?.ShowAt(btn);
         }
     }
+
+    private void OpenSettingsDialog(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel)
+            return;
+
+        if (TopLevel.GetTopLevel(this) is not Window window)
+            return;
+
+        var settingsPage = viewModel.SettingsPage;
+        var dialog = new SettingsDialog { DataContext = settingsPage };
+        settingsPage.GoToAccountSettingsPage();
+        dialog.ShowDialog(window);
+    }
 }

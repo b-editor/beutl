@@ -110,6 +110,8 @@
                     <MenuItem x:Name="recentProjects" Header="{x:Static lang:Strings.RecentProjects}" />
 
                     <Separator />
+                    <MenuItem Click="OpenSettingsDialog" Header="{x:Static lang:Strings.Settings}" />
+                    <Separator />
                     <!--  終了  -->
                     <MenuItem Command="{CompiledBinding MenuBar.Exit}"
                               Header="{x:Static lang:Strings.Exit}"
