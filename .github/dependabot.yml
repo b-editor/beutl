@@ -16,3 +16,9 @@ updates:
     target-branch: "main"
     schedule:
       interval: "daily"
+
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: daily
