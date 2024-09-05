@@ -6,12 +6,11 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels"
-             Padding="8"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="viewModel:OutputPageViewModel"
              mc:Ignorable="d">
-    <Grid ColumnDefinitions="400,*" RowDefinitions="Auto,*">
+    <Grid ColumnDefinitions="400,*" RowDefinitions="Auto,*" Name="Grid">
         <TextBlock Margin="8"
                    Text="{x:Static lang:Strings.Queue}"
                    Theme="{StaticResource SubtitleTextBlockStyle}" />

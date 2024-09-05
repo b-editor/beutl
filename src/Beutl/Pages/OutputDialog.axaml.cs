@@ -24,7 +24,7 @@ public partial class OutputDialog : AppWindow
         }
         else if (OperatingSystem.IsMacOS())
         {
-            Padding = new Thickness(0, 22, 0, 0);
+            Grid.Margin = new Thickness(0, 22, 0, 0);
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
         }
