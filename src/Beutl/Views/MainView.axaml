@@ -178,6 +178,7 @@
 
             <views:TitleBreadcrumbBar Name="TitleBreadcrumbBar"
                                       Grid.Column="2"
+                                      wnd:AppWindow.AllowInteractionInTitleBar="True"
                                       DataContext="{Binding TitleBreadcrumbBar}" />
 
             <StackPanel Grid.Column="3"
