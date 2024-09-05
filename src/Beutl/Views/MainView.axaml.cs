@@ -44,13 +44,10 @@ public sealed partial class MainView : UserControl
             MenuBar.IsVisible = false;
             Titlebar.Height = 40;
             NotificationPanel.Margin = new(0, 40 + 8, 8, 0);
-            OpenNotificationsButton.Margin = default;
-            OpenNotificationsButton.Padding = default;
-            NotificationInfoBadge.Height = 16;
-            NotificationInfoBadge.Width = 16;
 
-            Titlebar.ColumnDefinitions[^3].Width = GridLength.Star;
-            Titlebar.ColumnDefinitions[^2].Width = GridLength.Auto;
+            TitleBreadcrumbBar.Margin = new(80, 0, 8, 0);
+            // Titlebar.ColumnDefinitions[^3].Width = GridLength.Star;
+            Titlebar.ColumnDefinitions[^2].Width = GridLength.Star;
             Titlebar.ColumnDefinitions[^1].Width = GridLength.Auto;
         }
     }

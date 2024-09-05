@@ -1,9 +1,7 @@
 ﻿using Avalonia;
-
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
@@ -15,15 +13,12 @@ public sealed class CreateNewSceneViewModel
     public CreateNewSceneViewModel()
     {
         _proj = ProjectService.Current.CurrentProject.Value;
-        CanAddToCurrentProject = ProjectService.Current.CurrentProject.Select(i => i != null).ToReadOnlyReactivePropertySlim();
-        AddToCurrentProject = new(_proj != null);
-
         Location.Value = GetInitialLocation();
         Name.Value = GenSceneName(Location.Value);
 
         Name.SetValidateNotifyError(n =>
         {
-            if (n == string.Empty || n == null || n.IndexOfAny(Path.GetInvalidFileNameChars()) > -1)
+            if (string.IsNullOrEmpty(n) || n.IndexOfAny(Path.GetInvalidFileNameChars()) > -1)
             {
                 return Message.InvalidString;
             }
@@ -58,11 +53,10 @@ public sealed class CreateNewSceneViewModel
             if (location != null && name != null)
             {
                 return !Directory.Exists(Path.Combine(location, name)) &&
-                size.Width > 0 &&
-                size.Height > 0;
+                       size.Width > 0 &&
+                       size.Height > 0;
             }
             else return false;
-
         }).ToReadOnlyReactivePropertySlim();
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>
@@ -71,15 +65,9 @@ public sealed class CreateNewSceneViewModel
             ProjectItemContainer.Current.Add(scene);
             scene.Save(Path.Combine(Location.Value, Name.Value, $"{Name.Value}.{Constants.SceneFileExtension}"));
 
-            if (_proj != null && AddToCurrentProject.Value)
-            {
-                _proj.Items.Add(scene);
-                EditorService.Current.ActivateTabItem(scene.FileName, TabOpenMode.FromProject);
-            }
-            else
-            {
-                EditorService.Current.ActivateTabItem(scene.FileName, TabOpenMode.YourSelf);
-            }
+            _proj?.Items.Add(scene);
+
+            EditorService.Current.ActivateTabItem(scene.FileName);
         });
     }
 
@@ -88,10 +76,6 @@ public sealed class CreateNewSceneViewModel
     public ReactiveProperty<string> Name { get; } = new();
 
     public ReactiveProperty<string> Location { get; } = new();
-
-    public ReactivePropertySlim<bool> AddToCurrentProject { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> CanAddToCurrentProject { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanCreate { get; }
 

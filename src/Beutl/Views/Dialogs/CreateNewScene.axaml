@@ -39,10 +39,5 @@
 
         <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.Size}" />
         <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={x:Static converters:AvaloniaPixelSizeConverter.Instance}}" />
-
-        <CheckBox Margin="0,8,0,0"
-                  Content="{x:Static lang:Strings.AddToCurrentProject}"
-                  IsChecked="{CompiledBinding AddToCurrentProject.Value}"
-                  IsEnabled="{CompiledBinding CanAddToCurrentProject.Value}" />
     </StackPanel>
 </ui:ContentDialog>

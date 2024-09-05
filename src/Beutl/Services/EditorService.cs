@@ -10,21 +10,11 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public enum TabOpenMode
-{
-    // プロジェクトを開いたときに開かれた
-    FromProject,
-
-    // 手動で開かれた。
-    // File>OpenやCtrl+O、Ctrl+Shift+Oなど
-    YourSelf,
-}
-
 public sealed class EditorTabItem : IDisposable
 {
     private string? _hash;
 
-    public EditorTabItem(IEditorContext context, TabOpenMode tabOpenMode)
+    public EditorTabItem(IEditorContext context)
     {
         Context = new ReactiveProperty<IEditorContext>(context);
         FilePath = Context.Select(ctxt => ctxt?.EdittingFile!)
@@ -36,14 +26,9 @@ public sealed class EditorTabItem : IDisposable
             .ToReadOnlyReactivePropertySlim()!;
         Commands = Context.Select(ctxt => ctxt?.Commands)
             .ToReadOnlyReactivePropertySlim();
-        TabOpenMode = tabOpenMode;
     }
 
     public IReactiveProperty<IEditorContext> Context { get; }
-
-    public TabOpenMode TabOpenMode { get; }
-
-    public int Order { get; set; } = -1;
 
     public IReadOnlyReactiveProperty<string> FilePath { get; }
 
@@ -110,7 +95,7 @@ public sealed class EditorService
         return result != null;
     }
 
-    public void ActivateTabItem(string? file, TabOpenMode tabOpenMode)
+    public void ActivateTabItem(string? file)
     {
         if (File.Exists(file))
         {
@@ -129,7 +114,7 @@ public sealed class EditorService
                 if (ext?.TryCreateContext(file, out IEditorContext? context) == true)
                 {
                     context.IsEnabled.Value = !OutputService.Current.Items.Any(x => x.Context.TargetFile == file && x.Context.IsEncoding.Value);
-                    var tabItem2 = new EditorTabItem(context, tabOpenMode)
+                    var tabItem2 = new EditorTabItem(context)
                     {
                         IsSelected =
                         {
@@ -143,9 +128,9 @@ public sealed class EditorService
         }
     }
 
-    public void CloseTabItem(string? file, TabOpenMode tabOpenMode)
+    public void CloseTabItem(string? file)
     {
-        if (TryGetTabItem(file, out EditorTabItem? item) && item.TabOpenMode == tabOpenMode)
+        if (TryGetTabItem(file, out EditorTabItem? item))
         {
             TabItems.Remove(item);
             item.Dispose();

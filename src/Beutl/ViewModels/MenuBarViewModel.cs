@@ -16,10 +16,6 @@ public sealed partial class MenuBarViewModel
     {
         IsProjectOpened = ProjectService.Current.IsOpened;
 
-        IObservable<bool> isProjectOpenedAndTabOpened = ProjectService.Current.IsOpened
-            .CombineLatest(EditorService.Current.SelectedTabItem)
-            .Select(i => i.First && i.Second != null);
-
         IObservable<bool> isSceneOpened = EditorService.Current.SelectedTabItem
             .SelectMany(i => i?.Context ?? Observable.Empty<IEditorContext?>())
             .Select(v => v is EditViewModel);
@@ -30,9 +26,6 @@ public sealed partial class MenuBarViewModel
 
         //InitializeFilesCommands();
         //InitializeSceneCommands(isSceneOpened);
-
-        AddToProject = new(isProjectOpenedAndTabOpened);
-        RemoveFromProject = new(isProjectOpenedAndTabOpened);
 
         Undo = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnUndo);
@@ -46,13 +39,6 @@ public sealed partial class MenuBarViewModel
     public AsyncReactiveCommand Undo { get; }
 
     public AsyncReactiveCommand Redo { get; }
-
-    // Project
-    //    Add
-    //    Remove
-    public ReactiveCommandSlim AddToProject { get; }
-
-    public ReactiveCommandSlim RemoveFromProject { get; }
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 

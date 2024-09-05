@@ -1,11 +1,9 @@
 ﻿using System.Collections.ObjectModel;
 using System.Windows.Input;
-
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
-
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Helpers;
@@ -13,14 +11,10 @@ using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Services.StartupTasks;
 using Beutl.ViewModels.ExtensionsPages;
-
 using DynamicData;
 using DynamicData.Binding;
-
 using NuGet.Packaging.Core;
-
 using Reactive.Bindings;
-
 using ReactiveUI;
 
 namespace Beutl.ViewModels;
@@ -42,13 +36,15 @@ public sealed class MainViewModel : BasePageViewModel
             .ToReadOnlyReactivePropertySlim();
         WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");
+        TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, EditorService.Current);
 
         KeyBindings = CreateKeyBindings();
 
         ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
 
         var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
-        IObservable<IChangeSet<Extension>> changeSet = allExtension.ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
+        IObservable<IChangeSet<Extension>> changeSet = allExtension
+            .ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
             .Sort(comparer);
 
         changeSet.Filter(i => i is ToolTabExtension)
@@ -74,6 +70,8 @@ public sealed class MainViewModel : BasePageViewModel
     public ReadOnlyReactivePropertySlim<string> WindowTitle { get; }
 
     public MenuBarViewModel MenuBar { get; }
+
+    public TitleBreadcrumbBarViewModel TitleBreadcrumbBar { get; }
 
     public List<KeyBinding> KeyBindings { get; }
 
@@ -116,10 +114,7 @@ public sealed class MainViewModel : BasePageViewModel
 
         if (installs.Length > 0 || uninstalls.Length > 0)
         {
-            var startInfo = new ProcessStartInfo()
-            {
-                UseShellExecute = true,
-            };
+            var startInfo = new ProcessStartInfo() { UseShellExecute = true, };
             DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
 
             if (installs.Length > 0)
@@ -154,11 +149,7 @@ public sealed class MainViewModel : BasePageViewModel
     {
         static KeyBinding KeyBinding(Key key, KeyModifiers modifiers, ICommand command)
         {
-            return new KeyBinding
-            {
-                Gesture = new KeyGesture(key, modifiers),
-                Command = command
-            };
+            return new KeyBinding { Gesture = new KeyGesture(key, modifiers), Command = command };
         }
 
         PlatformHotkeyConfiguration? config = Application.Current?.PlatformSettings?.HotkeyConfiguration;

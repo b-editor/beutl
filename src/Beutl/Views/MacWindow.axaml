@@ -105,17 +105,11 @@
                     </NativeMenuItem>
                 </NativeMenu>
             </NativeMenuItem>
-            <!--  プロジェクト  -->
-            <NativeMenuItem Header="{x:Static lang:Strings.Project}">
-                <NativeMenu>
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.AddToProject}" Header="{x:Static lang:Strings.Add}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
-                </NativeMenu>
-            </NativeMenuItem>
             <!--  シーン  -->
             <NativeMenuItem Header="{x:Static lang:Strings.Scene}">
                 <NativeMenu>
                     <NativeMenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
                     <NativeMenuItem Command="{CompiledBinding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
                     <!--  要素  -->
                     <NativeMenuItem Header="{x:Static lang:Strings.Element}">
