@@ -8,6 +8,7 @@ using Avalonia.Styling;
 
 using Beutl.Configuration;
 using Beutl.Logging;
+using Beutl.Pages;
 using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels;
@@ -281,14 +282,15 @@ public sealed partial class MainView : UserControl
         throw new Exception("An unhandled exception occurred.");
     }
 
-    private void GoToInfomationPage(object? sender, RoutedEventArgs e)
+    private async void GoToInfomationPage(object? sender, RoutedEventArgs e)
     {
-        // TODO: 情報ウィンドウを開く
-        // if (DataContext is MainViewModel viewModel)
-        // {
-        //     viewModel.SelectedPage.Value = viewModel.SettingsPage;
-        //     (viewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToSettingsPage();
-        // }
+        if (DataContext is MainViewModel viewModel && TopLevel.GetTopLevel(this) is Window window)
+        {
+            var settingsPage = viewModel.SettingsPage;
+            var dialog = new SettingsDialog { DataContext = settingsPage };
+            settingsPage.GoToSettingsPage();
+            await dialog.ShowDialog(window);
+        }
     }
 
     private void OpenNotificationsClick(object? sender, RoutedEventArgs e)

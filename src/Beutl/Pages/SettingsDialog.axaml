@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Pages.SettingsPage"
+<UserControl x:Class="Beutl.Pages.SettingsDialog"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -20,7 +20,7 @@
                 <Setter Property="CornerRadius" Value="{DynamicResource NavigationViewContentGridCornerRadius}" />
             </Style>
         </ui:NavigationView.Styles>
-        <!-- InvalidCastException対策に{x:Null}を指定 -->
-        <ui:Frame DataContext="{x:Null}" x:Name="frame" />
+        <!--  InvalidCastException対策に{x:Null}を指定  -->
+        <ui:Frame x:Name="frame" DataContext="{x:Null}" />
     </ui:NavigationView>
 </UserControl>

@@ -11,7 +11,6 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
     [
         ExtensionsPageExtension.Instance,
         OutputPageExtension.Instance,
-        SettingsPageExtension.Instance,
         SceneEditorExtension.Instance,
         SceneOutputExtension.Instance,
         SceneProjectItemExtension.Instance,

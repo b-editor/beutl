@@ -28,6 +28,7 @@ public sealed class MainViewModel : BasePageViewModel
     {
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
+        SettingsPage = new SettingsPageViewModel(_beutlClients);
 
         MenuBar = new MenuBarViewModel();
 
@@ -82,6 +83,8 @@ public sealed class MainViewModel : BasePageViewModel
     public ReadOnlyObservableCollection<ToolTabExtension> ToolTabExtensions { get; }
 
     public ReadOnlyObservableCollection<EditorExtension> EditorExtensions { get; }
+
+    public SettingsPageViewModel SettingsPage { get; }
 
     public Startup RunStartupTask()
     {

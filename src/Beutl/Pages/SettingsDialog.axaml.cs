@@ -1,28 +1,38 @@
 ﻿using Avalonia;
+using Avalonia.Platform;
 using Avalonia.Controls;
-
 using Beutl.Controls.Navigation;
 using Beutl.Logging;
 using Beutl.Pages.SettingsPages;
 using Beutl.Services;
 using Beutl.ViewModels;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
-
+using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Pages;
 
-public sealed partial class SettingsPage : UserControl
+public sealed partial class SettingsDialog : AppWindow
 {
     private readonly PageResolver _pageResolver;
-    private readonly ILogger _logger = Log.CreateLogger<SettingsPage>();
+    private readonly ILogger _logger = Log.CreateLogger<SettingsDialog>();
 
-    public SettingsPage()
+    public SettingsDialog()
     {
         InitializeComponent();
+        if (OperatingSystem.IsWindows())
+        {
+            TitleBar.ExtendsContentIntoTitleBar = true;
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            nav.Margin=new Thickness(0, 22, 0, 0);
+            ExtendClientAreaToDecorationsHint = true;
+            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
+        }
+
         _pageResolver = new PageResolver();
         _ = new NavigationProvider(frame, _pageResolver);
 
@@ -35,6 +45,9 @@ public sealed partial class SettingsPage : UserControl
         nav.BackRequested += Nav_BackRequested;
 
         nav.SelectedItem = selected;
+#if DEBUG
+        this.AttachDevTools();
+#endif
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -77,37 +90,25 @@ public sealed partial class SettingsPage : UserControl
             {
                 Content = Strings.Account,
                 Tag = typeof(AccountSettingsPage),
-                IconSource = new SymbolIconSource
-                {
-                    Symbol = Symbol.People
-                }
+                IconSource = new SymbolIconSource { Symbol = Symbol.People }
             },
             new NavigationViewItem()
             {
                 Content = Strings.View,
                 Tag = typeof(ViewSettingsPage),
-                IconSource = new SymbolIconSource
-                {
-                    Symbol = Symbol.View
-                }
+                IconSource = new SymbolIconSource { Symbol = Symbol.View }
             },
             new NavigationViewItem()
             {
                 Content = Strings.Editor,
                 Tag = typeof(EditorSettingsPage),
-                IconSource = new SymbolIconSource
-                {
-                    Symbol = Symbol.Edit
-                }
+                IconSource = new SymbolIconSource { Symbol = Symbol.Edit }
             },
             new NavigationViewItem()
             {
                 Content = Strings.Font,
                 Tag = typeof(FontSettingsPage),
-                IconSource = new SymbolIconSource
-                {
-                    Symbol = Symbol.Font
-                }
+                IconSource = new SymbolIconSource { Symbol = Symbol.Font }
             },
             new NavigationViewItem()
             {
@@ -209,10 +210,10 @@ public sealed partial class SettingsPage : UserControl
                 return 0;
             }
             else if (pagetype == typeof(StorageDetailPage)
-                || pagetype == typeof(EditorExtensionPriorityPage)
-                || pagetype == typeof(DecoderPriorityPage)
-                || pagetype == typeof(TelemetrySettingsPage)
-                || pagetype == typeof(AnExtensionSettingsPage))
+                     || pagetype == typeof(EditorExtensionPriorityPage)
+                     || pagetype == typeof(DecoderPriorityPage)
+                     || pagetype == typeof(TelemetrySettingsPage)
+                     || pagetype == typeof(AnExtensionSettingsPage))
             {
                 return 1;
             }
@@ -230,7 +231,8 @@ public sealed partial class SettingsPage : UserControl
                 "ViewSettingsPage" => 1,
                 "EditorSettingsPage" => 2,
                 "FontSettingsPage" => 3,
-                "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage" or "AnExtensionSettingsPage" => 4,
+                "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage"
+                    or "AnExtensionSettingsPage" => 4,
                 "StorageSettingsPage" or "StorageDetailPage" => 5,
                 "InfomationPage" or "TelemetrySettingsPage" => 6,
                 _ => 0,

@@ -14,12 +14,14 @@ using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.NodeTree.Nodes;
 using Beutl.Operators;
+using Beutl.Pages;
 using Beutl.Services;
 using Beutl.Services.StartupTasks;
 using Beutl.ViewModels;
 using Beutl.Views;
 using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
+using NuGet.Configuration;
 using Reactive.Bindings;
 
 namespace Beutl;
@@ -176,22 +178,27 @@ public sealed class App : Application
         return _mainViewModel ??= new MainViewModel();
     }
 
-    private void AboutBeutlClicked(object? sender, EventArgs e)
+    private async void AboutBeutlClicked(object? sender, EventArgs e)
     {
-        // TODO: 情報ウィンドウを表示
-        // if (_mainViewModel != null)
-        // {
-        //     _mainViewModel.SelectedPage.Value = _mainViewModel.SettingsPage;
-        //     (_mainViewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToSettingsPage();
-        // }
+        if (_mainViewModel != null
+            && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
+        {
+            var settingsPage = _mainViewModel.SettingsPage;
+            var dialog = new SettingsDialog { DataContext = settingsPage };
+            settingsPage.GoToSettingsPage();
+            await dialog.ShowDialog(window);
+        }
     }
 
-    private void OpenSettingsClicked(object? sender, EventArgs e)
+    private async void OpenSettingsClicked(object? sender, EventArgs e)
     {
-        // if (_mainViewModel != null)
-        // {
-        //     _mainViewModel.SelectedPage.Value = _mainViewModel.SettingsPage;
-        //     (_mainViewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToAccountSettingsPage();
-        // }
+        if (_mainViewModel != null
+            && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
+        {
+            var settingsPage = _mainViewModel.SettingsPage;
+            var dialog = new SettingsDialog { DataContext = settingsPage };
+            settingsPage.GoToAccountSettingsPage();
+            await dialog.ShowDialog(window);
+        }
     }
 }
