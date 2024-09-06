@@ -43,7 +43,7 @@
     <dock:ReDockHost Name="DockHost"
                      ButtonDisplayModeChanged="OnSideBarButtonDisplayModeChanged"
                      ButtonMove="OnSideBarButtonDrop"
-                     IsFloatingEnabled="True">
+                     IsFloatingEnabled="False">
         <dock:ReDockHost.DockAreas>
             <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_LeftTop}"
                            Location="LeftUpperBottom"
