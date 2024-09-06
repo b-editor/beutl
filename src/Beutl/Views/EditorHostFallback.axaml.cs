@@ -212,7 +212,7 @@ public partial class EditorHostFallback : UserControl
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
 
-        IObservable<int> filter = AvaloniaObjectExtensions.GetObservable(FilterComboBox, SelectingItemsControl.SelectedIndexProperty);
+        IObservable<int> filter = FilterComboBox.GetObservable(SelectingItemsControl.SelectedIndexProperty);
 
         viewConfig.RecentFiles.ToObservableChangeSet<CoreList<string>, string>()
             .Filter(filter.Select<int, Func<string, bool>>(
