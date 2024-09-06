@@ -81,10 +81,6 @@ public partial class GraphEditorView : UserControl
             e.DragEffects = DragDropEffects.Copy;
             e.Handled = true;
         }
-        else
-        {
-            e.DragEffects = DragDropEffects.None;
-        }
     }
 
     private void OnContainerPrepared(object? sender, ContainerPreparedEventArgs e)

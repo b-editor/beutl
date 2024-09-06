@@ -71,10 +71,6 @@ public partial class SoundEffectEditor : UserControl
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
             e.Handled = true;
         }
-        else
-        {
-            e.DragEffects = DragDropEffects.None;
-        }
     }
 
     private async void Tag_Click(object? sender, RoutedEventArgs e)

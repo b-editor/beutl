@@ -97,10 +97,6 @@ public partial class TransformEditor : UserControl
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
             e.Handled = true;
         }
-        else
-        {
-            e.DragEffects = DragDropEffects.None;
-        }
     }
 
     private static MenuFlyoutItem[] CreateMenuItems(EventHandler<RoutedEventArgs>? handler)

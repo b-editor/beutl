@@ -73,10 +73,6 @@ public sealed partial class SourceOperatorView : UserControl
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }
-        else
-        {
-            e.DragEffects = DragDropEffects.None;
-        }
     }
 
     protected override void OnDataContextChanged(EventArgs e)

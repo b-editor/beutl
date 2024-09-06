@@ -551,10 +551,6 @@ public sealed partial class Timeline : UserControl
         {
             e.DragEffects = DragDropEffects.Copy;
         }
-        else
-        {
-            e.DragEffects = DragDropEffects.None;
-        }
     }
 
     // 要素を追加
