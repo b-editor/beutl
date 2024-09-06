@@ -16,8 +16,14 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Install XamlStyler.Console
+        run: dotnet tool install --global XamlStyler.Console
+
       - name: Run dotnet format
         run: dotnet format --verbosity diagnostic
+
+      - name: Run xaml styler
+        run: xstyler -f src/ReDocking/**/*.axaml --ignore -c xamlstyler.json 
 
       - name: Check for modified files
         id: git-check
