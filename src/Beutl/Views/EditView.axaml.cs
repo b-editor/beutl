@@ -103,14 +103,14 @@ public sealed partial class EditView : UserControl
     {
         return (location.ButtonLocation, location.LeftRight) switch
         {
-            (SideBarButtonLocation.UpperTop, SideBarLocation.Left) => viewModel.SelectedLeftUpperTopTool,
-            (SideBarButtonLocation.UpperBottom, SideBarLocation.Left) => viewModel.SelectedLeftUpperBottomTool,
-            (SideBarButtonLocation.LowerTop, SideBarLocation.Left) => viewModel.SelectedLeftLowerTopTool,
-            (SideBarButtonLocation.LowerBottom, SideBarLocation.Left) => viewModel.SelectedLeftLowerBottomTool,
-            (SideBarButtonLocation.UpperTop, SideBarLocation.Right) => viewModel.SelectedRightUpperTopTool,
-            (SideBarButtonLocation.UpperBottom, SideBarLocation.Right) => viewModel.SelectedRightUpperBottomTool,
-            (SideBarButtonLocation.LowerTop, SideBarLocation.Right) => viewModel.SelectedRightLowerTopTool,
-            (SideBarButtonLocation.LowerBottom, SideBarLocation.Right) => viewModel.SelectedRightLowerBottomTool,
+            (SideBarButtonLocation.UpperTop, SideBarLocation.Left) => viewModel.DockHost.SelectedLeftUpperTopTool,
+            (SideBarButtonLocation.UpperBottom, SideBarLocation.Left) => viewModel.DockHost.SelectedLeftUpperBottomTool,
+            (SideBarButtonLocation.LowerTop, SideBarLocation.Left) => viewModel.DockHost.SelectedLeftLowerTopTool,
+            (SideBarButtonLocation.LowerBottom, SideBarLocation.Left) => viewModel.DockHost.SelectedLeftLowerBottomTool,
+            (SideBarButtonLocation.UpperTop, SideBarLocation.Right) => viewModel.DockHost.SelectedRightUpperTopTool,
+            (SideBarButtonLocation.UpperBottom, SideBarLocation.Right) => viewModel.DockHost.SelectedRightUpperBottomTool,
+            (SideBarButtonLocation.LowerTop, SideBarLocation.Right) => viewModel.DockHost.SelectedRightLowerTopTool,
+            (SideBarButtonLocation.LowerBottom, SideBarLocation.Right) => viewModel.DockHost.SelectedRightLowerBottomTool,
             _ => throw new ArgumentOutOfRangeException(nameof(location), location, null)
         };
     }

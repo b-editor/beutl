@@ -5,7 +5,6 @@ using System.Windows.Input;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Beutl.Animation;
-using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Transformation;
@@ -21,28 +20,12 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using LibraryService = Beutl.Services.LibraryService;
 
 namespace Beutl.ViewModels;
-
-public sealed class ToolTabViewModel(IToolContext context, EditViewModel editViewModel) : IDisposable
-{
-    public IToolContext Context { get; private set; } = context;
-
-    public IconSource Icon { get; } = context.Extension.GetIcon();
-
-    public EditViewModel EditViewModel { get; } = editViewModel;
-
-    public void Dispose()
-    {
-        Context.Dispose();
-        Context = null!;
-    }
-}
 
 public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation,
     ISupportAutoSaveEditorContext
@@ -106,56 +89,10 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
         KeyBindings = CreateKeyBindings();
 
+        DockHost = new DockHostViewModel(SceneId, this)
+            .DisposeWith(_disposables);
+
         CommandRecorder.Executed += OnCommandRecorderExecuted;
-
-        void ConfigureToolsList(ReactiveCollection<ToolTabViewModel> list,
-            ReactiveProperty<ToolTabViewModel?> selected)
-        {
-            var disposables = new List<(ToolTabViewModel, IDisposable)>();
-
-            selected.Subscribe(x =>
-                list.ToObservable()
-                    .Where(y => y != x && y.Context.DisplayMode.Value == ToolTabExtension.TabDisplayMode.Docked)
-                    .Subscribe(y => y.Context.IsSelected.Value = false));
-
-            list.ObserveAddChanged()
-                .Subscribe(x =>
-                {
-                    var disposable = x.Context.IsSelected.Subscribe(w =>
-                    {
-                        if (w && x.Context.DisplayMode.Value == ToolTabExtension.TabDisplayMode.Docked)
-                        {
-                            selected.Value = x;
-                        }
-                        else
-                        {
-                            selected.Value = list.FirstOrDefault(xx =>
-                                xx.Context.IsSelected.Value && xx.Context.DisplayMode.Value ==
-                                ToolTabExtension.TabDisplayMode.Docked);
-                        }
-                    });
-                    disposables.Add((x, disposable));
-                });
-
-            list.ObserveRemoveChanged()
-                .Subscribe(i =>
-                {
-                    int index = disposables.FindIndex(x => x.Item1 == i);
-                    if (0 > index) return;
-
-                    disposables[index].Item2.Dispose();
-                    disposables.RemoveAt(index);
-                });
-        }
-
-        ConfigureToolsList(LeftUpperTopTools, SelectedLeftUpperTopTool);
-        ConfigureToolsList(LeftUpperBottomTools, SelectedLeftUpperBottomTool);
-        ConfigureToolsList(LeftLowerTopTools, SelectedLeftLowerTopTool);
-        ConfigureToolsList(LeftLowerBottomTools, SelectedLeftLowerBottomTool);
-        ConfigureToolsList(RightUpperTopTools, SelectedRightUpperTopTool);
-        ConfigureToolsList(RightUpperBottomTools, SelectedRightUpperBottomTool);
-        ConfigureToolsList(RightLowerTopTools, SelectedRightLowerTopTool);
-        ConfigureToolsList(RightLowerBottomTools, SelectedRightLowerBottomTool);
 
         RestoreState();
     }
@@ -260,50 +197,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }
 
-    public ReactiveCollection<ToolTabViewModel> LeftUpperTopTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedLeftUpperTopTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> LeftUpperBottomTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedLeftUpperBottomTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> LeftLowerTopTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedLeftLowerTopTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> LeftLowerBottomTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedLeftLowerBottomTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> RightUpperTopTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedRightUpperTopTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> RightUpperBottomTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedRightUpperBottomTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> RightLowerTopTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedRightLowerTopTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> RightLowerBottomTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedRightLowerBottomTool { get; } = new();
-
-    public ReDockSizeProportionViewModel LeftRightProportion { get; } = new();
-
-    public ReDockSizeProportionViewModel TopLeftRightProportion { get; } = new();
-
-    public SplittedViewSizeProportionViewModel LeftTopBottomProportion { get; } = new();
-
-    public SplittedViewSizeProportionViewModel CenterTopBottomProportion { get; } = new();
-
-    public SplittedViewSizeProportionViewModel RightTopBottomProportion { get; } = new();
-
-    public SplittedViewSizeProportionViewModel BottomLeftRightProportion { get; } = new();
-
     public ReactiveProperty<CoreObject?> SelectedObject { get; }
 
     public ReactivePropertySlim<bool> IsEnabled { get; } = new(true);
@@ -335,35 +228,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public List<KeyBinding> KeyBindings { get; }
 
-    private ReactiveCollection<ToolTabViewModel>[] GetNestedTools()
-    {
-        return
-        [
-            LeftUpperTopTools, LeftUpperBottomTools, LeftLowerTopTools, LeftLowerBottomTools,
-            RightUpperTopTools, RightUpperBottomTools, RightLowerTopTools, RightLowerBottomTools
-        ];
-    }
-
-    private (ReactiveCollection<ToolTabViewModel> List, ToolTabExtension.TabPlacement Placement)[]
-        GetNestedToolsWithPlacement()
-    {
-        return
-        [
-            (LeftUpperTopTools, ToolTabExtension.TabPlacement.LeftUpperTop),
-            (LeftUpperBottomTools, ToolTabExtension.TabPlacement.LeftUpperBottom),
-            (LeftLowerTopTools, ToolTabExtension.TabPlacement.LeftLowerTop),
-            (LeftLowerBottomTools, ToolTabExtension.TabPlacement.LeftLowerBottom),
-            (RightUpperTopTools, ToolTabExtension.TabPlacement.RightUpperTop),
-            (RightUpperBottomTools, ToolTabExtension.TabPlacement.RightUpperBottom),
-            (RightLowerTopTools, ToolTabExtension.TabPlacement.RightLowerTop),
-            (RightLowerBottomTools, ToolTabExtension.TabPlacement.RightLowerBottom)
-        ];
-    }
-
-    private IEnumerable<ToolTabViewModel> GetAllTools()
-    {
-        return GetNestedTools().SelectMany(i => i);
-    }
+    public DockHostViewModel DockHost { get; }
 
     public void Dispose()
     {
@@ -375,16 +240,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         IsEnabled.Dispose();
         Player = null!;
         BufferStatus = null!;
-
-        foreach (var tools in GetNestedTools())
-        {
-            foreach (ToolTabViewModel item in tools)
-            {
-                item.Dispose();
-            }
-
-            tools.Clear();
-        }
 
         SelectedObject.Value = null;
 
@@ -401,10 +256,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     public T? FindToolTab<T>(Func<T, bool> condition)
         where T : IToolContext
     {
-        return GetAllTools()
-            .Select(i => i.Context)
-            .OfType<T>()
-            .FirstOrDefault(condition);
+        return DockHost.FindToolTab(condition);
     }
 
     public T? FindToolTab<T>()
@@ -415,65 +267,12 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
     public bool OpenToolTab(IToolContext item)
     {
-        _logger.LogInformation("'{ToolTabName}' has been opened. ({SceneId})", item.Extension.Name, SceneId);
-        try
-        {
-            var tools = GetAllTools();
-            // ReSharper disable PossibleMultipleEnumeration
-            if (tools.Any(x => x.Context == item))
-            {
-                item.IsSelected.Value = true;
-                return true;
-            }
-            else if (!item.Extension.CanMultiple
-                     && tools.Any(x => x.Context.Extension == item.Extension))
-            {
-                return false;
-            }
-            else
-            {
-                var list = GetNestedToolsWithPlacement()
-                    .FirstOrDefault(i => i.Placement == item.Placement.Value)
-                    .List;
-                if (list == null)
-                {
-                    _logger.LogWarning("Placement is invalid. ({Placement}, {SceneId})", item.Placement.Value, SceneId);
-                    return false;
-                }
-
-                item.IsSelected.Value = true;
-                list.Add(new ToolTabViewModel(item, this));
-                return true;
-            }
-            // ReSharper restore PossibleMultipleEnumeration
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to OpenToolTab.");
-            return false;
-        }
+        return DockHost.OpenToolTab(item);
     }
 
     public void CloseToolTab(IToolContext item)
     {
-        _logger.LogInformation("CloseToolTab {ToolName}", item.Extension.Name);
-        try
-        {
-            foreach (ReactiveCollection<ToolTabViewModel> tools in GetNestedTools())
-            {
-                if (tools.FirstOrDefault(x => x.Context == item) is { } found)
-                {
-                    tools.Remove(found);
-                    break;
-                }
-            }
-
-            item.Dispose();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to CloseToolTab.");
-        }
+        DockHost.CloseToolTab(item);
     }
 
     private string ViewStateDirectory()
@@ -500,53 +299,11 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             ["offset"] = new JsonObject { ["x"] = Options.Value.Offset.X, ["y"] = Options.Value.Offset.Y, }
         };
 
-        foreach (var (list, placement) in GetNestedToolsWithPlacement())
-        {
-            var jsonObject = new JsonObject();
-            var jsonArray = new JsonArray();
-            int selectedIndex = 0;
-
-            foreach (ToolTabViewModel? item in list)
-            {
-                var itemJson = new JsonObject();
-                item.Context.WriteToJson(itemJson);
-
-                itemJson.WriteDiscriminator(item.Context.Extension.GetType());
-                jsonArray.Add(itemJson);
-
-                if (item.Context.IsSelected.Value &&
-                    item.Context.DisplayMode.Value == ToolTabExtension.TabDisplayMode.Docked)
-                {
-                    jsonObject["SelectedIndex"] = selectedIndex;
-                }
-                else
-                {
-                    selectedIndex++;
-                }
-            }
-
-            jsonObject["Items"] = jsonArray;
-            json[placement.ToString()] = jsonObject;
-        }
-
-        json[nameof(LeftRightProportion)] = CreateJson(LeftRightProportion);
-        json[nameof(TopLeftRightProportion)] = CreateJson(TopLeftRightProportion);
-        json[nameof(LeftTopBottomProportion)] = CreateJson(LeftTopBottomProportion);
-        json[nameof(CenterTopBottomProportion)] = CreateJson(CenterTopBottomProportion);
-        json[nameof(RightTopBottomProportion)] = CreateJson(RightTopBottomProportion);
-        json[nameof(BottomLeftRightProportion)] = CreateJson(BottomLeftRightProportion);
+        DockHost.WriteToJson(json);
 
         json["current-time"] = JsonValue.Create(CurrentTime.Value);
 
         json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(EdittingFile)}.config"));
-        return;
-
-        static JsonObject CreateJson(IJsonSerializable serializable)
-        {
-            var obj = new JsonObject();
-            serializable.WriteToJson(obj);
-            return obj;
-        }
     }
 
     private void RestoreState()
@@ -600,87 +357,17 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
             Options.Value = timelineOptions;
 
-            void RestoreTabItems(JsonArray source, ReactiveCollection<ToolTabViewModel> destination)
-            {
-                destination.Clear();
-                foreach (JsonNode? item in source)
-                {
-                    if (item is JsonObject itemObject
-                        && itemObject.TryGetDiscriminator(out Type? type)
-                        && ExtensionProvider.Current.AllExtensions.FirstOrDefault(x => x.GetType() == type) is
-                            ToolTabExtension extension
-                        && extension.TryCreateContext(this, out IToolContext? context))
-                    {
-                        context.ReadFromJson(itemObject);
-                        destination.Add(new ToolTabViewModel(context, this));
-                    }
-                }
-            }
-
-            foreach (var (list, placement) in GetNestedToolsWithPlacement())
-            {
-                if (!jsonObject.TryGetPropertyValue(placement.ToString(), out JsonNode? node)) continue;
-                if (node is not JsonObject tabObject) continue;
-                if (!tabObject.TryGetPropertyValue("Items", out JsonNode? itemsNode)) continue;
-                if (itemsNode is not JsonArray listItems) continue;
-
-                RestoreTabItems(listItems, list);
-
-                if (tabObject.TryGetPropertyValueAsJsonValue("SelectedIndex", out int index)
-                    && 0 <= index && index < list.Count)
-                {
-                    list[index].Context.IsSelected.Value = true;
-                }
-            }
-
-            // Restore proportions safely
-            void RestoreProportion(IJsonSerializable serializable, string name)
-            {
-                if (jsonObject.TryGetPropertyValue(name, out JsonNode? proportionNode)
-                    && proportionNode is JsonObject proportion)
-                {
-                    serializable.ReadFromJson(proportion);
-                }
-            }
-            RestoreProportion(LeftRightProportion, nameof(LeftRightProportion));
-            RestoreProportion(TopLeftRightProportion, nameof(TopLeftRightProportion));
-            RestoreProportion(LeftTopBottomProportion, nameof(LeftTopBottomProportion));
-            RestoreProportion(CenterTopBottomProportion, nameof(CenterTopBottomProportion));
-            RestoreProportion(RightTopBottomProportion, nameof(RightTopBottomProportion));
-            RestoreProportion(BottomLeftRightProportion, nameof(BottomLeftRightProportion));
+            DockHost.ReadFromJson(jsonObject);
 
             if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out string? currentTimeStr)
                 && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime))
             {
                 CurrentTime.Value = currentTime;
             }
-
-            // 何もタブを開いていない場合、デフォルトのタブを開く
-            if (!GetAllTools().Any())
-            {
-                OpenDefaultTabs();
-            }
         }
         else
         {
-            OpenDefaultTabs();
-        }
-
-        return;
-
-        void OpenDefaultTabs()
-        {
-            var tabs = new ToolTabExtension[]
-            {
-                TimelineTabExtension.Instance,
-                SourceOperatorsTabExtension.Instance,
-                LibraryTabExtension.Instance
-            };
-            foreach (var ext in tabs)
-            {
-                if (ext.TryCreateContext(this, out IToolContext? tab))
-                    OpenToolTab(tab);
-            }
+            DockHost.OpenDefaultTabs();
         }
     }
 
@@ -912,7 +599,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         }
 
         // BottomTabItemsから削除する
-        foreach (var list in GetNestedTools())
+        foreach (var list in DockHost.GetNestedTools())
         {
             for (int index = list.Count - 1; index >= 0; index--)
             {
@@ -984,55 +671,5 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
 
             return ValueTask.FromResult(true);
         }
-    }
-}
-
-public sealed class ReDockSizeProportionViewModel : IJsonSerializable
-{
-    public ReactivePropertySlim<double> Left { get; } = new(1 / 4d);
-
-    public ReactivePropertySlim<double> Center { get; } = new(1 / 2d);
-
-    public ReactivePropertySlim<double> Right { get; } = new(1 / 4d);
-
-    public void WriteToJson(JsonObject json)
-    {
-        json[nameof(Left)] = Left.Value;
-        json[nameof(Center)] = Center.Value;
-        json[nameof(Right)] = Right.Value;
-    }
-
-    public void ReadFromJson(JsonObject json)
-    {
-        if (json.TryGetPropertyValueAsJsonValue(nameof(Left), out double left))
-            Left.Value = left;
-
-        if (json.TryGetPropertyValueAsJsonValue(nameof(Center), out double center))
-            Center.Value = center;
-
-        if (json.TryGetPropertyValueAsJsonValue(nameof(Right), out double right))
-            Right.Value = right;
-    }
-}
-
-public sealed class SplittedViewSizeProportionViewModel : IJsonSerializable
-{
-    public ReactivePropertySlim<double> First { get; } = new(1 / 2d);
-
-    public ReactivePropertySlim<double> Second { get; } = new(1 / 2d);
-
-    public void WriteToJson(JsonObject json)
-    {
-        json[nameof(First)] = First.Value;
-        json[nameof(Second)] = Second.Value;
-    }
-
-    public void ReadFromJson(JsonObject json)
-    {
-        if (json.TryGetPropertyValueAsJsonValue(nameof(First), out double first))
-            First.Value = first;
-
-        if (json.TryGetPropertyValueAsJsonValue(nameof(Second), out double second))
-            Second.Value = second;
     }
 }
