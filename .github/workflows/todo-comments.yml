@@ -1,0 +1,132 @@
+name: Check TODO Comments
+
+on:
+  pull_request:
+
+jobs:
+  find-todo-comments:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Get PR diff
+      id: diff
+      run: |
+        git fetch origin ${{ github.event.pull_request.base.ref }}
+        git diff origin/${{ github.event.pull_request.base.ref }} -U0 --diff-filter=AM -- '*.cs' | awk '
+          /^diff --git a\/.* b\/.*/ {
+              filename = substr($0, 14)
+              sub(/^a\//, "", filename)
+              sub(/ b\/.*/, "", filename)
+          }
+          /^@@ / {
+              split($0, arr, /[@+, -]+/)
+              start_line = arr[3]
+          }
+          /^\+/ && !/^\+\+\+/ {
+              print filename ":" start_line ":" substr($0, 2)
+              start_line++
+          }
+          ' > diff.txt
+
+    - name: Extract TODO comments
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const diff = fs.readFileSync('diff.txt', 'utf8');
+          const todoRegex = /TODO/g;
+          const startRegex = /\/\*/g;
+          const endRegex = /\*\//g;
+          const todos = [];
+          const lines = diff.split('\n');
+          let inTodoBlock = false;
+          let todoStartLine = 0;
+          let todoEndLine = 0;
+          let todoContent = [];
+          let multiLineComment = false;
+          let currentFile = '';
+
+          lines.forEach((line, index) => {
+            if (!line) {
+              return;
+            }
+            const [fileName, lineNumber, ...content] = line.split(':');
+            if(fileName !== currentFile && currentFile) {
+              todos.push({
+                startLine: todoStartLine,
+                endLine: todoEndLine,
+                content: todoContent.join('\n'),
+                fileName: currentFile
+              });
+              inTodoBlock = false;
+              multiLineComment = false;
+              todoContent = [];
+            }
+            currentFile = fileName;
+
+            const lineContent = content.join(':');
+            if (startRegex.test(lineContent)) {
+              multiLineComment = true;
+            }
+
+            if (endRegex.test(lineContent)) {
+              multiLineComment = false;
+              if (inTodoBlock) {
+                inTodoBlock = false;
+                todoContent.push(lineContent);
+                todos.push({
+                  startLine: todoStartLine,
+                  endLine: parseInt(lineNumber),
+                  content: todoContent.join('\n'),
+                  fileName: currentFile
+                });
+                todoContent = [];
+              }
+              return;
+            }
+
+            if (todoRegex.test(lineContent)) {
+              if (!inTodoBlock) {
+                inTodoBlock = true;
+                todoStartLine = parseInt(lineNumber);
+              }
+              todoEndLine = parseInt(lineNumber);
+              todoContent.push(lineContent);
+            } else if (inTodoBlock && (lineContent.trim().startsWith("//") || multiLineComment)) {
+              todoEndLine = parseInt(lineNumber);
+              todoContent.push(lineContent);
+            } else if (inTodoBlock) {
+              inTodoBlock = false;
+              todos.push({
+                startLine: todoStartLine,
+                endLine: todoEndLine,
+                content: todoContent.join('\n'),
+                fileName: currentFile
+              });
+              todoContent = [];
+            }
+          });
+
+          if (inTodoBlock && currentFile) {
+            todos.push({
+              startLine: todoStartLine,
+              endLine: todoEndLine,
+              content: todoContent.join('\n'),
+              fileName: currentFile
+            });
+          }
+
+          const commentBody = todos.map(item => {
+            return `https://github.com/${{ github.repository }}/blob/${{ github.sha }}/${item.fileName}#L${item.startLine + 1}-L${item.endLine + 1}`;
+          }).join('\n');
+          fs.writeFileSync('todos.md', `The following TODO comments were found:\n\n${commentBody}`);
+
+    - name: Comment on PR
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: todo-cooments
+        recreate: true
+        path: todos.md
