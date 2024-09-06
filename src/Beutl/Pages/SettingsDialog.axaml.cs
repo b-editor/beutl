@@ -1,6 +1,6 @@
 ﻿using Avalonia;
-using Avalonia.Platform;
 using Avalonia.Controls;
+using Avalonia.Platform;
 using Beutl.Controls.Navigation;
 using Beutl.Logging;
 using Beutl.Pages.SettingsPages;
@@ -29,7 +29,7 @@ public sealed partial class SettingsDialog : AppWindow
         }
         else if (OperatingSystem.IsMacOS())
         {
-            nav.Margin=new Thickness(0, 22, 0, 0);
+            nav.Margin = new Thickness(0, 22, 0, 0);
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
         }

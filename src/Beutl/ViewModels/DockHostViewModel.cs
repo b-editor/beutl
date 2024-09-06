@@ -128,8 +128,14 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     {
         return
         [
-            LeftUpperTopTools, LeftUpperBottomTools, LeftLowerTopTools, LeftLowerBottomTools,
-            RightUpperTopTools, RightUpperBottomTools, RightLowerTopTools, RightLowerBottomTools
+            LeftUpperTopTools,
+            LeftUpperBottomTools,
+            LeftLowerTopTools,
+            LeftLowerBottomTools,
+            RightUpperTopTools,
+            RightUpperBottomTools,
+            RightLowerTopTools,
+            RightLowerBottomTools
         ];
     }
 
