@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:dock="using:ReDocking"
+             xmlns:lang="clr-namespace:Beutl.Language;assembly=Beutl.Language"
              xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -44,45 +45,45 @@
                      ButtonMove="OnSideBarButtonDrop"
                      IsFloatingEnabled="True">
         <dock:ReDockHost.DockAreas>
-            <dock:DockArea LocalizedName="Left"
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_LeftTop}"
                            Location="LeftUpperBottom"
                            SideBar="LeftSideBar"
                            Target="TopContent"
                            View="LeftTopBottomArea" />
-            <dock:DockArea LocalizedName="Left Bottom"
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_LeftBottom}"
                            Location="LeftLowerTop"
                            SideBar="LeftSideBar"
                            Target="BottomContent"
                            View="LeftTopBottomArea" />
 
-            <dock:DockArea LocalizedName="Right"
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_RightTop}"
                            Location="RightUpperBottom"
                            SideBar="RightSideBar"
                            Target="TopContent"
                            View="RightTopBottomArea" />
 
-            <dock:DockArea LocalizedName="Right Bottom"
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_RightBottom}"
                            Location="RightLowerTop"
                            SideBar="RightSideBar"
                            Target="BottomContent"
                            View="RightTopBottomArea" />
 
-            <dock:DockArea LocalizedName="TopLeft"
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_TopLeft}"
                            Location="LeftUpperTop"
                            SideBar="LeftSideBar"
                            Target="LeftContent"
                            View="TopLeftRightArea" />
-            <dock:DockArea LocalizedName="TopRight"
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_TopRight}"
                            Location="RightUpperTop"
                            SideBar="RightSideBar"
                            Target="RightContent"
                            View="TopLeftRightArea" />
-            <dock:DockArea LocalizedName="BottomLeft"
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_BottomLeft}"
                            Location="LeftLowerBottom"
                            SideBar="LeftSideBar"
                            Target="LeftContent"
                            View="BottomLeftRightArea" />
-            <dock:DockArea LocalizedName="BottomRight"
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_BottomRight}"
                            Location="RightLowerBottom"
                            SideBar="RightSideBar"
                            Target="RightContent"

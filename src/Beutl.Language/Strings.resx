@@ -1225,4 +1225,28 @@ and b-editor maintains the download URL.</value>
   <data name="ColorShift" xml:space="preserve">
     <value>Color Shift</value>
   </data>
+  <data name="DockArea_LeftTop" xml:space="preserve">
+    <value>Left Top</value>
+  </data>
+  <data name="DockArea_LeftBottom" xml:space="preserve">
+    <value>Left Bottom</value>
+  </data>
+  <data name="DockArea_RightTop" xml:space="preserve">
+    <value>Right Top</value>
+  </data>
+  <data name="DockArea_RightBottom" xml:space="preserve">
+    <value>Right Bottom</value>
+  </data>
+  <data name="DockArea_BottomLeft" xml:space="preserve">
+    <value>Bottom Left</value>
+  </data>
+  <data name="DockArea_BottomRight" xml:space="preserve">
+    <value>Bottom Right</value>
+  </data>
+  <data name="DockArea_TopLeft" xml:space="preserve">
+    <value>Top Left</value>
+  </data>
+  <data name="DockArea_TopRight" xml:space="preserve">
+    <value>Top Right</value>
+  </data>
 </root>

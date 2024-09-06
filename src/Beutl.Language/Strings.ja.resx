@@ -1225,4 +1225,28 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="ColorShift" xml:space="preserve">
     <value>色ずれ</value>
   </data>
+  <data name="DockArea_BottomLeft" xml:space="preserve">
+    <value>下 左</value>
+  </data>
+  <data name="DockArea_BottomRight" xml:space="preserve">
+    <value>下 右</value>
+  </data>
+  <data name="DockArea_LeftBottom" xml:space="preserve">
+    <value>左 下</value>
+  </data>
+  <data name="DockArea_LeftTop" xml:space="preserve">
+    <value>左 上</value>
+  </data>
+  <data name="DockArea_RightBottom" xml:space="preserve">
+    <value>右 下</value>
+  </data>
+  <data name="DockArea_RightTop" xml:space="preserve">
+    <value>右 上</value>
+  </data>
+  <data name="DockArea_TopLeft" xml:space="preserve">
+    <value>上 左</value>
+  </data>
+  <data name="DockArea_TopRight" xml:space="preserve">
+    <value>上 右</value>
+  </data>
 </root>
