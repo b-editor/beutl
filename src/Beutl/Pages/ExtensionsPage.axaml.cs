@@ -61,13 +61,18 @@ public sealed partial class ExtensionsPage : UserControl
         frame.Navigate(typeof(SearchPage), searchTextBox.Text);
     }
 
-    private void OpenSettings_Click(object? sender, RoutedEventArgs e)
+    private async void OpenSettings_Click(object? sender, RoutedEventArgs e)
     {
-        // TODO: 設定ウィンドウを開く
-        // if (this.FindLogicalAncestorOfType<MainView>() is { DataContext: MainViewModel viewModel })
-        // {
-        //     viewModel.SelectedPage.Value = viewModel.SettingsPage;
-        // }
+        if (this.FindLogicalAncestorOfType<MainView>() is not { DataContext: MainViewModel viewModel })
+            return;
+
+        if (TopLevel.GetTopLevel(this) is not Window window)
+            return;
+
+        var settingsPage = viewModel.SettingsPage;
+        var dialog = new SettingsDialog { DataContext = settingsPage };
+        settingsPage.GoToAccountSettingsPage();
+        await dialog.ShowDialog(window);
     }
 
     private static List<NavigationViewItem> GetItems()
