@@ -6,7 +6,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:views="clr-namespace:Beutl.Views"
+             xmlns:views="using:Beutl.Views"
              xmlns:vm="using:Beutl.ViewModels"
              xmlns:wnd="using:FluentAvalonia.UI.Windowing"
              Padding="0"
