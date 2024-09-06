@@ -169,7 +169,10 @@ public sealed partial class MainView : UserControl
         {
             var menuItem = new MenuItem()
             {
-                Header = item.DisplayName, DataContext = item, IsVisible = false, Icon = item.GetIcon()
+                Header = item.DisplayName,
+                DataContext = item,
+                IsVisible = false,
+                Icon = item.GetIcon()
             };
 
             menuItem.Click += async (s, e) =>
@@ -249,7 +252,9 @@ public sealed partial class MainView : UserControl
         {
             var menuItem = new MenuItem()
             {
-                Header = item.DisplayName, DataContext = item, Icon = item.GetRegularIcon()
+                Header = item.DisplayName,
+                DataContext = item,
+                Icon = item.GetRegularIcon()
             };
 
             menuItem.Click += async (s, e) =>
