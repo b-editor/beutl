@@ -1,28 +1,22 @@
 ﻿using System.Collections.ObjectModel;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
-
 using Beutl.Configuration;
 using Beutl.Logging;
+using Beutl.Pages;
 using Beutl.Services;
 using Beutl.Utilities;
 using Beutl.ViewModels;
 using Beutl.Views.Dialogs;
-
 using DynamicData;
 using DynamicData.Binding;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
-
 using Microsoft.Extensions.Logging;
-
 using Reactive.Bindings.Extensions;
-
 using ReactiveUI;
 
 namespace Beutl.Views;
@@ -36,10 +30,6 @@ public sealed partial class MainView : UserControl
     {
         InitializeComponent();
 
-        // NavigationViewの設定
-        Navi.MenuItemsSource = _navigationItems;
-        Navi.ItemInvoked += NavigationView_ItemInvoked;
-
         recentFiles.ItemsSource = _rawRecentFileItems;
         recentProjects.ItemsSource = _rawRecentProjItems;
         if (OperatingSystem.IsMacOS())
@@ -48,13 +38,10 @@ public sealed partial class MainView : UserControl
             MenuBar.IsVisible = false;
             Titlebar.Height = 40;
             NotificationPanel.Margin = new(0, 40 + 8, 8, 0);
-            OpenNotificationsButton.Margin = default;
-            OpenNotificationsButton.Padding = default;
-            NotificationInfoBadge.Height = 16;
-            NotificationInfoBadge.Width = 16;
 
-            Titlebar.ColumnDefinitions[^3].Width = GridLength.Star;
-            Titlebar.ColumnDefinitions[^2].Width = GridLength.Auto;
+            TitleBreadcrumbBar.Margin = new(80, 0, 8, 0);
+            // Titlebar.ColumnDefinitions[^3].Width = GridLength.Star;
+            Titlebar.ColumnDefinitions[^2].Width = GridLength.Star;
             Titlebar.ColumnDefinitions[^1].Width = GridLength.Auto;
         }
     }
@@ -80,7 +67,6 @@ public sealed partial class MainView : UserControl
         _disposables.Clear();
         if (DataContext is MainViewModel viewModel)
         {
-            InitializePages(viewModel);
             InitializeCommands(viewModel);
             InitializeRecentItems(viewModel);
         }
@@ -129,9 +115,9 @@ public sealed partial class MainView : UserControl
     {
         TelemetryConfig tconfig = GlobalConfiguration.Instance.TelemetryConfig;
         if (!(tconfig.Beutl_Api_Client.HasValue
-            && tconfig.Beutl_Application.HasValue
-            && tconfig.Beutl_PackageManagement.HasValue
-            && tconfig.Beutl_Logging.HasValue))
+              && tconfig.Beutl_Application.HasValue
+              && tconfig.Beutl_PackageManagement.HasValue
+              && tconfig.Beutl_Logging.HasValue))
         {
             var dialog = new TelemetryDialog();
 
@@ -149,11 +135,7 @@ public sealed partial class MainView : UserControl
         // ToolTabExtensionをメニューに表示する
         static MenuItem CreateToolTabMenuItem(ToolTabExtension item)
         {
-            var menuItem = new MenuItem()
-            {
-                Header = item.Header,
-                DataContext = item
-            };
+            var menuItem = new MenuItem() { Header = item.Header, DataContext = item };
 
             menuItem.Click += (s, e) =>
             {
@@ -187,10 +169,7 @@ public sealed partial class MainView : UserControl
         {
             var menuItem = new MenuItem()
             {
-                Header = item.DisplayName,
-                DataContext = item,
-                IsVisible = false,
-                Icon = item.GetIcon()
+                Header = item.DisplayName, DataContext = item, IsVisible = false, Icon = item.GetIcon()
             };
 
             menuItem.Click += async (s, e) =>
@@ -249,6 +228,70 @@ public sealed partial class MainView : UserControl
                 }
             }
         };
+
+        viewMenuItem.SubmenuOpened += (s, e) =>
+        {
+            EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
+            if (selectedTab != null)
+            {
+                foreach (MenuItem item in list2.OfType<MenuItem>())
+                {
+                    if (item.DataContext is EditorExtension editorExtension)
+                    {
+                        item.IsVisible = editorExtension.IsSupported(selectedTab.FilePath.Value);
+                    }
+                }
+            }
+        };
+
+        // PageExtension(Dialog)をメニューに表示する
+        MenuItem CreateToolWindowMenuItem(PageExtension item)
+        {
+            var menuItem = new MenuItem()
+            {
+                Header = item.DisplayName, DataContext = item, Icon = item.GetRegularIcon()
+            };
+
+            menuItem.Click += async (s, e) =>
+            {
+                try
+                {
+                    if (s is not MenuItem { DataContext: PageExtension pageExtension })
+                        return;
+
+                    if (TopLevel.GetTopLevel(this) is not Window topLevel)
+                        return;
+
+                    var controlOrDialog = pageExtension.CreateControl();
+                    var dataContext = pageExtension.CreateContext();
+                    controlOrDialog.DataContext = dataContext;
+                    if (controlOrDialog is Window dialog)
+                    {
+                        await dialog.ShowDialog(topLevel);
+                    }
+                    else
+                    {
+                        var window = new Window { Content = controlOrDialog, Title = dataContext.Header };
+                        await window.ShowDialog(topLevel);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ex.Handle();
+                }
+            };
+
+            return menuItem;
+        }
+
+        viewModel.PageExtensions.ToObservableChangeSet()
+            .ObserveOnUIDispatcher()
+            .Cast(CreateToolWindowMenuItem)
+            .Bind(out ReadOnlyObservableCollection<MenuItem>? list3)
+            .Subscribe()
+            .DisposeWith(_disposables);
+
+        toolWindowMenuItem.ItemsSource = list3;
     }
 
     [Conditional("DEBUG")]
@@ -269,9 +312,9 @@ public sealed partial class MainView : UserControl
         NotificationService.ShowInformation(
             "結果",
             $"""
-                    経過時間: {elapsed.TotalMilliseconds}ms
-                    差: {str}
-                    """);
+             経過時間: {elapsed.TotalMilliseconds}ms
+             差: {str}
+             """);
     }
 
     [Conditional("DEBUG")]
@@ -289,12 +332,14 @@ public sealed partial class MainView : UserControl
         throw new Exception("An unhandled exception occurred.");
     }
 
-    private void GoToInfomationPage(object? sender, RoutedEventArgs e)
+    private async void GoToInfomationPage(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainViewModel viewModel)
+        if (DataContext is MainViewModel viewModel && TopLevel.GetTopLevel(this) is Window window)
         {
-            viewModel.SelectedPage.Value = viewModel.SettingsPage;
-            (viewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToSettingsPage();
+            var dialogViewModel = viewModel.SettingsDialog;
+            var dialog = new SettingsDialog { DataContext = dialogViewModel };
+            dialogViewModel.GoToSettingsPage();
+            await dialog.ShowDialog(window);
         }
     }
 
@@ -305,5 +350,19 @@ public sealed partial class MainView : UserControl
         {
             btn.Flyout?.ShowAt(btn);
         }
+    }
+
+    private void OpenSettingsDialog(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel)
+            return;
+
+        if (TopLevel.GetTopLevel(this) is not Window window)
+            return;
+
+        var settingsPage = viewModel.SettingsDialog;
+        var dialog = new SettingsDialog { DataContext = settingsPage };
+        settingsPage.GoToAccountSettingsPage();
+        dialog.ShowDialog(window);
     }
 }

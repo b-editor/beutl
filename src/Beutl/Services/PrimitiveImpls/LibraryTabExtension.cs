@@ -1,39 +1,36 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
-
 using Beutl.ViewModels;
-using Beutl.ViewModels.NodeTree;
-using Beutl.Views.NodeTree;
+using Beutl.Views;
 using FluentAvalonia.UI.Controls;
-using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 using Symbol = FluentIcons.Common.Symbol;
+using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
-public sealed class NodeTreeTabExtension : ToolTabExtension
+public sealed class LibraryTabExtension : ToolTabExtension
 {
-    public static readonly NodeTreeTabExtension Instance = new();
+    public static readonly LibraryTabExtension Instance = new();
 
-    public override bool CanMultiple => true;
+    public override string Name => "Library";
 
-    public override string Name => "NodeTree";
+    public override string DisplayName => "Library";
 
-    public override string DisplayName => "NodeTree";
+    public override bool CanMultiple => false;
 
-    public override string? Header => "Node Tree";
+    public override string? Header => Strings.Library;
 
     public override IconSource GetIcon()
     {
-        return new SymbolIconSource { Symbol = Symbol.Flow };
+        return new SymbolIconSource { Symbol = Symbol.Library };
     }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
         if (editorContext is EditViewModel)
         {
-            control = new NodeTreeTab();
+            control = new Library();
             return true;
         }
         else
@@ -47,7 +44,7 @@ public sealed class NodeTreeTabExtension : ToolTabExtension
     {
         if (editorContext is EditViewModel editViewModel)
         {
-            context = new NodeTreeTabViewModel(editViewModel);
+            context = new LibraryViewModel(editViewModel);
             return true;
         }
         else

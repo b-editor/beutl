@@ -49,10 +49,6 @@ public partial class InlineAnimationLayer : UserControl
             e.DragEffects = DragDropEffects.Copy;
             e.Handled = true;
         }
-        else
-        {
-            e.DragEffects = DragDropEffects.None;
-        }
     }
 
     private void OnMaterialized(object? sender, ContainerPreparedEventArgs e)

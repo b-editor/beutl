@@ -3,13 +3,13 @@ using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.NodeTree;
 using Beutl.Services;
-
+using Beutl.Services.PrimitiveImpls;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -29,7 +29,8 @@ public class LibraryItemViewModel
 
     public List<LibraryItemViewModel> Children { get; } = [];
 
-    public static LibraryItemViewModel CreateFromNodeRegistryItem(NodeRegistry.BaseRegistryItem registryItem, string? parentFullName = null)
+    public static LibraryItemViewModel CreateFromNodeRegistryItem(NodeRegistry.BaseRegistryItem registryItem,
+        string? parentFullName = null)
     {
         string? description = null;
         object? data = null;
@@ -62,7 +63,8 @@ public class LibraryItemViewModel
         return obj;
     }
 
-    public static LibraryItemViewModel CreateFromOperatorRegistryItem(LibraryItem registryItem, string? parentFullName = null)
+    public static LibraryItemViewModel CreateFromOperatorRegistryItem(LibraryItem registryItem,
+        string? parentFullName = null)
     {
         var obj = new LibraryItemViewModel()
         {
@@ -117,14 +119,17 @@ public class LibraryItemViewModel
         {
             result += 100;
         }
+
         if (Description != null && RegexHelper.IsMatch(regexes, Description))
         {
             result += 50;
         }
+
         if (Type != null && RegexHelper.IsMatch(regexes, Type))
         {
             result++;
         }
+
         if (FullDisplayName != null && RegexHelper.IsMatch(regexes, FullDisplayName))
         {
             result++;
@@ -215,7 +220,7 @@ public class LibraryItemViewModel
     }
 }
 
-public sealed class LibraryViewModel : IDisposable
+public sealed class LibraryViewModel : IDisposable, IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly Nito.AsyncEx.AsyncLock _asyncLock = new();
@@ -334,4 +339,29 @@ public sealed class LibraryViewModel : IDisposable
         AllItems.Clear();
         SearchResult.Clear();
     }
+
+    public void WriteToJson(JsonObject json)
+    {
+    }
+
+    public void ReadFromJson(JsonObject json)
+    {
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        return null;
+    }
+
+    public ToolTabExtension Extension => LibraryTabExtension.Instance;
+
+    public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
+
+    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
+        new ReactiveProperty<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.LeftUpperTop);
+
+    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
+        new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
+
+    public string Header => Strings.Library;
 }

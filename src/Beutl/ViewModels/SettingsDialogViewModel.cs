@@ -6,7 +6,7 @@ using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.ViewModels;
 
-public sealed class SettingsPageViewModel : IPageContext
+public sealed class SettingsDialogViewModel
 {
     private readonly Subject<object> _navigateRequested = new();
     private readonly Lazy<AccountSettingsPageViewModel> _account;
@@ -17,7 +17,7 @@ public sealed class SettingsPageViewModel : IPageContext
     private readonly Lazy<ExtensionsSettingsPageViewModel> _extensionsPage;
     private readonly Lazy<InfomationPageViewModel> _infomation;
 
-    public SettingsPageViewModel(BeutlApiApplication clients)
+    public SettingsDialogViewModel(BeutlApiApplication clients)
     {
         _account = new(() => new AccountSettingsPageViewModel(clients));
         _editor = new(() => new EditorSettingsPageViewModel());
@@ -42,10 +42,6 @@ public sealed class SettingsPageViewModel : IPageContext
 
     public InfomationPageViewModel Infomation => _infomation.Value;
 
-    public PageExtension Extension => SettingsPageExtension.Instance;
-
-    public string Header => Strings.Settings;
-
     public IObservable<object> NavigateRequested => _navigateRequested;
 
     public void GoToSettingsPage()
@@ -56,9 +52,5 @@ public sealed class SettingsPageViewModel : IPageContext
     public void GoToAccountSettingsPage()
     {
         _navigateRequested.OnNext(Account);
-    }
-
-    public void Dispose()
-    {
     }
 }

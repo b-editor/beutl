@@ -1,12 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Beutl.Configuration;
 using Beutl.Services;
-
 using Microsoft.Extensions.Logging;
-
 using OpenTelemetry.Trace;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -17,7 +13,10 @@ public partial class MenuBarViewModel
     private void InitializeFilesCommands()
     {
         CloseFile = new ReactiveCommandSlim(EditorService.Current.SelectedTabItem.Select(i => i != null))
-            .WithSubscribe(OnCloseFile);
+            .WithSubscribe(() => OnCloseFileCore(null));
+
+        CloseFileCore = new ReactiveCommandSlim<EditorTabItem>()
+            .WithSubscribe(OnCloseFileCore);
 
         CloseProject = new ReactiveCommandSlim(IsProjectOpened)
             .WithSubscribe(ProjectService.Current.CloseProject);
@@ -39,7 +38,7 @@ public partial class MenuBarViewModel
             item => RecentProjectItems.Remove(item),
             RecentProjectItems.Clear);
 
-        OpenRecentFile.Subscribe(file => EditorService.Current.ActivateTabItem(file, TabOpenMode.YourSelf));
+        OpenRecentFile.Subscribe(OpenFileCore);
 
         OpenRecentProject.Subscribe(file =>
         {
@@ -53,6 +52,8 @@ public partial class MenuBarViewModel
             }
         });
     }
+
+    public ReactiveCommandSlim<EditorTabItem> CloseFileCore { get; set; }
 
     // File
     //    Create new
@@ -150,7 +151,9 @@ public partial class MenuBarViewModel
         {
             try
             {
-                bool result = await (item.Commands.Value == null ? ValueTask.FromResult(false) : item.Commands.Value.OnSave());
+                bool result = await (item.Commands.Value == null
+                    ? ValueTask.FromResult(false)
+                    : item.Commands.Value.OnSave());
 
                 if (result)
                 {
@@ -178,14 +181,37 @@ public partial class MenuBarViewModel
         }
     }
 
-    private static void OnCloseFile()
+    internal static void OpenFileCore(string file)
     {
-        EditorTabItem? tabItem = EditorService.Current.SelectedTabItem.Value;
-        if (tabItem != null)
+        Project? project = ProjectService.Current.CurrentProject.Value;
+
+        if (project != null)
         {
-            EditorService.Current.CloseTabItem(
-                tabItem.FilePath.Value,
-                tabItem.TabOpenMode);
+            if (project.Items.Any(i => i.FileName == file))
+                return;
+
+            if (ProjectItemContainer.Current.TryGetOrCreateItem(file, out ProjectItem? projItem))
+            {
+                project.Items.Add(projItem);
+            }
+        }
+
+        EditorService.Current.ActivateTabItem(file);
+    }
+
+    private void OnCloseFileCore(EditorTabItem? item)
+    {
+        if (IsProjectOpened.Value)
+        {
+            RemoveFromProject.Execute(item);
+        }
+        else
+        {
+            EditorTabItem? tabItem = item ?? EditorService.Current.SelectedTabItem.Value;
+            if (tabItem != null)
+            {
+                EditorService.Current.CloseTabItem(tabItem.FilePath.Value);
+            }
         }
     }
 }

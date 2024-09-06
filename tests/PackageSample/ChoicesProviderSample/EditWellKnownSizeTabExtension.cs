@@ -3,6 +3,9 @@
 using Avalonia.Controls;
 
 using Beutl.Extensibility;
+using FluentAvalonia.UI.Controls;
+using Symbol = FluentIcons.Common.Symbol;
+using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace PackageSample;
 
@@ -16,6 +19,11 @@ public sealed class EditWellKnownSizeTabExtension : ToolTabExtension
     public override string? Header => "Edit Well known size";
 
     public override bool CanMultiple => false;
+
+    public override IconSource GetIcon()
+    {
+        return new SymbolIconSource { Symbol = Symbol.Frame };
+    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

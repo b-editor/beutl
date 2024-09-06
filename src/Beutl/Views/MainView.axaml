@@ -1,19 +1,14 @@
 <UserControl x:Class="Beutl.Views.MainView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctrl="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
-             xmlns:interactivity="using:Avalonia.Xaml.Interactivity"
              xmlns:lang="using:Beutl.Language"
-             xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:pages="using:Beutl.Pages"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+             xmlns:views="using:Beutl.Views"
              xmlns:vm="using:Beutl.ViewModels"
              xmlns:wnd="using:FluentAvalonia.UI.Windowing"
-             x:Name="root"
              Padding="0"
              d:DesignHeight="450"
              d:DesignWidth="800"
@@ -25,13 +20,15 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <UserControl.Styles>
-        <Style Selector="FlyoutPresenter.HiddenNotificationPadding0">
-            <Setter Property="Padding" Value="0" />
-        </Style>
-    </UserControl.Styles>
+    <UserControl.Resources>
+        <ControlTheme x:Key="SmallPaddingFlyoutPresenterStyle"
+                      BasedOn="{StaticResource {x:Type FlyoutPresenter}}"
+                      TargetType="FlyoutPresenter">
+            <Setter Property="Padding" Value="4" />
+        </ControlTheme>
+    </UserControl.Resources>
 
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,1,*">
         <Grid x:Name="Titlebar" ColumnDefinitions="Auto,Auto,Auto,*">
             <Image Name="WindowIcon"
                    MaxWidth="24"
@@ -113,6 +110,8 @@
                     <MenuItem x:Name="recentProjects" Header="{x:Static lang:Strings.RecentProjects}" />
 
                     <Separator />
+                    <MenuItem Click="OpenSettingsDialog" Header="{x:Static lang:Strings.Settings}" />
+                    <Separator />
                     <!--  終了  -->
                     <MenuItem Command="{CompiledBinding MenuBar.Exit}"
                               Header="{x:Static lang:Strings.Exit}"
@@ -144,14 +143,11 @@
                     <MenuItem x:Name="editorTabMenuItem" Header="{x:Static lang:Strings.Editors}" />
                     <MenuItem x:Name="toolTabMenuItem" Header="{x:Static lang:Strings.Tools}" />
                 </MenuItem>
-                <!--  プロジェクト  -->
-                <MenuItem Header="{x:Static lang:Strings.Project}">
-                    <MenuItem Command="{CompiledBinding MenuBar.AddToProject}" Header="{x:Static lang:Strings.Add}" />
-                    <MenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
-                </MenuItem>
+                <MenuItem x:Name="toolWindowMenuItem" Header="{x:Static lang:Strings.Tools}" />
                 <!--  シーン  -->
                 <MenuItem Header="{x:Static lang:Strings.Scene}">
                     <MenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
+                    <MenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
                     <MenuItem Command="{CompiledBinding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
                     <!--  要素  -->
                     <MenuItem Header="{x:Static lang:Strings.Element}">
@@ -180,15 +176,13 @@
                 </MenuItem>
             </Menu>
 
-
-            <TextBlock Grid.Column="2"
-                       Margin="8,0"
-                       VerticalAlignment="Center"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       Text="{Binding NameOfOpenProject.Value}" />
+            <views:TitleBreadcrumbBar Name="TitleBreadcrumbBar"
+                                      Grid.Column="2"
+                                      wnd:AppWindow.AllowInteractionInTitleBar="True"
+                                      DataContext="{Binding TitleBreadcrumbBar}" />
 
             <StackPanel Grid.Column="3"
-                        Margin="0,0,16,0"
+                        Margin="0,0,4,0"
                         HorizontalAlignment="Right"
                         Orientation="Horizontal"
                         Spacing="8">
@@ -212,53 +206,45 @@
                 </Border>
 
                 <Button x:Name="OpenNotificationsButton"
-                        Margin="0,4"
-                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
                         wnd:AppWindow.AllowInteractionInTitleBar="True"
                         Click="OpenNotificationsClick"
-                        IsVisible="{Binding !!#HiddenNotificationPanel.Children.Count}"
-                        Theme="{StaticResource TransparentButton}">
+                        Theme="{StaticResource TitleBarButtonStyle}">
                     <Button.Flyout>
-                        <Flyout FlyoutPresenterClasses="HiddenNotificationPadding8">
-                            <ScrollViewer Margin="-8">
+                        <Flyout FlyoutPresenterTheme="{StaticResource SmallPaddingFlyoutPresenterStyle}">
+                            <ScrollViewer>
                                 <StackPanel x:Name="HiddenNotificationPanel" Spacing="4" />
                             </ScrollViewer>
                         </Flyout>
                     </Button.Flyout>
-                    <ui:InfoBadge Name="NotificationInfoBadge" Value="{Binding #HiddenNotificationPanel.Children.Count}" />
+                    <Panel>
+                        <ui:SymbolIcon HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Symbol="Alert" />
+                        <ui:InfoBadge Width="8"
+                                      Height="8"
+                                      Margin="0,4,4,0"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Top"
+                                      IsVisible="{Binding !!#HiddenNotificationPanel.Children.Count}" />
+                    </Panel>
                 </Button>
             </StackPanel>
         </Grid>
+        <Border Grid.Row="1"
+                HorizontalAlignment="Stretch"
+                Background="{DynamicResource ReDockingDividerBrush}" />
 
-        <ui:NavigationView x:Name="Navi"
-                           Grid.Row="1"
-                           Classes="SideNavigationView"
-                           IsSettingsVisible="False">
-            <ui:NavigationView.FooterMenuItems>
-                <ui:NavigationViewItem x:Name="SettingsPageItem"
-                                       Classes="SideNavigationViewItem"
-                                       Content="{x:Static lang:Strings.Settings}"
-                                       DataContext="{CompiledBinding SettingsPage}">
-                    <interactivity:Interaction.Behaviors>
-                        <interactivity:BehaviorCollection>
-                            <ctrl:NavItemHelper>
-                                <ctrl:NavItemHelper.FilledIcon>
-                                    <icons:SymbolIconSource Symbol="Settings" />
-                                </ctrl:NavItemHelper.FilledIcon>
-                                <ctrl:NavItemHelper.RegularIcon>
-                                    <icons:SymbolIconSource Symbol="Settings" />
-                                </ctrl:NavItemHelper.RegularIcon>
-                            </ctrl:NavItemHelper>
-                        </interactivity:BehaviorCollection>
-                    </interactivity:Interaction.Behaviors>
-                </ui:NavigationViewItem>
-            </ui:NavigationView.FooterMenuItems>
+        <views:EditorHostView Name="EditorHost"
+                              Grid.Row="2"
+                              DataContext="{Binding EditorHost.SelectedTabItem.Value.Context.Value}"
+                              IsVisible="{Binding Converter={x:Static ObjectConverters.IsNotNull}}" />
 
-            <ui:Frame x:Name="frame" />
-        </ui:NavigationView>
+        <views:EditorHostFallback Grid.Row="2" IsVisible="{Binding EditorHost.SelectedTabItem.Value.Context.Value, Converter={x:Static ObjectConverters.IsNull}}" />
 
         <StackPanel x:Name="NotificationPanel"
-                    Grid.RowSpan="2"
+                    Grid.RowSpan="3"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
                     Spacing="4">

@@ -73,9 +73,5 @@ public sealed partial class SourceOperatorsTab : UserControl
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }
-        else
-        {
-            e.DragEffects = DragDropEffects.None;
-        }
     }
 }

@@ -81,7 +81,11 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
 
     public string Header => Strings.PathEditor;
 
-    public ToolTabExtension.TabPlacement Placement { get; } = ToolTabExtension.TabPlacement.Bottom;
+    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
+        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.LeftLowerBottom);
+
+    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
+        new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
 
     // FigureContextがcontext引数と同じ場合、編集を終了
     public void StartOrFinishEdit(PathFigureEditorViewModel context)

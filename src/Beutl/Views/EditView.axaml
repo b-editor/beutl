@@ -1,116 +1,162 @@
 <UserControl x:Class="Beutl.Views.EditView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:converters="clr-namespace:Beutl.Converters;assembly=Beutl"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:editors="using:Beutl.Views.Editors"
-             xmlns:icons="using:FluentIcons.FluentAvalonia"
-             xmlns:lang="using:Beutl.Language"
+             xmlns:dock="using:ReDocking"
+             xmlns:lang="clr-namespace:Beutl.Language;assembly=Beutl.Language"
              xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:sys="using:System"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="720"
              d:DesignWidth="1280"
+             x:CompileBindings="True"
              x:DataType="vm:EditViewModel"
              Focusable="True"
-             IsEnabled="{CompiledBinding IsEnabled.Value}"
+             IsEnabled="{Binding IsEnabled.Value}"
              mc:Ignorable="d">
-    <UserControl.Styles>
-        <Style Selector="GridSplitter.EditViewSplitter">
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
-        <Style Selector="BcTabView.EditTabView">
-            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-        </Style>
+    <UserControl.Resources>
+        <DataTemplate x:Key="LeftSideBarButtonDataTemplate" x:DataType="vm:ToolTabViewModel">
+            <dock:SideBarButton DisplayMode="{Binding Context.DisplayMode.Value}"
+                                IsChecked="{Binding Context.IsSelected.Value}"
+                                ToolTip.Placement="Right"
+                                ToolTip.ShowDelay="200"
+                                ToolTip.Tip="{Binding Context.Header}"
+                                ToolTip.VerticalOffset="0">
+                <ui:IconSourceElement IconSource="{Binding Icon}" />
+            </dock:SideBarButton>
+        </DataTemplate>
+        <DataTemplate x:Key="RightSideBarButtonDataTemplate" x:DataType="vm:ToolTabViewModel">
+            <dock:SideBarButton DisplayMode="{Binding Context.DisplayMode.Value}"
+                                IsChecked="{Binding Context.IsSelected.Value}"
+                                ToolTip.Placement="Left"
+                                ToolTip.ShowDelay="200"
+                                ToolTip.Tip="{Binding Context.Header}"
+                                ToolTip.VerticalOffset="0">
+                <ui:IconSourceElement IconSource="{Binding Icon}" />
+            </dock:SideBarButton>
+        </DataTemplate>
+        <DataTemplate x:Key="ToolTabContentDataTemplate">
+            <local:ToolTabContent />
+        </DataTemplate>
+    </UserControl.Resources>
+    <dock:ReDockHost Name="DockHost"
+                     ButtonDisplayModeChanged="OnSideBarButtonDisplayModeChanged"
+                     ButtonMove="OnSideBarButtonDrop"
+                     IsFloatingEnabled="False">
+        <dock:ReDockHost.DockAreas>
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_LeftTop}"
+                           Location="LeftUpperBottom"
+                           SideBar="LeftSideBar"
+                           Target="TopContent"
+                           View="LeftTopBottomArea" />
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_LeftBottom}"
+                           Location="LeftLowerTop"
+                           SideBar="LeftSideBar"
+                           Target="BottomContent"
+                           View="LeftTopBottomArea" />
 
-        <Style Selector="BcTabView.EditTabView > BcTabItem">
-            <Setter Property="Icon" Value="{x:Null}" />
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_RightTop}"
+                           Location="RightUpperBottom"
+                           SideBar="RightSideBar"
+                           Target="TopContent"
+                           View="RightTopBottomArea" />
 
-            <Style Selector="^[TabStripPlacement=Bottom]">
-                <Setter Property="BorderThickness" Value="1,0,1,1" />
-            </Style>
-            <Style Selector="^[TabStripPlacement=Right]">
-                <Setter Property="BorderThickness" Value="0,1,1,1" />
-            </Style>
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_RightBottom}"
+                           Location="RightLowerTop"
+                           SideBar="RightSideBar"
+                           Target="BottomContent"
+                           View="RightTopBottomArea" />
 
-            <Style Selector="^[IsSelected=True] /template/ Border#PART_Container">
-                <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
-                <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
-            </Style>
-        </Style>
-    </UserControl.Styles>
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="7*" />
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="2*" MinWidth="300" />
-        </Grid.ColumnDefinitions>
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_TopLeft}"
+                           Location="LeftUpperTop"
+                           SideBar="LeftSideBar"
+                           Target="LeftContent"
+                           View="TopLeftRightArea" />
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_TopRight}"
+                           Location="RightUpperTop"
+                           SideBar="RightSideBar"
+                           Target="RightContent"
+                           View="TopLeftRightArea" />
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_BottomLeft}"
+                           Location="LeftLowerBottom"
+                           SideBar="LeftSideBar"
+                           Target="LeftContent"
+                           View="BottomLeftRightArea" />
+            <dock:DockArea LocalizedName="{x:Static lang:Strings.DockArea_BottomRight}"
+                           Location="RightLowerBottom"
+                           SideBar="RightSideBar"
+                           Target="RightContent"
+                           View="BottomLeftRightArea" />
+        </dock:ReDockHost.DockAreas>
+        <Grid ColumnDefinitions="40,*,40">
+            <dock:SideBar Name="LeftSideBar"
+                          BorderBrush="{DynamicResource ReDockingDividerBrush}"
+                          BorderThickness="0,0,1,0"
+                          ItemTemplate="{StaticResource LeftSideBarButtonDataTemplate}"
+                          Location="Left"
+                          LowerBottomToolsSource="{Binding DockHost.LeftLowerBottomTools}"
+                          LowerTopToolsSource="{Binding DockHost.LeftLowerTopTools}"
+                          UpperBottomToolsSource="{Binding DockHost.LeftUpperBottomTools}"
+                          UpperTopToolsSource="{Binding DockHost.LeftUpperTopTools}" />
 
-        <!--  RightPanel  -->
-        <BcTabView x:Name="RightTabView"
-                   Grid.Column="4"
-                   Margin="0,2"
-                   VerticalAlignment="Stretch"
-                   AdderButtonIsVisible="False"
-                   Classes="EditTabView"
-                   CornerRadius="8,0,0,8"
-                   ItemsMargin="0,0,4,4"
-                   SelectedIndex="0"
-                   SelectionMode="AlwaysSelected"
-                   TabStripPlacement="Right" />
-
-        <!--  LeftPanel  -->
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" MinHeight="300" />
-            </Grid.RowDefinitions>
-
-            <!--  BottomPanel  -->
-            <ContentControl x:Name="BottomPresenter"
-                            Grid.Row="2"
-                            VerticalAlignment="Stretch">
-                <BcTabView x:Name="BottomTabView"
-                           Height="{Binding #BottomPresenter.Bounds.Height}"
-                           Margin="2,0,0,0"
-                           AdderButtonIsVisible="False"
-                           Classes="EditTabView"
-                           CornerRadius="8,8,0,0"
-                           ItemsMargin="0,0,4,4"
-                           SelectionMode="AlwaysSelected"
-                           TabStripPlacement="Bottom" />
-            </ContentControl>
-
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="270" MinWidth="270" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition />
-                </Grid.ColumnDefinitions>
-                <Border Margin="4,4,0,0"
-                        Classes="CardStyle"
-                        CornerRadius="{DynamicResource OverlayCornerRadius}">
-                    <local:Library DataContext="{Binding Library}" />
-                </Border>
-
-                <GridSplitter Grid.Column="1" Classes="EditViewSplitter" />
-
-                <local:PlayerView x:Name="Player"
-                                  Grid.Column="2"
-                                  DataContext="{Binding Player}" />
-            </Grid>
-
-            <GridSplitter Grid.Row="1" Classes="EditViewSplitter" />
-
+            <dock:ReDock Name="LeftRightArea"
+                         Grid.Column="1"
+                         LeftWidthProportion="{Binding DockHost.LeftRightProportion.Left.Value, Mode=TwoWay}"
+                         RightWidthProportion="{Binding DockHost.LeftRightProportion.Right.Value, Mode=TwoWay}"
+                         WidthProportion="{Binding DockHost.LeftRightProportion.Center.Value, Mode=TwoWay}">
+                <dock:ReDock.LeftContent>
+                    <dock:VerticallySplittedView Name="LeftTopBottomArea"
+                                                 BottomContent="{Binding DockHost.SelectedLeftLowerTopTool.Value}"
+                                                 BottomContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                 BottomHeightProportion="{Binding DockHost.LeftTopBottomProportion.Second.Value, Mode=TwoWay}"
+                                                 TopContent="{Binding DockHost.SelectedLeftUpperBottomTool.Value}"
+                                                 TopContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                 TopHeightProportion="{Binding DockHost.LeftTopBottomProportion.First.Value, Mode=TwoWay}" />
+                </dock:ReDock.LeftContent>
+                <dock:VerticallySplittedView BottomHeightProportion="{Binding DockHost.CenterTopBottomProportion.Second.Value, Mode=TwoWay}" TopHeightProportion="{Binding DockHost.CenterTopBottomProportion.First.Value, Mode=TwoWay}">
+                    <dock:VerticallySplittedView.TopContent>
+                        <dock:ReDock Name="TopLeftRightArea"
+                                     LeftContent="{Binding DockHost.SelectedLeftUpperTopTool.Value}"
+                                     LeftContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                     LeftWidthProportion="{Binding DockHost.TopLeftRightProportion.Left.Value, Mode=TwoWay}"
+                                     RightContent="{Binding DockHost.SelectedRightUpperTopTool.Value}"
+                                     RightContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                     RightWidthProportion="{Binding DockHost.TopLeftRightProportion.Right.Value, Mode=TwoWay}"
+                                     WidthProportion="{Binding DockHost.TopLeftRightProportion.Center.Value, Mode=TwoWay}">
+                            <local:PlayerView x:Name="Player" DataContext="{Binding Player}" />
+                        </dock:ReDock>
+                    </dock:VerticallySplittedView.TopContent>
+                    <dock:VerticallySplittedView.BottomContent>
+                        <dock:HorizontallySplittedView Name="BottomLeftRightArea"
+                                                       LeftContent="{Binding DockHost.SelectedLeftLowerBottomTool.Value}"
+                                                       LeftContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                       LeftWidthProportion="{Binding DockHost.BottomLeftRightProportion.First.Value, Mode=TwoWay}"
+                                                       RightContent="{Binding DockHost.SelectedRightLowerBottomTool.Value}"
+                                                       RightContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                       RightWidthProportion="{Binding DockHost.BottomLeftRightProportion.Second.Value, Mode=TwoWay}" />
+                    </dock:VerticallySplittedView.BottomContent>
+                </dock:VerticallySplittedView>
+                <dock:ReDock.RightContent>
+                    <dock:VerticallySplittedView Name="RightTopBottomArea"
+                                                 BottomContent="{Binding DockHost.SelectedRightLowerTopTool.Value}"
+                                                 BottomContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                 BottomHeightProportion="{Binding DockHost.RightTopBottomProportion.Second.Value, Mode=TwoWay}"
+                                                 TopContent="{Binding DockHost.SelectedRightUpperBottomTool.Value}"
+                                                 TopContentTemplate="{StaticResource ToolTabContentDataTemplate}"
+                                                 TopHeightProportion="{Binding DockHost.RightTopBottomProportion.First.Value, Mode=TwoWay}" />
+                </dock:ReDock.RightContent>
+            </dock:ReDock>
+            <dock:SideBar Name="RightSideBar"
+                          Grid.Column="2"
+                          BorderBrush="{DynamicResource ReDockingDividerBrush}"
+                          BorderThickness="1,0,0,0"
+                          ItemTemplate="{StaticResource RightSideBarButtonDataTemplate}"
+                          Location="Right"
+                          LowerBottomToolsSource="{Binding DockHost.RightLowerBottomTools}"
+                          LowerTopToolsSource="{Binding DockHost.RightLowerTopTools}"
+                          UpperBottomToolsSource="{Binding DockHost.RightUpperBottomTools}"
+                          UpperTopToolsSource="{Binding DockHost.RightUpperTopTools}" />
         </Grid>
-
-        <GridSplitter Grid.Column="1" Classes="EditViewSplitter" />
-
-    </Grid>
+    </dock:ReDockHost>
 </UserControl>

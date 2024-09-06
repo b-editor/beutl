@@ -2,7 +2,6 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
-
 using Beutl.Configuration;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -22,7 +21,8 @@ public sealed partial class MacWindow : Window
         {
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaTitleBarHeightHint = 40;
-            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.OSXThickTitleBar | ExtendClientAreaChromeHints.PreferSystemChrome;
+            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.OSXThickTitleBar |
+                                          ExtendClientAreaChromeHints.PreferSystemChrome;
         }
 
         InitializeComponent();
@@ -83,12 +83,7 @@ public sealed partial class MacWindow : Window
     {
         void AddItem(NativeMenu list, string item, ReactiveCommandSlim<string> command)
         {
-            var menuItem = new NativeMenuItem
-            {
-                Command = command,
-                CommandParameter = item,
-                Header = item
-            };
+            var menuItem = new NativeMenuItem { Command = command, CommandParameter = item, Header = item };
             list.Add(menuItem);
         }
 
@@ -137,27 +132,25 @@ public sealed partial class MacWindow : Window
         NativeMenuItem? viewMenuItem = null;
         NativeMenu? editorTabMenu = null;
         NativeMenu? toolTabMenu = null;
+        NativeMenu? toolWindowMenu = null;
         try
         {
             var rootMenu = NativeMenu.GetMenu(this)!;
             viewMenuItem = (NativeMenuItem)rootMenu.Items[2];
             editorTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[0]).Menu;
             toolTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[1]).Menu;
+            toolWindowMenu = ((NativeMenuItem)rootMenu.Items[3]).Menu;
         }
         catch
         {
         }
 
-        if (viewMenuItem == null || editorTabMenu == null || toolTabMenu == null) return;
+        if (viewMenuItem == null || editorTabMenu == null || toolTabMenu == null || toolWindowMenu == null) return;
 
         // ToolTabExtensionをメニューに表示する
         static NativeMenuItem CreateToolTabMenuItem(ToolTabExtension item)
         {
-            var menuItem = new NativeMenuItem()
-            {
-                Header = item.Header,
-                CommandParameter = item
-            };
+            var menuItem = new NativeMenuItem() { Header = item.Header, CommandParameter = item };
 
             menuItem.Click += (s, e) =>
             {
@@ -260,6 +253,51 @@ public sealed partial class MacWindow : Window
                 }
             }
         };
+
+        // PageExtension(Dialog)をメニューに表示する
+        NativeMenuItem CreateToolWindowMenuItem(PageExtension item)
+        {
+            var menuItem = new NativeMenuItem() { Header = item.DisplayName, CommandParameter = item, };
+
+            menuItem.Click += async (s, e) =>
+            {
+                try
+                {
+                    if (s is not NativeMenuItem { CommandParameter: PageExtension pageExtension })
+                        return;
+
+                    var controlOrDialog = pageExtension.CreateControl();
+                    var dataContext = pageExtension.CreateContext();
+                    controlOrDialog.DataContext = dataContext;
+                    if (controlOrDialog is Window dialog)
+                    {
+                        await dialog.ShowDialog(this);
+                    }
+                    else
+                    {
+                        var window = new Window { Content = controlOrDialog, Title = dataContext.Header };
+                        await window.ShowDialog(this);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ex.Handle();
+                }
+            };
+
+            return menuItem;
+        }
+
+        viewModel.PageExtensions.ToObservableChangeSet()
+            .ObserveOnUIDispatcher()
+            .Cast(CreateToolWindowMenuItem)
+            .Bind(out ReadOnlyObservableCollection<NativeMenuItem>? list3)
+            .Subscribe();
+
+        list3.ForEachItem<NativeMenuItem, ReadOnlyObservableCollection<NativeMenuItem>>(
+            toolWindowMenu.Items.Insert,
+            (i, _) => toolWindowMenu.Items.RemoveAt(i),
+            toolWindowMenu.Items.Clear);
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)

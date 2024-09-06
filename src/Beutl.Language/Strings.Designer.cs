@@ -2258,5 +2258,53 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("ColorShift", resourceCulture);
             }
         }
+        
+        public static string DockArea_LeftTop {
+            get {
+                return ResourceManager.GetString("DockArea_LeftTop", resourceCulture);
+            }
+        }
+        
+        public static string DockArea_LeftBottom {
+            get {
+                return ResourceManager.GetString("DockArea_LeftBottom", resourceCulture);
+            }
+        }
+        
+        public static string DockArea_RightTop {
+            get {
+                return ResourceManager.GetString("DockArea_RightTop", resourceCulture);
+            }
+        }
+        
+        public static string DockArea_RightBottom {
+            get {
+                return ResourceManager.GetString("DockArea_RightBottom", resourceCulture);
+            }
+        }
+        
+        public static string DockArea_BottomLeft {
+            get {
+                return ResourceManager.GetString("DockArea_BottomLeft", resourceCulture);
+            }
+        }
+        
+        public static string DockArea_BottomRight {
+            get {
+                return ResourceManager.GetString("DockArea_BottomRight", resourceCulture);
+            }
+        }
+        
+        public static string DockArea_TopLeft {
+            get {
+                return ResourceManager.GetString("DockArea_TopLeft", resourceCulture);
+            }
+        }
+        
+        public static string DockArea_TopRight {
+            get {
+                return ResourceManager.GetString("DockArea_TopRight", resourceCulture);
+            }
+        }
     }
 }

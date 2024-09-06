@@ -11,18 +11,17 @@ using Avalonia.Media;
 using Avalonia.ReactiveUI;
 using Avalonia.Styling;
 using Avalonia.Threading;
-
 using Beutl.Configuration;
 using Beutl.NodeTree.Nodes;
 using Beutl.Operators;
+using Beutl.Pages;
 using Beutl.Services;
 using Beutl.Services.StartupTasks;
 using Beutl.ViewModels;
 using Beutl.Views;
-
 using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
-
+using NuGet.Configuration;
 using Reactive.Bindings;
 
 namespace Beutl;
@@ -113,27 +112,18 @@ public sealed class App : Application
         {
             if (OperatingSystem.IsMacOS())
             {
-                desktop.MainWindow = new MacWindow
-                {
-                    DataContext = GetMainViewModel(),
-                };
+                desktop.MainWindow = new MacWindow { DataContext = GetMainViewModel(), };
             }
             else
             {
-                desktop.MainWindow = new MainWindow
-                {
-                    DataContext = GetMainViewModel(),
-                };
+                desktop.MainWindow = new MainWindow { DataContext = GetMainViewModel(), };
             }
 
             desktop.MainWindow.Opened += (_, _) => _windowOpenTcs.SetResult();
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
-            singleViewPlatform.MainView = new MainView
-            {
-                DataContext = GetMainViewModel(),
-            };
+            singleViewPlatform.MainView = new MainView { DataContext = GetMainViewModel(), };
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -188,21 +178,27 @@ public sealed class App : Application
         return _mainViewModel ??= new MainViewModel();
     }
 
-    private void AboutBeutlClicked(object? sender, EventArgs e)
+    private async void AboutBeutlClicked(object? sender, EventArgs e)
     {
-        if (_mainViewModel != null)
+        if (_mainViewModel != null
+            && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
         {
-            _mainViewModel.SelectedPage.Value = _mainViewModel.SettingsPage;
-            (_mainViewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToSettingsPage();
+            var dialogViewModel = _mainViewModel.SettingsDialog;
+            var dialog = new SettingsDialog { DataContext = dialogViewModel };
+            dialogViewModel.GoToSettingsPage();
+            await dialog.ShowDialog(window);
         }
     }
 
-    private void OpenSettingsClicked(object? sender, EventArgs e)
+    private async void OpenSettingsClicked(object? sender, EventArgs e)
     {
-        if (_mainViewModel != null)
+        if (_mainViewModel != null
+            && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
         {
-            _mainViewModel.SelectedPage.Value = _mainViewModel.SettingsPage;
-            (_mainViewModel.SettingsPage.Context as SettingsPageViewModel)?.GoToAccountSettingsPage();
+            var dialogViewModel = _mainViewModel.SettingsDialog;
+            var dialog = new SettingsDialog { DataContext = dialogViewModel };
+            dialogViewModel.GoToAccountSettingsPage();
+            await dialog.ShowDialog(window);
         }
     }
 }

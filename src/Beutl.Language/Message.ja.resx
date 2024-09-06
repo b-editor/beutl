@@ -306,4 +306,7 @@
   <data name="Signin has become invalid" xml:space="preserve">
     <value>サインインが無効になりました。再度サインインしてください。</value>
   </data>
+  <data name="File_is_not_selected" xml:space="preserve">
+    <value>ファイルが選択されていません</value>
+  </data>
 </root>

@@ -306,4 +306,7 @@ Please wait a moment.</value>
   <data name="Signin has become invalid" xml:space="preserve">
     <value>Sign-in has become invalid. Please sign in again.</value>
   </data>
+  <data name="File_is_not_selected" xml:space="preserve">
+    <value>File is not selected</value>
+  </data>
 </root>

@@ -1,11 +1,9 @@
 ﻿using System.Collections.ObjectModel;
 using System.Windows.Input;
-
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
-
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Helpers;
@@ -13,46 +11,24 @@ using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Services.StartupTasks;
 using Beutl.ViewModels.ExtensionsPages;
-
 using DynamicData;
 using DynamicData.Binding;
-
 using NuGet.Packaging.Core;
-
 using Reactive.Bindings;
-
 using ReactiveUI;
 
 namespace Beutl.ViewModels;
 
 public sealed class MainViewModel : BasePageViewModel
 {
-    private readonly BeutlApiApplication _beutlClients;
+    internal readonly BeutlApiApplication _beutlClients;
     private readonly HttpClient _authorizedHttpClient;
-
-    public sealed class NavItemViewModel
-    {
-        public NavItemViewModel(PageExtension extension)
-        {
-            Extension = extension;
-            Context = extension.CreateContext() ?? throw new Exception("Could not create context.");
-        }
-
-        public NavItemViewModel(PageExtension extension, IPageContext context)
-        {
-            Extension = extension;
-            Context = context;
-        }
-
-        public PageExtension Extension { get; }
-
-        public IPageContext Context { get; }
-    }
 
     public MainViewModel()
     {
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
+        SettingsDialog = new SettingsDialogViewModel(_beutlClients);
 
         MenuBar = new MenuBarViewModel();
 
@@ -61,22 +37,15 @@ public sealed class MainViewModel : BasePageViewModel
             .ToReadOnlyReactivePropertySlim();
         WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");
-
-        Pages =
-        [
-            new(EditPageExtension.Instance),
-            new(ExtensionsPageExtension.Instance, new ExtensionsPageViewModel(_beutlClients)),
-            new(OutputPageExtension.Instance),
-        ];
-        SettingsPage = new(SettingsPageExtension.Instance, new SettingsPageViewModel(_beutlClients));
-        SelectedPage.Value = Pages[0];
+        TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, EditorService.Current);
 
         KeyBindings = CreateKeyBindings();
 
         ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
 
         var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
-        IObservable<IChangeSet<Extension>> changeSet = allExtension.ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
+        IObservable<IChangeSet<Extension>> changeSet = allExtension
+            .ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
             .Sort(comparer);
 
         changeSet.Filter(i => i is ToolTabExtension)
@@ -90,14 +59,13 @@ public sealed class MainViewModel : BasePageViewModel
             .Subscribe();
 
         changeSet.Filter(i => i is PageExtension)
-            .Filter(item => !LoadPrimitiveExtensionTask.PrimitiveExtensions.Contains(item))
             .Cast(item => (PageExtension)item)
-            .OnItemAdded(item => Pages.Add(new NavItemViewModel(item)))
-            .OnItemRemoved(item => Pages.RemoveAll(Pages.Where(v => v.Extension == item)))
+            .Bind(out ReadOnlyObservableCollection<PageExtension>? list3)
             .Subscribe();
 
         ToolTabExtensions = list1;
         EditorExtensions = list2;
+        PageExtensions = list3;
     }
 
     public bool IsDebuggerAttached { get; } = Debugger.IsAttached;
@@ -110,19 +78,21 @@ public sealed class MainViewModel : BasePageViewModel
 
     public MenuBarViewModel MenuBar { get; }
 
-    public NavItemViewModel SettingsPage { get; }
-
-    public CoreList<NavItemViewModel> Pages { get; }
+    public TitleBreadcrumbBarViewModel TitleBreadcrumbBar { get; }
 
     public List<KeyBinding> KeyBindings { get; }
 
-    public ReactiveProperty<NavItemViewModel?> SelectedPage { get; } = new();
+    public EditorHostViewModel EditorHost { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 
     public ReadOnlyObservableCollection<ToolTabExtension> ToolTabExtensions { get; }
 
     public ReadOnlyObservableCollection<EditorExtension> EditorExtensions { get; }
+
+    public ReadOnlyObservableCollection<PageExtension> PageExtensions { get; }
+
+    public SettingsDialogViewModel SettingsDialog { get; }
 
     public Startup RunStartupTask()
     {
@@ -155,10 +125,7 @@ public sealed class MainViewModel : BasePageViewModel
 
         if (installs.Length > 0 || uninstalls.Length > 0)
         {
-            var startInfo = new ProcessStartInfo()
-            {
-                UseShellExecute = true,
-            };
+            var startInfo = new ProcessStartInfo() { UseShellExecute = true, };
             DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
 
             if (installs.Length > 0)
@@ -193,11 +160,7 @@ public sealed class MainViewModel : BasePageViewModel
     {
         static KeyBinding KeyBinding(Key key, KeyModifiers modifiers, ICommand command)
         {
-            return new KeyBinding
-            {
-                Gesture = new KeyGesture(key, modifiers),
-                Command = command
-            };
+            return new KeyBinding { Gesture = new KeyGesture(key, modifiers), Command = command };
         }
 
         PlatformHotkeyConfiguration? config = Application.Current?.PlatformSettings?.HotkeyConfiguration;

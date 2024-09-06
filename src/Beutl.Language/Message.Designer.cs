@@ -410,5 +410,11 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Signin has become invalid", resourceCulture);
             }
         }
+        
+        public static string File_is_not_selected {
+            get {
+                return ResourceManager.GetString("File_is_not_selected", resourceCulture);
+            }
+        }
     }
 }
