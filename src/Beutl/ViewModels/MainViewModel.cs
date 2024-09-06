@@ -28,7 +28,7 @@ public sealed class MainViewModel : BasePageViewModel
     {
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
-        SettingsPage = new SettingsPageViewModel(_beutlClients);
+        SettingsDialog = new SettingsDialogViewModel(_beutlClients);
 
         MenuBar = new MenuBarViewModel();
 
@@ -92,7 +92,7 @@ public sealed class MainViewModel : BasePageViewModel
 
     public ReadOnlyObservableCollection<PageExtension> PageExtensions { get; }
 
-    public SettingsPageViewModel SettingsPage { get; }
+    public SettingsDialogViewModel SettingsDialog { get; }
 
     public Startup RunStartupTask()
     {

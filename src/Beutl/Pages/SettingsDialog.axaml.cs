@@ -69,7 +69,7 @@ public sealed partial class SettingsDialog : AppWindow
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is SettingsPageViewModel settingsPage)
+        if (DataContext is SettingsDialogViewModel settingsPage)
         {
             settingsPage.NavigateRequested.Subscribe(OnNavigateRequested);
         }
@@ -157,7 +157,7 @@ public sealed partial class SettingsDialog : AppWindow
     private void OnItemInvoked(NavigationViewItem nvi)
     {
         if (nvi.Tag is Type typ
-            && DataContext is SettingsPageViewModel settingsPage)
+            && DataContext is SettingsDialogViewModel settingsPage)
         {
             NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
             object? parameter = typ.Name switch

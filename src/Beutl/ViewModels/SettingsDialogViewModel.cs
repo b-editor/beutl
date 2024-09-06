@@ -6,7 +6,7 @@ using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.ViewModels;
 
-public sealed class SettingsPageViewModel
+public sealed class SettingsDialogViewModel
 {
     private readonly Subject<object> _navigateRequested = new();
     private readonly Lazy<AccountSettingsPageViewModel> _account;
@@ -17,7 +17,7 @@ public sealed class SettingsPageViewModel
     private readonly Lazy<ExtensionsSettingsPageViewModel> _extensionsPage;
     private readonly Lazy<InfomationPageViewModel> _infomation;
 
-    public SettingsPageViewModel(BeutlApiApplication clients)
+    public SettingsDialogViewModel(BeutlApiApplication clients)
     {
         _account = new(() => new AccountSettingsPageViewModel(clients));
         _editor = new(() => new EditorSettingsPageViewModel());

@@ -183,9 +183,9 @@ public sealed class App : Application
         if (_mainViewModel != null
             && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
         {
-            var settingsPage = _mainViewModel.SettingsPage;
-            var dialog = new SettingsDialog { DataContext = settingsPage };
-            settingsPage.GoToSettingsPage();
+            var dialogViewModel = _mainViewModel.SettingsDialog;
+            var dialog = new SettingsDialog { DataContext = dialogViewModel };
+            dialogViewModel.GoToSettingsPage();
             await dialog.ShowDialog(window);
         }
     }
@@ -195,9 +195,9 @@ public sealed class App : Application
         if (_mainViewModel != null
             && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
         {
-            var settingsPage = _mainViewModel.SettingsPage;
-            var dialog = new SettingsDialog { DataContext = settingsPage };
-            settingsPage.GoToAccountSettingsPage();
+            var dialogViewModel = _mainViewModel.SettingsDialog;
+            var dialog = new SettingsDialog { DataContext = dialogViewModel };
+            dialogViewModel.GoToAccountSettingsPage();
             await dialog.ShowDialog(window);
         }
     }

@@ -336,9 +336,9 @@ public sealed partial class MainView : UserControl
     {
         if (DataContext is MainViewModel viewModel && TopLevel.GetTopLevel(this) is Window window)
         {
-            var settingsPage = viewModel.SettingsPage;
-            var dialog = new SettingsDialog { DataContext = settingsPage };
-            settingsPage.GoToSettingsPage();
+            var dialogViewModel = viewModel.SettingsDialog;
+            var dialog = new SettingsDialog { DataContext = dialogViewModel };
+            dialogViewModel.GoToSettingsPage();
             await dialog.ShowDialog(window);
         }
     }
@@ -360,7 +360,7 @@ public sealed partial class MainView : UserControl
         if (TopLevel.GetTopLevel(this) is not Window window)
             return;
 
-        var settingsPage = viewModel.SettingsPage;
+        var settingsPage = viewModel.SettingsDialog;
         var dialog = new SettingsDialog { DataContext = settingsPage };
         settingsPage.GoToAccountSettingsPage();
         dialog.ShowDialog(window);

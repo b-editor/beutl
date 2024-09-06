@@ -69,9 +69,9 @@ public sealed partial class ExtensionsPage : UserControl
         if (TopLevel.GetTopLevel(this) is not Window window)
             return;
 
-        var settingsPage = viewModel.SettingsPage;
-        var dialog = new SettingsDialog { DataContext = settingsPage };
-        settingsPage.GoToAccountSettingsPage();
+        var dialogViewModel = viewModel.SettingsDialog;
+        var dialog = new SettingsDialog { DataContext = dialogViewModel };
+        dialogViewModel.GoToAccountSettingsPage();
         await dialog.ShowDialog(window);
     }
 
