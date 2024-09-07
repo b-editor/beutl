@@ -14,138 +14,29 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Get PR diff
-      id: diff
-      run: |
-        git fetch origin ${{ github.event.pull_request.base.ref }}
-        git diff origin/${{ github.event.pull_request.base.ref }} -U0 --diff-filter=AM -- '*.cs' > diff.txt
+    - uses: indigo-san/todo-comments-in-pr@v1.0.1
+      id: todos
 
-    - name: Simply diff
+    - name: Generate a summary of the tasks
       uses: actions/github-script@v7
+      id: summary
       with:
+        result-encoding: string
         script: |
-          const fs = require('fs');
-          const diff = fs.readFileSync('diff.txt', 'utf8');
-          const lines = diff.split('\n');
-          let filename = '';
-          let startLine = 0;
-          const result = [];
+          const tasks = JSON.parse(String.raw`${{ steps.todos.outputs.tasks }}`);
+          let body = tasks.map(task => `https://github.com/${{ github.repository }}/blob/${{ github.sha }}/${task.fileName}#L${task.startLine}-L${task.endLine}`).join('\n');
 
-          lines.forEach(line => {
-            if (/^diff --git a\/.* b\/.*/.test(line)) {
-              filename = line.substring(13).replace(/^a\//, '').replace(/ b\/.*/, '');
-            } else if (/^@@ /.test(line)) {
-              const arr = line.split(/[@, ]+/);
-              startLine = parseInt(arr.find(i => i.startsWith('+'))?.substring(1));
-            } else if (/^\+/ .test(line) && !/^\+\+\+/.test(line)) {
-              result.push(`${filename}:${startLine}:${line.substring(1)}`);
-              startLine++;
-            }
-          });
-
-          fs.writeFileSync('diff.txt', result.join('\n'));
-
-    - name: Extract TODO comments
-      uses: actions/github-script@v7
-      id: extract-todo-comments
-      with:
-        script: |
-          const fs = require('fs');
-          const diff = fs.readFileSync('diff.txt', 'utf8');
-          const todoRegex = /TODO/g;
-          const startRegex = /\/\*/g;
-          const endRegex = /\*\//g;
-          const todos = [];
-          const lines = diff.split('\n');
-          let inTodoBlock = false;
-          let todoStartLine = 0;
-          let todoEndLine = 0;
-          let todoContent = [];
-          let multiLineComment = false;
-          let currentFile = '';
-
-          lines.forEach((line, index) => {
-            if (!line) {
-              return;
-            }
-            const [fileName, lineNumber, ...content] = line.split(':');
-            if (fileName !== currentFile && currentFile) {
-              if (todoContent.length) {
-                todos.push({
-                  startLine: todoStartLine,
-                  endLine: todoEndLine,
-                  content: todoContent.join('\n'),
-                  fileName: currentFile
-                });
-                inTodoBlock = false;
-                multiLineComment = false;
-              }
-              todoContent = [];
-            }
-            currentFile = fileName;
-
-            const lineContent = content.join(':');
-            if (startRegex.test(lineContent)) {
-              multiLineComment = true;
-            }
-
-            if (endRegex.test(lineContent)) {
-              multiLineComment = false;
-              if (inTodoBlock) {
-                inTodoBlock = false;
-                todoContent.push(lineContent);
-                todos.push({
-                  startLine: todoStartLine,
-                  endLine: parseInt(lineNumber),
-                  content: todoContent.join('\n'),
-                  fileName: currentFile
-                });
-                todoContent = [];
-              }
-              return;
-            }
-
-            if (todoRegex.test(lineContent)) {
-              if (!inTodoBlock) {
-                inTodoBlock = true;
-                todoStartLine = parseInt(lineNumber);
-              }
-              todoEndLine = parseInt(lineNumber);
-              todoContent.push(lineContent);
-            } else if (inTodoBlock && (lineContent.trim().startsWith("//") || multiLineComment)) {
-              todoEndLine = parseInt(lineNumber);
-              todoContent.push(lineContent);
-            } else if (inTodoBlock) {
-              inTodoBlock = false;
-              todos.push({
-                startLine: todoStartLine,
-                endLine: todoEndLine,
-                content: todoContent.join('\n'),
-                fileName: currentFile
-              });
-              todoContent = [];
-            }
-          });
-
-          if (inTodoBlock && currentFile) {
-            todos.push({
-              startLine: todoStartLine,
-              endLine: todoEndLine,
-              content: todoContent.join('\n'),
-              fileName: currentFile
-            });
+          if (tasks.length > 0) {
+            body = `The following TODO comments were found:\n\n${body}`;
+          } else {
+            body = 'No TODO comments were found.';
           }
+          return body;
 
-          core.setOutput('todosFound', todos.length != 0);
-          const commentBody = todos.map(item => {
-            return `https://github.com/${{ github.repository }}/blob/${{ github.sha }}/${item.fileName}#L${item.startLine}-L${item.endLine}`;
-          }).join('\n');
-          fs.writeFileSync('todos.md', `The following TODO comments were found:\n\n${commentBody}`);
-
-    - name: Comment on PR
+    - name: Comment on the pull request
       uses: marocchino/sticky-pull-request-comment@v2
-      if: steps.extract-todo-comments.outputs.todosFound == 'true'
       with:
         header: todo-cooments
         recreate: true
-        path: todos.md
+        message: |
+          ${{ steps.summary.outputs.result }}
