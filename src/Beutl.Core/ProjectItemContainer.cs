@@ -93,7 +93,6 @@ public sealed class ProjectItemContainer
 
     public void Add(ProjectItem item)
     {
-        _app.Items.Add(item);
         foreach (WeakReference<ProjectItem> wref in _items)
         {
             if (!wref.TryGetTarget(out _))

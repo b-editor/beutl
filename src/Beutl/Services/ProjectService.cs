@@ -40,13 +40,14 @@ public sealed class ProjectService
         using Activity? activity = Telemetry.StartActivity("OpenProject");
         try
         {
+            CloseProject();
+
             var project = new Project();
             project.Restore(file);
 
-            Project? old = _app.Project;
             _app.Project = project;
             // 値を発行
-            _projectObservable.OnNext((New: project, old));
+            _projectObservable.OnNext((New: project, null));
 
             AddToRecentProjects(file);
 
@@ -80,6 +81,8 @@ public sealed class ProjectService
         activity?.SetTag(nameof(samplerate), samplerate);
         try
         {
+            CloseProject();
+
             location = Path.Combine(location, name);
             var scene = new Scene(width, height, name);
             ProjectItemContainer.Current.Add(scene);
@@ -101,7 +104,7 @@ public sealed class ProjectService
             project.Save(projectFile);
 
             // 値を発行
-            _projectObservable.OnNext((New: project, _app.Project));
+            _projectObservable.OnNext((New: project, null));
             _app.Project = project;
 
             AddToRecentProjects(projectFile);
