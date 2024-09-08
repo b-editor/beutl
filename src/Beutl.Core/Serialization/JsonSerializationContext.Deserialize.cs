@@ -25,7 +25,8 @@ public partial class JsonSerializationContext
             else
             {
                 string name = index.ToString();
-                output.Add(Deserialize(item, elementType, name, new RelaySerializationErrorNotifier(errorNotifier, name), parent));
+                output.Add(Deserialize(item, elementType, name,
+                    new RelaySerializationErrorNotifier(errorNotifier, name), parent));
             }
 
             index++;
@@ -78,6 +79,7 @@ public partial class JsonSerializationContext
                         if (Activator.CreateInstance(actualType) is ICoreSerializable instance)
                         {
                             instance.Deserialize(context);
+                            context.AfterDeserialized(instance);
 
                             return instance;
                         }

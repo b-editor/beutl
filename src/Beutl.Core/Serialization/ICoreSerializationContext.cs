@@ -15,4 +15,6 @@ public interface ICoreSerializationContext
     bool Contains(string name);
 
     void Populate(string name, ICoreSerializable obj);
+
+    void Resolve(Guid id, Action<ICoreSerializable> callback);
 }

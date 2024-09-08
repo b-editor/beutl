@@ -1,20 +1,30 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 namespace Beutl.Serialization;
 
 public partial class JsonSerializationContext(
-    Type ownerType, ISerializationErrorNotifier errorNotifier,
-    ICoreSerializationContext? parent = null, JsonObject? json = null)
+    Type ownerType,
+    ISerializationErrorNotifier errorNotifier,
+    ICoreSerializationContext? parent = null,
+    JsonObject? json = null)
     : IJsonSerializationContext
 {
     public readonly Dictionary<string, (Type DefinedType, Type ActualType)> _knownTypes = [];
+    private List<(Guid, Action<ICoreSerializable>)>? _resolvers;
+    private Dictionary<Guid, ICoreSerializable>? _objects;
     private readonly JsonObject _json = json ?? [];
 
     public ICoreSerializationContext? Parent { get; } = parent;
 
+    public JsonSerializationContext Root => IsRoot ? this : (Parent as JsonSerializationContext)!.Root;
+
     public CoreSerializationMode Mode => CoreSerializationMode.ReadWrite;
 
     public Type OwnerType { get; } = ownerType;
+
+    [MemberNotNullWhen(false, nameof(Parent))]
+    public bool IsRoot => Parent == null;
 
     public ISerializationErrorNotifier ErrorNotifier { get; } = errorNotifier;
 
@@ -54,6 +64,49 @@ public partial class JsonSerializationContext(
             {
                 obj.Deserialize(context);
             }
+        }
+    }
+
+    public void AfterDeserialized(ICoreSerializable obj)
+    {
+        if (obj is CoreObject coreObject)
+        {
+            if (IsRoot)
+            {
+                _objects ??= new();
+                _objects[coreObject.Id] = coreObject;
+
+                // Resolve references
+                if (_resolvers == null)
+                    return;
+
+                foreach (var (id, callback) in _resolvers)
+                {
+                    if (_objects.TryGetValue(id, out var resolved))
+                    {
+                        callback(resolved);
+                    }
+                }
+
+                _resolvers.Clear();
+            }
+            else
+            {
+                Root.AfterDeserialized(obj);
+            }
+        }
+    }
+
+    public void Resolve(Guid id, Action<ICoreSerializable> callback)
+    {
+        if (IsRoot)
+        {
+            _resolvers ??= new();
+            _resolvers.Add((id, callback));
+        }
+        else
+        {
+            Parent.Resolve(id, callback);
         }
     }
 
