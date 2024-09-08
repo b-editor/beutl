@@ -456,6 +456,12 @@ public abstract class CoreObject : ICoreObject
             Optional<object?> value = item.RouteDeserialize(context);
             if (value.HasValue)
             {
+                if (value.Value is IReference { IsNull: false } reference)
+                {
+                    context.Resolve(reference.Id,
+                        resolved => SetValue(item, reference.Resolved((CoreObject)resolved)));
+                }
+
                 SetValue(item, value.Value);
             }
         }

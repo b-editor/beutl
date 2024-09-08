@@ -87,6 +87,7 @@ public static class JsonHelper
             using (ThreadLocalSerializationContext.Enter(context))
             {
                 serializable.Deserialize(context);
+                context.AfterDeserialized(serializable);
             }
         }
     }

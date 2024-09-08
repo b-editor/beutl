@@ -42,6 +42,7 @@ internal static class AnimationSerializer
                 using (ThreadLocalSerializationContext.Enter(innerContext))
                 {
                     animation.Deserialize(innerContext);
+                    innerContext.AfterDeserialized(animation);
                 }
                 return animation;
             }

@@ -45,6 +45,7 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
                         using (ThreadLocalSerializationContext.Enter(context))
                         {
                             serializable.Deserialize(context);
+                            context.AfterDeserialized(serializable);
                         }
 
                         instance = serializable;

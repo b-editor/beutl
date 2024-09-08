@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -25,7 +26,8 @@ public partial class JsonSerializationContext
             else
             {
                 string name = index.ToString();
-                output.Add(Deserialize(item, elementType, name, new RelaySerializationErrorNotifier(errorNotifier, name), parent));
+                output.Add(Deserialize(item, elementType, name,
+                    new RelaySerializationErrorNotifier(errorNotifier, name), parent));
             }
 
             index++;
@@ -78,6 +80,7 @@ public partial class JsonSerializationContext
                         if (Activator.CreateInstance(actualType) is ICoreSerializable instance)
                         {
                             instance.Deserialize(context);
+                            context.AfterDeserialized(instance);
 
                             return instance;
                         }
@@ -98,6 +101,12 @@ public partial class JsonSerializationContext
 
                     return ArrayTypeHelpers.ConvertArrayType(output, baseType, elementType);
                 }
+            }
+            else if (node is JsonValue jsonValue
+                     && jsonValue.TryGetValue(out Guid id)
+                     && baseType.IsAssignableTo(typeof(IReference)))
+            {
+                return Activator.CreateInstance(baseType, id);
             }
         }
 

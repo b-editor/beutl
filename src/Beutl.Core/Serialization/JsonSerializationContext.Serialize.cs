@@ -36,6 +36,10 @@ public partial class JsonSerializationContext
 
             return obj;
         }
+        else if (value is IReference reference)
+        {
+            return reference.Id;
+        }
         else if (value is JsonNode jsonNode)
         {
             return jsonNode;
@@ -115,7 +119,7 @@ public partial class JsonSerializationContext
         else
         {
             Type actualType = value.GetType();
-            if (value is ICoreSerializable or IEnumerable)
+            if (value is ICoreSerializable or IEnumerable or IReference)
             {
                 _json[name] = Serialize(name, value, actualType, typeof(T), ErrorNotifier, this);
             }

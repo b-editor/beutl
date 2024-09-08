@@ -450,6 +450,7 @@ public abstract class Node : Hierarchical
                         using (ThreadLocalSerializationContext.Enter(innerContext))
                         {
                             serializable.Deserialize(innerContext);
+                            innerContext.AfterDeserialized(serializable);
                         }
                     }
                 }

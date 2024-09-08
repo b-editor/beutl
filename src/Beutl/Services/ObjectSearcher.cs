@@ -42,6 +42,14 @@ public class ObjectSearcher
 
     private object? SearchRecursive(object obj)
     {
+        if (obj is IOptional optional)
+        {
+            obj = optional.ToObject().GetValueOrDefault()!;
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+            if (obj == null)
+                return null;
+        }
+
         if (!_hashSet.Add(obj))
             return null;
 
@@ -56,7 +64,9 @@ public class ObjectSearcher
             {
                 case CoreObject coreObject:
                     foreach (CoreProperty? item in PropertyRegistry.GetRegistered(coreObject.GetType())
-                        .Where(x => !x.PropertyType.IsValueType && x != Hierarchical.HierarchicalParentProperty))
+                                 .Where(x => (!x.PropertyType.IsValueType
+                                              || x.PropertyType.IsAssignableTo(typeof(IOptional)))
+                                             && x.Id != Hierarchical.HierarchicalParentProperty.Id))
                     {
                         object? value = coreObject.GetValue(item);
                         if (value != null
@@ -65,6 +75,7 @@ public class ObjectSearcher
                             return result;
                         }
                     }
+
                     break;
 
                 case IEnumerable enm:
@@ -82,7 +93,8 @@ public class ObjectSearcher
 
                 case IPropertyAdapter property:
                     {
-                        if (!property.PropertyType.IsValueType
+                        if ((!property.PropertyType.IsValueType
+                             || property.PropertyType.IsAssignableTo(typeof(IOptional)))
                             && property.GetValue() is { } value
                             && SearchRecursive(value) is { } result1)
                         {
@@ -122,12 +134,14 @@ public class ObjectSearcher
             {
                 case CoreObject coreObject:
                     foreach (object? item in PropertyRegistry.GetRegistered(coreObject.GetType())
-                        .Where(x => !x.PropertyType.IsValueType && x != Hierarchical.HierarchicalParentProperty)
-                        .Select(coreObject.GetValue)
-                        .Where(x => x != null))
+                                 .Where(x => !x.PropertyType.IsValueType &&
+                                             x != Hierarchical.HierarchicalParentProperty)
+                                 .Select(coreObject.GetValue)
+                                 .Where(x => x != null))
                     {
                         SearchAllRecursive(item!, list);
                     }
+
                     break;
 
                 case IEnumerable enm:
