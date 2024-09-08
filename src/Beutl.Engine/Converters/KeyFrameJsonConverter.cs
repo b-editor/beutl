@@ -57,6 +57,7 @@ internal sealed class KeyFrameJsonConverter : JsonConverter<IKeyFrame>
                 using (ThreadLocalSerializationContext.Enter(context))
                 {
                     instance.Deserialize(context);
+                    context.AfterDeserialized(instance);
                 }
 
                 return instance;

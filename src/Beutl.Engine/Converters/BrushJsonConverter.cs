@@ -30,6 +30,7 @@ internal sealed class BrushJsonConverter : JsonConverter<IBrush>
                 using (ThreadLocalSerializationContext.Enter(context))
                 {
                     instance.Deserialize(context);
+                    context.AfterDeserialized(instance);
                 }
 
                 return brush;

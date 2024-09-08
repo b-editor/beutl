@@ -26,6 +26,7 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
                 using (ThreadLocalSerializationContext.Enter(context))
                 {
                     instance.Deserialize(context);
+                    context.AfterDeserialized(instance);
                 }
 
                 return instance;

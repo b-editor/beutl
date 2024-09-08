@@ -26,6 +26,7 @@ internal sealed class PenJsonConverter : JsonConverter<IPen>
             using (ThreadLocalSerializationContext.Enter(context))
             {
                 pen.Deserialize(context);
+                context.AfterDeserialized(pen);
             }
 
             return pen;

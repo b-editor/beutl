@@ -30,6 +30,7 @@ internal sealed class TransformJsonConverter : JsonConverter<ITransform>
                 using (ThreadLocalSerializationContext.Enter(context))
                 {
                     instance.Deserialize(context);
+                    context.AfterDeserialized(instance);
                 }
 
                 return transform;

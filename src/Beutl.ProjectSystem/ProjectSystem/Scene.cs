@@ -686,6 +686,7 @@ public class Scene : ProjectItem, IAffectsRender
             using (ThreadLocalSerializationContext.Enter(context))
             {
                 _element.Deserialize(context);
+                context.AfterDeserialized(_element);
             }
 
             _element.Save(_fileName);

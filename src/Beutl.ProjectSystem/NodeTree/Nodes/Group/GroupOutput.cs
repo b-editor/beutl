@@ -95,6 +95,7 @@ public class GroupOutput : Node, ISocketsCanBeAdded
                         using (ThreadLocalSerializationContext.Enter(innerContext))
                         {
                             serializable.Deserialize(innerContext);
+                            innerContext.AfterDeserialized(serializable);
                         }
                     }
 

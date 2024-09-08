@@ -337,6 +337,7 @@ public class GroupNode : Node
                     using (ThreadLocalSerializationContext.Enter(innerContext))
                     {
                         nodeItem.Deserialize(innerContext);
+                        innerContext.AfterDeserialized(nodeItem);
                     }
 
                     ((NodeItem)nodeItem).LocalId = index;
