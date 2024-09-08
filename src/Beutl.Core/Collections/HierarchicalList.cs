@@ -11,5 +11,10 @@ public class HierarchicalList<T> : CoreList<T>
         Detached += item => parent.RemoveChild(item);
     }
 
-    public IModifiableHierarchical Parent { get; }
+    public HierarchicalList()
+    {
+        ResetBehavior = ResetBehavior.Remove;
+    }
+
+    public IModifiableHierarchical? Parent { get; }
 }

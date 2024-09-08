@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -100,6 +101,12 @@ public partial class JsonSerializationContext
 
                     return ArrayTypeHelpers.ConvertArrayType(output, baseType, elementType);
                 }
+            }
+            else if (node is JsonValue jsonValue
+                     && jsonValue.TryGetValue(out Guid id)
+                     && baseType.IsAssignableTo(typeof(IReference)))
+            {
+                return Activator.CreateInstance(baseType, id);
             }
         }
 
