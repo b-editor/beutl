@@ -5,6 +5,7 @@ using Beutl.Collections;
 
 namespace Beutl;
 
+// TODO: 複数の親要素（参照元）を持てるようにする
 public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHierarchical
 {
     public static readonly CoreProperty<IHierarchical?> HierarchicalParentProperty;

@@ -71,29 +71,39 @@ public partial class JsonSerializationContext(
     {
         if (obj is CoreObject coreObject)
         {
+            SetObjectAndId(coreObject);
+
             if (IsRoot)
             {
-                _objects ??= new();
-                _objects[coreObject.Id] = coreObject;
-
                 // Resolve references
                 if (_resolvers == null)
                     return;
 
-                foreach (var (id, callback) in _resolvers)
+                for (int i = _resolvers.Count - 1; i >= 0; i--)
                 {
+                    var (id, callback) = _resolvers[i];
                     if (_objects.TryGetValue(id, out var resolved))
                     {
                         callback(resolved);
                     }
-                }
 
-                _resolvers.Clear();
+                    _resolvers.RemoveAt(i);
+                }
             }
-            else
-            {
-                Root.AfterDeserialized(obj);
-            }
+        }
+    }
+
+    [MemberNotNull(nameof(_objects))]
+    private void SetObjectAndId(CoreObject coreObject)
+    {
+        if (IsRoot)
+        {
+            _objects ??= new();
+            _objects[coreObject.Id] = coreObject;
+        }
+        else
+        {
+            Root.SetObjectAndId(coreObject);
         }
     }
 
