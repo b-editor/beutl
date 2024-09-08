@@ -89,6 +89,9 @@ public partial class JsonSerializationContext(
 
                     _resolvers.RemoveAt(i);
                 }
+
+                // TODO: アプリケーション全体から解決できるようになれば、
+                // ここにそのコードを追加する。
             }
         }
     }
