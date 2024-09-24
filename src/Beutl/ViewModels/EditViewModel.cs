@@ -452,8 +452,11 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             if (MatchFileImage(desc.FileName))
             {
                 Element element = CreateElementFor(out SourceImageOperator t);
-                BitmapSource.TryOpen(desc.FileName, out BitmapSource? image);
-                t.Source.Value = image;
+                if (t.Value is not null)
+                {
+                    BitmapSource.TryOpen(desc.FileName, out BitmapSource? image);
+                    t.Value.Source = image;
+                }
 
                 element.Save(element.FileName);
                 list.Add(Scene.AddChild(element));
@@ -464,15 +467,21 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 Element element1 = CreateElementFor(out SourceVideoOperator t1);
                 Element element2 = CreateElementFor(out SourceSoundOperator t2);
                 element2.ZIndex++;
-                VideoSource.TryOpen(desc.FileName, out VideoSource? video);
-                SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
-                t1.Source.Value = video;
-                t2.Source.Value = sound;
+                if (t1.Value is not null)
+                {
+                    VideoSource.TryOpen(desc.FileName, out VideoSource? video);
+                    t1.Value.Source = video;
+                    if (video != null)
+                        element1.Length = video.Duration;
+                }
 
-                if (video != null)
-                    element1.Length = video.Duration;
-                if (sound != null)
-                    element2.Length = sound.Duration;
+                if (t2.Value is not null)
+                {
+                    SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
+                    t2.Value.Source = sound;
+                    if (sound != null)
+                        element2.Length = sound.Duration;
+                }
 
                 element1.Save(element1.FileName);
                 element2.Save(element2.FileName);
@@ -483,11 +492,14 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             else if (MatchFileAudioOnly(desc.FileName))
             {
                 Element element = CreateElementFor(out SourceSoundOperator t);
-                SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
-                t.Source.Value = sound;
-                if (sound != null)
+                if(t.Value is not null)
                 {
-                    element.Length = sound.Duration;
+                    SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
+                    t.Value.Source = sound;
+                    if (sound != null)
+                    {
+                        element.Length = sound.Duration;
+                    }
                 }
 
                 element.Save(element.FileName);
