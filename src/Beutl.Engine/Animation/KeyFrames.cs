@@ -2,8 +2,16 @@
 
 namespace Beutl.Animation;
 
-public class KeyFrames : CoreList<IKeyFrame>
+public class KeyFrames : HierarchicalList<IKeyFrame>
 {
+    public KeyFrames(IModifiableHierarchical parent) : base(parent)
+    {
+    }
+
+    public KeyFrames()
+    {
+    }
+
     public void Add(IKeyFrame item, out int index)
     {
         if (Count >= 1)

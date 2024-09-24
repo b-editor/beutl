@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel;
+using Beutl.Animation;
 
 namespace Beutl.Graphics.Transformation;
 
@@ -20,6 +21,7 @@ public sealed class MultiTransform : Transform
             .Register();
 
         AffectsRender<MultiTransform>(LeftProperty, RightProperty);
+        Hierarchy<MultiTransform>(LeftProperty, RightProperty);
     }
 
     public MultiTransform()

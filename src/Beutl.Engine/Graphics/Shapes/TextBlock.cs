@@ -89,6 +89,7 @@ public class TextBlock : Drawable
             PenProperty,
             SplitByCharactersProperty,
             ElementsProperty);
+        Hierarchy<TextBlock>(PenProperty);
     }
 
     public TextBlock()

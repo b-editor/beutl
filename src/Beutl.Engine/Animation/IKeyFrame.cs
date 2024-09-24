@@ -7,7 +7,7 @@ using Beutl.Media;
 namespace Beutl.Animation;
 
 [JsonConverter(typeof(KeyFrameJsonConverter))]
-public interface IKeyFrame : ICoreObject, IAffectsRender
+public interface IKeyFrame : ICoreObject, IAffectsRender, IHierarchical
 {
     event EventHandler? KeyTimeChanged;
 

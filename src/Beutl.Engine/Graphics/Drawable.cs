@@ -83,6 +83,9 @@ public abstract class Drawable : Renderable
             TransformOriginProperty,
             FillProperty, OpacityMaskProperty,
             BlendModeProperty, OpacityProperty);
+        Hierarchy<Drawable>(
+            TransformProperty, FilterEffectProperty,
+            FillProperty, OpacityMaskProperty);
     }
 
     // DrawableBrushで使われる

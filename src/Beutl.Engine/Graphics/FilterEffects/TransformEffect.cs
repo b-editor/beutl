@@ -1,5 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
-
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
@@ -28,12 +28,14 @@ public sealed class TransformEffect : FilterEffect
             .DefaultValue(RelativePoint.Center)
             .Register();
 
-        BitmapInterpolationModeProperty = ConfigureProperty<BitmapInterpolationMode, TransformEffect>(nameof(BitmapInterpolationMode))
-            .Accessor(o => o.BitmapInterpolationMode, (o, v) => o.BitmapInterpolationMode = v)
-            .DefaultValue(BitmapInterpolationMode.Default)
-            .Register();
+        BitmapInterpolationModeProperty =
+            ConfigureProperty<BitmapInterpolationMode, TransformEffect>(nameof(BitmapInterpolationMode))
+                .Accessor(o => o.BitmapInterpolationMode, (o, v) => o.BitmapInterpolationMode = v)
+                .DefaultValue(BitmapInterpolationMode.Default)
+                .Register();
 
         AffectsRender<TransformEffect>(TransformProperty, TransformOriginProperty, BitmapInterpolationModeProperty);
+        Hierarchy<TransformEffect>(TransformProperty);
     }
 
     [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings))]

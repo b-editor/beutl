@@ -34,6 +34,7 @@ public abstract class Geometry : Animatable, IAffectsRender
             .Register();
 
         AffectsRender<Geometry>(FillTypeProperty, TransformProperty);
+        Hierarchy<Geometry>(TransformProperty);
     }
 
     public Geometry()

@@ -10,7 +10,7 @@ namespace Beutl.Media;
 public sealed class PathGeometry : Geometry
 {
     public static readonly CoreProperty<PathFigures> FiguresProperty;
-    private readonly PathFigures _figures = [];
+    private readonly PathFigures _figures;
 
     static PathGeometry()
     {
@@ -23,6 +23,7 @@ public sealed class PathGeometry : Geometry
 
     public PathGeometry()
     {
+        _figures = new PathFigures(this);
         _figures.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 

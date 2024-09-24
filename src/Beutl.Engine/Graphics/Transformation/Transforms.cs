@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
-
 using Beutl.Collections;
 using Beutl.Media;
 
@@ -13,6 +12,25 @@ public sealed class Transforms : CoreList<ITransform>, IAffectsRender
         ResetBehavior = ResetBehavior.Remove;
         CollectionChanged += OnCollectionChanged;
     }
+
+    public Transforms(IModifiableHierarchical parent)
+    {
+        Parent = parent;
+        ResetBehavior = ResetBehavior.Remove;
+        CollectionChanged += OnCollectionChanged;
+        Attached += item =>
+        {
+            if (item is not IHierarchical child) return;
+            Parent.AddChild(child);
+        };
+        Detached += item =>
+        {
+            if (item is not IHierarchical child) return;
+            Parent.RemoveChild(child);
+        };
+    }
+
+    public IModifiableHierarchical? Parent { get; }
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {

@@ -3,7 +3,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Animation;
 
-public interface IAnimation : IAffectsRender, ICoreSerializable
+public interface IAnimation : IAffectsRender, ICoreSerializable, IHierarchical
 {
     CoreProperty Property { get; }
 

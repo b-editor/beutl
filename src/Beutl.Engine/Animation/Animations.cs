@@ -6,11 +6,16 @@ using Beutl.Media;
 
 namespace Beutl.Animation;
 
-public sealed class Animations : CoreList<IAnimation>
+public sealed class Animations : HierarchicalList<IAnimation>
 {
+    public Animations(IModifiableHierarchical parent)
+        : base(parent)
+    {
+        CollectionChanged += OnCollectionChanged;
+    }
+
     public Animations()
     {
-        ResetBehavior = ResetBehavior.Remove;
         CollectionChanged += OnCollectionChanged;
     }
 
