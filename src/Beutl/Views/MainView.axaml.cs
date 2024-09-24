@@ -43,6 +43,23 @@ public sealed partial class MainView : UserControl
             // Titlebar.ColumnDefinitions[^3].Width = GridLength.Star;
             Titlebar.ColumnDefinitions[^2].Width = GridLength.Star;
             Titlebar.ColumnDefinitions[^1].Width = GridLength.Auto;
+
+            Titlebar.PointerPressed += (s, e) =>
+            {
+                if (TopLevel.GetTopLevel(this) is Window window && window.WindowState != WindowState.FullScreen)
+                {
+                    if (e.ClickCount == 2)
+                    {
+                        window.WindowState = window.WindowState == WindowState.Maximized
+                            ? WindowState.Normal
+                            : WindowState.Maximized;
+                    }
+                    else
+                    {
+                        window.BeginMoveDrag(e);
+                    }
+                }
+            };
         }
     }
 
