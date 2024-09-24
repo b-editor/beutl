@@ -162,22 +162,6 @@ public class TextBlock : Drawable
         set => SetAndRaise(ElementsProperty, ref _elements, value);
     }
 
-    public override void Serialize(ICoreSerializationContext context)
-    {
-        base.Serialize(context);
-        OnUpdateText();
-        context.SetValue(nameof(Elements), Elements?.ToArray());
-    }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        base.Deserialize(context);
-        if (context.GetValue<TextElement[]>(nameof(Elements)) is { } elements)
-        {
-            Elements = new TextElements(elements);
-        }
-    }
-
     protected override Size MeasureCore(Size availableSize)
     {
         OnUpdateText();
