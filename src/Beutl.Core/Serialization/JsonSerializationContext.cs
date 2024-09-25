@@ -75,6 +75,7 @@ public partial class JsonSerializationContext(
         {
             Root._rootResolvers ??= [];
             Root._rootResolvers.AddRange(_resolvers.Select(t => ((object)obj, t.Item1, t.Item2)));
+            _resolvers.Clear();
         }
 
         if (obj is CoreObject coreObject)
