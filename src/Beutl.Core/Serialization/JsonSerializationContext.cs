@@ -84,7 +84,7 @@ public partial class JsonSerializationContext(
             if (IsRoot)
             {
                 // Resolve references
-                if (_rootResolvers == null)
+                if (_rootResolvers == null || _objects == null)
                     return;
 
                 for (int i = _rootResolvers.Count - 1; i >= 0; i--)
@@ -104,7 +104,6 @@ public partial class JsonSerializationContext(
         }
     }
 
-    [MemberNotNull(nameof(_objects))]
     private void SetObjectAndId(CoreObject coreObject)
     {
         if (IsRoot)
