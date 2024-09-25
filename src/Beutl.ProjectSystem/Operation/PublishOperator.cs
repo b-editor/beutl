@@ -96,15 +96,33 @@ public abstract class PublishOperator<T> : SourceOperator
             Properties.Clear();
             foreach (var property in _properties)
             {
-                var adapterType = typeof(AnimatablePropertyAdapter<>).MakeGenericType(property.Property.PropertyType);
+                var propertyType = property.Property.PropertyType;
+                var adapterType = typeof(AnimatablePropertyAdapter<>).MakeGenericType(propertyType);
                 var adapter = (IPropertyAdapter)Activator.CreateInstance(adapterType, property.Property, Value)!;
                 Properties.Add(adapter);
-                if (!_deserializing)
+                if (!_deserializing && Value != null)
                 {
                     var obj = property.Factory();
                     if (obj.HasValue)
                     {
-                        Value?.SetValue(property.Property, obj.Value);
+                        object? value = obj.Value;
+                        if (!propertyType.IsValueType && value == null)
+                        {
+                            Value.SetValue(property.Property, null);
+                        }
+                        else
+                        {
+                            if (value == null)
+                            {
+                                value = property.Property.GetMetadata<T, CorePropertyMetadata>().GetDefaultValue();
+                            }
+                            else if (!propertyType.IsInstanceOfType(value))
+                            {
+                                value = TypeDescriptor.GetConverter(propertyType).ConvertFrom(value);
+                            }
+
+                            Value.SetValue(property.Property, value);
+                        }
                     }
                 }
             }

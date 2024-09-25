@@ -5,6 +5,8 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Transformation;
 
+// IAffectsRender, IHierarchical cannot be implemented in ITransform,
+// so the contents of the AffectsRenders, HierarchicalList are implemented manually
 public sealed class Transforms : CoreList<ITransform>, IAffectsRender
 {
     public Transforms()
