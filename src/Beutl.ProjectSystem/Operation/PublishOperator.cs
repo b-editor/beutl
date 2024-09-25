@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics;
 using Beutl.Extensibility;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -29,14 +30,14 @@ public record struct PropertyWithDefaultValue(CoreProperty Property, Func<Option
 public abstract class PublishOperator<T> : SourceOperator
     where T : Renderable, new()
 {
-    public static readonly CoreProperty<T?> ValueProperty;
-    private T? _value;
+    public static readonly CoreProperty<T> ValueProperty;
+    private T _value = null!;
     private readonly PropertyWithDefaultValue[] _properties;
     private bool _deserializing;
 
     static PublishOperator()
     {
-        ValueProperty = ConfigureProperty<T?, PublishOperator<T>>(nameof(Value))
+        ValueProperty = ConfigureProperty<T, PublishOperator<T>>(nameof(Value))
             .Accessor(o => o.Value, (o, v) => o.Value = v)
             .Register();
 
@@ -49,7 +50,7 @@ public abstract class PublishOperator<T> : SourceOperator
         Value = new T();
     }
 
-    public T? Value
+    public T Value
     {
         get => _value;
         set => SetAndRaise(ValueProperty, ref _value, value);
@@ -57,10 +58,7 @@ public abstract class PublishOperator<T> : SourceOperator
 
     public override void Evaluate(OperatorEvaluationContext context)
     {
-        if (Value != null)
-        {
-            context.AddFlowRenderable(Value);
-        }
+        context.AddFlowRenderable(Value);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -69,6 +67,9 @@ public abstract class PublishOperator<T> : SourceOperator
         try
         {
             base.Deserialize(context);
+            Debug.Assert(Value != null);
+            // ReSharper disable once NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract
+            Value ??= new T();
         }
         finally
         {
@@ -94,13 +95,18 @@ public abstract class PublishOperator<T> : SourceOperator
             }
 
             Properties.Clear();
+            if (e.NewValue == null)
+            {
+                return;
+            }
+
             foreach (var property in _properties)
             {
                 var propertyType = property.Property.PropertyType;
                 var adapterType = typeof(AnimatablePropertyAdapter<>).MakeGenericType(propertyType);
                 var adapter = (IPropertyAdapter)Activator.CreateInstance(adapterType, property.Property, Value)!;
                 Properties.Add(adapter);
-                if (!_deserializing && Value != null)
+                if (!_deserializing)
                 {
                     var obj = property.Factory();
                     if (obj.HasValue)

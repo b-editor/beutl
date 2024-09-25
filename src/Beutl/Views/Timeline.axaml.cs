@@ -201,10 +201,7 @@ public sealed partial class Timeline : UserControl
                         }
 
                         var sp = new SourceImageOperator();
-                        if (sp.Value is not null)
-                        {
-                            sp.Value.Source = BitmapSource.Open(imageFile);
-                        }
+                        sp.Value.Source = BitmapSource.Open(imageFile);
                         var newElement = new Element
                         {
                             Start = ViewModel.ClickedFrame,
