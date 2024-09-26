@@ -2,13 +2,11 @@
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
-
 using Beutl.Animation;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 using Beutl.Serialization;
-
 using SkiaSharp;
 
 namespace Beutl.Graphics.Shapes;
@@ -170,17 +168,12 @@ public class TextBlock : Drawable
 
         if (_elements != null)
         {
-            float lastDescent = 0f;
             foreach (Span<FormattedText> line in _elements.Lines)
             {
                 Size bounds = MeasureLine(line);
                 width = MathF.Max(bounds.Width, width);
                 height += bounds.Height;
-
-                lastDescent = MinDescent(line);
             }
-
-            height -= lastDescent;
         }
 
         return new Size(width, height);
@@ -242,9 +235,8 @@ public class TextBlock : Drawable
             {
                 Size lineBounds = MeasureLine(line);
                 float ascent = MinAscent(line);
-                float descent = MinDescent(line);
 
-                using (canvas.PushTransform(Matrix.CreateTranslation(0, prevBottom - ascent - descent)))
+                using (canvas.PushTransform(Matrix.CreateTranslation(0, prevBottom - ascent)))
                 {
                     float prevRight = 0;
                     foreach (FormattedText item in line)
