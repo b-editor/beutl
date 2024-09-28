@@ -40,7 +40,6 @@ public class ObjectRegistry
                 {
                     obj.PropertyChanged -= OnObjectPropertyChanged;
                     _objects.Remove(node);
-                    break;
                 }
 
                 node = node.Next;

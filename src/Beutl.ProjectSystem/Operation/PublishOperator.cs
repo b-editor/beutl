@@ -124,7 +124,14 @@ public abstract class PublishOperator<T> : SourceOperator
                             }
                             else if (!propertyType.IsInstanceOfType(value))
                             {
-                                value = TypeDescriptor.GetConverter(propertyType).ConvertFrom(value);
+                                try
+                                {
+                                    value = TypeDescriptor.GetConverter(propertyType).ConvertFrom(value);
+                                }
+                                catch
+                                {
+                                    value = TypeDescriptor.GetConverter(value!.GetType()).ConvertTo(value, propertyType);
+                                }
                             }
 
                             Value.SetValue(property.Property, value);
