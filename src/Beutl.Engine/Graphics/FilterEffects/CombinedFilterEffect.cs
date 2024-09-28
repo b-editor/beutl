@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel;
+using Beutl.Animation;
 
 namespace Beutl.Graphics.Effects;
 
@@ -20,6 +21,7 @@ public sealed class CombinedFilterEffect : FilterEffect
             .Register();
 
         AffectsRender<CombinedFilterEffect>(FirstProperty, SecondProperty);
+        Hierarchy<CombinedFilterEffect>(FirstProperty, SecondProperty);
     }
 
     public CombinedFilterEffect()

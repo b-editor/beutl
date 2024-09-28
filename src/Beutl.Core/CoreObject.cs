@@ -1,9 +1,11 @@
 ﻿using System.Collections;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq.Expressions;
+using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-
+using Beutl.Collections;
 using Beutl.Serialization;
 using Beutl.Validation;
 
@@ -83,6 +85,7 @@ public abstract class CoreObject : ICoreObject
     protected CoreObject()
     {
         Id = Guid.NewGuid();
+        ObjectRegistry.Current.Register(this);
     }
 
     [Browsable(false)]
@@ -175,6 +178,7 @@ public abstract class CoreObject : ICoreObject
                             item.Value.ApplyTo(this, property);
                         }
                     }
+
                     _batchChanges.Clear();
                 }
                 finally
@@ -207,7 +211,7 @@ public abstract class CoreObject : ICoreObject
         if (BatchUpdate)
         {
             if (_batchChanges?.TryGetValue(property.Id, out IBatchEntry? entry) == true &&
-               entry is BatchEntry<TValue> entryT)
+                entry is BatchEntry<TValue> entryT)
             {
                 return entryT.NewValue!;
             }
@@ -217,12 +221,12 @@ public abstract class CoreObject : ICoreObject
             }
         }
         else if (_values?.TryGetValue(property.Id, out IEntry? entry) == true &&
-            entry is Entry<TValue> entryT)
+                 entry is Entry<TValue> entryT)
         {
             return entryT.Value!;
         }
 
-    ReturnDefault:
+        ReturnDefault:
         return property.GetMetadata<CorePropertyMetadata<TValue>>(ownerType).DefaultValue!;
     }
 
@@ -272,7 +276,8 @@ public abstract class CoreObject : ICoreObject
     {
         if (value != null && !value.GetType().IsAssignableTo(property.PropertyType))
         {
-            throw new InvalidOperationException($"{nameof(value)} of type {value.GetType().Name} cannot be assigned to type {property.PropertyType}.");
+            throw new InvalidOperationException(
+                $"{nameof(value)} of type {value.GetType().Name} cannot be assigned to type {property.PropertyType}.");
         }
 
         Type ownerType = GetType();
@@ -300,10 +305,7 @@ public abstract class CoreObject : ICoreObject
             }
             else
             {
-                entryT = new BatchEntry<TValue>
-                {
-                    NewValue = value,
-                };
+                entryT = new BatchEntry<TValue> { NewValue = value, };
                 BatchChanges[property.Id] = entryT;
             }
         }
@@ -324,10 +326,7 @@ public abstract class CoreObject : ICoreObject
             {
                 if (!EqualityComparer<TValue>.Default.Equals(metadata.DefaultValue, value))
                 {
-                    entryT = new Entry<TValue>
-                    {
-                        Value = value,
-                    };
+                    entryT = new Entry<TValue> { Value = value, };
                     Values[property.Id] = entryT;
                     RaisePropertyChanged(property, metadata, value, metadata.DefaultValue);
                 }
@@ -392,20 +391,16 @@ public abstract class CoreObject : ICoreObject
             }
             else
             {
-                entryT = new BatchEntry<T>
-                {
-                    OldValue = field,
-                    NewValue = value,
-                };
+                entryT = new BatchEntry<T> { OldValue = field, NewValue = value, };
                 BatchChanges[property.Id] = entryT;
             }
 
             field = value;
         }
         else if (_batchApplying
-            && _batchChanges != null
-            && _batchChanges.TryGetValue(property.Id, out IBatchEntry? oldEntry)
-            && oldEntry is BatchEntry<T> entryT)
+                 && _batchChanges != null
+                 && _batchChanges.TryGetValue(property.Id, out IBatchEntry? oldEntry)
+                 && oldEntry is BatchEntry<T> entryT)
         {
             // バッチ適用中
             field = value;
@@ -426,7 +421,8 @@ public abstract class CoreObject : ICoreObject
         return result;
     }
 
-    private void RaisePropertyChanged<T>(CoreProperty<T> property, CorePropertyMetadata metadata, T? newValue, T? oldValue)
+    private void RaisePropertyChanged<T>(CoreProperty<T> property, CorePropertyMetadata metadata, T? newValue,
+        T? oldValue)
     {
         var eventArgs = new CorePropertyChangedEventArgs<T>(this, property, metadata, newValue, oldValue);
 

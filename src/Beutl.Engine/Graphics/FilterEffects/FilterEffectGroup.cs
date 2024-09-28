@@ -19,7 +19,7 @@ public sealed class FilterEffectGroup : FilterEffect
 
     public FilterEffectGroup()
     {
-        _children = [];
+        _children = new FilterEffects(this);
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 

@@ -6,46 +6,24 @@ using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceSoundOperator : StyledSourcePublisher
+public sealed class SourceSoundOperator() : PublishOperator<SourceSound>(
+[
+    SourceSound.SourceProperty,
+    (SourceSound.OffsetPositionProperty, TimeSpan.Zero),
+    (Sound.GainProperty, 100f),
+    (Sound.EffectProperty, () => new SoundEffectGroup())
+])
 {
-    public Setter<ISoundSource?> Source { get; set; }
-        = new Setter<ISoundSource?>(SourceSound.SourceProperty, null);
-
-    public Setter<TimeSpan> OffsetPosition { get; set; }
-        = new Setter<TimeSpan>(SourceSound.OffsetPositionProperty, TimeSpan.Zero);
-
-    public Setter<float> Gain { get; set; }
-        = new Setter<float>(Sound.GainProperty, 100);
-
-    public Setter<ISoundEffect?> Effect { get; set; }
-        = new Setter<ISoundEffect?>(Sound.EffectProperty, new SoundEffectGroup());
-
-    protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
-    {
-        var style = new Style<SourceSound>();
-        style.Setters.AddRange(setters());
-        return style;
-    }
-
-    protected override void OnBeforeApplying()
-    {
-        base.OnBeforeApplying();
-        if (Instance?.Target is SourceSound sound)
-        {
-            sound.BeginBatchUpdate();
-        }
-    }
-
     public override bool HasOriginalLength()
     {
-        return Source.Value?.IsDisposed == false;
+        return Value?.Source?.IsDisposed == false;
     }
 
     public override bool TryGetOriginalLength(out TimeSpan timeSpan)
     {
-        if (Source.Value?.IsDisposed == false)
+        if (Value?.Source?.IsDisposed == false)
         {
-            timeSpan = Source.Value.Duration;
+            timeSpan = Value.Source.Duration;
             return true;
         }
         else
@@ -57,15 +35,17 @@ public sealed class SourceSoundOperator : StyledSourcePublisher
 
     public override IRecordableCommand? OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
     {
+        if(Value is null) return null;
+
         if (backward)
         {
             IStorable? storable = this.FindHierarchicalParent<IStorable>();
-            TimeSpan newValue = OffsetPosition.Value + startDelta;
-            TimeSpan oldValue = OffsetPosition.Value;
+            TimeSpan newValue = Value.OffsetPosition + startDelta;
+            TimeSpan oldValue = Value.OffsetPosition;
 
             return RecordableCommands.Create([storable])
-                .OnDo(() => OffsetPosition.Value = newValue)
-                .OnUndo(() => OffsetPosition.Value = oldValue)
+                .OnDo(() => Value.OffsetPosition = newValue)
+                .OnUndo(() => Value.OffsetPosition = oldValue)
                 .ToCommand();
         }
         else

@@ -1,11 +1,12 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
-
 using Beutl.Collections;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Transformation;
 
+// IAffectsRender, IHierarchical cannot be implemented in ITransform,
+// so the contents of the AffectsRenders, HierarchicalList are implemented manually
 public sealed class Transforms : CoreList<ITransform>, IAffectsRender
 {
     public Transforms()
@@ -13,6 +14,25 @@ public sealed class Transforms : CoreList<ITransform>, IAffectsRender
         ResetBehavior = ResetBehavior.Remove;
         CollectionChanged += OnCollectionChanged;
     }
+
+    public Transforms(IModifiableHierarchical parent)
+    {
+        Parent = parent;
+        ResetBehavior = ResetBehavior.Remove;
+        CollectionChanged += OnCollectionChanged;
+        Attached += item =>
+        {
+            if (item is not IHierarchical child) return;
+            Parent.AddChild(child);
+        };
+        Detached += item =>
+        {
+            if (item is not IHierarchical child) return;
+            Parent.RemoveChild(child);
+        };
+    }
+
+    public IModifiableHierarchical? Parent { get; }
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {

@@ -7,11 +7,16 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class FilterEffects : CoreList<FilterEffect>, IAffectsRender
+public sealed class FilterEffects : HierarchicalList<FilterEffect>, IAffectsRender
 {
+    public FilterEffects(IModifiableHierarchical parent)
+        : base(parent)
+    {
+        CollectionChanged += OnCollectionChanged;
+    }
+
     public FilterEffects()
     {
-        ResetBehavior = ResetBehavior.Remove;
         CollectionChanged += OnCollectionChanged;
     }
 

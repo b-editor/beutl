@@ -7,7 +7,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Animation;
 
-public abstract class Animatable : CoreObject, IAnimatable
+public abstract class Animatable : Hierarchical, IAnimatable
 {
     public static readonly CoreProperty<Animations> AnimationsProperty;
 
@@ -20,7 +20,7 @@ public abstract class Animatable : CoreObject, IAnimatable
 
     protected Animatable()
     {
-        Animations = [];
+        Animations = new Animations(this);
     }
 
     [NotAutoSerialized]

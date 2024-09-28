@@ -1,11 +1,11 @@
 ﻿using System.ComponentModel;
-
+using Beutl.Collections;
 using Beutl.Media;
 using Beutl.Serialization;
 
 namespace Beutl.Animation;
 
-public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
+public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
 {
     public static readonly CoreProperty<bool> UseGlobalClockProperty;
     private CoreProperty? _property;
@@ -21,12 +21,14 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
     public KeyFrameAnimation(CoreProperty property)
     {
         _property = property;
+        KeyFrames = new KeyFrames(this);
         KeyFrames.Attached += OnKeyFrameAttached;
         KeyFrames.Detached += OnKeyFrameDetached;
     }
 
     public KeyFrameAnimation()
     {
+        KeyFrames = new KeyFrames(this);
         KeyFrames.Attached += OnKeyFrameAttached;
         KeyFrames.Detached += OnKeyFrameDetached;
     }
@@ -91,7 +93,6 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
             keyFrame.Property = Property;
         }
 
-        obj.SetParent(this);
         obj.KeyTimeChanged += OnKeyTimeChanged;
         obj.Invalidated += OnKeyFrameInvalidated;
     }
@@ -103,7 +104,6 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
             keyFrame.Property = null;
         }
 
-        obj.SetParent(null);
         obj.KeyTimeChanged -= OnKeyTimeChanged;
         obj.Invalidated -= OnKeyFrameInvalidated;
     }
@@ -114,7 +114,7 @@ public abstract class KeyFrameAnimation : CoreObject, IKeyFrameAnimation
         set => SetAndRaise(UseGlobalClockProperty, ref _useGlobalClock, value);
     }
 
-    public KeyFrames KeyFrames { get; } = [];
+    public KeyFrames KeyFrames { get; }
 
     public CoreProperty Property
     {

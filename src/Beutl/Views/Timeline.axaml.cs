@@ -200,7 +200,8 @@ public sealed partial class Timeline : UserControl
                             bmp.Save(imageFile, Graphics.EncodedImageFormat.Png);
                         }
 
-                        var sp = new SourceImageOperator { Source = { Value = BitmapSource.Open(imageFile) } };
+                        var sp = new SourceImageOperator();
+                        sp.Value.Source = BitmapSource.Open(imageFile);
                         var newElement = new Element
                         {
                             Start = ViewModel.ClickedFrame,

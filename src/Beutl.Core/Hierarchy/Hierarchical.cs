@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
-
+using System.ComponentModel;
 using Beutl.Collections;
 
 namespace Beutl;
@@ -48,6 +48,29 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
     public event EventHandler<HierarchyAttachmentEventArgs>? AttachedToHierarchy;
 
     public event EventHandler<HierarchyAttachmentEventArgs>? DetachedFromHierarchy;
+
+    protected static void Hierarchy<T>(params CoreProperty[] properties)
+        where T : Hierarchical
+    {
+        foreach (CoreProperty item in properties)
+        {
+            item.Changed.Subscribe(e =>
+            {
+                if (e.Sender is IModifiableHierarchical s)
+                {
+                    if (e.OldValue is Hierarchical oldHierarchical)
+                    {
+                        s.RemoveChild(oldHierarchical);
+                    }
+
+                    if (e.NewValue is Hierarchical newHierarchical)
+                    {
+                        s.AddChild(newHierarchical);
+                    }
+                }
+            });
+        }
+    }
 
     protected virtual void HierarchicalChildrenCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {

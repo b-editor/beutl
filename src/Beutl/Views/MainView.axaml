@@ -29,7 +29,9 @@
     </UserControl.Resources>
 
     <Grid RowDefinitions="Auto,1,*">
-        <Grid x:Name="Titlebar" ColumnDefinitions="Auto,Auto,Auto,*">
+        <Grid x:Name="Titlebar"
+              Background="Transparent"
+              ColumnDefinitions="Auto,Auto,Auto,*">
             <Image Name="WindowIcon"
                    MaxWidth="24"
                    MaxHeight="24"

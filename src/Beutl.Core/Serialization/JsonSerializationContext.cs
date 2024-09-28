@@ -11,6 +11,7 @@ public partial class JsonSerializationContext(
     : IJsonSerializationContext
 {
     public readonly Dictionary<string, (Type DefinedType, Type ActualType)> _knownTypes = [];
+    private List<(object, Guid, Action<ICoreSerializable>)>? _rootResolvers;
     private List<(Guid, Action<ICoreSerializable>)>? _resolvers;
     private Dictionary<Guid, ICoreSerializable>? _objects;
     private readonly JsonObject _json = json ?? [];
@@ -63,12 +64,20 @@ public partial class JsonSerializationContext(
             using (ThreadLocalSerializationContext.Enter(context))
             {
                 obj.Deserialize(context);
+                context.AfterDeserialized(obj);
             }
         }
     }
 
     public void AfterDeserialized(ICoreSerializable obj)
     {
+        if (_resolvers?.Count > 0)
+        {
+            Root._rootResolvers ??= [];
+            Root._rootResolvers.AddRange(_resolvers.Select(t => ((object)obj, t.Item1, t.Item2)));
+            _resolvers.Clear();
+        }
+
         if (obj is CoreObject coreObject)
         {
             SetObjectAndId(coreObject);
@@ -76,32 +85,31 @@ public partial class JsonSerializationContext(
             if (IsRoot)
             {
                 // Resolve references
-                if (_resolvers == null)
+                if (_rootResolvers == null || _objects == null)
                     return;
 
-                for (int i = _resolvers.Count - 1; i >= 0; i--)
+                for (int i = _rootResolvers.Count - 1; i >= 0; i--)
                 {
-                    var (id, callback) = _resolvers[i];
+                    var (self, id, callback) = _rootResolvers[i];
                     if (_objects.TryGetValue(id, out var resolved))
                     {
                         callback(resolved);
+                        _rootResolvers.RemoveAt(i);
                     }
-
-                    _resolvers.RemoveAt(i);
+                    else
+                    {
+                        ObjectRegistry.Current.Resolve(id, self, (_, r) => callback(r));
+                    }
                 }
-
-                // TODO: アプリケーション全体から解決できるようになれば、
-                // ここにそのコードを追加する。
             }
         }
     }
 
-    [MemberNotNull(nameof(_objects))]
     private void SetObjectAndId(CoreObject coreObject)
     {
         if (IsRoot)
         {
-            _objects ??= new();
+            _objects ??= new Dictionary<Guid, ICoreSerializable>();
             _objects[coreObject.Id] = coreObject;
         }
         else
@@ -112,15 +120,8 @@ public partial class JsonSerializationContext(
 
     public void Resolve(Guid id, Action<ICoreSerializable> callback)
     {
-        if (IsRoot)
-        {
-            _resolvers ??= new();
-            _resolvers.Add((id, callback));
-        }
-        else
-        {
-            Parent.Resolve(id, callback);
-        }
+        _resolvers ??= [];
+        _resolvers.Add((id, callback));
     }
 
     public bool Contains(string name)

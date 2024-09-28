@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel;
+using Beutl.Animation;
 using Beutl.Media;
 using Beutl.Serialization;
 
@@ -23,6 +24,7 @@ public sealed class BlendEffect : FilterEffect
             .Register();
 
         AffectsRender<BlendEffect>(BrushProperty, BlendModeProperty);
+        Hierarchy<BlendEffect>(BrushProperty);
     }
 
     public BlendEffect()

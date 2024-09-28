@@ -6,7 +6,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Animation;
 
-public class KeyFrame : CoreObject
+public class KeyFrame : Hierarchical
 {
     public static readonly CoreProperty<Easing> EasingProperty;
     public static readonly CoreProperty<TimeSpan> KeyTimeProperty;

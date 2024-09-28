@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
-
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
@@ -53,10 +52,11 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
     protected override Rect TransformBounds(Rect bounds)
     {
         Rect r = _rect;
-        if (r.IsInvalid)
+        if (!bounds.IsInvalid)
         {
             r = FilterEffect.TransformBounds(bounds);
         }
+
         if (r.IsInvalid)
         {
             r = bounds;
@@ -69,7 +69,7 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
     {
         FilterEffectContext? context = _prevContext;
         if (context == null
-           || _prevVersion != FilterEffect.Version)
+            || _prevVersion != FilterEffect.Version)
         {
             context = new FilterEffectContext(Children.Count == 1 ? OriginalBounds : Rect.Invalid);
             context.Apply(FilterEffect);
@@ -103,7 +103,8 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
                     foreach (EffectTarget t in activator.CurrentTargets)
                     {
                         using (canvas.PushBlendMode(BlendMode.SrcOver))
-                        using (canvas.PushTransform(Matrix.CreateTranslation(t.Bounds.X - t.OriginalBounds.X, t.Bounds.Y - t.OriginalBounds.Y)))
+                        using (canvas.PushTransform(Matrix.CreateTranslation(t.Bounds.X - t.OriginalBounds.X,
+                                   t.Bounds.Y - t.OriginalBounds.Y)))
                         using (canvas.PushPaint(paint))
                         {
                             t.Draw(canvas);
@@ -120,7 +121,7 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
                         canvas.DrawSurface(t.Surface.Value, t.Bounds.Position);
                     }
                     else if (t.Node == this
-                        || !t.IsEmpty)
+                             || !t.IsEmpty)
                     {
                         base.Render(canvas);
                     }
@@ -165,9 +166,11 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
             // nodeの子要素のキャッシュをすべて削除
             context.ClearCache(this, cache);
 
-            cache.StoreCache([.. activator.CurrentTargets
-                .Select(i => (i.Surface, i.Bounds))
-                .Where(i => i.Item1 != null)]);
+            cache.StoreCache([
+                .. activator.CurrentTargets
+                    .Select(i => (i.Surface, i.Bounds))
+                    .Where(i => i.Item1 != null)
+            ]);
         }
 
         Debug.WriteLine($"[RenderCache:Created] '{this}[0..{minNumber}]'");
@@ -191,10 +194,7 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
                     newSurface.Canvas.DrawSurface(srcSurface, default);
 
                     using var surfaceRef = Ref<SKSurface>.Create(newSurface);
-                    return new EffectTarget(surfaceRef, i.Bounds)
-                    {
-                        OriginalBounds = i.Bounds.WithX(0).WithY(0)
-                    };
+                    return new EffectTarget(surfaceRef, i.Bounds) { OriginalBounds = i.Bounds.WithX(0).WithY(0) };
                 }));
 
                 RenderCore(canvas, minNumber, null, targets);

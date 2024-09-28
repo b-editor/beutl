@@ -17,7 +17,7 @@ public sealed class PathFigure : Animatable, IAffectsRender
     public static readonly CoreProperty<PathSegments> SegmentsProperty;
     private bool _isClosed;
     private Point _startPoint = new(float.NaN, float.NaN);
-    private readonly PathSegments _segments = [];
+    private readonly PathSegments _segments;
 
     static PathFigure()
     {
@@ -37,6 +37,7 @@ public sealed class PathFigure : Animatable, IAffectsRender
 
     public PathFigure()
     {
+        _segments = new PathSegments(this);
         AnimationInvalidated += (_, e) => Invalidated?.Invoke(this, e);
         Segments.Invalidated += (_, e) => Invalidated?.Invoke(this, e);
     }

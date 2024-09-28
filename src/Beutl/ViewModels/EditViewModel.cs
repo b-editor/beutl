@@ -453,7 +453,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             {
                 Element element = CreateElementFor(out SourceImageOperator t);
                 BitmapSource.TryOpen(desc.FileName, out BitmapSource? image);
-                t.Source.Value = image;
+                t.Value.Source = image;
 
                 element.Save(element.FileName);
                 list.Add(Scene.AddChild(element));
@@ -465,12 +465,12 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 Element element2 = CreateElementFor(out SourceSoundOperator t2);
                 element2.ZIndex++;
                 VideoSource.TryOpen(desc.FileName, out VideoSource? video);
-                SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
-                t1.Source.Value = video;
-                t2.Source.Value = sound;
-
+                t1.Value.Source = video;
                 if (video != null)
                     element1.Length = video.Duration;
+
+                SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
+                t2.Value.Source = sound;
                 if (sound != null)
                     element2.Length = sound.Duration;
 
@@ -484,7 +484,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
             {
                 Element element = CreateElementFor(out SourceSoundOperator t);
                 SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
-                t.Source.Value = sound;
+                t.Value.Source = sound;
                 if (sound != null)
                 {
                     element.Length = sound.Duration;
