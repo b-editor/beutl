@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using Beutl.Graphics.Effects;
 using Beutl.Media;
+using Beutl.Media.Immutable;
 
 namespace Beutl.Graphics;
 
@@ -95,7 +96,16 @@ public sealed class DrawableDecorator : Drawable
     private Matrix GetTransformMatrix(Rect coreBounds)
     {
         Vector origin = TransformOrigin.ToPixels(coreBounds.Size);
-        Matrix offset = Matrix.CreateTranslation(origin) * Matrix.CreateTranslation(coreBounds.Position);
+        Matrix offset = Matrix.CreateTranslation(origin);
+        if (Child?.AlignmentX != AlignmentX.Left)
+        {
+            offset *= Matrix.CreateTranslation(coreBounds.Left, 0);
+        }
+
+        if (Child?.AlignmentY != AlignmentY.Top)
+        {
+            offset *= Matrix.CreateTranslation(0, coreBounds.Top);
+        }
 
         if (Transform is { IsEnabled: true })
         {

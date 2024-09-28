@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-
 using Beutl.Animation;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -196,6 +195,20 @@ public abstract class Shape : Drawable
         return new Vector(sx, sy);
     }
 
+    public override void Measure(Size availableSize)
+    {
+        Size size = MeasureCore(availableSize);
+        var rect = new Rect(size).Translate(CreatedGeometry?.Bounds.Position ?? default);
+        Matrix transform = GetTransformMatrix(availableSize, size);
+
+        if (FilterEffect != null)
+        {
+            rect = FilterEffect.TransformBounds(rect);
+        }
+
+        Bounds = rect.TransformToAABB(transform);
+    }
+
     protected override Size MeasureCore(Size availableSize)
     {
         Geometry? geometry = GetOrCreateGeometry();
@@ -245,6 +258,33 @@ public abstract class Shape : Drawable
         using (canvas.PushTransform(matrix))
         {
             canvas.DrawGeometry(geometry, Fill, Pen);
+        }
+    }
+
+    public override void Render(ICanvas canvas)
+    {
+        if (IsVisible)
+        {
+            Size availableSize = canvas.Size.ToSize(1);
+            Size size = MeasureCore(availableSize);
+            var rect = new Rect(size).Translate(CreatedGeometry?.Bounds.Position ?? default);
+            if (FilterEffect != null)
+            {
+                rect = FilterEffect.TransformBounds(rect);
+            }
+
+            Matrix transform = GetTransformMatrix(availableSize, size);
+            Rect transformedBounds = rect.TransformToAABB(transform);
+            using (canvas.PushBlendMode(BlendMode))
+            using (canvas.PushTransform(transform))
+            using (canvas.PushOpacity(Opacity / 100f))
+            using (FilterEffect == null ? new() : canvas.PushFilterEffect(FilterEffect))
+            using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
+            {
+                OnDraw(canvas);
+            }
+
+            Bounds = transformedBounds;
         }
     }
 
