@@ -38,7 +38,7 @@ public partial class OutputDialog : AppWindow
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        if (DataContext is OutputPageViewModel viewModel)
+        if (DataContext is OutputDialogViewModel viewModel)
         {
             viewModel.Restore();
         }
@@ -47,7 +47,7 @@ public partial class OutputDialog : AppWindow
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
-        if (DataContext is OutputPageViewModel viewModel)
+        if (DataContext is OutputDialogViewModel viewModel)
         {
             viewModel.Save();
         }
@@ -55,7 +55,7 @@ public partial class OutputDialog : AppWindow
 
     private async void OnAddClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is OutputPageViewModel viewModel)
+        if (DataContext is OutputDialogViewModel viewModel)
         {
             var dialogViewModel = new AddOutputQueueViewModel();
             var dialog = new AddOutputQueueDialog { DataContext = dialogViewModel };
@@ -69,7 +69,7 @@ public partial class OutputDialog : AppWindow
 
     private void OnRemoveClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is OutputPageViewModel viewModel)
+        if (DataContext is OutputDialogViewModel viewModel)
         {
             viewModel.RemoveSelected();
             viewModel.Save();

@@ -51,7 +51,7 @@ public sealed partial class ReleasePage : UserControl
 
     private DataContextFactory GetDataContextFactory()
     {
-        return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Develop.DataContextFactory;
+        return ((ExtensionsDialogViewModel)this.FindLogicalAncestorOfType<ExtensionsDialog>()!.DataContext!).Develop.DataContextFactory;
     }
 
     private void NavigatePackageDetailsPage_Click(object? sender, RoutedEventArgs e)

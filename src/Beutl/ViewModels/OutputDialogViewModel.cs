@@ -9,12 +9,12 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class OutputPageViewModel : BasePageViewModel, IPageContext
+public sealed class OutputDialogViewModel : BasePageViewModel, IToolWindowContext
 {
     private readonly OutputService _outputService;
-    private readonly ILogger _logger = Log.CreateLogger<OutputPageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<OutputDialogViewModel>();
 
-    public OutputPageViewModel()
+    public OutputDialogViewModel()
     {
         _outputService = OutputService.Current;
         CanRemove = SelectedItem
@@ -22,9 +22,7 @@ public sealed class OutputPageViewModel : BasePageViewModel, IPageContext
             .ToReadOnlyReactivePropertySlim();
     }
 
-    public PageExtension Extension => OutputPageExtension.Instance;
-
-    public string Header => Strings.Output;
+    public ToolWindowExtension Extension => OutputDialogExtension.Instance;
 
     public ICoreList<OutputQueueItem> Items => _outputService.Items;
 
