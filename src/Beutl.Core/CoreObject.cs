@@ -226,7 +226,7 @@ public abstract class CoreObject : ICoreObject
             return entryT.Value!;
         }
 
-        ReturnDefault:
+    ReturnDefault:
         return property.GetMetadata<CorePropertyMetadata<TValue>>(ownerType).DefaultValue!;
     }
 

@@ -35,7 +35,7 @@ public sealed class SourceSoundOperator() : PublishOperator<SourceSound>(
 
     public override IRecordableCommand? OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
     {
-        if(Value is null) return null;
+        if (Value is null) return null;
 
         if (backward)
         {
