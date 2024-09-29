@@ -144,17 +144,10 @@ public sealed class GlobalConfiguration
                 if (json["Editor"] is JsonObject editor)
                     Deserialize(EditorConfig, editor);
 
-                if (json["Version"] is JsonValue version)
+                if (json["Version"] is JsonValue version
+                    && version.TryGetValue(out string? versionString))
                 {
-                    if (version.TryGetValue(out string? versionString))
-                    {
-                        LastStartedVersion = versionString;
-                    }
-                }
-                else
-                {
-                    // Todo: 互換性維持のコード
-                    LastStartedVersion = "1.0.0-preview.1";
+                    LastStartedVersion = versionString;
                 }
             }
         }
