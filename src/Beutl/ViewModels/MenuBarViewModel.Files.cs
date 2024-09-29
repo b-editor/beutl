@@ -40,15 +40,15 @@ public partial class MenuBarViewModel
 
         OpenRecentFile.Subscribe(OpenFileCore);
 
-        OpenRecentProject.Subscribe(file =>
+        OpenRecentProject.Subscribe(async file =>
         {
             if (!File.Exists(file))
             {
                 NotificationService.ShowInformation("", Message.FileDoesNotExist);
             }
-            else if (ProjectService.Current.OpenProject(file) == null)
+            else
             {
-                NotificationService.ShowInformation("", Message.CouldNotOpenProject);
+                await ProjectService.Current.OpenProject(file);
             }
         });
     }
@@ -87,7 +87,7 @@ public partial class MenuBarViewModel
 
     public ReactiveCommandSlim<string> OpenRecentFile { get; } = new();
 
-    public ReactiveCommandSlim<string> OpenRecentProject { get; } = new();
+    public AsyncReactiveCommand<string> OpenRecentProject { get; } = new();
 
     public CoreList<string> RecentFileItems { get; } = [];
 

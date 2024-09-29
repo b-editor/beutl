@@ -24,6 +24,8 @@ public sealed class Project : Hierarchical, IStorable
     private readonly HierarchicalList<ProjectItem> _items;
     private readonly Dictionary<string, string> _variables = [];
 
+    public const string DefaultMinAppVersion = "1.0.0-preview.9";
+
     static Project()
     {
         AppVersionProperty = ConfigureProperty<string, Project>(nameof(AppVersion))
@@ -32,13 +34,13 @@ public sealed class Project : Hierarchical, IStorable
 
         MinAppVersionProperty = ConfigureProperty<string, Project>(nameof(MinAppVersion))
             .Accessor(o => o.MinAppVersion)
-            .DefaultValue("1.0.0-preview1")
+            .DefaultValue(DefaultMinAppVersion)
             .Register();
     }
 
     public Project()
     {
-        MinAppVersion = "1.0.0-preview1";
+        MinAppVersion = DefaultMinAppVersion;
         _items = new HierarchicalList<ProjectItem>(this);
         _items.CollectionChanged += Items_CollectionChanged;
     }
@@ -103,9 +105,6 @@ public sealed class Project : Hierarchical, IStorable
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Deserialize");
         base.Deserialize(context);
 
-        AppVersion = context.GetValue<string>("appVersion") ?? AppVersion;
-        MinAppVersion = context.GetValue<string>("minAppVersion") ?? MinAppVersion;
-
         SyncronizeScenes(context.GetValue<string[]>("items")!);
 
         if (context.GetValue<Dictionary<string, string>>("variables") is { } vars)
@@ -117,22 +116,22 @@ public sealed class Project : Hierarchical, IStorable
             }
         }
 
-        activity?.SetTag("appVersion", AppVersion);
-        activity?.SetTag("minAppVersion", MinAppVersion);
+        activity?.SetTag("appVersion", BeutlApplication.Version);
+        activity?.SetTag("minAppVersion", DefaultMinAppVersion);
         activity?.SetTag("itemsCount", Items.Count);
     }
 
     public override void Serialize(ICoreSerializationContext context)
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Serialize");
-        activity?.SetTag("appVersion", AppVersion);
-        activity?.SetTag("minAppVersion", MinAppVersion);
+        activity?.SetTag("appVersion", BeutlApplication.Version);
+        activity?.SetTag("minAppVersion", DefaultMinAppVersion);
         activity?.SetTag("itemsCount", Items.Count);
 
         base.Serialize(context);
 
-        context.SetValue("appVersion", AppVersion);
-        context.SetValue("minAppVersion", MinAppVersion);
+        context.SetValue("appVersion", BeutlApplication.Version);
+        context.SetValue("minAppVersion", DefaultMinAppVersion);
 
         context.SetValue("items", Items
             .Select(item => Path.GetRelativePath(RootDirectory, item.FileName).Replace('\\', '/')));
