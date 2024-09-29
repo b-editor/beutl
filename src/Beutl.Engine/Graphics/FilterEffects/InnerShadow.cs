@@ -1,12 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Nodes;
-
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Serialization;
-using Beutl.Serialization.Migration;
-
-using OpenCvSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -81,30 +75,5 @@ public class InnerShadow : FilterEffect
             context.InnerShadowOnly(Position, Sigma, Color);
         else
             context.InnerShadow(Position, Sigma, Color);
-    }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        // Todo: 互換性処理
-        if (context is IJsonSerializationContext jsonContext)
-        {
-            JsonObject json = jsonContext.GetJsonObject();
-
-            try
-            {
-                JsonNode? animations = json["Animations"] ?? json["animations"];
-                JsonNode? sigma = animations?[nameof(Sigma)];
-
-                if (sigma != null)
-                {
-                    Migration_ChangeSigmaType.Update(sigma);
-                }
-            }
-            catch
-            {
-            }
-        }
-
-        base.Deserialize(context);
     }
 }

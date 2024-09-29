@@ -89,29 +89,4 @@ public sealed class DropShadow : FilterEffect
 
         return _shadowOnly ? shadowBounds : bounds.Union(shadowBounds);
     }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        // Todo: 互換性処理
-        if (context is IJsonSerializationContext jsonContext)
-        {
-            JsonObject json = jsonContext.GetJsonObject();
-
-            try
-            {
-                JsonNode? animations = json["Animations"] ?? json["animations"];
-                JsonNode? sigma = animations?[nameof(Sigma)];
-
-                if (sigma != null)
-                {
-                    Migration_ChangeSigmaType.Update(sigma);
-                }
-            }
-            catch
-            {
-            }
-        }
-
-        base.Deserialize(context);
-    }
 }

@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json.Nodes;
 
 using Beutl.Media;
 using Beutl.Serialization;
@@ -54,7 +53,6 @@ public abstract class Animatable : Hierarchical, IAnimatable
         base.Deserialize(context);
         Dictionary<string, IAnimation>? animations
             = context.GetValue<Dictionary<string, IAnimation>>(nameof(Animations));
-        animations ??= context.GetValue<Dictionary<string, IAnimation>>("animations");
 
         if (animations != null)
         {

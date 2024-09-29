@@ -52,19 +52,19 @@ namespace Beutl
         /*
          * 名前空間とアセンブリ名が同じ場合
          * [Beutl.Graphics]:Point
-         * 
+         *
          * 型がグローバル空間にある場合
          * [Beutl.Graphics]global::Point
-         * 
+         *
          * 名前空間とアセンブリ名が途中まで同じ場合
          * [Beutl.Graphics].Shapes:Ellipse
-         * 
+         *
          * 名前空間とアセンブリ名が一致しない場合
          * [Beutl.Graphics]Beutl.Audio:Sound
-         * 
+         *
          * ジェネリック引数がある場合
          * [System.Collections].Generic:List<[System.Runtime]System:Int32>
-         * 
+         *
          * 入れ子になったクラス
          * [System.Net.Mail]System.Net.Mime:MediaTypeNames:Application
          */
@@ -98,27 +98,14 @@ namespace Beutl
 
             public TypeNameParser(List<Token> tokens, Func<string, Assembly?>? assemblyResolver = null)
             {
-                Assembly? DefaultAssemblyResolver(string s)
-                {
-#if !DEBUG
-#warning TypeFormatの互換性コードが残っている
-#endif
-                    if (s is "Beutl.Graphics")
-                    {
-                        s = "Beutl.Engine";
-                    }
-                    else if (s is "Beutl.Framework")
-                    {
-                        s = "Beutl.Extensibility";
-                    }
-
-
-                    //AssemblyLoadContext.Default.Assemblies
-                    return AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(x => x.GetName().Name == s);
-                }
-
                 _tokens = tokens;
                 _assemblyResolver = assemblyResolver ?? DefaultAssemblyResolver;
+            }
+
+            private static Assembly? DefaultAssemblyResolver(string s)
+            {
+                //AssemblyLoadContext.Default.Assemblies
+                return AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(x => x.GetName().Name == s);
             }
 
             public Type? Parse()

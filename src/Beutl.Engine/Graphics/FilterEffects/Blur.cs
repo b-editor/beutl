@@ -41,29 +41,4 @@ public sealed class Blur : FilterEffect
     {
         return bounds.Inflate(new Thickness(_sigma.Width * 3, _sigma.Height * 3));
     }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        // Todo: 互換性処理
-        if (context is IJsonSerializationContext jsonContext)
-        {
-            JsonObject json = jsonContext.GetJsonObject();
-
-            try
-            {
-                JsonNode? animations = json["Animations"] ?? json["animations"];
-                JsonNode? sigma = animations?[nameof(Sigma)];
-
-                if (sigma != null)
-                {
-                    Migration_ChangeSigmaType.Update(sigma);
-                }
-            }
-            catch
-            {
-            }
-        }
-
-        base.Deserialize(context);
-    }
 }

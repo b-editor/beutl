@@ -1,12 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Nodes;
-
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
-using Beutl.Serialization;
-using Beutl.Serialization.Migration;
-
 using OpenCvSharp;
 
 using SkiaSharp;
@@ -139,30 +134,5 @@ public class GaussianBlur : FilterEffect
     public override Rect TransformBounds(Rect rect)
     {
         return TransformBounds((KernelSize, Sigma, FixImageSize), rect);
-    }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        // Todo: 互換性処理
-        if (context is IJsonSerializationContext jsonContext)
-        {
-            JsonObject json = jsonContext.GetJsonObject();
-
-            try
-            {
-                JsonNode? animations = json["Animations"] ?? json["animations"];
-                JsonNode? sigma = animations?[nameof(Sigma)];
-
-                if (sigma != null)
-                {
-                    Migration_ChangeSigmaType.Update(sigma);
-                }
-            }
-            catch
-            {
-            }
-        }
-
-        base.Deserialize(context);
     }
 }
