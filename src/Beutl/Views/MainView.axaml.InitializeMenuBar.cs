@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -56,7 +57,7 @@ public partial class MainView
 
     private void InitializeRecentItems(MainViewModel viewModel)
     {
-        void AddItem(AvaloniaList<MenuItem> list, string item, ReactiveCommandSlim<string> command)
+        void AddItem(AvaloniaList<MenuItem> list, string item, ICommand command)
         {
             MenuItem menuItem = _menuItemCache.Get() ?? new MenuItem();
             menuItem.Command = command;
@@ -220,10 +221,7 @@ public partial class MainView
             if (result.Count > 0
                 && result[0].TryGetLocalPath() is string localPath)
             {
-                if (ProjectService.Current.OpenProject(localPath) == null)
-                {
-                    NotificationService.ShowInformation("", Message.CouldNotOpenProject);
-                }
+                await ProjectService.Current.OpenProject(localPath);
             }
         }
     }

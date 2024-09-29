@@ -16,6 +16,7 @@ using DynamicData.Binding;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.Logging;
+using NuGet.Versioning;
 using Reactive.Bindings.Extensions;
 using ReactiveUI;
 
@@ -99,7 +100,7 @@ public sealed partial class MainView : UserControl
         }
     }
 
-    private void OnParentWindowOpened(object? sender, EventArgs e)
+    private async void OnParentWindowOpened(object? sender, EventArgs e)
     {
         var topLevel = (TopLevel)sender!;
         topLevel.Opened -= OnParentWindowOpened;
@@ -123,12 +124,34 @@ public sealed partial class MainView : UserControl
             InitExtMenuItems(viewModel);
         }
 
-        ShowTelemetryDialog();
+        await ShowTelemetryDialog();
+        await CheckDifferentVersion();
 
         _logger.LogInformation("Window opened.");
     }
 
-    private static async void ShowTelemetryDialog()
+    private static async Task CheckDifferentVersion()
+    {
+        if (NuGetVersion.TryParse(GlobalConfiguration.Instance.LastStartedVersion, out var lastStartedVersion) &&
+            NuGetVersion.TryParse(BeutlApplication.Version, out var currentVersion))
+        {
+            if (lastStartedVersion.IsPrerelease || currentVersion.IsPrerelease)
+            {
+                if (lastStartedVersion < currentVersion)
+                {
+                    var dialog = new ContentDialog
+                    {
+                        Title = Message.CheckDifferentVersion_Title,
+                        Content = Message.CheckDifferentVersion_Content,
+                        PrimaryButtonText = Strings.Close
+                    };
+                    await dialog.ShowAsync();
+                }
+            }
+        }
+    }
+
+    private static async Task ShowTelemetryDialog()
     {
         TelemetryConfig tconfig = GlobalConfiguration.Instance.TelemetryConfig;
         if (!(tconfig.Beutl_Api_Client.HasValue
@@ -186,10 +209,7 @@ public sealed partial class MainView : UserControl
         {
             var menuItem = new MenuItem()
             {
-                Header = item.DisplayName,
-                DataContext = item,
-                IsVisible = false,
-                Icon = item.GetIcon()
+                Header = item.DisplayName, DataContext = item, IsVisible = false, Icon = item.GetIcon()
             };
 
             menuItem.Click += async (s, e) =>
@@ -269,9 +289,7 @@ public sealed partial class MainView : UserControl
         {
             var menuItem = new MenuItem()
             {
-                Header = item.DisplayName,
-                DataContext = item,
-                Icon = item.GetRegularIcon()
+                Header = item.DisplayName, DataContext = item, Icon = item.GetRegularIcon()
             };
 
             menuItem.Click += async (s, e) =>

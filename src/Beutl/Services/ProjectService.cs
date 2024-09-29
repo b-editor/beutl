@@ -1,14 +1,14 @@
 ﻿using System.Reactive.Subjects;
-
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
-
+using NuGet.Versioning;
 using OpenTelemetry.Trace;
-
 using Reactive.Bindings;
 
 namespace Beutl.Services;
@@ -35,12 +35,42 @@ public sealed class ProjectService
 
     public IReadOnlyReactiveProperty<bool> IsOpened => _isOpened;
 
-    public Project? OpenProject(string file)
+    private static async Task<(NuGetVersion AppVersion, NuGetVersion MinVersion)> GetProjectVersion(string file)
     {
-        using Activity? activity = Telemetry.StartActivity("OpenProject");
+        await using var stream = File.OpenRead(file);
+        var node = await JsonNode.ParseAsync(stream);
+        string? appVersion = (string?)node?["appVersion"];
+        string? minAppVersion = (string?)node?["minAppVersion"];
+        if (appVersion == null || minAppVersion == null)
+        {
+            throw new InvalidOperationException("The project file does not contain version information.");
+        }
+
+        return (NuGetVersion.Parse(appVersion), NuGetVersion.Parse(minAppVersion));
+    }
+
+    public async Task OpenProject(string file)
+    {
+        using Activity? activity = Telemetry.StartActivity();
         try
         {
             CloseProject();
+
+            (NuGetVersion appVersion, NuGetVersion minVersion) = await GetProjectVersion(file);
+            activity?.SetTag(nameof(appVersion), appVersion.ToString());
+            activity?.SetTag(nameof(minVersion), minVersion.ToString());
+            if (minVersion > NuGetVersion.Parse(BeutlApplication.Version) &&
+                !Preferences.Default.Get("ProjectService.SkipVersionCheck", false))
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = Message.ProjectVersionMismatch_Title,
+                    Content = string.Format(Message.ProjectVersionMismatch_Content, minVersion),
+                    PrimaryButtonText = Strings.Close
+                };
+                await dialog.ShowAsync();
+                return;
+            }
 
             var project = new Project();
             project.Restore(file);
@@ -50,14 +80,12 @@ public sealed class ProjectService
             _projectObservable.OnNext((New: project, null));
 
             AddToRecentProjects(file);
-
-            return project;
         }
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to open the project.");
-            return null;
+            NotificationService.ShowInformation("", Message.CouldNotOpenProject);
         }
     }
 
@@ -74,7 +102,7 @@ public sealed class ProjectService
 
     public Project? CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
     {
-        using Activity? activity = Telemetry.StartActivity("CreateProject");
+        using Activity? activity = Telemetry.StartActivity();
         activity?.SetTag(nameof(width), width);
         activity?.SetTag(nameof(height), height);
         activity?.SetTag(nameof(framerate), framerate);
@@ -88,10 +116,7 @@ public sealed class ProjectService
             ProjectItemContainer.Current.Add(scene);
             var project = new Project()
             {
-                Items =
-                {
-                    scene
-                },
+                Items = { scene },
                 Variables =
                 {
                     [ProjectVariableKeys.FrameRate] = framerate.ToString(),

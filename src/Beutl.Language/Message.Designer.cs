@@ -416,5 +416,29 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("File_is_not_selected", resourceCulture);
             }
         }
+        
+        public static string CheckDifferentVersion_Title {
+            get {
+                return ResourceManager.GetString("CheckDifferentVersion_Title", resourceCulture);
+            }
+        }
+        
+        public static string CheckDifferentVersion_Content {
+            get {
+                return ResourceManager.GetString("CheckDifferentVersion_Content", resourceCulture);
+            }
+        }
+        
+        public static string ProjectVersionMismatch_Title {
+            get {
+                return ResourceManager.GetString("ProjectVersionMismatch_Title", resourceCulture);
+            }
+        }
+        
+        public static string ProjectVersionMismatch_Content {
+            get {
+                return ResourceManager.GetString("ProjectVersionMismatch_Content", resourceCulture);
+            }
+        }
     }
 }

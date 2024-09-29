@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
@@ -81,7 +82,7 @@ public sealed partial class MacWindow : Window
 
     private void InitializeRecentItems(MainViewModel viewModel)
     {
-        void AddItem(NativeMenu list, string item, ReactiveCommandSlim<string> command)
+        void AddItem(NativeMenu list, string item, ICommand command)
         {
             var menuItem = new NativeMenuItem { Command = command, CommandParameter = item, Header = item };
             list.Add(menuItem);
