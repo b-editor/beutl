@@ -3,38 +3,13 @@ using System.Text;
 
 namespace Beutl.Media.TextFormatting;
 
-public struct FormattedTextTokenizer(string str)
+public readonly struct FormattedTextTokenizer(string str)
 {
-    public bool CompatMode { get; set; } = false;
-
-    public int LineCount { get; private set; } = 0;
-
     public List<Token> Result { get; } = [];
 
     public void Tokenize()
     {
-        int lineCount = CompatMode ? 0 : 1;
-
-        if (!CompatMode)
-        {
-            Tokenize(new StringSpan(str, 0, str.Length));
-        }
-        else
-        {
-            ReadOnlySpan<char> span = str.AsSpan();
-            foreach (ReadOnlySpan<char> linesp in span.EnumerateLines())
-            {
-                int start = span.IndexOf(linesp, StringComparison.Ordinal);
-                int len = linesp.Length;
-
-                Tokenize(new StringSpan(str, start, len));
-
-                Result.Add(new Token(StringSpan.Empty, TokenType.NewLine));
-                lineCount++;
-            }
-        }
-
-        LineCount = lineCount;
+        Tokenize(new StringSpan(str, 0, str.Length));
     }
 
     public void WriteTo(StringBuilder sb)
@@ -90,7 +65,7 @@ public struct FormattedTextTokenizer(string str)
         int tagEnd = span.IndexOf(">", StringComparison.Ordinal);
 
         bool isMatch = tagStart >= 0 && tagEnd >= 0 &&
-            tagStart < tagEnd;
+                       tagStart < tagEnd;
 
         if (isMatch)
         {
@@ -124,6 +99,7 @@ public struct FormattedTextTokenizer(string str)
             {
                 return "newline";
             }
+
             return Text.AsSpan().ToString();
         }
     }
