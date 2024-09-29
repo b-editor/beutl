@@ -1,10 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Nodes;
-
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Serialization;
-using Beutl.Serialization.Migration;
 
 namespace Beutl.Graphics.Effects;
 
