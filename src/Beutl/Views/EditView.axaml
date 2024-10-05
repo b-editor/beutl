@@ -42,6 +42,7 @@
     </UserControl.Resources>
     <dock:ReDockHost Name="DockHost"
                      ButtonDisplayModeChanged="OnSideBarButtonDisplayModeChanged"
+                     ButtonFlyoutRequested="OnSideBarButtonFlyoutRequested"
                      ButtonMove="OnSideBarButtonDrop"
                      IsFloatingEnabled="False">
         <dock:ReDockHost.DockAreas>

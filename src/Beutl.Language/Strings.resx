@@ -1249,4 +1249,7 @@ and b-editor maintains the download URL.</value>
   <data name="DockArea_TopRight" xml:space="preserve">
     <value>Top Right</value>
   </data>
+  <data name="MoveTo" xml:space="preserve">
+    <value>Move to</value>
+  </data>
 </root>
