@@ -22,7 +22,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     {
         Value = property.GetObservable()
             .Select(x => x as IBrush)
-            .ToReadOnlyReactivePropertySlim()
+            .ToReadOnlyReactiveProperty()
             .DisposeWith(Disposables);
 
         AvaloniaBrush = new ReactiveProperty<Avalonia.Media.Brush?>();
@@ -78,7 +78,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         }
     }
 
-    public ReadOnlyReactivePropertySlim<IBrush?> Value { get; }
+    public ReadOnlyReactiveProperty<IBrush?> Value { get; }
 
     public ReactiveProperty<Avalonia.Media.Brush?> AvaloniaBrush { get; }
 

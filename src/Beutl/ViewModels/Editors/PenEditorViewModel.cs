@@ -20,7 +20,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     {
         Value = property.GetObservable()
             .Select(x => x as IPen)
-            .ToReadOnlyReactivePropertySlim()
+            .ToReadOnlyReactiveProperty()
             .DisposeWith(Disposables);
 
         Value.Subscribe(Update)
@@ -93,7 +93,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new(false);
 
-    public ReadOnlyReactivePropertySlim<IPen?> Value { get; }
+    public ReadOnlyReactiveProperty<IPen?> Value { get; }
 
     public CoreList<IPropertyEditorContext> MajorProperties { get; } = [];
 

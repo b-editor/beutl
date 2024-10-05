@@ -13,11 +13,11 @@ public sealed class StorageFileEditorViewModel : BaseEditorViewModel<FileInfo>
         : base(property)
     {
         Value = property.GetObservable()
-            .ToReadOnlyReactivePropertySlim()
+            .ToReadOnlyReactiveProperty()
             .DisposeWith(Disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<FileInfo?> Value { get; }
+    public ReadOnlyReactiveProperty<FileInfo?> Value { get; }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {

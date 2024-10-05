@@ -6,7 +6,7 @@ public interface IParsableEditorViewModel
 {
     ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
-    ReadOnlyReactivePropertySlim<string> Value { get; }
+    ReadOnlyReactiveProperty<string> Value { get; }
 
     string Header { get; }
 }
@@ -19,9 +19,9 @@ public sealed class ParsableEditorViewModel<T> : BaseEditorViewModel<T>, IParsab
     {
         Value = property.GetObservable()
             .Select(x => x?.ToString() ?? "")
-            .ToReadOnlyReactivePropertySlim()
+            .ToReadOnlyReactiveProperty()
             .DisposeWith(Disposables)!;
     }
 
-    public ReadOnlyReactivePropertySlim<string> Value { get; }
+    public ReadOnlyReactiveProperty<string> Value { get; }
 }
