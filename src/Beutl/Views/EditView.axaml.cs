@@ -55,7 +55,7 @@ public sealed partial class EditView : UserControl
     {
     }
 
-    private ReactiveCollection<ToolTabViewModel> GetItemsSource(DockAreaLocation location)
+    internal ReactiveCollection<ToolTabViewModel> GetItemsSource(DockAreaLocation location)
     {
         var sideBar = DockHost.DockAreas.FirstOrDefault(i => i.SideBar?.Location == location.LeftRight)?.SideBar;
 
@@ -155,5 +155,21 @@ public sealed partial class EditView : UserControl
         }
 
         e.Handled = true;
+    }
+
+    private void OnSideBarButtonFlyoutRequested(object? sender, SideBarButtonFlyoutRequestedEventArgs e)
+    {
+        e.Handled = true;
+        var flyout = new CustomSideBarButtonMenuFlyout(e.DockHost);
+        if (e.Button.DockLocation?.LeftRight == SideBarLocation.Left)
+        {
+            flyout.Placement = PlacementMode.Right;
+        }
+        else
+        {
+            flyout.Placement = PlacementMode.Left;
+        }
+
+        flyout.ShowAt(e.Button);
     }
 }

@@ -221,11 +221,19 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         _logger.LogInformation("CloseToolTab {ToolName}", item.Extension.Name);
         try
         {
+            item.IsSelected.Value = false;
             foreach (ReactiveCollection<ToolTabViewModel> tools in GetNestedTools())
             {
                 if (tools.FirstOrDefault(x => x.Context == item) is { } found)
                 {
+                    int index = tools.IndexOf(found);
                     tools.Remove(found);
+                    index = Math.Min(index, tools.Count - 1);
+                    if (0 <= index && index < tools.Count)
+                    {
+                        tools[index].Context.IsSelected.Value = true;
+                    }
+
                     break;
                 }
             }

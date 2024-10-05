@@ -2306,5 +2306,11 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("DockArea_TopRight", resourceCulture);
             }
         }
+        
+        public static string MoveTo {
+            get {
+                return ResourceManager.GetString("MoveTo", resourceCulture);
+            }
+        }
     }
 }

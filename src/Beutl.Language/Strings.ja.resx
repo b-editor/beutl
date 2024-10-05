@@ -1249,4 +1249,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="DockArea_TopRight" xml:space="preserve">
     <value>上 右</value>
   </data>
+  <data name="MoveTo" xml:space="preserve">
+    <value>移動</value>
+  </data>
 </root>
