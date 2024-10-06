@@ -97,7 +97,6 @@ public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
             {
                 using (var paint = new SKPaint())
                 {
-                    paint.BlendMode = (SKBlendMode)canvas.BlendMode;
                     paint.ImageFilter = builder.GetFilter();
 
                     foreach (EffectTarget t in activator.CurrentTargets)

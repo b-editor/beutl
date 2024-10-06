@@ -34,11 +34,13 @@ public partial class ImmediateCanvas
             }
         }
 
-        internal record BlendModePushedState(BlendMode BlendMode) : CanvasPushedState
+        internal record BlendModePushedState(BlendMode BlendMode, int Count, SKPaint Paint) : CanvasPushedState
         {
             public override void Pop(ImmediateCanvas canvas)
             {
+                canvas.Canvas.RestoreToCount(Count);
                 canvas.BlendMode = BlendMode;
+                Paint.Dispose();
             }
         }
 

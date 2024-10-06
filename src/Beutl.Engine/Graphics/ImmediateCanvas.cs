@@ -169,7 +169,6 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     {
         _sharedFillPaint.Reset();
         _sharedFillPaint.IsAntialias = true;
-        _sharedFillPaint.BlendMode = (SKBlendMode)BlendMode;
 
         Canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
     }
@@ -537,7 +536,11 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         VerifyAccess();
         BlendMode tmp = BlendMode;
         BlendMode = blendMode;
-        _states.Push(new CanvasPushedState.BlendModePushedState(tmp));
+        var paint = new SKPaint();
+        paint.BlendMode = (SKBlendMode)blendMode;
+
+        int count = Canvas.SaveLayer(paint);
+        _states.Push(new CanvasPushedState.BlendModePushedState(tmp, count, paint));
         return new PushedState(this, _states.Count);
     }
 
@@ -553,7 +556,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         _dispatcher?.VerifyAccess();
     }
 
-    private void ConfigureStrokePaint(Rect bounds, IPen? pen)
+    private void ConfigureStrokePaint(Rect bounds, IPen? pen, BlendMode blendMode = BlendMode.SrcOver)
     {
         _sharedStrokePaint.Reset();
 
@@ -608,13 +611,13 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
                 _sharedStrokePaint.PathEffect = pe;
             }
 
-            new BrushConstructor(original, pen.Brush, BlendMode, this).ConfigurePaint(_sharedStrokePaint);
+            new BrushConstructor(original, pen.Brush, blendMode, this).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
-    private void ConfigureFillPaint(Rect bounds, IBrush? brush)
+    private void ConfigureFillPaint(Rect bounds, IBrush? brush, BlendMode blendMode = BlendMode.SrcOver)
     {
         _sharedFillPaint.Reset();
-        new BrushConstructor(bounds, brush, BlendMode, this).ConfigurePaint(_sharedFillPaint);
+        new BrushConstructor(bounds, brush, blendMode, this).ConfigurePaint(_sharedFillPaint);
     }
 }
