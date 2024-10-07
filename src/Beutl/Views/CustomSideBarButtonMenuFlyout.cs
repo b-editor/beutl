@@ -70,7 +70,9 @@ public class CustomSideBarButtonMenuFlyout : MenuFlyout
         {
             var args = new SideBarButtonDisplayModeChangedEventArgs(ReDockHost.ButtonDisplayModeChangedEvent, this)
             {
-                DisplayMode = mode, Item = button.DataContext, Button = button
+                DisplayMode = mode,
+                Item = button.DataContext,
+                Button = button
             };
             _dockHost.RaiseEvent(args);
         }
