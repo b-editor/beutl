@@ -25,6 +25,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         WaveReaderExtension.Instance,
         PathEditorTabExtension.Instance,
         LibraryTabExtension.Instance,
+        AnimatedImageReaderExtension.Instance,
     ];
 
     public LoadPrimitiveExtensionTask(PackageManager manager)
