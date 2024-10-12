@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Media;
 using Beutl.Media.Source;
 
 namespace Beutl.Graphics;
@@ -111,7 +112,7 @@ public class SourceVideo : Drawable
             Rational rate = _source.FrameRate;
             double frameNum = pos.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
 
-            canvas.DrawVideoSource(_source, (int)frameNum, Fill, null);
+            canvas.DrawVideoSource(_source, (int)frameNum, Brushes.White, null);
         }
     }
 }
