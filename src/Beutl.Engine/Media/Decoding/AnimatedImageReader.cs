@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Graphics;
 using Beutl.Media.Music;
-using Beutl.Media.Pixel;
 using SkiaSharp;
 
 namespace Beutl.Media.Decoding;
@@ -11,6 +11,7 @@ public class AnimatedImageReader : MediaReader
     private readonly SKCodecFrameInfo[] _frameInfo;
     private readonly int _frameCount;
     private readonly int _repetitionCount;
+    private Frame? _lastFrame;
 
     public AnimatedImageReader(string file)
     {
@@ -77,14 +78,71 @@ public class AnimatedImageReader : MediaReader
         if (detectedFrame == -1)
             return false;
 
-        var bitmap = new Bitmap<Bgra8888>(VideoInfo.FrameSize.Width, VideoInfo.FrameSize.Height);
-        var imageInfo = new SKImageInfo(bitmap.Width, bitmap.Height, SKColorType.Bgra8888);
-        var result = _codec.GetPixels(imageInfo, bitmap.Data, new SKCodecOptions(detectedFrame));
-        if (result != SKCodecResult.Success)
-            return false;
+        if (_lastFrame?.Index == detectedFrame)
+        {
+            image = _lastFrame.Bitmap.ToBitmap();
+            return true;
+        }
 
-        image = bitmap;
+        var bitmap = RenderBitmap(detectedFrame);
+        var disposalMethod = _frameInfo[detectedFrame].DisposalMethod;
+        if (disposalMethod != SKCodecAnimationDisposalMethod.RestoreBackgroundColor)
+        {
+            _lastFrame = new Frame(bitmap, disposalMethod, detectedFrame);
+        }
+        else
+        {
+            _lastFrame?.Dispose();
+            _lastFrame = null;
+        }
+
+        image = bitmap.ToBitmap();
         return true;
+    }
+
+    private SKBitmap RenderBitmap(int index)
+    {
+        if (index < 0 || index >= _frameCount)
+            throw new ArgumentOutOfRangeException(nameof(index));
+
+        var stack = new Stack<(SKCodecFrameInfo, int)>();
+        for (int i = index; i >= 0; i--)
+        {
+            var info = _frameInfo[i];
+            if (i != index && info.DisposalMethod == SKCodecAnimationDisposalMethod.RestoreBackgroundColor)
+                break;
+
+            if (_lastFrame is not null &&
+                _lastFrame.Index == i)
+            {
+                stack.Push((info, i));
+                break;
+            }
+
+            stack.Push((info, i));
+        }
+
+        var frameBitmap = new SKBitmap(_codec!.Info);
+        using var canvas = new SKCanvas(frameBitmap);
+        foreach ((SKCodecFrameInfo info, int i) in stack)
+        {
+            if (_lastFrame is not null &&
+                _lastFrame.Index == i)
+            {
+                canvas.DrawBitmap(_lastFrame.Bitmap, 0, 0);
+                continue;
+            }
+
+            using var tmp = new SKBitmap(_codec!.Info.WithAlphaType(info.AlphaType));
+            var result = _codec.GetPixels(tmp.Info, tmp.GetPixels(),
+                new SKCodecOptions(i) { ZeroInitialized = SKZeroInitialized.Yes });
+            if (result != SKCodecResult.Success)
+                throw new Exception($"Failed to decode frame {i}: {result}");
+
+            canvas.DrawBitmap(tmp, 0, 0);
+        }
+
+        return frameBitmap;
     }
 
     public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
@@ -98,5 +156,15 @@ public class AnimatedImageReader : MediaReader
         base.Dispose(disposing);
         _codec?.Dispose();
         _codec = null;
+        _lastFrame?.Dispose();
+        _lastFrame = null;
+    }
+
+    private record Frame(SKBitmap Bitmap, SKCodecAnimationDisposalMethod DisposalMethod, int Index) : IDisposable
+    {
+        public void Dispose()
+        {
+            Bitmap.Dispose();
+        }
     }
 }
