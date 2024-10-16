@@ -107,6 +107,12 @@ public sealed partial class SettingsDialog : AppWindow
             },
             new NavigationViewItem()
             {
+                Content = "Key map",
+                Tag = typeof(KeyMapSettingsPage),
+                IconSource = new SymbolIconSource { Symbol = Symbol.Keyboard }
+            },
+            new NavigationViewItem()
+            {
                 Content = Strings.Font,
                 Tag = typeof(FontSettingsPage),
                 IconSource = new SymbolIconSource { Symbol = Symbol.Font }
@@ -169,6 +175,7 @@ public sealed partial class SettingsDialog : AppWindow
                 "ExtensionsSettingsPage" => settingsPage.ExtensionsPage,
                 "StorageSettingsPage" => settingsPage.Storage,
                 "InfomationPage" => settingsPage.Infomation,
+                "KeyMapSettingsPage" => settingsPage.KeyMap,
                 _ => null,
             };
 
@@ -203,6 +210,7 @@ public sealed partial class SettingsDialog : AppWindow
             if (pagetype == typeof(AccountSettingsPage)
                 || pagetype == typeof(ViewSettingsPage)
                 || pagetype == typeof(EditorSettingsPage)
+                || pagetype == typeof(KeyMapSettingsPage)
                 || pagetype == typeof(FontSettingsPage)
                 || pagetype == typeof(ExtensionsSettingsPage)
                 || pagetype == typeof(StorageSettingsPage)
@@ -231,11 +239,12 @@ public sealed partial class SettingsDialog : AppWindow
                 "AccountSettingsPage" => 0,
                 "ViewSettingsPage" => 1,
                 "EditorSettingsPage" => 2,
-                "FontSettingsPage" => 3,
+                "KeyMapSettingsPage" => 3,
+                "FontSettingsPage" => 4,
                 "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage"
-                    or "AnExtensionSettingsPage" => 4,
-                "StorageSettingsPage" or "StorageDetailPage" => 5,
-                "InfomationPage" or "TelemetrySettingsPage" => 6,
+                    or "AnExtensionSettingsPage" => 5,
+                "StorageSettingsPage" or "StorageDetailPage" => 6,
+                "InfomationPage" or "TelemetrySettingsPage" => 7,
                 _ => 0,
             };
         }
@@ -247,6 +256,7 @@ public sealed partial class SettingsDialog : AppWindow
                 "AccountSettingsPageViewModel" => typeof(AccountSettingsPage),
                 "ViewSettingsPageViewModel" => typeof(ViewSettingsPage),
                 "EditorSettingsPageViewModel" => typeof(EditorSettingsPage),
+                "KeyMapSettingsPageViewModel" => typeof(KeyMapSettingsPage),
                 "FontSettingsPageViewModel" => typeof(FontSettingsPage),
                 "ExtensionsSettingsPageViewModel" => typeof(ExtensionsSettingsPage),
                 "EditorExtensionPriorityPageViewModel" => typeof(EditorExtensionPriorityPage),
