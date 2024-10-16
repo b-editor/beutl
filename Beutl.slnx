@@ -1,0 +1,59 @@
+﻿<Solution>
+  <Folder Name="/Build/" />
+  <Folder Name="/Build/Props/">
+    <File Path="build\props\CoreLibraries.props" />
+  </Folder>
+  <Folder Name="/GitHub/">
+    <File Path=".github\dependabot.yml" />
+  </Folder>
+  <Folder Name="/GitHub/Workflows/">
+    <File Path=".github\workflows\daily-build.yml" />
+    <File Path=".github\workflows\dotnet.yml" />
+    <File Path=".github\workflows\release.yml" />
+  </Folder>
+  <Folder Name="/Root/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Build.targets" />
+    <File Path="Directory.Packages.props" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+    <File Path="version.json" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="tests\Beutl.Benchmarks\Beutl.Benchmarks.csproj" />
+    <Project Path="tests\Beutl.UnitTests\Beutl.UnitTests.csproj" />
+    <Project Path="tests\DirectoryViewTest\DirectoryViewTest.csproj" />
+    <Project Path="tests\EnumerateFontFamilies\EnumerateFontFamilies.csproj" />
+    <Project Path="tests\KeySplineEditor\KeySplineEditor.csproj" />
+    <Project Path="tests\PackageSample\PackageSample.csproj" />
+    <Project Path="tests\PropertyEditorViewTests\PropertyEditorViewTests.csproj" />
+    <Project Path="tests\TextFormattingPlayground\TextFormattingPlayground.csproj" />
+    <Project Path="tests\XamlPreview\XamlPreview.csproj" />
+    <File Path="tests\ArtifactProvider.cs" />
+    <File Path="tests\Directory.Build.props" />
+  </Folder>
+  <Project Path="nukebuild\_build.csproj" />
+  <Project Path="src\Beutl.Api.Generated\Beutl.Api.Generated.csproj" />
+  <Project Path="src\Beutl.Api\Beutl.Api.csproj" />
+  <Project Path="src\Beutl.Configuration\Beutl.Configuration.csproj" />
+  <Project Path="src\Beutl.Controls\Beutl.Controls.csproj" />
+  <Project Path="src\Beutl.Core\Beutl.Core.csproj" />
+  <Project Path="src\Beutl.Engine\Beutl.Engine.csproj" />
+  <Project Path="src\Beutl.ExceptionHandler\Beutl.ExceptionHandler.csproj" />
+  <Project Path="src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
+  <Project Path="src\Beutl.Extensions.AVFoundation\Beutl.Extensions.AVFoundation.csproj" />
+  <Project Path="src\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
+  <Project Path="src\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
+  <Project Path="src\Beutl.Language\Beutl.Language.csproj" />
+  <Project Path="src\Beutl.Operators\Beutl.Operators.csproj" />
+  <Project Path="src\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj" />
+  <Project Path="src\Beutl.PackageTools\Beutl.PackageTools.csproj" />
+  <Project Path="src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
+  <Project Path="src\Beutl.Threading\Beutl.Threading.csproj" />
+  <Project Path="src\Beutl.Utilities\Beutl.Utilities.csproj" />
+  <Project Path="src\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
+  <Project Path="src\Beutl\Beutl.csproj" />
+</Solution>
