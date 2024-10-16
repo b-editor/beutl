@@ -106,12 +106,10 @@
                     <ContentPresenter Name="ExpandedContentPresenter"
                                       Grid.Row="2"
                                       Grid.ColumnSpan="4"
-                                      Padding="{TemplateBinding Padding}"
                                       HorizontalAlignment="Stretch"
                                       VerticalAlignment="Stretch"
                                       HorizontalContentAlignment="Stretch"
                                       VerticalContentAlignment="Stretch"
-                                      Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                                       BorderBrush="{TemplateBinding BorderBrush}"
                                       BorderThickness="1,0,1,1"
                                       Content="{TemplateBinding Content}" />
@@ -128,6 +126,8 @@
         </Style>
         <Style Selector="^ /template/ ContentPresenter#ExpandedContentPresenter">
             <Setter Property="IsVisible" Value="False" />
+            <Setter Property="Padding" Value="{TemplateBinding Padding}" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
         </Style>
         <Style Selector="^ /template/ Border#LayoutRoot">
             <Setter Property="Transitions">
