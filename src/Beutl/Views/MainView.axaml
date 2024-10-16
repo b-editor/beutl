@@ -2,9 +2,11 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:h="using:Beutl.Helpers"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:p="using:Beutl.Services.PrimitiveImpls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:views="using:Beutl.Views"
              xmlns:vm="using:Beutl.ViewModels"
@@ -59,11 +61,13 @@
                         <!--  プロジェクト  -->
                         <MenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
                                   Header="{x:Static lang:Strings.CreateNewProject}"
-                                  InputGesture="{DynamicResource CreateNewProjectKeyGesture}" />
+                                  InputGesture="{h:GetCommandGesture CreateNewProject,
+                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
                         <!--  ファイル  -->
                         <MenuItem Command="{CompiledBinding MenuBar.CreateNew}"
                                   Header="{x:Static lang:Strings.CreateNewScene}"
-                                  InputGesture="{DynamicResource CreateNewKeyGesture}" />
+                                  InputGesture="{h:GetCommandGesture CreateNewFile,
+                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
                     </MenuItem>
                     <Separator />
                     <!--  開く  -->
@@ -74,11 +78,13 @@
                         <!--  プロジェクト  -->
                         <MenuItem Command="{CompiledBinding MenuBar.OpenProject}"
                                   Header="{x:Static lang:Strings.Project}"
-                                  InputGesture="{DynamicResource OpenProjectKeyGesture}" />
+                                  InputGesture="{h:GetCommandGesture OpenProject,
+                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
                         <!--  ファイル  -->
                         <MenuItem Command="{CompiledBinding MenuBar.OpenFile}"
                                   Header="{x:Static lang:Strings.File}"
-                                  InputGesture="{DynamicResource OpenKeyGesture}" />
+                                  InputGesture="{h:GetCommandGesture OpenFile,
+                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
                     </MenuItem>
                     <Separator />
                     <!--  閉じる  -->
@@ -91,7 +97,8 @@
                     <!--  上書き保存  -->
                     <MenuItem Command="{CompiledBinding MenuBar.Save}"
                               Header="{x:Static lang:Strings.Save}"
-                              InputGesture="{DynamicResource SaveKeyGesture}"
+                              InputGesture="{h:GetCommandGesture Save,
+                                                                 ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="Save" />
@@ -100,7 +107,8 @@
                     <!--  すべて保存  -->
                     <MenuItem Command="{CompiledBinding MenuBar.SaveAll}"
                               Header="{x:Static lang:Strings.SaveAll}"
-                              InputGesture="{DynamicResource SaveAllKeyGesture}"
+                              InputGesture="{h:GetCommandGesture SaveAll,
+                                                                 ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="SaveMultiple" />
@@ -117,14 +125,16 @@
                     <!--  終了  -->
                     <MenuItem Command="{CompiledBinding MenuBar.Exit}"
                               Header="{x:Static lang:Strings.Exit}"
-                              InputGesture="{DynamicResource ExitKeyGesture}" />
+                              InputGesture="{h:GetCommandGesture Exit,
+                                                                 ExtensionType={x:Type p:MainViewExtension}}" />
                 </MenuItem>
                 <!--  編集  -->
                 <MenuItem Header="{x:Static lang:Strings.Edit}">
                     <!--  元に戻す  -->
                     <MenuItem Command="{CompiledBinding MenuBar.Undo}"
                               Header="{x:Static lang:Strings.Undo}"
-                              InputGesture="{DynamicResource UndoKeyGesture}"
+                              InputGesture="{h:GetCommandGesture Undo,
+                                                                 ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="ArrowUndo" />
@@ -133,7 +143,8 @@
                     <!--  やり直し  -->
                     <MenuItem Command="{CompiledBinding MenuBar.Redo}"
                               Header="{x:Static lang:Strings.Redo}"
-                              InputGesture="{DynamicResource RedoKeyGesture}"
+                              InputGesture="{h:GetCommandGesture Redo,
+                                                                 ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="ArrowRedo" />

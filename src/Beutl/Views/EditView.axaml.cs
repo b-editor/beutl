@@ -30,27 +30,6 @@ public sealed partial class EditView : UserControl
         }
     }
 
-    protected override void OnKeyDown(KeyEventArgs e)
-    {
-        base.OnKeyDown(e);
-        if (DataContext is EditViewModel viewModel)
-        {
-            // TextBox.OnKeyDown で e.Handled が True に設定されないので
-            if (e.Key == Key.Space && e.Source is TextBox)
-            {
-                return;
-            }
-
-            // KeyBindingsは変更してはならない。
-            foreach (KeyBinding binding in viewModel.KeyBindings)
-            {
-                if (e.Handled)
-                    break;
-                binding.TryHandle(e);
-            }
-        }
-    }
-
     private void OnSideBarButtonDisplayModeChanged(object? sender, SideBarButtonDisplayModeChangedEventArgs e)
     {
     }

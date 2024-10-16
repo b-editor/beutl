@@ -2,18 +2,14 @@
 using System.Diagnostics;
 using System.Reactive.Subjects;
 using System.Reflection;
-
 using Beutl.Api.Objects;
 using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Reactive;
-
 using Microsoft.Extensions.Logging;
-
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
-
 using Telemetry = Beutl.Api.Services.PackageManagemantActivitySource;
 
 namespace Beutl.Api.Services;
@@ -21,6 +17,7 @@ namespace Beutl.Api.Services;
 public sealed class PackageManager(
     InstalledPackageRepository installedPackageRepository,
     ExtensionProvider extensionProvider,
+    ContextCommandManager commandManager,
     BeutlApiApplication apiApplication) : PackageLoader
 {
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
@@ -30,7 +27,9 @@ public sealed class PackageManager(
 
     public IEnumerable<LocalPackage> LoadedPackage => _loadedPackage;
 
-    public ExtensionProvider ExtensionProvider { get; } = extensionProvider;
+    public ExtensionProvider ExtensionProvider => extensionProvider;
+
+    public ContextCommandManager ContextCommandManager => commandManager;
 
     public IObservable<bool> GetObservable(string name, string? version = null)
     {
@@ -44,7 +43,7 @@ public sealed class PackageManager(
             var nugetVersion = new NuGetVersion(version);
             return _loadedPackage.Any(
                 x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, name)
-                    && new NuGetVersion(x.Version) == nugetVersion);
+                     && new NuGetVersion(x.Version) == nugetVersion);
         }
         else
         {
@@ -104,7 +103,8 @@ public sealed class PackageManager(
                         // 降順
                         if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
                         {
-                            Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(versionStr))
+                            Release? oldRelease = await Helper
+                                .TryGetOrDefault(() => remotePackage.GetReleaseAsync(versionStr))
                                 .ConfigureAwait(false);
                             updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
                             break;
@@ -113,7 +113,8 @@ public sealed class PackageManager(
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
+                    _logger.LogError(ex,
+                        "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
                 }
             }
 
@@ -127,7 +128,8 @@ public sealed class PackageManager(
         {
             DiscoverService discover = apiApplication.GetResource<DiscoverService>();
 
-            LocalPackage? pkg = _loadedPackage.FirstOrDefault(v => !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
+            LocalPackage? pkg = _loadedPackage.FirstOrDefault(v =>
+                !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
             if (pkg != null)
             {
                 string versionStr = pkg.Version;
@@ -143,7 +145,8 @@ public sealed class PackageManager(
                     // 降順
                     if (new NuGetVersion(item.Version.Value).CompareTo(version) > 0)
                     {
-                        Release? oldRelease = await Helper.TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version))
+                        Release? oldRelease = await Helper
+                            .TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version))
                             .ConfigureAwait(false);
                         return new PackageUpdate(remotePackage, oldRelease, item);
                     }
@@ -169,10 +172,7 @@ public sealed class PackageManager(
                 if (Directory.Exists(directory))
                 {
                     var reader = new PackageFolderReader(directory);
-                    list.Add(new LocalPackage(reader.NuspecReader)
-                    {
-                        InstalledPath = directory
-                    });
+                    list.Add(new LocalPackage(reader.NuspecReader) { InstalledPath = directory });
                 }
             }
 
@@ -196,10 +196,7 @@ public sealed class PackageManager(
                 {
                     list.Add(new LocalPackage
                     {
-                        Name = name,
-                        DisplayName = name,
-                        InstalledPath = item,
-                        SideLoad = true
+                        Name = name, DisplayName = name, InstalledPath = item, SideLoad = true
                     });
                 }
             }
@@ -254,6 +251,10 @@ public sealed class PackageManager(
                     && Activator.CreateInstance(type) is Extension extension)
                 {
                     SetupExtensionSettings(extension);
+                    if (extension is ViewExtension viewExtension)
+                    {
+                        commandManager.Register(viewExtension);
+                    }
                     extension.Load();
 
                     extensions.Add(extension);
@@ -296,11 +297,12 @@ public sealed class PackageManager(
             {
                 observer.OnNext(_manager._loadedPackage.Any(
                     x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, _name)
-                        && new NuGetVersion(x.Version) == _packageIdentity.Version));
+                         && new NuGetVersion(x.Version) == _packageIdentity.Version));
             }
             else
             {
-                observer.OnNext(_manager._loadedPackage.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, _name)));
+                observer.OnNext(
+                    _manager._loadedPackage.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, _name)));
             }
         }
 

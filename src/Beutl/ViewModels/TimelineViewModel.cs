@@ -37,7 +37,7 @@ public interface ITimelineOptionsProvider
     IObservable<Vector2> Offset { get; }
 }
 
-public sealed class TimelineViewModel : IToolContext
+public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 {
     private readonly ILogger _logger = Log.CreateLogger<TimelineViewModel>();
     private readonly CompositeDisposable _disposables = [];
@@ -174,10 +174,6 @@ public sealed class TimelineViewModel : IToolContext
                     manager.UpdateBlocks();
                 }
             });
-
-        // Todo: 設定からショートカットを変更できるようにする。
-        KeyBindings = [];
-        ConfigureKeyBindings();
     }
 
     private void OnAdjustDurationToPointer()
@@ -285,8 +281,6 @@ public sealed class TimelineViewModel : IToolContext
     public IObservable<LayerHeaderViewModel> LayerHeightChanged => _layerHeightChanged;
 
     public string Header => Strings.Timeline;
-
-    public List<KeyBinding> KeyBindings { get; }
 
     public void Dispose()
     {
@@ -657,25 +651,16 @@ public sealed class TimelineViewModel : IToolContext
         return Elements.FirstOrDefault(x => x.Model == element);
     }
 
-    // Todo: 設定からショートカットを変更できるようにする。
-    private void ConfigureKeyBindings()
+    public void Execute(ContextCommandExecution execution)
     {
-        static KeyBinding KeyBinding(Key key, KeyModifiers modifiers, ICommand command)
+        if (execution.CommandName == "Paste")
         {
-            return new KeyBinding { Gesture = new KeyGesture(key, modifiers), Command = command };
+            Paste.Execute();
+            if (execution.KeyEventArgs != null)
+            {
+                execution.KeyEventArgs.Handled = true;
+            }
         }
-
-        PlatformHotkeyConfiguration? keyConf = Application.Current?.PlatformSettings?.HotkeyConfiguration;
-        if (keyConf != null)
-        {
-            KeyBindings.AddRange(keyConf.Paste.Select(i => new KeyBinding { Command = Paste, Gesture = i }));
-        }
-        else
-        {
-            KeyBindings.Add(KeyBinding(Key.V, keyConf?.CommandModifiers ?? KeyModifiers.Control, Paste));
-        }
-
-        //KeyBindings.Add(KeyBinding(Key.))
     }
 
     private sealed class TrackedLayerTopObservable(int layerNum, TimelineViewModel timeline)

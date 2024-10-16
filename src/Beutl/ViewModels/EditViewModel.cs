@@ -2,6 +2,7 @@
 using System.Numerics;
 using System.Text.Json.Nodes;
 using System.Windows.Input;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Beutl.Animation;
@@ -27,7 +28,7 @@ using LibraryService = Beutl.Services.LibraryService;
 
 namespace Beutl.ViewModels;
 
-public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation,
+public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProvider, ISupportCloseAnimation,
     ISupportAutoSaveEditorContext
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
@@ -86,8 +87,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
         CommandRecorder = new CommandRecorder();
         BufferStatus = new BufferStatusViewModel(this)
             .DisposeWith(_disposables);
-
-        KeyBindings = CreateKeyBindings();
 
         DockHost = new DockHostViewModel(SceneId, this)
             .DisposeWith(_disposables);
@@ -225,8 +224,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
     public IObservable<Vector2> Offset { get; }
 
     IReactiveProperty<bool> IEditorContext.IsEnabled => IsEnabled;
-
-    public List<KeyBinding> KeyBindings { get; }
 
     public DockHostViewModel DockHost { get; }
 
@@ -622,29 +619,6 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider, IS
                 }
             }
         }
-    }
-
-    // Todo: 設定からショートカットを変更できるようにする。
-    private List<KeyBinding> CreateKeyBindings()
-    {
-        static KeyBinding KeyBinding(Key key, KeyModifiers modifiers, ICommand command)
-        {
-            return new KeyBinding { Gesture = new KeyGesture(key, modifiers), Command = command };
-        }
-
-        return
-        [
-            // PlayPause: Space
-            KeyBinding(Key.Space, KeyModifiers.None, Player.PlayPause),
-            // Next: Right
-            KeyBinding(Key.Right, KeyModifiers.None, Player.Next),
-            // Previous: Left
-            KeyBinding(Key.Left, KeyModifiers.None, Player.Previous),
-            // Start: Home
-            KeyBinding(Key.Home, KeyModifiers.None, Player.Start),
-            // End: End
-            KeyBinding(Key.End, KeyModifiers.None, Player.End),
-        ];
     }
 
     private sealed class KnownCommandsImpl(Scene scene, EditViewModel viewModel) : IKnownEditorCommands

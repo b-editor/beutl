@@ -25,6 +25,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         WaveReaderExtension.Instance,
         PathEditorTabExtension.Instance,
         LibraryTabExtension.Instance,
+        MainViewExtension.Instance
     ];
 
     public LoadPrimitiveExtensionTask(PackageManager manager)
@@ -38,6 +39,10 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                 foreach (Extension item in PrimitiveExtensions)
                 {
                     _manager.SetupExtensionSettings(item);
+                    if (item is ViewExtension viewExtension)
+                    {
+                        manager.ContextCommandManager.Register(viewExtension);
+                    }
                     item.Load();
                 }
 

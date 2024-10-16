@@ -18,18 +18,6 @@
             <KeyGesture x:Key="ExitKeyGesture">Alt+F4</KeyGesture>
             <KeyGesture x:Key="UndoKeyGesture">Ctrl+Z</KeyGesture>
             <KeyGesture x:Key="RedoKeyGesture">Ctrl+Y</KeyGesture>
-            <KeyGesture x:Key="DeleteKeyGesture">Delete</KeyGesture>
-            <KeyGesture x:Key="CutKeyGesture">Ctrl+X</KeyGesture>
-            <KeyGesture x:Key="CopyKeyGesture">Ctrl+C</KeyGesture>
-            <KeyGesture x:Key="PasteKeyGesture">Ctrl+V</KeyGesture>
-            <KeyGesture x:Key="SplitKeyGesture">Ctrl+K</KeyGesture>
-            <KeyGesture x:Key="PlayPauseKeyGesture">Space</KeyGesture>
-            <KeyGesture x:Key="NextKeyGesture">Right</KeyGesture>
-            <KeyGesture x:Key="PreviousKeyGesture">Left</KeyGesture>
-            <KeyGesture x:Key="StartKeyGesture">Home</KeyGesture>
-            <KeyGesture x:Key="EndKeyGesture">End</KeyGesture>
-            <KeyGesture x:Key="LayerDeleteKeyGesture">Ctrl+Delete</KeyGesture>
-            <KeyGesture x:Key="RenameKeyGesture">F2</KeyGesture>
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>

@@ -8,6 +8,7 @@ using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Pages;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Utilities;
 using Beutl.ViewModels;
 using Beutl.Views.Dialogs;
@@ -64,21 +65,6 @@ public sealed partial class MainView : UserControl
         }
     }
 
-    protected override void OnKeyDown(KeyEventArgs e)
-    {
-        base.OnKeyDown(e);
-        if (DataContext is MainViewModel viewModel)
-        {
-            // KeyBindingsは変更してはならない。
-            foreach (KeyBinding binding in viewModel.KeyBindings)
-            {
-                if (e.Handled)
-                    break;
-                binding.TryHandle(e);
-            }
-        }
-    }
-
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
@@ -104,6 +90,8 @@ public sealed partial class MainView : UserControl
     {
         var topLevel = (TopLevel)sender!;
         topLevel.Opened -= OnParentWindowOpened;
+        var cm = App.GetContextCommandManager();
+        cm?.Attach(this, MainViewExtension.Instance);
 
         if (sender is AppWindow cw)
         {
@@ -209,10 +197,7 @@ public sealed partial class MainView : UserControl
         {
             var menuItem = new MenuItem()
             {
-                Header = item.DisplayName,
-                DataContext = item,
-                IsVisible = false,
-                Icon = item.GetIcon()
+                Header = item.DisplayName, DataContext = item, IsVisible = false, Icon = item.GetIcon()
             };
 
             menuItem.Click += async (s, e) =>
@@ -292,9 +277,7 @@ public sealed partial class MainView : UserControl
         {
             var menuItem = new MenuItem()
             {
-                Header = item.DisplayName,
-                DataContext = item,
-                Icon = item.GetRegularIcon()
+                Header = item.DisplayName, DataContext = item, Icon = item.GetRegularIcon()
             };
 
             menuItem.Click += async (s, e) =>
