@@ -13,6 +13,7 @@ public class AnimatedPngReader : MediaReader
     private APNG.APNG _apng;
     private readonly int _frameCount;
     private Bitmap<Bgra8888>? _defaultImage;
+    private FrameCache? _lastFrame;
 
     public AnimatedPngReader(string file)
     {
@@ -94,7 +95,23 @@ public class AnimatedPngReader : MediaReader
         if (detectedFrame == -1)
             return false;
 
+        if (_lastFrame?.Index == detectedFrame)
+        {
+            image = _lastFrame.Bitmap.ToBitmap();
+            return true;
+        }
+
         var bitmap = RenderBitmap(detectedFrame);
+        var disposeOp = _apng.Frames[detectedFrame].fcTLChunk!.DisposeOp;
+        if (disposeOp != DisposeOps.APNGDisposeOpBackground)
+        {
+            _lastFrame = new FrameCache(bitmap, disposeOp, detectedFrame);
+        }
+        else
+        {
+            _lastFrame?.Dispose();
+            _lastFrame = null;
+        }
 
         image = bitmap.ToBitmap();
         return true;
@@ -114,6 +131,12 @@ public class AnimatedPngReader : MediaReader
 
             stack.Push((info, i));
 
+            if (_lastFrame is not null &&
+                _lastFrame.Index == i)
+            {
+                break;
+            }
+
             if (info.fcTLChunk!.BlendOp == BlendOps.APNGBlendOpSource)
             {
                 break;
@@ -130,6 +153,16 @@ public class AnimatedPngReader : MediaReader
             paint.BlendMode = fcTL.BlendOp == BlendOps.APNGBlendOpOver
                 ? SKBlendMode.SrcOver
                 : SKBlendMode.Src;
+
+            if (_lastFrame is not null &&
+                _lastFrame.Index == i)
+            {
+                canvas.DrawBitmap(
+                    _lastFrame.Bitmap,
+                    SKRect.Create(fcTL.XOffset, fcTL.YOffset, fcTL.Width, fcTL.Height),
+                    paint);
+                continue;
+            }
 
             using var tmp = SKBitmap.Decode(info.GetStream());
 
@@ -154,5 +187,13 @@ public class AnimatedPngReader : MediaReader
         _apng = null!;
         _defaultImage?.Dispose();
         _defaultImage = null;
+    }
+
+    private record FrameCache(SKBitmap Bitmap, DisposeOps DisposalMethod, int Index) : IDisposable
+    {
+        public void Dispose()
+        {
+            Bitmap.Dispose();
+        }
     }
 }
