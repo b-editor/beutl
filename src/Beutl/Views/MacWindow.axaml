@@ -2,9 +2,11 @@
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:h="clr-namespace:Beutl.Helpers"
         xmlns:lang="using:Beutl.Language"
         xmlns:local="using:Beutl.Views"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:p="clr-namespace:Beutl.Services.PrimitiveImpls"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:vm="using:Beutl.ViewModels"
         Title="{Binding WindowTitle.Value}"
@@ -23,11 +25,13 @@
                         <NativeMenu>
                             <!--  プロジェクト  -->
                             <NativeMenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
-                                            Gesture="{DynamicResource CreateNewProjectKeyGesture}"
+                                            Gesture="{h:GetCommandGesture CreateNewProject,
+                                                                          ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.CreateNewProject}" />
                             <!--  ファイル  -->
                             <NativeMenuItem Command="{CompiledBinding MenuBar.CreateNew}"
-                                            Gesture="{DynamicResource CreateNewKeyGesture}"
+                                            Gesture="{h:GetCommandGesture CreateNewFile,
+                                                                          ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.CreateNewScene}" />
                         </NativeMenu>
                     </NativeMenuItem>
@@ -37,11 +41,13 @@
                         <NativeMenu>
                             <!--  プロジェクト  -->
                             <NativeMenuItem Command="{CompiledBinding MenuBar.OpenProject}"
-                                            Gesture="{DynamicResource OpenProjectKeyGesture}"
+                                            Gesture="{h:GetCommandGesture OpenProject,
+                                                                          ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.Project}" />
                             <!--  ファイル  -->
                             <NativeMenuItem Command="{CompiledBinding MenuBar.OpenFile}"
-                                            Gesture="{DynamicResource OpenKeyGesture}"
+                                            Gesture="{h:GetCommandGesture OpenFile,
+                                                                          ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.File}" />
                         </NativeMenu>
                     </NativeMenuItem>
@@ -55,12 +61,14 @@
                     <NativeMenuItemSeparator />
                     <!--  上書き保存  -->
                     <NativeMenuItem Command="{CompiledBinding MenuBar.Save}"
-                                    Gesture="{DynamicResource SaveKeyGesture}"
+                                    Gesture="{h:GetCommandGesture Save,
+                                                                  ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Save}"
                                     IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
                     <!--  すべて保存  -->
                     <NativeMenuItem Command="{CompiledBinding MenuBar.SaveAll}"
-                                    Gesture="{DynamicResource SaveAllKeyGesture}"
+                                    Gesture="{h:GetCommandGesture SaveAll,
+                                                                  ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.SaveAll}"
                                     IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
                     <NativeMenuItemSeparator />
@@ -75,7 +83,8 @@
                     <NativeMenuItemSeparator />
                     <!--  終了  -->
                     <NativeMenuItem Command="{CompiledBinding MenuBar.Exit}"
-                                    Gesture="{DynamicResource ExitKeyGesture}"
+                                    Gesture="{h:GetCommandGesture Exit,
+                                                                  ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Exit}" />
                 </NativeMenu>
             </NativeMenuItem>
@@ -84,12 +93,14 @@
                 <NativeMenu>
                     <!--  元に戻す  -->
                     <NativeMenuItem Command="{CompiledBinding MenuBar.Undo}"
-                                    Gesture="{DynamicResource UndoKeyGesture}"
+                                    Gesture="{h:GetCommandGesture Undo,
+                                                                  ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Undo}"
                                     IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
                     <!--  やり直し  -->
                     <NativeMenuItem Command="{CompiledBinding MenuBar.Redo}"
-                                    Gesture="{DynamicResource RedoKeyGesture}"
+                                    Gesture="{h:GetCommandGesture Redo,
+                                                                  ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Redo}"
                                     IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
                 </NativeMenu>

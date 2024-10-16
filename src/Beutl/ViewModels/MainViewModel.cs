@@ -19,7 +19,7 @@ using ReactiveUI;
 
 namespace Beutl.ViewModels;
 
-public sealed class MainViewModel : BasePageViewModel
+public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 {
     internal readonly BeutlApiApplication _beutlClients;
     private readonly HttpClient _authorizedHttpClient;
@@ -28,6 +28,7 @@ public sealed class MainViewModel : BasePageViewModel
     {
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
+        ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
         SettingsDialog = new SettingsDialogViewModel(_beutlClients);
 
         MenuBar = new MenuBarViewModel();
@@ -38,8 +39,6 @@ public sealed class MainViewModel : BasePageViewModel
         WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");
         TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, EditorService.Current);
-
-        KeyBindings = CreateKeyBindings();
 
         ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
 
@@ -80,8 +79,6 @@ public sealed class MainViewModel : BasePageViewModel
 
     public TitleBreadcrumbBarViewModel TitleBreadcrumbBar { get; }
 
-    public List<KeyBinding> KeyBindings { get; }
-
     public EditorHostViewModel EditorHost { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
@@ -93,6 +90,8 @@ public sealed class MainViewModel : BasePageViewModel
     public ReadOnlyObservableCollection<PageExtension> PageExtensions { get; }
 
     public SettingsDialogViewModel SettingsDialog { get; }
+
+    public ContextCommandManager? ContextCommandManager { get; }
 
     public Startup RunStartupTask()
     {
@@ -155,45 +154,46 @@ public sealed class MainViewModel : BasePageViewModel
         }
     }
 
-    // Todo: 設定からショートカットを変更できるようにする。
-    private List<KeyBinding> CreateKeyBindings()
+    public void Execute(ContextCommandExecution execution)
     {
-        static KeyBinding KeyBinding(Key key, KeyModifiers modifiers, ICommand command)
+        if (execution.KeyEventArgs != null)
+            execution.KeyEventArgs.Handled = true;
+        switch (execution.CommandName)
         {
-            return new KeyBinding { Gesture = new KeyGesture(key, modifiers), Command = command };
+            case "CreateNewProject":
+                MenuBar.CreateNewProject.Execute(null);
+                break;
+            case "CreateNewFile":
+                MenuBar.CreateNew.Execute(null);
+                break;
+            case "OpenProject":
+                MenuBar.OpenProject.Execute(null);
+                break;
+            case "OpenFile":
+                MenuBar.OpenFile.Execute(null);
+                break;
+            case "Save":
+                MenuBar.Save.Execute(null);
+                break;
+            case "SaveAll":
+                MenuBar.SaveAll.Execute(null);
+                break;
+            case "CloseProject":
+                MenuBar.CloseProject.Execute(null);
+                break;
+            case "Undo":
+                MenuBar.Undo.Execute(null);
+                break;
+            case "Redo":
+                MenuBar.Redo.Execute(null);
+                break;
+            case "Exit":
+                MenuBar.Exit.Execute(null);
+                break;
+            default:
+                if (execution.KeyEventArgs != null)
+                    execution.KeyEventArgs.Handled = false;
+                break;
         }
-
-        PlatformHotkeyConfiguration? config = Application.Current?.PlatformSettings?.HotkeyConfiguration;
-        KeyModifiers modifier = config?.CommandModifiers ?? KeyModifiers.Control;
-        var list = new List<KeyBinding>
-        {
-            // CreateNewProject: Ctrl+Shift+N
-            KeyBinding(Key.N, modifier | KeyModifiers.Shift, MenuBar.CreateNewProject),
-            // CreateNew: Ctrl+N
-            KeyBinding(Key.N, modifier, MenuBar.CreateNew),
-            // OpenProject: Ctrl+Shift+O
-            KeyBinding(Key.O, modifier | KeyModifiers.Shift, MenuBar.OpenProject),
-            // OpenFile: Ctrl+O
-            KeyBinding(Key.O, modifier, MenuBar.OpenFile),
-            // Save: Ctrl+S
-            KeyBinding(Key.S, modifier, MenuBar.Save),
-            // SaveAll: Ctrl+Shift+S
-            KeyBinding(Key.S, modifier | KeyModifiers.Shift, MenuBar.SaveAll),
-            // Exit: Alt+F4
-            KeyBinding(Key.F4, KeyModifiers.Alt, MenuBar.Exit),
-        };
-
-        if (config != null)
-        {
-            list.AddRange(config.Undo.Select(x => KeyBinding(x.Key, x.KeyModifiers, MenuBar.Undo)));
-            list.AddRange(config.Redo.Select(x => KeyBinding(x.Key, x.KeyModifiers, MenuBar.Redo)));
-        }
-        else
-        {
-            list.Add(KeyBinding(Key.Z, modifier, MenuBar.Undo));
-            list.Add(KeyBinding(Key.R, modifier, MenuBar.Redo));
-        }
-
-        return list;
     }
 }

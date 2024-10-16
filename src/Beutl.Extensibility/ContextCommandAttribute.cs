@@ -1,4 +1,24 @@
-﻿namespace Beutl.Extensibility;
+﻿using System.Runtime.InteropServices;
+using Avalonia.Input;
+
+namespace Beutl.Extensibility;
+
+public interface IContextCommandHandler
+{
+    void Execute(ContextCommandExecution execution);
+}
+
+public class ContextCommandExecution
+{
+    public ContextCommandExecution(string commandName)
+    {
+        CommandName = commandName;
+    }
+
+    public string CommandName { get; }
+
+    public KeyEventArgs? KeyEventArgs { get; set; }
+}
 
 [AttributeUsage(AttributeTargets.Method)]
 public class ContextCommandAttribute : Attribute
@@ -21,9 +41,9 @@ public class ContextCommandDefinition(
     public ContextCommandKeyGesture[]? KeyGestures { get; init; } = keyGestures;
 }
 
-public class ContextCommandKeyGesture(string? keyGesture, PlatformID? platformId)
+public class ContextCommandKeyGesture(string? keyGesture, OSPlatform? platform = null)
 {
     public string? KeyGesture { get; init; } = keyGesture;
 
-    public PlatformID? PlatformId { get; init; } = platformId;
+    public OSPlatform? Platform { get; init; } = platform;
 }

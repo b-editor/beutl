@@ -17,10 +17,9 @@ using HslColor = Avalonia.Media.HslColor;
 
 namespace Beutl.ViewModels;
 
-public sealed class ElementViewModel : IDisposable
+public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 {
     private readonly CompositeDisposable _disposables = [];
-    private List<KeyBinding>? _keyBindings;
 
     public ElementViewModel(Element element, TimelineViewModel timeline)
     {
@@ -136,7 +135,13 @@ public sealed class ElementViewModel : IDisposable
         _disposables.Dispose();
     }
 
-    public Func<(Thickness Margin, Thickness BorderMargin, double Width), CancellationToken, Task> AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
+    public Func<(Thickness Margin, Thickness BorderMargin, double Width), CancellationToken, Task> AnimationRequested
+    {
+        get;
+        set;
+    } = (_, _) => Task.CompletedTask;
+
+    public Action RenameRequested { get; set; } = () => { };
 
     public Func<TimeSpan>? GetClickedTime { get; set; }
 
@@ -188,8 +193,6 @@ public sealed class ElementViewModel : IDisposable
 
     public ReactiveCommand ChangeToOriginalLength { get; } = new();
 
-    public List<KeyBinding> KeyBindings => _keyBindings ??= CreateKeyBinding();
-
     public void Dispose()
     {
         _disposables.Dispose();
@@ -205,7 +208,8 @@ public sealed class ElementViewModel : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public async void AnimationRequest(int layerNum, bool affectModel = true, CancellationToken cancellationToken = default)
+    public async void AnimationRequest(int layerNum, bool affectModel = true,
+        CancellationToken cancellationToken = default)
     {
         var inlines = Timeline.Inlines
             .Where(x => x.Element == this)
@@ -357,7 +361,8 @@ public sealed class ElementViewModel : IDisposable
         backward.Start = absTime;
         backward.Length = backwardLength;
 
-        backward.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension));
+        backward.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!,
+            Constants.ElementFileExtension));
         IRecordableCommand command2 = Scene.AddChild(backward);
         IRecordableCommand command3 = backward.Operation.OnSplit(true, forwardLength, -forwardLength);
         IRecordableCommand command4 = Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);
@@ -396,40 +401,47 @@ public sealed class ElementViewModel : IDisposable
         }
     }
 
-    private List<KeyBinding> CreateKeyBinding()
-    {
-        PlatformHotkeyConfiguration? config = Application.Current?.PlatformSettings?.HotkeyConfiguration;
-        KeyModifiers modifier = config?.CommandModifiers ?? KeyModifiers.Control;
-        List<KeyBinding> list =
-        [
-            new KeyBinding { Gesture = new(Key.Delete), Command = Exclude },
-            new KeyBinding { Gesture = new(Key.Delete, modifier), Command = Delete },
-            new KeyBinding { Gesture = new(Key.K, modifier), Command = SplitByCurrentFrame }
-        ];
-
-        if (config != null)
-        {
-            list.AddRange(config.Cut.Select(x => new KeyBinding { Gesture = x, Command = Cut }));
-            list.AddRange(config.Copy.Select(x => new KeyBinding { Gesture = x, Command = Copy }));
-        }
-        else
-        {
-            list.Add(new KeyBinding { Gesture = new(Key.X, modifier), Command = Cut });
-            list.Add(new KeyBinding { Gesture = new(Key.C, modifier), Command = Copy });
-        }
-
-        return list;
-    }
-
     public bool HasOriginalLength()
     {
         return !Model.UseNode && Model.Operation.Children.Any(v => v.HasOriginalLength());
+    }
+
+    public void Execute(ContextCommandExecution execution)
+    {
+        if (execution.KeyEventArgs != null)
+            execution.KeyEventArgs.Handled = true;
+        switch (execution.CommandName)
+        {
+            case "Rename":
+                RenameRequested();
+                break;
+            case "Copy":
+                Copy.Execute();
+                break;
+            case "Cut":
+                Cut.Execute();
+                break;
+            case "Delete":
+                Delete.Execute();
+                break;
+            case "Exclude":
+                Exclude.Execute();
+                break;
+            case "Split":
+                SplitByCurrentFrame.Execute();
+                break;
+            default:
+                if (execution.KeyEventArgs != null)
+                    execution.KeyEventArgs.Handled = false;
+                break;
+        }
     }
 
     public record struct PrepareAnimationContext(
         Thickness Margin,
         Thickness BorderMargin,
         double Width,
-        (InlineAnimationLayerViewModel ViewModel, InlineAnimationLayerViewModel.PrepareAnimationContext Context)[] Inlines,
+        (InlineAnimationLayerViewModel ViewModel, InlineAnimationLayerViewModel.PrepareAnimationContext Context)[]
+            Inlines,
         ElementScopeViewModel.PrepareAnimationContext Scope);
 }

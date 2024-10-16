@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
+using System.Runtime.InteropServices;
 using Avalonia.Controls;
-
+using Avalonia.Input;
 using Beutl.ViewModels;
 using Beutl.Views;
 using FluentAvalonia.UI.Controls;
@@ -23,12 +23,48 @@ public sealed class TimelineTabExtension : ToolTabExtension
 
     public override string? Header => Strings.Timeline;
 
+    public override IEnumerable<ContextCommandDefinition> ContextCommands =>
+    [
+        new ContextCommandDefinition("Paste", "Paste", "Paste the copied data.",
+        [
+            new ContextCommandKeyGesture("Ctrl+V"),
+            new ContextCommandKeyGesture("Cmd+V", OSPlatform.OSX),
+        ]),
+        new ContextCommandDefinition("Rename", "Rename", "Rename the selected item.",
+        [
+            new ContextCommandKeyGesture("F2"),
+            new ContextCommandKeyGesture("Enter", OSPlatform.OSX),
+        ]),
+        new ContextCommandDefinition("Exclude", "Exclude", "Exclude the selected item.",
+        [
+            new ContextCommandKeyGesture("Delete"),
+            new ContextCommandKeyGesture("Back", OSPlatform.OSX),
+        ]),
+        new ContextCommandDefinition("Delete", "Delete", "Delete the selected item.",
+        [
+            new ContextCommandKeyGesture("Ctrl+Delete"),
+            new ContextCommandKeyGesture("Cmd+Back", OSPlatform.OSX),
+        ]),
+        new ContextCommandDefinition("Copy", "Copy", "Copy the selected item.",
+        [
+            new ContextCommandKeyGesture("Ctrl+C"),
+            new ContextCommandKeyGesture("Cmd+C", OSPlatform.OSX),
+        ]),
+        new ContextCommandDefinition("Cut", "Cut", "Cut the selected item.",
+        [
+            new ContextCommandKeyGesture("Ctrl+X"),
+            new ContextCommandKeyGesture("Cmd+X", OSPlatform.OSX),
+        ]),
+        new ContextCommandDefinition("Split", "Split", "Split by current frame.",
+        [
+            new ContextCommandKeyGesture("Ctrl+K"),
+            new ContextCommandKeyGesture("Cmd+K", OSPlatform.OSX),
+        ]),
+    ];
+
     public override IconSource GetIcon()
     {
-        return new SymbolIconSource()
-        {
-            Symbol = Symbol.GlanceHorizontal
-        };
+        return new SymbolIconSource() { Symbol = Symbol.GlanceHorizontal };
     }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)

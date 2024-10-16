@@ -27,6 +27,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         LibraryTabExtension.Instance,
         AnimatedImageReaderExtension.Instance,
         AnimatedPngReaderExtension.Instance,
+        MainViewExtension.Instance
     ];
 
     public LoadPrimitiveExtensionTask(PackageManager manager)
@@ -40,6 +41,10 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                 foreach (Extension item in PrimitiveExtensions)
                 {
                     _manager.SetupExtensionSettings(item);
+                    if (item is ViewExtension viewExtension)
+                    {
+                        manager.ContextCommandManager.Register(viewExtension);
+                    }
                     item.Load();
                 }
 

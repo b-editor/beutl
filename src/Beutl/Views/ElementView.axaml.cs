@@ -8,8 +8,8 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
-using Beutl.Commands;
 using Beutl.ProjectSystem;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.NodeTree;
 using FluentAvalonia.UI.Controls;
@@ -37,6 +37,8 @@ public sealed partial class ElementView : UserControl
     {
         InitializeComponent();
 
+        var cm = App.GetContextCommandManager();
+        cm?.Attach(this, TimelineTabExtension.Instance);
         (border.ContextFlyout as FAMenuFlyout)!.Opening += OnContextFlyoutOpening;
         textBox.LostFocus += OnTextBoxLostFocus;
         this.SubscribeDataContextChange<ElementViewModel>(OnDataContextAttached, OnDataContextDetached);
@@ -47,26 +49,9 @@ public sealed partial class ElementView : UserControl
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (DataContext is not ElementViewModel viewModel) return;
-
-        if (e.Key == Key.F2)
-        {
-            Rename_Click(null, null!);
-            e.Handled = true;
-            return;
-        }
-        else if (e.Key == Key.LeftCtrl)
+        if (e.Key == Key.LeftCtrl)
         {
             _resizeBehavior?.OnLeftCtrlPressed(e);
-            return;
-        }
-
-        // KeyBindingsは変更してはならない。
-        foreach (KeyBinding binding in viewModel.KeyBindings)
-        {
-            if (e.Handled)
-                break;
-            binding.TryHandle(e);
         }
     }
 
@@ -81,6 +66,7 @@ public sealed partial class ElementView : UserControl
     private void OnDataContextDetached(ElementViewModel obj)
     {
         obj.AnimationRequested = (_, _) => Task.CompletedTask;
+        obj.RenameRequested = () => { };
         obj.GetClickedTime = null;
         _disposables.Clear();
     }
@@ -99,6 +85,7 @@ public sealed partial class ElementView : UserControl
                 await Task.WhenAll(task1, task2);
             });
         };
+        obj.RenameRequested = () => Rename_Click(null, null!);
         obj.GetClickedTime = () => _pointerPosition;
 
         obj.IsSelected
