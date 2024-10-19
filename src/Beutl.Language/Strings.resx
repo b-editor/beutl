@@ -1252,4 +1252,82 @@ and b-editor maintains the download URL.</value>
   <data name="MoveTo" xml:space="preserve">
     <value>Move to</value>
   </data>
+  <data name="Keymap" xml:space="preserve">
+    <value>Keymap</value>
+  </data>
+  <data name="MainView" xml:space="preserve">
+    <value>Main View</value>
+  </data>
+  <data name="OpenProject" xml:space="preserve">
+    <value>Open Project</value>
+  </data>
+  <data name="OpenFile" xml:space="preserve">
+    <value>Open File</value>
+  </data>
+  <data name="Save_Description" xml:space="preserve">
+    <value>Save the current file</value>
+  </data>
+  <data name="SaveAll_Description" xml:space="preserve">
+    <value>Save all files</value>
+  </data>
+  <data name="CloseProject_Description" xml:space="preserve">
+    <value>Close the current project</value>
+  </data>
+  <data name="Undo_Description" xml:space="preserve">
+    <value>Undo the last operation</value>
+  </data>
+  <data name="Redo_Description" xml:space="preserve">
+    <value>Redo the last operation</value>
+  </data>
+  <data name="Exit_Description" xml:space="preserve">
+    <value>Exit the application</value>
+  </data>
+  <data name="PlayPause" xml:space="preserve">
+    <value>Play/Pause</value>
+  </data>
+  <data name="PlayPause_Description" xml:space="preserve">
+    <value>Switches between play and pause.</value>
+  </data>
+  <data name="MoveToNext" xml:space="preserve">
+    <value>Move to next</value>
+  </data>
+  <data name="MoveToPrevious" xml:space="preserve">
+    <value>Move to previous</value>
+  </data>
+  <data name="MoveToNext_Description" xml:space="preserve">
+    <value>Move to the next frame.</value>
+  </data>
+  <data name="MoveToPrevious_Description" xml:space="preserve">
+    <value>Move to the previous frame.</value>
+  </data>
+  <data name="MoveToStart" xml:space="preserve">
+    <value>Move to start</value>
+  </data>
+  <data name="MoveToEnd" xml:space="preserve">
+    <value>Move to end</value>
+  </data>
+  <data name="MoveToStart_Description" xml:space="preserve">
+    <value>Move to the start of the scene.</value>
+  </data>
+  <data name="MoveToEnd_Description" xml:space="preserve">
+    <value>Move to the end of the scene.</value>
+  </data>
+  <data name="Paste_Description" xml:space="preserve">
+    <value>Paste the copied data.</value>
+  </data>
+  <data name="Rename_Description" xml:space="preserve">
+    <value>Rename the selected item.</value>
+  </data>
+  <data name="Exclude_Description" xml:space="preserve">
+    <value>Exclude the selected item.</value>
+  </data>
+  <data name="Delete_Description" xml:space="preserve">
+    <value>Delete the selected item.</value>
+  </data>
+  <data name="Copy_Description" xml:space="preserve">
+    <value>Copy the selected item.</value>
+  </data>
+  <data name="Cut_Description" xml:space="preserve">
+    <value>Cut the selected item.</value>
+  </data>
 </root>

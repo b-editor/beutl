@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.ReactiveUI;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.NodeTree.Nodes;
 using Beutl.Operators;
@@ -142,6 +143,11 @@ public sealed class App : Application
             ISingleViewApplicationLifetime { MainView: { } mainview } => TopLevel.GetTopLevel(mainview),
             _ => null,
         };
+    }
+
+    public static ContextCommandManager? GetContextCommandManager()
+    {
+        return ((App)Current!).GetMainViewModel().ContextCommandManager;
     }
 
     public static FluentAvaloniaTheme? GetFATheme()

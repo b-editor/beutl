@@ -1,6 +1,6 @@
 ﻿using System.Reactive.Subjects;
-
 using Beutl.Api;
+using Beutl.Api.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.SettingsPages;
 
@@ -16,6 +16,7 @@ public sealed class SettingsDialogViewModel
     private readonly Lazy<FontSettingsPageViewModel> _font;
     private readonly Lazy<ExtensionsSettingsPageViewModel> _extensionsPage;
     private readonly Lazy<InfomationPageViewModel> _infomation;
+    private readonly Lazy<KeyMapSettingsPageViewModel> _keyMap;
 
     public SettingsDialogViewModel(BeutlApiApplication clients)
     {
@@ -26,6 +27,7 @@ public sealed class SettingsDialogViewModel
         _extensionsPage = new(() => new ExtensionsSettingsPageViewModel());
         _storage = new(() => new StorageSettingsPageViewModel(clients.AuthorizedUser));
         _infomation = new(() => new InfomationPageViewModel());
+        _keyMap = new(() => new KeyMapSettingsPageViewModel(clients.GetResource<ContextCommandManager>()));
     }
 
     public AccountSettingsPageViewModel Account => _account.Value;
@@ -41,6 +43,8 @@ public sealed class SettingsDialogViewModel
     public StorageSettingsPageViewModel Storage => _storage.Value;
 
     public InfomationPageViewModel Infomation => _infomation.Value;
+
+    public KeyMapSettingsPageViewModel KeyMap => _keyMap.Value;
 
     public IObservable<object> NavigateRequested => _navigateRequested;
 

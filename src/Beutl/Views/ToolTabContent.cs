@@ -1,4 +1,7 @@
 ﻿using Avalonia.Controls;
+using Avalonia.LogicalTree;
+using Avalonia.VisualTree;
+using Beutl.Api.Services;
 using Beutl.ViewModels;
 
 namespace Beutl.Views;
@@ -27,6 +30,8 @@ public sealed class ToolTabContent : ContentControl
         }
         else
         {
+            var cm = App.GetContextCommandManager();
+            cm?.Attach(control, viewModel.Context.Extension);
             control.DataContext = viewModel.Context;
         }
 

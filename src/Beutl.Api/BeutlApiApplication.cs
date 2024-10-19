@@ -5,11 +5,9 @@ using System.Net.Mime;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Configuration;
-
 using Reactive.Bindings;
 
 namespace Beutl.Api;
@@ -90,12 +88,19 @@ public class BeutlApiApplication
     {
         Register(() => new DiscoverService(this));
         Register(() => ExtensionProvider.Current);
+        Register(() => new ContextCommandSettingsStore());
+        Register(() => new ContextCommandHandlerRegistry());
+        Register(() => new ContextCommandManager(
+            GetResource<ContextCommandSettingsStore>(),
+            GetResource<ContextCommandHandlerRegistry>()));
         Register(() => new InstalledPackageRepository());
         Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());
         Register(() => new LibraryService(this));
         Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>()));
-        Register(() => new PackageManager(GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(), this));
+        Register(() => new PackageManager(
+            GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
+            GetResource<ContextCommandManager>(), this));
     }
 
     private void Register<T>(Func<T> factory)
@@ -132,17 +137,15 @@ public class BeutlApiApplication
         using (Activity? activity = ActivitySource.StartActivity("SignInExternalAsync", ActivityKind.Client))
         {
             string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-            CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
+            CreateAuthUriResponse authUriRes =
+                await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
             using HttpListener listener = StartListener($"{continueUri}/");
             activity?.AddEvent(new("Started_Listener"));
 
-            string uri = $"{BaseUrl}/api/v2/identity/signInWith?provider={provider}&returnUrl={Uri.EscapeDataString(authUriRes.Auth_uri)}";
+            string uri =
+                $"{BaseUrl}/api/v2/identity/signInWith?provider={provider}&returnUrl={Uri.EscapeDataString(authUriRes.Auth_uri)}";
 
-            Process.Start(new ProcessStartInfo(uri)
-            {
-                UseShellExecute = true,
-                Verb = "open"
-            });
+            Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
             string? code = await GetResponseFromListener(listener, cancellationToken);
             activity?.AddEvent(new("Received_Code"));
@@ -151,10 +154,12 @@ public class BeutlApiApplication
                 throw new Exception("The returned code was empty.");
             }
 
-            AuthResponse authResponse = await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
+            AuthResponse authResponse =
+                await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
             activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authResponse.Token);
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", authResponse.Token);
             ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
             var profile = new Profile(profileResponse, this);
 
@@ -173,17 +178,14 @@ public class BeutlApiApplication
             {
                 activity?.AddEvent(new("Entered_AsyncLock"));
                 string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-                CreateAuthUriResponse authUriRes = await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
+                CreateAuthUriResponse authUriRes =
+                    await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
                 using HttpListener listener = StartListener($"{continueUri}/");
                 activity?.AddEvent(new("Started_Listener"));
 
                 string uri = $"{BaseUrl}/account/signIn?returnUrl={Uri.EscapeDataString(authUriRes.Auth_uri)}";
 
-                Process.Start(new ProcessStartInfo(uri)
-                {
-                    UseShellExecute = true,
-                    Verb = "open"
-                });
+                Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
                 string? code = await GetResponseFromListener(listener, cancellationToken);
                 activity?.AddEvent(new("Received_Code"));
@@ -192,10 +194,12 @@ public class BeutlApiApplication
                     throw new Exception("The returned code was empty.");
                 }
 
-                AuthResponse authResponse = await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
+                AuthResponse authResponse =
+                    await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
                 activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
-                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", authResponse.Token);
+                _httpClient.DefaultRequestHeaders.Authorization =
+                    new AuthenticationHeaderValue("Bearer", authResponse.Token);
                 ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
                 var profile = new Profile(profileResponse, this);
 
@@ -209,11 +213,7 @@ public class BeutlApiApplication
 
     public static void OpenAccountSettings()
     {
-        Process.Start(new ProcessStartInfo($"{BaseUrl}/account/manage")
-        {
-            UseShellExecute = true,
-            Verb = "open"
-        });
+        Process.Start(new ProcessStartInfo($"{BaseUrl}/account/manage") { UseShellExecute = true, Verb = "open" });
     }
 
     public void SaveUser()
@@ -355,7 +355,8 @@ public class BeutlApiApplication
 
     private static Stream ReadClosePageResponse()
     {
-        Stream? stream = typeof(BeutlApiApplication).Assembly.GetManifestResourceStream("Beutl.Api.Resources.index.html");
+        Stream? stream =
+            typeof(BeutlApiApplication).Assembly.GetManifestResourceStream("Beutl.Api.Resources.index.html");
 
         return stream ?? throw new Exception("Embedded resource not found.");
     }

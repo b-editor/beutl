@@ -12,7 +12,6 @@
              d:DesignWidth="1280"
              x:CompileBindings="True"
              x:DataType="vm:EditViewModel"
-             Focusable="True"
              IsEnabled="{Binding IsEnabled.Value}"
              mc:Ignorable="d">
     <UserControl.Resources>

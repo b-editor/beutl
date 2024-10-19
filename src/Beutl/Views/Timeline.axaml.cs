@@ -62,21 +62,6 @@ public sealed partial class Timeline : UserControl
         this.SubscribeDataContextChange<TimelineViewModel>(OnDataContextAttached, OnDataContextDetached);
     }
 
-    protected override void OnKeyDown(KeyEventArgs e)
-    {
-        base.OnKeyDown(e);
-        if (DataContext is TimelineViewModel viewModel)
-        {
-            // KeyBindingsは変更してはならない。
-            foreach (KeyBinding binding in viewModel.KeyBindings)
-            {
-                if (e.Handled)
-                    break;
-                binding.TryHandle(e);
-            }
-        }
-    }
-
     private void OnDataContextDetached(TimelineViewModel obj)
     {
         ViewModel = null;
@@ -92,7 +77,14 @@ public sealed partial class Timeline : UserControl
     {
         ViewModel = vm;
 
-        TimelinePanel.Children.AddRange(vm.Elements.SelectMany(e => { return new Control[] { new ElementView { DataContext = e }, new ElementScopeView { DataContext = e.Scope } }; }));
+        TimelinePanel.Children.AddRange(vm.Elements.SelectMany(e =>
+        {
+            return new Control[]
+            {
+                new ElementView { DataContext = e },
+                new ElementScopeView { DataContext = e.Scope }
+            };
+        }));
 
         TimelinePanel.Children.AddRange(vm.Inlines.Select(e => new InlineAnimationLayer { DataContext = e }));
 
