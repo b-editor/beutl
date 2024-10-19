@@ -107,7 +107,7 @@ public sealed partial class SettingsDialog : AppWindow
             },
             new NavigationViewItem()
             {
-                Content = "Key map",
+                Content = Strings.Keymap,
                 Tag = typeof(KeyMapSettingsPage),
                 IconSource = new SymbolIconSource { Symbol = Symbol.Keyboard }
             },

@@ -19,28 +19,28 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override string Name => "Scene editor";
 
-    public override string DisplayName => "Scene editor";
+    public override string DisplayName => Strings.Editor;
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        new("PlayPause", "Play/Pause", "Switches between play and pause.",
+        new("PlayPause", Strings.PlayPause, Strings.PlayPause_Description,
         [
             new ContextCommandKeyGesture("Space")
         ]),
-        new("Next", "Next", "Move to the next frame.",
+        new("Next", Strings.MoveToNext, Strings.MoveToNext_Description,
         [
             new ContextCommandKeyGesture("Right")
         ]),
-        new("Previous", "Previous", "Move to the previous frame.",
+        new("Previous", Strings.MoveToPrevious, Strings.MoveToPrevious_Description,
         [
             new ContextCommandKeyGesture("Left")
         ]),
-        new("SeekStart", "Seek start", "Move to the start of the scene.",
+        new("SeekStart", Strings.MoveToStart, Strings.MoveToStart_Description,
         [
             new ContextCommandKeyGesture("Home"),
             new ContextCommandKeyGesture("Cmd+Left", OSPlatform.OSX),
         ]),
-        new("SeekEnd", "Seek end", "Move to the end of the scene.",
+        new("SeekEnd", Strings.MoveToEnd, Strings.MoveToEnd_Description,
         [
             new ContextCommandKeyGesture("End"),
             new ContextCommandKeyGesture("Cmd+Right", OSPlatform.OSX)

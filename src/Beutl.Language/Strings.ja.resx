@@ -1252,4 +1252,82 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="MoveTo" xml:space="preserve">
     <value>移動</value>
   </data>
+  <data name="Keymap" xml:space="preserve">
+    <value>キーマップ</value>
+  </data>
+  <data name="MainView" xml:space="preserve">
+    <value>メイン表示</value>
+  </data>
+  <data name="OpenProject" xml:space="preserve">
+    <value>プロジェクトを開く</value>
+  </data>
+  <data name="OpenFile" xml:space="preserve">
+    <value>ファイルを開く</value>
+  </data>
+  <data name="Save_Description" xml:space="preserve">
+    <value>現在のファイルを保存</value>
+  </data>
+  <data name="SaveAll_Description" xml:space="preserve">
+    <value>すべてのファイルを保存</value>
+  </data>
+  <data name="CloseProject_Description" xml:space="preserve">
+    <value>現在のプロジェクトを閉じる</value>
+  </data>
+  <data name="Undo_Description" xml:space="preserve">
+    <value>最後の操作を元に戻します</value>
+  </data>
+  <data name="Redo_Description" xml:space="preserve">
+    <value>最後の操作をやり直します</value>
+  </data>
+  <data name="Exit_Description" xml:space="preserve">
+    <value>アプリケーションを終了します</value>
+  </data>
+  <data name="PlayPause" xml:space="preserve">
+    <value>再生/一時停止</value>
+  </data>
+  <data name="PlayPause_Description" xml:space="preserve">
+    <value>再生/一時停止を切り替えます。</value>
+  </data>
+  <data name="MoveToNext" xml:space="preserve">
+    <value>次へ移動</value>
+  </data>
+  <data name="MoveToPrevious" xml:space="preserve">
+    <value>前へ移動</value>
+  </data>
+  <data name="MoveToNext_Description" xml:space="preserve">
+    <value>次のフレームへ移動。</value>
+  </data>
+  <data name="MoveToPrevious_Description" xml:space="preserve">
+    <value>前のフレームに移動。</value>
+  </data>
+  <data name="MoveToEnd" xml:space="preserve">
+    <value>最後に移動</value>
+  </data>
+  <data name="MoveToStart" xml:space="preserve">
+    <value>最初に移動</value>
+  </data>
+  <data name="MoveToStart_Description" xml:space="preserve">
+    <value>シーンの最初のフレームに移動。</value>
+  </data>
+  <data name="MoveToEnd_Description" xml:space="preserve">
+    <value>シーンの最後のフレームに移動。</value>
+  </data>
+  <data name="Paste_Description" xml:space="preserve">
+    <value>コピーしたデータをペーストします。</value>
+  </data>
+  <data name="Rename_Description" xml:space="preserve">
+    <value>選択したアイテムの名前を変更。</value>
+  </data>
+  <data name="Exclude_Description" xml:space="preserve">
+    <value>選択したアイテムを除外します。</value>
+  </data>
+  <data name="Delete_Description" xml:space="preserve">
+    <value>選択したアイテムを消去します。</value>
+  </data>
+  <data name="Copy_Description" xml:space="preserve">
+    <value>選択したアイテムをコピーします。</value>
+  </data>
+  <data name="Cut_Description" xml:space="preserve">
+    <value>選択したアイテムをカットします。</value>
+  </data>
 </root>

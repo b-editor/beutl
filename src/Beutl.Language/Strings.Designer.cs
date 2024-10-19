@@ -2312,5 +2312,161 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("MoveTo", resourceCulture);
             }
         }
+        
+        public static string Keymap {
+            get {
+                return ResourceManager.GetString("Keymap", resourceCulture);
+            }
+        }
+        
+        public static string MainView {
+            get {
+                return ResourceManager.GetString("MainView", resourceCulture);
+            }
+        }
+        
+        public static string OpenProject {
+            get {
+                return ResourceManager.GetString("OpenProject", resourceCulture);
+            }
+        }
+        
+        public static string OpenFile {
+            get {
+                return ResourceManager.GetString("OpenFile", resourceCulture);
+            }
+        }
+        
+        public static string Save_Description {
+            get {
+                return ResourceManager.GetString("Save_Description", resourceCulture);
+            }
+        }
+        
+        public static string SaveAll_Description {
+            get {
+                return ResourceManager.GetString("SaveAll_Description", resourceCulture);
+            }
+        }
+        
+        public static string CloseProject_Description {
+            get {
+                return ResourceManager.GetString("CloseProject_Description", resourceCulture);
+            }
+        }
+        
+        public static string Undo_Description {
+            get {
+                return ResourceManager.GetString("Undo_Description", resourceCulture);
+            }
+        }
+        
+        public static string Redo_Description {
+            get {
+                return ResourceManager.GetString("Redo_Description", resourceCulture);
+            }
+        }
+        
+        public static string Exit_Description {
+            get {
+                return ResourceManager.GetString("Exit_Description", resourceCulture);
+            }
+        }
+        
+        public static string PlayPause {
+            get {
+                return ResourceManager.GetString("PlayPause", resourceCulture);
+            }
+        }
+        
+        public static string PlayPause_Description {
+            get {
+                return ResourceManager.GetString("PlayPause_Description", resourceCulture);
+            }
+        }
+        
+        public static string MoveToNext {
+            get {
+                return ResourceManager.GetString("MoveToNext", resourceCulture);
+            }
+        }
+        
+        public static string MoveToPrevious {
+            get {
+                return ResourceManager.GetString("MoveToPrevious", resourceCulture);
+            }
+        }
+        
+        public static string MoveToNext_Description {
+            get {
+                return ResourceManager.GetString("MoveToNext_Description", resourceCulture);
+            }
+        }
+        
+        public static string MoveToPrevious_Description {
+            get {
+                return ResourceManager.GetString("MoveToPrevious_Description", resourceCulture);
+            }
+        }
+        
+        public static string MoveToStart {
+            get {
+                return ResourceManager.GetString("MoveToStart", resourceCulture);
+            }
+        }
+        
+        public static string MoveToEnd {
+            get {
+                return ResourceManager.GetString("MoveToEnd", resourceCulture);
+            }
+        }
+        
+        public static string MoveToStart_Description {
+            get {
+                return ResourceManager.GetString("MoveToStart_Description", resourceCulture);
+            }
+        }
+        
+        public static string MoveToEnd_Description {
+            get {
+                return ResourceManager.GetString("MoveToEnd_Description", resourceCulture);
+            }
+        }
+        
+        public static string Paste_Description {
+            get {
+                return ResourceManager.GetString("Paste_Description", resourceCulture);
+            }
+        }
+        
+        public static string Rename_Description {
+            get {
+                return ResourceManager.GetString("Rename_Description", resourceCulture);
+            }
+        }
+        
+        public static string Exclude_Description {
+            get {
+                return ResourceManager.GetString("Exclude_Description", resourceCulture);
+            }
+        }
+        
+        public static string Delete_Description {
+            get {
+                return ResourceManager.GetString("Delete_Description", resourceCulture);
+            }
+        }
+        
+        public static string Copy_Description {
+            get {
+                return ResourceManager.GetString("Copy_Description", resourceCulture);
+            }
+        }
+        
+        public static string Cut_Description {
+            get {
+                return ResourceManager.GetString("Cut_Description", resourceCulture);
+            }
+        }
     }
 }

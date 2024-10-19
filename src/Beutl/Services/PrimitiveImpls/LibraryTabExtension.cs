@@ -15,7 +15,7 @@ public sealed class LibraryTabExtension : ToolTabExtension
 
     public override string Name => "Library";
 
-    public override string DisplayName => "Library";
+    public override string DisplayName => Strings.Library;
 
     public override bool CanMultiple => false;
 

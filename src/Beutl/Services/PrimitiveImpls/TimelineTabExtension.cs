@@ -17,7 +17,7 @@ public sealed class TimelineTabExtension : ToolTabExtension
 
     public override string Name => "Timeline";
 
-    public override string DisplayName => "Timeline";
+    public override string DisplayName => Strings.Timeline;
 
     public override bool CanMultiple => false;
 
@@ -25,37 +25,37 @@ public sealed class TimelineTabExtension : ToolTabExtension
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
-        new ContextCommandDefinition("Paste", "Paste", "Paste the copied data.",
+        new ContextCommandDefinition("Paste", Strings.Paste, Strings.Paste_Description,
         [
             new ContextCommandKeyGesture("Ctrl+V"),
             new ContextCommandKeyGesture("Cmd+V", OSPlatform.OSX),
         ]),
-        new ContextCommandDefinition("Rename", "Rename", "Rename the selected item.",
+        new ContextCommandDefinition("Rename", Strings.Rename, Strings.Rename_Description,
         [
             new ContextCommandKeyGesture("F2"),
             new ContextCommandKeyGesture("Enter", OSPlatform.OSX),
         ]),
-        new ContextCommandDefinition("Exclude", "Exclude", "Exclude the selected item.",
+        new ContextCommandDefinition("Exclude", Strings.Exclude, Strings.Exclude_Description,
         [
             new ContextCommandKeyGesture("Delete"),
             new ContextCommandKeyGesture("Back", OSPlatform.OSX),
         ]),
-        new ContextCommandDefinition("Delete", "Delete", "Delete the selected item.",
+        new ContextCommandDefinition("Delete", Strings.Delete, Strings.Delete_Description,
         [
             new ContextCommandKeyGesture("Ctrl+Delete"),
             new ContextCommandKeyGesture("Cmd+Back", OSPlatform.OSX),
         ]),
-        new ContextCommandDefinition("Copy", "Copy", "Copy the selected item.",
+        new ContextCommandDefinition("Copy", Strings.Copy, Strings.Copy_Description,
         [
             new ContextCommandKeyGesture("Ctrl+C"),
             new ContextCommandKeyGesture("Cmd+C", OSPlatform.OSX),
         ]),
-        new ContextCommandDefinition("Cut", "Cut", "Cut the selected item.",
+        new ContextCommandDefinition("Cut", Strings.Cut, Strings.Cut_Description,
         [
             new ContextCommandKeyGesture("Ctrl+X"),
             new ContextCommandKeyGesture("Cmd+X", OSPlatform.OSX),
         ]),
-        new ContextCommandDefinition("Split", "Split", "Split by current frame.",
+        new ContextCommandDefinition("Split", Strings.SplitByCurrentFrame, "",
         [
             new ContextCommandKeyGesture("Ctrl+K"),
             new ContextCommandKeyGesture("Cmd+K", OSPlatform.OSX),

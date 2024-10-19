@@ -17,7 +17,7 @@ public sealed class PathEditorTabExtension : ToolTabExtension
 
     public override string Name => "PathEditor";
 
-    public override string DisplayName => "PathEditor";
+    public override string DisplayName => Strings.PathEditor;
 
     public override bool CanMultiple => false;
 
