@@ -31,6 +31,7 @@ jobs:
     strategy:
       matrix:
         rid: [ linux_x64, win_x64, osx_x64, osx_arm64 ]
+        standalone: [ true, false ]
 
     steps:
       - name: Checkout
@@ -49,6 +50,7 @@ jobs:
       - name: Publish
         run: |
           ./build.sh publish \
+            --self-contained ${{ matrix.standalone }} \
             --runtime ${{ matrix.rid }} \
             --skip restore \
             --version ${{ needs.determine-version.outputs.nugetVer }} \
@@ -83,17 +85,24 @@ jobs:
           gh api -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" /repos/indigo-san/opencvsharp-extern-builds/releases/assets/$ASSET_ID > libOpenCvSharpExtern.so
 
       - name: Zip
-        run: ./build.sh zip --runtime ${{ matrix.rid }} --skip publish --version ${{ needs.determine-version.outputs.nugetVer }}
+        run: ./build.sh zip \
+            --runtime ${{ matrix.rid }} \
+            --self-contained ${{ matrix.standalone }} \
+            --skip publish \
+            --version ${{ needs.determine-version.outputs.nugetVer }}
 
       - name: Save
         uses: actions/upload-artifact@v4
         with:
-          name: beutl-${{ matrix.rid }}-${{ needs.determine-version.outputs.semVer }}
+          name: beutl-${{ matrix.rid }}${{ matrix.standalone == 'true' && '-standalone' || '' }}-${{ needs.determine-version.outputs.semVer }}
           path: ./artifacts/*.zip
 
   build-windows-installer:
     needs: [ determine-version, build-executable ]
     runs-on: windows-latest
+    strategy:
+      matrix:
+        standalone: [ true, false ]
 
     steps:
       - name: Checkout
@@ -106,23 +115,26 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: beutl-win_x64-${{ needs.determine-version.outputs.semVer }}
+          name: beutl-win_x64-standalone-${{ needs.determine-version.outputs.semVer }}
           path: artifacts
 
       - name: Extract zip
         run: |
           mkdir output/Beutl
           cd output/Beutl
-          7z x ../../artifacts/beutl-win-x64-${{ needs.determine-version.outputs.semVer }}.zip
+          7z x ../../artifacts/beutl-win-x64-standalone-${{ needs.determine-version.outputs.semVer }}.zip
 
       - name: Build installer
-        run: ./build.cmd build-installer --skip publish --assembly-version ${{ needs.determine-version.outputs.asmVer }}
+        run: ./build.cmd build-installer \
+            --skip publish \
+            --self-contained true \
+            --assembly-version ${{ needs.determine-version.outputs.asmVer }}
 
       - name: Save installer
         uses: actions/upload-artifact@v4
         with:
-          name: beutl-setup
-          path: ./artifacts/beutl-setup.exe
+          name: beutl${{ matrix.standalone == 'true' && '-standalone' || '' }}-setup
+          path: ./artifacts/beutl${{ matrix.standalone == 'true' && '-standalone' || '' }}-setup.exe
 
   build-debian-package:
     needs: [ determine-version, build-executable ]
@@ -273,7 +285,7 @@ jobs:
       - uses: ncipollo/release-action@v1
         id: create_release
         with:
-          artifacts: "artifacts/**/*.zip,artifacts/**/*.nupkg,artifacts/**/*.deb,artifacts/beutl-setup/beutl-setup.exe"
+          artifacts: "artifacts/**/*.zip,artifacts/**/*.deb,artifacts/beutl-setup/beutl-setup.exe,artifacts/beutl-standalone-setup/beutl-standalone-setup.exe"
           draft: true
           makeLatest: true
           generateReleaseNotes: true

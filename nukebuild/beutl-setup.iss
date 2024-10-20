@@ -13,6 +13,7 @@
 #define MyAppAssocName MyAppName + " Project File"
 #define MyAppAssocExt ".bep"
 #define MyAppAssocKey StringChange(MyAppAssocName, " ", "") + MyAppAssocExt
+; #define MyOutputBaseFilename "beutl-setup"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -33,7 +34,7 @@ LicenseFile={#MyLicenseFile}
 ;PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir={#MyOutputDir}
-OutputBaseFilename=beutl-setup
+OutputBaseFilename={#MyOutputBaseFilename}
 SetupIconFile={#MySetupIconFile}
 Compression=lzma
 SolidCompression=yes
