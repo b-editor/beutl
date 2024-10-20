@@ -72,7 +72,7 @@ public class AnimatedImageReader : MediaReader
                 }
             }
 
-            BreakNestedLoop: ;
+        BreakNestedLoop:;
         }
 
         if (detectedFrame == -1)
