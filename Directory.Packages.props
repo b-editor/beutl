@@ -27,7 +27,7 @@
     <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.224" />
     <PackageVersion Include="FluentTextTable" Version="1.0.0" />
     <PackageVersion Include="ILGPU.Algorithms" Version="1.5.1" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.9.1" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.10.0" />
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.106" />
     <PackageVersion Include="MonoMac.NetStandard" Version="0.0.4" />
     <PackageVersion Include="Moq" Version="4.20.72" />
