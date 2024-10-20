@@ -108,7 +108,7 @@ public class ContextCommandManager(
                     extension.GetType(),
                     def,
                     [
-                        ..def.KeyGestures?.Select(g =>
+                        .. def.KeyGestures?.Select(g =>
                           {
                               try
                               {
@@ -205,7 +205,7 @@ public class ContextCommandManager(
                 else
                     entry.KeyGestures.Insert(0, i);
 
-                NextItem: ;
+                NextItem:;
             }
         }
     }

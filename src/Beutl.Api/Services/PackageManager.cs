@@ -196,7 +196,10 @@ public sealed class PackageManager(
                 {
                     list.Add(new LocalPackage
                     {
-                        Name = name, DisplayName = name, InstalledPath = item, SideLoad = true
+                        Name = name,
+                        DisplayName = name,
+                        InstalledPath = item,
+                        SideLoad = true
                     });
                 }
             }
