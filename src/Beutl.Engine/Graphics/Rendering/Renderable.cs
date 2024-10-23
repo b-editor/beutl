@@ -32,6 +32,11 @@ public abstract class Renderable : Styleable, IAffectsRender
         AffectsRender<Renderable>(IsVisibleProperty);
     }
 
+    protected Renderable()
+    {
+        AnimationInvalidated += (_, e) => RaiseInvalidated(e);
+    }
+
     public bool IsVisible
     {
         get => _isVisible;
