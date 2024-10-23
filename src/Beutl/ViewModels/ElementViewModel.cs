@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Beutl.Animation;
 using Beutl.Commands;
 using Beutl.Helpers;
 using Beutl.Models;
@@ -360,6 +361,16 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         IRecordableCommand command1 = Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model);
         backward.Start = absTime;
         backward.Length = backwardLength;
+        foreach (KeyFrameAnimation item in new ObjectSearcher(backward,
+                         o => o is KeyFrameAnimation { UseGlobalClock: false })
+                     .SearchAll()
+                     .OfType<KeyFrameAnimation>())
+        {
+            foreach (IKeyFrame keyframe in item.KeyFrames)
+            {
+                keyframe.KeyTime -= forwardLength;
+            }
+        }
 
         backward.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!,
             Constants.ElementFileExtension));
