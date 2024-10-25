@@ -41,6 +41,6 @@ Refer to the [documentation](https://beutl.beditor.net/docs/get-started/install)
 - [MIT License](https://github.com/b-editor/beutl/blob/main/LICENSE)
 
 ## Patrons
-
-- [Bony_Chops](https://www.patreon.com/user/creators?u=52944861)
+- [calloc134](https://github.com/calloc134)
+- [Bony_Chops](https://github.com/BonyChops)
 - [Hayashi Tomonari](https://www.patreon.com/user/creators?u=62872137)
