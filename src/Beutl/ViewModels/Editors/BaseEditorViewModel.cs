@@ -1,19 +1,15 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
-
 using Avalonia;
 using Avalonia.Data;
-
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -81,7 +77,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                         (float oldIndex, _) = t.OldValue;
                         (float newIndex, KeyFrames? keyframes) = t.NewValue;
 
-                        if (_editViewModel != null && keyframes != null)
+                        if (_editViewModel != null && keyframes is { Count: > 0 })
                         {
                             int newCeiled = (int)Math.Clamp(MathF.Ceiling(newIndex), 0, keyframes.Count - 1);
                             EditingKeyFrame.Value = keyframes[newCeiled];
@@ -146,8 +142,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public bool IsStylingSetter => PropertyAdapter is ISetterAdapter;
 
-    [AllowNull]
-    public PropertyEditorExtension Extension { get; set; }
+    [AllowNull] public PropertyEditorExtension Extension { get; set; }
 
     protected ImmutableArray<IStorable?> GetStorables() => [_element];
 
@@ -205,10 +200,12 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                         {
                             if (GetAnimation() is { } animation)
                             {
-                                int rate = _editViewModel?.Scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? 30;
+                                int rate = _editViewModel?.Scene?.FindHierarchicalParent<Project>().GetFrameRate() ??
+                                           30;
 
                                 TimeSpan globalkeyTime = t.First;
-                                TimeSpan localKeyTime = _element != null ? globalkeyTime - _element.Start : globalkeyTime;
+                                TimeSpan localKeyTime =
+                                    _element != null ? globalkeyTime - _element.Start : globalkeyTime;
                                 TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
                                 keyTime = keyTime.RoundToRate(rate);
 
@@ -291,7 +288,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                 IEnumerable<TimeRange> affectedRange = storables.OfType<Element>().Select(v => v.Range);
 
                 cacheManager.DeleteAndUpdateBlocks(affectedRange
-                    .Select(item => (Start: (int)item.Start.ToFrameNumber(rate), End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
+                    .Select(item => (Start: (int)item.Start.ToFrameNumber(rate),
+                        End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
             });
         }
     }
@@ -365,7 +363,9 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
         TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
 
-        int rate = this.GetService<EditViewModel>()?.Scene?.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        int rate = this.GetService<EditViewModel>()?.Scene?.FindHierarchicalParent<Project>() is { } proj
+            ? proj.GetFrameRate()
+            : 30;
 
         return keyTime.RoundToRate(rate);
     }
@@ -380,9 +380,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
                 var keyframe = new KeyFrame<T>
                 {
-                    Value = kfAnimation.Interpolate(keyTime),
-                    Easing = new SplineEasing(),
-                    KeyTime = keyTime
+                    Value = kfAnimation.Interpolate(keyTime), Easing = new SplineEasing(), KeyTime = keyTime
                 };
 
                 RecordableCommands.Create(GetStorables())
@@ -433,9 +431,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             T initialValue = animatableProperty.GetValue()!;
             newAnimation.KeyFrames.Add(new KeyFrame<T>
             {
-                Value = initialValue,
-                Easing = new SplineEasing(),
-                KeyTime = TimeSpan.Zero
+                Value = initialValue, Easing = new SplineEasing(), KeyTime = TimeSpan.Zero
             });
 
             RecordableCommands.Create(GetStorables())
