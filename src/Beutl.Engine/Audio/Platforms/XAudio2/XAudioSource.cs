@@ -6,7 +6,7 @@ public sealed class XAudioSource(XAudioContext context) : IDisposable
 {
     private IXAudio2SourceVoice? _sourceVoice;
 
-    public int BuffersQueued => _sourceVoice?.State.BuffersQueued ?? -1;
+    public int BuffersQueued => (int?)_sourceVoice?.State.BuffersQueued ?? -1;
 
     public void Dispose()
     {
