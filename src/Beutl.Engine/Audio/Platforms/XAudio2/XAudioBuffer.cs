@@ -45,7 +45,7 @@ public sealed unsafe class XAudioBuffer : IDisposable
         Format = format;
         SizeInBytes = sizeInBytes;
         Buffer.AudioDataPointer = (nint)_stream;
-        Buffer.AudioBytes = SizeInBytes;
+        Buffer.AudioBytes = (uint)SizeInBytes;
     }
 
     public void Dispose()
