@@ -17,7 +17,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.NodeTree;
 
-public sealed class NodeViewModel : IDisposable, IJsonSerializable
+public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEditorContextVisitor, IServiceProvider
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly string _defaultName;
@@ -178,7 +178,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
             (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(atmp);
             ext?.TryCreateContextForNode(atmp, out context);
         }
-
+        context?.Accept(this);
         return CreateNodeItemViewModelCore(item, context);
     }
 
@@ -251,5 +251,19 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable
                 item.PropertyEditorContext.ReadFromJson(itemJson!.AsObject());
             }
         }
+    }
+
+    public void Visit(IPropertyEditorContext context)
+    {
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        if (serviceType == typeof(Node))
+        {
+            return Node;
+        }
+
+        return EditorContext.GetService(serviceType);
     }
 }
