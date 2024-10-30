@@ -380,7 +380,9 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
                 var keyframe = new KeyFrame<T>
                 {
-                    Value = kfAnimation.Interpolate(keyTime), Easing = new SplineEasing(), KeyTime = keyTime
+                    Value = kfAnimation.Interpolate(keyTime),
+                    Easing = new SplineEasing(),
+                    KeyTime = keyTime
                 };
 
                 RecordableCommands.Create(GetStorables())
@@ -431,7 +433,9 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             T initialValue = animatableProperty.GetValue()!;
             newAnimation.KeyFrames.Add(new KeyFrame<T>
             {
-                Value = initialValue, Easing = new SplineEasing(), KeyTime = TimeSpan.Zero
+                Value = initialValue,
+                Easing = new SplineEasing(),
+                KeyTime = TimeSpan.Zero
             });
 
             RecordableCommands.Create(GetStorables())
