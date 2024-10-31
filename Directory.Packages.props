@@ -4,7 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="AsyncImageLoader.Avalonia" Version="3.3.0" />
-    <PackageVersion Include="Avalonia" Version="11.1.4" />
+    <PackageVersion Include="Avalonia" Version="11.2.0" />
     <PackageVersion Include="Avalonia.Controls.ItemsRepeater" Version="11.1.4" />
     <PackageVersion Include="Avalonia.Controls.PanAndZoom" Version="11.1.0.1" />
     <PackageVersion Include="Avalonia.Desktop" Version="11.1.4" />
@@ -64,7 +64,7 @@
     <PackageVersion Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="5.0.0-pre.12" />
     <PackageVersion Include="PanelExtension" Version="1.0.0" />
     <PackageVersion Include="ReactiveProperty" Version="9.6.0" />
-    <PackageVersion Include="ReDocking.Avalonia" Version="1.0.2" />
+    <PackageVersion Include="ReDocking.Avalonia" Version="1.0.3" />
     <PackageVersion Include="Roslynator.Analyzers" Version="4.12.9" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="8.0.0" />
     <PackageVersion Include="Serilog.Sinks.Async" Version="2.1.0" />
