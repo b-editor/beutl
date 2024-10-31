@@ -1,6 +1,6 @@
 ﻿namespace Beutl.NodeTree;
 
-internal interface IInputSocketForSetter : IInputSocket
+internal interface IDefaultInputSocket : IInputSocket
 {
     new int LocalId { get; set; }
 

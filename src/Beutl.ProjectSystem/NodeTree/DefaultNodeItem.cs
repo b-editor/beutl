@@ -1,26 +1,24 @@
-﻿using System.Text.Json.Nodes;
-
-using Beutl.Media;
+﻿using Beutl.Media;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree;
 
-public sealed class NodeItemForSetter<T> : NodeItem<T>
+public sealed class DefaultNodeItem<T> : NodeItem<T>
 {
-    public void SetProperty(SetterAdapter<T> property)
+    public void SetProperty(NodePropertyAdapter<T> property)
     {
         Property = property;
-        property.Setter.Invalidated += OnSetterInvalidated;
+        property.Invalidated += OnAdapterInvalidated;
     }
 
-    private void OnSetterInvalidated(object? sender, EventArgs e)
+    private void OnAdapterInvalidated(object? sender, EventArgs e)
     {
         RaiseInvalidated(new RenderInvalidatedEventArgs(this));
     }
 
-    public SetterAdapter<T>? GetProperty()
+    public NodePropertyAdapter<T>? GetProperty()
     {
-        return Property as SetterAdapter<T>;
+        return Property as NodePropertyAdapter<T>;
     }
 
     public override void Serialize(ICoreSerializationContext context)

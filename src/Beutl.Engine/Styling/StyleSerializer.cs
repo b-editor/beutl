@@ -11,6 +11,20 @@ public static class StyleSerializer
 {
     public static ISetter? ToSetter(this JsonNode? json, string name, Type targetType, ICoreSerializationContext context)
     {
+        var (property, value, animation) = ToTuple(json, name, targetType, context);
+        if (property is null)
+            return null;
+
+        var helper = (IGenericHelper)typeof(GenericHelper<>)
+            .MakeGenericType(property.PropertyType)!
+            .GetField("Instance")!
+            .GetValue(null)!;
+
+        return helper.InitializeSetter(property, value, animation);
+    }
+
+    public static (CoreProperty? property, Optional<object?> value, IAnimation? animation) ToTuple(JsonNode? json, string name, Type targetType, ICoreSerializationContext context)
+    {
         JsonNode? animationNode = null;
         JsonNode? valueNode = null;
         Type ownerType = targetType;
@@ -26,13 +40,13 @@ public static class StyleSerializer
                 && ownerNode is JsonValue ownerValue
                 && ownerValue.TryGetValue(out string? ownerStr))
             {
-                if (TypeFormat.ToType(ownerStr) is Type ownerType1)
+                if (TypeFormat.ToType(ownerStr) is { } ownerType1)
                 {
                     ownerType = ownerType1;
                 }
                 else
                 {
-                    return null;
+                    return default;
                 }
             }
 
@@ -46,12 +60,7 @@ public static class StyleSerializer
         CoreProperty? property = PropertyRegistry.GetRegistered(ownerType).FirstOrDefault(x => x.Name == name);
 
         if (property == null)
-            return null;
-
-        var helper = (IGenericHelper)typeof(GenericHelper<>)
-            .MakeGenericType(property.PropertyType)
-            .GetField("Instance")!
-            .GetValue(null)!;
+            return default;
 
         Optional<object?> value = null;
         if (valueNode != null)
@@ -69,18 +78,29 @@ public static class StyleSerializer
             }
         }
 
-        return helper.InitializeSetter(property, value, animationNode?.ToAnimation(property, context));
+        return (property, value, animationNode?.ToAnimation(property, context));
     }
 
     public static (string, JsonNode?) ToJson(this ISetter setter, Type targetType, ICoreSerializationContext context)
     {
+        return ToJson(
+            setter.Property,
+            setter.Value,
+            setter.Animation,
+            targetType,
+            context
+        );
+    }
+
+    public static (string, JsonNode?) ToJson(CoreProperty property, object? value, IAnimation? animation, Type targetType, ICoreSerializationContext context)
+    {
         string? owner = null;
         JsonNode? animationNode = null;
-        string? name = setter.Property.Name;
+        string? name = property.Name;
 
-        if (!targetType.IsAssignableTo(setter.Property.OwnerType))
+        if (!targetType.IsAssignableTo(property.OwnerType))
         {
-            owner = TypeFormat.ToString(setter.Property.OwnerType);
+            owner = TypeFormat.ToString(property.OwnerType);
         }
 
         // Todo: 互換性維持のために汚くなってる
@@ -89,28 +109,28 @@ public static class StyleSerializer
         var innerContext = new JsonSerializationContext(targetType, errorNotifier, context, simJson);
         using (ThreadLocalSerializationContext.Enter(innerContext))
         {
-            setter.Property.RouteSerialize(innerContext, setter.Value);
+            property.RouteSerialize(innerContext, value);
         }
-        JsonNode? value = simJson[name];
+        JsonNode? jsonNode = simJson[name];
         simJson[name] = null;
 
-        if (setter.Animation is { } animation)
+        if (animation is not null)
         {
-            if (animation.Property != setter.Property)
+            if (animation.Property.Id != property.Id)
             {
-                throw new InvalidOperationException("Setter.Animation.Property != Setter.Property");
+                throw new InvalidOperationException("Animation.Property != Property");
             }
 
             animationNode = animation.ToJson(innerContext);
         }
 
-        if (value is JsonValue jsonValue
+        if (jsonNode is JsonValue jsonValue
             && owner == null
             && animationNode == null)
         {
             return (name, jsonValue);
         }
-        else if (value == null && owner == null && animationNode == null)
+        else if (jsonNode == null && owner == null && animationNode == null)
         {
             return (name, null);
         }
@@ -118,7 +138,7 @@ public static class StyleSerializer
         {
             var json = new JsonObject
             {
-                ["Value"] = value
+                ["Value"] = jsonNode
             };
 
             if (owner != null)

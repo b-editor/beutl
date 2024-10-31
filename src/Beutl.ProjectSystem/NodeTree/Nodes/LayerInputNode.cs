@@ -25,7 +25,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
     public class LayerInputSocket<T> : OutputSocket<T>, ILayerInputSocket, IGroupSocket
     {
-        private SetterAdapter<T>? _property;
+        private NodePropertyAdapter<T>? _property;
 
         static LayerInputSocket()
         {
@@ -33,17 +33,17 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
         public CoreProperty? AssociatedProperty { get; set; }
 
-        public void SetProperty(SetterAdapter<T> property)
+        public void SetProperty(NodePropertyAdapter<T> property)
         {
             _property = property;
             AssociatedProperty = property.Property;
 
-            property.Setter.Invalidated += OnSetterInvalidated;
+            property.Invalidated += OnSetterInvalidated;
         }
 
         void ILayerInputSocket.SetProperty(IPropertyAdapter property)
         {
-            SetProperty((SetterAdapter<T>)property);
+            SetProperty((NodePropertyAdapter<T>)property);
         }
 
         IPropertyAdapter? ILayerInputSocket.GetProperty()
@@ -53,8 +53,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
         public void SetupProperty(CoreProperty property)
         {
-            var setter = new Setter<T>((CoreProperty<T>)property);
-            SetProperty(new SetterAdapter<T>(setter, property.OwnerType));
+            SetProperty(new NodePropertyAdapter<T>((CoreProperty<T>)property, property.OwnerType));
         }
 
         private void OnSetterInvalidated(object? sender, EventArgs e)
@@ -62,7 +61,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             RaiseInvalidated(new RenderInvalidatedEventArgs(this));
         }
 
-        public SetterAdapter<T>? GetProperty()
+        public NodePropertyAdapter<T>? GetProperty()
         {
             return _property;
         }
@@ -71,7 +70,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         {
             if (GetProperty() is { } property)
             {
-                if (property is IAnimatablePropertyAdapter<T> { Animation: IAnimation<T> animation })
+                if (property is IAnimatablePropertyAdapter<T> { Animation: { } animation })
                 {
                     Value = animation.GetAnimatedValue(context.Clock);
                 }
