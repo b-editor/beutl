@@ -1,100 +1,51 @@
-﻿using Beutl.Animation;
+﻿using System.Runtime.CompilerServices;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
-using Beutl.Styling;
 
 namespace Beutl.Operation;
 
-public sealed class DecorateOperator : StylingOperator
+public sealed class DecorateOperator() : PublishOperator<DrawableDecorator>([
+    (Drawable.TransformProperty, () => new TransformGroup()),
+    (Drawable.TransformOriginProperty, RelativePoint.Center),
+    (Drawable.FilterEffectProperty, () => new FilterEffectGroup()),
+    (Drawable.BlendModeProperty, BlendMode.SrcOver)
+])
 {
-    private readonly List<IStyleInstance> _instances = [];
-
-    public Setter<ITransform?> Transform { get; set; } =
-        new(Drawable.TransformProperty, new TransformGroup());
-
-    public Setter<RelativePoint> TransformOrigin { get; set; } =
-        new(Drawable.TransformOriginProperty, RelativePoint.Center);
-
-    public Setter<FilterEffect?> FilterEffect { get; set; } =
-        new(Drawable.FilterEffectProperty, new FilterEffectGroup());
-
-    public Setter<BlendMode> BlendMode { get; set; } =
-        new(Drawable.BlendModeProperty, Graphics.BlendMode.SrcOver);
+    private readonly ConditionalWeakTable<Drawable, DrawableDecorator> _bag = [];
 
     public override void Evaluate(OperatorEvaluationContext context)
     {
-        if (IsEnabled)
+        if (!IsEnabled) return;
+
+        Value.ApplyAnimations(context.Clock);
+        for (int i = 0; i < context.FlowRenderables.Count; i++)
         {
-            int j = 0;
-            for (int i = 0; i < context.FlowRenderables.Count; i++)
+            if (context.FlowRenderables[i] is not Drawable drawable) continue;
+            var decorator = _bag.GetValue(drawable, d => new DrawableDecorator { Child = d });
+            decorator.Child = drawable;
+            context.FlowRenderables[i] = decorator;
+
+            decorator.Transform = (Value.Transform as IMutableTransform)?.ToImmutable() ?? Value.Transform;
+            decorator.TransformOrigin = Value.TransformOrigin;
+            decorator.BlendMode = Value.BlendMode;
+            if (Value.FilterEffect is null)
             {
-                if (context.FlowRenderables[i] is not Drawable drawable) continue;
-                IStyleInstance instance = GetInstance(j, drawable);
-
-                if (instance is { Target: DrawableDecorator decorator })
-                {
-                    while (drawable.BatchUpdate)
-                    {
-                        drawable.EndBatchUpdate();
-                    }
-
-                    ApplyStyle(instance, context.Clock);
-                    context.FlowRenderables[i] = decorator;
-                    j++;
-                }
-                else
-                {
-                    context.FlowRenderables.RemoveAt(i);
-                    i--;
-                }
+                decorator.FilterEffect = null;
+            }
+            else
+            {
+                decorator.FilterEffect ??= Value.FilterEffect.CreateDelegatedInstance();
             }
         }
-    }
-
-    private void ApplyStyle(IStyleInstance instance, IClock clock)
-    {
-        instance.Begin();
-        instance.Apply(clock);
-        instance.End();
-    }
-
-    private IStyleInstance GetInstance(int index, Drawable value)
-    {
-        IStyleInstance? instance;
-        if (index < _instances.Count)
-        {
-            instance = _instances[index];
-            if (instance.Target is DrawableDecorator dec)
-            {
-                dec.Child = value;
-            }
-        }
-        else
-        {
-            instance = Style.Instance(new DrawableDecorator { Child = value });
-            _instances.Add(instance);
-        }
-
-        return instance;
-    }
-
-    protected override Style OnInitializeStyle(Func<IList<ISetter>> setters)
-    {
-        var style = new Style<DrawableDecorator>();
-        style.Setters.AddRange(setters());
-        return style;
     }
 
     public override void Exit()
     {
         base.Exit();
-        foreach (IStyleInstance instance in _instances)
+        foreach (var entry in _bag)
         {
-            if (instance.Target is DrawableDecorator dec)
-            {
-                dec.Child = null;
-            }
+            entry.Value.Child = null;
         }
     }
 }

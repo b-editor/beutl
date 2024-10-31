@@ -77,4 +77,30 @@ public abstract class FilterEffect : Animatable, IAffectsRender
     {
         return bounds;
     }
+
+    public FilterEffect CreateDelegatedInstance()
+    {
+        return new Delegated(this);
+    }
+
+    private sealed class Delegated : FilterEffect
+    {
+        private readonly FilterEffect _filterEffect;
+
+        public Delegated(FilterEffect filterEffect)
+        {
+            _filterEffect = filterEffect;
+            _filterEffect.Invalidated += (s, e) => RaiseInvalidated(e);
+        }
+
+        public override void ApplyTo(FilterEffectContext context)
+        {
+            _filterEffect.ApplyTo(context);
+        }
+
+        public override Rect TransformBounds(Rect bounds)
+        {
+            return _filterEffect.TransformBounds(bounds);
+        }
+    }
 }
