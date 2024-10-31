@@ -225,9 +225,8 @@ public abstract class Node : Hierarchical
         if (ValidateLocalId(localId))
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
-        var setter = new Setter<T>(property);
-        var adapter = new SetterAdapter<T>(setter, property.OwnerType);
-        var socket = new InputSocketForSetter<T>() { LocalId = localId };
+        var adapter = new NodePropertyAdapter<T>(property, property.OwnerType);
+        var socket = new DefaultInputSocket<T> { LocalId = localId };
         socket.SetPropertyAdapter(adapter);
         return socket;
     }
@@ -240,9 +239,8 @@ public abstract class Node : Hierarchical
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
         Type propertyType = property.PropertyType;
-        object setter = Activator.CreateInstance(typeof(Setter<>).MakeGenericType(propertyType), property)!;
-        object adapter = Activator.CreateInstance(typeof(SetterAdapter<>).MakeGenericType(propertyType), setter, property.OwnerType)!;
-        var socket = (IInputSocketForSetter)Activator.CreateInstance(typeof(InputSocketForSetter<>).MakeGenericType(propertyType))!;
+        object adapter = Activator.CreateInstance(typeof(NodePropertyAdapter<>).MakeGenericType(propertyType), property, property.OwnerType)!;
+        var socket = (IDefaultInputSocket)Activator.CreateInstance(typeof(DefaultInputSocket<>).MakeGenericType(propertyType))!;
         socket.LocalId = localId;
         socket.SetPropertyAdapter(adapter);
         return socket;
@@ -255,9 +253,8 @@ public abstract class Node : Hierarchical
         if (ValidateLocalId(localId))
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
-        var setter = new Setter<T>(property);
-        var adapter = new SetterAdapter<T>(setter, typeof(TOwner));
-        var socket = new InputSocketForSetter<T>() { LocalId = localId };
+        var adapter = new NodePropertyAdapter<T>(property, typeof(TOwner));
+        var socket = new DefaultInputSocket<T> { LocalId = localId };
         socket.SetPropertyAdapter(adapter);
         return socket;
     }
@@ -269,9 +266,9 @@ public abstract class Node : Hierarchical
         if (ValidateLocalId(localId))
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
-        var setter = new Setter<T>(property, value);
-        var adapter = new SetterAdapter<T>(setter, property.OwnerType);
-        var socket = new InputSocketForSetter<T>() { LocalId = localId };
+        var adapter = new NodePropertyAdapter<T>(property, property.OwnerType);
+        adapter.SetValue(value);
+        var socket = new DefaultInputSocket<T> { LocalId = localId };
         socket.SetPropertyAdapter(adapter);
         return socket;
     }
@@ -283,9 +280,9 @@ public abstract class Node : Hierarchical
         if (ValidateLocalId(localId))
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
-        var setter = new Setter<T>(property, value);
-        var adapter = new SetterAdapter<T>(setter, typeof(TOwner));
-        var socket = new InputSocketForSetter<T>() { LocalId = localId };
+        var adapter = new NodePropertyAdapter<T>(property, typeof(TOwner));
+        adapter.SetValue(value);
+        var socket = new DefaultInputSocket<T> { LocalId = localId };
         socket.SetPropertyAdapter(adapter);
         return socket;
     }
@@ -297,7 +294,7 @@ public abstract class Node : Hierarchical
         if (ValidateLocalId(localId))
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
-        return new InputSocketForSetter<T>()
+        return new DefaultInputSocket<T>
         {
             Name = name,
             LocalId = localId
@@ -311,7 +308,7 @@ public abstract class Node : Hierarchical
         if (ValidateLocalId(localId))
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
-        var socket = (IInputSocketForSetter)Activator.CreateInstance(typeof(InputSocketForSetter<>).MakeGenericType(type))!;
+        var socket = (IDefaultInputSocket)Activator.CreateInstance(typeof(DefaultInputSocket<>).MakeGenericType(type))!;
         socket.Name = name;
         socket.LocalId = localId;
         return socket;
@@ -369,9 +366,8 @@ public abstract class Node : Hierarchical
         if (ValidateLocalId(localId))
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
-        var setter = new Setter<T>(property);
-        var adapter = new SetterAdapter<T>(setter, property.OwnerType);
-        var socket = new NodeItemForSetter<T>();
+        var adapter = new NodePropertyAdapter<T>(property, property.OwnerType);
+        var socket = new DefaultNodeItem<T>();
         socket.SetProperty(adapter);
         socket.LocalId = localId;
         return socket;
@@ -384,9 +380,9 @@ public abstract class Node : Hierarchical
         if (ValidateLocalId(localId))
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
-        var setter = new Setter<T>(property, value);
-        var adapter = new SetterAdapter<T>(setter, property.OwnerType);
-        var socket = new NodeItemForSetter<T>();
+        var adapter = new NodePropertyAdapter<T>(property, property.OwnerType);
+        adapter.SetValue(value);
+        var socket = new DefaultNodeItem<T>();
         socket.SetProperty(adapter);
         socket.LocalId = localId;
         return socket;
