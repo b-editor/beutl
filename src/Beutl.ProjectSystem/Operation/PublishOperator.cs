@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
 using Beutl.Extensibility;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Serialization;
@@ -35,6 +36,10 @@ public abstract class PublishOperator<T> : SourceOperator
     private readonly PropertyWithDefaultValue[] _properties;
     private bool _deserializing;
 
+    private readonly EvaluationTarget _evaluationTarget =
+        typeof(T).IsAssignableTo(typeof(Drawable)) ? EvaluationTarget.Graphics
+        : typeof(T).IsAssignableTo(typeof(Audio.Audio)) ? EvaluationTarget.Audio : EvaluationTarget.Unknown;
+
     static PublishOperator()
     {
         ValueProperty = ConfigureProperty<T, PublishOperator<T>>(nameof(Value))
@@ -55,6 +60,8 @@ public abstract class PublishOperator<T> : SourceOperator
         get => _value;
         set => SetAndRaise(ValueProperty, ref _value, value);
     }
+
+    public override EvaluationTarget GetEvaluationTarget() => _evaluationTarget;
 
     public override void Evaluate(OperatorEvaluationContext context)
     {
