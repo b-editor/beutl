@@ -183,7 +183,7 @@ class Build : NukeBuild
     Target BundleApp => _ => _
         .Executes(() =>
         {
-            // dotnet msbuild -t:BundleApp -p:RuntimeIdentifier=osx-arm64 -p:TargetFramework=net8.0 -p:UseAppHost=true -p:SelfContained=true
+            // dotnet msbuild -t:BundleApp -p:RuntimeIdentifier=osx-arm64 -p:TargetFramework=net9.0 -p:UseAppHost=true -p:SelfContained=true
             AbsolutePath directory = SourceDirectory / "Beutl";
             AbsolutePath output = OutputDirectory / "AppBundle";
             string tfm = GetTFM();

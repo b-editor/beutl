@@ -26,10 +26,10 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --no-restore -f net8.0
+        run: dotnet build --no-restore -f net9.0
 
       - name: Test
-        run: dotnet test Beutl.sln --no-build --verbosity normal -f net8.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+        run: dotnet test Beutl.sln --no-build --verbosity normal -f net9.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 
       - name: Code Coverage Report
         uses: irongut/CodeCoverageSummary@v1.3.0

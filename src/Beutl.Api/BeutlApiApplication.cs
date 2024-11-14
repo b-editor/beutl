@@ -14,7 +14,7 @@ namespace Beutl.Api;
 
 public class BeutlApiApplication
 {
-    //private const string BaseUrl = "https://localhost:44459";
+    // private const string BaseUrl = "http://localhost:3000";
     private const string BaseUrl = "https://beutl.beditor.net";
     private readonly HttpClient _httpClient;
     private readonly ReactivePropertySlim<AuthorizedUser?> _authorizedUser = new();
