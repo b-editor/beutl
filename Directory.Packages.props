@@ -7,7 +7,7 @@
     <PackageVersion Include="Avalonia" Version="11.2.0" />
     <PackageVersion Include="Avalonia.Controls.ItemsRepeater" Version="11.1.4" />
     <PackageVersion Include="Avalonia.Controls.PanAndZoom" Version="11.1.0.1" />
-    <PackageVersion Include="Avalonia.Desktop" Version="11.1.4" />
+    <PackageVersion Include="Avalonia.Desktop" Version="11.2.0" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.2.0" />
     <PackageVersion Include="Avalonia.ReactiveUI" Version="11.1.4" />
     <PackageVersion Include="Avalonia.Svg.Skia" Version="11.1.0.1" />
