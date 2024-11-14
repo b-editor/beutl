@@ -19,11 +19,18 @@ public sealed class GroupOperator() : PublishOperator<DrawableGroup>([
         var items = context.FlowRenderables.OfType<Drawable>().ToArray();
         context.FlowRenderables.Clear();
         value.Children.Replace(items);
+        context.AddFlowRenderable(value);
     }
 
     public override void Enter()
     {
         base.Enter();
+        Value.Children.Clear();
+    }
+
+    public override void Exit()
+    {
+        base.Exit();
         Value.Children.Clear();
     }
 }
