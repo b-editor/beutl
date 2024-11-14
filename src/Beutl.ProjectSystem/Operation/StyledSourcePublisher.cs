@@ -4,6 +4,7 @@ using Beutl.Styling;
 
 namespace Beutl.Operation;
 
+[Obsolete("Use PublishOperator instead.")]
 public abstract class StyledSourcePublisher : StylingOperator
 {
     public IStyleInstance? Instance { get; protected set; }
