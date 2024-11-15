@@ -6,7 +6,6 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
-using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
 
@@ -91,8 +90,8 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
         Value.CombineWithPrevious()
             .Select(v => v.OldValue)
-            .WhereNotNull()
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v))
+            .Where(v => v != null)
+            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
     }
 

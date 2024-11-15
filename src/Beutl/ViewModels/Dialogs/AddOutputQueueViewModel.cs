@@ -8,11 +8,7 @@ using Beutl.Services;
 using DynamicData;
 using DynamicData.Binding;
 
-using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
-
-using ReactiveUI;
 
 namespace Beutl.ViewModels.Dialogs;
 

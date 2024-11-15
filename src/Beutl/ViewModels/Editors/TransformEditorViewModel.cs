@@ -7,8 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-using ReactiveUI;
-
 namespace Beutl.ViewModels.Editors;
 
 public enum KnownTransformType
@@ -133,8 +131,8 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
 
         Value.CombineWithPrevious()
             .Select(v => v.OldValue as IAnimatable)
-            .WhereNotNull()
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v))
+            .Where(v => v != null)
+            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
     }
 
@@ -211,6 +209,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
             {
                 IsExpanded.Value = (bool)isExpanded;
             }
+
             Properties.Value?.ReadFromJson(json);
 
             if (Group.Value != null

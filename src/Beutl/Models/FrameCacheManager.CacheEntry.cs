@@ -99,7 +99,7 @@ public partial class FrameCacheManager
             else
             {
                 bitmap = new Bitmap<Bgra8888>(mat.Width, (int)(mat.Height / 1.5));
-                using var bgra = new Mat(bitmap.Height, bitmap.Width, MatType.CV_8UC4, bitmap.Data);
+                using var bgra = Mat.FromPixelData(bitmap.Height, bitmap.Width, MatType.CV_8UC4, bitmap.Data);
 
                 Cv2.CvtColor(mat, bgra, ColorConversionCodes.YUV2BGRA_I420);
 
