@@ -1,9 +1,13 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Text.Json.Nodes;
+using Beutl.Animation;
 using Beutl.Extensibility;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Serialization;
+using Beutl.Styling;
 
 namespace Beutl.Operation;
 
@@ -35,6 +39,10 @@ public abstract class PublishOperator<T> : SourceOperator
     private readonly PropertyWithDefaultValue[] _properties;
     private bool _deserializing;
 
+    private readonly EvaluationTarget _evaluationTarget =
+        typeof(T).IsAssignableTo(typeof(Drawable)) ? EvaluationTarget.Graphics
+        : typeof(T).IsAssignableTo(typeof(Audio.Audio)) ? EvaluationTarget.Audio : EvaluationTarget.Unknown;
+
     static PublishOperator()
     {
         ValueProperty = ConfigureProperty<T, PublishOperator<T>>(nameof(Value))
@@ -56,6 +64,8 @@ public abstract class PublishOperator<T> : SourceOperator
         set => SetAndRaise(ValueProperty, ref _value, value);
     }
 
+    public override EvaluationTarget GetEvaluationTarget() => _evaluationTarget;
+
     public override void Evaluate(OperatorEvaluationContext context)
     {
         context.AddFlowRenderable(Value);
@@ -70,6 +80,32 @@ public abstract class PublishOperator<T> : SourceOperator
             Debug.Assert(Value != null);
             // ReSharper disable once NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract
             Value ??= new T();
+            // 互換性処理
+            if (!context.Contains(nameof(Value)))
+            {
+                foreach (var prop in _properties)
+                {
+                    string name = prop.Property.Name;
+                    if (!context.Contains(name)) continue;
+
+                    JsonNode? propNode = context.GetValue<JsonNode?>(name);
+                    (CoreProperty? _, Optional<object?> value, IAnimation? animation) =
+                        StyleSerializer.ToTuple(propNode, name, typeof(T), context);
+
+                    if (value.HasValue)
+                    {
+                        Value.SetValue(prop.Property, value.Value);
+                    }
+
+                    if (animation == null) continue;
+
+                    var oldAnm = Value.Animations.FirstOrDefault(i => i.Property.Id == prop.Property.Id);
+                    if (oldAnm == null) continue;
+
+                    Value.Animations.Remove(oldAnm);
+                    Value.Animations.Add(animation);
+                }
+            }
         }
         finally
         {

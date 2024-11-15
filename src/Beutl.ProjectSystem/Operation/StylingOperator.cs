@@ -1,9 +1,10 @@
-﻿using System.Collections;
+﻿#pragma warning disable CS0612
+
+using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
-using System.Reactive.Linq;
 using System.Reflection;
 using System.Text.Json.Nodes;
 
@@ -20,6 +21,7 @@ using static Beutl.Operation.StylingOperatorPropertyDefinition;
 
 namespace Beutl.Operation;
 
+[Obsolete("Use CorePropertyAdapter instead.")]
 public interface ISetterAdapter : IPropertyAdapter
 {
     ISetter Setter { get; }
@@ -27,6 +29,7 @@ public interface ISetterAdapter : IPropertyAdapter
     IStyle Style { get; }
 }
 
+[Obsolete("Use CorePropertyAdapter instead.")]
 public sealed class SetterAdapter<T>(Setter<T> setter, Style style) : IAnimatablePropertyAdapter<T>, ISetterAdapter
 {
     private sealed class AnimationObservable : LightweightObservableBase<IAnimation<T>?>
@@ -131,6 +134,7 @@ public sealed class SetterAdapter<T>(Setter<T> setter, Style style) : IAnimatabl
     }
 }
 
+[Obsolete]
 internal static class StylingOperatorPropertyDefinition
 {
     internal record struct Definition(PropertyInfo Property, Func<object, ISetter> Getter, Action<object, ISetter> Setter);
@@ -230,6 +234,7 @@ internal static class StylingOperatorPropertyDefinition
     }
 }
 
+[Obsolete("Use PublishOperator instead.")]
 public abstract class StylingOperator : SourceOperator
 {
     private Style _style;
