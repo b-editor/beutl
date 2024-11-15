@@ -55,7 +55,7 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        PACKAGES_JSON=`dotnet list src/Beutl.Engine/Beutl.Engine.csproj package --framework net8.0 --format json`
+        PACKAGES_JSON=`dotnet list src/Beutl.Engine/Beutl.Engine.csproj package --framework net9.0 --format json`
 
         #4.9.0.2024
         OPENCVSHARP_VERSION=`echo $PACKAGES_JSON | jq -r '.projects[0].frameworks[0].topLevelPackages | map(select(.id == "OpenCvSharp4"))[0].requestedVersion'`
