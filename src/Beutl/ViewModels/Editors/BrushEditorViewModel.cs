@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using Beutl.Animation;
 using Beutl.Media;
@@ -8,8 +7,6 @@ using Beutl.Media.Immutable;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
-
-using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
 
@@ -61,8 +58,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
         Value.CombineWithPrevious()
             .Select(v => v.OldValue as IAnimatable)
-            .WhereNotNull()
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v))
+            .Where(v => v != null)
+            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
     }
 

@@ -3,13 +3,9 @@
 using Beutl.Media;
 using Beutl.Services;
 
-using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
-
-using ReactiveUI;
 
 namespace Beutl.ViewModels.Editors;
 
@@ -75,7 +71,7 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
 
         Value.CombineWithPrevious()
             .Select(v => v.OldValue)
-            .WhereNotNull()
+            .Where(v => v != null)
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v))
             .DisposeWith(Disposables);
     }
