@@ -267,8 +267,7 @@ public class TextBlock : Drawable
         {
             Size lineBounds = MeasureLine(line);
             float ascent = MinAscent(line);
-            float descent = MinDescent(line);
-            float yPosition = prevBottom - ascent - descent;
+            float yPosition = prevBottom - ascent;
 
             float prevRight = 0;
             foreach (FormattedText item in line)
@@ -290,7 +289,6 @@ public class TextBlock : Drawable
             }
 
             prevBottom += lineBounds.Height;
-            yPosition = prevBottom - ascent - descent;
         }
     }
 
