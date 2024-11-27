@@ -19,6 +19,7 @@ public class ShakeEffect : FilterEffect
     private float _strengthX = 50;
     private float _strengthY = 50;
     private float _speed = 100;
+    private float _offset;
 
     static ShakeEffect()
     {
@@ -37,7 +38,7 @@ public class ShakeEffect : FilterEffect
             .DefaultValue(100)
             .Register();
 
-        AffectsRender<ShakeEffect>(StrengthXProperty, StrengthYProperty, SpeedProperty);
+        AffectsRender<ShakeEffect>(StrengthXProperty, StrengthYProperty, SpeedProperty, IdProperty);
     }
 
     public ShakeEffect()
@@ -74,6 +75,19 @@ public class ShakeEffect : FilterEffect
         RaiseInvalidated(_invalidatedEventArgs);
     }
 
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args is CorePropertyChangedEventArgs<Guid> targs)
+        {
+            if (targs.Property.Id == IdProperty.Id)
+            {
+                int hash = Id.GetHashCode();
+                _offset = new Random(hash).NextSingle() * 1000 - 500;
+            }
+        }
+    }
+
     public override Rect TransformBounds(Rect bounds)
     {
         return Rect.Invalid;
@@ -81,12 +95,14 @@ public class ShakeEffect : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.CustomEffect((_time, _speed, _strengthX, _strengthY, _random), (data, effectContext) =>
+        context.CustomEffect((_time, _speed, _strengthX, _strengthY, _random, _offset), (data, effectContext) =>
         {
             effectContext.ForEach((i, t) =>
             {
-                float randomX = data._random.Perlin(data._time * data._speed / 100, i);
-                float randomY = data._random.Perlin(i, data._time * data._speed / 100);
+                float a = data._time * data._speed / 100 + data._offset;
+                float b = i + data._offset;
+                float randomX = data._random.Perlin(a, b);
+                float randomY = data._random.Perlin(b, a);
                 randomX = (randomX - 0.5F) * 2F * data._strengthX;
                 randomY = (randomY - 0.5F) * 2F * data._strengthY;
                 t.Bounds = t.Bounds.Translate(new Vector(randomX, randomY));
