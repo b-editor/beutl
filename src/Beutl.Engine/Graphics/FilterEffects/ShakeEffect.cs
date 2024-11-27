@@ -11,10 +11,8 @@ public class ShakeEffect : FilterEffect
 
     private readonly RenderInvalidatedEventArgs _invalidatedEventArgs;
 
-    // private readonly Random _random = new();
-    private PerlinNoise _random = new();
-    private float _randomX;
-    private float _randomY;
+    private readonly PerlinNoise _random = new();
+    private float _time;
     private float _strengthX = 50;
     private float _strengthY = 50;
     private float _speed = 100;
@@ -65,23 +63,28 @@ public class ShakeEffect : FilterEffect
     public override void ApplyAnimations(IClock clock)
     {
         base.ApplyAnimations(clock);
-        // _randomX = ((float)_random.NextDouble() - 0.5F) * 2F * _strengthX;
-        // _randomY = ((float)_random.NextDouble() - 0.5F) * 2F * _strengthY;
-        _randomX = _random.Perlin((float)clock.CurrentTime.TotalSeconds * _speed / 100, 0);
-        _randomY = _random.Perlin(0, (float)clock.CurrentTime.TotalSeconds * _speed / 100);
-        _randomX = (_randomX - 0.5F) * 2F * _strengthX;
-        _randomY = (_randomY - 0.5F) * 2F * _strengthY;
+        _time = (float)clock.CurrentTime.TotalSeconds;
 
         RaiseInvalidated(_invalidatedEventArgs);
     }
 
     public override Rect TransformBounds(Rect bounds)
     {
-        return bounds.Translate(new Vector(_randomX, _randomY));
+        return Rect.Invalid;
     }
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Transform(Matrix.CreateTranslation(_randomX, _randomY), BitmapInterpolationMode.Default);
+        context.CustomEffect((_time, _speed, _strengthX, _strengthY, _random), (data, effectContext) =>
+        {
+            effectContext.ForEach((i, t) =>
+            {
+                float randomX = data._random.Perlin(data._time * data._speed / 100, i);
+                float randomY = data._random.Perlin(i, data._time * data._speed / 100);
+                randomX = (randomX - 0.5F) * 2F * data._strengthX;
+                randomY = (randomY - 0.5F) * 2F * data._strengthY;
+                t.Bounds = t.Bounds.Translate(new Vector(randomX, randomY));
+            });
+        });
     }
 }
