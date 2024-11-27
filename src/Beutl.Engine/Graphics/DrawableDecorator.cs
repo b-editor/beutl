@@ -37,14 +37,14 @@ public sealed class DrawableDecorator : Drawable
     public override void Measure(Size availableSize)
     {
         Rect rect = PrivateMeasureCore(availableSize);
-        Matrix transform = GetTransformMatrix(rect);
+        Matrix transform = GetTransformMatrix(availableSize);
 
-        if (FilterEffect != null)
+        if (FilterEffect != null && !rect.IsInvalid)
         {
             rect = FilterEffect.TransformBounds(rect);
         }
 
-        Bounds = rect.TransformToAABB(transform);
+        Bounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
     }
 
     private Rect PrivateMeasureCore(Size availableSize)
@@ -66,13 +66,13 @@ public sealed class DrawableDecorator : Drawable
         {
             Size availableSize = canvas.Size.ToSize(1);
             Rect rect = PrivateMeasureCore(availableSize);
-            if (FilterEffect != null)
+            if (FilterEffect != null && !rect.IsInvalid)
             {
                 rect = FilterEffect.TransformBounds(rect);
             }
 
-            Matrix transform = GetTransformMatrix(rect);
-            Rect transformedBounds = rect.TransformToAABB(transform);
+            Matrix transform = GetTransformMatrix(availableSize);
+            Rect transformedBounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
             using (canvas.PushBlendMode(BlendMode))
             using (canvas.PushTransform(transform))
             using (FilterEffect == null ? new() : canvas.PushFilterEffect(FilterEffect))
@@ -93,19 +93,10 @@ public sealed class DrawableDecorator : Drawable
         }
     }
 
-    private Matrix GetTransformMatrix(Rect coreBounds)
+    private Matrix GetTransformMatrix(Size availableSize)
     {
-        Vector origin = TransformOrigin.ToPixels(coreBounds.Size);
+        Vector origin = TransformOrigin.ToPixels(availableSize);
         Matrix offset = Matrix.CreateTranslation(origin);
-        if (Child?.AlignmentX != AlignmentX.Left)
-        {
-            offset *= Matrix.CreateTranslation(coreBounds.Left, 0);
-        }
-
-        if (Child?.AlignmentY != AlignmentY.Top)
-        {
-            offset *= Matrix.CreateTranslation(0, coreBounds.Top);
-        }
 
         if (Transform is { IsEnabled: true })
         {

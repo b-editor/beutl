@@ -168,7 +168,7 @@ public abstract class Drawable : Renderable
             rect = _filterEffect.TransformBounds(rect);
         }
 
-        Bounds = rect.TransformToAABB(transform);
+        Bounds = rect.IsInvalid ? rect : rect.TransformToAABB(transform);
     }
 
     protected abstract Size MeasureCore(Size availableSize);
@@ -201,13 +201,13 @@ public abstract class Drawable : Renderable
             Size availableSize = canvas.Size.ToSize(1);
             Size size = MeasureCore(availableSize);
             var rect = new Rect(size);
-            if (_filterEffect != null)
+            if (_filterEffect != null && !rect.IsInvalid)
             {
                 rect = _filterEffect.TransformBounds(rect);
             }
 
             Matrix transform = GetTransformMatrix(availableSize, size);
-            Rect transformedBounds = rect.TransformToAABB(transform);
+            Rect transformedBounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
             using (canvas.PushBlendMode(BlendMode))
             using (canvas.PushTransform(transform))
             using (canvas.PushOpacity(Opacity / 100f))
