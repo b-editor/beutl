@@ -1079,11 +1079,11 @@ Public License instead of this License.  But first, please read
 ```
 
 ## FluentAvalonia.BreadcrumbBar
-https://github.com/indigo-san/FluentAvalonia.BreadcrumbBar
+https://github.com/yuto-trd/FluentAvalonia.BreadcrumbBar
 
 MIT License
 
-Copyright (c) 2022 indigo-san
+Copyright (c) 2022 Yuto Terada
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1819,7 +1819,7 @@ SOFTWARE.
 Third party licenses may be applicable. These have been disclosed in THIRD_PARTIES.md
 
 ## PanelExtension
-https://github.com/indigo-san/PanelExtension
+https://github.com/yuto-trd/PanelExtension
 
 MIT License
 
