@@ -46,6 +46,6 @@ jobs:
           committer: GitHub <noreply@github.com>
           author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
           labels: housekeeping
-          assignees: indigo-san
-          reviewers: indigo-san
+          assignees: yuto-trd
+          reviewers: yuto-trd
           branch: chore/fix-codeformatting

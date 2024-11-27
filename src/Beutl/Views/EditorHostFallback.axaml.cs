@@ -198,8 +198,8 @@ public partial class EditorHostFallback : UserControl
                 case "GitHub":
                     OpenBrowser("https://github.com/b-editor/beutl");
                     break;
-                case "Twitter":
-                    OpenBrowser("https://twitter.com/indigo_san_");
+                case "X":
+                    OpenBrowser("https://x.com/yuto_daisensei");
                     break;
                 case "Url":
                     OpenBrowser("https://github.com/b-editor");

@@ -139,8 +139,8 @@
                 <ui:BitmapIcon x:Name="githubLogo" />
             </Button>
             <Button Click="SocialClick"
-                    Tag="Twitter"
-                    ToolTip.Tip="Twitter">
+                    Tag="X"
+                    ToolTip.Tip="X">
                 <ui:BitmapIcon x:Name="xLogo" Margin="2" />
             </Button>
             <Button Click="SocialClick"
