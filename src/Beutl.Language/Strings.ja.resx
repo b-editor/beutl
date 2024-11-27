@@ -1330,4 +1330,16 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Cut_Description" xml:space="preserve">
     <value>選択したアイテムをカットします。</value>
   </data>
+  <data name="ShakeEffect" xml:space="preserve">
+    <value>振動</value>
+  </data>
+  <data name="StrengthX" xml:space="preserve">
+    <value>強さX</value>
+  </data>
+  <data name="StrengthY" xml:space="preserve">
+    <value>強さY</value>
+  </data>
+  <data name="Speed" xml:space="preserve">
+    <value>スピード</value>
+  </data>
 </root>

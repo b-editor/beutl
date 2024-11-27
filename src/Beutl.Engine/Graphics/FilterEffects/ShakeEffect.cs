@@ -1,4 +1,7 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using Beutl.Animation;
+using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
@@ -42,18 +45,21 @@ public class ShakeEffect : FilterEffect
         _invalidatedEventArgs = new RenderInvalidatedEventArgs(this);
     }
 
+    [Display(Name = nameof(Strings.StrengthX), ResourceType = typeof(Strings))]
     public float StrengthX
     {
         get => _strengthX;
         set => SetAndRaise(StrengthXProperty, ref _strengthX, value);
     }
 
+    [Display(Name = nameof(Strings.StrengthY), ResourceType = typeof(Strings))]
     public float StrengthY
     {
         get => _strengthY;
         set => SetAndRaise(StrengthYProperty, ref _strengthY, value);
     }
 
+    [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
     public float Speed
     {
         get => _speed;

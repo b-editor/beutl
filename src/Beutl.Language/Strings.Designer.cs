@@ -2468,5 +2468,29 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Cut_Description", resourceCulture);
             }
         }
+        
+        public static string ShakeEffect {
+            get {
+                return ResourceManager.GetString("ShakeEffect", resourceCulture);
+            }
+        }
+        
+        public static string StrengthX {
+            get {
+                return ResourceManager.GetString("StrengthX", resourceCulture);
+            }
+        }
+        
+        public static string StrengthY {
+            get {
+                return ResourceManager.GetString("StrengthY", resourceCulture);
+            }
+        }
+        
+        public static string Speed {
+            get {
+                return ResourceManager.GetString("Speed", resourceCulture);
+            }
+        }
     }
 }

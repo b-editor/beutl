@@ -176,6 +176,8 @@ public static class LibraryRegistrar
 
                 .AddFilterEffect<ColorShift>(Strings.ColorShift)
 
+                .AddFilterEffect<ShakeEffect>(Strings.ShakeEffect)
+
                 .AddGroup("OpenCV", gg => gg
                     .AddFilterEffect<Graphics.Effects.OpenCv.Blur>("CvBlur")
                     .AddFilterEffect<Graphics.Effects.OpenCv.GaussianBlur>("CvGaussianBlur")
