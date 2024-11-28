@@ -10,26 +10,19 @@ class Build : NukeBuild
     ///   - JetBrains Rider            https://nuke.build/rider
     ///   - Microsoft VisualStudio     https://nuke.build/visualstudio
     ///   - Microsoft VSCode           https://nuke.build/vscode
-
     public static int Main() => Execute<Build>(x => x.Compile);
 
-    [Parameter]
-    Configuration Configuration = Configuration.Release;
+    [Parameter] Configuration Configuration = Configuration.Release;
 
-    [Parameter]
-    RuntimeIdentifier Runtime = null;
+    [Parameter] RuntimeIdentifier Runtime = null;
 
-    [Parameter]
-    bool SelfContained = false;
+    [Parameter] bool SelfContained = false;
 
-    [Parameter]
-    string Version = "1.0.0";
+    [Parameter] string Version = "1.0.0";
 
-    [Parameter]
-    string AssemblyVersion = "1.0.0.0";
+    [Parameter] string AssemblyVersion = "1.0.0.0";
 
-    [Parameter]
-    string InformationalVersion = "1.0.0.0";
+    [Parameter] string InformationalVersion = "1.0.0.0";
 
     [Solution] readonly Solution Solution;
     [GitRepository] readonly GitRepository GitRepository;
@@ -155,9 +148,10 @@ class Build : NukeBuild
                 fileName.Append('-');
                 fileName.Append(Runtime.ToString());
             }
+
             if (SelfContained && Runtime != null)
             {
-                fileName.Append("-sc");
+                fileName.Append("-standalone");
             }
 
             fileName.Append('-');
@@ -177,6 +171,7 @@ class Build : NukeBuild
                 .SetKeyValueDefinition("MyLicenseFile", RootDirectory / "LICENSE")
                 .SetKeyValueDefinition("MySetupIconFile", RootDirectory / "assets/logos/logo.ico")
                 .SetKeyValueDefinition("MySource", OutputDirectory / "Beutl")
+                .SetKeyValueDefinition("MyOutputBaseFilename", $"beutl{(SelfContained ? "-standalone" : "")}-setup")
                 .SetScriptFile(RootDirectory / "nukebuild/beutl-setup.iss"));
         });
 
