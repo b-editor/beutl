@@ -17,6 +17,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
       - name: Nerdbank.GitVersioning
         id: nbgv
         uses: dotnet/nbgv@v0.4.2
