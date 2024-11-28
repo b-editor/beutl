@@ -1,5 +1,4 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Graphics.Effects;
 using Beutl.Serialization;
 
@@ -77,16 +76,16 @@ public sealed class DrawableGroup : Drawable
         {
             Size availableSize = canvas.Size.ToSize(1);
             Rect rect = PrivateMeasureCore(availableSize);
-            if (FilterEffect != null)
+            if (FilterEffect != null && !rect.IsInvalid)
             {
                 rect = FilterEffect.TransformBounds(rect);
             }
 
             Matrix transform = GetTransformMatrix(availableSize);
-            Rect transformedBounds = rect.TransformToAABB(transform);
+            Rect transformedBounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
 
             using (canvas.PushBlendMode(BlendMode))
-            using (canvas.PushLayer(transformedBounds))
+            using (canvas.PushLayer(transformedBounds.IsInvalid ? default : transformedBounds))
             using (canvas.PushTransform(transform))
             using (FilterEffect == null ? new() : canvas.PushFilterEffect(FilterEffect))
             using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(rect.Size)))
