@@ -80,9 +80,9 @@ class Build : NukeBuild
 
             DotNetPublish(s => s
                 .EnableNoRestore()
-                .When(Runtime != null, s => s.SetRuntime(Runtime).SetSelfContained(SelfContained))
-                .When(Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
-                .When(Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
+                .When(_ => Runtime != null, s => s.SetRuntime(Runtime).SetSelfContained(SelfContained))
+                .When(_ => Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
+                .When(_ => Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
                 .SetConfiguration(Configuration)
                 .SetVersions(Version, AssemblyVersion, InformationalVersion)
                 .SetProject(mainProj)
@@ -100,9 +100,9 @@ class Build : NukeBuild
             {
                 AbsolutePath output = OutputDirectory / item;
                 DotNetPublish(s => s
-                    .When(Runtime != null, s => s.SetRuntime(Runtime).SetSelfContained(SelfContained))
-                    .When(Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
-                    .When(Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
+                    .When(_ => Runtime != null, s => s.SetRuntime(Runtime).SetSelfContained(SelfContained))
+                    .When(_ => Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
+                    .When(_ => Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
                     .EnableNoRestore()
                     .SetConfiguration(Configuration)
                     .SetVersions(Version, AssemblyVersion, InformationalVersion)
@@ -111,7 +111,7 @@ class Build : NukeBuild
 
                 output.GlobFiles($"**/{item}*")
                     .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
-                    .ForEach(t => CopyFile(t.Source, t.Target));
+                    .ForEach(t => t.Source.Copy(t.Target));
             }
 
             string[] asmsToCopy =
@@ -129,7 +129,7 @@ class Build : NukeBuild
                     AbsolutePath output = OutputDirectory / asm;
                     output.GlobFiles($"**/{asm}.*")
                         .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
-                        .ForEach(t => CopyFile(t.Source, t.Target));
+                        .ForEach(t => t.Source.Copy(t.Target));
                 }
             }
         });
