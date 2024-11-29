@@ -1330,4 +1330,16 @@ and b-editor maintains the download URL.</value>
   <data name="Cut_Description" xml:space="preserve">
     <value>Cut the selected item.</value>
   </data>
+  <data name="ShakeEffect" xml:space="preserve">
+    <value>Shake</value>
+  </data>
+  <data name="StrengthX" xml:space="preserve">
+    <value>Strength X</value>
+  </data>
+  <data name="StrengthY" xml:space="preserve">
+    <value>Strength Y</value>
+  </data>
+  <data name="Speed" xml:space="preserve">
+    <value>Speed</value>
+  </data>
 </root>
