@@ -31,7 +31,7 @@ public record struct PropertyWithDefaultValue(CoreProperty Property, Func<Option
     }
 }
 
-public abstract class PublishOperator<T> : SourceOperator
+public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
     where T : Renderable, new()
 {
     public static readonly CoreProperty<T> ValueProperty;
@@ -63,6 +63,8 @@ public abstract class PublishOperator<T> : SourceOperator
         get => _value;
         set => SetAndRaise(ValueProperty, ref _value, value);
     }
+
+    Renderable IPublishOperator.Value => Value;
 
     public override EvaluationTarget GetEvaluationTarget() => _evaluationTarget;
 
@@ -166,7 +168,8 @@ public abstract class PublishOperator<T> : SourceOperator
                                 }
                                 catch
                                 {
-                                    value = TypeDescriptor.GetConverter(value!.GetType()).ConvertTo(value, propertyType);
+                                    value = TypeDescriptor.GetConverter(value!.GetType())
+                                        .ConvertTo(value, propertyType);
                                 }
                             }
 
