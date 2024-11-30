@@ -38,7 +38,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
         Element = Context.Select(v => v?.GetService<Element>())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        SourceOperator = Context.Select(v => v?.GetService<SourceOperator>() as StyledSourcePublisher)
+        SourceOperator = Context.Select(v => v?.GetService<SourceOperator>() as IPublishOperator)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -63,7 +63,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
 
     public IReadOnlyReactiveProperty<Element?> Element { get; }
 
-    public ReadOnlyReactivePropertySlim<StyledSourcePublisher?> SourceOperator { get; }
+    public ReadOnlyReactivePropertySlim<IPublishOperator?> SourceOperator { get; }
 
     public IReactiveProperty<PathSegment?> SelectedOperation { get; } = new ReactiveProperty<PathSegment?>();
 
