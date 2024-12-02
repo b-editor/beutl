@@ -1342,4 +1342,178 @@ and b-editor maintains the download URL.</value>
   <data name="Speed" xml:space="preserve">
     <value>Speed</value>
   </data>
+  <data name="BlendMode_Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="BlendMode_Clear_Description" xml:space="preserve">
+    <value>Clears the content to transparent.</value>
+  </data>
+  <data name="BlendMode_Src" xml:space="preserve">
+    <value>Overwrite</value>
+  </data>
+  <data name="BlendMode_Src_Description" xml:space="preserve">
+    <value>Paints over the existing content.</value>
+  </data>
+  <data name="BlendMode_Dst" xml:space="preserve">
+    <value>Keep Original</value>
+  </data>
+  <data name="BlendMode_Dst_Description" xml:space="preserve">
+    <value>Keeps the original content unchanged.</value>
+  </data>
+  <data name="BlendMode_SrcOver" xml:space="preserve">
+    <value>Foreground Over</value>
+  </data>
+  <data name="BlendMode_SrcOver_Description" xml:space="preserve">
+    <value>Places the foreground over the background.</value>
+  </data>
+  <data name="BlendMode_DstOver" xml:space="preserve">
+    <value>Background Over</value>
+  </data>
+  <data name="BlendMode_DstOver_Description" xml:space="preserve">
+    <value>Places the background beneath the foreground.</value>
+  </data>
+  <data name="BlendMode_SrcIn" xml:space="preserve">
+    <value>Foreground Inside</value>
+  </data>
+  <data name="BlendMode_SrcIn_Description" xml:space="preserve">
+    <value>Clips the foreground to the shape of the background.</value>
+  </data>
+  <data name="BlendMode_DstIn" xml:space="preserve">
+    <value>Background Inside</value>
+  </data>
+  <data name="BlendMode_DstIn_Description" xml:space="preserve">
+    <value>Clips the background to the shape of the foreground.</value>
+  </data>
+  <data name="BlendMode_SrcOut" xml:space="preserve">
+    <value>Foreground Outside</value>
+  </data>
+  <data name="BlendMode_SrcOut_Description" xml:space="preserve">
+    <value>Keeps the area outside the background for the foreground.</value>
+  </data>
+  <data name="BlendMode_DstOut" xml:space="preserve">
+    <value>Background Outside</value>
+  </data>
+  <data name="BlendMode_DstOut_Description" xml:space="preserve">
+    <value>Keeps the area outside the foreground for the background.</value>
+  </data>
+  <data name="BlendMode_SrcATop" xml:space="preserve">
+    <value>Foreground On Top</value>
+  </data>
+  <data name="BlendMode_SrcATop_Description" xml:space="preserve">
+    <value>Places the foreground on top and keeps the background outside.</value>
+  </data>
+  <data name="BlendMode_DstATop" xml:space="preserve">
+    <value>Background On Top</value>
+  </data>
+  <data name="BlendMode_DstATop_Description" xml:space="preserve">
+    <value>Places the background on top and keeps the foreground outside.</value>
+  </data>
+  <data name="BlendMode_Xor" xml:space="preserve">
+    <value>Exclusive Blend</value>
+  </data>
+  <data name="BlendMode_Xor_Description" xml:space="preserve">
+    <value>Makes overlapping areas transparent, keeping non-overlapping areas.</value>
+  </data>
+  <data name="BlendMode_Plus" xml:space="preserve">
+    <value>Additive</value>
+  </data>
+  <data name="BlendMode_Plus_Description" xml:space="preserve">
+    <value>Adds the colors of the foreground and background.</value>
+  </data>
+  <data name="BlendMode_Modulate" xml:space="preserve">
+    <value>Blend by Opacity</value>
+  </data>
+  <data name="BlendMode_Modulate_Description" xml:space="preserve">
+    <value>Combines the colors of the foreground and background based on their transparency (alpha values).</value>
+  </data>
+  <data name="BlendMode_Multiply" xml:space="preserve">
+    <value>Multiply Colors</value>
+  </data>
+  <data name="BlendMode_Multiply_Description" xml:space="preserve">
+    <value>Multiplies the RGB color values of the foreground and background, creating a darker effect.</value>
+  </data>
+  <data name="BlendMode_Overlay" xml:space="preserve">
+    <value>Overlay</value>
+  </data>
+  <data name="BlendMode_Overlay_Description" xml:space="preserve">
+    <value>Combines the foreground and background to enhance contrast.</value>
+  </data>
+  <data name="BlendMode_Darken" xml:space="preserve">
+    <value>Darken</value>
+  </data>
+  <data name="BlendMode_Darken_Description" xml:space="preserve">
+    <value>Keeps the darker color of the foreground or background.</value>
+  </data>
+  <data name="BlendMode_Lighten" xml:space="preserve">
+    <value>Lighten</value>
+  </data>
+  <data name="BlendMode_Lighten_Description" xml:space="preserve">
+    <value>Keeps the lighter color of the foreground or background.</value>
+  </data>
+  <data name="BlendMode_ColorDodge" xml:space="preserve">
+    <value>Color Dodge</value>
+  </data>
+  <data name="BlendMode_ColorDodge_Description" xml:space="preserve">
+    <value>Brightens the background by adding the foreground color.</value>
+  </data>
+  <data name="BlendMode_ColorBurn" xml:space="preserve">
+    <value>Color Burn</value>
+  </data>
+  <data name="BlendMode_ColorBurn_Description" xml:space="preserve">
+    <value>Darkens the background by burning it with the foreground color.</value>
+  </data>
+  <data name="BlendMode_HardLight" xml:space="preserve">
+    <value>Hard Light</value>
+  </data>
+  <data name="BlendMode_HardLight_Description" xml:space="preserve">
+    <value>Simulates a harsh spotlight effect to enhance contrast.</value>
+  </data>
+  <data name="BlendMode_SoftLight" xml:space="preserve">
+    <value>Soft Light</value>
+  </data>
+  <data name="BlendMode_SoftLight_Description" xml:space="preserve">
+    <value>Simulates a diffused spotlight for smoother lighting effects.</value>
+  </data>
+  <data name="BlendMode_Difference" xml:space="preserve">
+    <value>Difference</value>
+  </data>
+  <data name="BlendMode_Difference_Description" xml:space="preserve">
+    <value>Emphasizes the absolute color differences.</value>
+  </data>
+  <data name="BlendMode_Exclusion" xml:space="preserve">
+    <value>Exclusion</value>
+  </data>
+  <data name="BlendMode_Exclusion_Description" xml:space="preserve">
+    <value>Creates a softer difference effect.</value>
+  </data>
+  <data name="BlendMode_Hue" xml:space="preserve">
+    <value>Hue</value>
+  </data>
+  <data name="BlendMode_Hue_Description" xml:space="preserve">
+    <value>Applies the foreground hue to the background's luminance and saturation.</value>
+  </data>
+  <data name="BlendMode_Saturation" xml:space="preserve">
+    <value>Saturation</value>
+  </data>
+  <data name="BlendMode_Saturation_Description" xml:space="preserve">
+    <value>Applies the foreground saturation to the background's hue and luminance.</value>
+  </data>
+  <data name="BlendMode_Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="BlendMode_Color_Description" xml:space="preserve">
+    <value>Applies the foreground hue and saturation to the background's luminance.</value>
+  </data>
+  <data name="BlendMode_Luminosity" xml:space="preserve">
+    <value>Luminosity</value>
+  </data>
+  <data name="BlendMode_Luminosity_Description" xml:space="preserve">
+    <value>Applies the foreground luminance to the background's hue and saturation.</value>
+  </data>
+  <data name="BlendMode_Screen" xml:space="preserve">
+    <value>Screen</value>
+  </data>
+  <data name="BlendMode_Screen_Description" xml:space="preserve">
+    <value>Multiplies the inverted colors of the foreground and background, creating a lighter effect.</value>
+  </data>
 </root>
