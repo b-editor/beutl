@@ -59,7 +59,8 @@
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+              xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
@@ -112,10 +113,14 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral,
+      PublicKeyToken=b77a5c561934e089
+    </value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral,
+      PublicKeyToken=b77a5c561934e089
+    </value>
   </resheader>
   <data name="File" xml:space="preserve">
     <value>ファイル</value>
@@ -1341,5 +1346,179 @@ b-editorがダウンロードURLを管理します。</value>
   </data>
   <data name="Speed" xml:space="preserve">
     <value>スピード</value>
+  </data>
+  <data name="BlendMode_Clear" xml:space="preserve">
+    <value>クリア</value>
+  </data>
+  <data name="BlendMode_Src" xml:space="preserve">
+    <value>上書き</value>
+  </data>
+  <data name="BlendMode_Dst" xml:space="preserve">
+    <value>そのまま</value>
+  </data>
+  <data name="BlendMode_SrcOver" xml:space="preserve">
+    <value>前面合成</value>
+  </data>
+  <data name="BlendMode_DstOver" xml:space="preserve">
+    <value>背面合成</value>
+  </data>
+  <data name="BlendMode_SrcIn" xml:space="preserve">
+    <value>前面内描画</value>
+  </data>
+  <data name="BlendMode_DstIn" xml:space="preserve">
+    <value>背面内描画</value>
+  </data>
+  <data name="BlendMode_SrcOut" xml:space="preserve">
+    <value>前面外描画</value>
+  </data>
+  <data name="BlendMode_DstOut" xml:space="preserve">
+    <value>背面外描画</value>
+  </data>
+  <data name="BlendMode_SrcATop" xml:space="preserve">
+    <value>前面上描画</value>
+  </data>
+  <data name="BlendMode_DstATop" xml:space="preserve">
+    <value>背面上描画</value>
+  </data>
+  <data name="BlendMode_Xor" xml:space="preserve">
+    <value>排他的合成</value>
+  </data>
+  <data name="BlendMode_Plus" xml:space="preserve">
+    <value>加算</value>
+  </data>
+  <data name="BlendMode_Modulate" xml:space="preserve">
+    <value>変調</value>
+  </data>
+  <data name="BlendMode_Screen" xml:space="preserve">
+    <value>スクリーン</value>
+  </data>
+  <data name="BlendMode_Overlay" xml:space="preserve">
+    <value>オーバーレイ</value>
+  </data>
+  <data name="BlendMode_Darken" xml:space="preserve">
+    <value>比較（暗）</value>
+  </data>
+    <data name="BlendMode_Lighten" xml:space="preserve">
+    <value>比較（明）</value>
+  </data>
+  <data name="BlendMode_ColorDodge" xml:space="preserve">
+    <value>覆い焼きカラー</value>
+  </data>
+  <data name="BlendMode_ColorBurn" xml:space="preserve">
+    <value>焼き込みカラー</value>
+  </data>
+  <data name="BlendMode_HardLight" xml:space="preserve">
+    <value>ハードライト</value>
+  </data>
+  <data name="BlendMode_SoftLight" xml:space="preserve">
+    <value>ソフトライト</value>
+  </data>
+  <data name="BlendMode_Difference" xml:space="preserve">
+    <value>差の絶対値</value>
+  </data>
+  <data name="BlendMode_Exclusion" xml:space="preserve">
+    <value>除外</value>
+  </data>
+  <data name="BlendMode_Multiply" xml:space="preserve">
+    <value>乗算</value>
+  </data>
+  <data name="BlendMode_Hue" xml:space="preserve">
+    <value>色相</value>
+  </data>
+  <data name="BlendMode_Saturation" xml:space="preserve">
+    <value>彩度</value>
+  </data>
+  <data name="BlendMode_Color" xml:space="preserve">
+    <value>カラー</value>
+  </data>
+  <data name="BlendMode_Luminosity" xml:space="preserve">
+    <value>輝度</value>
+  </data>
+  <data name="BlendMode_Clear_Description" xml:space="preserve">
+    <value>描画内容を透明にします。</value>
+  </data>
+  <data name="BlendMode_Src_Description" xml:space="preserve">
+    <value>元の内容を無視して新しい内容で塗りつぶします。</value>
+  </data>
+  <data name="BlendMode_Dst_Description" xml:space="preserve">
+    <value>描画をせず、元の内容を維持します。</value>
+  </data>
+  <data name="BlendMode_SrcOver_Description" xml:space="preserve">
+    <value>前面の内容を背景に重ねて描画します。</value>
+  </data>
+  <data name="BlendMode_DstOver_Description" xml:space="preserve">
+    <value>背面の内容を前面の下に描画します。</value>
+  </data>
+  <data name="BlendMode_SrcIn_Description" xml:space="preserve">
+    <value>前面の内容を背景の形にクリップして描画します。</value>
+  </data>
+  <data name="BlendMode_DstIn_Description" xml:space="preserve">
+    <value>背面の内容を前面の形にクリップします。</value>
+  </data>
+  <data name="BlendMode_SrcOut_Description" xml:space="preserve">
+    <value>背景部分を切り取り、前面の外側だけを描画します。</value>
+  </data>
+  <data name="BlendMode_DstOut_Description" xml:space="preserve">
+    <value>前面部分を切り取り、背景の外側だけを描画します。</value>
+  </data>
+  <data name="BlendMode_SrcATop_Description" xml:space="preserve">
+    <value>前面を背景の上に描画し、背景の外側を残します。</value>
+  </data>
+  <data name="BlendMode_DstATop_Description" xml:space="preserve">
+    <value>背景を前面の上に描画し、前面の外側を残します。</value>
+  </data>
+  <data name="BlendMode_Xor_Description" xml:space="preserve">
+    <value>重なった部分を透明にし、その他の部分を描画します。</value>
+  </data>
+  <data name="BlendMode_Plus_Description" xml:space="preserve">
+    <value>前面と背景の色を加算します。</value>
+  </data>
+  <data name="BlendMode_Modulate_Description" xml:space="preserve">
+    <value>透明度を考慮し、前景と背景の色を掛け合わせます。</value>
+  </data>
+  <data name="BlendMode_Screen_Description" xml:space="preserve">
+    <value>前面と背景の色を反転して乗算し、反転して戻します。</value>
+  </data>
+  <data name="BlendMode_Overlay_Description" xml:space="preserve">
+    <value>背景と前景を掛け合わせ、コントラストを強調します。</value>
+  </data>
+  <data name="BlendMode_Darken_Description" xml:space="preserve">
+    <value>背景と前景の色を比較し、暗い方を残します。</value>
+  </data>
+  <data name="BlendMode_Lighten_Description" xml:space="preserve">
+    <value>背景と前景の色を比較し、明るい方を残します。</value>
+  </data>
+  <data name="BlendMode_ColorDodge_Description" xml:space="preserve">
+    <value>背景の明るさを前景で強調し、明るい色を際立たせます。</value>
+  </data>
+  <data name="BlendMode_ColorBurn_Description" xml:space="preserve">
+    <value>背景の暗さを前景で強調し、暗い色を際立たせます。</value>
+  </data>
+  <data name="BlendMode_HardLight_Description" xml:space="preserve">
+    <value>前景を光源として扱い、乗算とスクリーンを切り替えます。</value>
+  </data>
+  <data name="BlendMode_SoftLight_Description" xml:space="preserve">
+    <value>柔らかな光を加えるように、色を自然に調整します。</value>
+  </data>
+  <data name="BlendMode_Difference_Description" xml:space="preserve">
+    <value>背景と前景の色の差の絶対値を計算して描画します。</value>
+  </data>
+  <data name="BlendMode_Exclusion_Description" xml:space="preserve">
+    <value>背景と前景の色を混ぜ、コントラストを抑えた結果を描画します。</value>
+  </data>
+  <data name="BlendMode_Multiply_Description" xml:space="preserve">
+    <value>前景と背景の色を掛け合わせ、全体を暗くします。</value>
+  </data>
+  <data name="BlendMode_Hue_Description" xml:space="preserve">
+    <value>背景の明度と彩度を維持し、前景の色相を適用します。</value>
+  </data>
+  <data name="BlendMode_Saturation_Description" xml:space="preserve">
+    <value>背景の明度と色相を維持し、前景の彩度を適用します。</value>
+  </data>
+  <data name="BlendMode_Color_Description" xml:space="preserve">
+    <value>背景の明度を維持し、前景の色相と彩度を適用します。</value>
+  </data>
+  <data name="BlendMode_Luminosity_Description" xml:space="preserve">
+    <value>背景の色相と彩度を維持し、前景の明度を適用します。</value>
   </data>
 </root>

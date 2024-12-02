@@ -2492,5 +2492,353 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Speed", resourceCulture);
             }
         }
+        
+        public static string BlendMode_Clear {
+            get {
+                return ResourceManager.GetString("BlendMode_Clear", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Clear_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Clear_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Src {
+            get {
+                return ResourceManager.GetString("BlendMode_Src", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Src_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Src_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Dst {
+            get {
+                return ResourceManager.GetString("BlendMode_Dst", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Dst_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Dst_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_SrcOver {
+            get {
+                return ResourceManager.GetString("BlendMode_SrcOver", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_SrcOver_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_SrcOver_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_DstOver {
+            get {
+                return ResourceManager.GetString("BlendMode_DstOver", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_DstOver_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_DstOver_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_SrcIn {
+            get {
+                return ResourceManager.GetString("BlendMode_SrcIn", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_SrcIn_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_SrcIn_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_DstIn {
+            get {
+                return ResourceManager.GetString("BlendMode_DstIn", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_DstIn_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_DstIn_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_SrcOut {
+            get {
+                return ResourceManager.GetString("BlendMode_SrcOut", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_SrcOut_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_SrcOut_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_DstOut {
+            get {
+                return ResourceManager.GetString("BlendMode_DstOut", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_DstOut_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_DstOut_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_SrcATop {
+            get {
+                return ResourceManager.GetString("BlendMode_SrcATop", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_SrcATop_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_SrcATop_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_DstATop {
+            get {
+                return ResourceManager.GetString("BlendMode_DstATop", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_DstATop_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_DstATop_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Xor {
+            get {
+                return ResourceManager.GetString("BlendMode_Xor", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Xor_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Xor_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Plus {
+            get {
+                return ResourceManager.GetString("BlendMode_Plus", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Plus_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Plus_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Modulate {
+            get {
+                return ResourceManager.GetString("BlendMode_Modulate", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Modulate_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Modulate_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Multiply {
+            get {
+                return ResourceManager.GetString("BlendMode_Multiply", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Multiply_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Multiply_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Overlay {
+            get {
+                return ResourceManager.GetString("BlendMode_Overlay", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Overlay_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Overlay_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Darken {
+            get {
+                return ResourceManager.GetString("BlendMode_Darken", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Darken_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Darken_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Lighten {
+            get {
+                return ResourceManager.GetString("BlendMode_Lighten", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Lighten_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Lighten_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_ColorDodge {
+            get {
+                return ResourceManager.GetString("BlendMode_ColorDodge", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_ColorDodge_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_ColorDodge_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_ColorBurn {
+            get {
+                return ResourceManager.GetString("BlendMode_ColorBurn", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_ColorBurn_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_ColorBurn_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_HardLight {
+            get {
+                return ResourceManager.GetString("BlendMode_HardLight", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_HardLight_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_HardLight_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_SoftLight {
+            get {
+                return ResourceManager.GetString("BlendMode_SoftLight", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_SoftLight_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_SoftLight_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Difference {
+            get {
+                return ResourceManager.GetString("BlendMode_Difference", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Difference_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Difference_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Exclusion {
+            get {
+                return ResourceManager.GetString("BlendMode_Exclusion", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Exclusion_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Exclusion_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Hue {
+            get {
+                return ResourceManager.GetString("BlendMode_Hue", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Hue_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Hue_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Saturation {
+            get {
+                return ResourceManager.GetString("BlendMode_Saturation", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Saturation_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Saturation_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Color {
+            get {
+                return ResourceManager.GetString("BlendMode_Color", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Color_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Color_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Luminosity {
+            get {
+                return ResourceManager.GetString("BlendMode_Luminosity", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Luminosity_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Luminosity_Description", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Screen {
+            get {
+                return ResourceManager.GetString("BlendMode_Screen", resourceCulture);
+            }
+        }
+        
+        public static string BlendMode_Screen_Description {
+            get {
+                return ResourceManager.GetString("BlendMode_Screen_Description", resourceCulture);
+            }
+        }
     }
 }
