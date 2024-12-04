@@ -1,9 +1,7 @@
 ﻿using System.Text;
-
-using SharpDX.Multimedia;
-using SharpDX.Win32;
-
 using Windows.Win32.Media.MediaFoundation;
+using Vortice.Multimedia;
+using Vortice.Win32;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
