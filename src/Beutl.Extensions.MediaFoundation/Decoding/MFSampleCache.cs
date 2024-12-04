@@ -7,7 +7,7 @@ using Beutl.Logging;
 
 using Microsoft.Extensions.Logging;
 
-using SharpDX.MediaFoundation;
+using Vortice.MediaFoundation;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
@@ -30,9 +30,9 @@ public class MFSampleCache(MFSampleCacheOptions options)
     private CircularBuffer<AudioCache> _audioCircularBuffer = new(options.MaxAudioBufferSize);
     private short _nBlockAlign;
 
-    private readonly record struct VideoCache(int Frame, Sample Sample);
+    private readonly record struct VideoCache(int Frame, IMFSample Sample);
 
-    private readonly record struct AudioCache(int StartSampleNum, Sample Sample, int AudioSampleCount)
+    private readonly record struct AudioCache(int StartSampleNum, IMFSample Sample, int AudioSampleCount)
     {
         public bool CopyBuffer(ref int startSample, ref int copySampleLength, ref nint buffer, short nBlockAlign)
         {
@@ -95,7 +95,7 @@ public class MFSampleCache(MFSampleCacheOptions options)
         _audioCircularBuffer.Clear();
     }
 
-    public void AddFrameSample(int frame, Sample pSample)
+    public void AddFrameSample(int frame, IMFSample pSample)
     {
         int lastFrameNum = LastFrameNumber();
         if (lastFrameNum != -1)
@@ -118,7 +118,7 @@ public class MFSampleCache(MFSampleCacheOptions options)
         _videoCircularBuffer.PushBack(videoCache);
     }
 
-    public void AddAudioSample(int startSample, Sample pSample)
+    public void AddAudioSample(int startSample, IMFSample pSample)
     {
         int lastAudioSampleNum = LastAudioSampleNumber();
         if (lastAudioSampleNum != -1)
@@ -172,7 +172,7 @@ public class MFSampleCache(MFSampleCacheOptions options)
         return -1;
     }
 
-    public Sample? SearchFrameSample(int frame)
+    public IMFSample? SearchFrameSample(int frame)
     {
         foreach (VideoCache videoCache in _videoCircularBuffer.Reverse())
         {
