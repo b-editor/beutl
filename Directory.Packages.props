@@ -71,8 +71,6 @@
     <PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
     <PackageVersion Include="Serilog.Sinks.OpenTelemetry" Version="1.2.0" />
-    <PackageVersion Include="SharpDX.Direct3D9" Version="4.2.0" />
-    <PackageVersion Include="SharpDX.MediaFoundation" Version="4.2.0" />
     <PackageVersion Include="Sharprompt" Version="2.4.5" />
     <PackageVersion Include="SkiaSharp" Version="2.88.9" />
     <PackageVersion Include="SkiaSharp.HarfBuzz" Version="2.88.9" />
@@ -82,6 +80,8 @@
     <PackageVersion Include="System.Interactive.Async" Version="6.0.1" />
     <PackageVersion Include="System.Management" Version="9.0.0" />
     <PackageVersion Include="System.Reactive" Version="6.0.1" />
+    <PackageVersion Include="Vortice.Direct3D9" Version="3.6.2" />
+    <PackageVersion Include="Vortice.MediaFoundation" Version="3.6.2" />
     <PackageVersion Include="Vortice.XAudio2" Version="3.6.2" />
   </ItemGroup>
 </Project>
