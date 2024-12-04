@@ -3,7 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 
 using Beutl.Threading;
 
-using SharpDX.MediaFoundation;
+using Vortice.MediaFoundation;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
@@ -19,7 +19,7 @@ public static class MFThread
         {
             Thread.CurrentThread.IsBackground = true;
             Thread.CurrentThread.Name = "Beutl.MediaFoundation";
-            MediaManager.Startup();
+            MediaFactory.MFStartup();
         });
 
         if (Application.Current?.ApplicationLifetime is IControlledApplicationLifetime lifetime)
@@ -46,7 +46,7 @@ public static class MFThread
     {
         Dispatcher.Invoke(() =>
         {
-            MediaManager.Shutdown();
+            MediaFactory.MFShutdown();
         });
         Dispatcher.Shutdown();
 

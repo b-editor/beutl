@@ -1,11 +1,6 @@
-﻿using Avalonia;
-using Avalonia.Controls.ApplicationLifetimes;
-
-using Beutl.Extensibility;
+﻿using Beutl.Extensibility;
 using Beutl.Extensions.MediaFoundation.Properties;
 using Beutl.Media.Decoding;
-
-using SharpDX.MediaFoundation;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;

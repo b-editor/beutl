@@ -2,27 +2,21 @@
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-
-using Beutl.Logging;
-using Beutl.Media.Decoding;
-
-using Microsoft.Extensions.Logging;
-
-using SharpDX;
-using SharpDX.Direct3D9;
-using SharpDX.MediaFoundation;
-using SharpDX.Multimedia;
-using SharpDX.Win32;
-
 using Windows.Win32;
 using Windows.Win32.Foundation;
-using Windows.Win32.Graphics.Direct3D9;
-using Windows.Win32.Media.Audio;
-using Windows.Win32.Media.MediaFoundation;
-
-using DeviceType = SharpDX.Direct3D9.DeviceType;
-using MediaType = SharpDX.MediaFoundation.MediaType;
-using Sample = SharpDX.MediaFoundation.Sample;
+using Beutl.Logging;
+using Beutl.Media.Decoding;
+using Microsoft.Extensions.Logging;
+using SharpGen.Runtime;
+using Vortice;
+using Vortice.Direct3D9;
+using Vortice.MediaFoundation;
+using Vortice.Multimedia;
+using Vortice.Win32;
+using IDirect3DDeviceManager9 = Windows.Win32.Media.MediaFoundation.IDirect3DDeviceManager9;
+using MFRatio = Windows.Win32.Media.MediaFoundation.MFRatio;
+using MFVIDEOFORMAT = Windows.Win32.Media.MediaFoundation.MFVIDEOFORMAT;
+using WAVEFORMATEX = Windows.Win32.Media.Audio.WAVEFORMATEX;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
@@ -37,15 +31,15 @@ internal sealed class MFDecoder : IDisposable
     private readonly ILogger _logger = Log.CreateLogger<MFDecoder>();
     private readonly string _file;
     private readonly MediaOptions _options;
-    private readonly SourceReader? _videoSourceReader;
-    private readonly SourceReader? _audioSourceReader;
-    private readonly MediaAttributes? _attributes;
+    private readonly IMFSourceReader? _videoSourceReader;
+    private readonly IMFSourceReader? _audioSourceReader;
+    private readonly IMFAttributes? _attributes;
     private IDirect3DDeviceManager9? _deviceManager;
-    private Device? _device;
-    private Transform? _transform;
+    private IDirect3DDevice9? _device;
+    private IMFTransform? _transform;
     private MFMediaInfo _mediaInfo;
     private readonly bool _useDXVA2;
-    private Sample? _mfOutBufferSample;
+    private IMFSample? _mfOutBufferSample;
     private long _firstGapTimeStamp = 0;
     private long _currentVideoTimeStamp = 0;
     private long _currentAudioTimeStamp = 0;
@@ -60,32 +54,33 @@ internal sealed class MFDecoder : IDisposable
 
     public MFDecoder(string file, MediaOptions options, MFDecodingExtension extension)
     {
-        SharpDX.Configuration.EnableObjectTracking = true;
-        SharpDX.Configuration.EnableReleaseOnFinalizer = true;
-        SharpDX.Configuration.UseThreadStaticObjectTracking = true;
+        SharpGen.Runtime.Configuration.EnableObjectTracking = true;
+        SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer = true;
+        SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking = true;
         _file = file;
         _options = options;
         _thresholdFrameCount = extension.Settings.ThresholdFrameCount;
         _thresholdSampleCount = extension.Settings.ThresholdSampleCount;
-        _sampleCache = new MFSampleCache(new(extension.Settings.MaxVideoBufferSize, extension.Settings.MaxAudioBufferSize));
+        _sampleCache =
+            new MFSampleCache(new(extension.Settings.MaxVideoBufferSize, extension.Settings.MaxAudioBufferSize));
 
         _useDXVA2 = InitializeDXVA2(extension.Settings.UseDXVA2);
 
         try
         {
-            _attributes = new MediaAttributes(_useDXVA2 ? 3 : 1);
+            _attributes = new IMFAttributes(_useDXVA2 ? 3 : 1);
             if (_useDXVA2)
             {
-                _attributes.Set(SourceReaderAttributeKeys.D3DManager, new ComObject(_deviceManager));
+                _attributes.Set(SourceReaderAttributeKeys.D3DManager, Marshal.GetIUnknownForObject(_deviceManager!));
                 _attributes.Set(SourceReaderAttributeKeys.DisableDxva, 0);
                 _attributes.Set(SourceReaderAttributeKeys.EnableAdvancedVideoProcessing, true);
             }
             else
             {
-                _attributes.Set(SourceReaderAttributeKeys.EnableVideoProcessing.Guid, true);
+                _attributes.Set(SourceReaderAttributeKeys.EnableVideoProcessing, true);
             }
 
-            using (var sourceReader = new SourceReader(file, _attributes))
+            using (var sourceReader = MediaFactory.MFCreateSourceReaderFromURL(file, _attributes))
             {
                 ConfigureDecoder(sourceReader, SourceReaderIndex.FirstVideoStream);
                 ConfigureDecoder(sourceReader, SourceReaderIndex.FirstAudioStream);
@@ -95,7 +90,7 @@ internal sealed class MFDecoder : IDisposable
 
             if (_mediaInfo.VideoStreamIndex != -1 && options.StreamsToLoad.HasFlag(MediaMode.Video))
             {
-                _videoSourceReader = new SourceReader(file, _attributes);
+                _videoSourceReader = MediaFactory.MFCreateSourceReaderFromURL(file, _attributes);
                 SelectStream(_videoSourceReader, MediaTypeGuids.Video);
 
                 try
@@ -108,9 +103,10 @@ internal sealed class MFDecoder : IDisposable
                     _mediaInfo.VideoStreamIndex = -1;
                 }
             }
+
             if (_mediaInfo.AudioStreamIndex != -1 && options.StreamsToLoad.HasFlag(MediaMode.Audio))
             {
-                _audioSourceReader = new SourceReader(file, _attributes);
+                _audioSourceReader = MediaFactory.MFCreateSourceReaderFromURL(file, _attributes);
                 SelectStream(_audioSourceReader, MediaTypeGuids.Audio);
 
                 try
@@ -139,14 +135,14 @@ internal sealed class MFDecoder : IDisposable
                 nint videoDecoderPtr = _videoSourceReader.GetServiceForStream(
                     _mediaInfo.VideoStreamIndex,
                     Guid.Empty,
-                    SharpDX.Utilities.GetGuidFromType(typeof(Transform)));
-                using var videoDecoder = new Transform(videoDecoderPtr);
+                    typeof(IMFTransform).GUID);
+                using var videoDecoder = new IMFTransform(videoDecoderPtr);
 
                 try
                 {
-                    videoDecoder.ProcessMessage(TMessageType.SetD3DManager, Marshal.GetIUnknownForObject(_deviceManager!));
+                    videoDecoder.ProcessMessage(TMessageType.MessageSetD3DManager,
+                        (nuint)Marshal.GetIUnknownForObject(_deviceManager!));
                     ChangeColorConvertSettingAndCreateBuffer();
-
                 }
                 catch (Exception ex)
                 {
@@ -167,9 +163,9 @@ internal sealed class MFDecoder : IDisposable
         }
     }
 
-    private IDirect3DDeviceManager9 CreateD3DDevManager(IntPtr video_window, out Device device)
+    private IDirect3DDeviceManager9 CreateD3DDevManager(IntPtr video_window, out IDirect3DDevice9 device)
     {
-        using var d3d = new Direct3D();
+        using var d3d = D3D9.Direct3DCreate9();
 
         var presentParams = new PresentParameters
         {
@@ -188,21 +184,21 @@ internal sealed class MFDecoder : IDisposable
         };
 
         // D3DCREATE_HARDWARE_VERTEXPROCESSING specifies hardware vertex processing.
-        device = new Device(
-            direct3D: d3d,
-            adapter: 0, /* D3DADAPTER_DEFAULT */
+        device = d3d.CreateDevice(
+            adapter: 0, // D3DADAPTER_DEFAULT
             deviceType: DeviceType.Hardware,
-            hFocusWindow: video_window,
-            behaviorFlags: CreateFlags.HardwareVertexProcessing | CreateFlags.Multithreaded,
-            presentationParametersRef: [presentParams]);
-
+            focusWindow: video_window,
+            createFlags: CreateFlags.HardwareVertexProcessing | CreateFlags.Multithreaded,
+            presentationParameters: presentParams);
 
         HRESULT hr = PInvoke.DXVA2CreateDirect3DDeviceManager9(
             out uint dev_manager_reset_token,
             out IDirect3DDeviceManager9? deviceManager);
         Marshal.ThrowExceptionForHR(hr);
 
-        deviceManager.ResetDevice((IDirect3DDevice9)Marshal.GetObjectForIUnknown(device.NativePointer), dev_manager_reset_token);
+        deviceManager.ResetDevice(
+            (Windows.Win32.Graphics.Direct3D9.IDirect3DDevice9)Marshal.GetObjectForIUnknown(device.NativePointer),
+            dev_manager_reset_token);
 
         return deviceManager;
     }
@@ -213,7 +209,13 @@ internal sealed class MFDecoder : IDisposable
         try
         {
             _deviceManager = CreateD3DDevManager(PInvoke.GetDesktopWindow(), out _device);
-            _transform = new Transform(PInvoke.CLSID_VideoProcessorMFT);
+            ComActivationHelpers.CreateComInstance(
+                    PInvoke.CLSID_VideoProcessorMFT,
+                    ComContext.InprocServer,
+                    typeof(IMFTransform).GUID,
+                    out IntPtr comObject1)
+                .CheckError();
+            _transform = new IMFTransform(comObject1);
             return true;
         }
         catch (Exception ex)
@@ -230,9 +232,9 @@ internal sealed class MFDecoder : IDisposable
             return 0;
         }
 
-        int funcCopyBuffer(Sample sample)
+        int funcCopyBuffer(IMFSample sample)
         {
-            Sample yuy2Sample = sample;
+            IMFSample yuy2Sample = sample;
             if (_useDXVA2 && _mfOutBufferSample != null)
             {
                 ConvertColor(sample);
@@ -242,7 +244,7 @@ internal sealed class MFDecoder : IDisposable
             return SampleUtilities.SampleCopyToBuffer(yuy2Sample, buf, _mediaInfo.OutImageBufferSize);
         }
 
-        Sample? sample = _sampleCache.SearchFrameSample(frame);
+        IMFSample? sample = _sampleCache.SearchFrameSample(frame);
         if (sample != null)
         {
             return funcCopyBuffer(sample);
@@ -282,6 +284,7 @@ internal sealed class MFDecoder : IDisposable
 
                     return funcCopyBuffer(sample);
                 }
+
                 sample = ReadSample(_mediaInfo.VideoStreamIndex);
             }
             catch
@@ -304,11 +307,15 @@ internal sealed class MFDecoder : IDisposable
         int currentSample = _sampleCache.LastAudioSampleNumber();
         if (currentSample == -1)
         {
-            currentSample = TimestampUtilities.ConvertSampleFromTimeStamp(_currentAudioTimeStamp, _mediaInfo.AudioFormat.SampleRate);
+            currentSample =
+                TimestampUtilities.ConvertSampleFromTimeStamp(_currentAudioTimeStamp,
+                    _mediaInfo.AudioFormat.SampleRate);
         }
+
         if (start < currentSample || (currentSample + _thresholdSampleCount) < start)
         {
-            long destTimePosition = TimestampUtilities.ConvertTimeStampFromSample(start, _mediaInfo.AudioFormat.SampleRate);
+            long destTimePosition =
+                TimestampUtilities.ConvertTimeStampFromSample(start, _mediaInfo.AudioFormat.SampleRate);
             SeekAudio(destTimePosition);
             _logger.LogInformation(
                 "ReadAudio Seek currentTimestamp: {currentTimestamp} - destTimePos: {destTimePos} relativeSample: {relativeSample}",
@@ -317,7 +324,7 @@ internal sealed class MFDecoder : IDisposable
                 start - currentSample);
         }
 
-        Sample? sample = ReadSample(_mediaInfo.AudioStreamIndex);
+        IMFSample? sample = ReadSample(_mediaInfo.AudioStreamIndex);
         while (sample != null)
         {
             try
@@ -331,6 +338,7 @@ internal sealed class MFDecoder : IDisposable
                         return length;
                     }
                 }
+
                 sample = ReadSample(_mediaInfo.AudioStreamIndex);
             }
             catch
@@ -344,9 +352,9 @@ internal sealed class MFDecoder : IDisposable
 
     public MFMediaInfo GetMediaInfo() => _mediaInfo;
 
-    private Sample? ReadSample(int streamIndex)
+    private IMFSample? ReadSample(int streamIndex)
     {
-        SourceReader? reader;
+        IMFSourceReader? reader;
         if (streamIndex == _mediaInfo.VideoStreamIndex && _videoSourceReader != null)
         {
             reader = _videoSourceReader;
@@ -361,27 +369,30 @@ internal sealed class MFDecoder : IDisposable
             return null;
         }
 
-        Sample sample = reader.ReadSample(
+        IMFSample sample = reader.ReadSample(
             streamIndex,
-            SourceReaderControlFlags.None,
+            SourceReaderControlFlag.None,
             out int actualStreamIndex,
-            out SourceReaderFlags flags,
+            out SourceReaderFlag flags,
             out long timestamp);
 
-        if (flags.HasFlag(SourceReaderFlags.Endofstream))
+        if (flags.HasFlag(SourceReaderFlag.EndOfStream))
         {
             _logger.LogTrace("End of stream - stream: {streamIndex}", streamIndex);
             return null;
         }
-        if (flags.HasFlag(SourceReaderFlags.Newstream))
+
+        if (flags.HasFlag(SourceReaderFlag.NewStream))
         {
             _logger.LogTrace("New stream");
         }
-        if (flags.HasFlag(SourceReaderFlags.Nativemediatypechanged))
+
+        if (flags.HasFlag(SourceReaderFlag.NativeMediaTypeChanged))
         {
             _logger.LogTrace("Native type changed");
         }
-        if (flags.HasFlag(SourceReaderFlags.Currentmediatypechanged))
+
+        if (flags.HasFlag(SourceReaderFlag.CurrentMediaTypeChanged))
         {
             _logger.LogTrace("Current type changed");
             if (actualStreamIndex == _mediaInfo.VideoStreamIndex)
@@ -392,14 +403,14 @@ internal sealed class MFDecoder : IDisposable
             {
                 _logger.LogError("unknown CurrentMediaTypeChanged");
             }
-
         }
-        if (flags.HasFlag(SourceReaderFlags.StreamTick))
+
+        if (flags.HasFlag(SourceReaderFlag.StreamTick))
         {
             _logger.LogTrace("Stream tick");
         }
 
-        if (flags.HasFlag(SourceReaderFlags.Nativemediatypechanged))
+        if (flags.HasFlag(SourceReaderFlag.NativeMediaTypeChanged))
         {
             // The format changed. Reconfigure the decoder.
             try
@@ -408,7 +419,8 @@ internal sealed class MFDecoder : IDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "MFDecoder.ReadSample MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED ConfigureDecoder failed");
+                _logger.LogError(ex,
+                    "MFDecoder.ReadSample MF_SOURCE_READERF_NATIVEMEDIATYPECHANGED ConfigureDecoder failed");
                 return null;
             }
         }
@@ -445,16 +457,13 @@ internal sealed class MFDecoder : IDisposable
     }
 
     // NV12 -> YUY2
-    private void ConvertColor(Sample sample)
+    private void ConvertColor(IMFSample sample)
     {
         _transform!.ProcessInput(0, sample, 0);
 
-        TOutputDataBuffer mftOutputDataBuffer = new()
-        {
-            PSample = _mfOutBufferSample
-        };
+        OutputDataBuffer mftOutputDataBuffer = new() { Sample = _mfOutBufferSample };
 
-        _transform.ProcessOutput(TransformProcessOutputFlags.None, [mftOutputDataBuffer], out _);
+        _transform.ProcessOutput(ProcessOutputFlags.None, 1, ref mftOutputDataBuffer, out _);
     }
 
     private void ChangeColorConvertSettingAndCreateBuffer()
@@ -467,24 +476,25 @@ internal sealed class MFDecoder : IDisposable
             return;
         }
 
-        using MediaType mediaType = _videoSourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
+        using IMFMediaType mediaType = _videoSourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
 
-        Guid subType = mediaType.Get(MediaTypeAttributeKeys.Subtype);
+        Guid subType = mediaType.GetGUID(MediaTypeAttributeKeys.Subtype);
 
         string? subTypeText = VideoFormatName.GetName(subType) ?? subType.ToString();
         _logger.LogInformation("GetCurrentMediaType subType: {SubType}", subTypeText);
 
-        long aspectRatio = mediaType.Get(MediaTypeAttributeKeys.PixelAspectRatio);
+        ulong aspectRatio = mediaType.GetUInt64(MediaTypeAttributeKeys.PixelAspectRatio);
         uint pixelNume = (uint)(aspectRatio >> 32);
         uint pixelDenom = (uint)(aspectRatio & 0xffffffff);
 
-        long frameSize = mediaType.Get(MediaTypeAttributeKeys.FrameSize);
+        ulong frameSize = mediaType.GetUInt64(MediaTypeAttributeKeys.FrameSize);
         uint width = (uint)(frameSize >> 32);
         uint height = (uint)(frameSize & 0xffffffff);
 
         RECT rcSrc = RECT.FromXYWH(0, 0, (int)width, (int)height);
         Ratio srcPAR = new() { Numerator = (int)pixelNume, Denominator = (int)pixelDenom };
-        RECT destRect = AspectRatioUtilities.CorrectAspectRatio(rcSrc, srcPAR, new() { Numerator = 1, Denominator = 1 });
+        RECT destRect =
+            AspectRatioUtilities.CorrectAspectRatio(rcSrc, srcPAR, new() { Numerator = 1, Denominator = 1 });
         uint destWidth = (uint)destRect.right;
         uint destHeight = (uint)destRect.bottom;
 
@@ -499,15 +509,17 @@ internal sealed class MFDecoder : IDisposable
                 uint alignedValue = (value / align * align) + align;
                 value = alignedValue;
             }
+
             return value;
         }
+
         height = funcAlign(height, AlignHeightSize);
         destHeight = funcAlign(destHeight, AlignHeightSize);
         destWidth = funcAlign(destWidth, AlignWidth);
 
         // 色変換 NV12 -> YUY2
         // 動画の幅は 2の倍数、高さは 16の倍数でないとダメっぽい？
-        using var inputMediaType = new MediaType();
+        using var inputMediaType = MediaFactory.MFCreateMediaType();
         inputMediaType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video);
         inputMediaType.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.NV12);
         inputMediaType.Set(MediaTypeAttributeKeys.AllSamplesIndependent, 1); // UnCompressed
@@ -518,7 +530,7 @@ internal sealed class MFDecoder : IDisposable
         inputMediaType.Set(MediaTypeAttributeKeys.FrameSize, ((long)width << 32) | height);
         _transform.SetInputType(0, inputMediaType, 0);
 
-        using var outputMediaType = new MediaType();
+        using var outputMediaType = MediaFactory.MFCreateMediaType();
         outputMediaType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video);
         // YUY2
         outputMediaType.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.YUY2);
@@ -530,28 +542,28 @@ internal sealed class MFDecoder : IDisposable
         outputMediaType.Set(MediaTypeAttributeKeys.FrameSize, ((long)destWidth << 32) | destHeight);
         _transform.SetOutputType(0, outputMediaType, 0);
 
-        _transform.ProcessMessage(TMessageType.NotifyEndOfStream, 0);
+        _transform.ProcessMessage(TMessageType.MessageNotifyEndOfStream, 0);
 
-        _transform.ProcessMessage(TMessageType.NotifyBeginStreaming, 0);
+        _transform.ProcessMessage(TMessageType.MessageNotifyBeginStreaming, 0);
 
         // 出力先IMFSample作成
-        _transform.GetOutputStreamInfo(0, out TOutputStreamInformation streamInfo);
+        var streamInfo = _transform.GetOutputStreamInfo(0);
 
-        _mfOutBufferSample = MediaFactory.CreateSample();
+        _mfOutBufferSample = MediaFactory.MFCreateSample();
 
-        MediaBuffer buffer = MediaFactory.CreateMemoryBuffer(streamInfo.CbSize);
+        IMFMediaBuffer buffer = MediaFactory.MFCreateMemoryBuffer(streamInfo.Size);
         _mfOutBufferSample.AddBuffer(buffer);
     }
 
-    private static void SelectStream(SourceReader sourceReader, Guid selectMajorType)
+    private static void SelectStream(IMFSourceReader sourceReader, Guid selectMajorType)
     {
         for (int streamIndex = 0; true; streamIndex++)
         {
             try
             {
-                using MediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
+                using IMFMediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
 
-                sourceReader.GetStreamSelection(streamIndex, out SharpDX.Mathematics.Interop.RawBool selected);
+                var selected = sourceReader.GetStreamSelection(streamIndex);
                 if (!selected)
                 {
                     continue;
@@ -574,14 +586,14 @@ internal sealed class MFDecoder : IDisposable
         }
     }
 
-    private void ConfigureDecoder(SourceReader sourceReader, SourceReaderIndex readerIndex)
+    private void ConfigureDecoder(IMFSourceReader sourceReader, SourceReaderIndex readerIndex)
     {
-        using MediaType nativeType = sourceReader.GetNativeMediaType(readerIndex, 0);
+        using IMFMediaType nativeType = sourceReader.GetNativeMediaType(readerIndex, 0);
 
-        Guid majorType = nativeType.Get(MediaTypeAttributeKeys.MajorType);
+        Guid majorType = nativeType.GetGUID(MediaTypeAttributeKeys.MajorType);
         Guid subType;
 
-        using var type = new MediaType();
+        using var type = MediaFactory.MFCreateMediaType();
         type.Set(MediaTypeAttributeKeys.MajorType, majorType);
 
         // Select a subtype.
@@ -593,11 +605,13 @@ internal sealed class MFDecoder : IDisposable
         {
             subType = AudioFormatGuids.Pcm;
 
-            int nativeAudioChannels = nativeType.Get(MediaTypeAttributeKeys.AudioNumChannels);
+            uint nativeAudioChannels = nativeType.GetUInt32(MediaTypeAttributeKeys.AudioNumChannels);
 
             if (2 < nativeAudioChannels)
             {
-                _logger.LogWarning("ConfigureDecoder audio channel change - nativeAudioChannels: {nativeAudioChannels} -> 2", nativeAudioChannels);
+                _logger.LogWarning(
+                    "ConfigureDecoder audio channel change - nativeAudioChannels: {nativeAudioChannels} -> 2",
+                    nativeAudioChannels);
                 type.Set(MediaTypeAttributeKeys.AudioNumChannels, 2);
             }
         }
@@ -611,7 +625,7 @@ internal sealed class MFDecoder : IDisposable
         sourceReader.SetCurrentMediaType(readerIndex, type);
     }
 
-    private unsafe void CheckMediaInfo(SourceReader sourceReader)
+    private unsafe void CheckMediaInfo(IMFSourceReader sourceReader)
     {
         _mediaInfo.VideoStreamIndex = -1;
         _mediaInfo.AudioStreamIndex = -1;
@@ -619,9 +633,9 @@ internal sealed class MFDecoder : IDisposable
         {
             try
             {
-                using MediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
+                using IMFMediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
 
-                sourceReader.GetStreamSelection(streamIndex, out SharpDX.Mathematics.Interop.RawBool selected);
+                var selected = sourceReader.GetStreamSelection(streamIndex);
                 if (!selected)
                 {
                     continue;
@@ -651,7 +665,8 @@ internal sealed class MFDecoder : IDisposable
         // 再生時間取得
         if (_mediaInfo.VideoStreamIndex != -1 || _mediaInfo.AudioStreamIndex != -1)
         {
-            _mediaInfo.HnsDuration = sourceReader.GetPresentationAttribute(SourceReaderIndex.MediaSource, PresentationDescriptionAttributeKeys.Duration);
+            _mediaInfo.HnsDuration = (long)(ulong)sourceReader.GetPresentationAttribute(SourceReaderIndex.MediaSource,
+                PresentationDescriptionAttributeKeys.Duration).Value;
         }
         else
         {
@@ -664,20 +679,19 @@ internal sealed class MFDecoder : IDisposable
         {
             BitmapInfoHeader bih = default;
 
-            MediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
+            IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
 
-            uint pcbSize = 0;
-            HRESULT hr = PInvoke.MFCreateMFVideoFormatFromMFMediaType(
-                (IMFMediaType)Marshal.GetObjectForIUnknown(mediaType.NativePointer),
-                out MFVIDEOFORMAT* ppMFVF,
-                &pcbSize);
-            Marshal.ThrowExceptionForHR(hr.Value);
+            MediaFactory.MFCreateMFVideoFormatFromMFMediaType(mediaType, out IntPtr pMFVF, out var pcbSize);
+            var ppMFVF = (MFVIDEOFORMAT*)pMFVF;
 
             bih.Width = (int)ppMFVF->videoInfo.dwWidth;
             bih.Height = (int)ppMFVF->videoInfo.dwHeight;
 
             RECT rcSrc = RECT.FromXYWH(0, 0, bih.Width, bih.Height);
-            RECT destRect = AspectRatioUtilities.CorrectAspectRatio(rcSrc, ppMFVF->videoInfo.PixelAspectRatio, new MFRatio { Denominator = 1, Numerator = 1 });
+            RECT destRect = AspectRatioUtilities.CorrectAspectRatio(
+                rcSrc,
+                ppMFVF->videoInfo.PixelAspectRatio,
+                new MFRatio { Denominator = 1, Numerator = 1 });
             bih.Width = destRect.right;
             bih.Height = destRect.bottom;
 
@@ -685,7 +699,7 @@ internal sealed class MFDecoder : IDisposable
 
             Marshal.FreeCoTaskMem((nint)ppMFVF);
 
-            Guid subType = mediaType.Get(MediaTypeAttributeKeys.Subtype);
+            Guid subType = mediaType.GetGUID(MediaTypeAttributeKeys.Subtype);
             // YUY2
             bih.Compression = new FourCC("YUY2");
             bih.BitCount = 16;
@@ -696,17 +710,18 @@ internal sealed class MFDecoder : IDisposable
             _mediaInfo.OutImageBufferSize = bih.Width * bih.Height * (bih.BitCount / 8);
             _mediaInfo.VideoFormatName = VideoFormatName.GetName(subType) ?? subType.ToString();
         }
-        if (_mediaInfo.AudioStreamIndex != -1)
-        {   // audio
-            using MediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.AudioStreamIndex);
 
-            uint pcbSize = 0;
-            HRESULT hr = PInvoke.MFCreateWaveFormatExFromMFMediaType(
-                (IMFMediaType)Marshal.GetObjectForIUnknown(mediaType.NativePointer),
-                out WAVEFORMATEX* ppWF,
-                &pcbSize,
+        if (_mediaInfo.AudioStreamIndex != -1)
+        {
+            // audio
+            using IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.AudioStreamIndex);
+
+            MediaFactory.MFCreateWaveFormatExFromMFMediaType(
+                mediaType,
+                out IntPtr pWF,
+                out uint pcbSize,
                 0);
-            Marshal.ThrowExceptionForHR(hr.Value);
+            var ppWF = (WAVEFORMATEX*)pWF;
 
             ppWF->wFormatTag = (ushort)PInvoke.WAVE_FORMAT_PCM;
 
@@ -715,7 +730,8 @@ internal sealed class MFDecoder : IDisposable
             Marshal.FreeCoTaskMem((nint)ppWF);
 
             _mediaInfo.TotalAudioSampleCount =
-                TimestampUtilities.ConvertSampleFromTimeStamp(_mediaInfo.HnsDuration, _mediaInfo.AudioFormat.SampleRate);
+                TimestampUtilities.ConvertSampleFromTimeStamp(_mediaInfo.HnsDuration,
+                    _mediaInfo.AudioFormat.SampleRate);
         }
 
         _logger.LogInformation("ChechMediaInfo: \n{MediaInfo}", _mediaInfo.GetMediaInfoText());
@@ -736,6 +752,7 @@ internal sealed class MFDecoder : IDisposable
             SeekVideo(0);
             _currentVideoTimeStamp = 0;
         }
+
         if (_mediaInfo.AudioStreamIndex != -1 && _options.StreamsToLoad.HasFlag(MediaMode.Audio))
         {
             _ = ReadSample(_mediaInfo.AudioStreamIndex) ?? throw new Exception("TestFirstReadSample() failed");
@@ -746,9 +763,10 @@ internal sealed class MFDecoder : IDisposable
             SeekAudio(0);
             _currentAudioTimeStamp = 0;
         }
+
         if (_mediaInfo.VideoStreamIndex != -1
             && _mediaInfo.AudioStreamIndex != -1
-             && _options.StreamsToLoad == MediaMode.AudioVideo)
+            && _options.StreamsToLoad == MediaMode.AudioVideo)
         {
             if (firstVideoTimeStamp != firstAudioTimeStamp)
             {
@@ -773,7 +791,7 @@ internal sealed class MFDecoder : IDisposable
             {
                 try
                 {
-                    _transform?.ProcessMessage(TMessageType.NotifyEndOfStream, 0);
+                    _transform?.ProcessMessage(TMessageType.MessageNotifyEndOfStream, 0);
                 }
                 catch (Exception ex)
                 {
@@ -783,6 +801,7 @@ internal sealed class MFDecoder : IDisposable
                 _mfOutBufferSample.Dispose();
             }
         }
+
         _transform?.Dispose();
 
         _device?.Dispose();
