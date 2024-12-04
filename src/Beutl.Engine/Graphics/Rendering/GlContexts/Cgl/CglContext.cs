@@ -1,5 +1,6 @@
 ﻿#pragma warning disable IDE1006
 
+using System.Runtime.InteropServices;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.GlContexts;
@@ -7,9 +8,11 @@ namespace Beutl.Graphics.Rendering.GlContexts;
 internal class CglContext : GlContext
 {
     private IntPtr fContext;
+    private IntPtr fLibGL;
 
     public CglContext()
     {
+        fLibGL = NativeLibrary.Load(Cgl.libGL);
         CGLPixelFormatAttribute[] attributes =
         [
             CGLPixelFormatAttribute.kCGLPFAOpenGLProfile,
@@ -61,19 +64,20 @@ internal class CglContext : GlContext
         uint textureId = textures[0];
 
         Cgl.glBindTexture(Cgl.GL_TEXTURE_2D, textureId);
-        Cgl.glTexImage2D(Cgl.GL_TEXTURE_2D, 0, Cgl.GL_RGBA, textureSize.Width, textureSize.Height, 0, Cgl.GL_RGBA, Cgl.GL_UNSIGNED_BYTE, IntPtr.Zero);
+        Cgl.glTexImage2D(Cgl.GL_TEXTURE_2D, 0, Cgl.GL_RGBA, textureSize.Width, textureSize.Height, 0, Cgl.GL_RGBA,
+            Cgl.GL_UNSIGNED_BYTE, IntPtr.Zero);
         Cgl.glBindTexture(Cgl.GL_TEXTURE_2D, 0);
 
-        return new GRGlTextureInfo
-        {
-            Id = textureId,
-            Target = Cgl.GL_TEXTURE_2D,
-            Format = Cgl.GL_RGBA8
-        };
+        return new GRGlTextureInfo { Id = textureId, Target = Cgl.GL_TEXTURE_2D, Format = Cgl.GL_RGBA8 };
     }
 
     public override void DestroyTexture(uint texture)
     {
         Cgl.glDeleteTextures(1, [texture]);
+    }
+
+    public override IntPtr GetProcAddress(string procName)
+    {
+        return NativeLibrary.GetExport(fLibGL, procName);
     }
 }

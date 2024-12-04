@@ -1,7 +1,7 @@
 ﻿#pragma warning disable IDE1006
 
 using Microsoft.Extensions.Logging;
-
+using OpenTK.Graphics;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.GlContexts;
@@ -192,5 +192,10 @@ internal sealed class GlxContext : GlContext
     public override void DestroyTexture(uint texture)
     {
         Glx.glDeleteTextures(1, [texture]);
+    }
+
+    public override IntPtr GetProcAddress(string procName)
+    {
+        return GLXLoader.BindingsContext.GetProcAddress(procName);
     }
 }
