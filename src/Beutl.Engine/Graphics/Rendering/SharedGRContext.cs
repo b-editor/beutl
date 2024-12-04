@@ -1,6 +1,7 @@
 ﻿using System.Runtime.Versioning;
 using Beutl.Graphics.Rendering.GlContexts;
 using Microsoft.Extensions.Logging;
+using OpenTK.Graphics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using SkiaSharp;
 
@@ -8,7 +9,8 @@ namespace Beutl.Graphics.Rendering;
 
 public unsafe class SharedGRContext
 {
-    private static readonly ILogger<SharedGRContext> s_logger = BeutlApplication.Current.LoggerFactory.CreateLogger<SharedGRContext>();
+    private static readonly ILogger<SharedGRContext> s_logger =
+        BeutlApplication.Current.LoggerFactory.CreateLogger<SharedGRContext>();
 
     private static Window* s_window;
     private static GlContext? s_glContext;
@@ -43,6 +45,18 @@ public unsafe class SharedGRContext
         return GRContext;
     }
 
+    public static void MakeCurrent()
+    {
+        if (s_window != null)
+        {
+            GLFW.MakeContextCurrent(s_window);
+        }
+        else
+        {
+            s_glContext?.MakeCurrent();
+        }
+    }
+
     private static bool TryInitializePlatformGl()
     {
         if (OperatingSystem.IsWindows())
@@ -70,6 +84,7 @@ public unsafe class SharedGRContext
         {
             s_glContext = new WglContext();
             s_glContext.MakeCurrent();
+            GLLoader.LoadBindings(s_glContext);
 
             if (Wgl.VersionString != null)
             {
@@ -97,6 +112,7 @@ public unsafe class SharedGRContext
         {
             s_glContext = new GlxContext();
             s_glContext.MakeCurrent();
+            GLLoader.LoadBindings(s_glContext);
 
             if (Glx.glXQueryVersion(((GlxContext)s_glContext).fDisplay, out int major, out int minor))
             {
@@ -124,6 +140,7 @@ public unsafe class SharedGRContext
         {
             s_glContext = new CglContext();
             s_glContext.MakeCurrent();
+            GLLoader.LoadBindings(s_glContext);
 
             Cgl.CGLGetVersion(out int major, out int minor);
             Version = $"CGL {major}.{minor}";
@@ -167,6 +184,9 @@ public unsafe class SharedGRContext
 
                 throw new Exception($"GLFW error: {error}");
             }
+
+            var context = new GLFWBindingsContext();
+            GLLoader.LoadBindings(context);
 
             Version = $"GLFW {GLFW.GetVersionString()}";
             s_logger.LogInformation("Using {Version}.", Version);
