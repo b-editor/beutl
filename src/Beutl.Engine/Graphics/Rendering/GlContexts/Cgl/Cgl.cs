@@ -7,7 +7,7 @@ namespace Beutl.Graphics.Rendering.GlContexts;
 
 internal class Cgl
 {
-    private const string libGL = "/System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL";
+    public const string libGL = "/System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL";
 
     public const int GL_TEXTURE_2D = 0x0DE1;
     public const int GL_UNSIGNED_BYTE = 0x1401;

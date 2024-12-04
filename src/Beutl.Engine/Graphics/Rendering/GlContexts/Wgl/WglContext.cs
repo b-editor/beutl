@@ -1,4 +1,5 @@
-﻿using SkiaSharp;
+﻿using OpenTK.Graphics;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.GlContexts;
 
@@ -159,5 +160,10 @@ internal class WglContext : GlContext
     public override void DestroyTexture(uint texture)
     {
         Wgl.glDeleteTextures(1, [texture]);
+    }
+
+    public override IntPtr GetProcAddress(string procName)
+    {
+        return WGLLoader.BindingsContext.GetProcAddress(procName);
     }
 }
