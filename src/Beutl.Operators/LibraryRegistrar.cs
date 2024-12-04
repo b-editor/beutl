@@ -16,6 +16,11 @@ public static class LibraryRegistrar
     public static void RegisterAll()
     {
         LibraryService.Current
+            .AddMultiple("Scene3D", m => m
+                .BindSourceOperator<Source.Scene3DOperator>()
+            );
+
+        LibraryService.Current
             .AddMultiple(Strings.Ellipse, m => m
                 .BindSourceOperator<Source.EllipseOperator>()
                 .BindDrawable<Graphics.Shapes.EllipseShape>()
