@@ -1,4 +1,4 @@
-﻿using SharpDX.MediaFoundation;
+﻿using Vortice.MediaFoundation;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
