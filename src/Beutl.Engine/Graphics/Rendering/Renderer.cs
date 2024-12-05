@@ -66,6 +66,7 @@ public class Renderer : IRenderer
             OnDispose(true);
             _immediateCanvas.Dispose();
             _cacheContext.Dispose();
+            RenderScene.Dispose();
             GC.SuppressFinalize(this);
 
             IsDisposed = true;
