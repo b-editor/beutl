@@ -139,7 +139,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
                         supportCache.Accepts(cache);
                         if (cache.IsCached
                             && !(cache.CanCacheBoundary()
-                            && cacheContext.CanCacheRecursiveChildrenOnly(node)))
+                                 && cacheContext.CanCacheRecursiveChildrenOnly(node)))
                         {
                             cache.Invalidate();
                         }
@@ -171,7 +171,15 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         }
 
         _cache.Clear();
-        _currentFrame?.Clear();
+        if (_currentFrame != null)
+        {
+            foreach (Entry item in _currentFrame)
+            {
+                item.Dispose();
+            }
+
+            _currentFrame.Clear();
+        }
     }
 
     public Drawable? HitTest(Point point)

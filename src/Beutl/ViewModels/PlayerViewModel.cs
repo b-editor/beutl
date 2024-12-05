@@ -680,6 +680,7 @@ public sealed class PlayerViewModel : IDisposable
         AfterRendered.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
+        PreviewImage.Value = null!;
         _logger.LogInformation("Disposed PlayerViewModel. ({SceneId})", _editViewModel.SceneId);
     }
 
