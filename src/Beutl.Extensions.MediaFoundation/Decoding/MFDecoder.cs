@@ -68,10 +68,10 @@ internal sealed class MFDecoder : IDisposable
 
         try
         {
-            _attributes = new IMFAttributes(_useDXVA2 ? 3 : 1);
+            _attributes = MediaFactory.MFCreateAttributes(_useDXVA2 ? 3u : 1u);
             if (_useDXVA2)
             {
-                _attributes.Set(SourceReaderAttributeKeys.D3DManager, Marshal.GetIUnknownForObject(_deviceManager!));
+                _attributes.Set(SourceReaderAttributeKeys.D3DManager, new ComObject(_deviceManager!));
                 _attributes.Set(SourceReaderAttributeKeys.DisableDxva, 0);
                 _attributes.Set(SourceReaderAttributeKeys.EnableAdvancedVideoProcessing, true);
             }
@@ -462,8 +462,7 @@ internal sealed class MFDecoder : IDisposable
         _transform!.ProcessInput(0, sample, 0);
 
         OutputDataBuffer mftOutputDataBuffer = new() { Sample = _mfOutBufferSample };
-
-        _transform.ProcessOutput(ProcessOutputFlags.None, 1, ref mftOutputDataBuffer, out _);
+        _transform.ProcessOutput(ProcessOutputFlags.None, 1, ref mftOutputDataBuffer, out _);//.CheckError();
     }
 
     private void ChangeColorConvertSettingAndCreateBuffer()
@@ -479,6 +478,7 @@ internal sealed class MFDecoder : IDisposable
         using IMFMediaType mediaType = _videoSourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
 
         Guid subType = mediaType.GetGUID(MediaTypeAttributeKeys.Subtype);
+        // TODO: すでにYUY2の場合は何もしないようにする
 
         string? subTypeText = VideoFormatName.GetName(subType) ?? subType.ToString();
         _logger.LogInformation("GetCurrentMediaType subType: {SubType}", subTypeText);
@@ -522,24 +522,24 @@ internal sealed class MFDecoder : IDisposable
         using var inputMediaType = MediaFactory.MFCreateMediaType();
         inputMediaType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video);
         inputMediaType.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.NV12);
-        inputMediaType.Set(MediaTypeAttributeKeys.AllSamplesIndependent, 1); // UnCompressed
-        inputMediaType.Set(MediaTypeAttributeKeys.FixedSizeSamples, 1); // UnCompressed
+        inputMediaType.Set(MediaTypeAttributeKeys.AllSamplesIndependent, true); // UnCompressed
+        inputMediaType.Set(MediaTypeAttributeKeys.FixedSizeSamples, true); // UnCompressed
 
         // Todo: 後で確認
-        inputMediaType.Set(MediaTypeAttributeKeys.PixelAspectRatio, ((long)pixelNume << 32) | pixelDenom);
-        inputMediaType.Set(MediaTypeAttributeKeys.FrameSize, ((long)width << 32) | height);
+        inputMediaType.Set(MediaTypeAttributeKeys.PixelAspectRatio, ((ulong)pixelNume << 32) | pixelDenom);
+        inputMediaType.Set(MediaTypeAttributeKeys.FrameSize, ((ulong)width << 32) | height);
         _transform.SetInputType(0, inputMediaType, 0);
 
         using var outputMediaType = MediaFactory.MFCreateMediaType();
         outputMediaType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video);
         // YUY2
         outputMediaType.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.YUY2);
-        outputMediaType.Set(MediaTypeAttributeKeys.AllSamplesIndependent, 1); // UnCompressed
-        outputMediaType.Set(MediaTypeAttributeKeys.FixedSizeSamples, 1); // UnCompressed
+        outputMediaType.Set(MediaTypeAttributeKeys.AllSamplesIndependent, true); // UnCompressed
+        outputMediaType.Set(MediaTypeAttributeKeys.FixedSizeSamples, true); // UnCompressed
 
-        inputMediaType.Set(MediaTypeAttributeKeys.PixelAspectRatio, ((long)1 << 32) | 1);
+        inputMediaType.Set(MediaTypeAttributeKeys.PixelAspectRatio, ((ulong)1 << 32) | 1);
         //spOutputMediaType.Set(MediaTypeAttributeKeys.PixelAspectRatio, ((long)1 << 32) | 1);
-        outputMediaType.Set(MediaTypeAttributeKeys.FrameSize, ((long)destWidth << 32) | destHeight);
+        outputMediaType.Set(MediaTypeAttributeKeys.FrameSize, ((ulong)destWidth << 32) | destHeight);
         _transform.SetOutputType(0, outputMediaType, 0);
 
         _transform.ProcessMessage(TMessageType.MessageNotifyEndOfStream, 0);
