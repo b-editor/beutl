@@ -64,7 +64,7 @@ internal sealed class MFDecoder : IDisposable
         _sampleCache =
             new MFSampleCache(new(extension.Settings.MaxVideoBufferSize, extension.Settings.MaxAudioBufferSize));
 
-        _useDXVA2 = InitializeDXVA2(extension.Settings.UseDXVA2);
+        _useDXVA2 = InitializeDXVA2(false /* extension.Settings.UseDXVA2 */);
 
         try
         {

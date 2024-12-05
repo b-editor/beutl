@@ -20,7 +20,7 @@ public sealed class MFDecodingSettings : ExtensionSettings
     static MFDecodingSettings()
     {
         UseDXVA2Property = ConfigureProperty<bool, MFDecodingSettings>(nameof(UseDXVA2))
-            .DefaultValue(true)
+            .DefaultValue(false)
             .Register();
 
         ThresholdFrameCountProperty = ConfigureProperty<int, MFDecodingSettings>(nameof(ThresholdFrameCount))
