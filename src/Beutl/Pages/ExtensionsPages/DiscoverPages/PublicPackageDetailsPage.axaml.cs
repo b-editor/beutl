@@ -48,7 +48,7 @@ public partial class PublicPackageDetailsPage : UserControl
 
     private DataContextFactory GetDataContextFactory()
     {
-        return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Discover.DataContextFactory;
+        return ((ExtensionsDialogViewModel)this.FindLogicalAncestorOfType<ExtensionsDialog>()!.DataContext!).Discover.DataContextFactory;
     }
 
     private async void OpenWebSite_Click(object? sender, RoutedEventArgs e)
