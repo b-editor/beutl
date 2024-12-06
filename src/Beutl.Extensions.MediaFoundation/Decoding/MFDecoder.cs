@@ -2,8 +2,6 @@
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Windows.Win32;
-using Windows.Win32.Foundation;
 using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Microsoft.Extensions.Logging;
@@ -13,6 +11,8 @@ using Vortice.Direct3D9;
 using Vortice.MediaFoundation;
 using Vortice.Multimedia;
 using Vortice.Win32;
+using Windows.Win32;
+using Windows.Win32.Foundation;
 using IDirect3DDeviceManager9 = Windows.Win32.Media.MediaFoundation.IDirect3DDeviceManager9;
 using MFRatio = Windows.Win32.Media.MediaFoundation.MFRatio;
 using MFVIDEOFORMAT = Windows.Win32.Media.MediaFoundation.MFVIDEOFORMAT;
