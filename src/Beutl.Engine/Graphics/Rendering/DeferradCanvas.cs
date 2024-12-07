@@ -6,6 +6,7 @@ using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public sealed class DeferradCanvas(ContainerNode container, PixelSize canvasSize = default) : ICanvas
 {
     private readonly Stack<(ContainerNode, int)> _nodes = [];
@@ -186,7 +187,8 @@ public sealed class DeferradCanvas(ContainerNode container, PixelSize canvasSize
         int count = _nodes.Count;
         try
         {
-            drawable.Render(this);
+            // TODO: 削除予定
+            // drawable.Render(this);
         }
         finally
         {
