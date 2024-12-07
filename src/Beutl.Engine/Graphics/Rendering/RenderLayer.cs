@@ -1,8 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Rendering.Cache;
-using Beutl.Graphics.Rendering.V2;
-using Beutl.Graphics.Rendering.V2.Cache;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;

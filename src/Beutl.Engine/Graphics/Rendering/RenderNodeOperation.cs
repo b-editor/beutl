@@ -1,7 +1,7 @@
 ﻿using Beutl.Media.Source;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Rendering.V2;
+namespace Beutl.Graphics.Rendering;
 
 public abstract class RenderNodeOperation : IDisposable
 {

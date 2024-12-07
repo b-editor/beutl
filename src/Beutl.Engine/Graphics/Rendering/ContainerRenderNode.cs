@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace Beutl.Graphics.Rendering.V2;
+namespace Beutl.Graphics.Rendering;
 
 public class ContainerRenderNode : RenderNode
 {

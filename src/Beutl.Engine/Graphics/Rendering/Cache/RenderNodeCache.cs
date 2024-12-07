@@ -4,7 +4,7 @@ using Beutl.Media.Source;
 using Beutl.Threading;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Rendering.V2.Cache;
+namespace Beutl.Graphics.Rendering.Cache;
 
 public sealed class RenderNodeCache(RenderNode node) : IDisposable
 {

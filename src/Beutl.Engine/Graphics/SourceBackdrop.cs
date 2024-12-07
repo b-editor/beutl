@@ -1,5 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Graphics.Rendering.V2;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.Graphics;

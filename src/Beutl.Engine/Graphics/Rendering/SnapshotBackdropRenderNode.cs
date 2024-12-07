@@ -1,7 +1,7 @@
 ﻿using Beutl.Media;
 using Beutl.Media.Pixel;
 
-namespace Beutl.Graphics.Rendering.V2;
+namespace Beutl.Graphics.Rendering;
 
 public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
 {

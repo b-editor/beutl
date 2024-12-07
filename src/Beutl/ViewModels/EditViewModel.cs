@@ -8,7 +8,6 @@ using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Graphics.Rendering.Cache;
-using Beutl.Graphics.Rendering.V2.Cache;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
 using Beutl.Logging;

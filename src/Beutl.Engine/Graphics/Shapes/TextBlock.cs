@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
-using Beutl.Graphics.Rendering.V2;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;

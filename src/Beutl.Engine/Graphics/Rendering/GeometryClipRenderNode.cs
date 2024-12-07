@@ -1,6 +1,6 @@
 ﻿using Beutl.Media;
 
-namespace Beutl.Graphics.Rendering.V2;
+namespace Beutl.Graphics.Rendering;
 
 public sealed class GeometryClipRenderNode(Geometry clip, ClipOperation operation) : ContainerRenderNode
 {

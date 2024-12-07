@@ -1,6 +1,6 @@
 ﻿using Beutl.Media;
 
-namespace Beutl.Graphics.Rendering.V2;
+namespace Beutl.Graphics.Rendering;
 
 public sealed class EllipseRenderNode(Rect rect, IBrush? fill, IPen? pen)
     : BrushRenderNode(fill, pen)

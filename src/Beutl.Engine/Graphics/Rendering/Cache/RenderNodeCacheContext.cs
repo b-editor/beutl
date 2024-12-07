@@ -4,7 +4,7 @@ using Beutl.Configuration;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
 
-namespace Beutl.Graphics.Rendering.V2.Cache;
+namespace Beutl.Graphics.Rendering.Cache;
 
 public sealed class RenderNodeCacheContext : IDisposable
 {

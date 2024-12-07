@@ -2,7 +2,6 @@
 using Beutl.Animation;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.V2;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;

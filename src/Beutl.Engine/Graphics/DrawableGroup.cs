@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering.V2;
+using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 
 namespace Beutl.Graphics;

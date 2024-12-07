@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering.V2;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Immutable;
 

@@ -1,27 +1,20 @@
 ﻿using Beutl.Media;
 using Beutl.Media.Source;
 
-namespace Beutl.Graphics.Rendering.V2;
+namespace Beutl.Graphics.Rendering;
 
-public sealed class VideoSourceRenderNode(
-    IVideoSource source,
-    int frame,
-    IBrush? fill,
-    IPen? pen)
+public sealed class ImageSourceRenderNode(IImageSource source, IBrush? fill, IPen? pen)
     : BrushRenderNode(fill, pen)
 {
-    public IVideoSource Source { get; } = source.Clone();
-
-    public int Frame { get; } = frame;
+    public IImageSource Source { get; } = source.Clone();
 
     public Rect Bounds { get; } = PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen);
 
-    public bool Equals(IVideoSource source, int frame, IBrush? fill, IPen? pen)
+    public bool Equals(IImageSource source, IBrush? fill, IPen? pen)
     {
-        return Frame == frame
-               && EqualityComparer<IVideoSource?>.Default.Equals(Source, source)
-               && EqualityComparer<IBrush?>.Default.Equals(Fill, fill)
-               && EqualityComparer<IPen?>.Default.Equals(Pen, pen);
+        return EqualityComparer<IImageSource?>.Default.Equals(Source, source)
+            && EqualityComparer<IBrush?>.Default.Equals(Fill, fill)
+            && EqualityComparer<IPen?>.Default.Equals(Pen, pen);
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
@@ -32,12 +25,11 @@ public sealed class VideoSourceRenderNode(
                 bounds: Bounds,
                 render: canvas =>
                 {
-                    if (Source.Read(Frame, out IBitmap? bitmap))
+                    if (!Source.TryGetRef(out Ref<IBitmap>? bitmap)) return;
+
+                    using (bitmap)
                     {
-                        using (bitmap)
-                        {
-                            canvas.DrawBitmap(bitmap, Fill, Pen);
-                        }
+                        canvas.DrawBitmap(bitmap.Value, Fill, Pen);
                     }
                 },
                 hitTest: HitTest

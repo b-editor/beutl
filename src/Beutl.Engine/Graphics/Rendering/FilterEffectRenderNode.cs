@@ -1,7 +1,7 @@
 ﻿using Beutl.Graphics.Effects;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Rendering.V2;
+namespace Beutl.Graphics.Rendering;
 
 public sealed class FilterEffectRenderNode(FilterEffect filterEffect) : ContainerRenderNode
 {

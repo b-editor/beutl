@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.V2;
-using Beutl.Graphics.Rendering.V2.Cache;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;

@@ -4,7 +4,7 @@ using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.V2.Cache;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;

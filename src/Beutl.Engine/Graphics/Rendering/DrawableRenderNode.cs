@@ -1,4 +1,4 @@
-﻿namespace Beutl.Graphics.Rendering.V2;
+﻿namespace Beutl.Graphics.Rendering;
 
 public class DrawableRenderNode(Drawable drawable) : ContainerRenderNode
 {

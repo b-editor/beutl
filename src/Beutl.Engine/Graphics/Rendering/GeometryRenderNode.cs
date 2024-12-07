@@ -1,6 +1,6 @@
 ﻿using Beutl.Media;
 
-namespace Beutl.Graphics.Rendering.V2;
+namespace Beutl.Graphics.Rendering;
 
 public sealed class GeometryRenderNode(Geometry geometry, IBrush? fill, IPen? pen)
     : BrushRenderNode(fill, pen)

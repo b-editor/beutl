@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
-using Beutl.Graphics.Rendering.V2;
+using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 
 namespace Beutl.Graphics;

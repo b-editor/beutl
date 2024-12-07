@@ -1,6 +1,6 @@
 ﻿using Beutl.Media;
 
-namespace Beutl.Graphics.Rendering.V2;
+namespace Beutl.Graphics.Rendering;
 
 public abstract class BrushRenderNode : RenderNode
 {

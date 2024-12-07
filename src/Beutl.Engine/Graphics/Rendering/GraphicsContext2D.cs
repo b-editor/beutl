@@ -4,7 +4,7 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
 
-namespace Beutl.Graphics.Rendering.V2;
+namespace Beutl.Graphics.Rendering;
 
 public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize canvasSize = default)
     : IDisposable, IPopable
