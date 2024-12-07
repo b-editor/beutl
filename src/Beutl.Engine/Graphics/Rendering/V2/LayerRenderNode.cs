@@ -11,15 +11,27 @@ public class LayerRenderNode(Rect limit) : ContainerRenderNode
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        return context.Input.Select(r =>
-        {
-            return RenderNodeOperation.CreateDecorator(r, canvas =>
-            {
-                using (canvas.PushLayer(Limit))
+        return
+        [
+            RenderNodeOperation.CreateLambda(
+                bounds: context.CalculateBounds(),
+                render: canvas =>
                 {
-                    r.Render(canvas);
-                }
-            });
-        }).ToArray();
+                    using (canvas.PushLayer(Limit))
+                    {
+                        foreach (RenderNodeOperation op in context.Input)
+                        {
+                            op.Render(canvas);
+                        }
+                    }
+                },
+                hitTest: p => context.Input.Any(n => n.HitTest(p)), onDispose: () =>
+                {
+                    foreach (RenderNodeOperation op in context.Input)
+                    {
+                        op.Dispose();
+                    }
+                })
+        ];
     }
 }
