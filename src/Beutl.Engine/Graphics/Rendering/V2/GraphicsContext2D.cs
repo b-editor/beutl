@@ -16,12 +16,18 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
 
     public PixelSize Size => canvasSize;
 
-    public bool IsDisposed => false;
+    internal Action<RenderNode>? OnUntracked { get; set; }
+
+    private void Untracked(RenderNode? node)
+    {
+        if (node != null) OnUntracked?.Invoke(node);
+    }
 
     private void Add(RenderNode node)
     {
         if (_drawOperationindex < _container.Children.Count)
         {
+            Untracked(_container.Children[_drawOperationindex]);
             _container.SetChild(_drawOperationindex, node);
         }
         else
@@ -243,6 +249,12 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
             while (count < 0
                    && _nodes.TryPop(out (ContainerRenderNode, int) state))
             {
+                foreach (RenderNode node in _container.Children.Take(_drawOperationindex..))
+                {
+                    node.Dispose();
+                    Untracked(node);
+                }
+
                 _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
 
                 _container = state.Item1;
@@ -256,6 +268,12 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
             while (_nodes.Count >= count
                    && _nodes.TryPop(out (ContainerRenderNode, int) state))
             {
+                foreach (RenderNode node in _container.Children.Take(_drawOperationindex..))
+                {
+                    node.Dispose();
+                    Untracked(node);
+                }
+
                 _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
 
                 _container = state.Item1;
@@ -509,7 +527,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
         }
     }
 
-    private sealed class CanvasImpl(GraphicsContext2D canvas) : ICanvas
+    internal sealed class CanvasImpl(GraphicsContext2D canvas) : ICanvas
     {
         public void Dispose() => canvas.Dispose();
 
@@ -517,7 +535,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
 
         public PixelSize Size => canvas.Size;
 
-        public bool IsDisposed => canvas.IsDisposed;
+        public bool IsDisposed => false;
 
         public void Clear() => canvas.Clear();
 
