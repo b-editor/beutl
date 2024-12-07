@@ -64,4 +64,12 @@ public sealed class RenderScene(PixelSize size) : IDisposable
 
         return null;
     }
+
+    internal void ClearCache()
+    {
+        foreach (RenderLayer layer in _layer.Values)
+        {
+            layer.ClearCache();
+        }
+    }
 }

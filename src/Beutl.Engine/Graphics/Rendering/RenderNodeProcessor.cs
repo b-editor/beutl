@@ -1,5 +1,4 @@
 ﻿using Beutl.Collections.Pooled;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using SkiaSharp;
@@ -9,14 +8,13 @@ namespace Beutl.Graphics.Rendering;
 public class RenderNodeProcessor
 {
     private readonly IImmediateCanvasFactory _canvasFactory;
-    private readonly RenderNodeCacheContext? _cacheContext;
+    private readonly bool _useRenderCache;
 
     public RenderNodeProcessor(
-        RenderNode root, IImmediateCanvasFactory canvasFactory,
-        RenderNodeCacheContext? cacheContext)
+        RenderNode root, IImmediateCanvasFactory canvasFactory, bool useRenderCache)
     {
         _canvasFactory = canvasFactory;
-        _cacheContext = cacheContext;
+        _useRenderCache = useRenderCache;
         Root = root;
     }
 
@@ -30,6 +28,30 @@ public class RenderNodeProcessor
             op.Render(canvas);
             op.Dispose();
         }
+    }
+
+    internal List<(SKSurface Surface, Rect Bounds)> RasterizeToSurface()
+    {
+        var list = new List<(SKSurface, Rect)>();
+        var ops = PullToRoot();
+        foreach (var op in ops)
+        {
+            var rect = PixelRect.FromRect(op.Bounds);
+            SKSurface surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
+                                       ?? throw new Exception("surface is null");
+
+            using ImmediateCanvas canvas = _canvasFactory.CreateCanvas(surface, true);
+
+            using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
+            {
+                op.Render(canvas);
+                op.Dispose();
+            }
+
+            list.Add((surface, op.Bounds));
+        }
+
+        return list;
     }
 
     public List<Bitmap<Bgra8888>> Rasterize()
@@ -81,7 +103,7 @@ public class RenderNodeProcessor
 
     public RenderNodeOperation[] Pull(RenderNode node)
     {
-        if (_cacheContext?.GetCache(node) is { IsCached: true } cache)
+        if (_useRenderCache && node.Cache is { IsCached: true } cache)
         {
             return cache.UseCache()
                 .Select(i => RenderNodeOperation.CreateFromSurface(
@@ -105,7 +127,11 @@ public class RenderNodeProcessor
 
         var context = new RenderNodeContext(_canvasFactory, input);
         var result = node.Process(context);
-        // TODO: context.IsCacheEnabledがfalseの場合にキャッシュを無効化する処理を追加する
+        if (_useRenderCache && !context.IsRenderCacheEnabled)
+        {
+            node.Cache.ReportRenderCount(0);
+        }
+
         return result;
     }
 }

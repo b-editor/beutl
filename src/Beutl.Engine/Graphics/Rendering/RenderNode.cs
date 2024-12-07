@@ -1,7 +1,14 @@
-﻿namespace Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering.Cache;
+
+namespace Beutl.Graphics.Rendering;
 
 public abstract class RenderNode : INode
 {
+    protected RenderNode()
+    {
+        Cache = new RenderNodeCache(this);
+    }
+
     ~RenderNode()
     {
         if (!IsDisposed)
@@ -13,6 +20,8 @@ public abstract class RenderNode : INode
 
     public bool IsDisposed { get; private set; }
 
+    public RenderNodeCache Cache { get; }
+
     public abstract RenderNodeOperation[] Process(RenderNodeContext context);
 
     public void Dispose()
@@ -20,6 +29,7 @@ public abstract class RenderNode : INode
         if (!IsDisposed)
         {
             OnDispose(true);
+            Cache.Dispose();
             IsDisposed = true;
             GC.SuppressFinalize(this);
         }

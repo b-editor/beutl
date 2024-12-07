@@ -177,13 +177,13 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         using var node = new DrawableRenderNode(drawable);
         using var context = new GraphicsContext2D(node, Size);
         drawable.Render(context);
-        var processor = new RenderNodeProcessor(node, this, GetCacheContext());
+        var processor = new RenderNodeProcessor(node, this, true);
         processor.Render(this);
     }
 
     public void DrawNode(RenderNode node)
     {
-        var processor = new RenderNodeProcessor(node, this, GetCacheContext());
+        var processor = new RenderNodeProcessor(node, this, true);
         processor.Render(this);
     }
 

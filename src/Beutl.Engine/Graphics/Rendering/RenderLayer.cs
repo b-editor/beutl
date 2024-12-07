@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
@@ -96,7 +96,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
     {
         foreach (KeyValuePair<Drawable, Entry> item in _cache)
         {
-            context?.ClearCache(item.Value.Node);
+            RenderNodeCacheContext.ClearCache(item.Value.Node);
 
             item.Value.Dispose();
         }
@@ -122,7 +122,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
             {
                 void RevalidateAll(RenderNode current)
                 {
-                    RenderNodeCache cache = cacheContext.GetCache(current);
+                    RenderNodeCache cache = current.Cache;
 
                     if (current is ContainerRenderNode c)
                     {
@@ -135,7 +135,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
                     }
 
                     cache.IncrementRenderCount();
-                    if (cache.IsCached && !cacheContext.CanCacheRecursive(current))
+                    if (cache.IsCached && !RenderNodeCacheContext.CanCacheRecursive(current))
                     {
                         cache.Invalidate();
                     }
@@ -205,5 +205,21 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         }
 
         return list;
+    }
+
+    internal void ClearCache()
+    {
+        foreach (KeyValuePair<Drawable, Entry> item in _cache)
+        {
+            RenderNodeCacheContext.ClearCache(item.Value.Node);
+        }
+
+        if (_currentFrame == null)
+            return;
+
+        foreach (Entry item in _currentFrame)
+        {
+            RenderNodeCacheContext.ClearCache(item.Node);
+        }
     }
 }

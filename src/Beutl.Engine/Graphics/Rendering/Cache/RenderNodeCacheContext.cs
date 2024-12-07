@@ -1,17 +1,19 @@
-using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
 using System.Text.Json.Serialization;
 using Beutl.Configuration;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.Cache;
 
-public sealed class RenderNodeCacheContext : IDisposable
+// TODO: インスタンスのあるクラスである必要はないので、近々削除する
+public sealed class RenderNodeCacheContext(RenderScene scene)
 {
     private readonly ILogger<RenderNodeCacheContext> _logger =
         BeutlApplication.Current.LoggerFactory.CreateLogger<RenderNodeCacheContext>();
 
-    private readonly ConditionalWeakTable<RenderNode, RenderNodeCache> _table = [];
     private RenderCacheOptions _cacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
 
     public RenderCacheOptions CacheOptions
@@ -20,38 +22,14 @@ public sealed class RenderNodeCacheContext : IDisposable
         set
         {
             ArgumentNullException.ThrowIfNull(value);
-            if (_cacheOptions != value)
-            {
-                Dispose();
-            }
-
+            scene.ClearCache();
             _cacheOptions = value;
         }
     }
 
-    public void RevalidateCache(RenderNode node)
+    public static bool CanCacheRecursive(RenderNode node)
     {
-        var cache = GetCache(node);
-        if (node is ContainerRenderNode)
-        {
-            cache.CaptureChildren();
-        }
-
-        cache.IncrementRenderCount();
-        if (cache.IsCached && !CanCacheRecursive(node))
-        {
-            cache.Invalidate();
-        }
-    }
-
-    public RenderNodeCache GetCache(RenderNode node)
-    {
-        return _table.GetValue(node, key => new RenderNodeCache(key));
-    }
-
-    public bool CanCacheRecursive(RenderNode node)
-    {
-        RenderNodeCache cache = GetCache(node);
+        RenderNodeCache cache = node.Cache;
         if (!cache.CanCache())
             return false;
 
@@ -78,7 +56,7 @@ public sealed class RenderNodeCacheContext : IDisposable
 
     // nodeの子要素だけ調べる。node自体は調べない
     // MakeCacheで使う
-    public bool CanCacheRecursiveChildrenOnly(RenderNode node)
+    public static bool CanCacheRecursiveChildrenOnly(RenderNode node)
     {
         if (node is ContainerRenderNode containerNode)
         {
@@ -94,7 +72,7 @@ public sealed class RenderNodeCacheContext : IDisposable
         return true;
     }
 
-    public void ClearCache(RenderNode node, RenderNodeCache cache)
+    public static void ClearCache(RenderNode node, RenderNodeCache cache)
     {
         cache.Invalidate();
 
@@ -107,19 +85,15 @@ public sealed class RenderNodeCacheContext : IDisposable
         }
     }
 
-    public void ClearCache(RenderNode node)
+    public static void ClearCache(RenderNode node)
     {
-        if (_table.TryGetValue(node, out RenderNodeCache? cache))
-        {
-            cache.Invalidate();
-        }
+        node.Cache.Invalidate();
 
-        if (node is ContainerRenderNode containerNode)
+        if (node is not ContainerRenderNode containerNode) return;
+
+        foreach (RenderNode item in containerNode.Children)
         {
-            foreach (RenderNode item in containerNode.Children)
-            {
-                ClearCache(item);
-            }
+            ClearCache(item);
         }
     }
 
@@ -129,7 +103,7 @@ public sealed class RenderNodeCacheContext : IDisposable
         if (!_cacheOptions.IsEnabled)
             return;
 
-        RenderNodeCache cache = GetCache(node);
+        RenderNodeCache cache = node.Cache;
         // ここでのnodeは途中まで、キャッシュしても良い
         // CanCacheRecursive内で再帰呼び出ししているのはすべてキャッシュできる必要がある
         if (cache.CanCache() && CanCacheRecursiveChildrenOnly(node))

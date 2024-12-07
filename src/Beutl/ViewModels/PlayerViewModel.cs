@@ -710,7 +710,7 @@ public sealed class PlayerViewModel : IDisposable
                 drawable.Render(context);
             }
 
-            var processor = new RenderNodeProcessor(root, renderer, null);
+            var processor = new RenderNodeProcessor(root, renderer, false);
             return processor.RasterizeAndConcat();
         });
     }
