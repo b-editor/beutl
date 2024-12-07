@@ -3,6 +3,7 @@ using Beutl.Media.Source;
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public sealed class ImageSourceNode(IImageSource source, IBrush? fill, IPen? pen)
     : BrushDrawNode(fill, pen, PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen))
 {

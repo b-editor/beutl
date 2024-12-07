@@ -1,5 +1,6 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public sealed class PushNode : ContainerNode
 {
     public PushNode()

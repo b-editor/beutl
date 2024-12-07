@@ -2,6 +2,7 @@
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public abstract class DrawNode : IGraphicNode
 {
     public DrawNode(Rect bounds)

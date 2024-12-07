@@ -2,6 +2,7 @@
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public sealed class RectangleNode(Rect rect, IBrush? fill, IPen? pen)
     : BrushDrawNode(fill, pen, PenHelper.GetBounds(rect, pen))
 {

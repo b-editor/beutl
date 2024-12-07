@@ -4,6 +4,7 @@ using Beutl.Media.Pixel;
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public class SnapshotBackdropNode() : DrawNode(default), IBackdrop, ISupportRenderCache
 {
     private Bitmap<Bgra8888>? _bitmap;

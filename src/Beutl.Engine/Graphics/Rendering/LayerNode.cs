@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public class LayerNode(Rect limit) : ContainerNode
 {
     public Rect Limit { get; } = limit;

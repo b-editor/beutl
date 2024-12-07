@@ -1,4 +1,4 @@
-﻿using Beutl.Graphics.Effects;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
@@ -178,6 +178,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         drawable.Render(this);
     }
 
+    [Obsolete("Obsolete")]
     public void DrawNode(IGraphicNode node)
     {
         if (GetCacheContext() is { } context)

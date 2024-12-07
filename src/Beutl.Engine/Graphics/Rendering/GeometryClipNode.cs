@@ -2,6 +2,7 @@
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public sealed class GeometryClipNode(Geometry clip, ClipOperation operation) : ContainerNode
 {
     private readonly int _version = clip.Version;

@@ -2,6 +2,7 @@
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public abstract class BrushDrawNode : DrawNode
 {
     protected BrushDrawNode(IBrush? fill, IPen? pen, Rect bounds)

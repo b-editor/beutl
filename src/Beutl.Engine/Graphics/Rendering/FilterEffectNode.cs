@@ -8,6 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public sealed class FilterEffectNode : ContainerNode, ISupportRenderCache
 {
     private FilterEffectNodeComparer _comparer;

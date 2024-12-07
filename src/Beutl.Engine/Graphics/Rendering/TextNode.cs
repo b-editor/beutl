@@ -5,6 +5,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public sealed class TextNode(FormattedText text, IBrush? fill, IPen? pen)
     : BrushDrawNode(fill, pen, text.ActualBounds)
 {

@@ -2,6 +2,7 @@
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public sealed class GeometryNode(Geometry geometry, IBrush? fill, IPen? pen)
     : BrushDrawNode(fill, pen, PenHelper.CalculateBoundsWithStrokeCap(geometry.GetRenderBounds(pen), pen))
 {

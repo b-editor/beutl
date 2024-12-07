@@ -1,5 +1,6 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public class DrawableNode(Drawable drawable) : ContainerNode
 {
     public Drawable Drawable { get; private set; } = drawable;

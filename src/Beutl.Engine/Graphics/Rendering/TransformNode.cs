@@ -1,5 +1,6 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public sealed class TransformNode(Matrix transform, TransformOperator transformOperator) : ContainerNode
 {
     public Matrix Transform { get; } = transform;

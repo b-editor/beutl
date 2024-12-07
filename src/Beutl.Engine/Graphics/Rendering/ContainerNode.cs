@@ -2,6 +2,7 @@
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public class ContainerNode : IGraphicNode
 {
     private readonly List<IGraphicNode> _children = [];

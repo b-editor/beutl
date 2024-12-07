@@ -2,6 +2,7 @@
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public sealed class OpacityMaskNode(IBrush mask, Rect maskBounds, bool invert) : ContainerNode
 {
     public IBrush Mask { get; private set; } = (mask as IMutableBrush)?.ToImmutable() ?? mask;

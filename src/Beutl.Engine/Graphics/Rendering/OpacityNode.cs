@@ -1,5 +1,6 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public sealed class OpacityNode(float opacity) : ContainerNode
 {
     public float Opacity { get; } = opacity;

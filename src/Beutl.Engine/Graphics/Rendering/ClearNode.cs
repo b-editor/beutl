@@ -2,6 +2,7 @@
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public sealed class ClearNode(Color color) : DrawNode(Rect.Empty)
 {
     public Color Color { get; } = color;

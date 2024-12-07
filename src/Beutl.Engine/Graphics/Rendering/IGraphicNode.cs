@@ -1,5 +1,6 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public interface IGraphicNode : INode
 {
     Rect Bounds { get; }

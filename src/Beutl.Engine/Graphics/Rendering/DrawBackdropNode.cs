@@ -2,6 +2,7 @@
 
 namespace Beutl.Graphics.Rendering;
 
+[Obsolete]
 public class DrawBackdropNode(IBackdrop backdrop, Rect bounds) : DrawNode(bounds), ISupportRenderCache
 {
     public IBackdrop Backdrop { get; } = backdrop;
