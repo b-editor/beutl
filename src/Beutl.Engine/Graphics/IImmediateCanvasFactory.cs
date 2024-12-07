@@ -1,11 +1,12 @@
 ﻿using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.V2.Cache;
 using SkiaSharp;
 
 namespace Beutl.Graphics;
 
 public interface IImmediateCanvasFactory
 {
-    RenderCacheContext? GetCacheContext();
+    RenderNodeCacheContext? GetCacheContext();
 
     ImmediateCanvas CreateCanvas(SKSurface surface, bool leaveOpen);
 

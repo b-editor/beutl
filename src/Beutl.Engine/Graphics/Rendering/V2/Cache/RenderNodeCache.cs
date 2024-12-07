@@ -188,10 +188,10 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         LastAccessedTime = DateTime.UtcNow;
     }
 
-    public (Ref<SKSurface> Surface, Rect Bounds)[] UseCache()
+    public IEnumerable<(Ref<SKSurface> Surface, Rect Bounds)> UseCache()
     {
         LastAccessedTime = DateTime.UtcNow;
-        return _cache.Select(i => (i.Item1.Clone(), i.Item2)).ToArray();
+        return _cache.Select(i => (i.Item1.Clone(), i.Item2));
     }
 
     public void StoreCache(ReadOnlySpan<(Ref<SKSurface> Surface, Rect Bounds)> items)

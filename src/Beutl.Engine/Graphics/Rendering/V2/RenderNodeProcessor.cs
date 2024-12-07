@@ -1,36 +1,77 @@
-﻿using System.Runtime.CompilerServices;
-using Beutl.Collections.Pooled;
+﻿using Beutl.Collections.Pooled;
 using Beutl.Graphics.Rendering.V2.Cache;
+using Beutl.Media;
+using Beutl.Media.Pixel;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.V2;
 
 public class RenderNodeProcessor
 {
     private readonly IImmediateCanvasFactory _canvasFactory;
-    private readonly ConditionalWeakTable<RenderNode, RenderNodeCache> _table = [];
+    private readonly RenderNodeCacheContext? _cacheContext;
 
-    public RenderNodeProcessor(RenderNode root, IImmediateCanvasFactory canvasFactory)
+    public RenderNodeProcessor(
+        RenderNode root, IImmediateCanvasFactory canvasFactory,
+        RenderNodeCacheContext? cacheContext)
     {
         _canvasFactory = canvasFactory;
+        _cacheContext = cacheContext;
         Root = root;
     }
 
     public RenderNode Root { get; set; }
 
-    public RenderNodeCache GetCache(RenderNode node)
+    public void Render(ImmediateCanvas canvas)
     {
-        return _table.GetValue(node, key => new RenderNodeCache(key));
+        var ops = PullToRoot();
+        foreach (var op in ops)
+        {
+            op.Render(canvas);
+            op.Dispose();
+        }
     }
 
-    private void IncrementRenderCount(RenderNode node)
+    public List<Bitmap<Bgra8888>> Rasterize()
     {
-        var cache = GetCache(node);
-        if (node is ContainerRenderNode)
+        var list = new List<Bitmap<Bgra8888>>();
+        var ops = PullToRoot();
+        foreach (var op in ops)
         {
-            cache.CaptureChildren();
+            var rect = PixelRect.FromRect(op.Bounds);
+            using SKSurface? surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
+                                       ?? throw new Exception("surface is null");
+
+            using ImmediateCanvas icanvas = _canvasFactory.CreateCanvas(surface, true);
+
+            using (icanvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
+            {
+                op.Render(icanvas);
+                op.Dispose();
+            }
+
+            list.Add(icanvas.GetBitmap());
         }
 
-        cache.IncrementRenderCount();
+        return list;
+    }
+
+    public Bitmap<Bgra8888> RasterizeAndConcat()
+    {
+        var ops = PullToRoot();
+        var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
+        var rect = PixelRect.FromRect(bounds);
+        using SKSurface surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
+                                  ?? throw new Exception("surface is null");
+
+        using ImmediateCanvas icanvas = _canvasFactory.CreateCanvas(surface, true);
+        foreach (var op in ops)
+        {
+            op.Render(icanvas);
+            op.Dispose();
+        }
+
+        return icanvas.GetBitmap();
     }
 
     public RenderNodeOperation[] PullToRoot()
@@ -40,6 +81,17 @@ public class RenderNodeProcessor
 
     public RenderNodeOperation[] Pull(RenderNode node)
     {
+        if (_cacheContext?.GetCache(node) is { IsCached: true } cache)
+        {
+            return cache.UseCache()
+                .Select(i => RenderNodeOperation.CreateLambda(
+                    bounds: i.Bounds,
+                    render: canvas => canvas.DrawSurface(i.Surface.Value, i.Bounds.Position),
+                    onDispose: () => i.Surface.Dispose()))
+                .ToArray();
+        }
+
+        RenderNodeOperation[] input = [];
         if (node is ContainerRenderNode container)
         {
             using var operations = new PooledList<RenderNodeOperation>();
@@ -48,18 +100,10 @@ public class RenderNodeProcessor
                 operations.AddRange(Pull(innerNode));
             }
 
-            var input = operations.ToArray();
-            var context = new RenderNodeContext(_canvasFactory, input);
-            var result = node.Process(context);
-            IncrementRenderCount(node);
-            return result;
+            input = operations.ToArray();
         }
-        else
-        {
-            var context = new RenderNodeContext(_canvasFactory, []);
-            var result = node.Process(context);
-            IncrementRenderCount(node);
-            return result;
-        }
+
+        var context = new RenderNodeContext(_canvasFactory, input);
+        return node.Process(context);
     }
 }
