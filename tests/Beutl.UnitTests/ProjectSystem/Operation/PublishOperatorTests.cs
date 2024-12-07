@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering.V2;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Operation;
@@ -12,7 +13,7 @@ public class PublishOperatorTests
     {
         protected override Size MeasureCore(Size availableSize) => throw new NotImplementedException();
 
-        protected override void OnDraw(ICanvas canvas) => throw new NotImplementedException();
+        protected override void OnDraw(GraphicsContext2D context) => throw new NotImplementedException();
     }
 
     private class TestOperator() : PublishOperator<TestDrawable>(
