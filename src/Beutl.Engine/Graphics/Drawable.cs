@@ -2,6 +2,7 @@
 using Beutl.Animation;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.V2;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
@@ -194,11 +195,11 @@ public abstract class Drawable : Renderable
         }
     }
 
-    public virtual void Render(ICanvas canvas)
+    public virtual void Render(GraphicsContext2D context)
     {
         if (IsVisible)
         {
-            Size availableSize = canvas.Size.ToSize(1);
+            Size availableSize = context.Size.ToSize(1);
             Size size = MeasureCore(availableSize);
             var rect = new Rect(size);
             if (_filterEffect != null && !rect.IsInvalid)
@@ -208,13 +209,13 @@ public abstract class Drawable : Renderable
 
             Matrix transform = GetTransformMatrix(availableSize, size);
             Rect transformedBounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
-            using (canvas.PushBlendMode(BlendMode))
-            using (canvas.PushTransform(transform))
-            using (canvas.PushOpacity(Opacity / 100f))
-            using (_filterEffect == null ? new() : canvas.PushFilterEffect(_filterEffect))
-            using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
+            using (context.PushBlendMode(BlendMode))
+            using (context.PushTransform(transform))
+            using (context.PushOpacity(Opacity / 100f))
+            using (_filterEffect == null ? new() : context.PushFilterEffect(_filterEffect))
+            using (OpacityMask == null ? new() : context.PushOpacityMask(OpacityMask, new Rect(size)))
             {
-                OnDraw(canvas);
+                OnDraw(context);
             }
 
             Bounds = transformedBounds;
@@ -230,7 +231,7 @@ public abstract class Drawable : Renderable
         (OpacityMask as Animatable)?.ApplyAnimations(clock);
     }
 
-    protected abstract void OnDraw(ICanvas canvas);
+    protected abstract void OnDraw(GraphicsContext2D context);
 
     private Point CalculateTranslate(Size bounds, Size canvasSize)
     {

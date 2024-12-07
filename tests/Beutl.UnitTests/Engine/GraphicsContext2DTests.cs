@@ -37,7 +37,7 @@ public class GraphicsContext2DTests
 
         var node = new DrawableRenderNode(drawable);
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
-        drawable.Render(new GraphicsContext2D.CanvasImpl(context));
+        drawable.Render(context);
 
         var sb = new StringBuilder();
         DisplayNode(node, sb);
@@ -45,8 +45,8 @@ public class GraphicsContext2DTests
 
         ((FilterEffectGroup)drawable.FilterEffect).Children.RemoveAt(0);
         context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
-        context.OnUntracked = (n) => Console.WriteLine($"Untracked: {n.GetType().Name}");
-        drawable.Render(new GraphicsContext2D.CanvasImpl(context));
+        context.OnUntracked = n => Console.WriteLine($"Untracked: {n.GetType().Name}");
+        drawable.Render(context);
 
         sb = new StringBuilder();
         DisplayNode(node, sb);

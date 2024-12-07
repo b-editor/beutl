@@ -195,8 +195,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
         int count = _nodes.Count;
         try
         {
-            // TODO: 後で、Drawable.Renderの引数をGraphicsContext2Dに変更する
-            drawable.Render(new CanvasImpl(this));
+            drawable.Render(this);
         }
         finally
         {

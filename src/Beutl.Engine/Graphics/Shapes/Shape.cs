@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.V2;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -234,7 +235,7 @@ public abstract class Shape : Drawable
 
     protected abstract Geometry? CreateGeometry();
 
-    protected override void OnDraw(ICanvas canvas)
+    protected override void OnDraw(GraphicsContext2D context)
     {
         Geometry? geometry = GetOrCreateGeometry();
         if (geometry == null)
@@ -255,17 +256,17 @@ public abstract class Shape : Drawable
 
         matrix *= Matrix.CreateScale(scale);
 
-        using (canvas.PushTransform(matrix))
+        using (context.PushTransform(matrix))
         {
-            canvas.DrawGeometry(geometry, Fill, Pen);
+            context.DrawGeometry(geometry, Fill, Pen);
         }
     }
 
-    public override void Render(ICanvas canvas)
+    public override void Render(GraphicsContext2D context)
     {
         if (IsVisible)
         {
-            Size availableSize = canvas.Size.ToSize(1);
+            Size availableSize = context.Size.ToSize(1);
             Size size = MeasureCore(availableSize);
             var rect = new Rect(size).Translate(CreatedGeometry?.Bounds.Position ?? default);
             if (FilterEffect != null)
@@ -275,13 +276,13 @@ public abstract class Shape : Drawable
 
             Matrix transform = GetTransformMatrix(availableSize, size);
             Rect transformedBounds = rect.TransformToAABB(transform);
-            using (canvas.PushBlendMode(BlendMode))
-            using (canvas.PushTransform(transform))
-            using (canvas.PushOpacity(Opacity / 100f))
-            using (FilterEffect == null ? new() : canvas.PushFilterEffect(FilterEffect))
-            using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
+            using (context.PushBlendMode(BlendMode))
+            using (context.PushTransform(transform))
+            using (context.PushOpacity(Opacity / 100f))
+            using (FilterEffect == null ? new() : context.PushFilterEffect(FilterEffect))
+            using (OpacityMask == null ? new() : context.PushOpacityMask(OpacityMask, new Rect(size)))
             {
-                OnDraw(canvas);
+                OnDraw(context);
             }
 
             Bounds = transformedBounds;

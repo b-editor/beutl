@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering.V2;
 using Beutl.Media;
 using Beutl.Media.Immutable;
 
@@ -60,11 +61,11 @@ public sealed class DrawableDecorator : Drawable
         }
     }
 
-    public override void Render(ICanvas canvas)
+    public override void Render(GraphicsContext2D context)
     {
         if (IsVisible)
         {
-            Size availableSize = canvas.Size.ToSize(1);
+            Size availableSize = context.Size.ToSize(1);
             Rect rect = PrivateMeasureCore(availableSize);
             if (FilterEffect != null && !rect.IsInvalid)
             {
@@ -73,23 +74,23 @@ public sealed class DrawableDecorator : Drawable
 
             Matrix transform = GetTransformMatrix(availableSize);
             Rect transformedBounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
-            using (canvas.PushBlendMode(BlendMode))
-            using (canvas.PushTransform(transform))
-            using (FilterEffect == null ? new() : canvas.PushFilterEffect(FilterEffect))
-            using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(rect.Size)))
+            using (context.PushBlendMode(BlendMode))
+            using (context.PushTransform(transform))
+            using (FilterEffect == null ? new() : context.PushFilterEffect(FilterEffect))
+            using (OpacityMask == null ? new() : context.PushOpacityMask(OpacityMask, new Rect(rect.Size)))
             {
-                OnDraw(canvas);
+                OnDraw(context);
             }
 
             Bounds = transformedBounds;
         }
     }
 
-    protected override void OnDraw(ICanvas canvas)
+    protected override void OnDraw(GraphicsContext2D context)
     {
         if (Child != null)
         {
-            canvas.DrawDrawable(Child);
+            context.DrawDrawable(Child);
         }
     }
 

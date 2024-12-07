@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Graphics.Rendering.V2;
+using Beutl.Media;
 using Beutl.Media.Source;
 
 namespace Beutl.Graphics;
@@ -36,11 +37,11 @@ public class SourceImage : Drawable
         }
     }
 
-    protected override void OnDraw(ICanvas canvas)
+    protected override void OnDraw(GraphicsContext2D context)
     {
         if (_source != null)
         {
-            canvas.DrawImageSource(_source, Brushes.White, null);
+            context.DrawImageSource(_source, Brushes.White, null);
         }
     }
 }
