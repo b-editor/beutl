@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
@@ -15,6 +15,8 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         }
 
         public DrawableRenderNode Node { get; } = node;
+
+        public Rect Bounds { get; set; }
 
         public bool IsDirty { get; set; } = true;
 
@@ -144,8 +146,17 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
                 RevalidateAll(node);
             }
 
-            var processor = new RenderNodeProcessor(node, canvas, cacheContext);
-            processor.Render(canvas);
+            var processor = new RenderNodeProcessor(node, canvas, true);
+            Rect bounds = default;
+            var ops = processor.PullToRoot();
+            foreach (var op in ops)
+            {
+                op.Render(canvas);
+                op.Dispose();
+                bounds = bounds.Union(op.Bounds);
+            }
+
+            entry.Bounds = bounds;
 
             cacheContext?.MakeCache(node, canvas);
         }
@@ -197,10 +208,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         int index = 0;
         foreach (Entry? entry in CollectionsMarshal.AsSpan(_currentFrame))
         {
-            // TODO: GetBoundariesの実装
-            // DrawableNode node = entry.Node;
-            //
-            // list[index++] = node.Bounds;
+            list[index++] = entry.Bounds;
             //list[index++] = node.Drawable.Bounds;
         }
 
