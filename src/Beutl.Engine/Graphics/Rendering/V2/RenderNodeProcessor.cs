@@ -104,6 +104,8 @@ public class RenderNodeProcessor
         }
 
         var context = new RenderNodeContext(_canvasFactory, input);
-        return node.Process(context);
+        var result = node.Process(context);
+        // TODO: context.IsCacheEnabledがfalseの場合にキャッシュを無効化する処理を追加する
+        return result;
     }
 }
