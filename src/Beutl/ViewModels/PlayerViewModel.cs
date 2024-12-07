@@ -8,6 +8,8 @@ using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.V2;
+using Beutl.Graphics.Rendering.V2.Cache;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Music;
@@ -702,44 +704,16 @@ public sealed class PlayerViewModel : IDisposable
         return RenderThread.Dispatcher.InvokeAsync(() =>
         {
             if (Scene == null) throw new Exception("Scene is null.");
-            IRenderer renderer = EditViewModel.Renderer.Value;
+            SceneRenderer renderer = EditViewModel.Renderer.Value;
             PixelSize frameSize = renderer.FrameSize;
-            using var root = new DrawableNode(drawable);
-            using var dcanvas = new DeferradCanvas(root, frameSize);
-            drawable.Render(dcanvas);
-
-            Rect bounds = root.Bounds;
-            var rect = PixelRect.FromRect(bounds);
-            using SKSurface? surface = renderer.CreateRenderTarget(rect.Width, rect.Height)
-                                       ?? throw new Exception("surface is null");
-
-            using ImmediateCanvas icanvas = renderer.CreateCanvas(surface, true);
-
-            RenderCacheContext? cacheContext = renderer.GetCacheContext();
-            RenderCacheOptions? restoreCacheOptions = null;
-
-            if (cacheContext != null)
+            using var root = new DrawableRenderNode(drawable);
+            using (var context = new GraphicsContext2D(root, frameSize))
             {
-                restoreCacheOptions = cacheContext.CacheOptions;
-                cacheContext.CacheOptions = RenderCacheOptions.Disabled;
+                drawable.Render(context);
             }
 
-            try
-            {
-                using (icanvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
-                {
-                    icanvas.DrawNode(root);
-                }
-
-                return icanvas.GetBitmap();
-            }
-            finally
-            {
-                if (cacheContext != null && restoreCacheOptions != null)
-                {
-                    cacheContext.CacheOptions = restoreCacheOptions;
-                }
-            }
+            var processor = new RenderNodeProcessor(root, renderer, null);
+            return processor.RasterizeAndConcat();
         });
     }
 
@@ -752,7 +726,7 @@ public sealed class PlayerViewModel : IDisposable
             if (Scene == null) throw new Exception("Scene is null.");
             IRenderer renderer = EditViewModel.Renderer.Value;
 
-            RenderCacheContext? cacheContext = renderer.GetCacheContext();
+            RenderNodeCacheContext? cacheContext = renderer.GetCacheContext();
             RenderCacheOptions? restoreCacheOptions = null;
 
             if (cacheContext != null)
