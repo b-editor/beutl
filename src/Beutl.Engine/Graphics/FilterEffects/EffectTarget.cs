@@ -1,9 +1,8 @@
 ﻿using System.ComponentModel;
-
 using Beutl.Collections.Pooled;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.V2;
 using Beutl.Media.Source;
-
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -16,6 +15,13 @@ public sealed class EffectTarget : IDisposable
     private object? _target;
 
     internal readonly PooledList<FEItemWrapper> _history = [];
+
+    public EffectTarget(RenderNodeOperation node)
+    {
+        _target = node;
+        OriginalBounds = node.Bounds;
+        Bounds = node.Bounds;
+    }
 
     public EffectTarget(IGraphicNode node)
     {
@@ -45,6 +51,8 @@ public sealed class EffectTarget : IDisposable
 
     public IGraphicNode? Node => _target as IGraphicNode;
 
+    public RenderNodeOperation? NodeOperation => _target as RenderNodeOperation;
+
     public Ref<SKSurface>? Surface => _target as Ref<SKSurface>;
 
     public bool IsEmpty => _target == null;
@@ -57,10 +65,7 @@ public sealed class EffectTarget : IDisposable
         }
         else if (Surface != null)
         {
-            var obj = new EffectTarget(Surface, OriginalBounds)
-            {
-                Bounds = Bounds
-            };
+            var obj = new EffectTarget(Surface, OriginalBounds) { Bounds = Bounds };
             obj._history.AddRange(_history.Select(v => v.Inherit()));
             return obj;
         }
@@ -73,6 +78,7 @@ public sealed class EffectTarget : IDisposable
     public void Dispose()
     {
         Surface?.Dispose();
+        NodeOperation?.Dispose();
         _target = null;
         OriginalBounds = default;
         _history.Dispose();
@@ -87,6 +93,10 @@ public sealed class EffectTarget : IDisposable
         else if (Surface != null)
         {
             canvas.DrawSurface(Surface.Value, default);
+        }
+        else if (NodeOperation != null)
+        {
+            NodeOperation.Render(canvas);
         }
     }
 }

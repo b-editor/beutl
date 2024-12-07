@@ -101,6 +101,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                 var customContext = new CustomFilterEffectContext(
                     _factory,
                     CurrentTargets,
+                    // CreateTargetで新しく派生した時の使われるhistory
                     [.. CurrentTargets[0]._history.Select(v => v.Inherit())]);
                 custom.Accepts(customContext);
 
