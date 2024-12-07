@@ -50,13 +50,13 @@ public class TextBlockTests
 
         tb.Measure(Size.Infinity);
         Rect bounds = tb.Bounds;
-        using var graphics = new ImmediateCanvas((int)bounds.Width, (int)bounds.Height);
+        using var canvas = new ImmediateCanvas((int)bounds.Width, (int)bounds.Height);
 
-        graphics.Clear(Colors.White);
+        canvas.Clear(Colors.White);
 
-        tb.Render(graphics);
+        canvas.DrawDrawable(tb);
 
-        using Bitmap<Bgra8888> bmp = graphics.GetBitmap();
+        using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png));
     }
