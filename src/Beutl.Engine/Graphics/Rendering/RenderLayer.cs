@@ -1,20 +1,22 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.V2;
+using Beutl.Graphics.Rendering.V2.Cache;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
 public sealed class RenderLayer(RenderScene renderScene) : IDisposable
 {
-    private class Entry(DrawableNode node) : IDisposable
+    private class Entry(DrawableRenderNode node) : IDisposable
     {
         ~Entry()
         {
             Dispose();
         }
 
-        public DrawableNode Node { get; } = node;
+        public DrawableRenderNode Node { get; } = node;
 
         public bool IsDirty { get; set; } = true;
 
@@ -46,7 +48,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
     {
         if (!_cache.TryGetValue(drawable, out Entry? entry))
         {
-            entry = new Entry(new DrawableNode(drawable));
+            entry = new Entry(new DrawableRenderNode(drawable));
             _cache.Add(drawable, entry);
 
             var weakRef = new WeakReference<Entry>(entry);
@@ -68,7 +70,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         if (entry.IsDirty)
         {
             // DeferredCanvasを作成し、記録
-            using var canvas = new DeferradCanvas(entry.Node, renderScene.Size);
+            using var canvas = new GraphicsContext2D(entry.Node, renderScene.Size);
             drawable.Render(canvas);
             entry.IsDirty = false;
         }
@@ -92,7 +94,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         }
     }
 
-    public void ClearAllNodeCache(RenderCacheContext? context)
+    public void ClearAllNodeCache(RenderNodeCacheContext? context)
     {
         foreach (KeyValuePair<Drawable, Entry> item in _cache)
         {
@@ -108,56 +110,44 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
     {
         foreach (Entry? entry in CollectionsMarshal.AsSpan(_currentFrame))
         {
-            DrawableNode node = entry.Node;
+            DrawableRenderNode node = entry.Node;
             Drawable drawable = node.Drawable;
             if (entry.IsDirty)
             {
-                using var dcanvas = new DeferradCanvas(node, renderScene.Size);
-                drawable.Render(dcanvas);
+                using var context = new GraphicsContext2D(node, renderScene.Size);
+                drawable.Render(context);
                 entry.IsDirty = false;
             }
 
-            RenderCacheContext? cacheContext = canvas.GetCacheContext();
+            RenderNodeCacheContext? cacheContext = canvas.GetCacheContext();
             if (cacheContext != null)
             {
-                void AcceptsAll(IGraphicNode node)
+                void RevalidateAll(RenderNode current)
                 {
-                    RenderCache cache = cacheContext.GetCache(node);
+                    RenderNodeCache cache = cacheContext.GetCache(current);
 
-                    if (node is ContainerNode c)
+                    if (current is ContainerRenderNode c)
                     {
-                        foreach (IGraphicNode item in c.Children)
+                        foreach (RenderNode item in c.Children)
                         {
-                            AcceptsAll(item);
+                            RevalidateAll(item);
                         }
 
                         cache.CaptureChildren();
                     }
 
-                    if (node is ISupportRenderCache supportCache)
+                    cache.IncrementRenderCount();
+                    if (cache.IsCached && !cacheContext.CanCacheRecursive(current))
                     {
-                        supportCache.Accepts(cache);
-                        if (cache.IsCached
-                            && !(cache.CanCacheBoundary()
-                                 && cacheContext.CanCacheRecursiveChildrenOnly(node)))
-                        {
-                            cache.Invalidate();
-                        }
-                    }
-                    else
-                    {
-                        cache.IncrementRenderCount();
-                        if (cache.IsCached && !cacheContext.CanCacheRecursive(node))
-                        {
-                            cache.Invalidate();
-                        }
+                        cache.Invalidate();
                     }
                 }
 
-                AcceptsAll(node);
+                RevalidateAll(node);
             }
 
-            canvas.DrawNode(node);
+            var processor = new RenderNodeProcessor(node, canvas, cacheContext);
+            processor.Render(canvas);
 
             cacheContext?.MakeCache(node, canvas);
         }
@@ -190,10 +180,11 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         for (int i = _currentFrame.Count - 1; i >= 0; i--)
         {
             Entry entry = _currentFrame[i];
-            if (entry.Node.HitTest(point))
-            {
-                return entry.Node.Drawable;
-            }
+            // TODO: HitTestの実装
+            // if (entry.Node.HitTest(point))
+            // {
+            //     return entry.Node.Drawable;
+            // }
         }
 
         return null;
@@ -208,9 +199,10 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         int index = 0;
         foreach (Entry? entry in CollectionsMarshal.AsSpan(_currentFrame))
         {
-            DrawableNode node = entry.Node;
-
-            list[index++] = node.Bounds;
+            // TODO: GetBoundariesの実装
+            // DrawableNode node = entry.Node;
+            //
+            // list[index++] = node.Bounds;
             //list[index++] = node.Drawable.Bounds;
         }
 
