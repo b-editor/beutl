@@ -7,7 +7,7 @@ using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
 
-namespace Beutl.UnitTests.Engine;
+namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 public class GraphicsContext2DTests
 {
