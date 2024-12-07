@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.V2.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using SkiaSharp;
@@ -12,7 +13,7 @@ public class Renderer : IRenderer
     private readonly SKSurface _surface;
     private readonly FpsText _fpsText = new();
     private readonly InstanceClock _instanceClock = new();
-    private readonly RenderCacheContext _cacheContext = new();
+    private readonly RenderNodeCacheContext _cacheContext = new();
 
     public Renderer(int width, int height)
     {
@@ -127,7 +128,7 @@ public class Renderer : IRenderer
         return surface;
     }
 
-    public RenderCacheContext? GetCacheContext()
+    public RenderNodeCacheContext? GetCacheContext()
     {
         return _cacheContext;
     }

@@ -5,6 +5,7 @@ using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.V2.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
@@ -193,7 +194,7 @@ public sealed class OutputViewModel : IOutputContext
                     using (frameProgress.CombineLatest(sampleProgress).Subscribe(t =>
                                ProgressValue.Value = t.Item1.TotalSeconds + t.Item2.TotalSeconds))
                     {
-                        RenderCacheContext? cacheContext = renderer.GetCacheContext();
+                        RenderNodeCacheContext? cacheContext = renderer.GetCacheContext();
 
                         if (cacheContext != null)
                         {
