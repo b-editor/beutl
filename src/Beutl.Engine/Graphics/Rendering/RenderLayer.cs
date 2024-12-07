@@ -181,7 +181,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         }
     }
 
-    public Drawable? HitTest(Point point)
+    public Drawable? HitTest(Point point, IImmediateCanvasFactory canvasFactory)
     {
         if (_currentFrame == null || _currentFrame.Count == 0)
             return null;
@@ -189,11 +189,22 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         for (int i = _currentFrame.Count - 1; i >= 0; i--)
         {
             Entry entry = _currentFrame[i];
-            // TODO: HitTestの実装
-            // if (entry.Node.HitTest(point))
-            // {
-            //     return entry.Node.Drawable;
-            // }
+            var processor = new RenderNodeProcessor(entry.Node, canvasFactory, false);
+            var arr = processor.PullToRoot();
+            try
+            {
+                if (arr.Any(op => op.HitTest(point)))
+                {
+                    return entry.Node.Drawable;
+                }
+            }
+            finally
+            {
+                foreach (var op in arr)
+                {
+                    op.Dispose();
+                }
+            }
         }
 
         return null;

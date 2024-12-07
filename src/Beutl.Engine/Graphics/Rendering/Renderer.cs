@@ -136,7 +136,8 @@ public class Renderer : IRenderer
 
     public Drawable? HitTest(Point point)
     {
-        return RenderScene.HitTest(point);
+        RenderThread.Dispatcher.VerifyAccess();
+        return RenderScene.HitTest(point, this);
     }
 
     public bool Render(TimeSpan timeSpan)

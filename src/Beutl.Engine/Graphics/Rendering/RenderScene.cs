@@ -52,11 +52,11 @@ public sealed class RenderScene(PixelSize size) : IDisposable
         }
     }
 
-    public Drawable? HitTest(Point point)
+    public Drawable? HitTest(Point point, IImmediateCanvasFactory canvasFactory)
     {
         foreach (int key in _layer.Keys.Reverse())
         {
-            if (_layer[key].HitTest(point) is { } drawable)
+            if (_layer[key].HitTest(point, canvasFactory) is { } drawable)
             {
                 return drawable;
             }
