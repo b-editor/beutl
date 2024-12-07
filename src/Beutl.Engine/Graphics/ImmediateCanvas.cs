@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.V2;
 using Beutl.Graphics.Rendering.V2.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -176,8 +177,17 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     public void DrawDrawable(Drawable drawable)
     {
-        // TODO: DrawDrawableの実装
-        // drawable.Render(this);
+        using var node = new DrawableRenderNode(drawable);
+        using var context = new GraphicsContext2D(node, Size);
+        drawable.Render(context);
+        var processor = new RenderNodeProcessor(node, this, GetCacheContext());
+        processor.Render(this);
+    }
+
+    public void DrawNode(RenderNode node)
+    {
+        var processor = new RenderNodeProcessor(node, this, GetCacheContext());
+        processor.Render(this);
     }
 
     [Obsolete("Obsolete")]
