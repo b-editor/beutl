@@ -38,7 +38,7 @@ public class RenderNodeProcessor
         {
             var rect = PixelRect.FromRect(op.Bounds);
             SKSurface surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
-                                       ?? throw new Exception("surface is null");
+                                ?? throw new Exception("surface is null");
 
             using ImmediateCanvas canvas = _canvasFactory.CreateCanvas(surface, true);
 
@@ -64,15 +64,15 @@ public class RenderNodeProcessor
             using SKSurface? surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
                                        ?? throw new Exception("surface is null");
 
-            using ImmediateCanvas icanvas = _canvasFactory.CreateCanvas(surface, true);
+            using ImmediateCanvas canvas = _canvasFactory.CreateCanvas(surface, true);
 
-            using (icanvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
+            using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
             {
-                op.Render(icanvas);
+                op.Render(canvas);
                 op.Dispose();
             }
 
-            list.Add(icanvas.GetBitmap());
+            list.Add(canvas.GetBitmap());
         }
 
         return list;
@@ -86,14 +86,17 @@ public class RenderNodeProcessor
         using SKSurface surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
                                   ?? throw new Exception("surface is null");
 
-        using ImmediateCanvas icanvas = _canvasFactory.CreateCanvas(surface, true);
-        foreach (var op in ops)
+        using ImmediateCanvas canvas = _canvasFactory.CreateCanvas(surface, true);
+        using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
         {
-            op.Render(icanvas);
-            op.Dispose();
+            foreach (var op in ops)
+            {
+                op.Render(canvas);
+                op.Dispose();
+            }
         }
 
-        return icanvas.GetBitmap();
+        return canvas.GetBitmap();
     }
 
     public RenderNodeOperation[] PullToRoot()
