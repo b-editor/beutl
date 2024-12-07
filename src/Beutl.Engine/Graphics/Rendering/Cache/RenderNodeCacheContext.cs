@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using Beutl.Configuration;
 using Beutl.Media;
@@ -151,54 +151,27 @@ public sealed class RenderNodeCacheContext : IDisposable
 
     public void CreateDefaultCache(RenderNode node, RenderNodeCache cache, IImmediateCanvasFactory factory)
     {
-        // TODO: RenderNodeのキャッシュを作成する
-        // Rect bounds = node.Bounds;
-        // //bounds = bounds.Inflate(5);
-        // PixelRect boundsInPixels = PixelRect.FromRect(bounds);
-        // PixelSize size = boundsInPixels.Size;
-        // if (!_cacheOptions.Rules.Match(size))
-        //     return;
-        //
-        // // nodeの子要素のキャッシュをすべて削除
-        // ClearCache(node, cache);
-        //
-        // // nodeをキャッシュ
-        // SKSurface? surface = factory.CreateRenderTarget(size.Width, size.Height);
-        // if (surface == null)
-        // {
-        //     _logger.LogWarning("CreateRenderTarget returns null. ({Width}x{Height})", size.Width, size.Height);
-        //     return;
-        // }
-        //
-        // using (ImmediateCanvas canvas = factory.CreateCanvas(surface, true))
-        // {
-        //     using (canvas.PushTransform(Matrix.CreateTranslation(-boundsInPixels.X, -boundsInPixels.Y)))
-        //     {
-        //         node.Render(canvas);
-        //     }
-        // }
-        //
-        // using (var surfaceRef = Ref<SKSurface>.Create(surface))
-        // {
-        //     cache.StoreCache(surfaceRef, boundsInPixels.ToRect(1));
-        // }
-        //
-        // Debug.WriteLine($"[RenderCache:Created] '{node}'");
-    }
-
-    public void Dispose()
-    {
-        Clear();
-    }
-
-    public void Clear()
-    {
-        foreach (KeyValuePair<RenderNode, RenderNodeCache> item in _table)
+        var processor = new RenderNodeProcessor(node, factory, false);
+        var list = processor.RasterizeToSurface();
+        int pixels = list.Sum(i =>
         {
-            item.Value.Dispose();
+            var pr = PixelRect.FromRect(i.Bounds);
+            return pr.Width * pr.Height;
+        });
+        if (!_cacheOptions.Rules.Match(pixels))
+            return;
+
+        // nodeの子要素のキャッシュをすべて削除
+        ClearCache(node, cache);
+
+        var arr = list.Select(i => (Ref<SKSurface>.Create(i.Surface), i.Bounds)).ToArray();
+        cache.StoreCache(arr);
+        foreach ((Ref<SKSurface> s, Rect _) in arr)
+        {
+            s.Dispose();
         }
 
-        _table.Clear();
+        Debug.WriteLine($"[RenderCache:Created] '{node}'");
     }
 }
 
@@ -225,5 +198,10 @@ public readonly record struct RenderCacheRules(int MaxPixels, int MinPixels)
     {
         int count = size.Width * size.Height;
         return MinPixels <= count && count <= MaxPixels;
+    }
+
+    public bool Match(int pixels)
+    {
+        return MinPixels <= pixels && pixels <= MaxPixels;
     }
 }
