@@ -3,12 +3,9 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.V2;
 
-public sealed class FilterEffectRenderNode : ContainerRenderNode
+public sealed class FilterEffectRenderNode(FilterEffect filterEffect) : ContainerRenderNode
 {
-    public FilterEffectRenderNode(FilterEffect filterEffect)
-    {
-        FilterEffect = filterEffect;
-    }
+    private readonly int _version = filterEffect.Version;
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
@@ -61,10 +58,10 @@ public sealed class FilterEffectRenderNode : ContainerRenderNode
         }
     }
 
-    public FilterEffect FilterEffect { get; }
+    public FilterEffect FilterEffect { get; } = filterEffect;
 
     public bool Equals(FilterEffect filterEffect)
     {
-        return FilterEffect == filterEffect;
+        return FilterEffect == filterEffect && _version == filterEffect.Version;
     }
 }

@@ -1,6 +1,5 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.V2;
 using Beutl.Graphics.Rendering.V2.Cache;
 using Beutl.Media;
@@ -9,7 +8,6 @@ using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
 using Beutl.Threading;
 using SkiaSharp;
-using SkiaSharp.HarfBuzz;
 
 namespace Beutl.Graphics;
 
@@ -188,12 +186,6 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     {
         var processor = new RenderNodeProcessor(node, this, GetCacheContext());
         processor.Render(this);
-    }
-
-    [Obsolete("Obsolete")]
-    public void DrawNode(IGraphicNode node)
-    {
-        node.Render(this);
     }
 
     public void DrawBackdrop(IBackdrop backdrop)

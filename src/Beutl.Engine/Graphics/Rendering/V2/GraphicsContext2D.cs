@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
 
@@ -524,77 +523,5 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
         {
             return brush;
         }
-    }
-
-    internal sealed class CanvasImpl(GraphicsContext2D canvas) : ICanvas
-    {
-        public void Dispose() => canvas.Dispose();
-
-        public void Pop(int count) => canvas.Pop(count);
-
-        public PixelSize Size => canvas.Size;
-
-        public bool IsDisposed => false;
-
-        public void Clear() => canvas.Clear();
-
-        public void Clear(Color color) => canvas.Clear(color);
-
-        public void DrawImageSource(IImageSource source, IBrush? fill, IPen? pen) =>
-            canvas.DrawImageSource(source, fill, pen);
-
-        public void DrawVideoSource(IVideoSource source, TimeSpan frame, IBrush? fill, IPen? pen) =>
-            canvas.DrawVideoSource(source, frame, fill, pen);
-
-        public void DrawVideoSource(IVideoSource source, int frame, IBrush? fill, IPen? pen) =>
-            canvas.DrawVideoSource(source, frame, fill, pen);
-
-        public void DrawEllipse(Rect rect, IBrush? fill, IPen? pen) => canvas.DrawEllipse(rect, fill, pen);
-
-        public void DrawRectangle(Rect rect, IBrush? fill, IPen? pen) => canvas.DrawRectangle(rect, fill, pen);
-
-        public void DrawGeometry(Geometry geometry, IBrush? fill, IPen? pen) =>
-            canvas.DrawGeometry(geometry, fill, pen);
-
-        public void DrawText(FormattedText text, IBrush? fill, IPen? pen) => canvas.DrawText(text, fill, pen);
-
-        public void DrawDrawable(Drawable drawable) => canvas.DrawDrawable(drawable);
-
-        public void DrawNode(IGraphicNode node)
-        {
-            throw new Exception();
-        }
-
-        public void DrawBackdrop(IBackdrop backdrop) => canvas.DrawBackdrop(backdrop);
-
-        public IBackdrop Snapshot() => canvas.Snapshot();
-
-        public Bitmap<Bgra8888> GetBitmap()
-        {
-            throw new Exception();
-        }
-
-        public PushedState Push() => canvas.Push();
-
-        public PushedState PushLayer(Rect limit = default) => canvas.PushLayer(limit);
-
-        public PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect) =>
-            canvas.PushClip(clip, operation);
-
-        public PushedState PushClip(Geometry geometry, ClipOperation operation = ClipOperation.Intersect) =>
-            canvas.PushClip(geometry, operation);
-
-        public PushedState PushOpacity(float opacity) => canvas.PushOpacity(opacity);
-
-        public PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false) =>
-            canvas.PushOpacityMask(mask, bounds, invert);
-
-        public PushedState PushFilterEffect(FilterEffect effect) => canvas.PushFilterEffect(effect);
-
-        public PushedState PushBlendMode(BlendMode blendMode) => canvas.PushBlendMode(blendMode);
-
-        public PushedState
-            PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend) =>
-            canvas.PushTransform(matrix, transformOperator);
     }
 }

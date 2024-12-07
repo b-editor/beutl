@@ -1,5 +1,5 @@
 ﻿using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.V2;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -33,7 +33,7 @@ public interface ICanvas : IDisposable, IPopable
 
     void DrawDrawable(Drawable drawable);
 
-    void DrawNode(IGraphicNode node);
+    void DrawNode(RenderNode node);
 
     void DrawBackdrop(IBackdrop backdrop);
 

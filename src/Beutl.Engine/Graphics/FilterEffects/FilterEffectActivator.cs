@@ -6,6 +6,8 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+// TODO: RenderNode以降からの変更を反映する
+//       Node内でのキャッシュがなくなったので、範囲指定でのApplyが不要になった
 public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBuilder builder, IImmediateCanvasFactory factory) : IDisposable
 {
     private readonly IImmediateCanvasFactory _factory = factory;
@@ -22,7 +24,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
     {
         if (force
             || Builder.HasFilter()
-            || (CurrentTargets.Count == 1 && CurrentTargets[0].Node != null))
+            || (CurrentTargets.Count == 1 && CurrentTargets[0].NodeOperation != null))
         {
             using var paint = new SKPaint
             {

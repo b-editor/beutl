@@ -1,5 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
-using Beutl.Graphics.Rendering.Cache;
+using System.Text.Json.Serialization;
+using Beutl.Configuration;
+using Beutl.Media;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering.V2.Cache;
@@ -197,5 +199,31 @@ public sealed class RenderNodeCacheContext : IDisposable
         }
 
         _table.Clear();
+    }
+}
+
+[JsonSerializable(typeof(RenderCacheOptions))]
+public record RenderCacheOptions(bool IsEnabled, RenderCacheRules Rules)
+{
+    public static readonly RenderCacheOptions Default = new(true, RenderCacheRules.Default);
+    public static readonly RenderCacheOptions Disabled = new(false, RenderCacheRules.Default);
+
+    public static RenderCacheOptions CreateFromGlobalConfiguration()
+    {
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+        return new RenderCacheOptions(
+            config.IsNodeCacheEnabled,
+            new RenderCacheRules(config.NodeCacheMaxPixels, config.NodeCacheMinPixels));
+    }
+}
+
+public readonly record struct RenderCacheRules(int MaxPixels, int MinPixels)
+{
+    public static readonly RenderCacheRules Default = new(1000 * 1000, 1);
+
+    public bool Match(PixelSize size)
+    {
+        int count = size.Width * size.Height;
+        return MinPixels <= count && count <= MaxPixels;
     }
 }

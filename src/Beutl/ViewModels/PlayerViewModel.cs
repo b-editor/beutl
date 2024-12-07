@@ -7,7 +7,6 @@ using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.V2;
 using Beutl.Graphics.Rendering.V2.Cache;
 using Beutl.Logging;

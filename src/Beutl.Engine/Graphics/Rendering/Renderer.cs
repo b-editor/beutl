@@ -1,5 +1,4 @@
 ﻿using Beutl.Animation;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.V2.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;
