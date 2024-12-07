@@ -1,6 +1,7 @@
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics.Rendering.V2.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -66,7 +67,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     internal SKCanvas Canvas { get; }
 
-    public RenderCacheContext? GetCacheContext()
+    public RenderNodeCacheContext? GetCacheContext()
     {
         return Factory?.GetCacheContext();
     }
@@ -175,48 +176,13 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     public void DrawDrawable(Drawable drawable)
     {
-        drawable.Render(this);
+        // TODO: DrawDrawableの実装
+        // drawable.Render(this);
     }
 
     [Obsolete("Obsolete")]
     public void DrawNode(IGraphicNode node)
     {
-        if (GetCacheContext() is { } context)
-        {
-            RenderCache cache = context.GetCache(node);
-            // RenderLayer.Renderでキャッシュの有効性を確認しているのでチェックを省く
-            if (cache.IsCached)
-            {
-                if (node is ISupportRenderCache supportCache)
-                {
-                    supportCache.RenderWithCache(this, cache);
-                    return;
-                }
-                else
-                {
-                    if (cache.CacheCount == 1)
-                    {
-                        using (Ref<SKSurface> surface = cache.UseCache(out Rect bounds))
-                        {
-                            DrawSurface(surface.Value, bounds.Position);
-                        }
-                    }
-                    else
-                    {
-                        foreach ((Ref<SKSurface> Surface, Rect Bounds) item in cache.UseCache())
-                        {
-                            using (item.Surface)
-                            {
-                                DrawSurface(item.Surface.Value, item.Bounds.Position);
-                            }
-                        }
-                    }
-
-                    return;
-                }
-            }
-        }
-
         node.Render(this);
     }
 
