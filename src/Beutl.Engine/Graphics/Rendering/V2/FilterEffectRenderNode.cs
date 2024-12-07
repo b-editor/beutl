@@ -55,7 +55,7 @@ public sealed class FilterEffectRenderNode : ContainerRenderNode
             {
                 return activator.CurrentTargets.Select(i =>
                     i.NodeOperation ??
-                    RenderNodeOperation.CreateFromSurface(i.Bounds, i.Bounds.Position, i.Surface!.Value))
+                    RenderNodeOperation.CreateFromSurface(i.Bounds, i.Bounds.Position, i.Surface!))
                     .ToArray();
             }
         }

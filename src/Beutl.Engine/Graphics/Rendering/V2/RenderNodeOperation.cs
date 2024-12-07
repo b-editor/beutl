@@ -1,4 +1,5 @@
-﻿using SkiaSharp;
+﻿using Beutl.Media.Source;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.V2;
 
@@ -50,6 +51,11 @@ public abstract class RenderNodeOperation : IDisposable
     public static RenderNodeOperation CreateFromSurface(Rect bounds, Point position, SKSurface surface)
     {
         return CreateLambda(bounds, canvas => canvas.DrawSurface(surface, position), bounds.Contains, surface.Dispose);
+    }
+
+    public static RenderNodeOperation CreateFromSurface(Rect bounds, Point position, Ref<SKSurface> surface)
+    {
+        return CreateLambda(bounds, canvas => canvas.DrawSurface(surface.Value, position), bounds.Contains, surface.Dispose);
     }
 
     private class LambdaRenderNodeOperation(

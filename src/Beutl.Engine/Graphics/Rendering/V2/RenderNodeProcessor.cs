@@ -84,10 +84,10 @@ public class RenderNodeProcessor
         if (_cacheContext?.GetCache(node) is { IsCached: true } cache)
         {
             return cache.UseCache()
-                .Select(i => RenderNodeOperation.CreateLambda(
+                .Select(i => RenderNodeOperation.CreateFromSurface(
                     bounds: i.Bounds,
-                    render: canvas => canvas.DrawSurface(i.Surface.Value, i.Bounds.Position),
-                    onDispose: () => i.Surface.Dispose()))
+                    position: i.Bounds.Position,
+                    surface: i.Surface.Value))
                 .ToArray();
         }
 
