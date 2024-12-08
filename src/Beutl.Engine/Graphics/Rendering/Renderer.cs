@@ -12,12 +12,13 @@ public class Renderer : IRenderer
     private readonly SKSurface _surface;
     private readonly FpsText _fpsText = new();
     private readonly InstanceClock _instanceClock = new();
-    private readonly RenderCacheContext _cacheContext = new();
+    private readonly RenderNodeCacheContext _cacheContext;
 
     public Renderer(int width, int height)
     {
         FrameSize = new PixelSize(width, height);
         RenderScene = new RenderScene(FrameSize);
+        _cacheContext = new RenderNodeCacheContext(RenderScene);
         (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
         {
             var factory = (IImmediateCanvasFactory)this;
@@ -35,7 +36,8 @@ public class Renderer : IRenderer
         {
             OnDispose(false);
             _immediateCanvas.Dispose();
-            _cacheContext.Dispose();
+            RenderScene.ClearCache();
+            RenderScene.Dispose();
 
             IsDisposed = true;
         }
@@ -65,7 +67,7 @@ public class Renderer : IRenderer
         {
             OnDispose(true);
             _immediateCanvas.Dispose();
-            _cacheContext.Dispose();
+            RenderScene.ClearCache();
             RenderScene.Dispose();
             GC.SuppressFinalize(this);
 
@@ -127,14 +129,15 @@ public class Renderer : IRenderer
         return surface;
     }
 
-    public RenderCacheContext? GetCacheContext()
+    public RenderNodeCacheContext? GetCacheContext()
     {
         return _cacheContext;
     }
 
     public Drawable? HitTest(Point point)
     {
-        return RenderScene.HitTest(point);
+        RenderThread.Dispatcher.VerifyAccess();
+        return RenderScene.HitTest(point, this);
     }
 
     public bool Render(TimeSpan timeSpan)

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.Graphics;
@@ -30,23 +31,23 @@ public class SourceBackdrop : Drawable
         return availableSize;
     }
 
-    protected override void OnDraw(ICanvas canvas)
+    protected override void OnDraw(GraphicsContext2D context)
     {
     }
 
-    public override void Render(ICanvas canvas)
+    public override void Render(GraphicsContext2D context)
     {
-        base.Render(canvas);
+        base.Render(context);
 
         if (IsVisible)
         {
-            var backdrop = canvas.Snapshot();
+            var backdrop = context.Snapshot();
             if (Clear)
             {
-                canvas.Clear();
+                context.Clear();
             }
 
-            Size availableSize = canvas.Size.ToSize(1);
+            Size availableSize = context.Size.ToSize(1);
             Size size = MeasureCore(availableSize);
             var rect = new Rect(size);
             if (FilterEffect != null)
@@ -56,12 +57,12 @@ public class SourceBackdrop : Drawable
 
             Matrix transform = GetTransformMatrix(availableSize, size);
             Rect transformedBounds = rect.TransformToAABB(transform);
-            using (canvas.PushBlendMode(BlendMode))
-            using (canvas.PushTransform(transform))
-            using (FilterEffect == null ? new() : canvas.PushFilterEffect(FilterEffect))
-            using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
+            using (context.PushBlendMode(BlendMode))
+            using (context.PushTransform(transform))
+            using (FilterEffect == null ? new() : context.PushFilterEffect(FilterEffect))
+            using (OpacityMask == null ? new() : context.PushOpacityMask(OpacityMask, new Rect(size)))
             {
-                canvas.DrawBackdrop(backdrop);
+                context.DrawBackdrop(backdrop);
             }
 
             Bounds = transformedBounds;

@@ -8,6 +8,7 @@ using Beutl.Animation;
 using Beutl.Commands;
 using Beutl.Controls;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
 using Beutl.Logging;
@@ -358,7 +359,9 @@ public partial class PlayerView
             double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
             _scaledStartPosition = imagePosition / scaleX;
 
-            Drawable = EditViewModel.Renderer.Value.HitTest(new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y));
+            Drawable = RenderThread.Dispatcher.Invoke(() =>
+                EditViewModel.Renderer.Value.HitTest(
+                    new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y)));
 
             if (Drawable != null)
             {

@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 
@@ -99,7 +100,7 @@ public class SourceVideo : Drawable
         }
     }
 
-    protected override void OnDraw(ICanvas canvas)
+    protected override void OnDraw(GraphicsContext2D context)
     {
         if (_source?.IsDisposed == false)
         {
@@ -112,7 +113,7 @@ public class SourceVideo : Drawable
             Rational rate = _source.FrameRate;
             double frameNum = pos.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
 
-            canvas.DrawVideoSource(_source, (int)frameNum, Brushes.White, null);
+            context.DrawVideoSource(_source, (int)frameNum, Brushes.White, null);
         }
     }
 }

@@ -50,7 +50,7 @@ public partial class MainWindow : Window
 
         using var canvas = new Canvas(width, height);
         canvas.Clear(Beutl.Media.Colors.Black);
-        _text.Render(canvas);
+        canvas.DrawDrawable(_text);
 
         using var bmp = canvas.GetBitmap();
 

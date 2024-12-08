@@ -2,6 +2,7 @@
 using Avalonia.Platform.Storage;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
 using Beutl.Models;
@@ -31,7 +32,9 @@ public partial class PlayerView
         bool containsTra = e.Data.Contains(KnownLibraryItemFormats.Transform);
         if (containsFe || containsTra)
         {
-            Drawable? drawable = editViewModel.Renderer.Value.HitTest(new((float)scaledPosition.X, (float)scaledPosition.Y));
+            Drawable? drawable = await RenderThread.Dispatcher.InvokeAsync(() =>
+                editViewModel.Renderer.Value.HitTest(
+                    new((float)scaledPosition.X, (float)scaledPosition.Y)));
 
             if (drawable != null)
             {

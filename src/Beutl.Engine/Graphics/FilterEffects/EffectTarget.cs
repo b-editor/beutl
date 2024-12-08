@@ -1,9 +1,7 @@
 ﻿using System.ComponentModel;
-
 using Beutl.Collections.Pooled;
 using Beutl.Graphics.Rendering;
 using Beutl.Media.Source;
-
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -17,7 +15,7 @@ public sealed class EffectTarget : IDisposable
 
     internal readonly PooledList<FEItemWrapper> _history = [];
 
-    public EffectTarget(IGraphicNode node)
+    public EffectTarget(RenderNodeOperation node)
     {
         _target = node;
         OriginalBounds = node.Bounds;
@@ -43,7 +41,7 @@ public sealed class EffectTarget : IDisposable
     [EditorBrowsable(EditorBrowsableState.Never)]
     public Size Size => Bounds.Size;
 
-    public IGraphicNode? Node => _target as IGraphicNode;
+    public RenderNodeOperation? NodeOperation => _target as RenderNodeOperation;
 
     public Ref<SKSurface>? Surface => _target as Ref<SKSurface>;
 
@@ -51,16 +49,9 @@ public sealed class EffectTarget : IDisposable
 
     public EffectTarget Clone()
     {
-        if (Node != null)
+        if (Surface != null)
         {
-            return this;
-        }
-        else if (Surface != null)
-        {
-            var obj = new EffectTarget(Surface, OriginalBounds)
-            {
-                Bounds = Bounds
-            };
+            var obj = new EffectTarget(Surface, OriginalBounds) { Bounds = Bounds };
             obj._history.AddRange(_history.Select(v => v.Inherit()));
             return obj;
         }
@@ -73,6 +64,7 @@ public sealed class EffectTarget : IDisposable
     public void Dispose()
     {
         Surface?.Dispose();
+        NodeOperation?.Dispose();
         _target = null;
         OriginalBounds = default;
         _history.Dispose();
@@ -80,13 +72,13 @@ public sealed class EffectTarget : IDisposable
 
     public void Draw(ImmediateCanvas canvas)
     {
-        if (Node != null)
-        {
-            canvas.DrawNode(Node);
-        }
-        else if (Surface != null)
+        if (Surface != null)
         {
             canvas.DrawSurface(Surface.Value, default);
+        }
+        else if (NodeOperation != null)
+        {
+            NodeOperation.Render(canvas);
         }
     }
 }

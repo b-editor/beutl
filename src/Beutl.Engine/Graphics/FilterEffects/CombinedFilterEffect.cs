@@ -1,8 +1,8 @@
-﻿using System.ComponentModel;
-using Beutl.Animation;
+﻿using Beutl.Animation;
 
 namespace Beutl.Graphics.Effects;
 
+[Obsolete("Use FilterEffectGroup instead.")]
 public sealed class CombinedFilterEffect : FilterEffect
 {
     public static readonly CoreProperty<FilterEffect?> FirstProperty;

@@ -127,7 +127,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                      or nameof(EditorConfig.NodeCacheMaxPixels)
                      or nameof(EditorConfig.NodeCacheMinPixels))
             {
-                RenderCacheContext? cacheContext = Renderer.Value.GetCacheContext();
+                RenderNodeCacheContext? cacheContext = Renderer.Value.GetCacheContext();
                 if (cacheContext != null)
                 {
                     cacheContext.CacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();

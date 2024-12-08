@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
@@ -210,25 +211,25 @@ public class TextBlock : Drawable
         return skpath;
     }
 
-    protected override void OnDraw(ICanvas canvas)
+    protected override void OnDraw(GraphicsContext2D context)
     {
         OnUpdateText();
         if (_elements != null)
         {
             if (SplitByCharacters)
             {
-                DrawSplitted(canvas, _elements);
+                DrawSplitted(context, _elements);
             }
             else
             {
-                DrawGrouped(canvas, _elements);
+                DrawGrouped(context, _elements);
             }
         }
     }
 
-    private void DrawGrouped(ICanvas canvas, TextElements elements)
+    private void DrawGrouped(GraphicsContext2D context, TextElements elements)
     {
-        using (canvas.Push())
+        using (context.Push())
         {
             float prevBottom = 0;
             foreach (Span<FormattedText> line in elements.Lines)
@@ -236,7 +237,7 @@ public class TextBlock : Drawable
                 Size lineBounds = MeasureLine(line);
                 float ascent = MinAscent(line);
 
-                using (canvas.PushTransform(Matrix.CreateTranslation(0, prevBottom - ascent)))
+                using (context.PushTransform(Matrix.CreateTranslation(0, prevBottom - ascent)))
                 {
                     float prevRight = 0;
                     foreach (FormattedText item in line)
@@ -245,9 +246,9 @@ public class TextBlock : Drawable
                         {
                             Rect elementBounds = item.Bounds;
 
-                            using (canvas.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, 0)))
+                            using (context.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, 0)))
                             {
-                                canvas.DrawText(item, item.Brush ?? Fill, item.Pen ?? Pen);
+                                context.DrawText(item, item.Brush ?? Fill, item.Pen ?? Pen);
 
                                 prevRight += elementBounds.Width + item.Spacing;
                             }
@@ -260,7 +261,7 @@ public class TextBlock : Drawable
         }
     }
 
-    private void DrawSplitted(ICanvas canvas, TextElements elements)
+    private void DrawSplitted(GraphicsContext2D context, TextElements elements)
     {
         float prevBottom = 0;
         foreach (Span<FormattedText> line in elements.Lines)
@@ -278,9 +279,9 @@ public class TextBlock : Drawable
 
                     foreach (Geometry geometry in item.ToGeometies())
                     {
-                        using (canvas.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition)))
+                        using (context.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition)))
                         {
-                            canvas.DrawGeometry(geometry, item.Brush ?? Fill, item.Pen ?? Pen);
+                            context.DrawGeometry(geometry, item.Brush ?? Fill, item.Pen ?? Pen);
                         }
                     }
 

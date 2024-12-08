@@ -1,10 +1,15 @@
 ﻿namespace Beutl.Graphics;
 
+public interface IPopable
+{
+    void Pop(int count);
+}
+
 public readonly record struct PushedState : IDisposable
 {
-    public PushedState(ICanvas canvas, int level)
+    public PushedState(IPopable popable, int level)
     {
-        Canvas = canvas;
+        Popable = popable;
         Count = level;
     }
 
@@ -13,12 +18,12 @@ public readonly record struct PushedState : IDisposable
         Count = -1;
     }
 
-    public ICanvas? Canvas { get; init; }
+    public IPopable? Popable { get; init; }
 
     public int Count { get; init; }
 
     public void Dispose()
     {
-        Canvas?.Pop(Count);
+        Popable?.Pop(Count);
     }
 }

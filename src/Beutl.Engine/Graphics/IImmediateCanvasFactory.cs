@@ -5,7 +5,7 @@ namespace Beutl.Graphics;
 
 public interface IImmediateCanvasFactory
 {
-    RenderCacheContext? GetCacheContext();
+    RenderNodeCacheContext? GetCacheContext();
 
     ImmediateCanvas CreateCanvas(SKSurface surface, bool leaveOpen);
 

@@ -7,7 +7,6 @@ using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
 using Beutl.Threading;
 using SkiaSharp;
-using SkiaSharp.HarfBuzz;
 
 namespace Beutl.Graphics;
 
@@ -66,7 +65,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     internal SKCanvas Canvas { get; }
 
-    public RenderCacheContext? GetCacheContext()
+    public RenderNodeCacheContext? GetCacheContext()
     {
         return Factory?.GetCacheContext();
     }
@@ -175,48 +174,17 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     public void DrawDrawable(Drawable drawable)
     {
-        drawable.Render(this);
+        using var node = new DrawableRenderNode(drawable);
+        using var context = new GraphicsContext2D(node, Size);
+        drawable.Render(context);
+        var processor = new RenderNodeProcessor(node, this, true);
+        processor.Render(this);
     }
 
-    public void DrawNode(IGraphicNode node)
+    public void DrawNode(RenderNode node)
     {
-        if (GetCacheContext() is { } context)
-        {
-            RenderCache cache = context.GetCache(node);
-            // RenderLayer.Renderでキャッシュの有効性を確認しているのでチェックを省く
-            if (cache.IsCached)
-            {
-                if (node is ISupportRenderCache supportCache)
-                {
-                    supportCache.RenderWithCache(this, cache);
-                    return;
-                }
-                else
-                {
-                    if (cache.CacheCount == 1)
-                    {
-                        using (Ref<SKSurface> surface = cache.UseCache(out Rect bounds))
-                        {
-                            DrawSurface(surface.Value, bounds.Position);
-                        }
-                    }
-                    else
-                    {
-                        foreach ((Ref<SKSurface> Surface, Rect Bounds) item in cache.UseCache())
-                        {
-                            using (item.Surface)
-                            {
-                                DrawSurface(item.Surface.Value, item.Bounds.Position);
-                            }
-                        }
-                    }
-
-                    return;
-                }
-            }
-        }
-
-        node.Render(this);
+        var processor = new RenderNodeProcessor(node, this, true);
+        processor.Render(this);
     }
 
     public void DrawBackdrop(IBackdrop backdrop)
