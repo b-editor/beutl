@@ -6,7 +6,7 @@ using Moq;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 [TestFixture]
-public class EllipseRenderNodeTest
+public class RectangleRenderNodeTest
 {
     [Test]
     public void Equals_ShouldReturnTrue_WhenAllPropertiesMatch()
@@ -15,7 +15,7 @@ public class EllipseRenderNodeTest
         IBrush fill = new SolidColorBrush(Colors.Red);
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
 
-        var node = new EllipseRenderNode(rect, fill, pen);
+        var node = new RectangleRenderNode(rect, fill, pen);
 
         Assert.That(node.Equals(rect, fill, pen), Is.True);
     }
@@ -30,7 +30,7 @@ public class EllipseRenderNodeTest
         IPen pen1 = new Pen { Brush = Brushes.Black, Thickness = 1 };
         IPen pen2 = new Pen { Brush = Brushes.Black, Thickness = 2 };
 
-        var node = new EllipseRenderNode(rect1, fill1, pen1);
+        var node = new RectangleRenderNode(rect1, fill1, pen1);
 
         Assert.That(node.Equals(rect2, fill1, pen1), Is.False);
         Assert.That(node.Equals(rect1, fill2, pen1), Is.False);
@@ -45,7 +45,7 @@ public class EllipseRenderNodeTest
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
         var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
 
-        var node = new EllipseRenderNode(rect, fill, pen);
+        var node = new RectangleRenderNode(rect, fill, pen);
         var operations = node.Process(context);
 
         Assert.That(operations, Is.Not.Null);
@@ -53,14 +53,14 @@ public class EllipseRenderNodeTest
     }
 
     [Test]
-    public void HitTest_ShouldReturnTrue_WhenPointIsInsideEllipse()
+    public void HitTest_ShouldReturnTrue_WhenPointIsInsideRectangle()
     {
         var rect = new Rect(0, 0, 100, 100);
         IBrush fill = new SolidColorBrush(Colors.Red);
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
         var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
 
-        var node = new EllipseRenderNode(rect, fill, pen);
+        var node = new RectangleRenderNode(rect, fill, pen);
         var operations = node.Process(context);
         var point = new Point(50, 50);
 
@@ -68,14 +68,14 @@ public class EllipseRenderNodeTest
     }
 
     [Test]
-    public void HitTest_ShouldReturnFalse_WhenPointIsOutsideEllipse()
+    public void HitTest_ShouldReturnFalse_WhenPointIsOutsideRectangle()
     {
         var rect = new Rect(0, 0, 100, 100);
         IBrush fill = new SolidColorBrush(Colors.Red);
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
         var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
 
-        var node = new EllipseRenderNode(rect, fill, pen);
+        var node = new RectangleRenderNode(rect, fill, pen);
         var operations = node.Process(context);
         var point = new Point(150, 150);
 
@@ -83,13 +83,13 @@ public class EllipseRenderNodeTest
     }
 
     [Test]
-    public void HitTest_ShouldReturnTrue_WhenPointIsInsideEllipseStroke()
+    public void HitTest_ShouldReturnTrue_WhenPointIsInsideRectangleStroke()
     {
         var rect = new Rect(25, 25, 75, 75);
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 50 };
         var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
 
-        var node = new EllipseRenderNode(rect, null, pen);
+        var node = new RectangleRenderNode(rect, null, pen);
         var operations = node.Process(context);
         var point = new Point(30, 50);
 
