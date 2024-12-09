@@ -17,7 +17,7 @@ public sealed class FilterEffectRenderNode(FilterEffect filterEffect) : Containe
         using (var builder = new SKImageFilterBuilder())
         using (var activator = new FilterEffectActivator(effectTargets, builder, context.CanvasFactory))
         {
-            activator.Apply(feContext, 0, null);
+            activator.Apply(feContext);
 
             if (builder.HasFilter())
             {

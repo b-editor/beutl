@@ -1,7 +1,4 @@
-﻿using System.Collections.Immutable;
-
-using Beutl.Media.Source;
-
+﻿using Beutl.Media.Source;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -9,16 +6,11 @@ namespace Beutl.Graphics.Effects;
 public class CustomFilterEffectContext
 {
     internal readonly IImmediateCanvasFactory _factory;
-    internal readonly ImmutableArray<FEItemWrapper> _history;
 
-    internal CustomFilterEffectContext(
-        IImmediateCanvasFactory canvas,
-        EffectTargets targets,
-        ImmutableArray<FEItemWrapper> history)
+    internal CustomFilterEffectContext(IImmediateCanvasFactory canvas, EffectTargets targets)
     {
         Targets = targets;
         _factory = canvas;
-        _history = history;
     }
 
     public EffectTargets Targets { get; }
@@ -65,17 +57,11 @@ public class CustomFilterEffectContext
         if (surface != null)
         {
             using var surfaceRef = Ref<SKSurface>.Create(surface);
-            var obj = new EffectTarget(surfaceRef, bounds);
-
-            obj._history.AddRange(_history);
-            return obj;
+            return new EffectTarget(surfaceRef, bounds);
         }
         else
         {
-            var obj = new EffectTarget();
-
-            obj._history.AddRange(_history);
-            return obj;
+            return new EffectTarget();
         }
     }
 

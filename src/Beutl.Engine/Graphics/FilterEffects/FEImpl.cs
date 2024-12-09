@@ -1,6 +1,4 @@
-﻿using System.Collections.Immutable;
-
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -53,7 +51,7 @@ internal record FEItem_Custom<T>(
         {
             using (target)
             {
-                var innerContext = new FilterEffectCustomOperationContext(context._factory, target, [.. target._history]);
+                var innerContext = new FilterEffectCustomOperationContext(context._factory, target);
                 Action.Invoke(Data, innerContext);
 
                 innerContext.Target.Bounds = TransformBounds!(Data, innerContext.Target.Bounds);
