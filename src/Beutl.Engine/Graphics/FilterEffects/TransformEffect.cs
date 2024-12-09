@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
@@ -13,9 +12,11 @@ public sealed class TransformEffect : FilterEffect
     public static readonly CoreProperty<ITransform?> TransformProperty;
     public static readonly CoreProperty<RelativePoint> TransformOriginProperty;
     public static readonly CoreProperty<BitmapInterpolationMode> BitmapInterpolationModeProperty;
+    public static readonly CoreProperty<bool> ApplyToTargetProperty;
     private ITransform? _transform;
     private RelativePoint _transformOrigin = RelativePoint.Center;
     private BitmapInterpolationMode _interpolationMode;
+    private bool _applyToTarget;
 
     static TransformEffect()
     {
@@ -35,7 +36,12 @@ public sealed class TransformEffect : FilterEffect
                 .DefaultValue(BitmapInterpolationMode.Default)
                 .Register();
 
-        AffectsRender<TransformEffect>(TransformProperty, TransformOriginProperty, BitmapInterpolationModeProperty);
+        ApplyToTargetProperty = ConfigureProperty<bool, TransformEffect>(nameof(ApplyToTarget))
+            .Accessor(o => o.ApplyToTarget, (o, v) => o.ApplyToTarget = v)
+            .DefaultValue(true)
+            .Register();
+
+        AffectsRender<TransformEffect>(TransformProperty, TransformOriginProperty, BitmapInterpolationModeProperty, ApplyToTargetProperty);
         Hierarchy<TransformEffect>(TransformProperty);
     }
 
@@ -60,15 +66,48 @@ public sealed class TransformEffect : FilterEffect
         set => SetAndRaise(BitmapInterpolationModeProperty, ref _interpolationMode, value);
     }
 
+    public bool ApplyToTarget
+    {
+        get => _applyToTarget;
+        set => SetAndRaise(ApplyToTargetProperty, ref _applyToTarget, value);
+    }
+
     public override void ApplyTo(FilterEffectContext context)
     {
         if (_transform is { IsEnabled: true, Value: Matrix mat })
         {
-            Vector origin = TransformOrigin.ToPixels(context.Bounds.Size) + context.Bounds.Position;
-            Matrix offset = Matrix.CreateTranslation(origin);
+            if (!ApplyToTarget)
+            {
+                Vector origin = TransformOrigin.ToPixels(context.Bounds.Size) + context.Bounds.Position;
+                Matrix offset = Matrix.CreateTranslation(origin);
 
-            mat = (-offset) * mat * offset;
-            context.Transform(mat, BitmapInterpolationMode);
+                mat = (-offset) * mat * offset;
+                context.Transform(mat, BitmapInterpolationMode);
+            }
+            else
+            {
+                context.CustomEffect(mat, (originalMat, c) =>
+                    c.ForEach((_, target) =>
+                    {
+                        var surface = target.Surface?.Value!;
+                        Vector origin = TransformOrigin.ToPixels(target.Bounds.Size);
+                        Matrix offset1 = Matrix.CreateTranslation(origin + target.Bounds.Position);
+                        Matrix offset2 = Matrix.CreateTranslation(origin);
+                        var m1 = -offset1 * originalMat * offset1;
+                        var m2 = -offset2 * originalMat * offset2;
+
+                        var newTarget = c.CreateTarget(target.Bounds.TransformToAABB(m1));
+                        using var canvas = c.Open(newTarget);
+                        using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
+                        using (canvas.PushTransform(m2))
+                        {
+                            canvas.DrawSurface(surface, default);
+                        }
+
+                        target.Dispose();
+                        return newTarget;
+                    }));
+            }
         }
     }
 
