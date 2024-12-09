@@ -37,6 +37,7 @@ public class RenderNodeProcessor
         foreach (var op in ops)
         {
             var rect = PixelRect.FromRect(op.Bounds);
+            if (rect.Width <= 0 || rect.Height <= 0) continue;
             SKSurface surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
                                 ?? throw new Exception("surface is null");
 
@@ -112,7 +113,7 @@ public class RenderNodeProcessor
                 .Select(i => RenderNodeOperation.CreateFromSurface(
                     bounds: i.Bounds,
                     position: i.Bounds.Position,
-                    surface: i.Surface.Value))
+                    surface: i.Surface))
                 .ToArray();
         }
 
