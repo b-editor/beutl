@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
-
+using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 
 namespace Beutl.Graphics;
@@ -29,7 +29,7 @@ public sealed class DummyDrawable : Drawable, IDummy
         return Size.Empty;
     }
 
-    protected override void OnDraw(ICanvas canvas)
+    protected override void OnDraw(GraphicsContext2D context)
     {
     }
 

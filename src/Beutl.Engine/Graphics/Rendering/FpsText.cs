@@ -63,7 +63,7 @@ internal sealed class FpsText
                 using (canvas.PushTransform(Matrix.CreateTranslation(width / 2, height / 2)))
                 {
                     canvas.DrawRectangle(fpsText._textBlock.Bounds, s_background, null);
-                    fpsText._textBlock.Render(canvas);
+                    canvas.DrawDrawable(fpsText._textBlock);
                 }
             }
         }

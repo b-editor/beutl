@@ -2,6 +2,7 @@
 using Beutl.Graphics.Shapes;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Immutable;
 using Beutl.Media.Pixel;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework.Legacy;
@@ -33,7 +34,7 @@ public class ShapeTests
         using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
-        shape.Render(canvas);
+        canvas.DrawDrawable(shape);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
@@ -66,7 +67,7 @@ public class ShapeTests
 
         canvas.Clear(Colors.Black);
 
-        shape.Render(canvas);
+        canvas.DrawDrawable(shape);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
@@ -90,7 +91,7 @@ public class ShapeTests
         using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
-        shape.Render(canvas);
+        canvas.DrawDrawable(shape);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
@@ -116,7 +117,7 @@ public class ShapeTests
         using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
-        shape.Render(canvas);
+        canvas.DrawDrawable(shape);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
@@ -152,7 +153,7 @@ public class ShapeTests
         using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
-        shape.Render(canvas);
+        canvas.DrawDrawable(shape);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
@@ -185,13 +186,14 @@ public class ShapeTests
             TransformOrigin = RelativePoint.Center,
 
             Data = geometry,
-            Fill = Brushes.White
+            Fill = Brushes.White,
+            Transform = new ImmutableTransform(Matrix.CreateTranslation(-geometry.Bounds.Position))
         };
 
         using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
-        shape.Render(canvas);
+        canvas.DrawDrawable(shape);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 
@@ -238,13 +240,14 @@ public class ShapeTests
                 Thickness = 10,
                 StrokeCap = StrokeCap.Round,
                 StrokeAlignment = alignment,
-            }
+            },
+            Transform = new ImmutableTransform(Matrix.CreateTranslation(-geometry.Bounds.Position))
         };
 
         using var canvas = new ImmediateCanvas(250, 250);
 
         canvas.Clear(Colors.Black);
-        shape.Render(canvas);
+        canvas.DrawDrawable(shape);
 
         using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
 

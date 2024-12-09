@@ -193,7 +193,7 @@ public sealed class OutputViewModel : IOutputContext
                     using (frameProgress.CombineLatest(sampleProgress).Subscribe(t =>
                                ProgressValue.Value = t.Item1.TotalSeconds + t.Item2.TotalSeconds))
                     {
-                        RenderCacheContext? cacheContext = renderer.GetCacheContext();
+                        RenderNodeCacheContext? cacheContext = renderer.GetCacheContext();
 
                         if (cacheContext != null)
                         {

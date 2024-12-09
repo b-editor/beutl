@@ -3,6 +3,7 @@ using Beutl.Animation;
 
 namespace Beutl.Graphics.Transformation;
 
+[Obsolete("Use TransformGroup instead.")]
 public sealed class MultiTransform : Transform
 {
     public static readonly CoreProperty<ITransform?> LeftProperty;

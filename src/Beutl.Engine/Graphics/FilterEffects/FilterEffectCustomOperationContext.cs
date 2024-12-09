@@ -12,17 +12,12 @@ namespace Beutl.Graphics.Effects;
 public class FilterEffectCustomOperationContext
 {
     private readonly IImmediateCanvasFactory _factory;
-    private readonly ImmutableArray<FEItemWrapper> _history;
     private EffectTarget _target;
 
-    internal FilterEffectCustomOperationContext(
-        IImmediateCanvasFactory canvas,
-        EffectTarget target,
-        ImmutableArray<FEItemWrapper> history)
+    internal FilterEffectCustomOperationContext(IImmediateCanvasFactory canvas, EffectTarget target)
     {
         _target = target.Clone();
         _factory = canvas;
-        _history = history;
     }
 
     public EffectTarget Target
@@ -47,17 +42,11 @@ public class FilterEffectCustomOperationContext
         if (surface != null)
         {
             using var surfaceRef = Ref<SKSurface>.Create(surface);
-            var obj = new EffectTarget(surfaceRef, new Rect(_target.Bounds.X, _target.Bounds.Y, width, height));
-
-            obj._history.AddRange(_history);
-            return obj;
+            return new EffectTarget(surfaceRef, new Rect(_target.Bounds.X, _target.Bounds.Y, width, height));
         }
         else
         {
-            var obj = new EffectTarget();
-
-            obj._history.AddRange(_history);
-            return obj;
+            return new EffectTarget();
         }
     }
 

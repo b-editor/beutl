@@ -7,7 +7,7 @@ using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics;
 
-public interface ICanvas : IDisposable
+public interface ICanvas : IDisposable, IPopable
 {
     PixelSize Size { get; }
 
@@ -33,15 +33,13 @@ public interface ICanvas : IDisposable
 
     void DrawDrawable(Drawable drawable);
 
-    void DrawNode(IGraphicNode node);
+    void DrawNode(RenderNode node);
 
     void DrawBackdrop(IBackdrop backdrop);
 
     IBackdrop Snapshot();
 
     Bitmap<Bgra8888> GetBitmap();
-
-    void Pop(int count = -1);
 
     PushedState Push();
 
