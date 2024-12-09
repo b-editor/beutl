@@ -6,11 +6,9 @@ namespace Beutl.Graphics.Effects;
 
 public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBuilder builder, IImmediateCanvasFactory factory) : IDisposable
 {
-    private readonly IImmediateCanvasFactory _factory = factory;
-
     public SKImageFilterBuilder Builder { get; } = builder;
 
-    public EffectTargets CurrentTargets { get; private set; } = targets;
+    public EffectTargets CurrentTargets { get; } = targets;
 
     public void Dispose()
     {
@@ -20,21 +18,19 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
     {
         if (force
             || Builder.HasFilter()
-            || (CurrentTargets.Count == 1 && CurrentTargets[0].NodeOperation != null))
+            || CurrentTargets is [{ NodeOperation: not null }])
         {
-            using var paint = new SKPaint
-            {
-                ImageFilter = Builder.GetFilter(),
-            };
+            using var paint = new SKPaint();
+            paint.ImageFilter = Builder.GetFilter();
 
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
                 EffectTarget target = CurrentTargets[i];
-                SKSurface? surface = _factory.CreateRenderTarget((int)target.OriginalBounds.Width, (int)target.OriginalBounds.Height);
+                SKSurface? surface = factory.CreateRenderTarget((int)target.OriginalBounds.Width, (int)target.OriginalBounds.Height);
 
                 if (surface != null)
                 {
-                    using ImmediateCanvas canvas = _factory.CreateCanvas(surface, true);
+                    using ImmediateCanvas canvas = factory.CreateCanvas(surface, true);
 
                     using (canvas.PushTransform(Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y)))
                     using (canvas.PushPaint(paint))
@@ -71,88 +67,88 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
         foreach (FEItemWrapper item in context._items)
         {
-            if (item.Item is IFEItem_Skia skia)
+            switch (item.Item)
             {
-                skia.Accepts(this, Builder);
-                foreach (EffectTarget t in CurrentTargets)
-                {
-                    t.Bounds = item.Item.TransformBounds(t.Bounds);
-                    t.OriginalBounds = item.Item.TransformBounds(t.OriginalBounds);
-                }
-            }
-            else if (item.Item is IFEItem_Custom custom)
-            {
-                Flush(true);
-                if (CurrentTargets.Count == 0) return;
+                case IFEItem_Skia skia:
+                    {
+                        skia.Accepts(this, Builder);
+                        foreach (EffectTarget t in CurrentTargets)
+                        {
+                            t.Bounds = item.Item.TransformBounds(t.Bounds);
+                            t.OriginalBounds = item.Item.TransformBounds(t.OriginalBounds);
+                        }
 
-                var customContext = new CustomFilterEffectContext(_factory, CurrentTargets);
-                custom.Accepts(customContext);
+                        break;
+                    }
+                case IFEItem_Custom custom:
+                    {
+                        Flush();
+                        if (CurrentTargets.Count == 0) return;
 
-                foreach (EffectTarget t in CurrentTargets)
-                {
-                    //t.Bounds = item.TransformBounds(t.Bounds);
-                    t.OriginalBounds = t.Bounds.WithX(0).WithY(0);
-                }
+                        var customContext = new CustomFilterEffectContext(factory, CurrentTargets);
+                        custom.Accepts(customContext);
+
+                        foreach (EffectTarget t in CurrentTargets)
+                        {
+                            //t.Bounds = item.TransformBounds(t.Bounds);
+                            t.OriginalBounds = t.Bounds.WithX(0).WithY(0);
+                        }
+
+                        break;
+                    }
             }
         }
 
         if (context._renderTimeItems.Count <= 0) return;
 
+        Flush(false);
+        if (CurrentTargets.Count == 0) return;
+        using var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds());
+
+        foreach (object item in context._renderTimeItems)
         {
-            Flush(false);
-            if (CurrentTargets.Count == 0) return;
-            using var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds());
-
-            foreach (object item in context._renderTimeItems)
+            switch (item)
             {
-                switch (item)
-                {
-                    case FilterEffect fe:
-                        ctx.Apply(fe);
-                        break;
-                    case FEItemWrapper feitem:
-                        ctx._items.Add(feitem);
-                        break;
-                }
+                case FilterEffect fe:
+                    ctx.Apply(fe);
+                    break;
+                case FEItemWrapper feitem:
+                    ctx._items.Add(feitem);
+                    break;
             }
-
-            Apply(ctx);
         }
+
+        Apply(ctx);
     }
 
     public SKImageFilter? Activate(FilterEffectContext context)
     {
-        SKImageFilter? filter;
         Flush(false);
-        using (EffectTargets cloned = CurrentTargets.Clone())
-        using (var builder = new SKImageFilterBuilder())
-        using (var activator = new FilterEffectActivator(cloned, builder, _factory))
+
+        using EffectTargets cloned = CurrentTargets.Clone();
+        using var builder = new SKImageFilterBuilder();
+        using var activator = new FilterEffectActivator(cloned, builder, factory);
+
+        activator.Apply(context);
+        activator.Flush(false);
+
+        SKImageFilter? filter = builder.GetFilter();
+        if (filter != null) return filter;
+
+        foreach (EffectTarget t in activator.CurrentTargets)
         {
-            activator.Apply(context);
+            if (t.Surface == null) continue;
 
-            activator.Flush(false);
+            SKSurface innerSurface = t.Surface.Value;
+            using SKImage skImage = innerSurface.Snapshot();
 
-            filter = builder.GetFilter();
             if (filter == null)
             {
-                foreach (EffectTarget t in activator.CurrentTargets)
-                {
-                    if (t.Surface != null)
-                    {
-                        SKSurface innerSurface = t.Surface.Value;
-                        using (SKImage skImage = innerSurface.Snapshot())
-                        {
-                            if (filter == null)
-                            {
-                                filter = SKImageFilter.CreateImage(skImage);
-                            }
-                            else
-                            {
-                                filter = SKImageFilter.CreateCompose(filter, SKImageFilter.CreateImage(skImage));
-                            }
-                        }
-                    }
-                }
+                filter = SKImageFilter.CreateImage(skImage);
+            }
+            else
+            {
+                filter = SKImageFilter.CreateCompose(filter, SKImageFilter.CreateImage(skImage));
             }
         }
 
