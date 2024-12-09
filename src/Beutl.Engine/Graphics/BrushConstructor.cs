@@ -5,15 +5,13 @@ using SkiaSharp;
 
 namespace Beutl.Graphics;
 
-public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode blendMode, IImmediateCanvasFactory factory)
+public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode blendMode)
 {
     public Rect Bounds { get; } = bounds;
 
     public IBrush? Brush { get; } = brush;
 
     public BlendMode BlendMode { get; } = blendMode;
-
-    public IImmediateCanvasFactory Factory { get; } = factory;
 
     public void ConfigurePaint(SKPaint paint)
     {
@@ -195,7 +193,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
 
     private void ConfigureTileBrush(SKPaint paint, ITileBrush tileBrush)
     {
-        SKSurface? surface = null;
+        RenderTarget? renderTarget = null;
         SKBitmap? skbitmap = null;
         PixelSize pixelSize;
 
@@ -204,10 +202,10 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
             RenderScene? scene = sceneBrush.Scene;
             if (scene != null)
             {
-                surface = Factory.CreateRenderTarget(scene.Size.Width, scene.Size.Height);
-                if (surface != null)
+                renderTarget = RenderTarget.Create(scene.Size.Width, scene.Size.Height);
+                if (renderTarget != null)
                 {
-                    using (ImmediateCanvas icanvas = Factory.CreateCanvas(surface, true))
+                    using (var icanvas = new ImmediateCanvas(renderTarget))
                     using (icanvas.PushTransform(Matrix.CreateTranslation(-sceneBrush.Bounds.X, -sceneBrush.Bounds.Y)))
                     {
                         scene.Render(icanvas);
@@ -239,20 +237,20 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
             throw new InvalidOperationException($"'{tileBrush.GetType().Name}' not supported.");
         }
 
-        if (surface == null && skbitmap == null)
+        if (renderTarget == null && skbitmap == null)
             return;
 
-        SKSurface? intermediate = null;
+        RenderTarget? intermediate = null;
         try
         {
             var calc = new TileBrushCalculator(tileBrush, pixelSize.ToSize(1), Bounds.Size);
             SKSizeI intermediateSize = calc.IntermediateSize.ToSKSize().ToSizeI();
 
-            intermediate = Factory.CreateRenderTarget(intermediateSize.Width, intermediateSize.Height);
+            intermediate = RenderTarget.Create(intermediateSize.Width, intermediateSize.Height);
             if (intermediate == null)
                 return;
 
-            SKCanvas canvas = intermediate.Canvas;
+            SKCanvas canvas = intermediate.Value.Canvas;
             using var ipaint = new SKPaint();
             {
                 ipaint.FilterQuality = tileBrush.BitmapInterpolationMode.ToSKFilterQuality();
@@ -262,8 +260,8 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                 canvas.ClipRect(calc.IntermediateClip.ToSKRect());
                 canvas.SetMatrix(calc.IntermediateTransform.ToSKMatrix());
 
-                if (surface != null)
-                    canvas.DrawSurface(surface, default, ipaint);
+                if (renderTarget != null)
+                    canvas.DrawSurface(renderTarget.Value, default, ipaint);
                 else if (skbitmap != null)
                     canvas.DrawBitmap(skbitmap, (SKPoint)default, ipaint);
 
@@ -296,7 +294,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                 tileTransform = tileTransform.PreConcat(transform.ToSKMatrix());
             }
 
-            using (SKImage skimage = intermediate.Snapshot())
+            using (SKImage skimage = intermediate.Value.Snapshot())
             using (SKShader shader = skimage.ToShader(tileX, tileY, tileTransform))
             {
                 paint.Shader = shader;
@@ -304,7 +302,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
         }
         finally
         {
-            surface?.Dispose();
+            renderTarget?.Dispose();
             skbitmap?.Dispose();
             intermediate?.Dispose();
         }

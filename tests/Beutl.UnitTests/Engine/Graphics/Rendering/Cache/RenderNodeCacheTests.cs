@@ -189,8 +189,8 @@ public class RenderNodeCacheTests
         using var cache = new RenderNodeCache(node);
 
         // Act
-        using var surfaceRef = Ref<SKSurface>.Create(SKSurface.CreateNull(1, 1));
-        cache.StoreCache(surfaceRef, new Rect(0, 0, 1, 1));
+        using var renderTarget = RenderTarget.CreateNull(1, 1);
+        cache.StoreCache(renderTarget, new Rect(0, 0, 1, 1));
 
         // Assert
         Assert.That(cache.IsCached, Is.True);
@@ -204,9 +204,9 @@ public class RenderNodeCacheTests
         using var cache = new RenderNodeCache(node);
 
         // Act
-        using var surfaceRef1 = Ref<SKSurface>.Create(SKSurface.CreateNull(1, 1));
-        using var surfaceRef2 = Ref<SKSurface>.Create(SKSurface.CreateNull(1, 1));
-        cache.StoreCache([(surfaceRef1, new Rect(0, 0, 1, 1)), (surfaceRef2, new Rect(0, 0, 1, 1))]);
+        using var renderTarget1 = RenderTarget.CreateNull(1, 1);
+        using var renderTarget2 = RenderTarget.CreateNull(1, 1);
+        cache.StoreCache([(renderTarget1, new Rect(0, 0, 1, 1)), (renderTarget2, new Rect(0, 0, 1, 1))]);
 
         // Assert
         Assert.That(cache.IsCached, Is.True);
@@ -219,15 +219,15 @@ public class RenderNodeCacheTests
         // Arrange
         using var node = new ContainerRenderNode();
         using var cache = new RenderNodeCache(node);
-        using (var surfaceRef = Ref<SKSurface>.Create(SKSurface.CreateNull(1, 1)))
+        using (var renderTarget = RenderTarget.CreateNull(1, 1))
         {
-            cache.StoreCache(surfaceRef, new Rect(0, 0, 1, 1));
+            cache.StoreCache(renderTarget, new Rect(0, 0, 1, 1));
         }
 
         // Act
-        using (var newSurfaceRef = Ref<SKSurface>.Create(SKSurface.CreateNull(1, 1)))
+        using (var newRenderTarget = RenderTarget.CreateNull(1, 1))
         {
-            cache.StoreCache(newSurfaceRef, new Rect(0, 0, 1, 1));
+            cache.StoreCache(newRenderTarget, new Rect(0, 0, 1, 1));
         }
 
         // Assert

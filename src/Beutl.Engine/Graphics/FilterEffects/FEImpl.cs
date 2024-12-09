@@ -51,7 +51,7 @@ internal record FEItem_Custom<T>(
         {
             using (target)
             {
-                var innerContext = new FilterEffectCustomOperationContext(context._factory, target);
+                var innerContext = new FilterEffectCustomOperationContext(target);
                 Action.Invoke(Data, innerContext);
 
                 innerContext.Target.Bounds = TransformBounds!(Data, innerContext.Target.Bounds);

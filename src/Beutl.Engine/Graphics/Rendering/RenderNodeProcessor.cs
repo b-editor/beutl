@@ -30,18 +30,18 @@ public class RenderNodeProcessor
         }
     }
 
-    internal List<(SKSurface Surface, Rect Bounds)> RasterizeToSurface()
+    internal List<(RenderTarget Surface, Rect Bounds)> RasterizeToSurface()
     {
-        var list = new List<(SKSurface, Rect)>();
+        var list = new List<(RenderTarget, Rect)>();
         var ops = PullToRoot();
         foreach (var op in ops)
         {
             var rect = PixelRect.FromRect(op.Bounds);
             if (rect.Width <= 0 || rect.Height <= 0) continue;
-            SKSurface surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
-                                ?? throw new Exception("surface is null");
+            RenderTarget surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
+                                   ?? throw new Exception("surface is null");
 
-            using ImmediateCanvas canvas = _canvasFactory.CreateCanvas(surface, true);
+            using var canvas = new ImmediateCanvas(surface);
 
             using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
             {
@@ -62,10 +62,10 @@ public class RenderNodeProcessor
         foreach (var op in ops)
         {
             var rect = PixelRect.FromRect(op.Bounds);
-            using SKSurface? surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
-                                       ?? throw new Exception("surface is null");
+            using RenderTarget surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
+                                          ?? throw new Exception("surface is null");
 
-            using ImmediateCanvas canvas = _canvasFactory.CreateCanvas(surface, true);
+            using var canvas = new ImmediateCanvas(surface);
 
             using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
             {
@@ -73,7 +73,7 @@ public class RenderNodeProcessor
                 op.Dispose();
             }
 
-            list.Add(canvas.GetBitmap());
+            list.Add(surface.Snapshot());
         }
 
         return list;
@@ -84,10 +84,9 @@ public class RenderNodeProcessor
         var ops = PullToRoot();
         var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
         var rect = PixelRect.FromRect(bounds);
-        using SKSurface surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
-                                  ?? throw new Exception("surface is null");
-
-        using ImmediateCanvas canvas = _canvasFactory.CreateCanvas(surface, true);
+        using RenderTarget renderTarget =
+            RenderTarget.Create(rect.Width, rect.Height) ?? throw new Exception("surface is null");
+        using ImmediateCanvas canvas = _canvasFactory.CreateCanvas(renderTarget);
         using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
         {
             foreach (var op in ops)
@@ -97,7 +96,7 @@ public class RenderNodeProcessor
             }
         }
 
-        return canvas.GetBitmap();
+        return renderTarget.Snapshot();
     }
 
     public RenderNodeOperation[] PullToRoot()
@@ -110,10 +109,10 @@ public class RenderNodeProcessor
         if (_useRenderCache && node.Cache is { IsCached: true } cache)
         {
             return cache.UseCache()
-                .Select(i => RenderNodeOperation.CreateFromSurface(
+                .Select(i => RenderNodeOperation.CreateFromRenderTarget(
                     bounds: i.Bounds,
                     position: i.Bounds.Position,
-                    surface: i.Surface))
+                    renderTarget: i.Surface))
                 .ToArray();
         }
 

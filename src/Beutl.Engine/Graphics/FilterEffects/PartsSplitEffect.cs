@@ -1,5 +1,5 @@
 ﻿using System.Reactive;
-
+using Beutl.Graphics.Rendering;
 using SkiaSharp;
 
 using Cv = OpenCvSharp;
@@ -18,9 +18,8 @@ public class PartsSplitEffect : FilterEffect
         for (int i = 0; i < context.Targets.Count; i++)
         {
             EffectTarget target = context.Targets[i];
-            Media.Source.Ref<SKSurface> srcSurface = target.Surface!;
-            using SKImage skimage = srcSurface.Value.Snapshot();
-            using var src = skimage.ToBitmap();
+            RenderTarget srcSurface = target.Surface!;
+            using var src = srcSurface.Snapshot();
             using Cv.Mat srcMat = src.ToMat();
             using Cv.Mat alphaMat = srcMat.ExtractChannel(3);
 
