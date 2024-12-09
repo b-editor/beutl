@@ -12,11 +12,11 @@ public class FilterEffectRenderNodeTest
     private static IImmediateCanvasFactory CreateCanvasFactory()
     {
         var mock = new Mock<IImmediateCanvasFactory>();
-        mock.Setup(m => m.CreateCanvas(It.IsNotNull<SKSurface>(), It.IsAny<bool>()))
-            .Returns(new Func<SKSurface, bool, ImmediateCanvas>((s, r) => new ImmediateCanvas(s, r)));
+        mock.Setup(m => m.CreateCanvas(It.IsNotNull<RenderTarget>()))
+            .Returns(new Func<RenderTarget, ImmediateCanvas>(s => new ImmediateCanvas(s)));
 
         mock.Setup(m => m.CreateRenderTarget(It.IsAny<int>(), It.IsAny<int>()))
-            .Returns(new Func<int, int, SKSurface>((w, h) => SKSurface.CreateNull(w, h)));
+            .Returns(new Func<int, int, RenderTarget>(RenderTarget.CreateNull));
 
         mock.Setup(m => m.GetCacheContext())
             .Returns(() => null);

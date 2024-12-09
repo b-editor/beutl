@@ -135,9 +135,8 @@ public class StrokeEffect : FilterEffect
             for (int i = 0; i < context.Targets.Count; i++)
             {
                 EffectTarget target = context.Targets[i];
-                Media.Source.Ref<SKSurface> srcSurface = target.Surface!;
-                using SKImage skimage = srcSurface.Value.Snapshot();
-                using var src = skimage.ToBitmap();
+                RenderTarget srcSurface = target.Surface!;
+                using var src = srcSurface.Snapshot();
 
                 // 縁取りのパスを作成
                 using SKPath borderPath = CreateBorderPath(src);

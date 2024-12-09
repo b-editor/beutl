@@ -1,6 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.ComponentModel;
-
+using Beutl.Graphics.Rendering;
 using Beutl.Media.Source;
 
 using SkiaSharp;
@@ -11,13 +11,11 @@ namespace Beutl.Graphics.Effects;
 [Obsolete("Use CustomFilterEffectContext")]
 public class FilterEffectCustomOperationContext
 {
-    private readonly IImmediateCanvasFactory _factory;
     private EffectTarget _target;
 
-    internal FilterEffectCustomOperationContext(IImmediateCanvasFactory canvas, EffectTarget target)
+    internal FilterEffectCustomOperationContext(EffectTarget target)
     {
         _target = target.Clone();
-        _factory = canvas;
     }
 
     public EffectTarget Target
@@ -38,11 +36,10 @@ public class FilterEffectCustomOperationContext
 
     public EffectTarget CreateTarget(int width, int height)
     {
-        SKSurface? surface = _factory.CreateRenderTarget(width, height);
-        if (surface != null)
+        using RenderTarget? renderTarget = RenderTarget.Create(width, height);
+        if (renderTarget != null)
         {
-            using var surfaceRef = Ref<SKSurface>.Create(surface);
-            return new EffectTarget(surfaceRef, new Rect(_target.Bounds.X, _target.Bounds.Y, width, height));
+            return new EffectTarget(renderTarget, new Rect(_target.Bounds.X, _target.Bounds.Y, width, height));
         }
         else
         {
@@ -57,6 +54,6 @@ public class FilterEffectCustomOperationContext
             throw new InvalidOperationException("無効なEffectTarget");
         }
 
-        return _factory.CreateCanvas(target.Surface.Value, true);
+        return new ImmediateCanvas(target.Surface);
     }
 }

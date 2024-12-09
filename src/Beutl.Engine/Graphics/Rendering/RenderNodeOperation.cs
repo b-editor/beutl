@@ -48,6 +48,11 @@ public abstract class RenderNodeOperation : IDisposable
         return new LambdaRenderNodeOperation(bounds, render, hitTest, onDispose);
     }
 
+    public static RenderNodeOperation CreateFromRenderTarget(Rect bounds, Point position, RenderTarget renderTarget)
+    {
+        return CreateLambda(bounds, canvas => canvas.DrawSurface(renderTarget.Value, position), bounds.Contains, renderTarget.Dispose);
+    }
+
     public static RenderNodeOperation CreateFromSurface(Rect bounds, Point position, SKSurface surface)
     {
         return CreateLambda(bounds, canvas => canvas.DrawSurface(surface, position), bounds.Contains, surface.Dispose);

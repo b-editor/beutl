@@ -52,7 +52,7 @@ public sealed class FilterEffectRenderNode(FilterEffect filterEffect) : Containe
             {
                 return activator.CurrentTargets.Select(i =>
                     i.NodeOperation ??
-                    RenderNodeOperation.CreateFromSurface(i.Bounds, i.Bounds.Position, i.Surface!))
+                    RenderNodeOperation.CreateFromRenderTarget(i.Bounds, i.Bounds.Position, i.Surface!))
                     .ToArray();
             }
         }
