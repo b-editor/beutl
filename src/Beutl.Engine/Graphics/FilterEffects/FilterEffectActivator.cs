@@ -27,7 +27,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
                 EffectTarget target = CurrentTargets[i];
-                RenderTarget? surface = RenderTarget.Create((int)target.OriginalBounds.Width, (int)target.OriginalBounds.Height);
+                using RenderTarget? surface = RenderTarget.Create((int)target.OriginalBounds.Width, (int)target.OriginalBounds.Height);
 
                 if (surface != null)
                 {
