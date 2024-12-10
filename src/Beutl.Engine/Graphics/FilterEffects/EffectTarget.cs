@@ -41,6 +41,7 @@ public sealed class EffectTarget : IDisposable
 
     public RenderNodeOperation? NodeOperation => _target as RenderNodeOperation;
 
+    // TODO: Rename
     public RenderTarget? Surface => _target as RenderTarget;
 
     public bool IsEmpty => _target == null;
@@ -69,7 +70,7 @@ public sealed class EffectTarget : IDisposable
     {
         if (Surface != null)
         {
-            canvas.DrawSurface(Surface.Value, default);
+            canvas.DrawRenderTarget(Surface, default);
         }
         else if (NodeOperation != null)
         {

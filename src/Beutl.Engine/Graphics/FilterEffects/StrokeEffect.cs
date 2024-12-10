@@ -153,7 +153,7 @@ public class StrokeEffect : FilterEffect
                 {
                     // 縁取りの後ろに描画
                     if (data.Style == Border.BorderStyles.Background)
-                        newCanvas.DrawSurface(srcSurface.Value, default);
+                        newCanvas.DrawRenderTarget(srcSurface, default);
 
                     // 縁取り描画
                     using (newCanvas.PushTransform(Matrix.CreateTranslation(data.Offset.X, data.Offset.Y)))
@@ -163,7 +163,7 @@ public class StrokeEffect : FilterEffect
 
                     // 縁取りの表に描画
                     if (data.Style == Border.BorderStyles.Foreground)
-                        newCanvas.DrawSurface(srcSurface.Value, default);
+                        newCanvas.DrawRenderTarget(srcSurface, default);
 
                 }
 

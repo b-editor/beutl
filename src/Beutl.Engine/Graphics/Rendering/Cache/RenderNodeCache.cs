@@ -107,7 +107,6 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     public void Invalidate()
     {
-        RenderThread.Dispatcher.CheckAccess();
 #if DEBUG
         if (_cache.Count != 0)
         {
@@ -161,19 +160,19 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         LastAccessedTime = DateTime.UtcNow;
     }
 
-    public IEnumerable<(RenderTarget Surface, Rect Bounds)> UseCache()
+    public IEnumerable<(RenderTarget RenderTarget, Rect Bounds)> UseCache()
     {
         LastAccessedTime = DateTime.UtcNow;
         return _cache.Select(i => (i.Item1.ShallowCopy(), i.Item2));
     }
 
-    public void StoreCache(ReadOnlySpan<(RenderTarget Surface, Rect Bounds)> items)
+    public void StoreCache(ReadOnlySpan<(RenderTarget RenderTarget, Rect Bounds)> items)
     {
         Invalidate();
 
-        foreach ((RenderTarget surface, Rect bounds) in items)
+        foreach ((RenderTarget renderTarget, Rect bounds) in items)
         {
-            _cache.Add((surface.ShallowCopy(), bounds));
+            _cache.Add((renderTarget.ShallowCopy(), bounds));
         }
 
         LastAccessedTime = DateTime.UtcNow;

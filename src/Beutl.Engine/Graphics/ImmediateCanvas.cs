@@ -12,19 +12,19 @@ namespace Beutl.Graphics;
 
 public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 {
-    private readonly RenderTarget _surface;
+    private readonly RenderTarget _renderTarget;
     private readonly Dispatcher? _dispatcher;
     private readonly SKPaint _sharedFillPaint = new();
     private readonly SKPaint _sharedStrokePaint = new();
     private readonly Stack<CanvasPushedState> _states = new();
     private Matrix _currentTransform;
 
-    public ImmediateCanvas(RenderTarget surface)
+    public ImmediateCanvas(RenderTarget renderTarget)
     {
         _dispatcher = Dispatcher.Current;
-        Size = surface.Value.Canvas.DeviceClipBounds.Size.ToGraphicsSize();
-        _surface = surface;
-        Canvas = _surface.Value.Canvas;
+        Size = new PixelSize(renderTarget.Width, renderTarget.Height);
+        _renderTarget = renderTarget;
+        Canvas = _renderTarget.Value.Canvas;
         _currentTransform = Canvas.TotalMatrix.ToMatrix();
     }
 
@@ -157,6 +157,15 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         _sharedFillPaint.IsAntialias = true;
 
         Canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
+    }
+
+    public void DrawRenderTarget(RenderTarget renderTarget, Point point)
+    {
+        renderTarget.VerifyAccess();
+        _sharedFillPaint.Reset();
+        _sharedFillPaint.IsAntialias = true;
+
+        Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, _sharedFillPaint);
     }
 
     public void DrawDrawable(Drawable drawable)
@@ -350,7 +359,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         VerifyAccess();
         var result = new Bitmap<Bgra8888>(Size.Width, Size.Height);
 
-        _surface.Value.ReadPixels(new SKImageInfo(Size.Width, Size.Height, SKColorType.Bgra8888), result.Data, result.Width * sizeof(Bgra8888), 0, 0);
+        _renderTarget.Value.ReadPixels(new SKImageInfo(Size.Width, Size.Height, SKColorType.Bgra8888), result.Data, result.Width * sizeof(Bgra8888), 0, 0);
 
         return result;
     }

@@ -98,7 +98,7 @@ public class PartsSplitEffect : FilterEffect
                     {
                         newCanvas.Canvas.ClipPath(skpath, antialias: true);
 
-                        newCanvas.DrawSurface(srcSurface.Value, default);
+                        newCanvas.DrawRenderTarget(srcSurface, default);
                     }
 
                     newTargets.Add(newTarget);

@@ -50,7 +50,7 @@ public abstract class RenderNodeOperation : IDisposable
 
     public static RenderNodeOperation CreateFromRenderTarget(Rect bounds, Point position, RenderTarget renderTarget)
     {
-        return CreateLambda(bounds, canvas => canvas.DrawSurface(renderTarget.Value, position), bounds.Contains, renderTarget.Dispose);
+        return CreateLambda(bounds, canvas => canvas.DrawRenderTarget(renderTarget, position), bounds.Contains, renderTarget.Dispose);
     }
 
     public static RenderNodeOperation CreateFromSurface(Rect bounds, Point position, SKSurface surface)
