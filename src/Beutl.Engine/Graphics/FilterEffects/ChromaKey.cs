@@ -89,7 +89,7 @@ public class ChromaKey : FilterEffect
         for (int i = 0; i < context.Targets.Count; i++)
         {
             var target = context.Targets[i];
-            var surface = target.Surface!.Value;
+            var surface = target.RenderTarget!.Value;
             Accelerator accelerator = SharedGPUContext.Accelerator;
             var kernel = accelerator.LoadAutoGroupedStreamKernel<
                 Index1D, ArrayView<Bgra8888>, Hsv, float, float>(EffectKernel);

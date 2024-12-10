@@ -156,9 +156,7 @@ public class FlatShadow : FilterEffect
         for (int ii = 0; ii < context.Targets.Count; ii++)
         {
             var target = context.Targets[ii];
-            var srcSurface = target.Surface!;
-            using SKImage skImage = srcSurface.Value.Snapshot();
-            using var srcBitmap = skImage.ToBitmap();
+            using var srcBitmap = target.RenderTarget!.Snapshot();
             Cv.Point[][] points = FindPoints(srcBitmap);
 
             float x1 = MathF.Cos(radian);
@@ -205,7 +203,7 @@ public class FlatShadow : FilterEffect
             newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Size.ToSKSize()), brushPaint);
 
             if (!data.ShadowOnly)
-                newCanvas.DrawRenderTarget(srcSurface, new((x2Abs - x2) / 2, (y2Abs - y2) / 2));
+                newCanvas.DrawRenderTarget(target.RenderTarget!, new((x2Abs - x2) / 2, (y2Abs - y2) / 2));
 
             target.Dispose();
             context.Targets[ii] = newTarget;

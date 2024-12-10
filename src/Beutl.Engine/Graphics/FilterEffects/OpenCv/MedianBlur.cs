@@ -70,16 +70,16 @@ public class MedianBlur : FilterEffect
         for (int i = 0; i < context.Targets.Count; i++)
         {
             var target = context.Targets[i];
-            var surface = target.Surface!;
-            int ksize = data.KernelSize;
-            if (ksize % 2 == 0)
-                ksize++;
+            var renderTarget = target.RenderTarget!;
+            int kSize = data.KernelSize;
+            if (kSize % 2 == 0)
+                kSize++;
 
             Bitmap<Bgra8888>? dst = null;
 
             try
             {
-                using (var src = surface.Snapshot())
+                using (var src = renderTarget.Snapshot())
                 {
                     if (data.FixImageSize)
                     {
@@ -87,15 +87,15 @@ public class MedianBlur : FilterEffect
                     }
                     else
                     {
-                        dst = src.MakeBorder(src.Width + ksize, src.Height + ksize);
+                        dst = src.MakeBorder(src.Width + kSize, src.Height + kSize);
                     }
                 }
 
                 using var mat = dst.ToMat();
-                Cv2.MedianBlur(mat, mat, ksize);
+                Cv2.MedianBlur(mat, mat, kSize);
 
                 EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
-                newTarget.Surface!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
+                newTarget.RenderTarget!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
                 target.Dispose();
                 context.Targets[i] = newTarget;
             }

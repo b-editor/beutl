@@ -135,8 +135,8 @@ public class StrokeEffect : FilterEffect
             for (int i = 0; i < context.Targets.Count; i++)
             {
                 EffectTarget target = context.Targets[i];
-                RenderTarget srcSurface = target.Surface!;
-                using var src = srcSurface.Snapshot();
+                RenderTarget srcRenderTarget = target.RenderTarget!;
+                using var src = srcRenderTarget.Snapshot();
 
                 // 縁取りのパスを作成
                 using SKPath borderPath = CreateBorderPath(src);
@@ -153,7 +153,7 @@ public class StrokeEffect : FilterEffect
                 {
                     // 縁取りの後ろに描画
                     if (data.Style == Border.BorderStyles.Background)
-                        newCanvas.DrawRenderTarget(srcSurface, default);
+                        newCanvas.DrawRenderTarget(srcRenderTarget, default);
 
                     // 縁取り描画
                     using (newCanvas.PushTransform(Matrix.CreateTranslation(data.Offset.X, data.Offset.Y)))
@@ -163,7 +163,7 @@ public class StrokeEffect : FilterEffect
 
                     // 縁取りの表に描画
                     if (data.Style == Border.BorderStyles.Foreground)
-                        newCanvas.DrawRenderTarget(srcSurface, default);
+                        newCanvas.DrawRenderTarget(srcRenderTarget, default);
 
                 }
 

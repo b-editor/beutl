@@ -136,9 +136,9 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
         foreach (EffectTarget t in activator.CurrentTargets)
         {
-            if (t.Surface == null) continue;
+            if (t.RenderTarget == null) continue;
 
-            SKSurface innerSurface = t.Surface.Value;
+            SKSurface innerSurface = t.RenderTarget.Value;
             using SKImage skImage = innerSurface.Snapshot();
 
             if (filter == null)

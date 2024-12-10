@@ -81,7 +81,7 @@ public class SplitEffect : FilterEffect
             for (int i = 0; i < context.Targets.Count; i++)
             {
                 EffectTarget t = context.Targets[i];
-                RenderTarget renderTarget = t.Surface!;
+                RenderTarget renderTarget = t.RenderTarget!;
 
                 float divWidth = t.Bounds.Width / d.HorizontalDivisions;
                 float divHeight = t.Bounds.Height / d.VerticalDivisions;

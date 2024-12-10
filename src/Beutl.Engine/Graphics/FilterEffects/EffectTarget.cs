@@ -40,17 +40,16 @@ public sealed class EffectTarget : IDisposable
     public Size Size => Bounds.Size;
 
     public RenderNodeOperation? NodeOperation => _target as RenderNodeOperation;
-
-    // TODO: Rename
-    public RenderTarget? Surface => _target as RenderTarget;
+    
+    public RenderTarget? RenderTarget => _target as RenderTarget;
 
     public bool IsEmpty => _target == null;
 
     public EffectTarget Clone()
     {
-        if (Surface != null)
+        if (RenderTarget != null)
         {
-            return new EffectTarget(Surface, OriginalBounds) { Bounds = Bounds };
+            return new EffectTarget(RenderTarget, OriginalBounds) { Bounds = Bounds };
         }
         else
         {
@@ -60,7 +59,7 @@ public sealed class EffectTarget : IDisposable
 
     public void Dispose()
     {
-        Surface?.Dispose();
+        RenderTarget?.Dispose();
         NodeOperation?.Dispose();
         _target = null;
         OriginalBounds = default;
@@ -68,13 +67,13 @@ public sealed class EffectTarget : IDisposable
 
     public void Draw(ImmediateCanvas canvas)
     {
-        if (Surface != null)
+        if (RenderTarget != null)
         {
-            canvas.DrawRenderTarget(Surface, default);
+            canvas.DrawRenderTarget(RenderTarget, default);
         }
-        else if (NodeOperation != null)
+        else
         {
-            NodeOperation.Render(canvas);
+            NodeOperation?.Render(canvas);
         }
     }
 }

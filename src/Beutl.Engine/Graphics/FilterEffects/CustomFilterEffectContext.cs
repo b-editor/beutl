@@ -64,11 +64,11 @@ public class CustomFilterEffectContext
 
     public ImmediateCanvas Open(EffectTarget target)
     {
-        if (target.Surface == null)
+        if (target.RenderTarget == null)
         {
             throw new InvalidOperationException("無効なEffectTarget");
         }
 
-        return new ImmediateCanvas(target.Surface);
+        return new ImmediateCanvas(target.RenderTarget);
     }
 }
