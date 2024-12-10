@@ -30,7 +30,7 @@ public class RenderNodeProcessor
         }
     }
 
-    internal List<(RenderTarget Surface, Rect Bounds)> RasterizeToSurface()
+    internal List<(RenderTarget RenderTarget, Rect Bounds)> RasterizeToRenderTargets()
     {
         var list = new List<(RenderTarget, Rect)>();
         var ops = PullToRoot();
@@ -38,10 +38,10 @@ public class RenderNodeProcessor
         {
             var rect = PixelRect.FromRect(op.Bounds);
             if (rect.Width <= 0 || rect.Height <= 0) continue;
-            RenderTarget surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
-                                   ?? throw new Exception("surface is null");
+            RenderTarget renderTarget = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
+                                   ?? throw new Exception("RenderTarget is null");
 
-            using var canvas = new ImmediateCanvas(surface);
+            using var canvas = new ImmediateCanvas(renderTarget);
 
             using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
             {
@@ -49,7 +49,7 @@ public class RenderNodeProcessor
                 op.Dispose();
             }
 
-            list.Add((surface, op.Bounds));
+            list.Add((renderTarget, op.Bounds));
         }
 
         return list;
@@ -62,10 +62,10 @@ public class RenderNodeProcessor
         foreach (var op in ops)
         {
             var rect = PixelRect.FromRect(op.Bounds);
-            using RenderTarget surface = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
-                                          ?? throw new Exception("surface is null");
+            using RenderTarget renderTarget = _canvasFactory.CreateRenderTarget(rect.Width, rect.Height)
+                                          ?? throw new Exception("RenderTarget is null");
 
-            using var canvas = new ImmediateCanvas(surface);
+            using var canvas = new ImmediateCanvas(renderTarget);
 
             using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
             {
@@ -73,7 +73,7 @@ public class RenderNodeProcessor
                 op.Dispose();
             }
 
-            list.Add(surface.Snapshot());
+            list.Add(renderTarget.Snapshot());
         }
 
         return list;
@@ -85,7 +85,7 @@ public class RenderNodeProcessor
         var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
         var rect = PixelRect.FromRect(bounds);
         using RenderTarget renderTarget =
-            RenderTarget.Create(rect.Width, rect.Height) ?? throw new Exception("surface is null");
+            RenderTarget.Create(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
         using ImmediateCanvas canvas = _canvasFactory.CreateCanvas(renderTarget);
         using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
         {
@@ -112,7 +112,7 @@ public class RenderNodeProcessor
                 .Select(i => RenderNodeOperation.CreateFromRenderTarget(
                     bounds: i.Bounds,
                     position: i.Bounds.Position,
-                    renderTarget: i.Surface))
+                    renderTarget: i.RenderTarget))
                 .ToArray();
         }
 

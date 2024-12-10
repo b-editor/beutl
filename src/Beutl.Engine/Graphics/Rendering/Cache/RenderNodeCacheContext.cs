@@ -124,7 +124,7 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
     public void CreateDefaultCache(RenderNode node, RenderNodeCache cache, IImmediateCanvasFactory factory)
     {
         var processor = new RenderNodeProcessor(node, factory, false);
-        var list = processor.RasterizeToSurface();
+        var list = processor.RasterizeToRenderTargets();
         int pixels = list.Sum(i =>
         {
             var pr = PixelRect.FromRect(i.Bounds);
@@ -136,7 +136,7 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
         // nodeの子要素のキャッシュをすべて削除
         ClearCache(node, cache);
 
-        var arr = list.Select(i => (i.Surface, i.Bounds)).ToArray();
+        var arr = list.Select(i => (i.RenderTarget, i.Bounds)).ToArray();
         cache.StoreCache(arr);
 
         Debug.WriteLine($"[RenderCache:Created] '{node}'");

@@ -62,8 +62,7 @@ public class Mosaic : FilterEffect
                 var surface = t.Surface!;
                 var canvas = surface.Value.Canvas;
 
-                using SKImage skImage = surface.Value.Snapshot();
-                using var src = skImage.ToBitmap();
+                using var src = surface.Snapshot();
                 using var mat = src.ToMat();
                 using var tmp = new Mat((int)(src.Height / d.Item2), (int)(src.Width / d.Item1), MatType.CV_8UC4);
 

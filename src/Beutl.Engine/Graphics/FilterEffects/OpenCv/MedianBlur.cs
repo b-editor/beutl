@@ -79,8 +79,7 @@ public class MedianBlur : FilterEffect
 
             try
             {
-                using (SKImage skimage = surface.Value.Snapshot())
-                using (var src = skimage.ToBitmap())
+                using (var src = surface.Snapshot())
                 {
                     if (data.FixImageSize)
                     {
@@ -95,10 +94,10 @@ public class MedianBlur : FilterEffect
                 using var mat = dst.ToMat();
                 Cv2.MedianBlur(mat, mat, ksize);
 
-                EffectTarget newtarget = context.CreateTarget(TransformBounds(data, target.Bounds));
-                newtarget.Surface!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
+                EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
+                newTarget.Surface!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
                 target.Dispose();
-                context.Targets[i] = newtarget;
+                context.Targets[i] = newTarget;
             }
             finally
             {

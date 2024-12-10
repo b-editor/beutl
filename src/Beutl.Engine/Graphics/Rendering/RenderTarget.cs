@@ -90,7 +90,7 @@ public class RenderTarget : IDisposable
         return new RenderTarget(_surface, Width, Height);
     }
 
-    private void VerifyAccess()
+    public void VerifyAccess()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         _dispatcher?.VerifyAccess();

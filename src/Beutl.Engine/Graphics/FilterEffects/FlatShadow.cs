@@ -205,7 +205,7 @@ public class FlatShadow : FilterEffect
             newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Size.ToSKSize()), brushPaint);
 
             if (!data.ShadowOnly)
-                newCanvas.DrawSurface(srcSurface.Value, new((x2Abs - x2) / 2, (y2Abs - y2) / 2));
+                newCanvas.DrawRenderTarget(srcSurface, new((x2Abs - x2) / 2, (y2Abs - y2) / 2));
 
             target.Dispose();
             context.Targets[ii] = newTarget;
