@@ -59,11 +59,10 @@ public class Mosaic : FilterEffect
         context.CustomEffect((Scale * ScaleX, Scale * ScaleY), (d, c) =>
             c.ForEach((_, t) =>
             {
-                var surface = t.Surface!;
-                var canvas = surface.Value.Canvas;
+                var renderTarget = t.RenderTarget!;
+                var canvas = renderTarget.Value.Canvas;
 
-                using SKImage skImage = surface.Value.Snapshot();
-                using var src = skImage.ToBitmap();
+                using var src = renderTarget.Snapshot();
                 using var mat = src.ToMat();
                 using var tmp = new Mat((int)(src.Height / d.Item2), (int)(src.Width / d.Item1), MatType.CV_8UC4);
 

@@ -191,7 +191,7 @@ public sealed class Clipping : FilterEffect
         {
             Thickness thickness = originalThickness;
             var target = context.Targets[i];
-            var surface = target.Surface!.Value;
+            var surface = target.RenderTarget!.Value;
             if (data.autoClip)
             {
                 thickness += FindRectAndReturnThickness(surface);
@@ -246,7 +246,7 @@ public sealed class Clipping : FilterEffect
                     newTarget = context.CreateTarget(newBounds);
                 }
 
-                newTarget.Surface?.Value?.Canvas?.DrawImage(
+                newTarget.RenderTarget?.Value?.Canvas?.DrawImage(
                     skImage,
                     intersect.X - clipRect.X + pointX,
                     intersect.Y - clipRect.Y + pointY);

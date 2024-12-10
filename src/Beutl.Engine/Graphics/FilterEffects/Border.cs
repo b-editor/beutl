@@ -12,6 +12,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Obsolete("Use StrokeEffect instead.")]
 public class Border : FilterEffect
 {
     public static readonly CoreProperty<Point> OffsetProperty;
@@ -180,8 +181,7 @@ public class Border : FilterEffect
         for (int i = 0; i < context.Targets.Count; i++)
         {
             EffectTarget target = context.Targets[i];
-            using SKImage skimage = target.Surface!.Value.Snapshot();
-            using var src = skimage.ToBitmap();
+            using var src = target.RenderTarget!.Snapshot();
             using var srcRef = Ref<IBitmap>.Create(src);
             using var srcBitmapSource = new BitmapSource(srcRef, "Temp");
 

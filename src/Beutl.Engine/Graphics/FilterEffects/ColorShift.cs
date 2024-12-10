@@ -86,7 +86,7 @@ public class ColorShift : FilterEffect
         for (int i = 0; i < context.Targets.Count; i++)
         {
             var target = context.Targets[i];
-            var surface = target.Surface!;
+            var renderTarget = target.RenderTarget!;
 
             var bounds = TransformBoundsCore(data, target.Bounds);
             var pixelRect = PixelRect.FromRect(bounds);
@@ -95,7 +95,7 @@ public class ColorShift : FilterEffect
             int minOffsetY = Math.Min(data.RedOffset.Y,
                 Math.Min(data.GreenOffset.Y, Math.Min(data.BlueOffset.Y, data.AlphaOffset.Y)));
 
-            var size = surface.Value.Canvas.DeviceClipBounds.Size;
+            var size = new PixelSize(renderTarget.Width, renderTarget.Height);
             Accelerator accelerator = SharedGPUContext.Accelerator;
             var kernel = accelerator.LoadAutoGroupedStreamKernel<
                 Index2D, ArrayView2D<Vec4b, Stride2D.DenseX>, ArrayView2D<Vec4b, Stride2D.DenseX>,
@@ -104,7 +104,7 @@ public class ColorShift : FilterEffect
             using var source = accelerator.Allocate2DDenseX<Vec4b>(new(size.Width, size.Height));
             using var dest = accelerator.Allocate2DDenseX<Vec4b>(new(pixelRect.Width, pixelRect.Height));
 
-            SharedGPUContext.CopyFromCPU(source, surface.Value,
+            SharedGPUContext.CopyFromCPU(source, renderTarget.Value,
                 new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888));
 
             kernel(
@@ -119,7 +119,7 @@ public class ColorShift : FilterEffect
             SharedGPUContext.CopyToCPU(dest, skBmp);
 
             EffectTarget newTarget = context.CreateTarget(bounds);
-            newTarget.Surface!.Value.Canvas.DrawBitmap(skBmp, 0, 0);
+            newTarget.RenderTarget!.Value.Canvas.DrawBitmap(skBmp, 0, 0);
 
             target.Dispose();
             context.Targets[i] = newTarget;

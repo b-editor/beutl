@@ -1,5 +1,5 @@
-﻿using Beutl.Graphics.Rendering.Cache;
-using SkiaSharp;
+﻿using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 
 namespace Beutl.Graphics;
 
@@ -7,7 +7,7 @@ public interface IImmediateCanvasFactory
 {
     RenderNodeCacheContext? GetCacheContext();
 
-    ImmediateCanvas CreateCanvas(SKSurface surface, bool leaveOpen);
+    ImmediateCanvas CreateCanvas(RenderTarget renderTarget);
 
-    SKSurface? CreateRenderTarget(int width, int height);
+    RenderTarget? CreateRenderTarget(int width, int height);
 }

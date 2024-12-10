@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reactive;
 using System.Text;
 using System.Threading.Tasks;
-
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 using SkiaSharp;
@@ -81,7 +81,7 @@ public class SplitEffect : FilterEffect
             for (int i = 0; i < context.Targets.Count; i++)
             {
                 EffectTarget t = context.Targets[i];
-                SKSurface surface = t.Surface!.Value;
+                RenderTarget renderTarget = t.RenderTarget!;
 
                 float divWidth = t.Bounds.Width / d.HorizontalDivisions;
                 float divHeight = t.Bounds.Height / d.VerticalDivisions;
@@ -118,7 +118,7 @@ public class SplitEffect : FilterEffect
 
                             using (ImmediateCanvas canvas = context.Open(newTarget))
                             {
-                                canvas.DrawSurface(surface, new Point(-divWidth * h, -divHeight * v));
+                                canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h, -divHeight * v));
                             }
 
                             newTargets[v * d.HorizontalDivisions + h] = newTarget;
