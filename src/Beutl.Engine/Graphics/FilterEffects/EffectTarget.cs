@@ -20,9 +20,9 @@ public sealed class EffectTarget : IDisposable
         Bounds = node.Bounds;
     }
 
-    public EffectTarget(Ref<SKSurface> surface, Rect originalBounds)
+    public EffectTarget(RenderTarget renderTarget, Rect originalBounds)
     {
-        _target = surface.Clone();
+        _target = renderTarget.ShallowCopy();
         OriginalBounds = originalBounds;
         Bounds = originalBounds;
     }
@@ -41,7 +41,8 @@ public sealed class EffectTarget : IDisposable
 
     public RenderNodeOperation? NodeOperation => _target as RenderNodeOperation;
 
-    public Ref<SKSurface>? Surface => _target as Ref<SKSurface>;
+    // TODO: Rename
+    public RenderTarget? Surface => _target as RenderTarget;
 
     public bool IsEmpty => _target == null;
 
@@ -69,7 +70,7 @@ public sealed class EffectTarget : IDisposable
     {
         if (Surface != null)
         {
-            canvas.DrawSurface(Surface.Value, default);
+            canvas.DrawRenderTarget(Surface, default);
         }
         else if (NodeOperation != null)
         {

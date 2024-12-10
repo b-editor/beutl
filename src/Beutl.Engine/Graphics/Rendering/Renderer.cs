@@ -9,7 +9,7 @@ namespace Beutl.Graphics.Rendering;
 public class Renderer : IRenderer
 {
     private readonly ImmediateCanvas _immediateCanvas;
-    private readonly SKSurface _surface;
+    private readonly RenderTarget _surface;
     private readonly FpsText _fpsText = new();
     private readonly InstanceClock _instanceClock = new();
     private readonly RenderNodeCacheContext _cacheContext;
@@ -21,11 +21,10 @@ public class Renderer : IRenderer
         _cacheContext = new RenderNodeCacheContext(RenderScene);
         (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
         {
-            var factory = (IImmediateCanvasFactory)this;
-            SKSurface? surface = factory.CreateRenderTarget(width, height)
-                ?? throw new InvalidOperationException($"Could not create a canvas of this size. (width: {width}, height: {height})");
+            RenderTarget surface = RenderTarget.Create(width, height)
+                                    ?? throw new InvalidOperationException($"Could not create a canvas of this size. (width: {width}, height: {height})");
 
-            ImmediateCanvas canvas = factory.CreateCanvas(surface, false);
+            var canvas = new ImmediateCanvas(surface);
             return (canvas, surface);
         });
     }
@@ -36,6 +35,7 @@ public class Renderer : IRenderer
         {
             OnDispose(false);
             _immediateCanvas.Dispose();
+            _surface.Dispose();
             RenderScene.ClearCache();
             RenderScene.Dispose();
 
@@ -67,6 +67,7 @@ public class Renderer : IRenderer
         {
             OnDispose(true);
             _immediateCanvas.Dispose();
+            _surface.Dispose();
             RenderScene.ClearCache();
             RenderScene.Dispose();
             GC.SuppressFinalize(this);
@@ -97,36 +98,20 @@ public class Renderer : IRenderer
         RenderScene.Render(_immediateCanvas);
     }
 
-    ImmediateCanvas IImmediateCanvasFactory.CreateCanvas(SKSurface surface, bool leaveOpen)
+    ImmediateCanvas IImmediateCanvasFactory.CreateCanvas(RenderTarget surface)
     {
         ArgumentNullException.ThrowIfNull(surface);
         RenderThread.Dispatcher.VerifyAccess();
 
-        return new ImmediateCanvas(surface, leaveOpen)
+        return new ImmediateCanvas(surface)
         {
             Factory = this
         };
     }
 
-    SKSurface? IImmediateCanvasFactory.CreateRenderTarget(int width, int height)
+    RenderTarget? IImmediateCanvasFactory.CreateRenderTarget(int width, int height)
     {
-        RenderThread.Dispatcher.VerifyAccess();
-        GRContext? grcontext = SharedGRContext.GetOrCreate();
-        SKSurface? surface;
-
-        if (grcontext != null)
-        {
-            surface = SKSurface.Create(
-                grcontext,
-                false,
-                new SKImageInfo(width, height, SKColorType.Bgra8888/*, SKAlphaType.Unpremul*/));
-        }
-        else
-        {
-            surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
-        }
-
-        return surface;
+        return RenderTarget.Create(width, height);
     }
 
     public RenderNodeCacheContext? GetCacheContext()

@@ -2,9 +2,7 @@
 using System.Text.Json.Serialization;
 using Beutl.Configuration;
 using Beutl.Media;
-using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.Cache;
 
@@ -126,7 +124,7 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
     public void CreateDefaultCache(RenderNode node, RenderNodeCache cache, IImmediateCanvasFactory factory)
     {
         var processor = new RenderNodeProcessor(node, factory, false);
-        var list = processor.RasterizeToSurface();
+        var list = processor.RasterizeToRenderTargets();
         int pixels = list.Sum(i =>
         {
             var pr = PixelRect.FromRect(i.Bounds);
@@ -138,12 +136,8 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
         // nodeの子要素のキャッシュをすべて削除
         ClearCache(node, cache);
 
-        var arr = list.Select(i => (Ref<SKSurface>.Create(i.Surface), i.Bounds)).ToArray();
+        var arr = list.Select(i => (i.RenderTarget, i.Bounds)).ToArray();
         cache.StoreCache(arr);
-        foreach ((Ref<SKSurface> s, Rect _) in arr)
-        {
-            s.Dispose();
-        }
 
         Debug.WriteLine($"[RenderCache:Created] '{node}'");
     }
