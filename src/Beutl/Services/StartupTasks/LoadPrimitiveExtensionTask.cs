@@ -9,8 +9,8 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
 
     public static readonly Extension[] PrimitiveExtensions =
     [
-        ExtensionsPageExtension.Instance,
-        OutputPageExtension.Instance,
+        ExtensionsDialogExtension.Instance,
+        OutputDialogExtension.Instance,
         SceneEditorExtension.Instance,
         SceneOutputExtension.Instance,
         SceneProjectItemExtension.Instance,
