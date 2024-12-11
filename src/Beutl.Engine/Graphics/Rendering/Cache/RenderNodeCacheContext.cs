@@ -70,19 +70,6 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
         return true;
     }
 
-    public static void ClearCache(RenderNode node, RenderNodeCache cache)
-    {
-        cache.Invalidate();
-
-        if (node is ContainerRenderNode containerNode)
-        {
-            foreach (RenderNode item in containerNode.Children)
-            {
-                ClearCache(item);
-            }
-        }
-    }
-
     public static void ClearCache(RenderNode node)
     {
         node.Cache.Invalidate();
@@ -108,7 +95,7 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
         {
             if (!cache.IsCached)
             {
-                CreateDefaultCache(node, cache);
+                CreateDefaultCache(node);
             }
         }
         else if (node is ContainerRenderNode containerNode)
@@ -121,7 +108,7 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
         }
     }
 
-    public void CreateDefaultCache(RenderNode node, RenderNodeCache cache)
+    public void CreateDefaultCache(RenderNode node)
     {
         var processor = new RenderNodeProcessor(node, false);
         var list = processor.RasterizeToRenderTargets();
@@ -134,10 +121,10 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
             return;
 
         // nodeの子要素のキャッシュをすべて削除
-        ClearCache(node, cache);
+        ClearCache(node);
 
         var arr = list.Select(i => (i.RenderTarget, i.Bounds)).ToArray();
-        cache.StoreCache(arr);
+        node.Cache.StoreCache(arr);
 
         Debug.WriteLine($"[RenderCache:Created] '{node}'");
     }
