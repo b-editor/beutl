@@ -12,7 +12,7 @@ public sealed class DisplacementMap : FilterEffect
     public static readonly CoreProperty<FilterEffect?> DisplacementProperty;
     private SKColorChannel _xChannelSelector = SKColorChannel.A;
     private SKColorChannel _yChannelSelector = SKColorChannel.A;
-    private float _scale;
+    private float _scale = 1;
     private FilterEffect? _displacement;
 
     static DisplacementMap()
