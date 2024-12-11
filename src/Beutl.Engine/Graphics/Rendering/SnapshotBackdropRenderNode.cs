@@ -15,7 +15,8 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
             RenderNodeOperation.CreateLambda(default, canvas =>
             {
                 _bitmap?.Dispose();
-                _bitmap = canvas.GetRoot().GetBitmap();
+                using var renderTarget = RenderTarget.GetRenderTarget(canvas);
+                _bitmap = renderTarget.Snapshot();
             })
         ];
     }

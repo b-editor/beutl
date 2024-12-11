@@ -4,7 +4,7 @@ using Beutl.Media.Pixel;
 
 namespace Beutl.Graphics.Rendering;
 
-public interface IRenderer : IDisposable, IImmediateCanvasFactory
+public interface IRenderer : IDisposable
 {
     RenderScene RenderScene { get; }
 
@@ -19,9 +19,6 @@ public interface IRenderer : IDisposable, IImmediateCanvasFactory
     bool IsGraphicsRendering { get; }
 
     Drawable? HitTest(Point point);
-
-    [Obsolete("Use Render(TimeSpan) and Snapshot() instead of RenderGraphics.")]
-    Bitmap<Bgra8888>? RenderGraphics(TimeSpan timeSpan);
 
     bool Render(TimeSpan timeSpan);
 

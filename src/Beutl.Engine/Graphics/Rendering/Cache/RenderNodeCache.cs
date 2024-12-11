@@ -1,15 +1,12 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Beutl.Media.Source;
-using Beutl.Threading;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering.Cache;
 
 public sealed class RenderNodeCache(RenderNode node) : IDisposable
 {
     private readonly WeakReference<RenderNode> _node = new(node);
-    private readonly List<(Ref<SKSurface>, Rect)> _cache = new(1);
+    private readonly List<(RenderTarget, Rect)> _cache = new(1);
 
     public const int Count = 3;
 
@@ -110,7 +107,6 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     public void Invalidate()
     {
-        RenderThread.Dispatcher.CheckAccess();
 #if DEBUG
         if (_cache.Count != 0)
         {
@@ -118,89 +114,65 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         }
 #endif
 
-        foreach ((Ref<SKSurface>, Rect) item in _cache)
+        foreach ((RenderTarget, Rect) item in _cache)
         {
             item.Item1.Dispose();
         }
+
         _cache.Clear();
     }
 
     public void Dispose()
     {
-        void DisposeOnRenderThread()
-        {
-            if (_cache.Count != 0)
-            {
-                (Ref<SKSurface>, Rect)[] tmp = [.. _cache];
-                _cache.Clear();
-
-                RenderThread.Dispatcher.Dispatch(() =>
-                {
-                    foreach ((Ref<SKSurface>, Rect) item in tmp)
-                    {
-                        item.Item1.Dispose();
-                    }
-                }, DispatchPriority.Low);
-            }
-
-            IsDisposed = true;
-        }
-
         if (!IsDisposed)
         {
-            if (RenderThread.Dispatcher.CheckAccess())
+            foreach ((RenderTarget, Rect) item in _cache)
             {
-                foreach ((Ref<SKSurface>, Rect) item in _cache)
-                {
-                    item.Item1.Dispose();
-                }
-                _cache.Clear();
-                IsDisposed = true;
+                item.Item1.Dispose();
             }
-            else
-            {
-                DisposeOnRenderThread();
-            }
+
+            _cache.Clear();
+            IsDisposed = true;
 
             GC.SuppressFinalize(this);
         }
     }
 
-    public Ref<SKSurface> UseCache(out Rect bounds)
+    public RenderTarget UseCache(out Rect bounds)
     {
         if (_cache.Count == 0)
         {
             throw new Exception("キャッシュはありません");
         }
 
-        (Ref<SKSurface>, Rect) c = _cache[0];
+        (RenderTarget, Rect) c = _cache[0];
         bounds = c.Item2;
         LastAccessedTime = DateTime.UtcNow;
-        return c.Item1.Clone();
+        return c.Item1.ShallowCopy();
     }
 
-    public void StoreCache(Ref<SKSurface> surface, Rect bounds)
+    public void StoreCache(RenderTarget renderTarget, Rect bounds)
     {
         Invalidate();
 
-        _cache.Add((surface.Clone(), bounds));
+        _cache.Add((renderTarget.ShallowCopy(), bounds));
 
         LastAccessedTime = DateTime.UtcNow;
     }
 
-    public IEnumerable<(Ref<SKSurface> Surface, Rect Bounds)> UseCache()
+    public IEnumerable<(RenderTarget RenderTarget, Rect Bounds)> UseCache()
     {
         LastAccessedTime = DateTime.UtcNow;
-        return _cache.Select(i => (i.Item1.Clone(), i.Item2));
+        return _cache.Select(i => (i.Item1.ShallowCopy(), i.Item2));
     }
 
-    public void StoreCache(ReadOnlySpan<(Ref<SKSurface> Surface, Rect Bounds)> items)
+    public void StoreCache(ReadOnlySpan<(RenderTarget RenderTarget, Rect Bounds)> items)
     {
         Invalidate();
 
-        foreach ((Ref<SKSurface> surface, Rect bounds) in items)
+        foreach ((RenderTarget renderTarget, Rect bounds) in items)
         {
-            _cache.Add((surface.Clone(), bounds));
+            _cache.Add((renderTarget.ShallowCopy(), bounds));
         }
 
         LastAccessedTime = DateTime.UtcNow;

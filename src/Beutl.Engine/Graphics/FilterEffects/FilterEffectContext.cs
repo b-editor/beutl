@@ -207,9 +207,9 @@ public sealed class FilterEffectContext : IDisposable
                 for (int i = 0; i < context.Targets.Count; i++)
                 {
                     var target = context.Targets[i];
-                    if (target.Surface is { } srcSurface)
+                    if (target.RenderTarget is not null)
                     {
-                        using SKImage skimage = target.Surface.Value.Snapshot();
+                        using SKImage skImage = target.RenderTarget.Value.Snapshot();
                         EffectTarget newTarget = context.CreateTarget(target.Bounds);
                         using (ImmediateCanvas canvas = context.Open(newTarget))
                         {
@@ -223,12 +223,12 @@ public sealed class FilterEffectContext : IDisposable
 
                             using (canvas.PushPaint(paint))
                             {
-                                canvas.DrawSurface(target.Surface.Value, data.position);
+                                canvas.DrawRenderTarget(target.RenderTarget, data.position);
                             }
 
                             using (canvas.PushBlendMode(Graphics.BlendMode.DstATop))
                             {
-                                canvas.DrawSurface(target.Surface.Value, default);
+                                canvas.DrawRenderTarget(target.RenderTarget, default);
                             }
                         }
 
@@ -255,9 +255,9 @@ public sealed class FilterEffectContext : IDisposable
                 for (int i = 0; i < context.Targets.Count; i++)
                 {
                     var target = context.Targets[i];
-                    if (target.Surface is { } srcSurface)
+                    if (target.RenderTarget is not null)
                     {
-                        using SKImage skimage = target.Surface.Value.Snapshot();
+                        using SKImage skImage = target.RenderTarget.Value.Snapshot();
                         EffectTarget newTarget = context.CreateTarget(target.Bounds);
                         using (ImmediateCanvas canvas = context.Open(newTarget))
                         {
@@ -271,12 +271,12 @@ public sealed class FilterEffectContext : IDisposable
 
                             using (canvas.PushPaint(paint))
                             {
-                                canvas.DrawSurface(target.Surface.Value, data.position);
+                                canvas.DrawRenderTarget(target.RenderTarget, data.position);
                             }
 
                             using (canvas.PushBlendMode(Graphics.BlendMode.DstIn))
                             {
-                                canvas.DrawSurface(target.Surface.Value, default);
+                                canvas.DrawRenderTarget(target.RenderTarget, default);
                             }
                         }
 
@@ -556,17 +556,17 @@ public sealed class FilterEffectContext : IDisposable
             for (int i = 0; i < context.Targets.Count; i++)
             {
                 var target = context.Targets[i];
-                if (target.Surface is { } srcSurface)
+                if (target.RenderTarget is not null)
                 {
                     Size size = target.Bounds.Size;
                     EffectTarget newTarget = context.CreateTarget(target.Bounds);
                     using ImmediateCanvas newCanvas = context.Open(newTarget);
 
-                    var c = new BrushConstructor(new(size), data.Brush, data.BlendMode, newCanvas);
+                    var c = new BrushConstructor(new(size), data.Brush, data.BlendMode);
                     using var brushPaint = new SKPaint();
                     c.ConfigurePaint(brushPaint);
 
-                    newCanvas.DrawSurface(srcSurface.Value, default);
+                    newCanvas.DrawRenderTarget(target.RenderTarget, default);
                     newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
 
                     target.Dispose();

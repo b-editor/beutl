@@ -43,7 +43,7 @@ public class GeometryRenderNodeTest
         var geometry = new EllipseGeometry { Width = 100, Height = 100 };
         IBrush fill = new SolidColorBrush(Colors.Red);
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
-        var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
+        var context = new RenderNodeContext([]);
 
         var node = new GeometryRenderNode(geometry, fill, pen);
         var operations = node.Process(context);
@@ -58,7 +58,7 @@ public class GeometryRenderNodeTest
         var geometry = new EllipseGeometry { Width = 100, Height = 100 };
         IBrush fill = new SolidColorBrush(Colors.Red);
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
-        var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
+        var context = new RenderNodeContext([]);
 
         var node = new GeometryRenderNode(geometry, fill, pen);
         var operations = node.Process(context);
@@ -73,7 +73,7 @@ public class GeometryRenderNodeTest
         var geometry = new EllipseGeometry { Width = 100, Height = 100 };
         IBrush fill = new SolidColorBrush(Colors.Red);
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
-        var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
+        var context = new RenderNodeContext([]);
 
         var node = new GeometryRenderNode(geometry, fill, pen);
         var operations = node.Process(context);
@@ -87,7 +87,7 @@ public class GeometryRenderNodeTest
     {
         var geometry = new EllipseGeometry { Width = 100, Height = 100 };
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 50 };
-        var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
+        var context = new RenderNodeContext([]);
 
         var node = new GeometryRenderNode(geometry, null, pen);
         var operations = node.Process(context);

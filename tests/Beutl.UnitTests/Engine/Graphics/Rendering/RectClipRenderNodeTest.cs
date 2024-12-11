@@ -30,7 +30,7 @@ public class RectClipRenderNodeTest
     [Test]
     public void Process_WithoutInput_ShouldReturnEmptyRenderNodeOperation()
     {
-        var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
+        var context = new RenderNodeContext([]);
 
         var node = new RectClipRenderNode(new Rect(0, 0, 100, 100), ClipOperation.Intersect);
         var operations = node.Process(context);
@@ -41,7 +41,7 @@ public class RectClipRenderNodeTest
     [Test]
     public void Process_WithInput_ShouldReturnExpectedRenderNodeOperation()
     {
-        var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), [
+        var context = new RenderNodeContext([
             RenderNodeOperation.CreateLambda(default, _ => {  })
         ]);
 

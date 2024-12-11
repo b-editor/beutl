@@ -1,16 +1,14 @@
-﻿using Beutl.Media.Source;
+﻿using Beutl.Graphics.Rendering;
+using Beutl.Media.Source;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
 public class CustomFilterEffectContext
 {
-    internal readonly IImmediateCanvasFactory _factory;
-
-    internal CustomFilterEffectContext(IImmediateCanvasFactory canvas, EffectTargets targets)
+    internal CustomFilterEffectContext(EffectTargets targets)
     {
         Targets = targets;
-        _factory = canvas;
     }
 
     public EffectTargets Targets { get; }
@@ -53,11 +51,10 @@ public class CustomFilterEffectContext
 
     public EffectTarget CreateTarget(Rect bounds)
     {
-        SKSurface? surface = _factory.CreateRenderTarget((int)bounds.Width, (int)bounds.Height);
-        if (surface != null)
+        using var renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height);
+        if (renderTarget != null)
         {
-            using var surfaceRef = Ref<SKSurface>.Create(surface);
-            return new EffectTarget(surfaceRef, bounds);
+            return new EffectTarget(renderTarget, bounds);
         }
         else
         {
@@ -67,11 +64,11 @@ public class CustomFilterEffectContext
 
     public ImmediateCanvas Open(EffectTarget target)
     {
-        if (target.Surface == null)
+        if (target.RenderTarget == null)
         {
             throw new InvalidOperationException("無効なEffectTarget");
         }
 
-        return _factory.CreateCanvas(target.Surface.Value, true);
+        return new ImmediateCanvas(target.RenderTarget);
     }
 }

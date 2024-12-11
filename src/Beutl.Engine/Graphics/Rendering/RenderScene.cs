@@ -1,10 +1,18 @@
-﻿using Beutl.Media;
+﻿using Beutl.Graphics.Rendering.Cache;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class RenderScene(PixelSize size) : IDisposable
+public sealed class RenderScene : IDisposable
 {
     private readonly SortedDictionary<int, RenderLayer> _layer = [];
+    internal readonly RenderNodeCacheContext _cacheContext;
+
+    public RenderScene(PixelSize size)
+    {
+        Size = size;
+        _cacheContext = new RenderNodeCacheContext(this);
+    }
 
     public RenderLayer this[int index]
     {
@@ -20,7 +28,7 @@ public sealed class RenderScene(PixelSize size) : IDisposable
         }
     }
 
-    public PixelSize Size { get; } = size;
+    public PixelSize Size { get; }
 
     public void Clear()
     {
@@ -52,11 +60,11 @@ public sealed class RenderScene(PixelSize size) : IDisposable
         }
     }
 
-    public Drawable? HitTest(Point point, IImmediateCanvasFactory canvasFactory)
+    public Drawable? HitTest(Point point)
     {
         foreach (int key in _layer.Keys.Reverse())
         {
-            if (_layer[key].HitTest(point, canvasFactory) is { } drawable)
+            if (_layer[key].HitTest(point) is { } drawable)
             {
                 return drawable;
             }

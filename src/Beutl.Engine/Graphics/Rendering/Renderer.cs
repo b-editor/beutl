@@ -2,30 +2,26 @@
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
 public class Renderer : IRenderer
 {
     private readonly ImmediateCanvas _immediateCanvas;
-    private readonly SKSurface _surface;
+    private readonly RenderTarget _surface;
     private readonly FpsText _fpsText = new();
     private readonly InstanceClock _instanceClock = new();
-    private readonly RenderNodeCacheContext _cacheContext;
 
     public Renderer(int width, int height)
     {
         FrameSize = new PixelSize(width, height);
         RenderScene = new RenderScene(FrameSize);
-        _cacheContext = new RenderNodeCacheContext(RenderScene);
         (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
         {
-            var factory = (IImmediateCanvasFactory)this;
-            SKSurface? surface = factory.CreateRenderTarget(width, height)
-                ?? throw new InvalidOperationException($"Could not create a canvas of this size. (width: {width}, height: {height})");
+            RenderTarget surface = RenderTarget.Create(width, height)
+                                    ?? throw new InvalidOperationException($"Could not create a canvas of this size. (width: {width}, height: {height})");
 
-            ImmediateCanvas canvas = factory.CreateCanvas(surface, false);
+            var canvas = new ImmediateCanvas(surface);
             return (canvas, surface);
         });
     }
@@ -36,6 +32,7 @@ public class Renderer : IRenderer
         {
             OnDispose(false);
             _immediateCanvas.Dispose();
+            _surface.Dispose();
             RenderScene.ClearCache();
             RenderScene.Dispose();
 
@@ -67,6 +64,7 @@ public class Renderer : IRenderer
         {
             OnDispose(true);
             _immediateCanvas.Dispose();
+            _surface.Dispose();
             RenderScene.ClearCache();
             RenderScene.Dispose();
             GC.SuppressFinalize(this);
@@ -75,21 +73,13 @@ public class Renderer : IRenderer
         }
     }
 
-    protected virtual void OnDispose(bool disposing)
+    public RenderNodeCacheContext GetCacheContext()
     {
+        return RenderScene._cacheContext;
     }
 
-    [Obsolete("Use Render(TimeSpan) and Snapshot() instead of RenderGraphics.")]
-    public Bitmap<Bgra8888>? RenderGraphics(TimeSpan timeSpan)
+    protected virtual void OnDispose(bool disposing)
     {
-        if (Render(timeSpan))
-        {
-            return Snapshot();
-        }
-        else
-        {
-            return null;
-        }
     }
 
     protected virtual void RenderGraphicsCore()
@@ -97,47 +87,10 @@ public class Renderer : IRenderer
         RenderScene.Render(_immediateCanvas);
     }
 
-    ImmediateCanvas IImmediateCanvasFactory.CreateCanvas(SKSurface surface, bool leaveOpen)
-    {
-        ArgumentNullException.ThrowIfNull(surface);
-        RenderThread.Dispatcher.VerifyAccess();
-
-        return new ImmediateCanvas(surface, leaveOpen)
-        {
-            Factory = this
-        };
-    }
-
-    SKSurface? IImmediateCanvasFactory.CreateRenderTarget(int width, int height)
-    {
-        RenderThread.Dispatcher.VerifyAccess();
-        GRContext? grcontext = SharedGRContext.GetOrCreate();
-        SKSurface? surface;
-
-        if (grcontext != null)
-        {
-            surface = SKSurface.Create(
-                grcontext,
-                false,
-                new SKImageInfo(width, height, SKColorType.Bgra8888/*, SKAlphaType.Unpremul*/));
-        }
-        else
-        {
-            surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
-        }
-
-        return surface;
-    }
-
-    public RenderNodeCacheContext? GetCacheContext()
-    {
-        return _cacheContext;
-    }
-
     public Drawable? HitTest(Point point)
     {
         RenderThread.Dispatcher.VerifyAccess();
-        return RenderScene.HitTest(point, this);
+        return RenderScene.HitTest(point);
     }
 
     public bool Render(TimeSpan timeSpan)
@@ -171,7 +124,7 @@ public class Renderer : IRenderer
     public Bitmap<Bgra8888> Snapshot()
     {
         RenderThread.Dispatcher.VerifyAccess();
-        return _immediateCanvas.GetBitmap();
+        return _surface.Snapshot();
     }
 
     public static ImmediateCanvas GetInternalCanvas(Renderer renderer)

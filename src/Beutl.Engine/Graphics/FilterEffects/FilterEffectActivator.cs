@@ -1,10 +1,10 @@
-﻿using Beutl.Media.Source;
+﻿using Beutl.Graphics.Rendering;
 
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBuilder builder, IImmediateCanvasFactory factory) : IDisposable
+public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBuilder builder) : IDisposable
 {
     public SKImageFilterBuilder Builder { get; } = builder;
 
@@ -26,20 +26,18 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
                 EffectTarget target = CurrentTargets[i];
-                SKSurface? surface = factory.CreateRenderTarget((int)target.OriginalBounds.Width, (int)target.OriginalBounds.Height);
+                using RenderTarget? surface = RenderTarget.Create((int)target.OriginalBounds.Width, (int)target.OriginalBounds.Height);
 
                 if (surface != null)
                 {
-                    using ImmediateCanvas canvas = factory.CreateCanvas(surface, true);
-
+                    using (var canvas = new ImmediateCanvas(surface))
                     using (canvas.PushTransform(Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y)))
                     using (canvas.PushPaint(paint))
                     {
                         target.Draw(canvas);
                     }
 
-                    using var surfaceRef = Ref<SKSurface>.Create(surface);
-                    var newTarget = new EffectTarget(surfaceRef, target.Bounds)
+                    var newTarget = new EffectTarget(surface, target.Bounds)
                     {
                         OriginalBounds = target.OriginalBounds
                     };
@@ -85,7 +83,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                         Flush();
                         if (CurrentTargets.Count == 0) return;
 
-                        var customContext = new CustomFilterEffectContext(factory, CurrentTargets);
+                        var customContext = new CustomFilterEffectContext(CurrentTargets);
                         custom.Accepts(customContext);
 
                         foreach (EffectTarget t in CurrentTargets)
@@ -127,7 +125,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
         using EffectTargets cloned = CurrentTargets.Clone();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(cloned, builder, factory);
+        using var activator = new FilterEffectActivator(cloned, builder);
 
         activator.Apply(context);
         activator.Flush(false);
@@ -137,9 +135,9 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
         foreach (EffectTarget t in activator.CurrentTargets)
         {
-            if (t.Surface == null) continue;
+            if (t.RenderTarget == null) continue;
 
-            SKSurface innerSurface = t.Surface.Value;
+            SKSurface innerSurface = t.RenderTarget.Value;
             using SKImage skImage = innerSurface.Snapshot();
 
             if (filter == null)

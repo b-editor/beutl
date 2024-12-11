@@ -89,7 +89,6 @@ public sealed class TransformEffect : FilterEffect
                 context.CustomEffect(mat, (originalMat, c) =>
                     c.ForEach((_, target) =>
                     {
-                        var surface = target.Surface?.Value!;
                         Vector origin = TransformOrigin.ToPixels(target.Bounds.Size);
                         Matrix offset1 = Matrix.CreateTranslation(origin + target.Bounds.Position);
                         Matrix offset2 = Matrix.CreateTranslation(origin);
@@ -101,7 +100,7 @@ public sealed class TransformEffect : FilterEffect
                         using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
                         using (canvas.PushTransform(m2))
                         {
-                            canvas.DrawSurface(surface, default);
+                            canvas.DrawRenderTarget(target.RenderTarget!, default);
                         }
 
                         target.Dispose();

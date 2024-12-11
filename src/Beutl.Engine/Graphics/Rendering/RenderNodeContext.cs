@@ -1,10 +1,8 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
-public class RenderNodeContext(IImmediateCanvasFactory canvasFactory, RenderNodeOperation[] input)
+public class RenderNodeContext(RenderNodeOperation[] input)
 {
     public RenderNodeOperation[] Input { get; } = input;
-
-    public IImmediateCanvasFactory CanvasFactory { get; } = canvasFactory;
 
     public bool IsRenderCacheEnabled { get; set; } = true;
 

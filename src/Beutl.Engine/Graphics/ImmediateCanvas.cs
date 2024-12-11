@@ -1,6 +1,5 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -10,29 +9,22 @@ using SkiaSharp;
 
 namespace Beutl.Graphics;
 
-public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
+public partial class ImmediateCanvas : ICanvas
 {
-    private readonly SKSurface _surface;
+    internal readonly RenderTarget _renderTarget;
     private readonly Dispatcher? _dispatcher;
     private readonly SKPaint _sharedFillPaint = new();
     private readonly SKPaint _sharedStrokePaint = new();
     private readonly Stack<CanvasPushedState> _states = new();
-    private readonly bool _leaveOpen;
     private Matrix _currentTransform;
 
-    public ImmediateCanvas(SKSurface surface, bool leaveOpen)
+    public ImmediateCanvas(RenderTarget renderTarget)
     {
         _dispatcher = Dispatcher.Current;
-        Size = surface.Canvas.DeviceClipBounds.Size.ToGraphicsSize();
-        _surface = surface;
-        Canvas = _surface.Canvas;
+        Size = new PixelSize(renderTarget.Width, renderTarget.Height);
+        _renderTarget = renderTarget;
+        Canvas = _renderTarget.Value.Canvas;
         _currentTransform = Canvas.TotalMatrix.ToMatrix();
-        _leaveOpen = leaveOpen;
-    }
-
-    public ImmediateCanvas(int width, int height)
-        : this(SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul)), false)
-    {
     }
 
     ~ImmediateCanvas()
@@ -61,55 +53,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         }
     }
 
-    internal IImmediateCanvasFactory? Factory { get; set; }
-
     internal SKCanvas Canvas { get; }
-
-    public RenderNodeCacheContext? GetCacheContext()
-    {
-        return Factory?.GetCacheContext();
-    }
-
-    public ImmediateCanvas CreateCanvas(SKSurface surface, bool leaveOpen)
-    {
-        ArgumentNullException.ThrowIfNull(surface);
-
-        if (Factory != null)
-        {
-            var canvas = Factory.CreateCanvas(surface, leaveOpen);
-            canvas.Factory = this;
-            return canvas;
-        }
-        else
-        {
-            return new ImmediateCanvas(surface, leaveOpen) { Factory = this };
-        }
-    }
-
-    public SKSurface? CreateRenderTarget(int width, int height)
-    {
-        if (Factory != null)
-        {
-            return Factory.CreateRenderTarget(width, height);
-        }
-        else
-        {
-            return SKSurface.Create(
-                new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
-        }
-    }
-
-    internal ImmediateCanvas GetRoot()
-    {
-        if (Factory is ImmediateCanvas parent && parent != this)
-        {
-            return parent.GetRoot();
-        }
-        else
-        {
-            return this;
-        }
-    }
 
     public void Clear()
     {
@@ -139,15 +83,9 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
     {
         void DisposeCore()
         {
-            if (!_leaveOpen)
-            {
-                _surface.Dispose();
-            }
-
             _sharedFillPaint.Dispose();
             _sharedStrokePaint.Dispose();
             GC.SuppressFinalize(this);
-            Factory = null;
             IsDisposed = true;
         }
 
@@ -172,18 +110,27 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         Canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
     }
 
+    public void DrawRenderTarget(RenderTarget renderTarget, Point point)
+    {
+        renderTarget.VerifyAccess();
+        _sharedFillPaint.Reset();
+        _sharedFillPaint.IsAntialias = true;
+
+        Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, _sharedFillPaint);
+    }
+
     public void DrawDrawable(Drawable drawable)
     {
         using var node = new DrawableRenderNode(drawable);
         using var context = new GraphicsContext2D(node, Size);
         drawable.Render(context);
-        var processor = new RenderNodeProcessor(node, this, true);
+        var processor = new RenderNodeProcessor(node, true);
         processor.Render(this);
     }
 
     public void DrawNode(RenderNode node)
     {
-        var processor = new RenderNodeProcessor(node, this, true);
+        var processor = new RenderNodeProcessor(node, true);
         processor.Render(this);
     }
 
@@ -194,7 +141,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     public IBackdrop Snapshot()
     {
-        return new TmpBackdrop(GetBitmap());
+        return new TmpBackdrop(_renderTarget.Snapshot());
     }
 
     public void DrawBitmap(IBitmap bmp, IBrush? fill, IPen? pen)
@@ -358,16 +305,6 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         }
     }
 
-    public unsafe Bitmap<Bgra8888> GetBitmap()
-    {
-        VerifyAccess();
-        var result = new Bitmap<Bgra8888>(Size.Width, Size.Height);
-
-        _surface.ReadPixels(new SKImageInfo(Size.Width, Size.Height, SKColorType.Bgra8888), result.Data, result.Width * sizeof(Bgra8888), 0, 0);
-
-        return result;
-    }
-
     public void Pop(int count = -1)
     {
         VerifyAccess();
@@ -472,7 +409,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         var paint = new SKPaint();
 
         int count = Canvas.SaveLayer(paint);
-        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, this).ConfigurePaint(paint);
+        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode).ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
@@ -517,7 +454,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         throw new NotSupportedException("ImmediateCanvasはFilterEffectに対応しません");
     }
 
-    private void VerifyAccess()
+    internal void VerifyAccess()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
@@ -579,13 +516,13 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
                 _sharedStrokePaint.PathEffect = pe;
             }
 
-            new BrushConstructor(original, pen.Brush, blendMode, this).ConfigurePaint(_sharedStrokePaint);
+            new BrushConstructor(original, pen.Brush, blendMode).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
     private void ConfigureFillPaint(Rect bounds, IBrush? brush, BlendMode blendMode = BlendMode.SrcOver)
     {
         _sharedFillPaint.Reset();
-        new BrushConstructor(bounds, brush, blendMode, this).ConfigurePaint(_sharedFillPaint);
+        new BrushConstructor(bounds, brush, blendMode).ConfigurePaint(_sharedFillPaint);
     }
 }

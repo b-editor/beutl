@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Logging;
 using Beutl.Media;
@@ -50,13 +51,14 @@ public class TextBlockTests
 
         tb.Measure(Size.Infinity);
         Rect bounds = tb.Bounds;
-        using var canvas = new ImmediateCanvas((int)bounds.Width, (int)bounds.Height);
+        using var renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)!;
+        using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.White);
 
         canvas.DrawDrawable(tb);
 
-        using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
+        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png));
     }
@@ -80,7 +82,8 @@ public class TextBlockTests
         Rect bounds = tb.Bounds;
         using var skpath = TextBlock.ToSKPath(tb.Elements!);
 
-        using var graphics = new ImmediateCanvas((int)bounds.Width, (int)bounds.Height);
+        using var renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)!;
+        using var graphics = new ImmediateCanvas(renderTarget);
 
         graphics.Clear(Colors.White);
 
@@ -92,7 +95,7 @@ public class TextBlockTests
         };
         graphics.DrawSKPath(skpath, false, null, pen);
 
-        using Bitmap<Bgra8888> bmp = graphics.GetBitmap();
+        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }

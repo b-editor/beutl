@@ -94,7 +94,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         }
     }
 
-    public void ClearAllNodeCache(RenderNodeCacheContext? context)
+    public void ClearAllNodeCache()
     {
         foreach (KeyValuePair<Drawable, Entry> item in _cache)
         {
@@ -119,34 +119,11 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
                 entry.IsDirty = false;
             }
 
-            RenderNodeCacheContext? cacheContext = canvas.GetCacheContext();
-            if (cacheContext != null)
-            {
-                void RevalidateAll(RenderNode current)
-                {
-                    RenderNodeCache cache = current.Cache;
+            var cacheContext = renderScene._cacheContext;
 
-                    if (current is ContainerRenderNode c)
-                    {
-                        foreach (RenderNode item in c.Children)
-                        {
-                            RevalidateAll(item);
-                        }
+            RevalidateAll(node);
 
-                        cache.CaptureChildren();
-                    }
-
-                    cache.IncrementRenderCount();
-                    if (cache.IsCached && !RenderNodeCacheContext.CanCacheRecursive(current))
-                    {
-                        cache.Invalidate();
-                    }
-                }
-
-                RevalidateAll(node);
-            }
-
-            var processor = new RenderNodeProcessor(node, canvas, true);
+            var processor = new RenderNodeProcessor(node, true);
             Rect bounds = default;
             var ops = processor.PullToRoot();
             foreach (var op in ops)
@@ -158,7 +135,29 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
 
             entry.Bounds = bounds;
 
-            cacheContext?.MakeCache(node, canvas);
+            cacheContext.MakeCache(node);
+            continue;
+
+            void RevalidateAll(RenderNode current)
+            {
+                RenderNodeCache cache = current.Cache;
+
+                if (current is ContainerRenderNode c)
+                {
+                    foreach (RenderNode item in c.Children)
+                    {
+                        RevalidateAll(item);
+                    }
+
+                    cache.CaptureChildren();
+                }
+
+                cache.IncrementRenderCount();
+                if (cache.IsCached && !RenderNodeCacheContext.CanCacheRecursive(current))
+                {
+                    cache.Invalidate();
+                }
+            }
         }
     }
 
@@ -181,7 +180,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         }
     }
 
-    public Drawable? HitTest(Point point, IImmediateCanvasFactory canvasFactory)
+    public Drawable? HitTest(Point point)
     {
         if (_currentFrame == null || _currentFrame.Count == 0)
             return null;
@@ -189,7 +188,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         for (int i = _currentFrame.Count - 1; i >= 0; i--)
         {
             Entry entry = _currentFrame[i];
-            var processor = new RenderNodeProcessor(entry.Node, canvasFactory, false);
+            var processor = new RenderNodeProcessor(entry.Node, false);
             var arr = processor.PullToRoot();
             try
             {

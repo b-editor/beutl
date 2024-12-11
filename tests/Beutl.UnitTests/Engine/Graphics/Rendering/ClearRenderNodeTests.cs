@@ -56,9 +56,9 @@ public class ClearRenderNodeTest
         // Arrange
         var color = new Color(255, 0, 0, 255);
         var node = new ClearRenderNode(color);
-        var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
-        using var surface = SKSurface.CreateNull(100, 100);
-        using var canvas = new ImmediateCanvas(surface, true);
+        var context = new RenderNodeContext([]);
+        using var renderTarget = RenderTarget.CreateNull(100, 100);
+        using var canvas = new ImmediateCanvas(renderTarget);
 
         // Act
         var operations = node.Process(context);

@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Logging;
 using Beutl.Media;
@@ -31,12 +32,13 @@ public class ShapeTests
             Fill = Brushes.White
         };
 
-        using var canvas = new ImmediateCanvas(250, 250);
+        using var renderTarget = RenderTarget.Create(250, 250)!;
+        using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(shape);
 
-        using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
+        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
@@ -63,13 +65,14 @@ public class ShapeTests
             }
         };
 
-        using var canvas = new ImmediateCanvas(250, 250);
+        using var renderTarget = RenderTarget.Create(250, 250)!;
+        using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
 
         canvas.DrawDrawable(shape);
 
-        using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
+        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
@@ -88,12 +91,13 @@ public class ShapeTests
             Fill = Brushes.White
         };
 
-        using var canvas = new ImmediateCanvas(250, 250);
+        using var renderTarget = RenderTarget.Create(250, 250)!;
+        using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(shape);
 
-        using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
+        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
@@ -114,12 +118,13 @@ public class ShapeTests
             Fill = Brushes.White
         };
 
-        using var canvas = new ImmediateCanvas(250, 250);
+        using var renderTarget = RenderTarget.Create(250, 250)!;
+        using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(shape);
 
-        using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
+        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
@@ -150,12 +155,13 @@ public class ShapeTests
             }
         };
 
-        using var canvas = new ImmediateCanvas(250, 250);
+        using var renderTarget = RenderTarget.Create(250, 250)!;
+        using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(shape);
 
-        using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
+        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{alignment}.png"), EncodedImageFormat.Png));
     }
@@ -190,12 +196,13 @@ public class ShapeTests
             Transform = new ImmutableTransform(Matrix.CreateTranslation(-geometry.Bounds.Position))
         };
 
-        using var canvas = new ImmediateCanvas(250, 250);
+        using var renderTarget = RenderTarget.Create(250, 250)!;
+        using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(shape);
 
-        using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
+        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
@@ -244,12 +251,13 @@ public class ShapeTests
             Transform = new ImmutableTransform(Matrix.CreateTranslation(-geometry.Bounds.Position))
         };
 
-        using var canvas = new ImmediateCanvas(250, 250);
+        using var renderTarget = RenderTarget.Create(250, 250)!;
+        using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(shape);
 
-        using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
+        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{alignment}_{fillType}.png"), EncodedImageFormat.Png));
     }

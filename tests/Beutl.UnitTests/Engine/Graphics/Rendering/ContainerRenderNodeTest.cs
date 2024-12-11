@@ -72,7 +72,7 @@ public class ContainerRenderNodeTest
     public void Process_ShouldReturnContextInput()
     {
         var node = new ContainerRenderNode();
-        var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
+        var context = new RenderNodeContext([]);
         var result = node.Process(context);
 
         Assert.That(result, Is.EqualTo(context.Input));

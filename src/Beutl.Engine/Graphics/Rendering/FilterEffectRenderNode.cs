@@ -15,7 +15,7 @@ public sealed class FilterEffectRenderNode(FilterEffect filterEffect) : Containe
         effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));
 
         using (var builder = new SKImageFilterBuilder())
-        using (var activator = new FilterEffectActivator(effectTargets, builder, context.CanvasFactory))
+        using (var activator = new FilterEffectActivator(effectTargets, builder))
         {
             activator.Apply(feContext);
 
@@ -52,7 +52,7 @@ public sealed class FilterEffectRenderNode(FilterEffect filterEffect) : Containe
             {
                 return activator.CurrentTargets.Select(i =>
                     i.NodeOperation ??
-                    RenderNodeOperation.CreateFromSurface(i.Bounds, i.Bounds.Position, i.Surface!))
+                    RenderNodeOperation.CreateFromRenderTarget(i.Bounds, i.Bounds.Position, i.RenderTarget!))
                     .ToArray();
             }
         }

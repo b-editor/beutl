@@ -1,7 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
-
+using Beutl.Graphics.Rendering;
 using Canvas = Beutl.Graphics.ImmediateCanvas;
 
 namespace TextFormattingPlayground;
@@ -48,11 +48,12 @@ public partial class MainWindow : Window
         if (width <= 0 || height <= 0)
             return;
 
-        using var canvas = new Canvas(width, height);
+        using var renderTarget = RenderTarget.Create(width, height)!;
+        using var canvas = new Canvas(renderTarget);
         canvas.Clear(Beutl.Media.Colors.Black);
         canvas.DrawDrawable(_text);
 
-        using var bmp = canvas.GetBitmap();
+        using var bmp = renderTarget.Snapshot();
 
         if (image.Source is WriteableBitmap old)
         {

@@ -9,24 +9,9 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 public class FilterEffectRenderNodeTest
 {
-    private static IImmediateCanvasFactory CreateCanvasFactory()
-    {
-        var mock = new Mock<IImmediateCanvasFactory>();
-        mock.Setup(m => m.CreateCanvas(It.IsNotNull<SKSurface>(), It.IsAny<bool>()))
-            .Returns(new Func<SKSurface, bool, ImmediateCanvas>((s, r) => new ImmediateCanvas(s, r)));
-
-        mock.Setup(m => m.CreateRenderTarget(It.IsAny<int>(), It.IsAny<int>()))
-            .Returns(new Func<int, int, SKSurface>((w, h) => SKSurface.CreateNull(w, h)));
-
-        mock.Setup(m => m.GetCacheContext())
-            .Returns(() => null);
-
-        return mock.Object;
-    }
-
     private static RenderNodeContext CreateRenderNodeContext()
     {
-        return new RenderNodeContext(CreateCanvasFactory(), [
+        return new RenderNodeContext([
             RenderNodeOperation.CreateLambda(
                 new Rect(0, 0, 100, 100),
                 canvas => canvas.DrawEllipse(new Rect(0, 0, 100, 100), Brushes.White, null),

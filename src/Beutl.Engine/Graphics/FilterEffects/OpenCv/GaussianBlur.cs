@@ -87,24 +87,23 @@ public class GaussianBlur : FilterEffect
         for (int i = 0; i < context.Targets.Count; i++)
         {
             var target = context.Targets[i];
-            var surface = target.Surface!;
+            var renderTarget = target.RenderTarget!;
 
-            int kwidth = data.KernelSize.Width;
-            int kheight = data.KernelSize.Height;
-            if (kwidth <= 0 || kheight <= 0)
+            int kWidth = data.KernelSize.Width;
+            int kHeight = data.KernelSize.Height;
+            if (kWidth <= 0 || kHeight <= 0)
                 return;
 
-            if (kwidth % 2 == 0)
-                kwidth++;
-            if (kheight % 2 == 0)
-                kheight++;
+            if (kWidth % 2 == 0)
+                kWidth++;
+            if (kHeight % 2 == 0)
+                kHeight++;
 
             Bitmap<Bgra8888>? dst = null;
 
             try
             {
-                using (SKImage skimage = surface.Value.Snapshot())
-                using (var src = skimage.ToBitmap())
+                using (var src = renderTarget.Snapshot())
                 {
                     if (data.FixImageSize)
                     {
@@ -112,17 +111,17 @@ public class GaussianBlur : FilterEffect
                     }
                     else
                     {
-                        dst = src.MakeBorder(src.Width + kwidth, src.Height + kheight);
+                        dst = src.MakeBorder(src.Width + kWidth, src.Height + kHeight);
                     }
                 }
 
                 using var mat = dst.ToMat();
-                Cv2.GaussianBlur(mat, mat, new(kwidth, kheight), data.Sigma.Width, data.Sigma.Height);
+                Cv2.GaussianBlur(mat, mat, new(kWidth, kHeight), data.Sigma.Width, data.Sigma.Height);
 
-                EffectTarget newtarget = context.CreateTarget(TransformBounds(data, target.Bounds));
-                newtarget.Surface!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
+                EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
+                newTarget.RenderTarget!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
                 target.Dispose();
-                context.Targets[i] = newtarget;
+                context.Targets[i] = newTarget;
             }
             finally
             {
