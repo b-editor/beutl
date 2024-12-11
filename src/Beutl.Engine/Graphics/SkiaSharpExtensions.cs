@@ -6,6 +6,7 @@ namespace Beutl.Graphics;
 
 internal static class SkiaSharpExtensions
 {
+    [Obsolete("Use ToSKSamplingOptions")]
     public static SKFilterQuality ToSKFilterQuality(this BitmapInterpolationMode interpolationMode)
     {
         return interpolationMode switch
@@ -15,6 +16,18 @@ internal static class SkiaSharpExtensions
             BitmapInterpolationMode.HighQuality => SKFilterQuality.High,
             BitmapInterpolationMode.Default => SKFilterQuality.None,
             _ => throw new ArgumentOutOfRangeException(nameof(interpolationMode), interpolationMode, null),
+        };
+    }
+
+    public static SKSamplingOptions ToSKSamplingOptions(this BitmapInterpolationMode interpolationMode)
+    {
+        return interpolationMode switch
+        {
+            BitmapInterpolationMode.Default => new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None),
+            BitmapInterpolationMode.LowQuality => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None),
+            BitmapInterpolationMode.MediumQuality => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear),
+            BitmapInterpolationMode.HighQuality => new SKSamplingOptions(SKCubicResampler.Mitchell),
+            _ => throw new ArgumentOutOfRangeException(nameof(interpolationMode), interpolationMode, null)
         };
     }
 

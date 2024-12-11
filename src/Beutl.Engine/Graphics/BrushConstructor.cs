@@ -18,9 +18,6 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
         float opacity = (Brush?.Opacity ?? 0) / 100f;
         paint.IsAntialias = true;
         paint.BlendMode = (SKBlendMode)BlendMode;
-        paint.HintingLevel = SKPaintHinting.Full;
-        paint.LcdRenderText = true;
-        paint.SubpixelText = true;
 
         paint.Color = new SKColor(255, 255, 255, (byte)(255 * opacity));
 
@@ -194,7 +191,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
     private void ConfigureTileBrush(SKPaint paint, ITileBrush tileBrush)
     {
         RenderTarget? renderTarget = null;
-        SKBitmap? skbitmap = null;
+        SKImage? skImage = null;
         PixelSize pixelSize;
 
         if (tileBrush is RenderSceneBrush sceneBrush)
@@ -228,7 +225,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
         {
             using (bitmap)
             {
-                skbitmap = bitmap.Value.ToSKBitmap();
+                skImage = bitmap.Value.ToSKImage(copy: true);
                 pixelSize = new(bitmap.Value.Width, bitmap.Value.Height);
             }
         }
@@ -237,7 +234,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
             throw new InvalidOperationException($"'{tileBrush.GetType().Name}' not supported.");
         }
 
-        if (renderTarget == null && skbitmap == null)
+        if (renderTarget == null && skImage == null)
             return;
 
         RenderTarget? intermediate = null;
@@ -253,7 +250,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
             SKCanvas canvas = intermediate.Value.Canvas;
             using var ipaint = new SKPaint();
             {
-                ipaint.FilterQuality = tileBrush.BitmapInterpolationMode.ToSKFilterQuality();
+                var options = tileBrush.BitmapInterpolationMode.ToSKSamplingOptions();
 
                 canvas.Clear();
                 canvas.Save();
@@ -262,8 +259,8 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
 
                 if (renderTarget != null)
                     canvas.DrawSurface(renderTarget.Value, default, ipaint);
-                else if (skbitmap != null)
-                    canvas.DrawBitmap(skbitmap, (SKPoint)default, ipaint);
+                else if (skImage != null)
+                    canvas.DrawImage(skImage, (SKPoint)default, options, ipaint);
 
                 canvas.Restore();
             }
@@ -294,8 +291,8 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                 tileTransform = tileTransform.PreConcat(transform.ToSKMatrix());
             }
 
-            using (SKImage skimage = intermediate.Value.Snapshot())
-            using (SKShader shader = skimage.ToShader(tileX, tileY, tileTransform))
+            using (SKImage snapshot = intermediate.Value.Snapshot())
+            using (SKShader shader = snapshot.ToShader(tileX, tileY, tileTransform))
             {
                 paint.Shader = shader;
             }
@@ -303,7 +300,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
         finally
         {
             renderTarget?.Dispose();
-            skbitmap?.Dispose();
+            skImage?.Dispose();
             intermediate?.Dispose();
         }
     }
