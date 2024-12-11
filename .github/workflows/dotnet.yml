@@ -51,3 +51,9 @@ jobs:
         with:
           recreate: true
           path: code-coverage-results.md
+
+      - name: Save
+        uses: actions/upload-artifact@v4
+        with:
+          name: Coverage
+          path: tests/**/coverage.cobertura.xml
