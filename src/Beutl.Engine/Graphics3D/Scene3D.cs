@@ -15,7 +15,7 @@ public class Scene3D : Drawable
         return availableSize;
     }
 
-    protected override void OnDraw(ICanvas canvas)
+    protected override void OnDraw(GraphicsContext2D canvas)
     {
         if (_root?.IsDisposed == true)
         {
@@ -26,7 +26,7 @@ public class Scene3D : Drawable
         canvas.DrawNode(_root);
     }
 
-    private class SceneNode : DrawNode, IEquatable<SceneNode?>
+    private class SceneNode(Rect bounds) : RenderNode, IEquatable<SceneNode?>
     {
         private ColorBuffer? _colorBuffer;
         private DepthBuffer? _depthBuffer;
@@ -34,8 +34,11 @@ public class Scene3D : Drawable
         private GRBackendRenderTarget? _renderTarget;
         private SKSurface? _surface;
 
-        public SceneNode(Rect bounds) : base(bounds)
+        private Rect Bounds => bounds;
+
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
         {
+            return [RenderNodeOperation.CreateLambda(bounds, Render, HitTest)];
         }
 
         protected override void OnDispose(bool disposing)
@@ -49,12 +52,12 @@ public class Scene3D : Drawable
             (_surface, _renderTarget, _frameBuffer, _depthBuffer, _colorBuffer) = (null, null, null, null, null);
         }
 
-        public override bool HitTest(Point point)
+        private bool HitTest(Point point)
         {
-            return Bounds.ContainsExclusive(point);
+            return bounds.ContainsExclusive(point);
         }
 
-        public override unsafe void Render(ImmediateCanvas canvas)
+        private unsafe void Render(ImmediateCanvas canvas)
         {
             SharedGRContext.MakeCurrent();
             if (_surface is null || _colorBuffer is null || _depthBuffer is null || _frameBuffer is null)
@@ -65,8 +68,8 @@ public class Scene3D : Drawable
             int oldFbo = 0;
             GL.GetIntegerv(GetPName.DrawFramebufferBinding, &oldFbo);
             _frameBuffer!.Bind();
-            int width = (int)Bounds.Width;
-            int height = (int)Bounds.Height;
+            int width = (int)bounds.Width;
+            int height = (int)bounds.Height;
             GL.Viewport(0, 0, width, height);
             // アンチエイリアス
             GL.Enable(EnableCap.LineSmooth);
@@ -89,16 +92,16 @@ public class Scene3D : Drawable
         {
             SharedGRContext.MakeCurrent();
             SharedGRContext.GRContext!.ResetContext();
-            int width = (int)Bounds.Width;
-            int height = (int)Bounds.Height;
+            int width = (int)bounds.Width;
+            int height = (int)bounds.Height;
             _colorBuffer = new ColorBuffer(width, height, InternalFormat.Rgba, PixelFormat.Rgba,
                 PixelType.UnsignedByte);
             _depthBuffer = new DepthBuffer(width, height);
             _frameBuffer = new FrameBuffer(_colorBuffer, _depthBuffer);
 
             _renderTarget = new GRBackendRenderTarget(
-                (int)Bounds.Width,
-                (int)Bounds.Height,
+                (int)bounds.Width,
+                (int)bounds.Height,
                 sampleCount: 0,
                 stencilBits: 8,
                 new GRGlFramebufferInfo((uint)_frameBuffer.Handle, SKColorType.Rgba8888.ToGlSizedFormat())
@@ -112,7 +115,7 @@ public class Scene3D : Drawable
         {
             if (ReferenceEquals(null, other)) return false;
             if (ReferenceEquals(this, other)) return true;
-            return Bounds.Equals(other.Bounds);
+            return bounds.Equals(other.Bounds);
         }
     }
 }
