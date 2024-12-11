@@ -4,6 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -39,11 +41,12 @@ public partial class EditorHostFallback : UserControl
     {
         ThemeVariant theme = ActualThemeVariant;
 
-        void SetImage(string darkTheme, string lightTheme, BitmapIcon image)
+        void SetImage(string darkTheme, string lightTheme, Image image)
         {
-            image.UriSource = theme == ThemeVariant.Light || theme == FluentAvaloniaTheme.HighContrastTheme
+            using var stream = AssetLoader.Open(theme == ThemeVariant.Light || theme == FluentAvaloniaTheme.HighContrastTheme
                 ? new Uri(lightTheme)
-                : new Uri(darkTheme);
+                : new Uri(darkTheme));
+            image.Source = new Bitmap(stream);
         }
 
         SetImage(
