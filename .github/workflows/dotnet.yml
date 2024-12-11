@@ -22,6 +22,8 @@ jobs:
         with:
           global-json-file: global.json
 
+      - run: dotnet tool install -g dotnet-reportgenerator-globaltool
+
       - name: Restore dependencies
         run: dotnet restore
 
@@ -52,8 +54,11 @@ jobs:
           recreate: true
           path: code-coverage-results.md
 
+      - name: Generate Report
+        run: reportgenerator -reports:`find tests/Beutl.UnitTests/TestResults/*/coverage.cobertura.xml | head -n 1 ` -targetdir:coveragereport -reporttypes:Html
+
       - name: Save
         uses: actions/upload-artifact@v4
         with:
           name: Coverage
-          path: tests/**/coverage.cobertura.xml
+          path: coveragereport
