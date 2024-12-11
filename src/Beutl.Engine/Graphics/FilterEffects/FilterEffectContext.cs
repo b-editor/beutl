@@ -298,7 +298,7 @@ public sealed class FilterEffectContext : IDisposable
     {
         AppendSkiaFilter(
             (matrix, bitmapInterpolationMode),
-            (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(), data.bitmapInterpolationMode.ToSKFilterQuality(), input),
+            (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(), data.bitmapInterpolationMode.ToSKSamplingOptions(), input),
             (data, rect) => rect.TransformToAABB(data.matrix));
     }
 
