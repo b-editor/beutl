@@ -18,6 +18,18 @@ internal static class SkiaSharpExtensions
         };
     }
 
+    public static SKSamplingOptions ToSKSamplingOptions(this BitmapInterpolationMode interpolationMode)
+    {
+        return interpolationMode switch
+        {
+            BitmapInterpolationMode.Default => new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None),
+            BitmapInterpolationMode.LowQuality => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None),
+            BitmapInterpolationMode.MediumQuality => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear),
+            BitmapInterpolationMode.HighQuality => new SKSamplingOptions(SKCubicResampler.Mitchell),
+            _ => throw new ArgumentOutOfRangeException(nameof(interpolationMode), interpolationMode, null)
+        };
+    }
+
     public static SKPoint ToSKPoint(this Point p)
     {
         return new SKPoint(p.X, p.Y);
