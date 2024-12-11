@@ -2,7 +2,6 @@
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -12,13 +11,11 @@ public class Renderer : IRenderer
     private readonly RenderTarget _surface;
     private readonly FpsText _fpsText = new();
     private readonly InstanceClock _instanceClock = new();
-    private readonly RenderNodeCacheContext _cacheContext;
 
     public Renderer(int width, int height)
     {
         FrameSize = new PixelSize(width, height);
         RenderScene = new RenderScene(FrameSize);
-        _cacheContext = new RenderNodeCacheContext(RenderScene);
         (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
         {
             RenderTarget surface = RenderTarget.Create(width, height)
@@ -76,6 +73,11 @@ public class Renderer : IRenderer
         }
     }
 
+    public RenderNodeCacheContext GetCacheContext()
+    {
+        return RenderScene._cacheContext;
+    }
+
     protected virtual void OnDispose(bool disposing)
     {
     }
@@ -98,31 +100,10 @@ public class Renderer : IRenderer
         RenderScene.Render(_immediateCanvas);
     }
 
-    ImmediateCanvas IImmediateCanvasFactory.CreateCanvas(RenderTarget surface)
-    {
-        ArgumentNullException.ThrowIfNull(surface);
-        RenderThread.Dispatcher.VerifyAccess();
-
-        return new ImmediateCanvas(surface)
-        {
-            Factory = this
-        };
-    }
-
-    RenderTarget? IImmediateCanvasFactory.CreateRenderTarget(int width, int height)
-    {
-        return RenderTarget.Create(width, height);
-    }
-
-    public RenderNodeCacheContext? GetCacheContext()
-    {
-        return _cacheContext;
-    }
-
     public Drawable? HitTest(Point point)
     {
         RenderThread.Dispatcher.VerifyAccess();
-        return RenderScene.HitTest(point, this);
+        return RenderScene.HitTest(point);
     }
 
     public bool Render(TimeSpan timeSpan)
@@ -156,7 +137,7 @@ public class Renderer : IRenderer
     public Bitmap<Bgra8888> Snapshot()
     {
         RenderThread.Dispatcher.VerifyAccess();
-        return _immediateCanvas.GetBitmap();
+        return _surface.Snapshot();
     }
 
     public static ImmediateCanvas GetInternalCanvas(Renderer renderer)

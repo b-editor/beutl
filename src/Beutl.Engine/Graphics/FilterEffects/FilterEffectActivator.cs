@@ -1,11 +1,10 @@
 ﻿using Beutl.Graphics.Rendering;
-using Beutl.Media.Source;
 
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBuilder builder, IImmediateCanvasFactory factory) : IDisposable
+public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBuilder builder) : IDisposable
 {
     public SKImageFilterBuilder Builder { get; } = builder;
 
@@ -126,7 +125,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
         using EffectTargets cloned = CurrentTargets.Clone();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(cloned, builder, factory);
+        using var activator = new FilterEffectActivator(cloned, builder);
 
         activator.Apply(context);
         activator.Flush(false);

@@ -702,6 +702,7 @@ public sealed class PlayerViewModel : IDisposable
         return RenderThread.Dispatcher.InvokeAsync(() =>
         {
             if (Scene == null) throw new Exception("Scene is null.");
+            // TODO: Rendererに特定のDrawableのみを描画するクラスを追加する
             SceneRenderer renderer = EditViewModel.Renderer.Value;
             PixelSize frameSize = renderer.FrameSize;
             using var root = new DrawableRenderNode(drawable);
@@ -710,7 +711,7 @@ public sealed class PlayerViewModel : IDisposable
                 drawable.Render(context);
             }
 
-            var processor = new RenderNodeProcessor(root, renderer, false);
+            var processor = new RenderNodeProcessor(root, false);
             return processor.RasterizeAndConcat();
         });
     }
@@ -722,16 +723,11 @@ public sealed class PlayerViewModel : IDisposable
         return RenderThread.Dispatcher.InvokeAsync(() =>
         {
             if (Scene == null) throw new Exception("Scene is null.");
-            IRenderer renderer = EditViewModel.Renderer.Value;
+            SceneRenderer renderer = EditViewModel.Renderer.Value;
 
-            RenderNodeCacheContext? cacheContext = renderer.GetCacheContext();
-            RenderCacheOptions? restoreCacheOptions = null;
-
-            if (cacheContext != null)
-            {
-                restoreCacheOptions = cacheContext.CacheOptions;
-                cacheContext.CacheOptions = RenderCacheOptions.Disabled;
-            }
+            RenderNodeCacheContext cacheContext = renderer.GetCacheContext();
+            RenderCacheOptions restoreCacheOptions = cacheContext.CacheOptions;
+            cacheContext.CacheOptions = RenderCacheOptions.Disabled;
 
             try
             {
@@ -744,10 +740,7 @@ public sealed class PlayerViewModel : IDisposable
             }
             finally
             {
-                if (cacheContext != null && restoreCacheOptions != null)
-                {
-                    cacheContext.CacheOptions = restoreCacheOptions;
-                }
+                cacheContext.CacheOptions = restoreCacheOptions;
             }
         });
     }

@@ -96,7 +96,7 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
     }
 
     // 再帰呼び出し
-    public void MakeCache(RenderNode node, IImmediateCanvasFactory factory)
+    public void MakeCache(RenderNode node)
     {
         if (!_cacheOptions.IsEnabled)
             return;
@@ -108,7 +108,7 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
         {
             if (!cache.IsCached)
             {
-                CreateDefaultCache(node, cache, factory);
+                CreateDefaultCache(node, cache);
             }
         }
         else if (node is ContainerRenderNode containerNode)
@@ -116,14 +116,14 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
             cache.Invalidate();
             foreach (RenderNode item in containerNode.Children)
             {
-                MakeCache(item, factory);
+                MakeCache(item);
             }
         }
     }
 
-    public void CreateDefaultCache(RenderNode node, RenderNodeCache cache, IImmediateCanvasFactory factory)
+    public void CreateDefaultCache(RenderNode node, RenderNodeCache cache)
     {
-        var processor = new RenderNodeProcessor(node, factory, false);
+        var processor = new RenderNodeProcessor(node, false);
         var list = processor.RasterizeToRenderTargets();
         int pixels = list.Sum(i =>
         {

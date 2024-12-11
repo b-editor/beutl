@@ -15,7 +15,7 @@ public sealed class FilterEffectRenderNode(FilterEffect filterEffect) : Containe
         effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));
 
         using (var builder = new SKImageFilterBuilder())
-        using (var activator = new FilterEffectActivator(effectTargets, builder, context.CanvasFactory))
+        using (var activator = new FilterEffectActivator(effectTargets, builder))
         {
             activator.Apply(feContext);
 

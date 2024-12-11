@@ -43,7 +43,7 @@ public class EllipseRenderNodeTest
         var rect = new Rect(0, 0, 100, 100);
         IBrush fill = new SolidColorBrush(Colors.Red);
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
-        var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
+        var context = new RenderNodeContext([]);
 
         var node = new EllipseRenderNode(rect, fill, pen);
         var operations = node.Process(context);
@@ -58,7 +58,7 @@ public class EllipseRenderNodeTest
         var rect = new Rect(0, 0, 100, 100);
         IBrush fill = new SolidColorBrush(Colors.Red);
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
-        var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
+        var context = new RenderNodeContext([]);
 
         var node = new EllipseRenderNode(rect, fill, pen);
         var operations = node.Process(context);
@@ -73,7 +73,7 @@ public class EllipseRenderNodeTest
         var rect = new Rect(0, 0, 100, 100);
         IBrush fill = new SolidColorBrush(Colors.Red);
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
-        var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
+        var context = new RenderNodeContext([]);
 
         var node = new EllipseRenderNode(rect, fill, pen);
         var operations = node.Process(context);
@@ -87,7 +87,7 @@ public class EllipseRenderNodeTest
     {
         var rect = new Rect(25, 25, 75, 75);
         IPen pen = new Pen { Brush = Brushes.Black, Thickness = 50 };
-        var context = new RenderNodeContext(Mock.Of<IImmediateCanvasFactory>(), []);
+        var context = new RenderNodeContext([]);
 
         var node = new EllipseRenderNode(rect, null, pen);
         var operations = node.Process(context);

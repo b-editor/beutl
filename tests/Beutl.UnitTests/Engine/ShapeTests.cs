@@ -72,7 +72,7 @@ public class ShapeTests
 
         canvas.DrawDrawable(shape);
 
-        using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
+        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
@@ -97,7 +97,7 @@ public class ShapeTests
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(shape);
 
-        using Bitmap<Bgra8888> bmp = canvas.GetBitmap();
+        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }

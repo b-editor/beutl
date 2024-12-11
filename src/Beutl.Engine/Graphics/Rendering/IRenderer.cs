@@ -4,7 +4,7 @@ using Beutl.Media.Pixel;
 
 namespace Beutl.Graphics.Rendering;
 
-public interface IRenderer : IDisposable, IImmediateCanvasFactory
+public interface IRenderer : IDisposable
 {
     RenderScene RenderScene { get; }
 

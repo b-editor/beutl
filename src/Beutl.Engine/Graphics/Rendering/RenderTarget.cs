@@ -73,6 +73,12 @@ public class RenderTarget : IDisposable
         return new RenderTarget(new SKSurfaceCounter(surface), width, height);
     }
 
+    public static RenderTarget GetRenderTarget(ImmediateCanvas canvas)
+    {
+        canvas.VerifyAccess();
+        return canvas._renderTarget.ShallowCopy();
+    }
+
     public unsafe Bitmap<Bgra8888> Snapshot()
     {
         VerifyAccess();

@@ -39,8 +39,6 @@ public interface ICanvas : IDisposable, IPopable
 
     IBackdrop Snapshot();
 
-    Bitmap<Bgra8888> GetBitmap();
-
     PushedState Push();
 
     PushedState PushLayer(Rect limit = default);

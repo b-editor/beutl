@@ -1,6 +1,5 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
@@ -10,9 +9,9 @@ using SkiaSharp;
 
 namespace Beutl.Graphics;
 
-public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
+public partial class ImmediateCanvas : ICanvas
 {
-    private readonly RenderTarget _renderTarget;
+    internal readonly RenderTarget _renderTarget;
     private readonly Dispatcher? _dispatcher;
     private readonly SKPaint _sharedFillPaint = new();
     private readonly SKPaint _sharedStrokePaint = new();
@@ -54,54 +53,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         }
     }
 
-    internal IImmediateCanvasFactory? Factory { get; set; }
-
     internal SKCanvas Canvas { get; }
-
-    public RenderNodeCacheContext? GetCacheContext()
-    {
-        return Factory?.GetCacheContext();
-    }
-
-    public ImmediateCanvas CreateCanvas(RenderTarget renderTarget)
-    {
-        ArgumentNullException.ThrowIfNull(renderTarget);
-
-        if (Factory != null)
-        {
-            var canvas = Factory.CreateCanvas(renderTarget);
-            canvas.Factory = this;
-            return canvas;
-        }
-        else
-        {
-            return new ImmediateCanvas(renderTarget) { Factory = this };
-        }
-    }
-
-    public RenderTarget? CreateRenderTarget(int width, int height)
-    {
-        if (Factory != null)
-        {
-            return Factory.CreateRenderTarget(width, height);
-        }
-        else
-        {
-            return RenderTarget.Create(width, height);
-        }
-    }
-
-    internal ImmediateCanvas GetRoot()
-    {
-        if (Factory is ImmediateCanvas parent && parent != this)
-        {
-            return parent.GetRoot();
-        }
-        else
-        {
-            return this;
-        }
-    }
 
     public void Clear()
     {
@@ -134,7 +86,6 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
             _sharedFillPaint.Dispose();
             _sharedStrokePaint.Dispose();
             GC.SuppressFinalize(this);
-            Factory = null;
             IsDisposed = true;
         }
 
@@ -173,13 +124,13 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         using var node = new DrawableRenderNode(drawable);
         using var context = new GraphicsContext2D(node, Size);
         drawable.Render(context);
-        var processor = new RenderNodeProcessor(node, this, true);
+        var processor = new RenderNodeProcessor(node, true);
         processor.Render(this);
     }
 
     public void DrawNode(RenderNode node)
     {
-        var processor = new RenderNodeProcessor(node, this, true);
+        var processor = new RenderNodeProcessor(node, true);
         processor.Render(this);
     }
 
@@ -190,7 +141,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
 
     public IBackdrop Snapshot()
     {
-        return new TmpBackdrop(GetBitmap());
+        return new TmpBackdrop(_renderTarget.Snapshot());
     }
 
     public void DrawBitmap(IBitmap bmp, IBrush? fill, IPen? pen)
@@ -354,16 +305,6 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         }
     }
 
-    public unsafe Bitmap<Bgra8888> GetBitmap()
-    {
-        VerifyAccess();
-        var result = new Bitmap<Bgra8888>(Size.Width, Size.Height);
-
-        _renderTarget.Value.ReadPixels(new SKImageInfo(Size.Width, Size.Height, SKColorType.Bgra8888), result.Data, result.Width * sizeof(Bgra8888), 0, 0);
-
-        return result;
-    }
-
     public void Pop(int count = -1)
     {
         VerifyAccess();
@@ -513,7 +454,7 @@ public partial class ImmediateCanvas : ICanvas, IImmediateCanvasFactory
         throw new NotSupportedException("ImmediateCanvasはFilterEffectに対応しません");
     }
 
-    private void VerifyAccess()
+    internal void VerifyAccess()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
