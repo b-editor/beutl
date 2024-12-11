@@ -82,19 +82,6 @@ public class Renderer : IRenderer
     {
     }
 
-    [Obsolete("Use Render(TimeSpan) and Snapshot() instead of RenderGraphics.")]
-    public Bitmap<Bgra8888>? RenderGraphics(TimeSpan timeSpan)
-    {
-        if (Render(timeSpan))
-        {
-            return Snapshot();
-        }
-        else
-        {
-            return null;
-        }
-    }
-
     protected virtual void RenderGraphicsCore()
     {
         RenderScene.Render(_immediateCanvas);

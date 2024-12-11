@@ -20,9 +20,6 @@ public interface IRenderer : IDisposable
 
     Drawable? HitTest(Point point);
 
-    [Obsolete("Use Render(TimeSpan) and Snapshot() instead of RenderGraphics.")]
-    Bitmap<Bgra8888>? RenderGraphics(TimeSpan timeSpan);
-
     bool Render(TimeSpan timeSpan);
 
     Bitmap<Bgra8888> Snapshot();
