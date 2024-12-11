@@ -146,6 +146,28 @@ public static unsafe partial class Image
         }
     }
 
+    public static SKImage ToSKImage(this IBitmap self, bool copy = false)
+    {
+        SKColorType? type = self switch
+        {
+            Bitmap<Bgra8888> => SKColorType.Bgra8888,
+            Bitmap<Bgra4444> => SKColorType.Argb4444,
+            Bitmap<Grayscale8> => SKColorType.Alpha8,
+            _ => null
+        };
+        if (type.HasValue)
+        {
+            return copy
+                ? SKImage.FromPixelCopy(new(self.Width, self.Height, type.Value), self.Data)
+                : SKImage.FromPixels(new(self.Width, self.Height, type.Value), self.Data);
+        }
+        else
+        {
+            using Bitmap<Bgra8888> typed = self.Convert<Bgra8888>();
+            return SKImage.FromPixelCopy(new(self.Width, self.Height, SKColorType.Bgra8888), typed.Data);
+        }
+    }
+
     public static SKBitmap ToSKBitmap(this Mat self)
     {
         var result = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));

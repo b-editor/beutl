@@ -6,6 +6,7 @@ namespace Beutl.Graphics;
 
 internal static class SkiaSharpExtensions
 {
+    [Obsolete("Use ToSKSamplingOptions")]
     public static SKFilterQuality ToSKFilterQuality(this BitmapInterpolationMode interpolationMode)
     {
         return interpolationMode switch

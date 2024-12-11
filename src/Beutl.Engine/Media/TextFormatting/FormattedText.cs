@@ -2,7 +2,6 @@
 using System.Runtime.InteropServices;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Media.Immutable;
 using Beutl.Reactive;
 using SkiaSharp;
 using SkiaSharp.HarfBuzz;
@@ -186,7 +185,11 @@ public class FormattedText : IEquatable<FormattedText>
         {
             Edging = SKFontEdging.Antialias,
             Subpixel = true,
-            Hinting = SKFontHinting.Full
+            Hinting = SKFontHinting.Full,
+            Embolden = true
+            //paint.HintingLevel = SKPaintHinting.Full;
+            //paint.LcdRenderText = true;
+            //paint.SubpixelText = true;
         };
 
         return font;
