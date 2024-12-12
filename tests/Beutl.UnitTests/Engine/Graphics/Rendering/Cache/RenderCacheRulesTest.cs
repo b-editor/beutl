@@ -1,4 +1,4 @@
-using Beutl.Graphics.Rendering.Cache;
+﻿using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;

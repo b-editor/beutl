@@ -1,4 +1,4 @@
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 
 namespace Beutl.UnitTests.Engine.Graphics.Effects;
