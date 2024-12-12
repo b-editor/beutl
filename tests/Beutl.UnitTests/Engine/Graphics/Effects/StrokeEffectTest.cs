@@ -1,4 +1,4 @@
-#pragma warning disable CS0618
+﻿#pragma warning disable CS0618
 
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;

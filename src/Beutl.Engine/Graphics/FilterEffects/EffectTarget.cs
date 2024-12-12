@@ -40,7 +40,7 @@ public sealed class EffectTarget : IDisposable
     public Size Size => Bounds.Size;
 
     public RenderNodeOperation? NodeOperation => _target as RenderNodeOperation;
-    
+
     public RenderTarget? RenderTarget => _target as RenderTarget;
 
     public bool IsEmpty => _target == null;

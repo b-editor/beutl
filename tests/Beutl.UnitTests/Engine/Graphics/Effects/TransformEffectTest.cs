@@ -1,8 +1,8 @@
-
-using Beutl.Graphics.Effects;
-using Beutl.Media;
-using Beutl.Graphics.Transformation;
+﻿
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Effects;
 
