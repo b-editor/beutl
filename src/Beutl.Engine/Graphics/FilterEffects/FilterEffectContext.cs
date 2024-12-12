@@ -193,17 +193,7 @@ public sealed class FilterEffectContext : IDisposable
         AppendSkiaFilter(
             data: (xChannelSelector, yChannelSelector, scale, child),
             factory: static (t, input, activator)
-                =>
-            {
-                var displacement = activator.Activate(t.child);
-                if (displacement != null)
-                {
-                    return SKImageFilter.CreateDisplacementMapEffect(t.xChannelSelector, t.yChannelSelector, t.scale,
-                        displacement, input);
-                }
-
-                return input;
-            },
+                => SKImageFilter.CreateDisplacementMapEffect(t.xChannelSelector, t.yChannelSelector, t.scale, activator.Activate(t.child), input),
             transformBounds: static (data, bounds) => bounds.Inflate(data.scale / 2));
     }
 
@@ -308,7 +298,7 @@ public sealed class FilterEffectContext : IDisposable
     {
         AppendSkiaFilter(
             (matrix, bitmapInterpolationMode),
-            (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(), data.bitmapInterpolationMode.ToSKSamplingOptions(), input),
+            (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(), data.bitmapInterpolationMode.ToSKFilterQuality(), input),
             (data, rect) => rect.TransformToAABB(data.matrix));
     }
 
