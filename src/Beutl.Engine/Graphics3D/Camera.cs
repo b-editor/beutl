@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using Beutl.Animation;
+using Beutl.Graphics3D.Transformation;
 using Beutl.Media;
 
 namespace Beutl.Graphics3D;
@@ -11,12 +12,14 @@ public abstract class Camera : Animatable, IAffectsRender
 {
     public static readonly CoreProperty<Vector3> PositionProperty;
     public static readonly CoreProperty<Vector3> TargetProperty;
+    public static readonly CoreProperty<ITransform3D?> TransformProperty;
     public static readonly CoreProperty<float> FovProperty;
     public static readonly CoreProperty<float> NearProperty;
     public static readonly CoreProperty<float> FarProperty;
 
     private Vector3 _position;
-    private Vector3 _target;
+    private Vector3 _target = Vector3.UnitZ;
+    private ITransform3D? _transform;
     private float _fov = 90;
     private float _near = 0.1f;
     private float _far = 20000;
@@ -30,7 +33,11 @@ public abstract class Camera : Animatable, IAffectsRender
 
         TargetProperty = ConfigureProperty<Vector3, Camera>(nameof(Target))
             .Accessor(o => o.Target, (o, v) => o.Target = v)
-            .DefaultValue(Vector3.Zero)
+            .DefaultValue(Vector3.UnitZ)
+            .Register();
+
+        TransformProperty = ConfigureProperty<ITransform3D?, Camera>(nameof(Transform))
+            .Accessor(o => o.Transform, (o, v) => o.Transform = v)
             .Register();
 
         FovProperty = ConfigureProperty<float, Camera>(nameof(Fov))
@@ -51,6 +58,7 @@ public abstract class Camera : Animatable, IAffectsRender
         AffectsRender<Camera>(
             PositionProperty,
             TargetProperty,
+            TransformProperty,
             FovProperty,
             NearProperty,
             FarProperty);
@@ -94,6 +102,15 @@ public abstract class Camera : Animatable, IAffectsRender
     }
 
     /// <summary>
+    /// Gets or sets the <see cref="ITransform3D"/> of this <see cref="Camera"/>.
+    /// </summary>
+    public ITransform3D? Transform
+    {
+        get => _transform;
+        set => SetAndRaise(TransformProperty, ref _transform, value);
+    }
+
+    /// <summary>
     /// Gets or sets the Degrees representing the Fov of this <see cref="Camera"/>.
     /// </summary>
     public float Fov
@@ -126,7 +143,7 @@ public abstract class Camera : Animatable, IAffectsRender
     /// <returns>Returns the view matrix.</returns>
     public Matrix4x4 GetViewMatrix()
     {
-        return Matrix4x4.CreateLookAt(Position, Target, Vector3.UnitY);
+        return Transform?.Value ?? Matrix4x4.Identity * Matrix4x4.CreateLookAt(Position, Target, Vector3.UnitY);
     }
 
     /// <summary>
@@ -134,6 +151,29 @@ public abstract class Camera : Animatable, IAffectsRender
     /// </summary>
     /// <returns>Returns the projection matrix.</returns>
     public abstract Matrix4x4 GetProjectionMatrix();
+    
+    /// <summary>
+    /// Converts a screen point to a ray in world space.
+    /// </summary>
+    /// <param name="x">The x-coordinate of the screen point.</param>
+    /// <param name="y">The y-coordinate of the screen point.</param>
+    /// <param name="screenW">The width of the screen.</param>
+    /// <param name="screenH">The height of the screen.</param>
+    /// <returns>A <see cref="Ray"/> representing the ray in world space.</returns>
+    public Ray ScreenPointToRay(float x, float y, float screenW, float screenH)
+    {
+        Vector2 viewportPoint = new Vector2(x / screenW, y / screenH);
+        viewportPoint.X = (viewportPoint.X - 0.5f) * 2;
+        viewportPoint.Y = -(viewportPoint.Y - 0.5f) * 2;
+        return ViewportPointToRay(viewportPoint);
+    }
+
+    /// <summary>
+    /// Converts a point in viewport coordinates to a ray in world space.
+    /// </summary>
+    /// <param name="viewportPoint">The point in viewport coordinates, where (0,0) is the bottom-left and (1,1) is the top-right.</param>
+    /// <returns>A <see cref="Ray"/> that starts at the camera position and points in the direction corresponding to the viewport point.</returns>
+    public abstract Ray ViewportPointToRay(Vector2 viewportPoint);
 
     private void OnAffectsRenderInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
