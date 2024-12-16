@@ -72,4 +72,24 @@ public sealed class OrthographicCamera : Camera
     {
         return Matrix4x4.CreateOrthographic(Width, Height, Near, Far);
     }
+
+    /// <inheritdoc/>
+    public override Ray ViewportPointToRay(Vector2 viewportPoint)
+    {
+        var nearPlanePoint = new Vector3
+        {
+            X = Width / 2.0f * viewportPoint.X,
+            Y = Height / 2.0f * viewportPoint.Y,
+            Z = -Near
+        };
+
+        Matrix4x4 view = GetViewMatrix();
+        nearPlanePoint = Vector3.Transform(nearPlanePoint, view);
+
+        return new Ray()
+        {
+            Origin = nearPlanePoint,
+            Direction = -Vector3.Transform(Vector3.UnitZ, view)
+        };
+    }
 }

@@ -54,4 +54,25 @@ public sealed class PerspectiveCamera : Camera
     {
         return Matrix4x4.CreatePerspectiveFieldOfView(MathUtilities.ToRadians(Fov), AspectRatio, Near, Far);
     }
+
+    /// <inheritdoc/>
+    public override Ray ViewportPointToRay(Vector2 viewportPoint)
+    {
+        float nearPlaneHalfH = Near * (float)Math.Tan(MathUtilities.ToRadians(Fov) / 2.0f);
+        var nearPlanePoint = new Vector3
+        {
+            X = nearPlaneHalfH * AspectRatio * viewportPoint.X,
+            Y = nearPlaneHalfH * viewportPoint.Y,
+            Z = -Near
+        };
+
+        Matrix4x4 view = GetViewMatrix();
+        nearPlanePoint = Vector3.Transform(nearPlanePoint, view);
+
+        return new Ray()
+        {
+            Origin = nearPlanePoint,
+            Direction = Vector3.Normalize(nearPlanePoint - view.Translation)
+        };
+    }
 }
