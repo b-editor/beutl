@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using Beutl.Animation;
 using Beutl.Graphics;
@@ -17,9 +17,11 @@ public class Scene3D : Drawable
     public static readonly CoreProperty<int> WidthProperty;
     public static readonly CoreProperty<int> HeightProperty;
     public static readonly CoreProperty<Camera?> CameraProperty;
+    public static readonly CoreProperty<Drawables3D> ChildrenProperty;
     private int _width = -1;
     private int _height = -1;
     private Camera? _camera;
+    private readonly Drawables3D _children = [];
     private SceneNode? _root;
 
     static Scene3D()
@@ -38,6 +40,9 @@ public class Scene3D : Drawable
             .Accessor(o => o.Camera, (o, v) => o.Camera = v)
             .Register();
 
+        ChildrenProperty = ConfigureProperty<Drawables3D, Scene3D>(nameof(Children))
+            .Accessor(o => o.Children, (o, v) => o.Children = v)
+            .Register();
 
         AffectsRender<Scene3D>(
             WidthProperty, HeightProperty, CameraProperty);
@@ -46,6 +51,9 @@ public class Scene3D : Drawable
     public Scene3D()
     {
         Camera = new PerspectiveCamera { AspectRatio = 1 };
+        _children.Invalidated += (_, e) => RaiseInvalidated(e);
+        _children.Attached += HierarchicalChildren.Add;
+        _children.Detached += item => HierarchicalChildren.Remove(item);
     }
 
     [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
@@ -70,6 +78,27 @@ public class Scene3D : Drawable
         set => SetAndRaise(CameraProperty, ref _camera, value);
     }
 
+    [NotAutoSerialized]
+    public Drawables3D Children
+    {
+        get => _children;
+        set => _children.Replace(value);
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(Children), Children);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if (context.GetValue<Drawables3D>(nameof(Children)) is { } children)
+        {
+            Children = children;
+        }
+    }
 
     public override void ApplyAnimations(IClock clock)
     {
@@ -172,9 +201,22 @@ public class Scene3D : Drawable
             GL.Hint(HintTarget.PolygonSmoothHint, HintMode.Nicest);
             GL.Hint(HintTarget.TextureCompressionHint, HintMode.Nicest);
             GL.Disable(EnableCap.DepthTest);
-            GL.ClearColor(Color4.Red);
+            GL.ClearColor(default);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
             GlErrorHelper.CheckGlError();
+
+            Camera camera = scene.Camera!;
+            Matrix4x4 viewMatrix = camera.GetViewMatrix();
+            Matrix4x4 projectionMatrix = camera.GetProjectionMatrix();
+            Matrix4x4 viewProjectionMatrix = viewMatrix * projectionMatrix;
+            var context = new GraphicsContext3D();
+            using (context.PushTransform(viewProjectionMatrix))
+            {
+                foreach (Drawable3D child in scene.Children)
+                {
+                    child.Render(context);
+                }
+            }
 
             _frameBuffer!.Unbind();
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, oldFbo);
