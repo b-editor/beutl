@@ -103,6 +103,8 @@ public class Renderer : IRenderer
                 IsGraphicsRendering = true;
                 _instanceClock.CurrentTime = timeSpan;
                 RenderScene.Clear();
+                SharedGRContext.MakeCurrent();
+                SharedGRContext.GRContext!.ResetContext();
                 using (_fpsText.StartRender(_immediateCanvas))
                 {
                     RenderGraphicsCore();
