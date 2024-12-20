@@ -6,6 +6,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels"
+             xmlns:wnd="using:FluentAvalonia.UI.Windowing"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="viewModel:OutputPageViewModel"
@@ -29,13 +30,15 @@
             </ui:CommandBar.Styles>
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Click="OnAddClick"
-                                     IconSource="Add"
-                                     Label="{x:Static lang:Strings.Add}" />
+                                    wnd:AppWindow.AllowInteractionInTitleBar="True"
+                                    IconSource="Add"
+                                    Label="{x:Static lang:Strings.Add}" />
                 <ui:CommandBarSeparator />
                 <ui:CommandBarButton Click="OnRemoveClick"
-                                     IconSource="Dismiss"
-                                     IsEnabled="{Binding CanRemove.Value}"
-                                     Label="{x:Static lang:Strings.Close}" />
+                                    wnd:AppWindow.AllowInteractionInTitleBar="True"
+                                    IconSource="Dismiss"
+                                    IsEnabled="{Binding CanRemove.Value}"
+                                    Label="{x:Static lang:Strings.Close}" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
 
