@@ -6,7 +6,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class ExtensionsPageViewModel : IPageContext
+public sealed class ExtensionsDialogViewModel : IToolWindowContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly CompositeDisposable _authDisposables = [];
@@ -15,7 +15,7 @@ public sealed class ExtensionsPageViewModel : IPageContext
     private Lazy<LibraryPageViewModel>? _library;
     private Lazy<DevelopPageViewModel>? _develop;
 
-    public ExtensionsPageViewModel(BeutlApiApplication clients)
+    public ExtensionsDialogViewModel(BeutlApiApplication clients)
     {
         _clients = clients;
         IsAuthorized = clients.AuthorizedUser
@@ -56,9 +56,7 @@ public sealed class ExtensionsPageViewModel : IPageContext
     public DevelopPageViewModel Develop
         => _develop?.Value ?? throw new Exception("Authorization is required.");
 
-    public PageExtension Extension => ExtensionsPageExtension.Instance;
-
-    public string Header => Strings.Extensions;
+    public ToolWindowExtension Extension => ExtensionsDialogExtension.Instance;
 
     public void Dispose()
     {

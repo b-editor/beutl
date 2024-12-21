@@ -9,7 +9,7 @@
              xmlns:wnd="using:FluentAvalonia.UI.Windowing"
              d:DesignHeight="450"
              d:DesignWidth="800"
-             x:DataType="viewModel:OutputPageViewModel"
+             x:DataType="viewModel:OutputDialogViewModel"
              mc:Ignorable="d">
     <Grid Name="Grid"
           ColumnDefinitions="300,*"

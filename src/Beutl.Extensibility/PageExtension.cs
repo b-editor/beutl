@@ -1,23 +1,22 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Extensibility;
 
+[Obsolete("Use ToolWindowExtension instead.")]
 public abstract class PageExtension : Extension
 {
     public abstract Control CreateControl();
 
     public abstract IPageContext CreateContext();
 
-    [Obsolete]
     public abstract IconSource GetFilledIcon();
 
     public abstract IconSource GetRegularIcon();
 }
 
+[Obsolete("Use ToolWindowContext instead.")]
 public interface IPageContext : IDisposable
 {
     PageExtension Extension { get; }
