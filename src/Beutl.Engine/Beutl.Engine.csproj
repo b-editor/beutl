@@ -28,6 +28,7 @@
     <PackageReference Include="OpenTK.Graphics" />
     <PackageReference Include="OpenTK.OpenAL" />
     <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" />
+    <PackageReference Include="ppy.SDL3-CS" />
     <PackageReference Include="SkiaSharp.HarfBuzz" />
     <PackageReference Include="TrippyGL" />
     <PackageReference Include="Vortice.XAudio2" />

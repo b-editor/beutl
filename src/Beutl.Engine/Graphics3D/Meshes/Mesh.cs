@@ -1,6 +1,4 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
-using OpenTK.Graphics.OpenGL;
 
 namespace Beutl.Graphics3D.Meshes;
 
@@ -12,70 +10,17 @@ public class Mesh : CoreObject
 
     public int[]? Indices { get; set; }
 
-    public BoundingBox Bounds { get; private set; }
+    public BoundingBox Bounds { get; protected set; }
 
-    public void GenerateVAO()
+    public MeshResource CreateResource(Device device)
     {
-        Vertex[] vertices = [.. Vertices];
-
-        VertexArrayObject = GL.GenVertexArray();
-
-        int vbo = GL.GenBuffer();
-
-        GL.BindVertexArray(VertexArrayObject);
-        GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-
-        int sizeOfVertex = Marshal.SizeOf(vertices[0]);
-        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeOfVertex, vertices, BufferUsage.StaticDraw);
-
-        //Position
-        GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, sizeOfVertex, IntPtr.Zero);
-        GL.EnableVertexAttribArray(0);
-        //Color
-        GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, sizeOfVertex, Marshal.SizeOf(vertices[0].Position));
-        GL.EnableVertexAttribArray(1);
-        //Normal
-        GL.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, false, sizeOfVertex, Marshal.SizeOf(vertices[0].Position) + Marshal.SizeOf(vertices[0].Color));
-        GL.EnableVertexAttribArray(2);
-        //TexCoord
-        GL.VertexAttribPointer(3, 2, VertexAttribPointerType.Float, false, sizeOfVertex, Marshal.SizeOf(vertices[0].Position) + Marshal.SizeOf(vertices[0].Color) + Marshal.SizeOf(vertices[0].Normal));
-        GL.EnableVertexAttribArray(3);
-        //Tangent
-        GL.VertexAttribPointer(4, 3, VertexAttribPointerType.Float, false, sizeOfVertex, Marshal.SizeOf(vertices[0].Position) + Marshal.SizeOf(vertices[0].Color) + Marshal.SizeOf(vertices[0].Normal) + Marshal.SizeOf(vertices[0].TexCoord));
-        GL.EnableVertexAttribArray(4);
-        //Bitangent
-        GL.VertexAttribPointer(5, 3, VertexAttribPointerType.Float, false, sizeOfVertex, Marshal.SizeOf(vertices[0].Position) + Marshal.SizeOf(vertices[0].Color) + Marshal.SizeOf(vertices[0].Normal) + Marshal.SizeOf(vertices[0].TexCoord) + Marshal.SizeOf(vertices[0].Tangent));
-        GL.EnableVertexAttribArray(5);
-
-        int ebo = 0;
-        if (Indices != null)
-        {
-            int[] indices = [.. Indices];
-            ebo = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsage.StaticDraw);
-        }
-
-
-        GL.BindVertexArray(0);
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-        GL.DeleteBuffer(vbo);
-        if (Indices != null)
-        {
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
-            GL.DeleteBuffer(ebo);
-        }
-
-        Bounds = GenerateAABB();
+        return new MeshResource(device, this);
     }
 
     public void Clear()
     {
         Vertices.Clear();
         Indices = null;
-
-        if (VertexArrayObject > 0)
-            GL.DeleteVertexArray(VertexArrayObject);
     }
 
     public void AddFace(Vertex v1, Vertex v2, Vertex v3, Vertex v4)
@@ -101,7 +46,7 @@ public class Mesh : CoreObject
         AddFace(v1, v2, v3, v4);
     }
 
-    private BoundingBox GenerateAABB()
+    protected BoundingBox GenerateAABB()
     {
         var bbox = new BoundingBox();
 

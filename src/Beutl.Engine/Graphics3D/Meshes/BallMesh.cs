@@ -59,6 +59,6 @@ public class BallMesh : Mesh
             }
         }
 
-        GenerateVAO();
+        Bounds = GenerateAABB();
     }
 }

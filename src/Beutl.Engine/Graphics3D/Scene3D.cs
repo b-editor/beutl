@@ -150,12 +150,6 @@ public class Scene3D : Drawable
 
     private class SceneNode(Rect bounds, Scene3D scene) : RenderNode, IEquatable<SceneNode?>
     {
-        private ColorBuffer? _colorBuffer;
-        private DepthBuffer? _depthBuffer;
-        private FrameBuffer? _frameBuffer;
-        private GRBackendRenderTarget? _renderTarget;
-        private SKSurface? _surface;
-
         private Rect Bounds => bounds;
 
         public override RenderNodeOperation[] Process(RenderNodeContext context)
@@ -167,12 +161,6 @@ public class Scene3D : Drawable
         protected override void OnDispose(bool disposing)
         {
             base.OnDispose(disposing);
-            _surface?.Dispose();
-            _renderTarget?.Dispose();
-            _frameBuffer?.Dispose();
-            _depthBuffer?.Dispose();
-            _colorBuffer?.Dispose();
-            (_surface, _renderTarget, _frameBuffer, _depthBuffer, _colorBuffer) = (null, null, null, null, null);
         }
 
         private bool HitTest(Point point)
@@ -182,69 +170,6 @@ public class Scene3D : Drawable
 
         private unsafe void Render(ImmediateCanvas canvas)
         {
-            SharedGRContext.MakeCurrent();
-            if (_surface is null || _colorBuffer is null || _depthBuffer is null || _frameBuffer is null)
-            {
-                Init();
-            }
-
-            int oldFbo = 0;
-            GL.GetIntegerv(GetPName.DrawFramebufferBinding, &oldFbo);
-            _frameBuffer!.Bind();
-            int width = (int)bounds.Width;
-            int height = (int)bounds.Height;
-            GL.Viewport(0, 0, width, height);
-            // アンチエイリアス
-            GL.Enable(EnableCap.LineSmooth);
-            GL.Enable(EnableCap.PolygonSmooth);
-            GL.Hint(HintTarget.LineSmoothHint, HintMode.Nicest);
-            GL.Hint(HintTarget.PolygonSmoothHint, HintMode.Nicest);
-            GL.Hint(HintTarget.TextureCompressionHint, HintMode.Nicest);
-            GL.Disable(EnableCap.DepthTest);
-            GL.ClearColor(default);
-            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-            GlErrorHelper.CheckGlError();
-
-            Camera camera = scene.Camera!;
-            Matrix4x4 viewMatrix = camera.GetViewMatrix();
-            Matrix4x4 projectionMatrix = camera.GetProjectionMatrix();
-            Matrix4x4 viewProjectionMatrix = viewMatrix * projectionMatrix;
-            var context = new GraphicsContext3D();
-            using (context.PushTransform(viewProjectionMatrix))
-            {
-                foreach (Drawable3D child in scene.Children)
-                {
-                    child.Render(context);
-                }
-            }
-
-            _frameBuffer!.Unbind();
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, oldFbo);
-
-            canvas.DrawSurface(_surface!, default);
-        }
-
-        private void Init()
-        {
-            SharedGRContext.MakeCurrent();
-            SharedGRContext.GRContext!.ResetContext();
-            int width = (int)bounds.Width;
-            int height = (int)bounds.Height;
-            _colorBuffer = new ColorBuffer(width, height, InternalFormat.Rgba, PixelFormat.Rgba,
-                PixelType.UnsignedByte);
-            _depthBuffer = new DepthBuffer(width, height);
-            _frameBuffer = new FrameBuffer(_colorBuffer, _depthBuffer);
-
-            _renderTarget = new GRBackendRenderTarget(
-                (int)bounds.Width,
-                (int)bounds.Height,
-                sampleCount: 0,
-                stencilBits: 8,
-                new GRGlFramebufferInfo((uint)_frameBuffer.Handle, SKColorType.Rgba8888.ToGlSizedFormat())
-            );
-
-            _surface = SKSurface.Create(SharedGRContext.GRContext, _renderTarget, GRSurfaceOrigin.TopLeft,
-                SKColorType.Rgba8888);
         }
 
         public bool Equals(SceneNode? other)

@@ -64,6 +64,7 @@
     <PackageVersion Include="OpenTK.OpenAL" Version="5.0.0-pre.8" />
     <PackageVersion Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="5.0.0-pre.13" />
     <PackageVersion Include="PanelExtension" Version="1.0.0" />
+    <PackageVersion Include="ppy.SDL3-CS" Version="2024.1128.0" />
     <PackageVersion Include="ReactiveProperty" Version="9.6.0" />
     <PackageVersion Include="ReDocking.Avalonia" Version="1.0.2" />
     <PackageVersion Include="Refit" Version="8.0.0" />

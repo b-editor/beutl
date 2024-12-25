@@ -32,6 +32,6 @@ public class CubeMesh : Mesh
         AddFace(v5, v6, v1, v2);
         AddFace(v3, v4, v7, v8);
 
-        GenerateVAO();
+        Bounds = GenerateAABB();
     }
 }
