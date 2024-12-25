@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Beutl.Media.Decoding;
 
 namespace Beutl.Media.Source;
@@ -92,6 +91,13 @@ public sealed class VideoSource : IVideoSource
         }
 
         return _mediaReader.Value.ReadVideo(frame, out bitmap);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is VideoSource source
+               && !IsDisposed && !source.IsDisposed
+               && ReferenceEquals(_mediaReader.Value, source._mediaReader.Value);
     }
 
     IVideoSource IVideoSource.Clone() => Clone();
