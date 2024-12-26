@@ -63,4 +63,18 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
             }
         }
     }
+
+    public event EventHandler<IHierarchical>? DescendantAttached;
+
+    public event EventHandler<IHierarchical>? DescendantDetached;
+
+    void IHierarchicalRoot.OnDescendantAttached(IHierarchical descendant)
+    {
+        DescendantAttached?.Invoke(this, descendant);
+    }
+
+    void IHierarchicalRoot.OnDescendantDetached(IHierarchical descendant)
+    {
+        DescendantDetached?.Invoke(this, descendant);
+    }
 }

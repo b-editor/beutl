@@ -145,6 +145,7 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
             _root = e.Root;
             OnAttachedToHierarchy(e);
             AttachedToHierarchy?.Invoke(this, e);
+            _root.OnDescendantAttached(this);
         }
 
         foreach (IHierarchical item in _hierarchicalChildren.GetMarshal().Value)
@@ -160,6 +161,7 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
             _root = null;
             OnDetachedFromHierarchy(e);
             DetachedFromHierarchy?.Invoke(this, e);
+            e.Root.OnDescendantDetached(this);
 
             foreach (IHierarchical item in _hierarchicalChildren.GetMarshal().Value)
             {
