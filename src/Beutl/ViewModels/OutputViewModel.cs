@@ -87,8 +87,6 @@ public sealed class OutputViewModel : IOutputContext
 
     public ReadOnlyObservableCollection<ControllableEncodingExtension> Encoders => _encoders;
 
-    public ReactivePropertySlim<bool> IsEncodersExpanded { get; } = new();
-
     public ReadOnlyReactivePropertySlim<bool> CanEncode { get; }
 
     public ReadOnlyReactivePropertySlim<EncodingController?> Controller { get; }
@@ -96,8 +94,6 @@ public sealed class OutputViewModel : IOutputContext
     public ReadOnlyReactivePropertySlim<EncoderSettingsViewModel?> VideoSettings { get; }
 
     public ReadOnlyReactivePropertySlim<EncoderSettingsViewModel?> AudioSettings { get; }
-
-    public ReactivePropertySlim<Avalonia.Vector> ScrollOffset { get; } = new();
 
     public ReactiveProperty<double> ProgressMax { get; } = new();
 
@@ -147,7 +143,7 @@ public sealed class OutputViewModel : IOutputContext
             .ToArray();
     }
 
-    public async void StartEncode()
+    public async Task StartEncode()
     {
         try
         {
@@ -256,8 +252,6 @@ public sealed class OutputViewModel : IOutputContext
             json[nameof(SelectedEncoder)] = TypeFormat.ToString(SelectedEncoder.Value.GetType());
         }
 
-        json[nameof(IsEncodersExpanded)] = IsEncodersExpanded.Value;
-        json[nameof(ScrollOffset)] = ScrollOffset.Value.ToString();
         json[nameof(VideoSettings)] = Serialize(VideoSettings.Value?.Settings);
         json[nameof(AudioSettings)] = Serialize(AudioSettings.Value?.Settings);
     }
@@ -292,21 +286,6 @@ public sealed class OutputViewModel : IOutputContext
                 .FirstOrDefault(x => x.GetType() == encoderType) is { } encoder)
         {
             SelectedEncoder.Value = encoder;
-        }
-
-        if (json.TryGetPropertyValue(nameof(IsEncodersExpanded), out JsonNode? isExpandedNode)
-            && isExpandedNode is JsonValue isExpandedValue
-            && isExpandedValue.TryGetValue(out bool isExpanded))
-        {
-            IsEncodersExpanded.Value = isExpanded;
-        }
-
-        if (json.TryGetPropertyValue(nameof(ScrollOffset), out JsonNode? scrollOfstNode)
-            && scrollOfstNode is JsonValue scrollOfstValue
-            && scrollOfstValue.TryGetValue(out string? scrollOfstStr)
-            && Graphics.Vector.TryParse(scrollOfstStr, out Graphics.Vector vec))
-        {
-            ScrollOffset.Value = new Avalonia.Vector(vec.X, vec.Y);
         }
 
         // 上のSelectedEncoder.Value = encoder;でnull以外が指定された場合、VideoSettings, AudioSettingsもnullじゃなくなる。

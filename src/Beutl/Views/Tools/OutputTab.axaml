@@ -1,0 +1,49 @@
+<UserControl x:Class="Beutl.Views.Tools.OutputTab"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModels="using:Beutl.ViewModels.Tools"
+             d:DesignHeight="450"
+             d:DesignWidth="400"
+             x:DataType="viewModels:OutputTabViewModel"
+             mc:Ignorable="d">
+    <ScrollViewer>
+        <StackPanel>
+            <TextBlock Margin="4,8"
+                       Text="{x:Static lang:Strings.Output}"
+                       Theme="{StaticResource SubtitleTextBlockStyle}" />
+            <Grid Margin="4,0,4,4" ColumnDefinitions="*,4,Auto,4,Auto">
+                <ComboBox HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding Items}"
+                          SelectedItem="{Binding SelectedItem.Value}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <Button Grid.Column="2"
+                        Padding="8"
+                        Click="OnAddClick"
+                        Theme="{StaticResource TransparentButton}"
+                        ToolTip.Tip="{x:Static lang:Strings.Add}">
+                    <ui:SymbolIcon Symbol="Add" />
+                </Button>
+                <Button Grid.Column="4"
+                        Padding="8"
+                        Click="OnRemoveClick"
+                        IsEnabled="{Binding CanRemove.Value}"
+                        Theme="{StaticResource TransparentButton}"
+                        ToolTip.Tip="{x:Static lang:Strings.Close}">
+                    <ui:SymbolIcon Symbol="Dismiss" />
+                </Button>
+            </Grid>
+
+            <ContentControl x:Name="contentControl" Content="{Binding SelectedItem.Value}" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

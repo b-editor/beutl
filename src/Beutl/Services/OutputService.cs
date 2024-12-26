@@ -1,18 +1,17 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
-
 using Beutl.Api.Services;
 using Beutl.Logging;
-
+using Beutl.Models;
+using Beutl.ViewModels;
 using Microsoft.Extensions.Logging;
-
 using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public sealed class OutputQueueItem : IDisposable
+public sealed class OutputProfileItem : IDisposable
 {
-    public OutputQueueItem(IOutputContext context)
+    public OutputProfileItem(IOutputContext context)
     {
         Context = context;
         Name = Path.GetFileName(context.TargetFile);
@@ -48,7 +47,7 @@ public sealed class OutputQueueItem : IDisposable
         Context.Dispose();
     }
 
-    public static JsonNode ToJson(OutputQueueItem item)
+    public static JsonNode ToJson(OutputProfileItem item)
     {
         var ctxJson = new JsonObject();
         item.Context.WriteToJson(ctxJson);
@@ -60,7 +59,7 @@ public sealed class OutputQueueItem : IDisposable
         };
     }
 
-    public static OutputQueueItem? FromJson(JsonNode json, ILogger logger)
+    public static OutputProfileItem? FromJson(JsonNode json, ILogger logger)
     {
         try
         {
@@ -70,7 +69,8 @@ public sealed class OutputQueueItem : IDisposable
             string extensionStr = obj["Extension"]!.AsValue().GetValue<string>();
             Type? extensionType = TypeFormat.ToType(extensionStr);
             ExtensionProvider provider = ExtensionProvider.Current;
-            OutputExtension? extension = Array.Find(provider.GetExtensions<OutputExtension>(), x => x.GetType() == extensionType);
+            OutputExtension? extension = Array.Find(provider.GetExtensions<OutputExtension>(),
+                x => x.GetType() == extensionType);
 
             string file = obj["File"]!.AsValue().GetValue<string>();
 
@@ -80,7 +80,7 @@ public sealed class OutputQueueItem : IDisposable
                 && extension.TryCreateContext(file, out IOutputContext? context))
             {
                 context.ReadFromJson(contextJson.AsObject());
-                return new OutputQueueItem(context);
+                return new OutputProfileItem(context);
             }
             else
             {
@@ -95,19 +95,18 @@ public sealed class OutputQueueItem : IDisposable
     }
 }
 
-public sealed class OutputService
+public sealed class OutputService(EditViewModel editViewModel)
 {
-    private readonly CoreList<OutputQueueItem> _items = [];
-    private readonly ReactivePropertySlim<OutputQueueItem?> _selectedItem = new();
-    private readonly string _filePath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "outputlist.json");
+    private readonly CoreList<OutputProfileItem> _items = [];
+    private readonly ReactivePropertySlim<OutputProfileItem?> _selectedItem = new();
+    private readonly string _filePath = Path.Combine(
+        Path.GetDirectoryName(editViewModel.Scene.FileName)!, Constants.BeutlFolder, "output-profile.json");
     private readonly ILogger _logger = Log.CreateLogger<OutputService>();
     private bool _isRestored;
 
-    public static OutputService Current { get; } = new();
+    public ICoreList<OutputProfileItem> Items => _items;
 
-    public ICoreList<OutputQueueItem> Items => _items;
-
-    public IReactiveProperty<OutputQueueItem?> SelectedItem => _selectedItem;
+    public IReactiveProperty<OutputProfileItem?> SelectedItem => _selectedItem;
 
     public void AddItem(string file, OutputExtension extension)
     {
@@ -115,17 +114,18 @@ public sealed class OutputService
         {
             throw new Exception("Already added");
         }
+
         if (!extension.TryCreateContext(file, out IOutputContext? context))
         {
             throw new Exception("Failed to create context");
         }
 
-        var item = new OutputQueueItem(context);
+        var item = new OutputProfileItem(context);
         Items.Add(item);
         SelectedItem.Value = item;
     }
 
-    public OutputExtension[] GetExtensions(string file)
+    public static OutputExtension[] GetExtensions(string file)
     {
         return ExtensionProvider.Current
             .GetExtensions<OutputExtension>()
@@ -134,44 +134,40 @@ public sealed class OutputService
 
     public void SaveItems()
     {
-        if (_isRestored)
-        {
-            var array = new JsonArray();
-            foreach (OutputQueueItem item in _items.GetMarshal().Value)
-            {
-                JsonNode json = OutputQueueItem.ToJson(item);
-                array.Add(json);
-            }
+        if (!_isRestored) return;
 
-            using FileStream stream = File.Create(_filePath);
-            using var writer = new Utf8JsonWriter(stream);
-            array.WriteTo(writer);
+        var array = new JsonArray();
+        foreach (OutputProfileItem item in _items.GetMarshal().Value)
+        {
+            JsonNode json = OutputProfileItem.ToJson(item);
+            array.Add(json);
         }
+
+        using FileStream stream = File.Create(_filePath);
+        using var writer = new Utf8JsonWriter(stream);
+        array.WriteTo(writer);
     }
 
     public void RestoreItems()
     {
         _isRestored = true;
-        if (File.Exists(_filePath))
-        {
-            using FileStream stream = File.Open(_filePath, FileMode.Open);
-            var jsonNode = JsonNode.Parse(stream);
-            if (jsonNode is JsonArray jsonArray)
-            {
-                _items.Clear();
-                _items.EnsureCapacity(jsonArray.Count);
+        if (!File.Exists(_filePath)) return;
 
-                foreach (JsonNode? jsonItem in jsonArray)
-                {
-                    if (jsonItem != null)
-                    {
-                        var item = OutputQueueItem.FromJson(jsonItem, _logger);
-                        if (item != null)
-                        {
-                            _items.Add(item);
-                        }
-                    }
-                }
+        using FileStream stream = File.Open(_filePath, FileMode.Open);
+        var jsonNode = JsonNode.Parse(stream);
+        if (jsonNode is not JsonArray jsonArray) return;
+
+        _items.Clear();
+        _items.EnsureCapacity(jsonArray.Count);
+
+        foreach (JsonNode? jsonItem in jsonArray)
+        {
+            if (jsonItem == null) continue;
+
+            var item = OutputProfileItem.FromJson(jsonItem, _logger);
+            if (item != null)
+            {
+                _items.Add(item);
             }
         }
     }

@@ -3,98 +3,104 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
-             xmlns:pages="using:Beutl.Pages.SettingsPages"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:tools="using:Beutl.Views.Tools"
              xmlns:viewModel="using:Beutl.ViewModels"
-             Padding="16"
              d:DesignHeight="800"
              d:DesignWidth="600"
              x:CompileBindings="True"
              x:DataType="viewModel:OutputViewModel"
              mc:Ignorable="d">
-    <ScrollViewer Padding="0,0,16,0" Offset="{Binding ScrollOffset.Value, Mode=TwoWay}">
-        <StackPanel Spacing="4">
-            <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="{x:Static lang:Strings.OutputVideo}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+    <StackPanel Spacing="4">
+        <Grid Margin="4" ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="8">
+                <TextBlock Margin="0,8,0,0" Text="{Binding ProgressText.Value}" />
+                <ProgressBar Grid.Row="2"
+                             Margin="0,0,8,0"
+                             IsIndeterminate="{Binding IsIndeterminate.Value}"
+                             Maximum="{Binding ProgressMax.Value}"
+                             Value="{Binding ProgressValue.Value}" />
+            </StackPanel>
+            <Button Grid.Column="1"
+                    VerticalAlignment="Bottom"
+                    Classes="accent"
+                    Click="StartEncodeClick"
+                    Command="{Binding StartEncode}"
+                    Content="{x:Static lang:Strings.Encode}"
+                    IsEnabled="{Binding CanEncode.Value}"
+                    IsVisible="{Binding !IsEncoding.Value}" />
+            <Button Grid.Column="1"
+                    VerticalAlignment="Bottom"
+                    Command="{Binding CancelEncode}"
+                    Content="{x:Static lang:Strings.Cancel}"
+                    IsVisible="{Binding IsEncoding.Value}" />
+        </Grid>
 
-                    <TextBlock Margin="0,8,0,0" Text="{Binding ProgressText.Value}" />
-                    <ProgressBar Grid.Row="2"
-                                 Margin="0,0,8,0"
-                                 IsIndeterminate="{Binding IsIndeterminate.Value}"
-                                 Maximum="{Binding ProgressMax.Value}"
-                                 Value="{Binding ProgressValue.Value}" />
-                </StackPanel>
-                <Button Grid.Column="1"
-                        VerticalAlignment="Bottom"
-                        Classes="accent"
-                        Command="{Binding StartEncode}"
-                        Content="{x:Static lang:Strings.Encode}"
-                        IsEnabled="{Binding CanEncode.Value}"
-                        IsVisible="{Binding !IsEncoding.Value}" />
-                <Button Grid.Column="1"
-                        VerticalAlignment="Bottom"
-                        Command="{Binding CancelEncode}"
-                        Content="{x:Static lang:Strings.Cancel}"
-                        IsVisible="{Binding IsEncoding.Value}" />
-            </Grid>
+        <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.DestinationToSaveTo_Tip}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+            </Grid.ColumnDefinitions>
 
-            <OptionsDisplayItem Margin="0,16,0,0"
-                                Description="{x:Static lang:Strings.DestinationToSaveTo_Tip}"
-                                Header="{x:Static lang:Strings.DestinationToSaveTo}"
-                                Navigates="True"
-                                NavigationRequested="SelectDestinationFileClick">
-                <OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="Save" />
-                </OptionsDisplayItem.Icon>
-                <OptionsDisplayItem.ActionButton>
-                    <TextBlock MaxWidth="150"
-                               VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                               Text="{Binding DestinationFile.Value}"
-                               TextTrimming="LeadingCharacterEllipsis"
-                               ToolTip.Tip="{Binding DestinationFile.Value}" />
-                </OptionsDisplayItem.ActionButton>
-            </OptionsDisplayItem>
+            <TextBlock HorizontalAlignment="Left"
+                       VerticalAlignment="Center"
+                       ClipToBounds="False"
+                       Text="{x:Static lang:Strings.DestinationToSaveTo}"
+                       TextTrimming="CharacterEllipsis" />
 
-            <OptionsDisplayItem Description="{x:Static lang:Strings.Encoder_Tip}"
-                                Expands="True"
-                                Header="{x:Static lang:Strings.Encoder}"
-                                IsExpanded="{Binding IsEncodersExpanded.Value}">
-                <OptionsDisplayItem.Icon>
-                    <icons:SymbolIcon Symbol="ArrowExportLtr" />
-                </OptionsDisplayItem.Icon>
-                <OptionsDisplayItem.ActionButton>
-                    <TextBlock VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                               Text="{Binding SelectedEncoder.Value.Name}" />
-                </OptionsDisplayItem.ActionButton>
-                <OptionsDisplayItem.Content>
-                    <ListBox ItemsSource="{Binding Encoders}"
-                             SelectedItem="{Binding SelectedEncoder.Value}"
-                             SelectionMode="AlwaysSelected">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Name}" />
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </OptionsDisplayItem.Content>
-            </OptionsDisplayItem>
+            <GridSplitter Grid.Column="1" Background="Transparent" />
 
+            <TextBox Grid.Column="2"
+                     MinWidth="120"
+                     Margin="0,4"
+                     Text="{Binding DestinationFile.Value, Mode=TwoWay}">
+                <TextBox.InnerRightContent>
+                    <Button Click="SelectDestinationFileClick" Theme="{StaticResource TextBoxOpenButtonStyle}" />
+                </TextBox.InnerRightContent>
+            </TextBox>
+        </Grid>
 
-            <TextBlock Margin="0,16,0,0"
-                       Text="{x:Static lang:Strings.Video}"
-                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
+        <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.Encoder_Tip}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+            </Grid.ColumnDefinitions>
 
-            <pages:PropertiesEditor DataContext="{Binding VideoSettings.Value}" />
+            <TextBlock HorizontalAlignment="Left"
+                       VerticalAlignment="Center"
+                       ClipToBounds="False"
+                       Text="{x:Static lang:Strings.Encoder}"
+                       TextTrimming="CharacterEllipsis" />
 
-            <TextBlock Margin="0,16,0,0"
-                       Text="{x:Static lang:Strings.Audio}"
-                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
+            <GridSplitter Grid.Column="1" Background="Transparent" />
 
-            <pages:PropertiesEditor DataContext="{Binding AudioSettings.Value}" />
-        </StackPanel>
-    </ScrollViewer>
+            <ComboBox Grid.Column="2"
+                      MinWidth="120"
+                      Margin="0,4"
+                      HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding Encoders}"
+                      SelectedItem="{Binding SelectedEncoder.Value}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </Grid>
+
+        <TextBlock Margin="8,16,0,0"
+                   Text="{x:Static lang:Strings.Video}"
+                   Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+        <tools:OutputPropertiesEditor DataContext="{Binding VideoSettings.Value}" />
+
+        <TextBlock Margin="8,16,0,0"
+                   Text="{x:Static lang:Strings.Audio}"
+                   Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+        <tools:OutputPropertiesEditor DataContext="{Binding AudioSettings.Value}" />
+    </StackPanel>
 </UserControl>

@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 
 using Beutl.ViewModels;
+using Beutl.Views.Dialogs;
 
 namespace Beutl.Views;
 
@@ -30,5 +31,15 @@ public partial class OutputView : UserControl
                 file.Dispose();
             }
         }
+    }
+
+    private async void StartEncodeClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not OutputViewModel viewModel) return;
+
+        var dialog = new OutputProgressDialog { DataContext = viewModel };
+        _ = dialog.ShowAsync();
+        await viewModel.StartEncode();
+        dialog.Hide();
     }
 }
