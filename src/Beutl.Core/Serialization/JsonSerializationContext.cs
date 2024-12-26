@@ -90,15 +90,25 @@ public partial class JsonSerializationContext(
 
                 for (int i = _rootResolvers.Count - 1; i >= 0; i--)
                 {
-                    var (self, id, callback) = _rootResolvers[i];
+                    var item = _rootResolvers[i];
+                    var (self, id, callback) = item;
                     if (_objects.TryGetValue(id, out var resolved))
                     {
                         callback(resolved);
                         _rootResolvers.RemoveAt(i);
                     }
+                    else if (coreObject is IHierarchical hierarchical)
+                    {
+                        var resolver = new ReferenceResolver(hierarchical, id);
+                        resolver.Resolve().ContinueWith(t =>
+                        {
+                            callback(t.Result);
+                            _rootResolvers?.Remove(item);
+                        });
+                    }
                     else
                     {
-                        ObjectRegistry.Current.Resolve(id, self, (_, r) => callback(r));
+                        // Error
                     }
                 }
             }
