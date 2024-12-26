@@ -76,4 +76,11 @@ public sealed class BitmapSource : ImageSource
     {
         _bitmap.Dispose();
     }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is BitmapSource source
+               && !IsDisposed && !source.IsDisposed
+               && ReferenceEquals(_bitmap.Value, source._bitmap.Value);
+    }
 }
