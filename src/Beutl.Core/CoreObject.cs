@@ -85,7 +85,6 @@ public abstract class CoreObject : ICoreObject
     protected CoreObject()
     {
         Id = Guid.NewGuid();
-        ObjectRegistry.Current.Register(this);
     }
 
     [Browsable(false)]
