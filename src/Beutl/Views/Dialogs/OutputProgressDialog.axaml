@@ -9,6 +9,7 @@
                   Title="{x:Static lang:Strings.Output}"
                   d:DesignHeight="450"
                   d:DesignWidth="800"
+                  x:CompileBindings="True"
                   x:DataType="vm:OutputViewModel"
                   CloseButtonText="{x:Static lang:Strings.Cancel}"
                   mc:Ignorable="d">

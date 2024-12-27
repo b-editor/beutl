@@ -1,9 +1,8 @@
 <ui:ContentDialog x:Class="Beutl.Views.Dialogs.AddOutputProfileDialog"
                   xmlns="https://github.com/avaloniaui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                  xmlns:converters="using:Beutl.Converters"
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-                  xmlns:icons="using:FluentIcons.FluentAvalonia"
+                  xmlns:ext="using:Beutl.Extensibility"
                   xmlns:lang="using:Beutl.Language"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -11,6 +10,8 @@
                   Title="{x:Static lang:Strings.AddOutputQueue}"
                   d:DesignHeight="450"
                   d:DesignWidth="800"
+                  x:CompileBindings="True"
+                  x:DataType="vm:AddOutputProfileViewModel"
                   CloseButtonText="{x:Static lang:Strings.Close}"
                   PrimaryButtonText="{x:Static lang:Strings.Add}"
                   mc:Ignorable="d">
@@ -25,7 +26,7 @@
                  SelectedItem="{Binding SelectedExtension.Value}"
                  SelectionMode="AlwaysSelected">
             <ListBox.ItemTemplate>
-                <DataTemplate>
+                <DataTemplate x:DataType="ext:OutputExtension">
                     <StackPanel Margin="0,4">
                         <TextBlock Text="{Binding Name}" />
                         <TextBlock FontSize="12"
