@@ -118,4 +118,9 @@ public class SoundSource(Ref<MediaReader> mediaReader, string fileName) : ISound
     {
         return (int)(timeSpan.TotalSeconds * SampleRate);
     }
+
+    public override int GetHashCode()
+    {
+        throw new NotImplementedException();
+    }
 }

@@ -103,4 +103,9 @@ public sealed class VideoSource : IVideoSource
     IVideoSource IVideoSource.Clone() => Clone();
 
     IMediaSource IMediaSource.Clone() => Clone();
+
+    public override int GetHashCode()
+    {
+        throw new NotImplementedException();
+    }
 }
