@@ -19,6 +19,15 @@ public class OutputTabViewModel : IToolContext
         CanRemove = SelectedItem
             .SelectMany(x => x?.Context?.IsEncoding?.Not() ?? Observable.Return(false))
             .ToReadOnlyReactivePropertySlim();
+
+        if (Items.Count == 0)
+        {
+            var ext = OutputService.GetExtensions(EditViewModel.Scene.FileName);
+            if (ext.Length == 1)
+            {
+                AddItem(ext[0]);
+            }
+        }
     }
 
     public EditViewModel EditViewModel { get; }
