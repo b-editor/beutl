@@ -1,33 +1,40 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
-
+using Avalonia.Platform;
 using Beutl.Logging;
 using Beutl.Pages.ExtensionsPages;
 using Beutl.Pages.ExtensionsPages.DevelopPages;
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
-using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.ExtensionsPages;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
-using Beutl.Views;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
-
+using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Pages;
 
-public sealed partial class ExtensionsPage : UserControl
+public sealed partial class ExtensionsDialog : AppWindow
 {
-    private readonly ILogger _logger = Log.CreateLogger<ExtensionsPage>();
+    private readonly ILogger _logger = Log.CreateLogger<ExtensionsDialog>();
 
-    public ExtensionsPage()
+    public ExtensionsDialog()
     {
         InitializeComponent();
+        if (OperatingSystem.IsWindows())
+        {
+            TitleBar.ExtendsContentIntoTitleBar = true;
+            TitleBar.Height = 40;
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            ExtendClientAreaToDecorationsHint = true;
+            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
+        }
 
         List<NavigationViewItem> items = GetItems();
         nav.MenuItemsSource = items;
@@ -41,19 +48,13 @@ public sealed partial class ExtensionsPage : UserControl
         nav.SelectedItem = selected;
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnOpened(EventArgs e)
     {
-        base.OnAttachedToVisualTree(e);
+        base.OnOpened(e);
         if (nav.SelectedItem is NavigationViewItem selected)
         {
             OnItemInvoked(selected);
         }
-    }
-
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnDetachedFromVisualTree(e);
-        frame.SetNavigationState("|\n0\n0");
     }
 
     private void Search_Click(object? sender, RoutedEventArgs e)
@@ -63,16 +64,15 @@ public sealed partial class ExtensionsPage : UserControl
 
     private async void OpenSettings_Click(object? sender, RoutedEventArgs e)
     {
-        if (this.FindLogicalAncestorOfType<MainView>() is not { DataContext: MainViewModel viewModel })
-            return;
+        var mainViewModel = Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime
+            ? lifetime.MainWindow!.DataContext as MainViewModel
+            : null;
+        if (mainViewModel is null) return;
 
-        if (TopLevel.GetTopLevel(this) is not Window window)
-            return;
-
-        var dialogViewModel = viewModel.SettingsDialog;
+        var dialogViewModel = mainViewModel.SettingsDialog;
         var dialog = new SettingsDialog { DataContext = dialogViewModel };
         dialogViewModel.GoToAccountSettingsPage();
-        await dialog.ShowDialog(window);
+        await dialog.ShowDialog(this);
     }
 
     private static List<NavigationViewItem> GetItems()
@@ -83,28 +83,19 @@ public sealed partial class ExtensionsPage : UserControl
             {
                 Content = "Home",
                 Tag = typeof(DiscoverPage),
-                IconSource = new SymbolIconSource
-                {
-                    Symbol = Symbol.Home
-                }
+                IconSource = new SymbolIconSource { Symbol = Symbol.Home }
             },
             new NavigationViewItem()
             {
                 Content = "Library",
                 Tag = typeof(LibraryPage),
-                IconSource = new SymbolIconSource
-                {
-                    Symbol = Symbol.Library
-                }
+                IconSource = new SymbolIconSource { Symbol = Symbol.Library }
             },
             new NavigationViewItem()
             {
                 Content = "Develop",
                 Tag = typeof(DevelopPage),
-                IconSource = new SymbolIconSource
-                {
-                    Symbol = Symbol.Code
-                }
+                IconSource = new SymbolIconSource { Symbol = Symbol.Code }
             }
         ];
     }
@@ -125,7 +116,7 @@ public sealed partial class ExtensionsPage : UserControl
     private void OnItemInvoked(NavigationViewItem nvi)
     {
         if (nvi.Tag is Type typ
-            && DataContext is ExtensionsPageViewModel { IsAuthorized.Value: true } viewModel)
+            && DataContext is ExtensionsDialogViewModel { IsAuthorized.Value: true } viewModel)
         {
             NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
             if (typ == typeof(DevelopPage))
@@ -179,6 +170,7 @@ public sealed partial class ExtensionsPage : UserControl
                     entrance.FromHorizontalOffset = 28;
                 }
             }
+
             entrance.FromVerticalOffset = 0;
         }
     }
@@ -212,8 +204,8 @@ public sealed partial class ExtensionsPage : UserControl
             return 0;
         }
         else if (type == typeof(PackageDetailsPage)
-            || type == typeof(PublicPackageDetailsPage)
-            || type == typeof(RankingPageViewModel))
+                 || type == typeof(PublicPackageDetailsPage)
+                 || type == typeof(RankingPageViewModel))
         {
             return 1;
         }

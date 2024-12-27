@@ -57,7 +57,7 @@ public sealed partial class PackageReleasesPage : UserControl
 
     private DataContextFactory GetDataContextFactory()
     {
-        return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Develop.DataContextFactory;
+        return ((ExtensionsDialogViewModel)this.FindLogicalAncestorOfType<ExtensionsDialog>()!.DataContext!).Develop.DataContextFactory;
     }
 
     private void OnReleasesListPointerReleased(object? sender, PointerReleasedEventArgs e)
