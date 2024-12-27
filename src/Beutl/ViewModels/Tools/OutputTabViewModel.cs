@@ -19,15 +19,6 @@ public class OutputTabViewModel : IToolContext
         CanRemove = SelectedItem
             .SelectMany(x => x?.Context?.IsEncoding?.Not() ?? Observable.Return(false))
             .ToReadOnlyReactivePropertySlim();
-
-        if (Items.Count == 0)
-        {
-            var ext = OutputService.GetExtensions(EditViewModel.Scene.FileName);
-            if (ext.Length == 1)
-            {
-                AddItem(ext[0]);
-            }
-        }
     }
 
     public EditViewModel EditViewModel { get; }
@@ -88,6 +79,19 @@ public class OutputTabViewModel : IToolContext
     public void ReadFromJson(JsonObject json)
     {
         _outputService.RestoreItems();
+        CreateDefaultProfile();
+        SelectedItem.Value = Items.FirstOrDefault();
+    }
+
+    private void CreateDefaultProfile()
+    {
+        if (Items.Count != 0) return;
+
+        var ext = OutputService.GetExtensions(EditViewModel.Scene.FileName);
+        if (ext.Length == 1)
+        {
+            AddItem(ext[0]);
+        }
     }
 
     public object? GetService(Type serviceType)
