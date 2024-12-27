@@ -1,10 +1,10 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
-using Beutl.Pages;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
+using Beutl.Views.NodeTree;
 using AddOutputProfileDialog = Beutl.Views.Dialogs.AddOutputProfileDialog;
 
 namespace Beutl.Views.Tools;
@@ -44,6 +44,29 @@ public partial class OutputTab : UserControl
         if (DataContext is not OutputTabViewModel viewModel) return;
 
         viewModel.RemoveSelected();
+        viewModel.Save();
+    }
+
+    private void OnRenameClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not OutputTabViewModel viewModel) return;
+
+        var flyout = new RenameFlyout
+        {
+            Text = viewModel.SelectedItem.Value?.Context.Name.Value ?? string.Empty
+        };
+
+        flyout.Confirmed += OnNameConfirmed;
+
+        flyout.ShowAt(MoreButton);
+    }
+
+    private void OnNameConfirmed(object? sender, string? e)
+    {
+        if (DataContext is not OutputTabViewModel viewModel) return;
+        if (viewModel.SelectedItem.Value == null) return;
+
+        viewModel.SelectedItem.Value.Context.Name.Value = e ?? "";
         viewModel.Save();
     }
 

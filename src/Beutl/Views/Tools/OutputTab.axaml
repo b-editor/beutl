@@ -8,6 +8,7 @@
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
              d:DesignHeight="450"
              d:DesignWidth="400"
+             x:CompileBindings="True"
              x:DataType="viewModels:OutputTabViewModel"
              mc:Ignorable="d">
     <ScrollViewer>
@@ -21,7 +22,7 @@
                           SelectedItem="{Binding SelectedItem.Value}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Name}" />
+                            <TextBlock Text="{Binding Context.Name.Value}" />
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
@@ -33,13 +34,22 @@
                         ToolTip.Tip="{x:Static lang:Strings.Add}">
                     <ui:SymbolIcon Symbol="Add" />
                 </Button>
-                <Button Grid.Column="4"
+                <Button Name="MoreButton"
+                        Grid.Column="4"
                         Padding="8"
-                        Click="OnRemoveClick"
-                        IsEnabled="{Binding CanRemove.Value}"
-                        Theme="{StaticResource TransparentButton}"
-                        ToolTip.Tip="{x:Static lang:Strings.Close}">
-                    <ui:SymbolIcon Symbol="Dismiss" />
+                        Theme="{StaticResource TransparentButton}">
+                    <Button.Flyout>
+                        <ui:FAMenuFlyout>
+                            <ui:MenuFlyoutItem Click="OnRemoveClick"
+                                               IconSource="Delete"
+                                               IsEnabled="{Binding CanRemove.Value}"
+                                               Text="{x:Static lang:Strings.Remove}" />
+                            <ui:MenuFlyoutItem Click="OnRenameClick"
+                                               IsEnabled="{Binding !!SelectedItem.Value}"
+                                               Text="{x:Static lang:Strings.Rename}" />
+                        </ui:FAMenuFlyout>
+                    </Button.Flyout>
+                    <ui:SymbolIcon Symbol="MoreVertical" />
                 </Button>
             </Grid>
 

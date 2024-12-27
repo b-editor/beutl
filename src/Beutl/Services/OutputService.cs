@@ -14,15 +14,12 @@ public sealed class OutputProfileItem : IDisposable
     public OutputProfileItem(IOutputContext context)
     {
         Context = context;
-        Name = Path.GetFileName(context.TargetFile);
 
         Context.Started += OnStarted;
         Context.Finished += OnFinished;
     }
 
     public IOutputContext Context { get; }
-
-    public string Name { get; }
 
     private void OnStarted(object? sender, EventArgs e)
     {
@@ -99,8 +96,10 @@ public sealed class OutputService(EditViewModel editViewModel)
 {
     private readonly CoreList<OutputProfileItem> _items = [];
     private readonly ReactivePropertySlim<OutputProfileItem?> _selectedItem = new();
+
     private readonly string _filePath = Path.Combine(
         Path.GetDirectoryName(editViewModel.Scene.FileName)!, Constants.BeutlFolder, "output-profile.json");
+
     private readonly ILogger _logger = Log.CreateLogger<OutputService>();
     private bool _isRestored;
 
@@ -120,6 +119,7 @@ public sealed class OutputService(EditViewModel editViewModel)
             throw new Exception("Failed to create context");
         }
 
+        context.Name.Value = Items.Count == 0 ? "Default" : $"Profile {Items.Count}";
         var item = new OutputProfileItem(context);
         Items.Add(item);
         SelectedItem.Value = item;

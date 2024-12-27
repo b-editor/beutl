@@ -81,6 +81,8 @@ public sealed class OutputViewModel : IOutputContext
 
     public string TargetFile => Model.FileName;
 
+    public IReactiveProperty<string> Name { get; } = new ReactiveProperty<string>("");
+
     public ReactivePropertySlim<string?> DestinationFile { get; } = new();
 
     public ReactivePropertySlim<ControllableEncodingExtension?> SelectedEncoder { get; } = new();
@@ -246,6 +248,7 @@ public sealed class OutputViewModel : IOutputContext
             }
         }
 
+        json[nameof(Name)] = Name.Value;
         json[nameof(DestinationFile)] = DestinationFile.Value;
         if (SelectedEncoder.Value != null)
         {
@@ -276,6 +279,13 @@ public sealed class OutputViewModel : IOutputContext
             && dstFileValue.TryGetValue(out string? dstFile))
         {
             DestinationFile.Value = dstFile;
+        }
+
+        if (json.TryGetPropertyValue(nameof(Name), out JsonNode? nameNode)
+            && nameNode is JsonValue nameValue
+            && nameValue.TryGetValue(out string? name))
+        {
+            Name.Value = name;
         }
 
         if (json.TryGetPropertyValue(nameof(SelectedEncoder), out JsonNode? encoderNode)
