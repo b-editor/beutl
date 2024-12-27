@@ -4,13 +4,14 @@
                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                   xmlns:lang="using:Beutl.Language"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:tools="clr-namespace:Beutl.ViewModels.Tools"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   xmlns:vm="using:Beutl.ViewModels"
                   Title="{x:Static lang:Strings.Output}"
                   d:DesignHeight="450"
                   d:DesignWidth="800"
                   x:CompileBindings="True"
-                  x:DataType="vm:OutputViewModel"
+                  x:DataType="tools:OutputViewModel"
                   CloseButtonText="{x:Static lang:Strings.Cancel}"
                   mc:Ignorable="d">
     <ui:ContentDialog.Resources>

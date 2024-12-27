@@ -18,7 +18,7 @@ using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.ViewModels;
+namespace Beutl.ViewModels.Tools;
 
 public sealed class OutputViewModel : IOutputContext
 {
