@@ -83,4 +83,10 @@ public sealed class BitmapSource : ImageSource
                && !IsDisposed && !source.IsDisposed
                && ReferenceEquals(_bitmap.Value, source._bitmap.Value);
     }
+
+    public override int GetHashCode()
+    {
+        // ReSharper disable once NonReadonlyMemberInGetHashCode
+        return HashCode.Combine(!IsDisposed ? _bitmap.Value : null);
+    }
 }

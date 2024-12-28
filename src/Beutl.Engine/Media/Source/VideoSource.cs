@@ -100,6 +100,12 @@ public sealed class VideoSource : IVideoSource
                && ReferenceEquals(_mediaReader.Value, source._mediaReader.Value);
     }
 
+    public override int GetHashCode()
+    {
+        // ReSharper disable once NonReadonlyMemberInGetHashCode
+        return HashCode.Combine(!IsDisposed ? _mediaReader.Value : null);
+    }
+
     IVideoSource IVideoSource.Clone() => Clone();
 
     IMediaSource IMediaSource.Clone() => Clone();
