@@ -4,9 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 
 using Beutl.ProjectSystem;
-using Beutl.ViewModels;
-using Beutl.Views;
-
+using Beutl.ViewModels.Tools;
+using Beutl.Views.Tools;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Services.PrimitiveImpls;

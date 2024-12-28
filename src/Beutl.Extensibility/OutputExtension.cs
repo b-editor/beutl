@@ -15,6 +15,8 @@ public interface IOutputContext : IDisposable, IJsonSerializable
 
     string TargetFile { get; }
 
+    IReactiveProperty<string> Name { get; }
+
     IReadOnlyReactiveProperty<bool> IsIndeterminate { get; }
 
     IReadOnlyReactiveProperty<bool> IsEncoding { get; }

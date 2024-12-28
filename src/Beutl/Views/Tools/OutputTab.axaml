@@ -1,0 +1,59 @@
+<UserControl x:Class="Beutl.Views.Tools.OutputTab"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModels="using:Beutl.ViewModels.Tools"
+             d:DesignHeight="450"
+             d:DesignWidth="400"
+             x:CompileBindings="True"
+             x:DataType="viewModels:OutputTabViewModel"
+             mc:Ignorable="d">
+    <ScrollViewer>
+        <StackPanel>
+            <TextBlock Margin="4,8"
+                       Text="{x:Static lang:Strings.Output}"
+                       Theme="{StaticResource SubtitleTextBlockStyle}" />
+            <Grid Margin="4,0,4,4" ColumnDefinitions="*,4,Auto,4,Auto">
+                <ComboBox HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding Items}"
+                          SelectedItem="{Binding SelectedItem.Value}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Context.Name.Value}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <Button Grid.Column="2"
+                        Padding="8"
+                        Click="OnAddClick"
+                        Theme="{StaticResource TransparentButton}"
+                        ToolTip.Tip="{x:Static lang:Strings.Add}">
+                    <ui:SymbolIcon Symbol="Add" />
+                </Button>
+                <Button Name="MoreButton"
+                        Grid.Column="4"
+                        Padding="8"
+                        Theme="{StaticResource TransparentButton}">
+                    <Button.Flyout>
+                        <ui:FAMenuFlyout>
+                            <ui:MenuFlyoutItem Click="OnRemoveClick"
+                                               IconSource="Delete"
+                                               IsEnabled="{Binding CanRemove.Value}"
+                                               Text="{x:Static lang:Strings.Remove}" />
+                            <ui:MenuFlyoutItem Click="OnRenameClick"
+                                               IsEnabled="{Binding !!SelectedItem.Value}"
+                                               Text="{x:Static lang:Strings.Rename}" />
+                        </ui:FAMenuFlyout>
+                    </Button.Flyout>
+                    <ui:SymbolIcon Symbol="MoreVertical" />
+                </Button>
+            </Grid>
+
+            <ContentControl x:Name="contentControl" Content="{Binding SelectedItem.Value}" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

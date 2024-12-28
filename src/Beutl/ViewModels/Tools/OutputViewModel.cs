@@ -18,7 +18,7 @@ using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.ViewModels;
+namespace Beutl.ViewModels.Tools;
 
 public sealed class OutputViewModel : IOutputContext
 {
@@ -81,13 +81,13 @@ public sealed class OutputViewModel : IOutputContext
 
     public string TargetFile => Model.FileName;
 
+    public IReactiveProperty<string> Name { get; } = new ReactiveProperty<string>("");
+
     public ReactivePropertySlim<string?> DestinationFile { get; } = new();
 
     public ReactivePropertySlim<ControllableEncodingExtension?> SelectedEncoder { get; } = new();
 
     public ReadOnlyObservableCollection<ControllableEncodingExtension> Encoders => _encoders;
-
-    public ReactivePropertySlim<bool> IsEncodersExpanded { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> CanEncode { get; }
 
@@ -96,8 +96,6 @@ public sealed class OutputViewModel : IOutputContext
     public ReadOnlyReactivePropertySlim<EncoderSettingsViewModel?> VideoSettings { get; }
 
     public ReadOnlyReactivePropertySlim<EncoderSettingsViewModel?> AudioSettings { get; }
-
-    public ReactivePropertySlim<Avalonia.Vector> ScrollOffset { get; } = new();
 
     public ReactiveProperty<double> ProgressMax { get; } = new();
 
@@ -147,7 +145,7 @@ public sealed class OutputViewModel : IOutputContext
             .ToArray();
     }
 
-    public async void StartEncode()
+    public async Task StartEncode()
     {
         try
         {
@@ -250,14 +248,13 @@ public sealed class OutputViewModel : IOutputContext
             }
         }
 
+        json[nameof(Name)] = Name.Value;
         json[nameof(DestinationFile)] = DestinationFile.Value;
         if (SelectedEncoder.Value != null)
         {
             json[nameof(SelectedEncoder)] = TypeFormat.ToString(SelectedEncoder.Value.GetType());
         }
 
-        json[nameof(IsEncodersExpanded)] = IsEncodersExpanded.Value;
-        json[nameof(ScrollOffset)] = ScrollOffset.Value.ToString();
         json[nameof(VideoSettings)] = Serialize(VideoSettings.Value?.Settings);
         json[nameof(AudioSettings)] = Serialize(AudioSettings.Value?.Settings);
     }
@@ -284,6 +281,13 @@ public sealed class OutputViewModel : IOutputContext
             DestinationFile.Value = dstFile;
         }
 
+        if (json.TryGetPropertyValue(nameof(Name), out JsonNode? nameNode)
+            && nameNode is JsonValue nameValue
+            && nameValue.TryGetValue(out string? name))
+        {
+            Name.Value = name;
+        }
+
         if (json.TryGetPropertyValue(nameof(SelectedEncoder), out JsonNode? encoderNode)
             && encoderNode is JsonValue encoderValue
             && encoderValue.TryGetValue(out string? encoderStr)
@@ -292,21 +296,6 @@ public sealed class OutputViewModel : IOutputContext
                 .FirstOrDefault(x => x.GetType() == encoderType) is { } encoder)
         {
             SelectedEncoder.Value = encoder;
-        }
-
-        if (json.TryGetPropertyValue(nameof(IsEncodersExpanded), out JsonNode? isExpandedNode)
-            && isExpandedNode is JsonValue isExpandedValue
-            && isExpandedValue.TryGetValue(out bool isExpanded))
-        {
-            IsEncodersExpanded.Value = isExpanded;
-        }
-
-        if (json.TryGetPropertyValue(nameof(ScrollOffset), out JsonNode? scrollOfstNode)
-            && scrollOfstNode is JsonValue scrollOfstValue
-            && scrollOfstValue.TryGetValue(out string? scrollOfstStr)
-            && Graphics.Vector.TryParse(scrollOfstStr, out Graphics.Vector vec))
-        {
-            ScrollOffset.Value = new Avalonia.Vector(vec.X, vec.Y);
         }
 
         // 上のSelectedEncoder.Value = encoder;でnull以外が指定された場合、VideoSettings, AudioSettingsもnullじゃなくなる。

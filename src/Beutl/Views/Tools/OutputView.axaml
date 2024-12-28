@@ -1,0 +1,105 @@
+<UserControl x:Class="Beutl.Views.Tools.OutputView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:tools="using:Beutl.Views.Tools"
+             xmlns:viewModel="using:Beutl.ViewModels.Tools"
+             d:DesignHeight="800"
+             d:DesignWidth="600"
+             x:CompileBindings="True"
+             x:DataType="viewModel:OutputViewModel"
+             mc:Ignorable="d">
+    <StackPanel Spacing="4">
+        <Grid Margin="4" ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="8">
+                <TextBlock Margin="0,8,0,0" Text="{Binding ProgressText.Value}" />
+                <ProgressBar Grid.Row="2"
+                             Margin="0,0,8,0"
+                             IsIndeterminate="{Binding IsIndeterminate.Value}"
+                             Maximum="{Binding ProgressMax.Value}"
+                             Value="{Binding ProgressValue.Value}" />
+            </StackPanel>
+            <Button Grid.Column="1"
+                    VerticalAlignment="Bottom"
+                    Classes="accent"
+                    Click="StartEncodeClick"
+                    Command="{Binding StartEncode}"
+                    Content="{x:Static lang:Strings.Encode}"
+                    IsEnabled="{Binding CanEncode.Value}"
+                    IsVisible="{Binding !IsEncoding.Value}" />
+            <Button Grid.Column="1"
+                    VerticalAlignment="Bottom"
+                    Command="{Binding CancelEncode}"
+                    Content="{x:Static lang:Strings.Cancel}"
+                    IsVisible="{Binding IsEncoding.Value}" />
+        </Grid>
+
+        <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.DestinationToSaveTo_Tip}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock HorizontalAlignment="Left"
+                       VerticalAlignment="Center"
+                       ClipToBounds="False"
+                       Text="{x:Static lang:Strings.DestinationToSaveTo}"
+                       TextTrimming="CharacterEllipsis" />
+
+            <GridSplitter Grid.Column="1" Background="Transparent" />
+
+            <TextBox Grid.Column="2"
+                     MinWidth="120"
+                     Margin="0,4"
+                     Text="{Binding DestinationFile.Value, Mode=TwoWay}">
+                <TextBox.InnerRightContent>
+                    <Button Click="SelectDestinationFileClick" Theme="{StaticResource TextBoxOpenButtonStyle}" />
+                </TextBox.InnerRightContent>
+            </TextBox>
+        </Grid>
+
+        <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.Encoder_Tip}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock HorizontalAlignment="Left"
+                       VerticalAlignment="Center"
+                       ClipToBounds="False"
+                       Text="{x:Static lang:Strings.Encoder}"
+                       TextTrimming="CharacterEllipsis" />
+
+            <GridSplitter Grid.Column="1" Background="Transparent" />
+
+            <ComboBox Grid.Column="2"
+                      MinWidth="120"
+                      Margin="0,4"
+                      HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding Encoders}"
+                      SelectedItem="{Binding SelectedEncoder.Value}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </Grid>
+
+        <TextBlock Margin="8,16,0,0"
+                   Text="{x:Static lang:Strings.Video}"
+                   Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+        <tools:OutputPropertiesEditor DataContext="{Binding VideoSettings.Value}" />
+
+        <TextBlock Margin="8,16,0,0"
+                   Text="{x:Static lang:Strings.Audio}"
+                   Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+        <tools:OutputPropertiesEditor DataContext="{Binding AudioSettings.Value}" />
+    </StackPanel>
+</UserControl>

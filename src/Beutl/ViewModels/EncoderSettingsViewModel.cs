@@ -59,7 +59,7 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
             (foundItems, extension) = PropertyEditorService.MatchProperty(props);
             if (foundItems != null && extension != null)
             {
-                if (extension.TryCreateContextForSettings(foundItems, out IPropertyEditorContext? context))
+                if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
                 {
                     tempItems.Add(context);
                     context.Accept(this);
