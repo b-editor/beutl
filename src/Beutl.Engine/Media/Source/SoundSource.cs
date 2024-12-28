@@ -114,6 +114,12 @@ public class SoundSource(Ref<MediaReader> mediaReader, string fileName) : ISound
                && ReferenceEquals(_mediaReader.Value, source._mediaReader.Value);
     }
 
+    public override int GetHashCode()
+    {
+        // ReSharper disable once NonReadonlyMemberInGetHashCode
+        return HashCode.Combine(!IsDisposed ? _mediaReader.Value : null);
+    }
+
     private int ToSamples(TimeSpan timeSpan)
     {
         return (int)(timeSpan.TotalSeconds * SampleRate);
