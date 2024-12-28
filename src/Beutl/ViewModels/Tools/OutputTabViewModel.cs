@@ -19,6 +19,8 @@ public class OutputTabViewModel : IToolContext
         CanRemove = SelectedItem
             .SelectMany(x => x?.Context?.IsEncoding?.Not() ?? Observable.Return(false))
             .ToReadOnlyReactivePropertySlim();
+        CreateDefaultProfile();
+        SelectedItem.Value = Items.FirstOrDefault();
     }
 
     public EditViewModel EditViewModel { get; }
