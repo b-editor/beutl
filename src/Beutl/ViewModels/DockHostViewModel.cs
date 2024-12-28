@@ -374,7 +374,10 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     {
         var tabs = new ToolTabExtension[]
         {
-            TimelineTabExtension.Instance, SourceOperatorsTabExtension.Instance, LibraryTabExtension.Instance
+            TimelineTabExtension.Instance,
+            OutputTabExtension.Instance,
+            SourceOperatorsTabExtension.Instance,
+            LibraryTabExtension.Instance,
         };
         foreach (var ext in tabs)
         {
