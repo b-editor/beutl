@@ -6,20 +6,19 @@ using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
-using OpenTelemetry.Trace;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
-public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewModel
+public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewModel
 {
-    private readonly ILogger _logger = Log.CreateLogger<LocalYourPackageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<LocalUserPackageViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
     private readonly PackageIdentity _packageIdentity;
 
-    public LocalYourPackageViewModel(LocalPackage package, BeutlApiApplication app)
+    public LocalUserPackageViewModel(LocalPackage package, BeutlApiApplication app)
     {
         Package = package;
         _packageIdentity = new PackageIdentity(package.Name, new NuGetVersion(package.Version));
@@ -54,7 +53,7 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
         Install = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("LocalYourPackage.Install");
+                using Activity? activity = Telemetry.StartActivity("LocalUserPackage.Install");
 
                 try
                 {
@@ -81,7 +80,7 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
         Update = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("LocalYourPackage.Update");
+                using Activity? activity = Telemetry.StartActivity("LocalUserPackage.Update");
 
                 try
                 {
@@ -112,7 +111,7 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
         Uninstall = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("LocalYourPackage.Uninstall");
+                using Activity? activity = Telemetry.StartActivity("LocalUserPackage.Uninstall");
 
                 try
                 {
@@ -187,9 +186,9 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
-    IReadOnlyReactiveProperty<bool> IYourPackageViewModel.IsUpdateButtonVisible => IsUpdateButtonVisible;
+    IReadOnlyReactiveProperty<bool> IUserPackageViewModel.IsUpdateButtonVisible => IsUpdateButtonVisible;
 
-    bool IYourPackageViewModel.IsRemote => false;
+    bool IUserPackageViewModel.IsRemote => false;
 
     public override void Dispose()
     {

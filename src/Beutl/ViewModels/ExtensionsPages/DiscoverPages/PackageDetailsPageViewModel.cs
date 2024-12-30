@@ -12,16 +12,16 @@ using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 
-public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupportRefreshViewModel
+public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
-    private readonly ILogger _logger = Log.CreateLogger<PublicPackageDetailsPageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<PackageDetailsPageViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
     private readonly LibraryService _library;
     private readonly BeutlApiApplication _app;
 
-    public PublicPackageDetailsPageViewModel(Package package, BeutlApiApplication app)
+    public PackageDetailsPageViewModel(Package package, BeutlApiApplication app)
     {
         Package = package;
         _app = app;
@@ -37,7 +37,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("PublicPackageDetailsPage.Refresh");
+                using Activity? activity = Telemetry.StartActivity("PackageDetailsPage.Refresh");
 
                 try
                 {
@@ -155,7 +155,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
         Install = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("PublicPackageDetailsPage.Install");
+                using Activity? activity = Telemetry.StartActivity("PackageDetailsPage.Install");
 
                 try
                 {
@@ -195,7 +195,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
         Update = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("PublicPackageDetailsPage.Update");
+                using Activity? activity = Telemetry.StartActivity("PackageDetailsPage.Update");
 
                 try
                 {

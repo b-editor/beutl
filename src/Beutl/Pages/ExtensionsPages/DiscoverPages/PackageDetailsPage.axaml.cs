@@ -12,9 +12,9 @@ using FluentAvalonia.UI.Navigation;
 
 namespace Beutl.Pages.ExtensionsPages.DiscoverPages;
 
-public partial class PublicPackageDetailsPage : UserControl
+public partial class PackageDetailsPage : UserControl
 {
-    public PublicPackageDetailsPage()
+    public PackageDetailsPage()
     {
         InitializeComponent();
         AddHandler(Frame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
@@ -27,7 +27,7 @@ public partial class PublicPackageDetailsPage : UserControl
         {
             DestoryDataContext();
             DataContextFactory factory = GetDataContextFactory();
-            DataContext = factory.PublicPackageDetailPage(package);
+            DataContext = factory.PackageDetailPage(package);
         }
     }
 
@@ -38,7 +38,7 @@ public partial class PublicPackageDetailsPage : UserControl
 
     private void DestoryDataContext()
     {
-        if (DataContext is PublicPackageDetailsPageViewModel disposable)
+        if (DataContext is PackageDetailsPageViewModel disposable)
         {
             disposable.Dispose();
         }
@@ -53,7 +53,7 @@ public partial class PublicPackageDetailsPage : UserControl
 
     private async void OpenWebSite_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PublicPackageDetailsPageViewModel viewModel
+        if (DataContext is PackageDetailsPageViewModel viewModel
             && viewModel.Package.WebSite.Value is string url)
         {
             var dialog = new ContentDialog()
@@ -76,7 +76,7 @@ public partial class PublicPackageDetailsPage : UserControl
 
     private void OpenPublisherPage_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PublicPackageDetailsPageViewModel viewModel
+        if (DataContext is PackageDetailsPageViewModel viewModel
             && this.FindLogicalAncestorOfType<Frame>() is { } frame)
         {
             frame.Navigate(typeof(UserProfilePage), viewModel.Package.Owner);

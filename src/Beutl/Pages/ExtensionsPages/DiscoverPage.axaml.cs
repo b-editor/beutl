@@ -34,7 +34,7 @@ public sealed partial class DiscoverPage : UserControl
         if (sender is Button { DataContext: Package package }
             && this.FindLogicalAncestorOfType<Frame>() is { } frame)
         {
-            frame.Navigate(typeof(PublicPackageDetailsPage), package);
+            frame.Navigate(typeof(PackageDetailsPage), package);
         }
     }
 }

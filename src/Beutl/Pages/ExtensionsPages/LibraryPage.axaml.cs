@@ -32,11 +32,11 @@ public sealed partial class LibraryPage : UserControl
             && DataContext is LibraryPageViewModel viewModel
             && sender is Button button)
         {
-            if (button.DataContext is RemoteYourPackageViewModel package)
+            if (button.DataContext is RemoteUserPackageViewModel package)
             {
-                frame.Navigate(typeof(PublicPackageDetailsPage), package.Package);
+                frame.Navigate(typeof(PackageDetailsPage), package.Package);
             }
-            else if (button.DataContext is LocalYourPackageViewModel localPackage)
+            else if (button.DataContext is LocalUserPackageViewModel localPackage)
             {
                 LocalPackage_Click(button, localPackage, viewModel, frame);
             }
@@ -49,7 +49,7 @@ public sealed partial class LibraryPage : UserControl
 
     private static async void LocalPackage_Click(
         Button button,
-        LocalYourPackageViewModel localPackage,
+        LocalUserPackageViewModel localPackage,
         LibraryPageViewModel viewModel,
         Frame frame)
     {
@@ -58,7 +58,7 @@ public sealed partial class LibraryPage : UserControl
         button.IsEnabled = true;
         if (package != null)
         {
-            frame.Navigate(typeof(PublicPackageDetailsPage), package);
+            frame.Navigate(typeof(PackageDetailsPage), package);
         }
         else
         {

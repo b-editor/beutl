@@ -194,7 +194,7 @@ public sealed partial class ExtensionsPage : UserControl
         {
             return 0;
         }
-        else if (type == typeof(PublicPackageDetailsPage))
+        else if (type == typeof(PackageDetailsPage))
         {
             return 1;
         }

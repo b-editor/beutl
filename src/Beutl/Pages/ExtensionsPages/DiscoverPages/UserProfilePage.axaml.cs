@@ -51,7 +51,7 @@ public partial class UserProfilePage : UserControl
         if (sender is Button { DataContext: Package package }
             && this.FindLogicalAncestorOfType<Frame>() is { } frame)
         {
-            frame.Navigate(typeof(PublicPackageDetailsPage), package);
+            frame.Navigate(typeof(PackageDetailsPage), package);
         }
         else if (DataContext is UserProfilePageViewModel viewModel)
         {

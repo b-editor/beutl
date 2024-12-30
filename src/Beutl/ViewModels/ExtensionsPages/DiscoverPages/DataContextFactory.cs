@@ -10,8 +10,8 @@ public class DataContextFactory(DiscoverService discoverService, BeutlApiApplica
         return new SearchPageViewModel(discoverService, keyword);
     }
 
-    public PublicPackageDetailsPageViewModel PublicPackageDetailPage(Package package)
+    public PackageDetailsPageViewModel PackageDetailPage(Package package)
     {
-        return new PublicPackageDetailsPageViewModel(package, application);
+        return new PackageDetailsPageViewModel(package, application);
     }
 }

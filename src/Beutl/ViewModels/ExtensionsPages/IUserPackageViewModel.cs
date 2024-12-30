@@ -2,7 +2,7 @@
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
-public interface IYourPackageViewModel : IDisposable
+public interface IUserPackageViewModel : IDisposable
 {
     string Name { get; }
 

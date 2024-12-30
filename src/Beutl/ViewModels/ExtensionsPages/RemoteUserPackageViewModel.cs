@@ -9,24 +9,22 @@ using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
-using OpenTelemetry.Trace;
-
 using Reactive.Bindings;
 
 using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
-public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageViewModel
+public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageViewModel
 {
-    private readonly ILogger _logger = Log.CreateLogger<RemoteYourPackageViewModel>();
+    private readonly ILogger _logger = Log.CreateLogger<RemoteUserPackageViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
     private readonly BeutlApiApplication _app;
     private readonly LibraryService _library;
 
-    public RemoteYourPackageViewModel(Package package, BeutlApiApplication app)
+    public RemoteUserPackageViewModel(Package package, BeutlApiApplication app)
     {
         Package = package;
         _app = app;
@@ -59,7 +57,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         Install = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.Install");
+                using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.Install");
 
                 try
                 {
@@ -94,7 +92,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         Update = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.Update");
+                using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.Update");
 
                 try
                 {
@@ -129,7 +127,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         Uninstall = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.Uninstall");
+                using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.Uninstall");
 
                 try
                 {
@@ -178,7 +176,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
         RemoveFromLibrary = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.RemoveFromLibrary");
+                using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.RemoveFromLibrary");
 
                 try
                 {
@@ -239,11 +237,11 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
 
     public AsyncReactiveCommand RemoveFromLibrary { get; }
 
-    public Action<RemoteYourPackageViewModel>? OnRemoveFromLibrary { get; set; }
+    public Action<RemoteUserPackageViewModel>? OnRemoveFromLibrary { get; set; }
 
-    IReadOnlyReactiveProperty<bool> IYourPackageViewModel.IsUpdateButtonVisible => IsUpdateButtonVisible;
+    IReadOnlyReactiveProperty<bool> IUserPackageViewModel.IsUpdateButtonVisible => IsUpdateButtonVisible;
 
-    bool IYourPackageViewModel.IsRemote => true;
+    bool IUserPackageViewModel.IsRemote => true;
 
     public override void Dispose()
     {
