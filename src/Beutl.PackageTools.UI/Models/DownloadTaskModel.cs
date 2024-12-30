@@ -1,8 +1,9 @@
 ﻿using Avalonia.Data.Converters;
+using Beutl.Api.Clients;
 using Beutl.Logging;
-
 using Reactive.Bindings;
 using Reactive.Bindings.TinyLinq;
+using Refit;
 
 namespace Beutl.PackageTools.UI.Models;
 
@@ -103,10 +104,11 @@ public class DownloadTaskModel : IProgress<double>
             Succeeded.Value = true;
             return true;
         }
-        catch (BeutlApiException<ApiErrorResponse> apierr)
+        catch (ApiException apiEx)
         {
-            _logger.LogError(apierr, "An exception occured.");
-            ErrorMessage.Value = apierr.Message;
+            var errorResponse = await apiEx.GetContentAsAsync<ApiErrorResponse>();
+            _logger.LogError(apiEx, "An exception occured.");
+            ErrorMessage.Value = errorResponse?.Message ?? apiEx.Message;
             Failed.Value = true;
             return false;
         }

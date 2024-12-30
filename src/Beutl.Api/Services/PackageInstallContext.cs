@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
+using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 
 using NuGet.Packaging;
@@ -55,5 +55,5 @@ public class PackageInstallContext(string packageName, string version, string do
 
     public IList<(PackageIdentity, LicenseMetadata)> LicensesRequiringApproval { get; } = new List<(PackageIdentity, LicenseMetadata)>();
 
-    internal Asset? Asset { get; set; }
+    internal FileResponse? Asset { get; set; }
 }

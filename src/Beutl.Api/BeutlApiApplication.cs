@@ -5,10 +5,12 @@ using System.Net.Mime;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Configuration;
 using Reactive.Bindings;
+using Refit;
 
 namespace Beutl.Api;
 
@@ -23,14 +25,15 @@ public class BeutlApiApplication
     public BeutlApiApplication(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        Packages = new PackagesClient(httpClient) { BaseUrl = BaseUrl };
-        Releases = new ReleasesClient(httpClient) { BaseUrl = BaseUrl };
-        Users = new UsersClient(httpClient) { BaseUrl = BaseUrl };
-        Account = new AccountClient(httpClient) { BaseUrl = BaseUrl };
-        Assets = new AssetsClient(httpClient) { BaseUrl = BaseUrl };
-        Discover = new DiscoverClient(httpClient) { BaseUrl = BaseUrl };
-        Library = new LibraryClient(httpClient) { BaseUrl = BaseUrl };
-        App = new AppClient(httpClient) { BaseUrl = BaseUrl };
+        httpClient.BaseAddress = new Uri(BaseUrl);
+        App = RestService.For<IAppClient>(httpClient);
+        Packages = RestService.For<IPackagesClient>(httpClient);
+        Releases = RestService.For<IReleasesClient>(httpClient);
+        Files = RestService.For<IFilesClient>(httpClient);
+        Users = RestService.For<IUsersClient>(httpClient);
+        Account = RestService.For<IAccountClient>(httpClient);
+        Discover = RestService.For<IDiscoverClient>(httpClient);
+        Library = RestService.For<ILibraryClient>(httpClient);
 
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         string culture = viewConfig.UICulture.Name;
@@ -45,25 +48,30 @@ public class BeutlApiApplication
 
     public ActivitySource ActivitySource { get; } = new("Beutl.Api.Client", BeutlApplication.Version);
 
-    public PackagesClient Packages { get; }
+    public IPackagesClient Packages { get; }
 
-    public ReleasesClient Releases { get; }
+    public IReleasesClient Releases { get; }
 
-    public UsersClient Users { get; }
+    public IUsersClient Users { get; }
 
-    public AccountClient Account { get; }
+    public IAccountClient Account { get; }
 
-    public AssetsClient Assets { get; }
+    public IFilesClient Files { get; }
 
-    public DiscoverClient Discover { get; }
+    public IDiscoverClient Discover { get; }
 
-    public LibraryClient Library { get; }
+    public ILibraryClient Library { get; }
 
-    public AppClient App { get; }
+    public IAppClient App { get; }
 
     public MyAsyncLock Lock { get; } = new();
 
     public IReadOnlyReactiveProperty<AuthorizedUser?> AuthorizedUser => _authorizedUser;
+
+    public Task<CheckForUpdatesResponse> CheckForUpdatesAsync(string version)
+    {
+        return App.CheckForUpdates(version);
+    }
 
     public T GetResource<T>()
         where T : IBeutlApiResource
@@ -137,13 +145,15 @@ public class BeutlApiApplication
         using (Activity? activity = ActivitySource.StartActivity("SignInExternalAsync", ActivityKind.Client))
         {
             string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-            CreateAuthUriResponse authUriRes =
-                await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
+            CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
+            {
+                ContinueUri = continueUri
+            });
             using HttpListener listener = StartListener($"{continueUri}/");
             activity?.AddEvent(new("Started_Listener"));
 
             string uri =
-                $"{BaseUrl}/api/v2/identity/signInWith?provider={provider}&returnUrl={Uri.EscapeDataString(authUriRes.Auth_uri)}";
+                $"{BaseUrl}/api/v2/identity/signInWith?provider={provider}&returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}";
 
             Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
@@ -154,13 +164,15 @@ public class BeutlApiApplication
                 throw new Exception("The returned code was empty.");
             }
 
-            AuthResponse authResponse =
-                await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
+            AuthResponse authResponse = await Account.Exchange(new ExchangeRequest
+            {
+                Code = code, SessionId = authUriRes.SessionId
+            });
             activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
             _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", authResponse.Token);
-            ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
+            ProfileResponse profileResponse = await Users.GetSelf();
             var profile = new Profile(profileResponse, this);
 
             _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
@@ -178,12 +190,14 @@ public class BeutlApiApplication
             {
                 activity?.AddEvent(new("Entered_AsyncLock"));
                 string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-                CreateAuthUriResponse authUriRes =
-                    await Account.CreateAuthUriAsync(new CreateAuthUriRequest(continueUri), cancellationToken);
+                CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
+                {
+                    ContinueUri = continueUri
+                });
                 using HttpListener listener = StartListener($"{continueUri}/");
                 activity?.AddEvent(new("Started_Listener"));
 
-                string uri = $"{BaseUrl}/account/signIn?returnUrl={Uri.EscapeDataString(authUriRes.Auth_uri)}";
+                string uri = $"{BaseUrl}/account/signIn?returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}";
 
                 Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
@@ -194,13 +208,15 @@ public class BeutlApiApplication
                     throw new Exception("The returned code was empty.");
                 }
 
-                AuthResponse authResponse =
-                    await Account.CodeToJwtAsync(new CodeToJwtRequest(code, authUriRes.Session_id), cancellationToken);
+                AuthResponse authResponse = await Account.Exchange(new ExchangeRequest
+                {
+                    Code = code, SessionId = authUriRes.SessionId
+                });
                 activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
                 _httpClient.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue("Bearer", authResponse.Token);
-                ProfileResponse profileResponse = await Users.Get2Async(cancellationToken);
+                ProfileResponse profileResponse = await Users.GetSelf();
                 var profile = new Profile(profileResponse, this);
 
                 _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
@@ -271,7 +287,7 @@ public class BeutlApiApplication
                 ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
                 string? token = (string?)node["token"];
                 string? refreshToken = (string?)node["refresh_token"];
-                var expiration = (DateTimeOffset?)node["expiration"];
+                var expiration = (DateTime?)node["expiration"];
 
                 if (profile != null
                     && token != null
@@ -280,7 +296,12 @@ public class BeutlApiApplication
                 {
                     return new AuthorizedUser(
                         new Profile(profile, this),
-                        new AuthResponse(expiration.Value, refreshToken, token),
+                        new AuthResponse
+                        {
+                            Expiration = expiration.Value,
+                            RefreshToken = refreshToken,
+                            Token = token
+                        },
                         this,
                         _httpClient,
                         lastWriteTime);

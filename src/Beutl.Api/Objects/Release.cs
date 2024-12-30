@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Reactive.Linq;
-
+using Beutl.Api.Clients;
 using Reactive.Bindings;
 
 namespace Beutl.Api.Objects;
@@ -19,16 +19,17 @@ public class Release
         _response = new ReactivePropertySlim<ReleaseResponse>(response);
 
         Version = _response.Select(x => x.Version).ToReadOnlyReactivePropertySlim()!;
-        Title = _response.Select(x => x.Title).ToReadOnlyReactivePropertySlim()!;
-        Body = _response.Select(x => x.Body).ToReadOnlyReactivePropertySlim()!;
-        TargetVersion = _response.Select(x => x.Target_version).ToReadOnlyReactivePropertySlim()!;
-        AssetId = _response.Select(x => x.Asset_id).ToReadOnlyReactivePropertySlim()!;
-        IsPublic = _response.Select(x => x.Public).ToReadOnlyReactivePropertySlim()!;
+        Title = _response.Select(x => x.Title).ToReadOnlyReactivePropertySlim();
+        Body = _response.Select(x => x.Description).ToReadOnlyReactivePropertySlim();
+        TargetVersion = _response.Select(x => x.TargetVersion).ToReadOnlyReactivePropertySlim();
+        AssetId = _response.Select(x => x.FileId).ToReadOnlyReactivePropertySlim();
+        AssetUrl = _response.Select(x => x.FileUrl).ToReadOnlyReactivePropertySlim();
     }
+
 
     public Package Package { get; }
 
-    public long Id { get; }
+    public string Id { get; }
 
     public IReadOnlyReactiveProperty<ReleaseResponse> Response => _response;
 
@@ -40,63 +41,27 @@ public class Release
 
     public IReadOnlyReactiveProperty<string?> TargetVersion { get; }
 
-    public IReadOnlyReactiveProperty<long?> AssetId { get; }
+    public IReadOnlyReactiveProperty<string?> AssetId { get; }
 
-    public IReadOnlyReactiveProperty<bool> IsPublic { get; }
-
-    public IReadOnlyReactiveProperty<bool> IsDeleted => _isDeleted;
+    public ReadOnlyReactivePropertySlim<string?> AssetUrl { get; set; }
 
     public async Task RefreshAsync()
     {
         using Activity? activity = _clients.ActivitySource.StartActivity("Release.Refresh", ActivityKind.Client);
 
-        _response.Value = await _clients.Releases.GetReleaseAsync(Package.Name, _response.Value.Version);
+        _response.Value = await _clients.Releases.GetRelease(Package.Name, _response.Value.Version);
 
         _isDeleted.Value = false;
     }
 
-    public Task UpdateAsync(long? assetId = null, string? body = null, bool? isPublic = null, string? title = null, string? targetVersion = null)
-    {
-        return UpdateAsync(new UpdateReleaseRequest(assetId, body, isPublic, targetVersion, title));
-    }
-
-    public async Task UpdateAsync(UpdateReleaseRequest request)
-    {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Release.Update", ActivityKind.Client);
-
-        if (_isDeleted.Value)
-        {
-            throw new InvalidOperationException("This object has been deleted.");
-        }
-
-        _response.Value = await _clients.Releases.PatchAsync(
-            Package.Name,
-            Response.Value.Version,
-            request);
-    }
-
-    public async Task DeleteAsync()
-    {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Release.Delete", ActivityKind.Client);
-
-        FileResponse response = await _clients.Releases.DeleteAsync(
-            Package.Name,
-            Response.Value.Version);
-
-        response.Dispose();
-
-        _isDeleted.Value = true;
-    }
-
-    public async Task<Asset> GetAssetAsync()
+    public async Task<FileResponse> GetAssetAsync()
     {
         using Activity? activity = _clients.ActivitySource.StartActivity("Release.GetAsset", ActivityKind.Client);
 
-        if (!AssetId.Value.HasValue)
+        if (AssetId.Value==null)
             throw new InvalidOperationException("This release has no assets.");
 
-        AssetMetadataResponse response = await _clients.Assets.GetAsset2Async(AssetId.Value.Value);
-        return new Asset(Package.Owner, response, _clients);
+        return await _clients.Files.GetFile(AssetId.Value!);
     }
 }
 
