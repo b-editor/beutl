@@ -1,15 +1,11 @@
-﻿using Avalonia.Threading;
-
+﻿using Avalonia.Collections;
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
+using Beutl.Services;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
-
 using Microsoft.Extensions.Logging;
-
-using OpenTelemetry.Trace;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.ExtensionsPages;
@@ -17,102 +13,101 @@ namespace Beutl.ViewModels.ExtensionsPages;
 public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.CreateLogger<DiscoverPageViewModel>();
-    private readonly BeutlApiApplication _clients;
-    private readonly DiscoverService _discoverService;
+    private readonly CompositeDisposable _disposables = [];
+    private readonly DiscoverService _discover;
 
-    public DiscoverPageViewModel(BeutlApiApplication clients)
+    public DiscoverPageViewModel(BeutlApiApplication apiApp)
     {
-        static async Task LoadAsync(CoreList<object> packages, Func<int, int, Task<Package[]>> func, int maxCount = int.MaxValue)
-        {
-            int prevCount = 0;
-            int count = 0;
+        _discover = apiApp.GetResource<DiscoverService>();
+        DataContextFactory = new DataContextFactory(_discover, apiApp);
 
-            do
+        Refresh = new AsyncReactiveCommand(IsBusy.Not())
+            .WithSubscribe(async () =>
             {
-                Package[] items = await func(count, 30).ConfigureAwait(false);
-                if (count == 0)
-                {
-                    await Dispatcher.UIThread.InvokeAsync(packages.Clear);
-                }
+                using Activity? activity = Telemetry.StartActivity("DiscoverPage.Refresh");
 
-                count += items.Length;
-
-                if (maxCount < count)
+                try
                 {
-                    await Dispatcher.UIThread.InvokeAsync(() => packages.AddRange(items.Take(count - maxCount)));
-                }
-                else
-                {
-                    await Dispatcher.UIThread.InvokeAsync(() => packages.AddRange(items));
-                    prevCount = items.Length;
-                }
-            } while (prevCount == 30 && maxCount > count);
-        }
+                    IsBusy.Value = true;
+                    Items.Clear();
+                    Items.AddRange(Enumerable.Repeat(new DummyItem(), 10));
 
-        _clients = clients;
-        _discoverService = new DiscoverService(clients);
-        DataContextFactory = new DataContextFactory(_discoverService, _clients);
-        Refresh.Subscribe(async () =>
-        {
-            using Activity? activity = Services.Telemetry.StartActivity("DiscoverPage.Refresh");
+                    Package[] array = await LoadItems(0, 30, activity);
+                    Items.Clear();
+                    Items.AddRange(array);
 
-            try
-            {
-                IsBusy.Value = true;
-                AuthorizedUser? user = _clients.AuthorizedUser.Value;
-                // placeholder
-                DummyItem[] dummy = Enumerable.Repeat(new DummyItem(), 6).ToArray();
-                foreach (CoreList<object>? item in new[] { DailyRanking, WeeklyRanking, Top10, RecentlyRanking })
-                {
-                    item.Clear();
-                    item.AddRange(dummy);
-                }
-
-                using (await _clients.Lock.LockAsync().ConfigureAwait(false))
-                {
-                    activity?.AddEvent(new("Entered_AsyncLock"));
-                    if (user != null)
+                    if (array.Length == 30)
                     {
-                        await user.RefreshAsync().ConfigureAwait(false);
+                        Items.Add(new LoadMoreItem());
                     }
-
-                    Task task0 = Task.Run(() => LoadAsync(DailyRanking, (start, count) => _discoverService.GetDailyRanking(start, count), 10));
-                    Task task1 = Task.Run(() => LoadAsync(WeeklyRanking, (start, count) => _discoverService.GetWeeklyRanking(start, count), 10));
-                    Task task2 = Task.Run(() => LoadAsync(Top10, (start, count) => _discoverService.GetOverallRanking(start, count), 10));
-                    Task task3 = Task.Run(() => LoadAsync(RecentlyRanking, (start, count) => _discoverService.GetRecentlyRanking(start, count), 10));
-                    await Task.WhenAll(task0, task1, task2, task3).ConfigureAwait(false);
                 }
-            }
-            catch (Exception ex)
+                catch (Exception e)
+                {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    await e.Handle();
+                    _logger.LogError(e, "An unexpected error has occurred.");
+                }
+                finally
+                {
+                    IsBusy.Value = false;
+                }
+            })
+            .DisposeWith(_disposables);
+
+        More = new AsyncReactiveCommand(IsBusy.Not())
+            .WithSubscribe(async () =>
             {
-                activity?.SetStatus(ActivityStatusCode.Error);
-                ErrorHandle(ex);
-                _logger.LogError(ex, "An unexpected error has occurred.");
-            }
-            finally
-            {
-                IsBusy.Value = false;
-            }
-        });
+                using Activity? activity = Telemetry.StartActivity("DiscoverPage.More");
+
+                try
+                {
+                    IsBusy.Value = true;
+                    Items.RemoveAt(Items.Count - 1);
+                    Package[] array = await LoadItems(Items.Count, 30, activity);
+                    Items.AddRange(array);
+
+                    if (array.Length == 30)
+                    {
+                        Items.Add(new LoadMoreItem());
+                    }
+                }
+                catch (Exception e)
+                {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    await e.Handle();
+                    _logger.LogError(e, "An unexpected error has occurred.");
+                }
+                finally
+                {
+                    IsBusy.Value = false;
+                }
+            })
+            .DisposeWith(_disposables);
 
         Refresh.Execute();
     }
 
-    public CoreList<object> Top10 { get; } = [];
+    public AvaloniaList<object> Items { get; } = [];
 
-    public CoreList<object> DailyRanking { get; } = [];
+    public AsyncReactiveCommand Refresh { get; }
 
-    public CoreList<object> WeeklyRanking { get; } = [];
-
-    public CoreList<object> RecentlyRanking { get; } = [];
+    public AsyncReactiveCommand More { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
-    public AsyncReactiveCommand Refresh { get; } = new();
-
     public DataContextFactory DataContextFactory { get; }
+
+    private async Task<Package[]> LoadItems(int start, int count, Activity? activity)
+    {
+        using (await _discover.Lock.LockAsync())
+        {
+            activity?.AddEvent(new("Entered_AsyncLock"));
+            return await _discover.GetFeatured(start, count);
+        }
+    }
 
     public override void Dispose()
     {
+        _disposables.Dispose();
     }
 }

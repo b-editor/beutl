@@ -6,7 +6,7 @@ using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
-
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
 using NuGet.Versioning;
@@ -14,6 +14,7 @@ using NuGet.Versioning;
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
+using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
@@ -58,7 +59,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -91,7 +92,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -146,7 +147,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally

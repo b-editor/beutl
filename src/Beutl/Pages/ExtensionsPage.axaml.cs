@@ -5,12 +5,9 @@ using Avalonia.LogicalTree;
 
 using Beutl.Logging;
 using Beutl.Pages.ExtensionsPages;
-using Beutl.Pages.ExtensionsPages.DevelopPages;
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
-using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.ExtensionsPages;
-using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
 using Beutl.Views;
 
 using FluentAvalonia.UI.Controls;
@@ -97,15 +94,6 @@ public sealed partial class ExtensionsPage : UserControl
                     Symbol = Symbol.Library
                 }
             },
-            new NavigationViewItem()
-            {
-                Content = "Develop",
-                Tag = typeof(DevelopPage),
-                IconSource = new SymbolIconSource
-                {
-                    Symbol = Symbol.Code
-                }
-            }
         ];
     }
 
@@ -128,11 +116,7 @@ public sealed partial class ExtensionsPage : UserControl
             && DataContext is ExtensionsPageViewModel { IsAuthorized.Value: true } viewModel)
         {
             NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
-            if (typ == typeof(DevelopPage))
-            {
-                frame.Navigate(typ, viewModel.Develop, transitionInfo);
-            }
-            else if (typ == typeof(LibraryPage))
+            if (typ == typeof(LibraryPage))
             {
                 frame.Navigate(typ, viewModel.Library, transitionInfo);
             }
@@ -206,28 +190,13 @@ public sealed partial class ExtensionsPage : UserControl
 
     private static int ToNumber(Type type)
     {
-        if (type == typeof(DevelopPage)
-            || type == typeof(DiscoverPage))
+        if (type == typeof(DiscoverPage))
         {
             return 0;
         }
-        else if (type == typeof(PackageDetailsPage)
-            || type == typeof(PublicPackageDetailsPage)
-            || type == typeof(RankingPageViewModel))
+        else if (type == typeof(PublicPackageDetailsPage))
         {
             return 1;
-        }
-        else if (type == typeof(PackageReleasesPage))
-        {
-            return 2;
-        }
-        else if (type == typeof(PackageSettingsPage))
-        {
-            return 2;
-        }
-        else if (type == typeof(ReleasePage))
-        {
-            return 3;
         }
         else
         {

@@ -128,15 +128,6 @@ public sealed partial class SettingsDialog : AppWindow
             },
             new NavigationViewItem()
             {
-                Content = Language.SettingsPage.Storage,
-                Tag = typeof(StorageSettingsPage),
-                IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource()
-                {
-                    Symbol = FluentIcons.Common.Symbol.Storage
-                }
-            },
-            new NavigationViewItem()
-            {
                 Content = Strings.Info,
                 Tag = typeof(InfomationPage),
                 IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource()
@@ -173,7 +164,6 @@ public sealed partial class SettingsDialog : AppWindow
                 "EditorSettingsPage" => settingsPage.Editor,
                 "FontSettingsPage" => settingsPage.Font,
                 "ExtensionsSettingsPage" => settingsPage.ExtensionsPage,
-                "StorageSettingsPage" => settingsPage.Storage,
                 "InfomationPage" => settingsPage.Infomation,
                 "KeyMapSettingsPage" => settingsPage.KeyMap,
                 _ => null,
@@ -213,13 +203,11 @@ public sealed partial class SettingsDialog : AppWindow
                 || pagetype == typeof(KeyMapSettingsPage)
                 || pagetype == typeof(FontSettingsPage)
                 || pagetype == typeof(ExtensionsSettingsPage)
-                || pagetype == typeof(StorageSettingsPage)
                 || pagetype == typeof(InfomationPage))
             {
                 return 0;
             }
-            else if (pagetype == typeof(StorageDetailPage)
-                     || pagetype == typeof(EditorExtensionPriorityPage)
+            else if (pagetype == typeof(EditorExtensionPriorityPage)
                      || pagetype == typeof(DecoderPriorityPage)
                      || pagetype == typeof(TelemetrySettingsPage)
                      || pagetype == typeof(AnExtensionSettingsPage))
@@ -261,8 +249,6 @@ public sealed partial class SettingsDialog : AppWindow
                 "ExtensionsSettingsPageViewModel" => typeof(ExtensionsSettingsPage),
                 "EditorExtensionPriorityPageViewModel" => typeof(EditorExtensionPriorityPage),
                 "DecoderPriorityPageViewModel" => typeof(DecoderPriorityPage),
-                "StorageSettingsPageViewModel" => typeof(StorageSettingsPage),
-                "StorageDetailPageViewModel" => typeof(StorageDetailPage),
                 "TelemetrySettingsPageViewModel" => typeof(TelemetrySettingsPage),
                 "AnExtensionSettingsPageViewModel" => typeof(AnExtensionSettingsPage),
                 _ => typeof(InfomationPage),

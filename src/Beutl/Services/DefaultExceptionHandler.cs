@@ -1,18 +1,16 @@
-﻿using Beutl.Api;
+﻿using Beutl.Api.Clients;
+using Refit;
 
 namespace Beutl.Services;
 
 public static class DefaultExceptionHandler
 {
-    public static void Handle(this Exception exception)
+    public static async ValueTask Handle(this Exception exception)
     {
-        if (exception is BeutlApiException<ApiErrorResponse> apiError)
+        if (exception is ApiException apiError)
         {
-            NotificationService.ShowError("API Error", apiError.Result.Message);
-        }
-        else if (exception is BeutlApiException apiException)
-        {
-            NotificationService.ShowError("API Error", exception.Message);
+            var err = await apiError.GetContentAsAsync<ApiErrorResponse>();
+            NotificationService.ShowError("API Error", err?.Message ?? apiError.Message);
         }
         else if (exception is not OperationCanceledException)
         {

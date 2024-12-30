@@ -69,7 +69,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         await _app.AuthorizedUser.Value!.RefreshAsync();
 
-                        Release release = await _library.GetPackage(Package);
+                        Release release = await _library.Acquire(Package);
 
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
                         _queue.InstallQueue(packageId);
@@ -81,7 +81,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -104,7 +104,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         await _app.AuthorizedUser.Value!.RefreshAsync();
 
-                        Release release = await _library.GetPackage(Package);
+                        Release release = await _library.Acquire(Package);
 
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
                         _queue.InstallQueue(packageId);
@@ -116,7 +116,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -126,8 +126,8 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
             })
             .DisposeWith(_disposables);
 
-        Uninstall = new ReactiveCommand(IsBusy.Not())
-            .WithSubscribe(() =>
+        Uninstall = new AsyncReactiveCommand(IsBusy.Not())
+            .WithSubscribe(async () =>
             {
                 using Activity? activity = Telemetry.StartActivity("RemoteYourPackage.Uninstall");
 
@@ -145,7 +145,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -155,8 +155,8 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
             })
             .DisposeWith(_disposables);
 
-        Cancel = new ReactiveCommand()
-            .WithSubscribe(() =>
+        Cancel = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
             {
                 try
                 {
@@ -165,7 +165,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 }
                 catch (Exception e)
                 {
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -196,7 +196,7 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -231,9 +231,9 @@ public sealed class RemoteYourPackageViewModel : BaseViewModel, IYourPackageView
 
     public AsyncReactiveCommand Update { get; }
 
-    public ReactiveCommand Uninstall { get; }
+    public AsyncReactiveCommand Uninstall { get; }
 
-    public ReactiveCommand Cancel { get; }
+    public AsyncReactiveCommand Cancel { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

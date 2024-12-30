@@ -1,4 +1,5 @@
 ﻿using Beutl.Api;
+using Beutl.Api.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.ExtensionsPages;
 
@@ -13,7 +14,6 @@ public sealed class ExtensionsPageViewModel : IPageContext
     private readonly BeutlApiApplication _clients;
     private Lazy<DiscoverPageViewModel>? _discover;
     private Lazy<LibraryPageViewModel>? _library;
-    private Lazy<DevelopPageViewModel>? _develop;
 
     public ExtensionsPageViewModel(BeutlApiApplication clients)
     {
@@ -30,15 +30,12 @@ public sealed class ExtensionsPageViewModel : IPageContext
                     _authDisposables.Clear();
                     _discover = null;
                     _library = null;
-                    _develop = null;
                 }
                 else
                 {
                     _discover = new(() => new DiscoverPageViewModel(_clients)
                         .DisposeWith(_authDisposables));
                     _library = new(() => new LibraryPageViewModel(user, _clients)
-                        .DisposeWith(_authDisposables));
-                    _develop = new(() => new DevelopPageViewModel(user, _clients)
                         .DisposeWith(_authDisposables));
                 }
             })
@@ -52,9 +49,6 @@ public sealed class ExtensionsPageViewModel : IPageContext
 
     public LibraryPageViewModel Library
         => _library?.Value ?? throw new Exception("Authorization is required.");
-
-    public DevelopPageViewModel Develop
-        => _develop?.Value ?? throw new Exception("Authorization is required.");
 
     public PageExtension Extension => ExtensionsPageExtension.Instance;
 

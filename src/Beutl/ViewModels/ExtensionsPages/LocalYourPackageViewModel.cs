@@ -3,14 +3,10 @@ using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Services;
-
 using Microsoft.Extensions.Logging;
-
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
-
 using OpenTelemetry.Trace;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.ExtensionsPages;
@@ -66,14 +62,13 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                     _queue.InstallQueue(_packageIdentity);
                     NotificationService.ShowInformation(
                         title: ExtensionsPage.PackageInstaller,
-                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, _packageIdentity.Id));
-
-                    await Task.CompletedTask;
+                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
+                            _packageIdentity.Id));
                 }
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -84,7 +79,7 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
             .DisposeWith(_disposables);
 
         Update = new AsyncReactiveCommand(IsBusy.Not())
-            .WithSubscribe(() =>
+            .WithSubscribe(async () =>
             {
                 using Activity? activity = Telemetry.StartActivity("LocalYourPackage.Update");
 
@@ -93,7 +88,8 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                     IsBusy.Value = true;
                     if (LatestRelease.Value != null)
                     {
-                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(LatestRelease.Value.Version.Value));
+                        var packageId = new PackageIdentity(Package.Name,
+                            new NuGetVersion(LatestRelease.Value.Version.Value));
                         _queue.InstallQueue(packageId);
                         NotificationService.ShowInformation(
                             title: ExtensionsPage.PackageInstaller,
@@ -103,20 +99,18 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {
                     IsBusy.Value = false;
                 }
-
-                return Task.CompletedTask;
             })
             .DisposeWith(_disposables);
 
-        Uninstall = new ReactiveCommand(IsBusy.Not())
-            .WithSubscribe(() =>
+        Uninstall = new AsyncReactiveCommand(IsBusy.Not())
+            .WithSubscribe(async () =>
             {
                 using Activity? activity = Telemetry.StartActivity("LocalYourPackage.Uninstall");
 
@@ -126,12 +120,13 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                     _queue.UninstallQueue(_packageIdentity);
                     NotificationService.ShowInformation(
                         title: ExtensionsPage.PackageInstaller,
-                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, _packageIdentity.Id));
+                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation,
+                            _packageIdentity.Id));
                 }
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -141,8 +136,8 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
             })
             .DisposeWith(_disposables);
 
-        Cancel = new ReactiveCommand()
-            .WithSubscribe(() =>
+        Cancel = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
             {
                 try
                 {
@@ -151,7 +146,7 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
                 }
                 catch (Exception e)
                 {
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -186,9 +181,9 @@ public sealed class LocalYourPackageViewModel : BaseViewModel, IYourPackageViewM
 
     public AsyncReactiveCommand Update { get; }
 
-    public ReactiveCommand Uninstall { get; }
+    public AsyncReactiveCommand Uninstall { get; }
 
-    public ReactiveCommand Cancel { get; }
+    public AsyncReactiveCommand Cancel { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 

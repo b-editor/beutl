@@ -26,9 +26,9 @@ public interface IYourPackageViewModel : IDisposable
 
     AsyncReactiveCommand Update { get; }
 
-    ReactiveCommand Uninstall { get; }
+    AsyncReactiveCommand Uninstall { get; }
 
-    ReactiveCommand Cancel { get; }
+    AsyncReactiveCommand Cancel { get; }
 
     ReactivePropertySlim<bool> IsBusy { get; }
 }

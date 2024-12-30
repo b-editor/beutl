@@ -3,16 +3,11 @@ using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Services;
-
 using Microsoft.Extensions.Logging;
-
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
-
 using OpenTelemetry.Trace;
-
 using Reactive.Bindings;
-
 using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
@@ -62,8 +57,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                             Release[] array = await package.GetReleasesAsync(totalCount, 30);
                             AllReleases.AddRange(array);
 
-                            if (LatestRelease.Value == null
-                                && Array.Find(array, x => x.IsPublic.Value) is { } publicRelease)
+                            if (LatestRelease.Value == null && array.FirstOrDefault() is { } publicRelease)
                             {
                                 LatestRelease.Value = publicRelease;
                                 SelectedRelease.Value = publicRelease;
@@ -85,7 +79,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -142,7 +136,8 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
             {
                 if (x.First is { } selected && x.Second is { } current)
                 {
-                    return NuGetVersion.Parse(selected.Version.Value).CompareTo(NuGetVersion.Parse(current.Version.Value)) < 0;
+                    return NuGetVersion.Parse(selected.Version.Value)
+                        .CompareTo(NuGetVersion.Parse(current.Version.Value)) < 0;
                 }
                 else
                 {
@@ -170,7 +165,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         await _app.AuthorizedUser.Value!.RefreshAsync();
 
-                        Release release = await _library.GetPackage(Package);
+                        Release release = await _library.Acquire(Package);
                         if (SelectedRelease.Value != null)
                         {
                             release = SelectedRelease.Value;
@@ -180,13 +175,14 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                         _queue.InstallQueue(packageId);
                         NotificationService.ShowInformation(
                             title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation, packageId.Id));
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
+                                packageId.Id));
                     }
                 }
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -209,7 +205,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         await _app.AuthorizedUser.Value!.RefreshAsync();
 
-                        Release release = await _library.GetPackage(Package);
+                        Release release = await _library.Acquire(Package);
                         if (SelectedRelease.Value != null)
                         {
                             release = SelectedRelease.Value;
@@ -225,7 +221,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -235,8 +231,8 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
             })
             .DisposeWith(_disposables);
 
-        Uninstall = new ReactiveCommand(IsBusy.Not())
-            .WithSubscribe(() =>
+        Uninstall = new AsyncReactiveCommand(IsBusy.Not())
+            .WithSubscribe(async () =>
             {
                 try
                 {
@@ -251,7 +247,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                 }
                 catch (Exception e)
                 {
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -261,8 +257,8 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
             })
             .DisposeWith(_disposables);
 
-        Cancel = new ReactiveCommand()
-            .WithSubscribe(() =>
+        Cancel = new AsyncReactiveCommand()
+            .WithSubscribe(async () =>
             {
                 try
                 {
@@ -271,7 +267,7 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
                 }
                 catch (Exception e)
                 {
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -312,9 +308,9 @@ public sealed class PublicPackageDetailsPageViewModel : BasePageViewModel, ISupp
 
     public AsyncReactiveCommand Update { get; }
 
-    public ReactiveCommand Uninstall { get; }
+    public AsyncReactiveCommand Uninstall { get; }
 
-    public ReactiveCommand Cancel { get; }
+    public AsyncReactiveCommand Cancel { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
