@@ -36,7 +36,6 @@
     <File Path="tests\Directory.Build.props" />
   </Folder>
   <Project Path="nukebuild\_build.csproj" />
-  <Project Path="src\Beutl.Api.Generated\Beutl.Api.Generated.csproj" />
   <Project Path="src\Beutl.Api\Beutl.Api.csproj" />
   <Project Path="src\Beutl.Configuration\Beutl.Configuration.csproj" />
   <Project Path="src\Beutl.Controls\Beutl.Controls.csproj" />
