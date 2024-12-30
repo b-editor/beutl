@@ -49,7 +49,6 @@
   <Project Path="src\Beutl.Language\Beutl.Language.csproj" />
   <Project Path="src\Beutl.Operators\Beutl.Operators.csproj" />
   <Project Path="src\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj" />
-  <Project Path="src\Beutl.PackageTools\Beutl.PackageTools.csproj" />
   <Project Path="src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
   <Project Path="src\Beutl.Threading\Beutl.Threading.csproj" />
   <Project Path="src\Beutl.Utilities\Beutl.Utilities.csproj" />
