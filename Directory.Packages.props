@@ -65,6 +65,7 @@
     <PackageVersion Include="PanelExtension" Version="1.0.0" />
     <PackageVersion Include="ReactiveProperty" Version="9.6.0" />
     <PackageVersion Include="ReDocking.Avalonia" Version="1.0.2" />
+    <PackageVersion Include="Refit" Version="8.0.0" />
     <PackageVersion Include="Roslynator.Analyzers" Version="4.12.9" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="8.0.0" />
     <PackageVersion Include="Serilog.Sinks.Async" Version="2.1.0" />
