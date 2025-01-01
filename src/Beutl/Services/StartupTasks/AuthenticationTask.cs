@@ -1,7 +1,9 @@
 ﻿using Beutl.Api;
+using Beutl.Api.Clients;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Trace;
+using Refit;
 
 namespace Beutl.Services.StartupTasks;
 
@@ -25,9 +27,10 @@ public sealed class AuthenticationTask : StartupTask
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
                     _logger.LogError(e, "An error occurred during authentication");
-                    if (e is BeutlApiException<ApiErrorResponse> error)
+                    if (e is ApiException error)
                     {
-                        if (error.Result.Error_code == ApiErrorCode.InvalidRefreshToken)
+                        var apiErr = await error.GetContentAsAsync<ApiErrorResponse>();
+                        if (apiErr?.ErrorCode == ApiErrorCode.InvalidRefreshToken)
                         {
                             _beutlApiApplication.SignOut();
                             NotificationService.ShowError(
@@ -39,7 +42,7 @@ public sealed class AuthenticationTask : StartupTask
                     }
                     else
                     {
-                        e.Handle();
+                        await e.Handle();
                     }
                 }
             }

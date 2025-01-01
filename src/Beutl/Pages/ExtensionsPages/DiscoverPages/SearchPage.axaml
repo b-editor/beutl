@@ -39,252 +39,125 @@
                            Text="{Binding Keyword, StringFormat='&quot;{0}&quot;'}"
                            Theme="{StaticResource SubtitleTextBlockStyle}" />
 
-                <TabControl Padding="0" SelectedIndex="{Binding SearchType.Value}">
-                    <TabControl.Styles>
-                        <Style Selector="TabItem">
-                            <Setter Property="Padding" Value="8" />
-                            <Setter Property="FontSize" Value="16" />
-                        </Style>
-                    </TabControl.Styles>
-                    <TabItem Header="{x:Static lang:ExtensionsPage.Search_Packages}">
-                        <ItemsRepeater ItemsSource="{Binding Packages}">
-                            <ItemsRepeater.Layout>
-                                <panelx:HorizontalGridLayout ColumnSpacing="16"
-                                                             MinItemWidth="345"
-                                                             RowSpacing="16" />
-                            </ItemsRepeater.Layout>
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate>
-                                    <ContentControl Content="{Binding}">
-                                        <ContentControl.DataTemplates>
-                                            <DataTemplate x:DataType="extensionsPage:LoadMoreItem">
-                                                <Button Padding="0"
-                                                        HorizontalAlignment="Stretch"
-                                                        HorizontalContentAlignment="Stretch"
-                                                        VerticalContentAlignment="Stretch"
-                                                        Click="Package_Click">
-                                                    <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                                        <Border Width="80" Height="80">
-                                                            <icons:SymbolIcon FontSize="32" Symbol="MoreHorizontal" />
-                                                        </Border>
+                <ItemsRepeater ItemsSource="{Binding Packages}">
+                    <ItemsRepeater.Layout>
+                        <panelx:HorizontalGridLayout ColumnSpacing="16"
+                                                     MinItemWidth="345"
+                                                     RowSpacing="16" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate>
+                            <ContentControl Content="{Binding}">
+                                <ContentControl.DataTemplates>
+                                    <DataTemplate x:DataType="extensionsPage:LoadMoreItem">
+                                        <Button Padding="0"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Stretch"
+                                                VerticalContentAlignment="Stretch"
+                                                Click="Package_Click">
+                                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
+                                                <Border Width="80" Height="80">
+                                                    <icons:SymbolIcon FontSize="32" Symbol="MoreHorizontal" />
+                                                </Border>
 
-                                                        <TextBlock Grid.Column="2"
-                                                                   VerticalAlignment="Center"
-                                                                   Text="{x:Static lang:Strings.ShowMore}" />
-                                                    </Grid>
-                                                </Button>
-                                            </DataTemplate>
-                                            <DataTemplate x:DataType="api:Package">
-                                                <Button Padding="0"
-                                                        HorizontalAlignment="Stretch"
-                                                        HorizontalContentAlignment="Stretch"
-                                                        VerticalContentAlignment="Stretch"
-                                                        Click="Package_Click">
-                                                    <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                                        <asyncImageLoader:AdvancedImage Width="80"
-                                                                                        Height="80"
-                                                                                        ImageClipping.CornerRadius="8"
-                                                                                        Source="{Binding LogoUrl.Value}" />
+                                                <TextBlock Grid.Column="2"
+                                                           VerticalAlignment="Center"
+                                                           Text="{x:Static lang:Strings.ShowMore}" />
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                    <DataTemplate x:DataType="api:Package">
+                                        <Button Padding="0"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Stretch"
+                                                VerticalContentAlignment="Stretch"
+                                                Click="Package_Click">
+                                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
+                                                <asyncImageLoader:AdvancedImage Width="80"
+                                                                                Height="80"
+                                                                                ImageClipping.CornerRadius="8"
+                                                                                Source="{Binding LogoUrl.Value}" />
 
-                                                        <Grid Grid.Column="2"
-                                                              Margin="0,2"
-                                                              VerticalAlignment="Stretch"
-                                                              ColumnDefinitions="*,Auto"
-                                                              RowDefinitions="Auto,Auto,Auto">
-                                                            <TextBlock Text="{Binding Name}" />
+                                                <Grid Grid.Column="2"
+                                                      Margin="0,2"
+                                                      VerticalAlignment="Stretch"
+                                                      ColumnDefinitions="*,Auto"
+                                                      RowDefinitions="Auto,Auto,Auto">
+                                                    <TextBlock Text="{Binding Name}" />
 
-                                                            <TextBlock Grid.Row="1"
-                                                                       Grid.ColumnSpan="2"
-                                                                       Classes="name"
-                                                                       IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                                       Text="{Binding DisplayName.Value}" />
+                                                    <TextBlock Grid.Row="1"
+                                                               Grid.ColumnSpan="2"
+                                                               Classes="name"
+                                                               IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                               Text="{Binding DisplayName.Value}" />
 
-                                                            <TextBlock Grid.Row="2"
-                                                                       Grid.ColumnSpan="2"
-                                                                       Margin="0,8,0,0"
-                                                                       Text="{Binding ShortDescription.Value}" />
+                                                    <TextBlock Grid.Row="2"
+                                                               Grid.ColumnSpan="2"
+                                                               Margin="0,8,0,0"
+                                                               Text="{Binding ShortDescription.Value}" />
 
-                                                            <TextBlock Grid.Column="1"
-                                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                                       Text="{Binding Owner.Name}" />
-                                                        </Grid>
-                                                    </Grid>
-                                                </Button>
-                                            </DataTemplate>
-                                            <DataTemplate x:DataType="extensionsPage:DummyItem">
-                                                <Button Padding="0"
-                                                        HorizontalAlignment="Stretch"
-                                                        HorizontalContentAlignment="Stretch"
-                                                        VerticalContentAlignment="Stretch"
-                                                        IsHitTestVisible="False">
-                                                    <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                                        <Border Width="80"
-                                                                Height="80"
-                                                                Classes="placeholder"
-                                                                CornerRadius="8" />
+                                                    <TextBlock Grid.Column="1"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                               Text="{Binding Owner.Name}" />
+                                                </Grid>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                    <DataTemplate x:DataType="extensionsPage:DummyItem">
+                                        <Button Padding="0"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Stretch"
+                                                VerticalContentAlignment="Stretch"
+                                                IsHitTestVisible="False">
+                                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
+                                                <Border Width="80"
+                                                        Height="80"
+                                                        Classes="placeholder"
+                                                        CornerRadius="8" />
 
-                                                        <Grid Grid.Column="2"
-                                                              Margin="0,2"
-                                                              VerticalAlignment="Stretch"
-                                                              ColumnDefinitions="*,Auto"
-                                                              RowDefinitions="Auto,Auto,Auto">
-                                                            <Border Width="80"
-                                                                    Height="14"
-                                                                    HorizontalAlignment="Left"
-                                                                    Classes="placeholder"
-                                                                    CornerRadius="8" />
+                                                <Grid Grid.Column="2"
+                                                      Margin="0,2"
+                                                      VerticalAlignment="Stretch"
+                                                      ColumnDefinitions="*,Auto"
+                                                      RowDefinitions="Auto,Auto,Auto">
+                                                    <Border Width="80"
+                                                            Height="14"
+                                                            HorizontalAlignment="Left"
+                                                            Classes="placeholder"
+                                                            CornerRadius="8" />
 
-                                                            <Border Grid.Row="1"
-                                                                    Grid.ColumnSpan="2"
-                                                                    Width="100"
-                                                                    Height="16"
-                                                                    HorizontalAlignment="Left"
-                                                                    Classes="placeholder"
-                                                                    CornerRadius="8" />
+                                                    <Border Grid.Row="1"
+                                                            Grid.ColumnSpan="2"
+                                                            Width="100"
+                                                            Height="16"
+                                                            HorizontalAlignment="Left"
+                                                            Classes="placeholder"
+                                                            CornerRadius="8" />
 
-                                                            <Border Grid.Row="2"
-                                                                    Grid.ColumnSpan="2"
-                                                                    Width="90"
-                                                                    Height="14"
-                                                                    Margin="0,8,0,0"
-                                                                    HorizontalAlignment="Left"
-                                                                    Classes="placeholder"
-                                                                    CornerRadius="8" />
+                                                    <Border Grid.Row="2"
+                                                            Grid.ColumnSpan="2"
+                                                            Width="90"
+                                                            Height="14"
+                                                            Margin="0,8,0,0"
+                                                            HorizontalAlignment="Left"
+                                                            Classes="placeholder"
+                                                            CornerRadius="8" />
 
-                                                            <Border Grid.Column="1"
-                                                                    Width="80"
-                                                                    Height="14"
-                                                                    HorizontalAlignment="Left"
-                                                                    Classes="placeholder"
-                                                                    CornerRadius="8" />
-                                                        </Grid>
-                                                    </Grid>
-                                                </Button>
-                                            </DataTemplate>
-                                        </ContentControl.DataTemplates>
-                                    </ContentControl>
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
-                    </TabItem>
-                    <TabItem Header="{x:Static lang:ExtensionsPage.Search_Users}">
-                        <ItemsRepeater ItemsSource="{Binding Users}">
-                            <ItemsRepeater.Layout>
-                                <panelx:HorizontalGridLayout ColumnSpacing="16"
-                                                             MinItemWidth="345"
-                                                             RowSpacing="16" />
-                            </ItemsRepeater.Layout>
-                            <ItemsRepeater.ItemTemplate>
-                                <DataTemplate>
-                                    <ContentControl Content="{Binding}">
-                                        <ContentControl.DataTemplates>
-                                            <DataTemplate x:DataType="extensionsPage:LoadMoreItem">
-                                                <Button Padding="0"
-                                                        HorizontalAlignment="Stretch"
-                                                        HorizontalContentAlignment="Stretch"
-                                                        VerticalContentAlignment="Stretch"
-                                                        Click="User_Click">
-                                                    <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                                        <Border Width="80" Height="80">
-                                                            <icons:SymbolIcon FontSize="32" Symbol="MoreHorizontal" />
-                                                        </Border>
-
-                                                        <TextBlock Grid.Column="2"
-                                                                   VerticalAlignment="Center"
-                                                                   Text="{x:Static lang:Strings.ShowMore}" />
-                                                    </Grid>
-                                                </Button>
-                                            </DataTemplate>
-                                            <DataTemplate x:DataType="api:Profile">
-                                                <Button Padding="0"
-                                                        HorizontalAlignment="Stretch"
-                                                        HorizontalContentAlignment="Stretch"
-                                                        VerticalContentAlignment="Stretch"
-                                                        Click="User_Click">
-                                                    <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                                        <Image Width="80"
-                                                               Height="80"
-                                                               asyncImageLoader:ImageLoader.Source="{Binding AvatarUrl.Value}">
-                                                            <Image.Clip>
-                                                                <EllipseGeometry Center="40,40"
-                                                                                 RadiusX="40"
-                                                                                 RadiusY="40" />
-                                                            </Image.Clip>
-                                                        </Image>
-                                                        <Grid Grid.Column="2"
-                                                              Margin="0,2"
-                                                              VerticalAlignment="Stretch"
-                                                              ColumnDefinitions="*,Auto"
-                                                              RowDefinitions="Auto,Auto,Auto">
-                                                            <TextBlock Classes="name"
-                                                                       IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                                       Text="{Binding DisplayName.Value}" />
-                                                            <TextBlock Classes="name"
-                                                                       IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
-                                                                       Text="{Binding Name}" />
-
-                                                            <TextBlock Grid.Row="2"
-                                                                       Grid.ColumnSpan="2"
-                                                                       Margin="0,8,0,0"
-                                                                       Text="{Binding Biography.Value}" />
-
-                                                            <TextBlock Grid.Column="1"
-                                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                                       Text="{Binding Name}" />
-                                                        </Grid>
-                                                    </Grid>
-                                                </Button>
-                                            </DataTemplate>
-                                            <DataTemplate x:DataType="extensionsPage:DummyItem">
-                                                <Button Padding="0"
-                                                        HorizontalAlignment="Stretch"
-                                                        HorizontalContentAlignment="Stretch"
-                                                        VerticalContentAlignment="Stretch"
-                                                        IsHitTestVisible="False">
-                                                    <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                                        <Border Width="80"
-                                                                Height="80"
-                                                                Classes="placeholder"
-                                                                CornerRadius="40" />
-
-                                                        <Grid Grid.Column="2"
-                                                              Margin="0,2"
-                                                              VerticalAlignment="Stretch"
-                                                              ColumnDefinitions="*,Auto"
-                                                              RowDefinitions="Auto,Auto,Auto">
-                                                            <Border Width="100"
-                                                                    Height="16"
-                                                                    HorizontalAlignment="Left"
-                                                                    Classes="placeholder"
-                                                                    CornerRadius="8" />
-
-                                                            <Border Grid.Row="2"
-                                                                    Grid.ColumnSpan="2"
-                                                                    Width="200"
-                                                                    Height="14"
-                                                                    Margin="0,8,0,0"
-                                                                    HorizontalAlignment="Left"
-                                                                    Classes="placeholder"
-                                                                    CornerRadius="8" />
-
-                                                            <Border Grid.Column="1"
-                                                                    Width="80"
-                                                                    Height="14"
-                                                                    HorizontalAlignment="Left"
-                                                                    Classes="placeholder"
-                                                                    CornerRadius="8" />
-                                                        </Grid>
-                                                    </Grid>
-                                                </Button>
-                                            </DataTemplate>
-                                        </ContentControl.DataTemplates>
-                                    </ContentControl>
-                                </DataTemplate>
-                            </ItemsRepeater.ItemTemplate>
-                        </ItemsRepeater>
-                    </TabItem>
-                </TabControl>
-
+                                                    <Border Grid.Column="1"
+                                                            Width="80"
+                                                            Height="14"
+                                                            HorizontalAlignment="Left"
+                                                            Classes="placeholder"
+                                                            CornerRadius="8" />
+                                                </Grid>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ContentControl.DataTemplates>
+                            </ContentControl>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
             </StackPanel>
         </ScrollViewer>
 

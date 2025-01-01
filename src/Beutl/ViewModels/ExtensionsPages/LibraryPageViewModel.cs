@@ -6,7 +6,7 @@ using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
-
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
 using NuGet.Versioning;
@@ -14,6 +14,7 @@ using NuGet.Versioning;
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
+using LibraryService = Beutl.Api.Services.LibraryService;
 
 namespace Beutl.ViewModels.ExtensionsPages;
 
@@ -58,7 +59,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -91,7 +92,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -118,7 +119,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                         PackageManager manager = _clients.GetResource<PackageManager>();
                         foreach (PackageUpdate item in await manager.CheckUpdate())
                         {
-                            LocalYourPackageViewModel? localPackage = LocalPackages.FirstOrDefault(
+                            LocalUserPackageViewModel? localPackage = LocalPackages.FirstOrDefault(
                                 x => x.Package.Name.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase));
 
                             if (localPackage != null)
@@ -126,13 +127,13 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                                 localPackage.LatestRelease.Value = item.NewVersion;
                             }
 
-                            RemoteYourPackageViewModel? remotePackage = Packages.OfType<RemoteYourPackageViewModel>()
+                            RemoteUserPackageViewModel? remotePackage = Packages.OfType<RemoteUserPackageViewModel>()
                                 .FirstOrDefault(
                                     x => x?.Package?.Name?.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase) == true);
 
                             if (remotePackage != null)
                                 Packages.Remove(remotePackage);
-                            remotePackage ??= new RemoteYourPackageViewModel(item.Package, _clients)
+                            remotePackage ??= new RemoteUserPackageViewModel(item.Package, _clients)
                             {
                                 OnRemoveFromLibrary = OnPackageRemoveFromLibrary
                             };
@@ -146,7 +147,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -159,7 +160,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
     public AvaloniaList<object> Packages { get; } = [];
 
-    public AvaloniaList<LocalYourPackageViewModel> LocalPackages { get; } = [];
+    public AvaloniaList<LocalUserPackageViewModel> LocalPackages { get; } = [];
 
     public AsyncReactiveCommand Refresh { get; }
 
@@ -190,7 +191,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         }
     }
 
-    private void OnPackageRemoveFromLibrary(RemoteYourPackageViewModel obj)
+    private void OnPackageRemoveFromLibrary(RemoteUserPackageViewModel obj)
     {
         Packages.Remove(obj);
         obj.Dispose();
@@ -222,7 +223,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
         foreach (KeyValuePair<string, LocalPackage> item in dict)
         {
-            LocalPackages.Add(new LocalYourPackageViewModel(item.Value, _clients));
+            LocalPackages.Add(new LocalUserPackageViewModel(item.Value, _clients));
         }
     }
 
@@ -233,7 +234,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
         foreach (Package item in array)
         {
-            Packages.Add(new RemoteYourPackageViewModel(item, _clients)
+            Packages.Add(new RemoteUserPackageViewModel(item, _clients)
             {
                 OnRemoveFromLibrary = OnPackageRemoveFromLibrary
             });
@@ -252,7 +253,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
         foreach (Package item in array)
         {
-            Packages.Add(new RemoteYourPackageViewModel(item, _clients)
+            Packages.Add(new RemoteUserPackageViewModel(item, _clients)
             {
                 OnRemoveFromLibrary = OnPackageRemoveFromLibrary
             });

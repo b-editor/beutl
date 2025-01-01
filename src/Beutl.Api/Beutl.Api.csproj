@@ -9,6 +9,7 @@
     <PackageReference Include="Nito.AsyncEx" />
     <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="ReactiveProperty" />
+    <PackageReference Include="Refit" />
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="System.Interactive" />
     <PackageReference Include="System.Interactive.Async" />
@@ -22,7 +23,6 @@
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
     <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
     <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
-    <ProjectReference Include="..\Beutl.Api.Generated\Beutl.Api.Generated.csproj" />
   </ItemGroup>
 
 </Project>

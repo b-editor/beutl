@@ -1,15 +1,19 @@
 ﻿using System.Diagnostics;
 using System.Net.Http.Headers;
-
+using Beutl.Api.Clients;
 using Beutl.Api.Services;
 
 namespace Beutl.Api.Objects;
 
 public class AuthorizedUser(
-    Profile profile, AuthResponse response,
-    BeutlApiApplication clients, HttpClient httpClient, DateTime writeTime)
+    Profile profile,
+    AuthResponse response,
+    BeutlApiApplication clients,
+    HttpClient httpClient,
+    DateTime writeTime)
 {
     private AuthResponse _response = response;
+
     // user.jsonに書き込まれた時間
     internal DateTime _writeTime = writeTime;
 
@@ -17,7 +21,7 @@ public class AuthorizedUser(
 
     public string Token => _response.Token;
 
-    public string RefreshToken => _response.Refresh_token;
+    public string RefreshToken => _response.RefreshToken;
 
     public DateTimeOffset Expiration => _response.Expiration;
 
@@ -44,16 +48,7 @@ public class AuthorizedUser(
                 else if (fileUser != null)
                 {
                     clients.SignOut(false);
-                    throw new BeutlApiException<ApiErrorResponse>(
-                        message: "The user may have been changed in another process.",
-                        statusCode: 401,
-                        response: "",
-                        headers: new Dictionary<string, IEnumerable<string>>(),
-                        result: new ApiErrorResponse(
-                            documentation_url: "",
-                            error_code: ApiErrorCode.Unknown,
-                            message: "The user may have been changed in another process."),
-                        innerException: null);
+                    throw new InvalidOperationException("The user may have been changed in another process.");
                 }
             }
         }
@@ -63,7 +58,10 @@ public class AuthorizedUser(
 
         if (force || IsExpired)
         {
-            _response = await clients.Account.RefreshAsync(new RefeshTokenRequest(RefreshToken, Token))
+            _response = await clients.Account.Refresh(new RefreshTokenRequest
+                {
+                    RefreshToken = RefreshToken, Token = Token
+                })
                 .ConfigureAwait(false);
             activity?.AddEvent(new("Refreshed"));
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
@@ -78,6 +76,6 @@ public class AuthorizedUser(
 
     public async Task<StorageUsageResponse> StorageUsageAsync()
     {
-        return await clients.Account.StorageUsageAsync();
+        return await clients.Account.GetStorageUsage();
     }
 }

@@ -1,13 +1,10 @@
 ﻿using Avalonia.Collections;
-
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
-
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
-
 using OpenTelemetry.Trace;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;
@@ -26,20 +23,17 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("SearchPage.Refresh");
+                using Activity? activity = Telemetry.StartActivity("SearchPage.Refresh");
 
                 try
                 {
                     IsBusy.Value = true;
-                    if (SearchType.Value == 0)
-                        await RefreshPackages();
-                    else
-                        await RefreshUsers();
+                    await RefreshPackages();
                 }
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -57,44 +51,12 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
                 try
                 {
                     IsBusy.Value = true;
-                    if (SearchType.Value == 0)
-                        await MoreLoadPackages();
-                    else
-                        await MoreLoadUsers();
+                    await MoreLoadPackages();
                 }
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
-            .DisposeWith(_disposables);
-
-        SearchType.Subscribe(async type =>
-            {
-                using Activity? activity = Services.Telemetry.StartActivity("SearchPage.SearchType");
-
-                try
-                {
-                    IsBusy.Value = true;
-                    if (type == 0 && Packages.Count == 0)
-                    {
-                        await RefreshPackages();
-                    }
-                    else if (Users.Count == 0)
-                    {
-                        await RefreshUsers();
-                    }
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -109,15 +71,11 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
     public AvaloniaList<object> Packages { get; } = [];
 
-    public AvaloniaList<object> Users { get; } = [];
-
     public AsyncReactiveCommand Refresh { get; }
 
     public AsyncReactiveCommand More { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
-
-    public ReactivePropertySlim<int> SearchType { get; } = new();
 
     public override void Dispose()
     {
@@ -126,7 +84,7 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
     private async Task<Package[]> SearchPackages(int start, int count)
     {
-        return await _discoverService.SearchPackages(Keyword, start, count);
+        return await _discoverService.Search(Keyword, start, count);
     }
 
     private async Task RefreshPackages()
@@ -158,44 +116,6 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
             if (array.Length == 30)
             {
                 Packages.Add(new LoadMoreItem());
-            }
-        }
-    }
-
-    private async Task<Profile[]> SearchUsers(int start, int count)
-    {
-        return await _discoverService.SearchUsers(Keyword, start, count);
-    }
-
-    private async Task RefreshUsers()
-    {
-        Users.Clear();
-        Users.AddRange(Enumerable.Repeat(new DummyItem(), 6));
-
-        using (await _discoverService.Lock.LockAsync())
-        {
-            Profile[] array = await SearchUsers(0, 30);
-            Users.Clear();
-            Users.AddRange(array);
-
-            if (array.Length == 30)
-            {
-                Users.Add(new LoadMoreItem());
-            }
-        }
-    }
-
-    private async Task MoreLoadUsers()
-    {
-        using (await _discoverService.Lock.LockAsync())
-        {
-            Users.RemoveAt(Users.Count - 1);
-            Profile[] array = await SearchUsers(Users.Count, 30);
-            Users.AddRange(array);
-
-            if (array.Length == 30)
-            {
-                Users.Add(new LoadMoreItem());
             }
         }
     }

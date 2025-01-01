@@ -10,7 +10,6 @@ public sealed class SettingsDialogViewModel
 {
     private readonly Subject<object> _navigateRequested = new();
     private readonly Lazy<AccountSettingsPageViewModel> _account;
-    private readonly Lazy<StorageSettingsPageViewModel> _storage;
     private readonly Lazy<ViewSettingsPageViewModel> _view;
     private readonly Lazy<EditorSettingsPageViewModel> _editor;
     private readonly Lazy<FontSettingsPageViewModel> _font;
@@ -25,7 +24,6 @@ public sealed class SettingsDialogViewModel
         _view = new(() => new ViewSettingsPageViewModel(_editor));
         _font = new(() => new FontSettingsPageViewModel());
         _extensionsPage = new(() => new ExtensionsSettingsPageViewModel());
-        _storage = new(() => new StorageSettingsPageViewModel(clients.AuthorizedUser));
         _infomation = new(() => new InfomationPageViewModel());
         _keyMap = new(() => new KeyMapSettingsPageViewModel(clients.GetResource<ContextCommandManager>()));
     }
@@ -39,8 +37,6 @@ public sealed class SettingsDialogViewModel
     public FontSettingsPageViewModel Font => _font.Value;
 
     public ExtensionsSettingsPageViewModel ExtensionsPage => _extensionsPage.Value;
-
-    public StorageSettingsPageViewModel Storage => _storage.Value;
 
     public InfomationPageViewModel Infomation => _infomation.Value;
 

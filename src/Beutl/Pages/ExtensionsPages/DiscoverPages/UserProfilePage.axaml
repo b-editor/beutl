@@ -66,67 +66,6 @@
                         <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Profile.Name}" />
                     </StackPanel>
 
-                    <!--
-                        Not working
-                        Button.Click="OpenSocial_Click"
-                        
-                        Avalonia 11.0.0-preview2
-                    -->
-                    <StackPanel Grid.Row="1"
-                                Grid.ColumnSpan="3"
-                                Margin="0,16,0,0"
-                                HorizontalAlignment="Center"
-                                Orientation="Horizontal"
-                                Spacing="8">
-                        <StackPanel.Styles>
-                            <Style Selector="Button">
-                                <Setter Property="Padding" Value="8" />
-                                <Setter Property="CornerRadius" Value="32" />
-                                <Setter Property="Width" Value="40" />
-                                <Setter Property="Height" Value="40" />
-                            </Style>
-                            <Style Selector="Image">
-                                <Setter Property="Stretch" Value="Uniform" />
-                            </Style>
-                        </StackPanel.Styles>
-                        <Button Click="OpenSocial_Click"
-                                IsVisible="{Binding GitHubUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                Tag="GitHub"
-                                ToolTip.Tip="{Binding GitHubUrl.Value}">
-                            <ui:BitmapIcon x:Name="githubLogo" />
-                        </Button>
-                        <Button Click="OpenSocial_Click"
-                                IsVisible="{Binding TwitterUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                Tag="Twitter"
-                                ToolTip.Tip="{Binding TwitterUrl.Value}">
-                            <ui:BitmapIcon x:Name="xLogo" Margin="2" />
-                        </Button>
-                        <Button Click="OpenSocial_Click"
-                                IsVisible="{Binding YouTubeUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                Tag="YouTube"
-                                ToolTip.Tip="{Binding YouTubeUrl.Value}">
-                            <Image Source="avares://Beutl.Controls/Assets/social/youtube_social_icon_red.png" />
-                        </Button>
-                        <Button Click="OpenSocial_Click"
-                                IsVisible="{Binding BlogUrl.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                Tag="Blog"
-                                ToolTip.Tip="{Binding BlogUrl.Value}">
-                            <icons:SymbolIcon Width="24"
-                                              Height="24"
-                                              FontSize="20"
-                                              Symbol="Link" />
-                        </Button>
-                        <Button Click="OpenSocial_Click"
-                                IsVisible="{Binding Email.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                Tag="Email"
-                                ToolTip.Tip="{Binding Email.Value}">
-                            <icons:SymbolIcon Width="24"
-                                              Height="24"
-                                              FontSize="20"
-                                              Symbol="Mail" />
-                        </Button>
-                    </StackPanel>
-
                     <TextBlock Grid.Row="2"
                                Grid.ColumnSpan="3"
                                MaxWidth="240"

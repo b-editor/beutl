@@ -2,6 +2,7 @@
 using Avalonia.Threading;
 
 using Beutl.Api;
+using Beutl.Api.Clients;
 using Beutl.Logging;
 
 using FluentAvalonia.UI.Controls;
@@ -29,7 +30,7 @@ public sealed class CheckForUpdatesTask : StartupTask
 
                 if (response != null)
                 {
-                    if (!response.Is_latest)
+                    if (!response.IsLatest)
                     {
                         NotificationService.ShowInformation(
                             Message.A_new_version_is_available,
@@ -44,7 +45,7 @@ public sealed class CheckForUpdatesTask : StartupTask
                             },
                             actionButtonText: Strings.Open);
                     }
-                    else if (response.Must_latest)
+                    else if (response.MustLatest)
                     {
                         await ShowDialogAndClose(response);
                     }
@@ -60,7 +61,7 @@ public sealed class CheckForUpdatesTask : StartupTask
 #pragma warning disable CS0436
         try
         {
-            return await _beutlApiApplication.App.CheckForUpdatesAsync(BeutlApplication.Version);
+            return await _beutlApiApplication.CheckForUpdatesAsync(BeutlApplication.Version);
         }
         catch (Exception ex)
         {

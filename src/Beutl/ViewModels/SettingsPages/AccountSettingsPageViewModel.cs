@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using OpenTelemetry.Trace;
 
 using Reactive.Bindings;
+using Refit;
 
 namespace Beutl.ViewModels.SettingsPages;
 
@@ -90,7 +91,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
                 catch (Exception ex)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(ex);
+                    await ex.Handle();
                     _logger.LogError(ex, "An unexpected error has occurred.");
                 }
                 finally
@@ -134,39 +135,6 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
         _disposables.Dispose();
     }
 
-    public SelectImageAssetViewModel CreateSelectAvatarImage()
-    {
-        return new SelectImageAssetViewModel(_clients.AuthorizedUser.Value!);
-    }
-
-    public async Task UpdateAvatarImage(Asset asset)
-    {
-        using (Activity? activity = Telemetry.StartActivity("AccountSettingsPage.UpdateAvatarImage"))
-        {
-            using (await _clients.Lock.LockAsync())
-            {
-                activity?.AddEvent(new("Entered_AsyncLock"));
-
-                try
-                {
-                    if (_clients.AuthorizedUser.Value is { } user)
-                    {
-                        await user.RefreshAsync();
-
-                        await asset.UpdateAsync(true);
-                        await user.Profile.UpdateAsync(avatarId: asset.Id);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(ex);
-                    _logger.LogError(ex, "An unexpected error has occurred.");
-                }
-            }
-        }
-    }
-
     private async Task SignInCore(string? provider = null)
     {
         using (Activity? activity = Telemetry.StartActivity("AccountSettingsPage.SignInCore"))
@@ -181,7 +149,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
                     _ => await _clients.SignInAsync(_cts.Value.Token),
                 };
             }
-            catch (BeutlApiException<ApiErrorResponse> apiex)
+            catch (ApiException apiex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
                 _logger.LogError(apiex, "An unexpected error has occurred.");

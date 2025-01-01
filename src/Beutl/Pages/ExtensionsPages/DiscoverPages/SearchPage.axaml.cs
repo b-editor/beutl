@@ -56,20 +56,7 @@ public partial class SearchPage : UserControl
         if (sender is Button { DataContext: Package package }
             && this.FindLogicalAncestorOfType<Frame>() is { } frame)
         {
-            frame.Navigate(typeof(PublicPackageDetailsPage), package);
-        }
-        else if (DataContext is SearchPageViewModel viewModel)
-        {
-            viewModel.More.Execute();
-        }
-    }
-
-    private void User_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is Button { DataContext: Profile user }
-            && this.FindLogicalAncestorOfType<Frame>() is { } frame)
-        {
-            frame.Navigate(typeof(UserProfilePage), user);
+            frame.Navigate(typeof(PackageDetailsPage), package);
         }
         else if (DataContext is SearchPageViewModel viewModel)
         {

@@ -44,30 +44,6 @@
                     </asyncImage:AdvancedImage.Clip>
 
                 </asyncImage:AdvancedImage>
-                <Button Width="64"
-                        Height="64"
-                        Padding="0"
-                        HorizontalContentAlignment="Stretch"
-                        VerticalContentAlignment="Stretch"
-                        Background="Transparent"
-                        Click="UpdateProfileImage_Click"
-                        CornerRadius="32">
-                    <Button.Styles>
-                        <Style Selector="Button:pointerover">
-                            <Setter Property="Content">
-                                <Template>
-                                    <Border HorizontalAlignment="Stretch"
-                                            VerticalAlignment="Stretch"
-                                            Background="Gray"
-                                            CornerRadius="32"
-                                            Opacity="0.8">
-                                        <icons:SymbolIcon VerticalAlignment="Center" Symbol="Edit" />
-                                    </Border>
-                                </Template>
-                            </Setter>
-                        </Style>
-                    </Button.Styles>
-                </Button>
 
                 <StackPanel Grid.Column="2" VerticalAlignment="Center">
                     <!--  名前表示  -->

@@ -34,25 +34,7 @@ public sealed partial class DiscoverPage : UserControl
         if (sender is Button { DataContext: Package package }
             && this.FindLogicalAncestorOfType<Frame>() is { } frame)
         {
-            frame.Navigate(typeof(PublicPackageDetailsPage), package);
-        }
-    }
-
-    private void MoreRanking_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is HyperlinkButton { Tag: { } tag }
-            && this.FindLogicalAncestorOfType<Frame>() is { } frame)
-        {
-            RankingType type = tag switch
-            {
-                "Overall" => RankingType.Overall,
-                "Recently" => RankingType.Recently,
-                _ => RankingComboBox.SelectedIndex == 0
-                    ? RankingType.Daily
-                    : RankingType.Weekly,
-            };
-
-            frame.Navigate(typeof(RankingPage), type);
+            frame.Navigate(typeof(PackageDetailsPage), package);
         }
     }
 }

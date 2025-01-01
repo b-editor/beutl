@@ -132,7 +132,7 @@ public partial class PackageInstaller : IBeutlApiResource
         }
         else
         {
-            Asset asset = await release.GetAssetAsync().ConfigureAwait(false);
+            var asset = await release.GetAssetAsync().ConfigureAwait(false);
 
             context = new PackageInstallContext(name, version, asset.DownloadUrl)
             {
@@ -258,9 +258,7 @@ public partial class PackageInstaller : IBeutlApiResource
                 using var sha512 = SHA512.Create();
                 (HashAlgorithm, string?)[] items =
                 [
-                    (sha256, asset.Sha256),
-                    (sha384, asset.Sha384),
-                    (sha512, asset.Sha512),
+                    (sha256, asset.Sha256)
                 ];
 
                 long totalLength = items.Count(x => !string.IsNullOrWhiteSpace(x.Item2)) * stream.Length;

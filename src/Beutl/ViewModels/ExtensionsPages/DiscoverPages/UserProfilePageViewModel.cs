@@ -2,7 +2,7 @@
 
 using Beutl.Api.Objects;
 using Beutl.Logging;
-
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
 using OpenTelemetry.Trace;
@@ -22,7 +22,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("UserProfilePage.Refresh");
+                using Activity? activity = Telemetry.StartActivity("UserProfilePage.Refresh");
 
                 try
                 {
@@ -40,7 +40,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
                 catch (Exception e)
                 {
                     activity?.SetStatus(ActivityStatusCode.Error);
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -65,7 +65,7 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
                 }
                 catch (Exception e)
                 {
-                    ErrorHandle(e);
+                    await e.Handle();
                     _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
@@ -74,39 +74,9 @@ public sealed class UserProfilePageViewModel : BasePageViewModel, ISupportRefres
                 }
             })
             .DisposeWith(_disposables);
-
-        TwitterUrl = profile.TwitterUserName.Select(x => string.IsNullOrWhiteSpace(x) ? null : $"https://twitter.com/{x}")
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        GitHubUrl = profile.GitHubUserName.Select(x => string.IsNullOrWhiteSpace(x) ? null : $"https://github.com/{x}")
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        YouTubeUrl = profile.YouTubeUrl
-            .CopyToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        BlogUrl = profile.BlogUrl
-            .CopyToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        Email = profile.Email
-            .CopyToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
     }
 
     public Profile Profile { get; }
-
-    public IReadOnlyReactiveProperty<string?> TwitterUrl { get; }
-
-    public IReadOnlyReactiveProperty<string?> GitHubUrl { get; }
-
-    public IReadOnlyReactiveProperty<string?> YouTubeUrl { get; }
-
-    public IReadOnlyReactiveProperty<string?> BlogUrl { get; }
-
-    public IReadOnlyReactiveProperty<string?> Email { get; }
 
     public AvaloniaList<object> Packages { get; } = [];
 
