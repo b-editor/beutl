@@ -33,12 +33,6 @@ public sealed class RoundedRectGeometryNode : Node
     public override void Evaluate(NodeEvaluationContext context)
     {
         RoundedRectGeometry rectangle = context.GetOrSetState<RoundedRectGeometry>();
-        while (rectangle.BatchUpdate)
-        {
-            rectangle.EndBatchUpdate();
-        }
-
-        rectangle.BeginBatchUpdate();
         rectangle.Width = _widthSocket.Value;
         rectangle.Height = _heightSocket.Value;
         rectangle.CornerRadius = _radiusSocket.Value;

@@ -31,12 +31,6 @@ public sealed class EllipseGeometryNode : Node
     public override void Evaluate(NodeEvaluationContext context)
     {
         EllipseGeometry ellipse = context.GetOrSetState<EllipseGeometry>();
-        while (ellipse.BatchUpdate)
-        {
-            ellipse.EndBatchUpdate();
-        }
-
-        ellipse.BeginBatchUpdate();
         ellipse.Width = _widthSocket.Value;
         ellipse.Height = _heightSocket.Value;
         _outputSocket.Value = ellipse;

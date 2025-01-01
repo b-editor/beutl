@@ -31,12 +31,6 @@ public sealed class RectGeometryNode : Node
     public override void Evaluate(NodeEvaluationContext context)
     {
         RectGeometry rectangle = context.GetOrSetState<RectGeometry>();
-        while (rectangle.BatchUpdate)
-        {
-            rectangle.EndBatchUpdate();
-        }
-
-        rectangle.BeginBatchUpdate();
         rectangle.Width = _widthSocket.Value;
         rectangle.Height = _heightSocket.Value;
         _outputSocket.Value = rectangle;
