@@ -4,7 +4,6 @@ using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Serialization;
-using Beutl.Styling;
 using Beutl.Validation;
 using Reactive.Bindings;
 
@@ -175,7 +174,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
         context.SetValue(nameof(Property), Property.Name);
         context.SetValue("Target", TypeFormat.ToString(ImplementedType));
 
-        context.SetValue("Setter", StyleSerializer.ToJson(Property, _rxProperty.Value, Animation, ImplementedType, context).Item2);
+        context.SetValue("Setter", PropertyEntrySerializer.ToJson(Property, _rxProperty.Value, Animation, ImplementedType, context).Item2);
     }
 
     public void Deserialize(ICoreSerializationContext context)
@@ -184,7 +183,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
             return;
 
         (CoreProperty? prop, Optional<object?> value, IAnimation? animation) =
-            StyleSerializer.ToTuple(setterNode, Property.Name, ImplementedType, context);
+            PropertyEntrySerializer.ToTuple(setterNode, Property.Name, ImplementedType, context);
         if (prop is null) return;
 
         if (animation != null)

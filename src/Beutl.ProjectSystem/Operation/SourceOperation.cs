@@ -90,7 +90,6 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
                 {
                     item.ZIndex = element.ZIndex;
                     item.TimeRange = new TimeRange(element.Start, element.Length);
-                    item.ApplyStyling(element.Clock);
                     item.ApplyAnimations(element.Clock);
                     item.IsVisible = element.IsEnabled;
 

@@ -1,12 +1,10 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
-using Beutl.Animation;
 using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.NodeTree.Nodes.Group;
 using Beutl.Serialization;
-using Beutl.Styling;
 
 namespace Beutl.NodeTree.Nodes;
 

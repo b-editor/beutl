@@ -7,7 +7,6 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Serialization;
-using Beutl.Styling;
 
 namespace Beutl.Operation;
 
@@ -92,7 +91,7 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
 
                     JsonNode? propNode = context.GetValue<JsonNode?>(name);
                     (CoreProperty? _, Optional<object?> value, IAnimation? animation) =
-                        StyleSerializer.ToTuple(propNode, name, typeof(T), context);
+                        PropertyEntrySerializer.ToTuple(propNode, name, typeof(T), context);
 
                     if (value.HasValue)
                     {
