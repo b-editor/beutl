@@ -1,11 +1,8 @@
-﻿using Beutl.Audio;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
-using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Operation;
-using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 

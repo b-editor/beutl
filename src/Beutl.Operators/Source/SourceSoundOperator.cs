@@ -1,8 +1,6 @@
 ﻿using Beutl.Audio;
 using Beutl.Audio.Effects;
-using Beutl.Media.Source;
 using Beutl.Operation;
-using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 

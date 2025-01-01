@@ -4,25 +4,11 @@ using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Serialization;
 
-namespace Beutl.Styling;
+namespace Beutl;
 
 [ExcludeFromCodeCoverage]
-public static class StyleSerializer
+internal static class PropertyEntrySerializer
 {
-    public static ISetter? ToSetter(this JsonNode? json, string name, Type targetType, ICoreSerializationContext context)
-    {
-        var (property, value, animation) = ToTuple(json, name, targetType, context);
-        if (property is null)
-            return null;
-
-        var helper = (IGenericHelper)typeof(GenericHelper<>)
-            .MakeGenericType(property.PropertyType)!
-            .GetField("Instance")!
-            .GetValue(null)!;
-
-        return helper.InitializeSetter(property, value, animation);
-    }
-
     public static (CoreProperty? property, Optional<object?> value, IAnimation? animation) ToTuple(JsonNode? json, string name, Type targetType, ICoreSerializationContext context)
     {
         JsonNode? animationNode = null;
@@ -81,17 +67,6 @@ public static class StyleSerializer
         return (property, value, animationNode?.ToAnimation(property, context));
     }
 
-    public static (string, JsonNode?) ToJson(this ISetter setter, Type targetType, ICoreSerializationContext context)
-    {
-        return ToJson(
-            setter.Property,
-            setter.Value,
-            setter.Animation,
-            targetType,
-            context
-        );
-    }
-
     public static (string, JsonNode?) ToJson(CoreProperty property, object? value, IAnimation? animation, Type targetType, ICoreSerializationContext context)
     {
         string? owner = null;
@@ -147,42 +122,6 @@ public static class StyleSerializer
                 json["Animation"] = animationNode;
 
             return (name, json);
-        }
-    }
-
-    private interface IGenericHelper
-    {
-        ISetter InitializeSetter(CoreProperty property, object? value, IAnimation? animation);
-
-        ISetter InitializeSetter(CoreProperty property, Optional<object?> value, IAnimation? animation);
-    }
-
-    private sealed class GenericHelper<T> : IGenericHelper
-    {
-        public static readonly GenericHelper<T> Instance = new();
-
-        public ISetter InitializeSetter(CoreProperty property, object? value, IAnimation? animation)
-        {
-            var setter = new Setter<T>((CoreProperty<T>)property);
-            if (value is T t)
-            {
-                setter.Value = t;
-            }
-
-            setter.Animation = animation as IAnimation<T>;
-            return setter;
-        }
-
-        public ISetter InitializeSetter(CoreProperty property, Optional<object?> value, IAnimation? animation)
-        {
-            var setter = new Setter<T>((CoreProperty<T>)property);
-            if (value.HasValue && value.Value is T t)
-            {
-                setter.Value = t;
-            }
-
-            setter.Animation = animation as IAnimation<T>;
-            return setter;
         }
     }
 }

@@ -1,9 +1,9 @@
-﻿using Beutl.Media;
-using Beutl.Styling;
+﻿using Beutl.Animation;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public abstract class Renderable : Styleable, IAffectsRender
+public abstract class Renderable : Animatable, IAffectsRender
 {
     public static readonly CoreProperty<bool> IsVisibleProperty;
     public static readonly CoreProperty<int> ZIndexProperty;

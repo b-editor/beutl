@@ -140,8 +140,6 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public bool IsAnimatable => PropertyAdapter is IAnimatablePropertyAdapter;
 
-    public bool IsStylingSetter => PropertyAdapter is ISetterAdapter;
-
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
 
     protected ImmutableArray<IStorable?> GetStorables() => [_element];

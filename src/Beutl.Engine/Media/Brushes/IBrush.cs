@@ -4,7 +4,6 @@ using Beutl.Converters;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.Serialization;
-using Beutl.Styling;
 
 namespace Beutl.Media;
 

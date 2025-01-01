@@ -4,7 +4,6 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Operation;
-using Beutl.Styling;
 
 namespace Beutl.Operators.Source;
 

@@ -1,5 +1,4 @@
 ﻿using Beutl.Animation;
-using Beutl.Styling;
 
 namespace Beutl.Media;
 
