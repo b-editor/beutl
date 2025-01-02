@@ -1,4 +1,4 @@
-namespace Beutl.Api.Clients;
+﻿namespace Beutl.Api.Clients;
 
 public enum ApiErrorCode
 {

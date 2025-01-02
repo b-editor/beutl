@@ -58,7 +58,7 @@ public class Release
     {
         using Activity? activity = _clients.ActivitySource.StartActivity("Release.GetAsset", ActivityKind.Client);
 
-        if (AssetId.Value==null)
+        if (AssetId.Value == null)
             throw new InvalidOperationException("This release has no assets.");
 
         return await _clients.Files.GetFile(AssetId.Value!);

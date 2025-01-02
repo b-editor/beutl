@@ -59,9 +59,10 @@ public class AuthorizedUser(
         if (force || IsExpired)
         {
             _response = await clients.Account.Refresh(new RefreshTokenRequest
-                {
-                    RefreshToken = RefreshToken, Token = Token
-                })
+            {
+                RefreshToken = RefreshToken,
+                Token = Token
+            })
                 .ConfigureAwait(false);
             activity?.AddEvent(new("Refreshed"));
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
