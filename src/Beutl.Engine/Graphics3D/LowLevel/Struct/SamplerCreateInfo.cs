@@ -75,37 +75,33 @@ public readonly record struct SamplerCreateInfo
         AddressModeW = SamplerAddressMode.Repeat,
         MaxLod = 1000
     };
-    
+
     public Filter MinFilter { get; init; }
-    
+
     public Filter MagFilter { get; init; }
-    
+
     public SamplerMipmapMode MipmapMode { get; init; }
-    
+
     public SamplerAddressMode AddressModeU { get; init; }
-    
+
     public SamplerAddressMode AddressModeV { get; init; }
-    
+
     public SamplerAddressMode AddressModeW { get; init; }
-    
+
     public float MipLodBias { get; init; }
-    
+
     public float MaxAnisotropy { get; init; }
-    
+
     public CompareOp CompareOp { get; init; }
-    
+
     public float MinLod { get; init; }
-    
+
     public float MaxLod { get; init; }
-    
+
     public bool EnableAnisotropy { get; init; }
-    
+
     public bool EnableCompare { get; init; }
-    
-    public byte Padding1 { get; init; }
-    
-    public byte Padding2 { get; init; }
-    
+
     public uint Props { get; init; }
 
     internal SDL_GPUSamplerCreateInfo ToNative()
@@ -125,8 +121,6 @@ public readonly record struct SamplerCreateInfo
             max_lod = MaxLod,
             enable_anisotropy = EnableAnisotropy,
             enable_compare = EnableCompare,
-            padding1 = Padding1,
-            padding2 = Padding2,
             props = (SDL_PropertiesID)Props
         };
     }

@@ -78,7 +78,7 @@ public unsafe class RenderPass : IDisposable
     public void BindVertexBuffers(uint slot, params ReadOnlySpan<Buffer> buffers)
     {
         SDL_GPUBufferBinding* handlePtr = stackalloc SDL_GPUBufferBinding[buffers.Length];
-        for (int i = 0; i < buffers.Length; i += 1)
+        for (int i = 0; i < buffers.Length; i++)
         {
             handlePtr[i].buffer = buffers[i].Handle;
             handlePtr[i].offset = 0;
@@ -130,7 +130,7 @@ public unsafe class RenderPass : IDisposable
     public void BindVertexStorageTextures(uint slot, params ReadOnlySpan<Texture> textures)
     {
         SDL_GPUTexture** handlePtr = stackalloc SDL_GPUTexture*[textures.Length];
-        for (int i = 0; i < textures.Length; i += 1)
+        for (int i = 0; i < textures.Length; i++)
         {
             handlePtr[i] = textures[i].Handle;
         }
@@ -148,7 +148,7 @@ public unsafe class RenderPass : IDisposable
     public void BindVertexStorageBuffers(uint slot, params ReadOnlySpan<Buffer> buffers)
     {
         SDL_GPUBuffer** handlePtr = stackalloc SDL_GPUBuffer*[buffers.Length];
-        for (int i = 0; i < buffers.Length; i += 1)
+        for (int i = 0; i < buffers.Length; i++)
         {
             handlePtr[i] = buffers[i].Handle;
         }

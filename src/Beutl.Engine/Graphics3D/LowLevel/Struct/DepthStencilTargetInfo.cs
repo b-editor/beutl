@@ -43,10 +43,6 @@ public readonly struct DepthStencilTargetInfo
 
     public byte ClearStencil { get; init; }
 
-    public byte Padding1 { get; init; }
-
-    public byte Padding2 { get; init; }
-
     internal unsafe SDL_GPUDepthStencilTargetInfo ToNative()
     {
         return new SDL_GPUDepthStencilTargetInfo
@@ -58,9 +54,7 @@ public readonly struct DepthStencilTargetInfo
             stencil_load_op = (SDL_GPULoadOp)StencilLoadOp,
             stencil_store_op = (SDL_GPUStoreOp)StencilStoreOp,
             cycle = Cycle,
-            clear_stencil = ClearStencil,
-            padding1 = Padding1,
-            padding2 = Padding2
+            clear_stencil = ClearStencil
         };
     }
 }
