@@ -45,12 +45,6 @@ public sealed class GeometryShapeNode : Node
     public override void Evaluate(NodeEvaluationContext context)
     {
         GeometryShape shape = context.GetOrSetState<GeometryShape>();
-        while (shape.BatchUpdate)
-        {
-            shape.EndBatchUpdate();
-        }
-
-        shape.BeginBatchUpdate();
         shape.Data = _geometrySocket.Value;
         if (shape.Data != null)
         {
