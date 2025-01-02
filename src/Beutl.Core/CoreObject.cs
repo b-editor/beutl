@@ -1,11 +1,6 @@
 ﻿using System.Collections;
-using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq.Expressions;
-using System.Runtime.InteropServices;
-using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
-using Beutl.Collections;
 using Beutl.Serialization;
 using Beutl.Validation;
 
@@ -37,9 +32,6 @@ public abstract class CoreObject : ICoreObject
     public static readonly CoreProperty<string> NameProperty;
     private Dictionary<int, IEntry>? _values;
     private Dictionary<int, string>? _errors;
-    private bool _batchApplying;
-
-    private int _batchUpdateCount;
 
     internal interface IEntry
     {
@@ -79,8 +71,6 @@ public abstract class CoreObject : ICoreObject
         get => GetValue(NameProperty);
         set => SetValue(NameProperty, value);
     }
-
-    public bool BatchUpdate => _batchUpdateCount > 0;
 
     private Dictionary<int, IEntry> Values => _values ??= [];
 

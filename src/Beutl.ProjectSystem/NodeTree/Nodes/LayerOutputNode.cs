@@ -38,10 +38,6 @@ public class LayerOutputNode : OutputNode
             value.AlignmentX = _alignmentXSocket.Value;
             value.AlignmentY = _alignmentYSocket.Value;
             value.TransformOrigin = _originSocket.Value;
-            while (value.BatchUpdate)
-            {
-                value.EndBatchUpdate();
-            }
 
             context.AddRenderable(value);
         }
