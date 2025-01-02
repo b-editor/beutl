@@ -92,11 +92,6 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
                     item.TimeRange = new TimeRange(element.Start, element.Length);
                     item.ApplyAnimations(element.Clock);
                     item.IsVisible = element.IsEnabled;
-
-                    while (item.BatchUpdate)
-                    {
-                        item.EndBatchUpdate();
-                    }
                 }
             }
 
