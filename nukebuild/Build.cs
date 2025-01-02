@@ -92,7 +92,6 @@ class Build : NukeBuild
             string[] subProjects =
             [
                 "Beutl.ExceptionHandler",
-                "Beutl.PackageTools",
                 "Beutl.PackageTools.UI",
                 "Beutl.WaitingDialog",
             ];
@@ -112,25 +111,6 @@ class Build : NukeBuild
                 output.GlobFiles($"**/{item}*")
                     .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
                     .ForEach(t => t.Source.Copy(t.Target));
-            }
-
-            string[] asmsToCopy =
-            [
-                "FluentTextTable",
-                "Kokuban",
-                "Kurukuru",
-                "Sharprompt",
-                "DeviceId",
-            ];
-            foreach (string asm in asmsToCopy)
-            {
-                foreach (string item in subProjects)
-                {
-                    AbsolutePath output = OutputDirectory / asm;
-                    output.GlobFiles($"**/{asm}.*")
-                        .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
-                        .ForEach(t => t.Source.Copy(t.Target));
-                }
             }
         });
 
