@@ -23,7 +23,7 @@ jobs:
         run: dotnet format --verbosity diagnostic
 
       - name: Run xaml styler
-        run: xstyler -f src/ReDocking/**/*.axaml --ignore -c xamlstyler.json 
+        run: xstyler -f src/**/*.axaml --ignore -c xamlstyler.json 
 
       - name: Check for modified files
         id: git-check
