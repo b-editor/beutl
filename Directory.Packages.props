@@ -46,7 +46,7 @@
     <PackageVersion Include="NuGet.ProjectModel" Version="6.12.1" />
     <PackageVersion Include="NuGet.Protocol" Version="6.12.1" />
     <PackageVersion Include="NuGet.Resolver" Version="6.12.1" />
-    <PackageVersion Include="Nuke.Common" Version="9.0.1" />
+    <PackageVersion Include="Nuke.Common" Version="9.0.3" />
     <PackageVersion Include="NUnit" Version="4.3.2" />
     <PackageVersion Include="NUnit3TestAdapter" Version="4.6.0" />
     <PackageVersion Include="OpenCvSharp4" Version="4.10.0.20241108" />
