@@ -35,6 +35,7 @@ public sealed class PlayerViewModel : IDisposable
     private IDisposable? _currentFrameSubscription;
     private CancellationTokenSource? _cts;
     private Size _maxFrameSize;
+    private SemaphoreSlim _audioSemaphoreSlim = new(1, 1);
 
     public PlayerViewModel(EditViewModel editViewModel)
     {
@@ -226,6 +227,14 @@ public sealed class PlayerViewModel : IDisposable
                     _editViewModel.SceneId, rate, startFrame, durationFrame);
                 playerImpl.Start();
 
+                if (!await _audioSemaphoreSlim.WaitAsync(1000))
+                {
+                    NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
+                        Message.An_exception_occurred_during_audio_playback);
+                    _logger.LogWarning("Failed to acquire the semaphore for audio playback.");
+                    return;
+                }
+
                 PlayAudio(Scene);
 
                 await await Task.Factory.StartNew(async () =>
@@ -295,15 +304,27 @@ public sealed class PlayerViewModel : IDisposable
 
     private async void PlayAudio(Scene scene)
     {
-        if (OperatingSystem.IsWindows())
+        try
         {
-            using var audioContext = new XAudioContext();
-            await PlayWithXA2(audioContext, scene).ConfigureAwait(false);
+            if (OperatingSystem.IsWindows())
+            {
+                using var audioContext = new XAudioContext();
+                await PlayWithXA2(audioContext, scene).ConfigureAwait(false);
+            }
+            else
+            {
+                await Task.Run(async () =>
+                {
+                    using var audioContext = new AudioContext();
+                    await PlayWithOpenAL(audioContext, scene);
+                });
+            }
         }
-        else
+        finally
         {
-            using var audioContext = new AudioContext();
-            await PlayWithOpenAL(audioContext, scene);
+            // 呼び出し元でWaitAsync()しているので、ここでRelease()する
+            // PlayAudio内でWaitAsyncしないのは、セマフォを取得するまで、動画の再生を開始しないため
+            _audioSemaphoreSlim.Release();
         }
     }
 
@@ -439,6 +460,7 @@ public sealed class PlayerViewModel : IDisposable
 
             while (IsPlaying.Value)
             {
+                audioContext.MakeCurrent();
                 AL.GetSource(source, ALGetSourcei.BuffersProcessed, out int processed);
                 CheckError();
                 while (processed > 0)
@@ -462,6 +484,7 @@ public sealed class PlayerViewModel : IDisposable
 
                 if (AL.GetSourceState(source) != ALSourceState.Playing)
                 {
+                    CheckError();
                     AL.SourcePlay(source);
                     CheckError();
                 }
@@ -471,11 +494,13 @@ public sealed class PlayerViewModel : IDisposable
                     break;
             }
 
-            while (AL.GetSourceState(source) == ALSourceState.Playing)
+            while (AL.GetSourceState(source) == ALSourceState.Playing && IsPlaying.Value)
             {
                 await Task.Delay(100).ConfigureAwait(false);
             }
 
+            CheckError();
+            AL.SourceStop(source);
             CheckError();
             // https://hamken100.blogspot.com/2014/04/aldeletebuffersalinvalidoperation.html
             AL.Source(source, ALSourcei.Buffer, 0);

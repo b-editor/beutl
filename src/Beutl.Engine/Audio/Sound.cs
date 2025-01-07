@@ -14,6 +14,8 @@ public abstract class Sound : Renderable
     public static readonly CoreProperty<float> GainProperty;
     public static readonly CoreProperty<ISoundEffect?> EffectProperty;
     private float _gain = 100;
+    // 現在の再生位置が前の再生位置よりも戻った場合、エフェクトプロセッサを無効にするために使用
+    private TimeRange _prevRange;
     private TimeRange _range;
     private TimeSpan _offset;
     private ISoundEffect? _effect;
@@ -82,6 +84,11 @@ public abstract class Sound : Renderable
 
     public void Render(IAudio audio)
     {
+        if (_prevRange.Start > _range.Start)
+        {
+            InvalidateEffectProcessor();
+        }
+
         if (_effect is { IsEnabled: true } effect)
         {
             _effectProcessor ??= effect.CreateProcessor();
@@ -137,11 +144,7 @@ public abstract class Sound : Renderable
             }
         }
 
-        if (_range.Start > start)
-        {
-            InvalidateEffectProcessor();
-        }
-
+        _prevRange = _range;
         _range = new TimeRange(start, length);
     }
 
