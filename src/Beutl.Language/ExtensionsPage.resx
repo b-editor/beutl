@@ -117,130 +117,11 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AddRelease_Title" xml:space="preserve">
-    <value>Add release</value>
-  </data>
-  <data name="Release_Title" xml:space="preserve">
-    <value>Title</value>
-  </data>
-  <data name="Release_Title_Tip" xml:space="preserve">
-    <value>Title of this release.</value>
-  </data>
-  <data name="Release_Body" xml:space="preserve">
-    <value>Release note</value>
-  </data>
-  <data name="Release_Body_Tip" xml:space="preserve">
-    <value>Description of this release.</value>
-  </data>
-  <data name="Release_Version" xml:space="preserve">
-    <value>Version</value>
-  </data>
-  <data name="Release_Version_Tip" xml:space="preserve">
-    <value>Version of this release.</value>
-  </data>
-  <data name="Release_Asset" xml:space="preserve">
-    <value>Release asset</value>
-  </data>
-  <data name="Release_Asset_Tip" xml:space="preserve">
-    <value>The file specified here will be downloaded by the user when published.</value>
-  </data>
-  <data name="CreatePackage_Title" xml:space="preserve">
-    <value>Create new package</value>
-  </data>
-  <data name="UpdatePackage_Title" xml:space="preserve">
-    <value>Update a package</value>
-  </data>
-  <data name="To_open_a_file_drop_the_file_here_or_click_here" xml:space="preserve">
-    <value>To open a file, drop the file here or click here.</value>
-  </data>
   <data name="NoLogoImageAvailable" xml:space="preserve">
     <value>No logo image available</value>
   </data>
-  <data name="Package_Settings_Tip" xml:space="preserve">
-    <value>Settings of this package.</value>
-  </data>
-  <data name="Package_Releases_Tip" xml:space="preserve">
-    <value>Manage releases</value>
-  </data>
-  <data name="Package_Releases" xml:space="preserve">
-    <value>Releases</value>
-  </data>
-  <data name="DeleteRelease_Title" xml:space="preserve">
-    <value>Delete release</value>
-  </data>
-  <data name="DeleteRelease_Content" xml:space="preserve">
-    <value>Are you sure you want to delete the release?
-If you do this, you will never be able to access this release again.</value>
-  </data>
-  <data name="Package_Name_Tip" xml:space="preserve">
-    <value>String to identify this package.</value>
-  </data>
-  <data name="Package_DisplayName_Tip" xml:space="preserve">
-    <value>Display name of this package.</value>
-  </data>
-  <data name="Package_DisplayName" xml:space="preserve">
-    <value>Display name</value>
-  </data>
-  <data name="Package_Description_Tip" xml:space="preserve">
-    <value>Description of this package.</value>
-  </data>
-  <data name="Package_Description" xml:space="preserve">
-    <value>Description</value>
-  </data>
-  <data name="Package_ShortDescription_Tip" xml:space="preserve">
-    <value>Short description of this package.</value>
-  </data>
-  <data name="Package_ShortDescription" xml:space="preserve">
-    <value>Short description</value>
-  </data>
-  <data name="Package_LogoImage" xml:space="preserve">
-    <value>Logo image</value>
-  </data>
-  <data name="Package_LogoImage_Tip" xml:space="preserve">
-    <value>Logo image of this package.</value>
-  </data>
   <data name="Package_Screenshots" xml:space="preserve">
     <value>Screenshots</value>
-  </data>
-  <data name="Package_Screenshots_Tip" xml:space="preserve">
-    <value>Screenshots of this package.</value>
-  </data>
-  <data name="DeletePackage_Title" xml:space="preserve">
-    <value>Delete package</value>
-  </data>
-  <data name="MakePublicPackage_Title" xml:space="preserve">
-    <value>Publish package</value>
-  </data>
-  <data name="MakePublicPackage_Content" xml:space="preserve">
-    <value>Are you sure you want to publish this package?
-Doing so will allow others to download this package.</value>
-  </data>
-  <data name="MakePrivatePackage_Title" xml:space="preserve">
-    <value>Make the package private</value>
-  </data>
-  <data name="MakePrivatePackage_Content" xml:space="preserve">
-    <value>Are you sure you want to keep this package private?
-Doing so will prevent others from downloading this package.</value>
-  </data>
-  <data name="DeletePackage_Content" xml:space="preserve">
-    <value>Are you sure you want to delete the package?
-If you do this, you will never be able to access this package again.</value>
-  </data>
-  <data name="MakePublicRelease_Title" xml:space="preserve">
-    <value>Publish release</value>
-  </data>
-  <data name="MakePublicRelease_Content" xml:space="preserve">
-    <value>Are you sure you want to publish this release?
-This will change the visibility of the asset to 'public' 
-and allow others to download this release.</value>
-  </data>
-  <data name="MakePrivateRelease_Title" xml:space="preserve">
-    <value>Make the release private</value>
-  </data>
-  <data name="MakePrivateRelease_Content" xml:space="preserve">
-    <value>Are you sure you want to keep this release private?
-This will change the visibility of the asset to 'private' 
-and prevent others from downloading this release.</value>
   </data>
   <data name="Install" xml:space="preserve">
     <value>Install</value>
@@ -270,41 +151,11 @@ and prevent others from downloading this release.</value>
     <value>You are trying to open '{0}'.
 If the URL is ɑn suspicious, we recommend that you do not open it.</value>
   </data>
-  <data name="Ranking" xml:space="preserve">
-    <value>Ranking</value>
-  </data>
   <data name="Search_Packages" xml:space="preserve">
     <value>Packages</value>
   </data>
-  <data name="Search_Users" xml:space="preserve">
-    <value>Users</value>
-  </data>
   <data name="Profile_PublishedPackages" xml:space="preserve">
     <value>Published Packages</value>
-  </data>
-  <data name="Shortcuts" xml:space="preserve">
-    <value>Shortcuts</value>
-  </data>
-  <data name="CreatePackage_Tip" xml:space="preserve">
-    <value>Create a new package for distribution.</value>
-  </data>
-  <data name="Documents" xml:space="preserve">
-    <value>Documents</value>
-  </data>
-  <data name="Documents_Tip" xml:space="preserve">
-    <value>Documentation for developers.</value>
-  </data>
-  <data name="Top10" xml:space="preserve">
-    <value>Top10</value>
-  </data>
-  <data name="Daily" xml:space="preserve">
-    <value>Daily</value>
-  </data>
-  <data name="Weekly" xml:space="preserve">
-    <value>Weekly</value>
-  </data>
-  <data name="Recently" xml:space="preserve">
-    <value>Recently</value>
   </data>
   <data name="RemoveFromLibrary" xml:space="preserve">
     <value>Remove from library</value>
@@ -336,9 +187,6 @@ To apply the package changes, exit Beutl.</value>
     <value>'{0}' uninstallation is scheduled.
 To apply the package changes, exit Beutl.</value>
   </data>
-  <data name="Overall" xml:space="preserve">
-    <value>Overall</value>
-  </data>
   <data name="AuthorizationIsRequired" xml:space="preserve">
     <value>Authorization is required.</value>
   </data>
@@ -362,10 +210,6 @@ To apply the package changes, exit Beutl.</value>
   </data>
   <data name="Release_TargetVersion" xml:space="preserve">
     <value>Target version</value>
-  </data>
-  <data name="Release_TargetVersion_Tip" xml:space="preserve">
-    <value>Beutl versions supported by this extension.
-You can use NuGet Package Versioning.</value>
   </data>
   <data name="This_extension_does_not_support_your_Beutl_version" xml:space="preserve">
     <value>This extension does not support your Beutl version.

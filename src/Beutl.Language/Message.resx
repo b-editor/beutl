@@ -132,9 +132,6 @@
   <data name="DoYouWantToDeleteThisFile" xml:space="preserve">
     <value>Do you want to delete this file?</value>
   </data>
-  <data name="DoYouWantToExcludeThisSceneFromProject" xml:space="preserve">
-    <value>Do you want to exclude this scene from the project?</value>
-  </data>
   <data name="DoYouWantToExcludeThisItemFromProject" xml:space="preserve">
     <value>Do you want to exclude this item from the project?</value>
   </data>
@@ -145,9 +142,6 @@
   <data name="CannotDisplayThisContext" xml:space="preserve">
     <value>Cannot display this context.</value>
   </data>
-  <data name="CouldNotCreateInstanceOfView" xml:space="preserve">
-    <value>Could not create an instance of View.</value>
-  </data>
   <data name="ContextNotCreated" xml:space="preserve">
     <value>Context not created.</value>
   </data>
@@ -156,12 +150,6 @@
   </data>
   <data name="NullWasSpecifiedForEditorContext" xml:space="preserve">
     <value>Null was specified for the editor context.</value>
-  </data>
-  <data name="DoYouWantToAddThisItemToCurrentProject" xml:space="preserve">
-    <value>Do you want to add this item to current project?</value>
-  </data>
-  <data name="RememberThisChoice" xml:space="preserve">
-    <value>Remember this choice</value>
   </data>
   <data name="PleaseEnterString" xml:space="preserve">
     <value>Please enter a string.</value>
@@ -174,9 +162,6 @@
   </data>
   <data name="AnimationIsEnabled" xml:space="preserve">
     <value>Animation is enabled</value>
-  </data>
-  <data name="CountItems" xml:space="preserve">
-    <value>{0} items</value>
   </data>
   <data name="ItAlreadyExists" xml:space="preserve">
     <value>It already exists.</value>
@@ -197,23 +182,14 @@ because the new name conflicts with an existing folder.</value>
   <data name="CouldNotOpenProject" xml:space="preserve">
     <value>Could not open project.</value>
   </data>
-  <data name="NameCannotBeLeftBlank" xml:space="preserve">
-    <value>Name cannot be left blank.</value>
-  </data>
   <data name="ApiErrorOccurred" xml:space="preserve">
     <value>API error occurred.</value>
   </data>
   <data name="AnUnexpectedErrorHasOccurred" xml:space="preserve">
     <value>An unexpected error has occurred.</value>
   </data>
-  <data name="InvalidUrl" xml:space="preserve">
-    <value>Invalid URL.</value>
-  </data>
   <data name="DoYouWantToLoadSideloadExtensions" xml:space="preserve">
     <value>Do you want to load sideload extensions?</value>
-  </data>
-  <data name="An_exception_occurred_while_loading_the_asset" xml:space="preserve">
-    <value>An exception occurred while loading the asset.</value>
   </data>
   <data name="Unable_to_save_file" xml:space="preserve">
     <value>Unable to save file.</value>
@@ -223,9 +199,6 @@ because the new name conflicts with an existing folder.</value>
   </data>
   <data name="Failed_to_load_N_packages" xml:space="preserve">
     <value>Failed to load {0} packages.</value>
-  </data>
-  <data name="Invalid_choice" xml:space="preserve">
-    <value>Invalid choice.</value>
   </data>
   <data name="Could_not_load_scene" xml:space="preserve">
     <value>Could not load scene.</value>

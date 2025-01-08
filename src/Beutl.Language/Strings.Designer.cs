@@ -51,12 +51,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string Create {
-            get {
-                return ResourceManager.GetString("Create", resourceCulture);
-            }
-        }
-        
         public static string CreateNew {
             get {
                 return ResourceManager.GetString("CreateNew", resourceCulture);
@@ -105,12 +99,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string SaveOverWrite {
-            get {
-                return ResourceManager.GetString("SaveOverWrite", resourceCulture);
-            }
-        }
-        
         public static string Save {
             get {
                 return ResourceManager.GetString("Save", resourceCulture);
@@ -120,12 +108,6 @@ namespace Beutl.Language {
         public static string SaveAll {
             get {
                 return ResourceManager.GetString("SaveAll", resourceCulture);
-            }
-        }
-        
-        public static string SaveAs {
-            get {
-                return ResourceManager.GetString("SaveAs", resourceCulture);
             }
         }
         
@@ -198,12 +180,6 @@ namespace Beutl.Language {
         public static string Easings {
             get {
                 return ResourceManager.GetString("Easings", resourceCulture);
-            }
-        }
-        
-        public static string Explorer {
-            get {
-                return ResourceManager.GetString("Explorer", resourceCulture);
             }
         }
         
@@ -411,18 +387,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string PickFont {
-            get {
-                return ResourceManager.GetString("PickFont", resourceCulture);
-            }
-        }
-        
-        public static string Done {
-            get {
-                return ResourceManager.GetString("Done", resourceCulture);
-            }
-        }
-        
         public static string SceneSettings {
             get {
                 return ResourceManager.GetString("SceneSettings", resourceCulture);
@@ -519,12 +483,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string Margin {
-            get {
-                return ResourceManager.GetString("Margin", resourceCulture);
-            }
-        }
-        
         public static string Cancel {
             get {
                 return ResourceManager.GetString("Cancel", resourceCulture);
@@ -540,18 +498,6 @@ namespace Beutl.Language {
         public static string No {
             get {
                 return ResourceManager.GetString("No", resourceCulture);
-            }
-        }
-        
-        public static string MoveOneFront {
-            get {
-                return ResourceManager.GetString("MoveOneFront", resourceCulture);
-            }
-        }
-        
-        public static string MoveOneBack {
-            get {
-                return ResourceManager.GetString("MoveOneBack", resourceCulture);
             }
         }
         
@@ -591,39 +537,9 @@ namespace Beutl.Language {
             }
         }
         
-        public static string Internal {
-            get {
-                return ResourceManager.GetString("Internal", resourceCulture);
-            }
-        }
-        
-        public static string External {
-            get {
-                return ResourceManager.GetString("External", resourceCulture);
-            }
-        }
-        
-        public static string Public {
-            get {
-                return ResourceManager.GetString("Public", resourceCulture);
-            }
-        }
-        
-        public static string Private {
-            get {
-                return ResourceManager.GetString("Private", resourceCulture);
-            }
-        }
-        
         public static string OK {
             get {
                 return ResourceManager.GetString("OK", resourceCulture);
-            }
-        }
-        
-        public static string Unimplemented {
-            get {
-                return ResourceManager.GetString("Unimplemented", resourceCulture);
             }
         }
         
@@ -705,12 +621,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string StrokeWidth {
-            get {
-                return ResourceManager.GetString("StrokeWidth", resourceCulture);
-            }
-        }
-        
         public static string CornerRadius {
             get {
                 return ResourceManager.GetString("CornerRadius", resourceCulture);
@@ -741,12 +651,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string BitmapEffect {
-            get {
-                return ResourceManager.GetString("BitmapEffect", resourceCulture);
-            }
-        }
-        
         public static string AlignmentX {
             get {
                 return ResourceManager.GetString("AlignmentX", resourceCulture);
@@ -759,12 +663,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string Foreground {
-            get {
-                return ResourceManager.GetString("Foreground", resourceCulture);
-            }
-        }
-        
         public static string OpacityMask {
             get {
                 return ResourceManager.GetString("OpacityMask", resourceCulture);
@@ -774,12 +672,6 @@ namespace Beutl.Language {
         public static string BlendMode {
             get {
                 return ResourceManager.GetString("BlendMode", resourceCulture);
-            }
-        }
-        
-        public static string SourceFile {
-            get {
-                return ResourceManager.GetString("SourceFile", resourceCulture);
             }
         }
         
@@ -867,108 +759,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string Style {
-            get {
-                return ResourceManager.GetString("Style", resourceCulture);
-            }
-        }
-        
-        public static string CreateAsset_Title {
-            get {
-                return ResourceManager.GetString("CreateAsset_Title", resourceCulture);
-            }
-        }
-        
-        public static string CreateAsset_Internal_Tip {
-            get {
-                return ResourceManager.GetString("CreateAsset_Internal_Tip", resourceCulture);
-            }
-        }
-        
-        public static string CreateAsset_Internal_Example {
-            get {
-                return ResourceManager.GetString("CreateAsset_Internal_Example", resourceCulture);
-            }
-        }
-        
-        public static string CreateAsset_External_Tip {
-            get {
-                return ResourceManager.GetString("CreateAsset_External_Tip", resourceCulture);
-            }
-        }
-        
-        public static string CreateAsset_External_Example {
-            get {
-                return ResourceManager.GetString("CreateAsset_External_Example", resourceCulture);
-            }
-        }
-        
-        public static string CreateAsset_PleaseEnterAtLeastOneHashValue {
-            get {
-                return ResourceManager.GetString("CreateAsset_PleaseEnterAtLeastOneHashValue", resourceCulture);
-            }
-        }
-        
-        public static string CreateAsset_UploadingFiles {
-            get {
-                return ResourceManager.GetString("CreateAsset_UploadingFiles", resourceCulture);
-            }
-        }
-        
-        public static string CreateAsset_PerformingAnOperation {
-            get {
-                return ResourceManager.GetString("CreateAsset_PerformingAnOperation", resourceCulture);
-            }
-        }
-        
-        public static string CreateAsset_Completed {
-            get {
-                return ResourceManager.GetString("CreateAsset_Completed", resourceCulture);
-            }
-        }
-        
-        public static string ContentType {
-            get {
-                return ResourceManager.GetString("ContentType", resourceCulture);
-            }
-        }
-        
-        public static string AddToCurrentProject {
-            get {
-                return ResourceManager.GetString("AddToCurrentProject", resourceCulture);
-            }
-        }
-        
-        public static string SelectAsset {
-            get {
-                return ResourceManager.GetString("SelectAsset", resourceCulture);
-            }
-        }
-        
-        public static string SelectImageAsset {
-            get {
-                return ResourceManager.GetString("SelectImageAsset", resourceCulture);
-            }
-        }
-        
-        public static string Alignment {
-            get {
-                return ResourceManager.GetString("Alignment", resourceCulture);
-            }
-        }
-        
-        public static string RemoveUnavailableSetters {
-            get {
-                return ResourceManager.GetString("RemoveUnavailableSetters", resourceCulture);
-            }
-        }
-        
-        public static string AddSetter {
-            get {
-                return ResourceManager.GetString("AddSetter", resourceCulture);
-            }
-        }
-        
         public static string ProjectFile {
             get {
                 return ResourceManager.GetString("ProjectFile", resourceCulture);
@@ -1005,12 +795,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string Source {
-            get {
-                return ResourceManager.GetString("Source", resourceCulture);
-            }
-        }
-        
         public static string Ellipse {
             get {
                 return ResourceManager.GetString("Ellipse", resourceCulture);
@@ -1026,18 +810,6 @@ namespace Beutl.Language {
         public static string RoundedRect {
             get {
                 return ResourceManager.GetString("RoundedRect", resourceCulture);
-            }
-        }
-        
-        public static string ImageFile {
-            get {
-                return ResourceManager.GetString("ImageFile", resourceCulture);
-            }
-        }
-        
-        public static string Configure {
-            get {
-                return ResourceManager.GetString("Configure", resourceCulture);
             }
         }
         
@@ -1092,24 +864,6 @@ namespace Beutl.Language {
         public static string Border {
             get {
                 return ResourceManager.GetString("Border", resourceCulture);
-            }
-        }
-        
-        public static string TargetType {
-            get {
-                return ResourceManager.GetString("TargetType", resourceCulture);
-            }
-        }
-        
-        public static string ShowPreview {
-            get {
-                return ResourceManager.GetString("ShowPreview", resourceCulture);
-            }
-        }
-        
-        public static string OpenTimeline {
-            get {
-                return ResourceManager.GetString("OpenTimeline", resourceCulture);
             }
         }
         
@@ -1173,21 +927,9 @@ namespace Beutl.Language {
             }
         }
         
-        public static string AddOutputQueue {
+        public static string AddOutputProfile {
             get {
-                return ResourceManager.GetString("AddOutputQueue", resourceCulture);
-            }
-        }
-        
-        public static string Suggestion {
-            get {
-                return ResourceManager.GetString("Suggestion", resourceCulture);
-            }
-        }
-        
-        public static string OutputVideo {
-            get {
-                return ResourceManager.GetString("OutputVideo", resourceCulture);
+                return ResourceManager.GetString("AddOutputProfile", resourceCulture);
             }
         }
         
@@ -1230,12 +972,6 @@ namespace Beutl.Language {
         public static string FrameSize_Tip {
             get {
                 return ResourceManager.GetString("FrameSize_Tip", resourceCulture);
-            }
-        }
-        
-        public static string FixAspectRatio {
-            get {
-                return ResourceManager.GetString("FixAspectRatio", resourceCulture);
             }
         }
         
@@ -1287,18 +1023,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string Monaural {
-            get {
-                return ResourceManager.GetString("Monaural", resourceCulture);
-            }
-        }
-        
-        public static string Stereo {
-            get {
-                return ResourceManager.GetString("Stereo", resourceCulture);
-            }
-        }
-        
         public static string Video {
             get {
                 return ResourceManager.GetString("Video", resourceCulture);
@@ -1308,12 +1032,6 @@ namespace Beutl.Language {
         public static string Audio {
             get {
                 return ResourceManager.GetString("Audio", resourceCulture);
-            }
-        }
-        
-        public static string AdditionalOptions {
-            get {
-                return ResourceManager.GetString("AdditionalOptions", resourceCulture);
             }
         }
         
@@ -1401,21 +1119,9 @@ namespace Beutl.Language {
             }
         }
         
-        public static string SelectFilterEffect {
-            get {
-                return ResourceManager.GetString("SelectFilterEffect", resourceCulture);
-            }
-        }
-        
         public static string IsNotValid {
             get {
                 return ResourceManager.GetString("IsNotValid", resourceCulture);
-            }
-        }
-        
-        public static string Queue {
-            get {
-                return ResourceManager.GetString("Queue", resourceCulture);
             }
         }
         
@@ -1440,18 +1146,6 @@ namespace Beutl.Language {
         public static string Details {
             get {
                 return ResourceManager.GetString("Details", resourceCulture);
-            }
-        }
-        
-        public static string OutputtingVideo {
-            get {
-                return ResourceManager.GetString("OutputtingVideo", resourceCulture);
-            }
-        }
-        
-        public static string OutputtingAudio {
-            get {
-                return ResourceManager.GetString("OutputtingAudio", resourceCulture);
             }
         }
         
@@ -1689,9 +1383,9 @@ namespace Beutl.Language {
             }
         }
         
-        public static string ColorPallete {
+        public static string ColorPalette {
             get {
-                return ResourceManager.GetString("ColorPallete", resourceCulture);
+                return ResourceManager.GetString("ColorPalette", resourceCulture);
             }
         }
         

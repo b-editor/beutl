@@ -162,34 +162,6 @@
     <value>Add file extension</value>
     <comment/>
   </data>
-  <data name="Storage" xml:space="preserve">
-    <value>Storage</value>
-    <comment/>
-  </data>
-  <data name="MakePrivate" xml:space="preserve">
-    <value>Make private</value>
-    <comment/>
-  </data>
-  <data name="MakePublic" xml:space="preserve">
-    <value>Make public</value>
-    <comment/>
-  </data>
-  <data name="ChangeVisibility" xml:space="preserve">
-    <value>Change the visibility of this file to "{0}".</value>
-    <comment/>
-  </data>
-  <data name="Storage_Used" xml:space="preserve">
-    <value>{0} Used</value>
-    <comment/>
-  </data>
-  <data name="Storage_Remaining" xml:space="preserve">
-    <value>{0} Remaining</value>
-    <comment/>
-  </data>
-  <data name="Storage_BackupSettings" xml:space="preserve">
-    <value>Back up settings</value>
-    <comment/>
-  </data>
   <data name="Theme_Tip" xml:space="preserve">
     <value>Select the theme of the app you want to display.</value>
     <comment/>
@@ -210,40 +182,18 @@
     <value>Copy version info</value>
     <comment/>
   </data>
-  <data name="GpuInfomation" xml:space="preserve">
-    <value>Gpu Infomation</value>
-    <comment/>
+  <data name="GpuInformation" xml:space="preserve">
+    <value>Gpu Information</value>
   </data>
   <data name="OpenGLVersion" xml:space="preserve">
     <value>OpenGL Version</value>
     <comment/>
   </data>
-  <data name="DeviceInfomation" xml:space="preserve">
-    <value>Device Infomation</value>
-    <comment/>
-  </data>
-  <data name="ChangePrimaryPropertiesToBeHidden" xml:space="preserve">
-    <value>Change the primary properties to be hidden</value>
-    <comment/>
+  <data name="DeviceInformation" xml:space="preserve">
+    <value>Device Information</value>
   </data>
   <data name="EditorSettings" xml:space="preserve">
     <value>Editor settings</value>
-    <comment/>
-  </data>
-  <data name="HidePrimaryProperties" xml:space="preserve">
-    <value>Hide primary properties</value>
-    <comment/>
-  </data>
-  <data name="HidePrimaryProperties_Description" xml:space="preserve">
-    <value>Primary properties can be set by adding 'Source Operation'. Applies after the end of the program.</value>
-    <comment/>
-  </data>
-  <data name="PrimaryProperties" xml:space="preserve">
-    <value>Primary properties</value>
-    <comment/>
-  </data>
-  <data name="AddPropertyToHide" xml:space="preserve">
-    <value>Add property to hide</value>
     <comment/>
   </data>
   <data name="DecoderPriority" xml:space="preserve">
@@ -322,22 +272,6 @@
     <value>Some settings have been moved.</value>
     <comment/>
   </data>
-  <data name="BeutlPackageFile" xml:space="preserve">
-    <value>Packages</value>
-    <comment/>
-  </data>
-  <data name="FontFiles" xml:space="preserve">
-    <value>Font Files</value>
-    <comment/>
-  </data>
-  <data name="TextFiles" xml:space="preserve">
-    <value>Text Files</value>
-    <comment/>
-  </data>
-  <data name="Zip" xml:space="preserve">
-    <value>Zip</value>
-    <comment/>
-  </data>
   <data name="EnablePointerLockInProperty" xml:space="preserve">
     <value>Enable pointer lock</value>
     <comment/>
@@ -352,10 +286,6 @@
   </data>
   <data name="Telemetry_Description_Beutl_Logging" xml:space="preserve">
     <value>More detailed usage information is collected. The logs sent are also stored under the ".beutl/log" directory.</value>
-    <comment/>
-  </data>
-  <data name="TheseSettingsWillBeAppliedAfterTheApplicationIsRestarted" xml:space="preserve">
-    <value>These settings will be applied after the application is restarted.</value>
     <comment/>
   </data>
   <data name="EnableAutoSave" xml:space="preserve">

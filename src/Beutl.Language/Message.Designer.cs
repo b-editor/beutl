@@ -75,12 +75,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string DoYouWantToExcludeThisSceneFromProject {
-            get {
-                return ResourceManager.GetString("DoYouWantToExcludeThisSceneFromProject", resourceCulture);
-            }
-        }
-        
         public static string DoYouWantToExcludeThisItemFromProject {
             get {
                 return ResourceManager.GetString("DoYouWantToExcludeThisItemFromProject", resourceCulture);
@@ -99,12 +93,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string CouldNotCreateInstanceOfView {
-            get {
-                return ResourceManager.GetString("CouldNotCreateInstanceOfView", resourceCulture);
-            }
-        }
-        
         public static string ContextNotCreated {
             get {
                 return ResourceManager.GetString("ContextNotCreated", resourceCulture);
@@ -120,18 +108,6 @@ namespace Beutl.Language {
         public static string NullWasSpecifiedForEditorContext {
             get {
                 return ResourceManager.GetString("NullWasSpecifiedForEditorContext", resourceCulture);
-            }
-        }
-        
-        public static string DoYouWantToAddThisItemToCurrentProject {
-            get {
-                return ResourceManager.GetString("DoYouWantToAddThisItemToCurrentProject", resourceCulture);
-            }
-        }
-        
-        public static string RememberThisChoice {
-            get {
-                return ResourceManager.GetString("RememberThisChoice", resourceCulture);
             }
         }
         
@@ -156,12 +132,6 @@ namespace Beutl.Language {
         public static string AnimationIsEnabled {
             get {
                 return ResourceManager.GetString("AnimationIsEnabled", resourceCulture);
-            }
-        }
-        
-        public static string CountItems {
-            get {
-                return ResourceManager.GetString("CountItems", resourceCulture);
             }
         }
         
@@ -201,12 +171,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string NameCannotBeLeftBlank {
-            get {
-                return ResourceManager.GetString("NameCannotBeLeftBlank", resourceCulture);
-            }
-        }
-        
         public static string ApiErrorOccurred {
             get {
                 return ResourceManager.GetString("ApiErrorOccurred", resourceCulture);
@@ -219,21 +183,9 @@ namespace Beutl.Language {
             }
         }
         
-        public static string InvalidUrl {
-            get {
-                return ResourceManager.GetString("InvalidUrl", resourceCulture);
-            }
-        }
-        
         public static string DoYouWantToLoadSideloadExtensions {
             get {
                 return ResourceManager.GetString("DoYouWantToLoadSideloadExtensions", resourceCulture);
-            }
-        }
-        
-        public static string An_exception_occurred_while_loading_the_asset {
-            get {
-                return ResourceManager.GetString("An_exception_occurred_while_loading_the_asset", resourceCulture);
             }
         }
         
@@ -252,12 +204,6 @@ namespace Beutl.Language {
         public static string Failed_to_load_N_packages {
             get {
                 return ResourceManager.GetString("Failed_to_load_N_packages", resourceCulture);
-            }
-        }
-        
-        public static string Invalid_choice {
-            get {
-                return ResourceManager.GetString("Invalid_choice", resourceCulture);
             }
         }
         

@@ -132,9 +132,6 @@
   <data name="DoYouWantToDeleteThisFile" xml:space="preserve">
     <value>このファイルを削除しますか？</value>
   </data>
-  <data name="DoYouWantToExcludeThisSceneFromProject" xml:space="preserve">
-    <value>プロジェクトからこのシーンを除外しますか？</value>
-  </data>
   <data name="DoYouWantToExcludeThisItemFromProject" xml:space="preserve">
     <value>プロジェクトからこのアイテムを除外しますか？</value>
   </data>
@@ -145,9 +142,6 @@
   <data name="CannotDisplayThisContext" xml:space="preserve">
     <value>このコンテキストを表示できません。</value>
   </data>
-  <data name="CouldNotCreateInstanceOfView" xml:space="preserve">
-    <value>Viewのインスタンスを作成できませんでした。</value>
-  </data>
   <data name="ContextNotCreated" xml:space="preserve">
     <value>コンテキストが作成されませんでした。</value>
   </data>
@@ -156,12 +150,6 @@
   </data>
   <data name="NullWasSpecifiedForEditorContext" xml:space="preserve">
     <value>エディターコンテキストにNullが指定されました。</value>
-  </data>
-  <data name="DoYouWantToAddThisItemToCurrentProject" xml:space="preserve">
-    <value>このアイテムを現在のプロジェクトに追加しますか？</value>
-  </data>
-  <data name="RememberThisChoice" xml:space="preserve">
-    <value>この選択を記憶する</value>
   </data>
   <data name="PleaseEnterString" xml:space="preserve">
     <value>文字列を入力してください。</value>
@@ -175,20 +163,11 @@
   <data name="AnimationIsEnabled" xml:space="preserve">
     <value>アニメーションが有効です</value>
   </data>
-  <data name="CountItems" xml:space="preserve">
-    <value>{0}個のアイテム</value>
-  </data>
-  <data name="InvalidUrl" xml:space="preserve">
-    <value>無効なURLです。</value>
-  </data>
   <data name="AnUnexpectedErrorHasOccurred" xml:space="preserve">
     <value>予期しないエラーが発生しました。</value>
   </data>
   <data name="ApiErrorOccurred" xml:space="preserve">
     <value>APIエラーが発生しました。</value>
-  </data>
-  <data name="NameCannotBeLeftBlank" xml:space="preserve">
-    <value>名前は空白にできません。</value>
   </data>
   <data name="ItAlreadyExists" xml:space="preserve">
     <value>既に存在しています。</value>
@@ -212,9 +191,6 @@
   <data name="DoYouWantToLoadSideloadExtensions" xml:space="preserve">
     <value>サイドロード拡張機能を読み込みますか？</value>
   </data>
-  <data name="An_exception_occurred_while_loading_the_asset" xml:space="preserve">
-    <value>アセットの読み込み中に例外が発生しました。</value>
-  </data>
   <data name="Unable_to_save_file" xml:space="preserve">
     <value>ファイルを保存できません。</value>
   </data>
@@ -223,9 +199,6 @@
   </data>
   <data name="Failed_to_load_N_packages" xml:space="preserve">
     <value>{0}件のパッケージの読み込みに失敗しました。</value>
-  </data>
-  <data name="Invalid_choice" xml:space="preserve">
-    <value>無効な選択です。</value>
   </data>
   <data name="Could_not_load_scene" xml:space="preserve">
     <value>シーンを読み込めませんでした。</value>

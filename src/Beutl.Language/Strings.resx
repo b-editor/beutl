@@ -120,9 +120,6 @@
   <data name="File" xml:space="preserve">
     <value>File</value>
   </data>
-  <data name="Create" xml:space="preserve">
-    <value>Create</value>
-  </data>
   <data name="CreateNew" xml:space="preserve">
     <value>Create New</value>
   </data>
@@ -147,17 +144,11 @@
   <data name="CloseProject" xml:space="preserve">
     <value>Close Project</value>
   </data>
-  <data name="SaveOverWrite" xml:space="preserve">
-    <value>Save</value>
-  </data>
   <data name="Save" xml:space="preserve">
     <value>Save</value>
   </data>
   <data name="SaveAll" xml:space="preserve">
     <value>Save All</value>
-  </data>
-  <data name="SaveAs" xml:space="preserve">
-    <value>Save As</value>
   </data>
   <data name="Exit" xml:space="preserve">
     <value>Exit</value>
@@ -194,9 +185,6 @@
   </data>
   <data name="Easings" xml:space="preserve">
     <value>Easings</value>
-  </data>
-  <data name="Explorer" xml:space="preserve">
-    <value>Explorer</value>
   </data>
   <data name="Timeline" xml:space="preserve">
     <value>Timeline</value>
@@ -300,12 +288,6 @@
   <data name="SampleRate" xml:space="preserve">
     <value>Sample rate</value>
   </data>
-  <data name="PickFont" xml:space="preserve">
-    <value>Pick Font</value>
-  </data>
-  <data name="Done" xml:space="preserve">
-    <value>Done</value>
-  </data>
   <data name="SceneSettings" xml:space="preserve">
     <value>Scene settings</value>
   </data>
@@ -354,9 +336,6 @@
   <data name="CharactorSpacing" xml:space="preserve">
     <value>Character Spacing</value>
   </data>
-  <data name="Margin" xml:space="preserve">
-    <value>Margin</value>
-  </data>
   <data name="Cancel" xml:space="preserve">
     <value>Cancel</value>
   </data>
@@ -365,12 +344,6 @@
   </data>
   <data name="No" xml:space="preserve">
     <value>No</value>
-  </data>
-  <data name="MoveOneFront" xml:space="preserve">
-    <value>Move one front</value>
-  </data>
-  <data name="MoveOneBack" xml:space="preserve">
-    <value>Move one back</value>
   </data>
   <data name="DiscardChanges" xml:space="preserve">
     <value>Discard changes</value>
@@ -390,23 +363,8 @@
   <data name="PrivacyPolicy" xml:space="preserve">
     <value>Privacy Policy</value>
   </data>
-  <data name="Internal" xml:space="preserve">
-    <value>Internal</value>
-  </data>
-  <data name="External" xml:space="preserve">
-    <value>External</value>
-  </data>
-  <data name="Public" xml:space="preserve">
-    <value>Public</value>
-  </data>
-  <data name="Private" xml:space="preserve">
-    <value>Private</value>
-  </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
-  </data>
-  <data name="Unimplemented" xml:space="preserve">
-    <value>Unimplemented</value>
   </data>
   <data name="Language" xml:space="preserve">
     <value>Language</value>
@@ -447,9 +405,6 @@
   <data name="BorderStyle" xml:space="preserve">
     <value>Border Style</value>
   </data>
-  <data name="StrokeWidth" xml:space="preserve">
-    <value>Stroke Width</value>
-  </data>
   <data name="CornerRadius" xml:space="preserve">
     <value>Corner Radius</value>
   </data>
@@ -465,26 +420,17 @@
   <data name="ImageFilter" xml:space="preserve">
     <value>Image Filter</value>
   </data>
-  <data name="BitmapEffect" xml:space="preserve">
-    <value>Bitmap Effect</value>
-  </data>
   <data name="AlignmentX" xml:space="preserve">
     <value>Alignment X</value>
   </data>
   <data name="AlignmentY" xml:space="preserve">
     <value>Alignment Y</value>
   </data>
-  <data name="Foreground" xml:space="preserve">
-    <value>Foreground</value>
-  </data>
   <data name="OpacityMask" xml:space="preserve">
     <value>Opacity Mask</value>
   </data>
   <data name="BlendMode" xml:space="preserve">
     <value>Blend Mode</value>
-  </data>
-  <data name="SourceFile" xml:space="preserve">
-    <value>Source File</value>
   </data>
   <data name="Opacity" xml:space="preserve">
     <value>Opacity</value>
@@ -528,58 +474,6 @@
   <data name="SourceOperators" xml:space="preserve">
     <value>Source Operators</value>
   </data>
-  <data name="Style" xml:space="preserve">
-    <value>Style</value>
-  </data>
-  <data name="CreateAsset_Title" xml:space="preserve">
-    <value>Upload file</value>
-  </data>
-  <data name="CreateAsset_Internal_Tip" xml:space="preserve">
-    <value>Upload the file to the b-editor server.</value>
-  </data>
-  <data name="CreateAsset_Internal_Example" xml:space="preserve">
-    <value>Example: Lightweight files such as images.</value>
-  </data>
-  <data name="CreateAsset_External_Tip" xml:space="preserve">
-    <value>The customer uploads the file to an external server
-and b-editor maintains the download URL.</value>
-  </data>
-  <data name="CreateAsset_External_Example" xml:space="preserve">
-    <value>Example: large files such as assets in a package release.</value>
-  </data>
-  <data name="CreateAsset_PleaseEnterAtLeastOneHashValue" xml:space="preserve">
-    <value>Please enter at least one hash value.</value>
-  </data>
-  <data name="CreateAsset_UploadingFiles" xml:space="preserve">
-    <value>Uploading files.</value>
-  </data>
-  <data name="CreateAsset_PerformingAnOperation" xml:space="preserve">
-    <value>Performing an operation.</value>
-  </data>
-  <data name="CreateAsset_Completed" xml:space="preserve">
-    <value>Completed.</value>
-  </data>
-  <data name="ContentType" xml:space="preserve">
-    <value>Content Type</value>
-  </data>
-  <data name="AddToCurrentProject" xml:space="preserve">
-    <value>Add to current project</value>
-  </data>
-  <data name="SelectAsset" xml:space="preserve">
-    <value>Select asset</value>
-  </data>
-  <data name="SelectImageAsset" xml:space="preserve">
-    <value>Select image asset</value>
-  </data>
-  <data name="Alignment" xml:space="preserve">
-    <value>Alignment</value>
-  </data>
-  <data name="RemoveUnavailableSetters" xml:space="preserve">
-    <value>Remove unavailable setters?</value>
-  </data>
-  <data name="AddSetter" xml:space="preserve">
-    <value>Add a setter</value>
-  </data>
   <data name="ProjectFile" xml:space="preserve">
     <value>Project File</value>
   </data>
@@ -598,9 +492,6 @@ and b-editor maintains the download URL.</value>
   <data name="Rename" xml:space="preserve">
     <value>Rename</value>
   </data>
-  <data name="Source" xml:space="preserve">
-    <value>Source</value>
-  </data>
   <data name="Ellipse" xml:space="preserve">
     <value>Ellipse</value>
   </data>
@@ -609,12 +500,6 @@ and b-editor maintains the download URL.</value>
   </data>
   <data name="RoundedRect" xml:space="preserve">
     <value>Rounded rectangle</value>
-  </data>
-  <data name="ImageFile" xml:space="preserve">
-    <value>Image File</value>
-  </data>
-  <data name="Configure" xml:space="preserve">
-    <value>Configure</value>
   </data>
   <data name="Translate" xml:space="preserve">
     <value>Translate</value>
@@ -642,15 +527,6 @@ and b-editor maintains the download URL.</value>
   </data>
   <data name="Border" xml:space="preserve">
     <value>Border</value>
-  </data>
-  <data name="TargetType" xml:space="preserve">
-    <value>Target Type</value>
-  </data>
-  <data name="ShowPreview" xml:space="preserve">
-    <value>Show Preview</value>
-  </data>
-  <data name="OpenTimeline" xml:space="preserve">
-    <value>Open Timeline</value>
   </data>
   <data name="FinishEditing" xml:space="preserve">
     <value>Finish editing</value>
@@ -682,14 +558,8 @@ and b-editor maintains the download URL.</value>
   <data name="NoFilesUsedRecently" xml:space="preserve">
     <value>No files used recently.</value>
   </data>
-  <data name="AddOutputQueue" xml:space="preserve">
-    <value>Add Queue</value>
-  </data>
-  <data name="Suggestion" xml:space="preserve">
-    <value>Suggestion</value>
-  </data>
-  <data name="OutputVideo" xml:space="preserve">
-    <value>Output Video</value>
+  <data name="AddOutputProfile" xml:space="preserve">
+    <value>Add Profile</value>
   </data>
   <data name="Encode" xml:space="preserve">
     <value>Encode</value>
@@ -711,9 +581,6 @@ and b-editor maintains the download URL.</value>
   </data>
   <data name="FrameSize_Tip" xml:space="preserve">
     <value>Set the frame size</value>
-  </data>
-  <data name="FixAspectRatio" xml:space="preserve">
-    <value>Fix aspect ratio</value>
   </data>
   <data name="FrameRate_Tip" xml:space="preserve">
     <value>Set the framerate</value>
@@ -739,20 +606,11 @@ and b-editor maintains the download URL.</value>
   <data name="Channels_Tip" xml:space="preserve">
     <value>Set the number of channels</value>
   </data>
-  <data name="Monaural" xml:space="preserve">
-    <value>Monaural</value>
-  </data>
-  <data name="Stereo" xml:space="preserve">
-    <value>Stereo</value>
-  </data>
   <data name="Video" xml:space="preserve">
     <value>Video</value>
   </data>
   <data name="Audio" xml:space="preserve">
     <value>Audio</value>
-  </data>
-  <data name="AdditionalOptions" xml:space="preserve">
-    <value>Additional Options</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>Off</value>
@@ -796,14 +654,8 @@ and b-editor maintains the download URL.</value>
   <data name="Group" xml:space="preserve">
     <value>Group</value>
   </data>
-  <data name="SelectFilterEffect" xml:space="preserve">
-    <value>Select Filter Effect</value>
-  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0} is not a valid.</value>
-  </data>
-  <data name="Queue" xml:space="preserve">
-    <value>Queue</value>
   </data>
   <data name="GraphEditor" xml:space="preserve">
     <value>Graph Editor</value>
@@ -816,12 +668,6 @@ and b-editor maintains the download URL.</value>
   </data>
   <data name="Details" xml:space="preserve">
     <value>Details</value>
-  </data>
-  <data name="OutputtingVideo" xml:space="preserve">
-    <value>Outputting video</value>
-  </data>
-  <data name="OutputtingAudio" xml:space="preserve">
-    <value>Outputting audio</value>
   </data>
   <data name="Completed" xml:space="preserve">
     <value>Completed</value>
@@ -940,8 +786,8 @@ and b-editor maintains the download URL.</value>
   <data name="RemoveAnimation" xml:space="preserve">
     <value>Remove animation</value>
   </data>
-  <data name="ColorPallete" xml:space="preserve">
-    <value>Color Pallete</value>
+  <data name="ColorPalette" xml:space="preserve">
+    <value>Color Palette</value>
   </data>
   <data name="ChangeToOriginalLength" xml:space="preserve">
     <value>Change to original length</value>
