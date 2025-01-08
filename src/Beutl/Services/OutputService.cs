@@ -109,11 +109,6 @@ public sealed class OutputService(EditViewModel editViewModel)
 
     public void AddItem(string file, OutputExtension extension)
     {
-        if (Items.Any(x => x.Context.TargetFile == file))
-        {
-            throw new Exception("Already added");
-        }
-
         if (!extension.TryCreateContext(file, out IOutputContext? context))
         {
             throw new Exception("Failed to create context");
