@@ -90,7 +90,8 @@ jobs:
           gh api -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" /repos/yuto-trd/opencvsharp-extern-builds/releases/assets/$ASSET_ID > libOpenCvSharpExtern.so
 
       - name: Zip
-        run: ./build.sh zip \
+        run: |
+          ./build.sh zip \
             --runtime ${{ matrix.rid }} \
             --self-contained ${{ matrix.standalone }} \
             --skip publish \
@@ -130,7 +131,8 @@ jobs:
           7z x ../../artifacts/beutl-win-x64-standalone-${{ needs.determine-version.outputs.semVer }}.zip
 
       - name: Build installer
-        run: ./build.cmd build-installer \
+        run: |
+          ./build.cmd build-installer \
             --skip publish \
             --self-contained true \
             --assembly-version ${{ needs.determine-version.outputs.asmVer }}
