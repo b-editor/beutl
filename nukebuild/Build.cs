@@ -46,7 +46,8 @@ class Build : NukeBuild
         .DependsOn(Clean)
         .Executes(() =>
         {
-            DotNetRestore(s => s.SetProjectFile(Solution));
+            DotNetRestore(s => s.SetProjectFile(Solution)
+                .When(_ => Runtime != null, s => s.SetRuntime(Runtime)));
         });
 
     Target Compile => _ => _

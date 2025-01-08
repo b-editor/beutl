@@ -50,7 +50,7 @@ jobs:
       - name: Restore
         run: |
           chmod +x build.sh
-          ./build.sh restore
+          ./build.sh restore --runtime ${{ matrix.rid }}
 
       - name: Publish
         run: |
@@ -222,7 +222,7 @@ jobs:
       - name: Restore
         run: |
           chmod +x build.sh
-          ./build.sh Restore
+          ./build.sh Restore --runtime ${{ matrix.rid }}
 
       - name: Bundle
         run: |
