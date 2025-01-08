@@ -81,7 +81,10 @@ class Build : NukeBuild
 
             DotNetPublish(s => s
                 .EnableNoRestore()
-                .When(_ => Runtime != null, s => s.SetRuntime(Runtime).SetSelfContained(SelfContained))
+                .When(_ => Runtime != null, s => s
+                    .SetRuntime(Runtime)
+                    .SetSelfContained(SelfContained)
+                    .SetProperty("RuntimeIdentifiers", Runtime.ToString()))
                 .When(_ => Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
                 .When(_ => Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
                 .SetConfiguration(Configuration)
@@ -100,7 +103,10 @@ class Build : NukeBuild
             {
                 AbsolutePath output = OutputDirectory / item;
                 DotNetPublish(s => s
-                    .When(_ => Runtime != null, s => s.SetRuntime(Runtime).SetSelfContained(SelfContained))
+                    .When(_ => Runtime != null, s => s
+                        .SetRuntime(Runtime)
+                        .SetSelfContained(SelfContained)
+                        .SetProperty("RuntimeIdentifiers", Runtime.ToString()))
                     .When(_ => Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
                     .When(_ => Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
                     .EnableNoRestore()
