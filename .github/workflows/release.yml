@@ -132,9 +132,9 @@ jobs:
 
       - name: Build installer
         run: |
-          ./build.cmd build-installer \
-            --skip publish \
-            --self-contained true \
+          ./build.cmd build-installer `
+            --skip publish `
+            --self-contained true `
             --assembly-version ${{ needs.determine-version.outputs.asmVer }}
 
       - name: Save installer
