@@ -173,7 +173,7 @@ jobs:
           cd packages/ubuntu22.04_amd64/usr/lib/beutl
           chmod +x Beutl
           chmod +x Beutl.ExceptionHandler
-          chmod +x Beutl.PackageTools
+          chmod +x Beutl.PackageTools.UI
           chmod +x Beutl.WaitingDialog
 
       - name: Symbolic Link
@@ -181,7 +181,6 @@ jobs:
           cd packages/ubuntu22.04_amd64
           mkdir usr/bin
           ln -s /usr/lib/beutl/Beutl usr/bin/beutl
-          ln -s /usr/lib/beutl/Beutl.PackageTools usr/bin/beutl-pkg
 
       - name: Set Version
         run: |
