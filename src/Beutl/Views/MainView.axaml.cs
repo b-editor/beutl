@@ -365,7 +365,7 @@ public sealed partial class MainView : UserControl
         throw new Exception("An unhandled exception occurred.");
     }
 
-    private async void GoToInfomationPage(object? sender, RoutedEventArgs e)
+    private async void GoToInformationPage(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel viewModel && TopLevel.GetTopLevel(this) is Window window)
         {

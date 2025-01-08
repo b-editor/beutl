@@ -68,7 +68,7 @@
 
                             <TextBlock Margin="4,16,0,4"
                                        IsVisible="{Binding UseCustomAccent.Value}"
-                                       Text="{x:Static lang:Strings.ColorPallete}" />
+                                       Text="{x:Static lang:Strings.ColorPalette}" />
 
                             <ListBox MaxWidth="441"
                                      Margin="4,0,4,12"

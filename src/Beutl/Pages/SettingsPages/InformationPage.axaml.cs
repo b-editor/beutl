@@ -6,9 +6,9 @@ using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.Pages.SettingsPages;
 
-public sealed partial class InfomationPage : UserControl
+public sealed partial class InformationPage : UserControl
 {
-    public InfomationPage()
+    public InformationPage()
     {
         InitializeComponent();
     }
@@ -16,7 +16,7 @@ public sealed partial class InfomationPage : UserControl
     private async void CopyVersion_Click(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard
-            && DataContext is InfomationPageViewModel vm)
+            && DataContext is InformationPageViewModel vm)
         {
             await clipboard.SetTextAsync(vm.BuildMetadata);
         }

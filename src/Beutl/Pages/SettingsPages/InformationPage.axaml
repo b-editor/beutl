@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Pages.SettingsPages.InfomationPage"
+<UserControl x:Class="Beutl.Pages.SettingsPages.InformationPage"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrls="using:Beutl.Controls"
@@ -11,7 +11,7 @@
              d:DesignHeight="700"
              d:DesignWidth="800"
              x:CompileBindings="True"
-             x:DataType="viewModel:InfomationPageViewModel"
+             x:DataType="viewModel:InformationPageViewModel"
              mc:Ignorable="d">
     <ScrollViewer Padding="18">
         <StackPanel Margin="10,0"
@@ -82,7 +82,7 @@
                 </ctrls:OptionsDisplayItem.Content>
             </ctrls:OptionsDisplayItem>
             <ctrls:OptionsDisplayItem Expands="True"
-                                      Header="{x:Static lang:SettingsPage.DeviceInfomation}"
+                                      Header="{x:Static lang:SettingsPage.DeviceInformation}"
                                       IsExpanded="True">
                 <ctrls:OptionsDisplayItem.Icon>
                     <icons:SymbolIcon Symbol="Desktop" />
@@ -99,7 +99,7 @@
                             <SelectableTextBlock Grid.Column="1" Text="{Binding GlVersion.Value}" />
                         </Grid>
                         <Grid RowDefinitions="Auto,Auto">
-                            <TextBlock Text="{x:Static lang:SettingsPage.GpuInfomation}" />
+                            <TextBlock Text="{x:Static lang:SettingsPage.GpuInformation}" />
                             <SelectableTextBlock Grid.Row="1"
                                                  Margin="16,0"
                                                  FontFamily="Cascadia Code,Consolas,Menlo,Monospace"

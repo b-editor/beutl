@@ -150,10 +150,6 @@
     <value>全てのエディター拡張</value>
     <comment/>
   </data>
-  <data name="ChangeVisibility" xml:space="preserve">
-    <value>このファイルの可視性を"{0}"に変更します。</value>
-    <comment/>
-  </data>
   <data name="Editor_Extension_Priority" xml:space="preserve">
     <value>エディター拡張の優先順位</value>
     <comment/>
@@ -164,30 +160,6 @@
   </data>
   <data name="Lower" xml:space="preserve">
     <value>下</value>
-    <comment/>
-  </data>
-  <data name="MakePrivate" xml:space="preserve">
-    <value>非公開する</value>
-    <comment/>
-  </data>
-  <data name="MakePublic" xml:space="preserve">
-    <value>公開する</value>
-    <comment/>
-  </data>
-  <data name="Storage" xml:space="preserve">
-    <value>ストレージ</value>
-    <comment/>
-  </data>
-  <data name="Storage_BackupSettings" xml:space="preserve">
-    <value>設定をバックアップ</value>
-    <comment/>
-  </data>
-  <data name="Storage_Used" xml:space="preserve">
-    <value>{0} 使用済み</value>
-    <comment/>
-  </data>
-  <data name="Storage_Remaining" xml:space="preserve">
-    <value>{0} 空き</value>
     <comment/>
   </data>
   <data name="Theme_Tip" xml:space="preserve">
@@ -210,7 +182,7 @@
     <value>バージョン情報をコピー</value>
     <comment/>
   </data>
-  <data name="GpuInfomation" xml:space="preserve">
+  <data name="GpuInformation" xml:space="preserve">
     <value>Gpu 情報</value>
     <comment/>
   </data>
@@ -218,32 +190,12 @@
     <value>OpenGL バージョン</value>
     <comment/>
   </data>
-  <data name="DeviceInfomation" xml:space="preserve">
+  <data name="DeviceInformation" xml:space="preserve">
     <value>デバイス情報</value>
-    <comment/>
-  </data>
-  <data name="ChangePrimaryPropertiesToBeHidden" xml:space="preserve">
-    <value>非表示にする主要なプロパティを変更します</value>
     <comment/>
   </data>
   <data name="EditorSettings" xml:space="preserve">
     <value>エディタ設定</value>
-    <comment/>
-  </data>
-  <data name="HidePrimaryProperties" xml:space="preserve">
-    <value>主要なプロパティを非表示にする</value>
-    <comment/>
-  </data>
-  <data name="HidePrimaryProperties_Description" xml:space="preserve">
-    <value>主要なプロパティは'ソース操作'を追加すると設定できます。終了後に適用されます。</value>
-    <comment/>
-  </data>
-  <data name="PrimaryProperties" xml:space="preserve">
-    <value>主要なプロパティ</value>
-    <comment/>
-  </data>
-  <data name="AddPropertyToHide" xml:space="preserve">
-    <value>非表示にするプロパティを追加</value>
     <comment/>
   </data>
   <data name="DecoderPriority" xml:space="preserve">
@@ -322,22 +274,6 @@
     <value>いくつかの設定が移動しました。</value>
     <comment/>
   </data>
-  <data name="BeutlPackageFile" xml:space="preserve">
-    <value>パッケージファイル</value>
-    <comment/>
-  </data>
-  <data name="FontFiles" xml:space="preserve">
-    <value>フォントファイル</value>
-    <comment/>
-  </data>
-  <data name="TextFiles" xml:space="preserve">
-    <value>テキストファイル</value>
-    <comment/>
-  </data>
-  <data name="Zip" xml:space="preserve">
-    <value>Zip</value>
-    <comment/>
-  </data>
   <data name="EnablePointerLockInProperty" xml:space="preserve">
     <value>ポインターロックを有効化</value>
     <comment/>
@@ -352,10 +288,6 @@
   </data>
   <data name="Telemetry_Description_Beutl_Logging" xml:space="preserve">
     <value>より詳細な使用状況を収集します。送信されるログは ".beutl/log" ディレクトリ下にも保存されます。</value>
-    <comment/>
-  </data>
-  <data name="TheseSettingsWillBeAppliedAfterTheApplicationIsRestarted" xml:space="preserve">
-    <value>これらの設定はアプリケーションの再起動後に変更が適用されます。</value>
     <comment/>
   </data>
   <data name="EnableAutoSave" xml:space="preserve">

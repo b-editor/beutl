@@ -11,11 +11,11 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
 
-public sealed class InfomationPageViewModel : PageContext
+public sealed class InformationPageViewModel : PageContext
 {
     private TelemetrySettingsPageViewModel? _telemetry;
 
-    public InfomationPageViewModel()
+    public InformationPageViewModel()
     {
         RenderThread.Dispatcher.Dispatch(() =>
         {
@@ -42,7 +42,7 @@ public sealed class InfomationPageViewModel : PageContext
                     () => Telemetry);
             });
 
-        BuildMetadata = typeof(InfomationPageViewModel).Assembly
+        BuildMetadata = typeof(InformationPageViewModel).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion ?? "Unknown";
     }

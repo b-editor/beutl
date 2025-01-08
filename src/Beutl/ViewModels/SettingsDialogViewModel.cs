@@ -14,7 +14,7 @@ public sealed class SettingsDialogViewModel
     private readonly Lazy<EditorSettingsPageViewModel> _editor;
     private readonly Lazy<FontSettingsPageViewModel> _font;
     private readonly Lazy<ExtensionsSettingsPageViewModel> _extensionsPage;
-    private readonly Lazy<InfomationPageViewModel> _infomation;
+    private readonly Lazy<InformationPageViewModel> _information;
     private readonly Lazy<KeyMapSettingsPageViewModel> _keyMap;
 
     public SettingsDialogViewModel(BeutlApiApplication clients)
@@ -24,7 +24,7 @@ public sealed class SettingsDialogViewModel
         _view = new(() => new ViewSettingsPageViewModel(_editor));
         _font = new(() => new FontSettingsPageViewModel());
         _extensionsPage = new(() => new ExtensionsSettingsPageViewModel());
-        _infomation = new(() => new InfomationPageViewModel());
+        _information = new(() => new InformationPageViewModel());
         _keyMap = new(() => new KeyMapSettingsPageViewModel(clients.GetResource<ContextCommandManager>()));
     }
 
@@ -38,7 +38,7 @@ public sealed class SettingsDialogViewModel
 
     public ExtensionsSettingsPageViewModel ExtensionsPage => _extensionsPage.Value;
 
-    public InfomationPageViewModel Infomation => _infomation.Value;
+    public InformationPageViewModel Information => _information.Value;
 
     public KeyMapSettingsPageViewModel KeyMap => _keyMap.Value;
 
@@ -46,7 +46,7 @@ public sealed class SettingsDialogViewModel
 
     public void GoToSettingsPage()
     {
-        _navigateRequested.OnNext(Infomation);
+        _navigateRequested.OnNext(Information);
     }
 
     public void GoToAccountSettingsPage()

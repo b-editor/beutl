@@ -125,9 +125,6 @@
   <data name="File" xml:space="preserve">
     <value>ファイル</value>
   </data>
-  <data name="Create" xml:space="preserve">
-    <value>作成</value>
-  </data>
   <data name="Close" xml:space="preserve">
     <value>閉じる</value>
   </data>
@@ -185,9 +182,6 @@
   <data name="DiscardChanges" xml:space="preserve">
     <value>変更を破棄</value>
   </data>
-  <data name="Done" xml:space="preserve">
-    <value>完了</value>
-  </data>
   <data name="DurationTime" xml:space="preserve">
     <value>継続時間</value>
   </data>
@@ -205,9 +199,6 @@
   </data>
   <data name="Exit" xml:space="preserve">
     <value>終了</value>
-  </data>
-  <data name="Explorer" xml:space="preserve">
-    <value>エクスプローラー</value>
   </data>
   <data name="Extensions" xml:space="preserve">
     <value>拡張機能</value>
@@ -263,15 +254,6 @@
   <data name="Location" xml:space="preserve">
     <value>場所</value>
   </data>
-  <data name="Margin" xml:space="preserve">
-    <value>マージン</value>
-  </data>
-  <data name="MoveOneBack" xml:space="preserve">
-    <value>後ろに移動</value>
-  </data>
-  <data name="MoveOneFront" xml:space="preserve">
-    <value>前に移動</value>
-  </data>
   <data name="Name" xml:space="preserve">
     <value>名前</value>
   </data>
@@ -287,9 +269,6 @@
   <data name="Object" xml:space="preserve">
     <value>オブジェクト</value>
   </data>
-  <data name="SaveOverWrite" xml:space="preserve">
-    <value>保存</value>
-  </data>
   <data name="Save" xml:space="preserve">
     <value>保存</value>
   </data>
@@ -304,9 +283,6 @@
   </data>
   <data name="SaveAll" xml:space="preserve">
     <value>すべて保存</value>
-  </data>
-  <data name="SaveAs" xml:space="preserve">
-    <value>名前を付けて保存</value>
   </data>
   <data name="Undo" xml:space="preserve">
     <value>元に戻す</value>
@@ -349,9 +325,6 @@
   </data>
   <data name="Size" xml:space="preserve">
     <value>サイズ</value>
-  </data>
-  <data name="PickFont" xml:space="preserve">
-    <value>フォントを選択</value>
   </data>
   <data name="Width" xml:space="preserve">
     <value>幅</value>
@@ -404,23 +377,8 @@
   <data name="Language" xml:space="preserve">
     <value>言語</value>
   </data>
-  <data name="Unimplemented" xml:space="preserve">
-    <value>未実装</value>
-  </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
-  </data>
-  <data name="Private" xml:space="preserve">
-    <value>非公開</value>
-  </data>
-  <data name="Public" xml:space="preserve">
-    <value>公開</value>
-  </data>
-  <data name="External" xml:space="preserve">
-    <value>外部</value>
-  </data>
-  <data name="Internal" xml:space="preserve">
-    <value>内部</value>
   </data>
   <data name="Easing" xml:space="preserve">
     <value>イージング</value>
@@ -452,9 +410,6 @@
   <data name="BorderStyle" xml:space="preserve">
     <value>ボーダースタイル</value>
   </data>
-  <data name="StrokeWidth" xml:space="preserve">
-    <value>ストローク幅</value>
-  </data>
   <data name="CornerRadius" xml:space="preserve">
     <value>角の半径</value>
   </data>
@@ -473,26 +428,17 @@
   <data name="ImageFilter" xml:space="preserve">
     <value>画像フィルター</value>
   </data>
-  <data name="BitmapEffect" xml:space="preserve">
-    <value>ビットマップエフェクト</value>
-  </data>
   <data name="AlignmentX" xml:space="preserve">
     <value>アライメントX</value>
   </data>
   <data name="AlignmentY" xml:space="preserve">
     <value>アライメントY</value>
   </data>
-  <data name="Foreground" xml:space="preserve">
-    <value>フォアグラウンド</value>
-  </data>
   <data name="OpacityMask" xml:space="preserve">
     <value>不透明マスク</value>
   </data>
   <data name="BlendMode" xml:space="preserve">
     <value>ブレンドモード</value>
-  </data>
-  <data name="SourceFile" xml:space="preserve">
-    <value>ソースファイル</value>
   </data>
   <data name="Opacity" xml:space="preserve">
     <value>不透明度</value>
@@ -533,58 +479,6 @@
   <data name="SourceOperators" xml:space="preserve">
     <value>ソース操作</value>
   </data>
-  <data name="Style" xml:space="preserve">
-    <value>スタイル</value>
-  </data>
-  <data name="CreateAsset_Title" xml:space="preserve">
-    <value>ファイルをアップロード</value>
-  </data>
-  <data name="CreateAsset_Internal_Tip" xml:space="preserve">
-    <value>b-editorのサーバーにファイルをアップロードします。</value>
-  </data>
-  <data name="CreateAsset_Internal_Example" xml:space="preserve">
-    <value>例: 画像などの軽量なファイル。</value>
-  </data>
-  <data name="CreateAsset_External_Tip" xml:space="preserve">
-    <value>お客様はファイルを外部サーバーにアップロードし、
-b-editorがダウンロードURLを管理します。</value>
-  </data>
-  <data name="CreateAsset_External_Example" xml:space="preserve">
-    <value>例：パッケージリリースに含まれるアセットなどの大きなファイル。</value>
-  </data>
-  <data name="CreateAsset_PleaseEnterAtLeastOneHashValue" xml:space="preserve">
-    <value>ハッシュ値を1つ以上入力してください。</value>
-  </data>
-  <data name="CreateAsset_UploadingFiles" xml:space="preserve">
-    <value>ファイルをアップロードしています。</value>
-  </data>
-  <data name="CreateAsset_PerformingAnOperation" xml:space="preserve">
-    <value>操作を行っています。</value>
-  </data>
-  <data name="CreateAsset_Completed" xml:space="preserve">
-    <value>完了しました。</value>
-  </data>
-  <data name="ContentType" xml:space="preserve">
-    <value>コンテンツタイプ</value>
-  </data>
-  <data name="AddToCurrentProject" xml:space="preserve">
-    <value>現在のプロジェクトに追加する</value>
-  </data>
-  <data name="SelectAsset" xml:space="preserve">
-    <value>アセットを選択</value>
-  </data>
-  <data name="SelectImageAsset" xml:space="preserve">
-    <value>画像アセットを選択</value>
-  </data>
-  <data name="Alignment" xml:space="preserve">
-    <value>アライメント</value>
-  </data>
-  <data name="RemoveUnavailableSetters" xml:space="preserve">
-    <value>利用できないセッターを削除しますか？</value>
-  </data>
-  <data name="AddSetter" xml:space="preserve">
-    <value>セッターを追加</value>
-  </data>
   <data name="ProjectFile" xml:space="preserve">
     <value>プロジェクトファイル</value>
   </data>
@@ -603,9 +497,6 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Rename" xml:space="preserve">
     <value>名前を変更</value>
   </data>
-  <data name="Source" xml:space="preserve">
-    <value>ソース</value>
-  </data>
   <data name="Ellipse" xml:space="preserve">
     <value>楕円</value>
   </data>
@@ -614,12 +505,6 @@ b-editorがダウンロードURLを管理します。</value>
   </data>
   <data name="RoundedRect" xml:space="preserve">
     <value>角丸四角形</value>
-  </data>
-  <data name="ImageFile" xml:space="preserve">
-    <value>画像ファイル</value>
-  </data>
-  <data name="Configure" xml:space="preserve">
-    <value>構成</value>
   </data>
   <data name="Translate" xml:space="preserve">
     <value>移動</value>
@@ -647,15 +532,6 @@ b-editorがダウンロードURLを管理します。</value>
   </data>
   <data name="Border" xml:space="preserve">
     <value>縁取り</value>
-  </data>
-  <data name="TargetType" xml:space="preserve">
-    <value>対象型</value>
-  </data>
-  <data name="ShowPreview" xml:space="preserve">
-    <value>プレビューを表示</value>
-  </data>
-  <data name="OpenTimeline" xml:space="preserve">
-    <value>タイムラインを開く</value>
   </data>
   <data name="FinishEditing" xml:space="preserve">
     <value>編集を終了する</value>
@@ -687,14 +563,8 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="NoFilesUsedRecently" xml:space="preserve">
     <value>最近使用したファイルはありません。</value>
   </data>
-  <data name="AddOutputQueue" xml:space="preserve">
-    <value>キューを追加</value>
-  </data>
-  <data name="Suggestion" xml:space="preserve">
-    <value>提案</value>
-  </data>
-  <data name="OutputVideo" xml:space="preserve">
-    <value>動画を出力</value>
+  <data name="AddOutputProfile" xml:space="preserve">
+    <value>プロファイルを追加</value>
   </data>
   <data name="Encode" xml:space="preserve">
     <value>エンコード</value>
@@ -716,9 +586,6 @@ b-editorがダウンロードURLを管理します。</value>
   </data>
   <data name="FrameSize_Tip" xml:space="preserve">
     <value>フレームサイズを設定</value>
-  </data>
-  <data name="FixAspectRatio" xml:space="preserve">
-    <value>アスペクト比を固定</value>
   </data>
   <data name="FrameRate_Tip" xml:space="preserve">
     <value>フレームレートを設定</value>
@@ -744,20 +611,11 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Channels_Tip" xml:space="preserve">
     <value>チャンネル数を設定</value>
   </data>
-  <data name="Monaural" xml:space="preserve">
-    <value>モノラル</value>
-  </data>
-  <data name="Stereo" xml:space="preserve">
-    <value>ステレオ</value>
-  </data>
   <data name="Video" xml:space="preserve">
     <value>動画</value>
   </data>
   <data name="Audio" xml:space="preserve">
     <value>音声</value>
-  </data>
-  <data name="AdditionalOptions" xml:space="preserve">
-    <value>追加のオプション</value>
   </data>
   <data name="Off" xml:space="preserve">
     <value>オフ</value>
@@ -801,14 +659,8 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="Group" xml:space="preserve">
     <value>グループ</value>
   </data>
-  <data name="SelectFilterEffect" xml:space="preserve">
-    <value>フィルタエフェクトを選択</value>
-  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0}は無効です。</value>
-  </data>
-  <data name="Queue" xml:space="preserve">
-    <value>キュー</value>
   </data>
   <data name="GraphEditor" xml:space="preserve">
     <value>グラフエディタ</value>
@@ -821,12 +673,6 @@ b-editorがダウンロードURLを管理します。</value>
   </data>
   <data name="Details" xml:space="preserve">
     <value>詳細</value>
-  </data>
-  <data name="OutputtingVideo" xml:space="preserve">
-    <value>動画を出力中</value>
-  </data>
-  <data name="OutputtingAudio" xml:space="preserve">
-    <value>音声を出力中</value>
   </data>
   <data name="Completed" xml:space="preserve">
     <value>完了しました</value>
@@ -945,7 +791,7 @@ b-editorがダウンロードURLを管理します。</value>
   <data name="RemoveAnimation" xml:space="preserve">
     <value>アニメーションを削除</value>
   </data>
-  <data name="ColorPallete" xml:space="preserve">
+  <data name="ColorPalette" xml:space="preserve">
     <value>カラーパレット</value>
   </data>
   <data name="ChangeToOriginalLength" xml:space="preserve">

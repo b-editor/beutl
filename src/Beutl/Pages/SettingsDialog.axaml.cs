@@ -129,7 +129,7 @@ public sealed partial class SettingsDialog : AppWindow
             new NavigationViewItem()
             {
                 Content = Strings.Info,
-                Tag = typeof(InfomationPage),
+                Tag = typeof(InformationPage),
                 IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource()
                 {
                     Symbol = FluentIcons.Common.Symbol.Info
@@ -164,7 +164,7 @@ public sealed partial class SettingsDialog : AppWindow
                 "EditorSettingsPage" => settingsPage.Editor,
                 "FontSettingsPage" => settingsPage.Font,
                 "ExtensionsSettingsPage" => settingsPage.ExtensionsPage,
-                "InfomationPage" => settingsPage.Infomation,
+                "InformationPage" => settingsPage.Information,
                 "KeyMapSettingsPage" => settingsPage.KeyMap,
                 _ => null,
             };
@@ -203,7 +203,7 @@ public sealed partial class SettingsDialog : AppWindow
                 || pagetype == typeof(KeyMapSettingsPage)
                 || pagetype == typeof(FontSettingsPage)
                 || pagetype == typeof(ExtensionsSettingsPage)
-                || pagetype == typeof(InfomationPage))
+                || pagetype == typeof(InformationPage))
             {
                 return 0;
             }
@@ -232,7 +232,7 @@ public sealed partial class SettingsDialog : AppWindow
                 "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage"
                     or "AnExtensionSettingsPage" => 5,
                 "StorageSettingsPage" or "StorageDetailPage" => 6,
-                "InfomationPage" or "TelemetrySettingsPage" => 7,
+                "InformationPage" or "TelemetrySettingsPage" => 7,
                 _ => 0,
             };
         }
@@ -251,7 +251,7 @@ public sealed partial class SettingsDialog : AppWindow
                 "DecoderPriorityPageViewModel" => typeof(DecoderPriorityPage),
                 "TelemetrySettingsPageViewModel" => typeof(TelemetrySettingsPage),
                 "AnExtensionSettingsPageViewModel" => typeof(AnExtensionSettingsPage),
-                _ => typeof(InfomationPage),
+                _ => typeof(InformationPage),
             };
         }
     }
