@@ -100,7 +100,7 @@ jobs:
       - name: Save
         uses: actions/upload-artifact@v4
         with:
-          name: beutl-${{ matrix.rid }}${{ matrix.standalone == 'true' && '-standalone' || '' }}-${{ needs.determine-version.outputs.semVer }}
+          name: beutl-${{ matrix.rid }}${{ matrix.standalone == true && '-standalone' || '' }}-${{ needs.determine-version.outputs.semVer }}
           path: ./artifacts/*.zip
 
   build-windows-installer:
@@ -140,8 +140,8 @@ jobs:
       - name: Save installer
         uses: actions/upload-artifact@v4
         with:
-          name: beutl${{ matrix.standalone == 'true' && '-standalone' || '' }}-setup
-          path: ./artifacts/beutl${{ matrix.standalone == 'true' && '-standalone' || '' }}-setup.exe
+          name: beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup
+          path: ./artifacts/beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup.exe
 
   build-debian-package:
     needs: [ determine-version, build-executable ]
