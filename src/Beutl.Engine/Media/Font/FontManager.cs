@@ -1,4 +1,4 @@
-﻿using System.Collections.Frozen;
+using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -14,6 +14,7 @@ public sealed class FontManager
 {
     public static readonly FontManager Instance = new();
     internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
+    internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
     private readonly string[] _fontDirs;
 
     private FontManager()
@@ -82,7 +83,21 @@ public sealed class FontManager
         foreach (IGrouping<string, SKTypeface> item in list.GroupBy(i => i.FamilyName))
         {
             var family = new FontFamily(item.Key);
-            _fonts.Add(family, TypefaceCollection.Create([.. item]));
+            SKTypeface[] typefaces = [.. item];
+            if (typefaces.Length == 0) continue;
+            _fonts.Add(family, TypefaceCollection.Create(typefaces));
+
+            if (!_fontNames.ContainsKey(family))
+            {
+                // name
+                byte[]? buffer = typefaces[0].GetTableData(0x6E616D65);
+                using var ms = new MemoryStream(buffer);
+                var fontName = FontName.ReadFontName(ms);
+                if (fontName != null)
+                {
+                    _fontNames.Add(family, fontName);
+                }
+            }
         }
 
         DefaultTypeface = GetDefaultTypeface();
