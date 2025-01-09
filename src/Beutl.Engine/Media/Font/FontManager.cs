@@ -3,9 +3,9 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
-
 using Beutl.Configuration;
-
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Media;
@@ -13,6 +13,7 @@ namespace Beutl.Media;
 public sealed class FontManager
 {
     public static readonly FontManager Instance = new();
+    private readonly ILogger _logger = Log.CreateLogger<FontManager>();
     internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
     internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
     private readonly string[] _fontDirs;
@@ -89,13 +90,17 @@ public sealed class FontManager
 
             if (!_fontNames.ContainsKey(family))
             {
-                // name
-                byte[]? buffer = typefaces[0].GetTableData(0x6E616D65);
-                using var ms = new MemoryStream(buffer);
-                var fontName = FontName.ReadFontName(ms);
-                if (fontName != null)
+                try
                 {
+                    // name
+                    byte[]? buffer = typefaces[0].GetTableData(0x6E616D65);
+                    using var ms = new MemoryStream(buffer);
+                    var fontName = FontName.ReadFontName(ms);
                     _fontNames.Add(family, fontName);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to read font name from {FontFamily}", family);
                 }
             }
         }
@@ -145,14 +150,15 @@ public sealed class FontManager
         }
     }
 
-    private static SKTypeface? LoadFont(string file)
+    private SKTypeface? LoadFont(string file)
     {
         try
         {
             return SKTypeface.FromFile(file);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to load font from {File}", file);
             return null;
         }
     }

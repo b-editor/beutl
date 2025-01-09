@@ -86,7 +86,7 @@ internal record FontName(
         }
     }
 
-    public static FontName? ReadFontName(Stream stream)
+    public static FontName ReadFontName(Stream stream)
     {
         var entry = new List<(PlatformIDs Platform, ushort Language, KnownNameIds Name, string Value)>();
 
