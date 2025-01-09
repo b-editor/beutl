@@ -1,4 +1,4 @@
-using System.Collections.Frozen;
+﻿using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -221,8 +221,6 @@ internal static class TypefaceCollection
         }
 
         //Nothing was found so we try to get a regular typeface.
-        return typefaces.TryGetValue(new Typeface(key.FontFamily), out typeface) ?
-            typeface :
-            throw new Exception();
+        return typefaces.TryGetValue(new Typeface(key.FontFamily), out typeface) ? typeface : typefaces.Values[0];
     }
 }
