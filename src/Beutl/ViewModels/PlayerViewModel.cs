@@ -366,8 +366,15 @@ public sealed class PlayerViewModel : IDisposable
             source.QueueBuffer(buffer);
         }
 
+        var cts = new CancellationTokenSource();
         IDisposable revoker = IsPlaying.Where(v => !v)
-            .Subscribe(_ => source.Stop());
+            .Subscribe(_ =>
+            {
+                // ReSharper disable AccessToDisposedClosure
+                source.Stop();
+                cts.Cancel();
+                // ReSharper restore AccessToDisposedClosure
+            });
 
         try
         {
@@ -378,7 +385,7 @@ public sealed class PlayerViewModel : IDisposable
 
             source.Play();
 
-            await Task.Delay(1000).ConfigureAwait(false);
+            await Task.Delay(1000, cts.Token).ConfigureAwait(false);
 
             // primaryBufferが終了、secondaryが開始
 
@@ -397,8 +404,12 @@ public sealed class PlayerViewModel : IDisposable
                 // バッファを入れ替える
                 Swap(ref primaryBuffer, ref secondaryBuffer);
 
-                await Task.Delay(1000).ConfigureAwait(false);
+                await Task.Delay(1000, cts.Token).ConfigureAwait(false);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            source.Stop();
         }
         catch (Exception ex)
         {
@@ -411,6 +422,7 @@ public sealed class PlayerViewModel : IDisposable
         {
             revoker.Dispose();
             source.Dispose();
+            cts.Dispose();
             primaryBuffer.Dispose();
             secondaryBuffer.Dispose();
         }
