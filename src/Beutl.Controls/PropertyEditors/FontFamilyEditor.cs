@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
+using Beutl.Media;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -28,6 +29,9 @@ public class FontFamilyEditor : PropertyEditor
         base.OnApplyTemplate(e);
         _button = e.NameScope.Get<DropDownButton>("PART_InnerButton");
         _button.AddDisposableHandler(Button.ClickEvent, OnButtonClick);
+        _button.Content = FontManager.Instance._fontNames.TryGetValue(Value, out var name)
+            ? name.FontFamilyName
+            : Value.Name;
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -84,6 +88,20 @@ public class FontFamilyEditor : PropertyEditor
         finally
         {
             _flyoutActive = false;
+        }
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == ValueProperty)
+        {
+            if (_button != null)
+            {
+                _button.Content = FontManager.Instance._fontNames.TryGetValue(Value, out var name)
+                    ? name.FontFamilyName
+                    : Value.Name;
+            }
         }
     }
 }

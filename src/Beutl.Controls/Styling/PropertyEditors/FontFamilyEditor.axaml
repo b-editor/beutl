@@ -48,7 +48,6 @@
                               ColumnDefinitions="*,Auto">
                             <DropDownButton x:Name="PART_InnerButton"
                                             HorizontalAlignment="Stretch"
-                                            Content="{Binding Value.Name, RelativeSource={RelativeSource TemplatedParent}}"
                                             IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}" />
 
                             <StackPanel Name="LeftRightButtons"

@@ -24,7 +24,12 @@ public class FontFamilyPickerFlyoutViewModel
             .ToList()!;
 
         _items = FontManager.Instance.FontFamilies
-            .Select(v => new PinnableLibraryItem(v.Name, false, v))
+            .Select(v =>
+                new PinnableLibraryItem(
+                    FontManager.Instance._fontNames.TryGetValue(v, out var name) ? name.FontFamilyName : v.Name,
+                    false,
+                    v))
+            .OrderBy(i => i.DisplayName)
             .ToArray();
         ShowAll.Subscribe(_ => ProcessSearchText());
 
