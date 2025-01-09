@@ -43,6 +43,7 @@ public sealed class FontFamilyPickerFlyout(FontFamilyPickerFlyoutViewModel viewM
                     OnConfirmed();
                     break;
                 case Key.Escape:
+                    Dismissed?.Invoke(this, EventArgs.Empty);
                     Hide();
                     break;
             }

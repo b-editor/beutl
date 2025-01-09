@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Beutl.Media;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -59,7 +60,18 @@ public class FontFamilyEditor : PropertyEditor
     private Task<Media.FontFamily> Select()
     {
         var viewModel = new FontFamilyPickerFlyoutViewModel();
-        viewModel.SelectedItem.Value = viewModel.Items.FirstOrDefault(f => f.DisplayName == Value.Name);
+        viewModel.SelectedItem.Value = viewModel.Items.FirstOrDefault(f => (Media.FontFamily)f.UserData == Value);
+        var prevValue = Value;
+        viewModel.SelectedItem.Subscribe(item =>
+        {
+            var value = (Media.FontFamily)item.UserData;
+            if (value != prevValue)
+            {
+                Value = value;
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(value, prevValue,
+                    ValueChangedEvent));
+            }
+        });
 
         var dialog = new FontFamilyPickerFlyout(viewModel);
         dialog.ShowAt(this);
@@ -79,11 +91,21 @@ public class FontFamilyEditor : PropertyEditor
         try
         {
             _flyoutActive = true;
-            var newValue = await Select();
-            if (newValue == null) return;
             Media.FontFamily oldValue = Value;
-            Value = newValue;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(Value, oldValue, ValueConfirmedEvent));
+            var newValue = await Select();
+            if (newValue == null)
+            {
+                var value = Value;
+                Value = oldValue;
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(
+                    oldValue, value, ValueConfirmedEvent));
+            }
+            else
+            {
+                Value = newValue;
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(
+                    Value, oldValue, ValueConfirmedEvent));
+            }
         }
         finally
         {
