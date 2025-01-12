@@ -17,6 +17,16 @@ public sealed class FontFamilyEditorViewModel(IPropertyAdapter<FontFamily?> prop
                 .DisposeWith(Disposables);
             editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(Disposables);
+            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+                .DisposeWith(Disposables);
+        }
+    }
+
+    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
+    {
+        if (e is PropertyEditorValueChangedEventArgs<FontFamily?> args)
+        {
+            SetCurrentValueAndGetCoerced(args.NewValue);
         }
     }
 

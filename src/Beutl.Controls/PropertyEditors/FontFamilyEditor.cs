@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
+using Beutl.Media;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -28,6 +30,9 @@ public class FontFamilyEditor : PropertyEditor
         base.OnApplyTemplate(e);
         _button = e.NameScope.Get<DropDownButton>("PART_InnerButton");
         _button.AddDisposableHandler(Button.ClickEvent, OnButtonClick);
+        _button.Content = FontManager.Instance._fontNames.TryGetValue(Value, out var name)
+            ? name.FontFamilyName
+            : Value.Name;
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -55,7 +60,19 @@ public class FontFamilyEditor : PropertyEditor
     private Task<Media.FontFamily> Select()
     {
         var viewModel = new FontFamilyPickerFlyoutViewModel();
-        viewModel.SelectedItem.Value = viewModel.Items.FirstOrDefault(f => f.DisplayName == Value.Name);
+        viewModel.SelectedItem.Value = viewModel.Items.FirstOrDefault(f => (Media.FontFamily)f.UserData == Value);
+        var prevValue = Value;
+        viewModel.SelectedItem.Subscribe(item =>
+        {
+            var value = item?.UserData as Media.FontFamily;
+            if (value != prevValue && value != null)
+            {
+                Value = value;
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(
+                    value, prevValue, ValueChangedEvent));
+                prevValue = Value;
+            }
+        });
 
         var dialog = new FontFamilyPickerFlyout(viewModel);
         dialog.ShowAt(this);
@@ -75,15 +92,39 @@ public class FontFamilyEditor : PropertyEditor
         try
         {
             _flyoutActive = true;
-            var newValue = await Select();
-            if (newValue == null) return;
             Media.FontFamily oldValue = Value;
-            Value = newValue;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(Value, oldValue, ValueConfirmedEvent));
+            var newValue = await Select();
+            if (newValue == null)
+            {
+                var value = Value;
+                Value = oldValue;
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(
+                    oldValue, value, ValueConfirmedEvent));
+            }
+            else
+            {
+                Value = newValue;
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(
+                    Value, oldValue, ValueConfirmedEvent));
+            }
         }
         finally
         {
             _flyoutActive = false;
+        }
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == ValueProperty)
+        {
+            if (_button != null)
+            {
+                _button.Content = FontManager.Instance._fontNames.TryGetValue(Value, out var name)
+                    ? name.FontFamilyName
+                    : Value.Name;
+            }
         }
     }
 }

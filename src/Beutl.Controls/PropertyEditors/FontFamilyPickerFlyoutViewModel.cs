@@ -24,7 +24,12 @@ public class FontFamilyPickerFlyoutViewModel
             .ToList()!;
 
         _items = FontManager.Instance.FontFamilies
-            .Select(v => new PinnableLibraryItem(v.Name, false, v))
+            .Select(v =>
+                new PinnableLibraryItem(
+                    FontManager.Instance._fontNames.TryGetValue(v, out var name) ? name.FontFamilyName : v.Name,
+                    false,
+                    v))
+            .OrderBy(i => i.DisplayName)
             .ToArray();
         ShowAll.Subscribe(_ => ProcessSearchText());
 
@@ -93,7 +98,9 @@ public class FontFamilyPickerFlyoutViewModel
                 .ToArray();
 
             var newItems = items.Where(x =>
-                    segments.Any(item => x.DisplayName.Contains(item, StringComparison.OrdinalIgnoreCase)))
+                    segments.Any(item
+                        => x.DisplayName.Contains(item, StringComparison.OrdinalIgnoreCase)
+                           || ((FontFamily)x.UserData).Name.Contains(item, StringComparison.OrdinalIgnoreCase)))
                 .OrderByDescending(t => t.IsPinned)
                 .ToArray();
             Items.AddRange(newItems);

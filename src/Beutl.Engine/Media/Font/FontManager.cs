@@ -3,9 +3,9 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
-
 using Beutl.Configuration;
-
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Media;
@@ -13,7 +13,9 @@ namespace Beutl.Media;
 public sealed class FontManager
 {
     public static readonly FontManager Instance = new();
+    private readonly ILogger _logger = Log.CreateLogger<FontManager>();
     internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
+    internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
     private readonly string[] _fontDirs;
 
     private FontManager()
@@ -82,7 +84,25 @@ public sealed class FontManager
         foreach (IGrouping<string, SKTypeface> item in list.GroupBy(i => i.FamilyName))
         {
             var family = new FontFamily(item.Key);
-            _fonts.Add(family, TypefaceCollection.Create([.. item]));
+            SKTypeface[] typefaces = [.. item];
+            if (typefaces.Length == 0) continue;
+            _fonts.Add(family, TypefaceCollection.Create(typefaces));
+
+            if (!_fontNames.ContainsKey(family))
+            {
+                try
+                {
+                    // name
+                    byte[]? buffer = typefaces[0].GetTableData(0x6E616D65);
+                    using var ms = new MemoryStream(buffer);
+                    var fontName = FontName.ReadFontName(ms);
+                    _fontNames.Add(family, fontName);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to read font name from {FontFamily}", family);
+                }
+            }
         }
 
         DefaultTypeface = GetDefaultTypeface();
@@ -130,14 +150,15 @@ public sealed class FontManager
         }
     }
 
-    private static SKTypeface? LoadFont(string file)
+    private SKTypeface? LoadFont(string file)
     {
         try
         {
             return SKTypeface.FromFile(file);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to load font from {File}", file);
             return null;
         }
     }
@@ -206,8 +227,6 @@ internal static class TypefaceCollection
         }
 
         //Nothing was found so we try to get a regular typeface.
-        return typefaces.TryGetValue(new Typeface(key.FontFamily), out typeface) ?
-            typeface :
-            throw new Exception();
+        return typefaces.TryGetValue(new Typeface(key.FontFamily), out typeface) ? typeface : typefaces.Values[0];
     }
 }
