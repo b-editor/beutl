@@ -64,12 +64,13 @@ public class FontFamilyEditor : PropertyEditor
         var prevValue = Value;
         viewModel.SelectedItem.Subscribe(item =>
         {
-            var value = (Media.FontFamily)item.UserData;
-            if (value != prevValue)
+            var value = item?.UserData as Media.FontFamily;
+            if (value != prevValue && value != null)
             {
                 Value = value;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(value, prevValue,
-                    ValueChangedEvent));
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(
+                    value, prevValue, ValueChangedEvent));
+                prevValue = Value;
             }
         });
 

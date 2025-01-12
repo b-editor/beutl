@@ -98,7 +98,9 @@ public class FontFamilyPickerFlyoutViewModel
                 .ToArray();
 
             var newItems = items.Where(x =>
-                    segments.Any(item => x.DisplayName.Contains(item, StringComparison.OrdinalIgnoreCase)))
+                    segments.Any(item
+                        => x.DisplayName.Contains(item, StringComparison.OrdinalIgnoreCase)
+                           || ((FontFamily)x.UserData).Name.Contains(item, StringComparison.OrdinalIgnoreCase)))
                 .OrderByDescending(t => t.IsPinned)
                 .ToArray();
             Items.AddRange(newItems);
