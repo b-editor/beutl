@@ -38,9 +38,10 @@ Beutl アカウントを作成して、拡張機能を取得したり、自身�
 
 ## License
 
-- [MIT License](https://github.com/b-editor/beutl/blob/main/LICENSE)
+- [GNU GENERAL PUBLIC LICENSE](https://github.com/b-editor/beutl/blob/main/LICENSE)
 
 ## Patrons
 
-- [Bony_Chops](https://www.patreon.com/user/creators?u=52944861)
+- [calloc134](https://github.com/calloc134)
+- [Bony_Chops](https://github.com/BonyChops)
 - [Hayashi Tomonari](https://www.patreon.com/user/creators?u=62872137)

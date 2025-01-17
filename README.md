@@ -38,7 +38,7 @@ Refer to the [documentation](https://beutl.beditor.net/docs/get-started/install)
 
 ## License
 
-- [MIT License](https://github.com/b-editor/beutl/blob/main/LICENSE)
+- [GNU GENERAL PUBLIC LICENSE](https://github.com/b-editor/beutl/blob/main/LICENSE)
 
 ## Patrons
 - [calloc134](https://github.com/calloc134)
