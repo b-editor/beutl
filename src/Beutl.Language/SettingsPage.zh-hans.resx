@@ -1,0 +1,110 @@
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="DeviceInformation" xml:space="preserve">
+    <value>设备信息</value>
+  </data>
+  <data name="DecoderPriority" xml:space="preserve">
+    <value>解码器优先级</value>
+  </data>
+  <data name="DecoderPriority_Description" xml:space="preserve">
+    <value>你可以修改解码器的优先级。越高的解码器将被优先使用。</value>
+  </data>
+  <data name="CustomColor" xml:space="preserve">
+    <value>自定义颜色</value>
+  </data>
+  <data name="CopyVersionInfo" xml:space="preserve">
+    <value>复制版本信息</value>
+  </data>
+  <data name="SignOut" xml:space="preserve">
+    <value>登出</value>
+  </data>
+  <data name="SignInWith" xml:space="preserve">
+    <value>使用你的社交账号登录</value>
+  </data>
+  <data name="SignInViaBrowser" xml:space="preserve">
+    <value>使用浏览器登录</value>
+  </data>
+  <data name="SignIn" xml:space="preserve">
+    <value>登录</value>
+  </data>
+  <data name="PropertyEditor" xml:space="preserve">
+    <value>属性编辑器</value>
+  </data>
+  <data name="Please_enter_a_file_extension" xml:space="preserve">
+    <value>请输入一个文件后缀名。</value>
+  </data>
+  <data name="OpenGLVersion" xml:space="preserve">
+    <value>OpenGL 版本</value>
+  </data>
+  <data name="GpuInformation" xml:space="preserve">
+    <value>GPU 信息</value>
+  </data>
+  <data name="FrameCacheScale_Half" xml:space="preserve">
+    <value>二分之一</value>
+  </data>
+  <data name="FrameCacheScale_Quarter" xml:space="preserve">
+    <value>四分之一</value>
+  </data>
+  <data name="FrameCacheScale" xml:space="preserve">
+    <value>缩放</value>
+  </data>
+  <data name="FrameCacheColorType" xml:space="preserve">
+    <value>颜色空间</value>
+  </data>
+  <data name="AccentColor" xml:space="preserve">
+    <value>强调色</value>
+  </data>
+  <data name="All_Editor_Extensions" xml:space="preserve">
+    <value>所有的编辑器扩展</value>
+  </data>
+  <data name="Add_file_extension" xml:space="preserve">
+    <value>添加文件后缀名</value>
+  </data>
+  <data name="ChangeAccountSettings" xml:space="preserve">
+    <value>更改账户设置</value>
+  </data>
+  <data name="NodeCacheMaxPixels" xml:space="preserve">
+    <value>最大像素数量</value>
+  </data>
+  <data name="NodeCacheMinPixels" xml:space="preserve">
+    <value>最小像素数量</value>
+  </data>
+  <data name="UseCustomAccentColor" xml:space="preserve">
+    <value>使用自定义的强调色</value>
+  </data>
+  <data name="Telemetry_Beutl_PackageManagement" xml:space="preserve">
+    <value>包管理器</value>
+  </data>
+  <data name="Telemetry_Beutl_Application" xml:space="preserve">
+    <value>应用程序</value>
+  </data>
+  <data name="EditorSettings" xml:space="preserve">
+    <value>编辑器设置</value>
+  </data>
+  <data name="Editor_Extension_Priority" xml:space="preserve">
+    <value>编辑器扩展程序权重</value>
+  </data>
+  <data name="EnableNodeCache" xml:space="preserve">
+    <value>启用节点缓存</value>
+  </data>
+  <data name="NodeCache" xml:space="preserve">
+    <value>节点缓存</value>
+  </data>
+  <data name="EnableFrameCache" xml:space="preserve">
+    <value>启用帧缓存</value>
+  </data>
+  <data name="FrameCacheMaxSize" xml:space="preserve">
+    <value>最大大小</value>
+  </data>
+</root>

@@ -1,0 +1,80 @@
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="CheckUpdate" xml:space="preserve">
+    <value>检查更新</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>说明</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>更新</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>卸载</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>安装</value>
+  </data>
+  <data name="RemoveFromLibrary" xml:space="preserve">
+    <value>从库中移除</value>
+  </data>
+  <data name="Release_TargetVersion" xml:space="preserve">
+    <value>目标版本</value>
+  </data>
+  <data name="OpenUrl_Title" xml:space="preserve">
+    <value>确认要打开这个网址？</value>
+  </data>
+  <data name="OpenUrl_Content" xml:space="preserve">
+    <value>您正在试图打开网址 '{0}'。如果这个网址可疑，我们建议您不要打开它。</value>
+  </data>
+  <data name="OpenSettings" xml:space="preserve">
+    <value>打开设置</value>
+  </data>
+  <data name="AnAccountIsRequiredToGetExtension" xml:space="preserve">
+    <value>需要登录账号以下载扩展程序</value>
+  </data>
+  <data name="AuthorizationIsRequired" xml:space="preserve">
+    <value>需要进行认证。</value>
+  </data>
+  <data name="GotoSettings_Account" xml:space="preserve">
+    <value>前往 “设置 &gt; 账户 ”以登录。</value>
+  </data>
+  <data name="LocalPackage" xml:space="preserve">
+    <value>本地的包</value>
+  </data>
+  <data name="LocalPackages" xml:space="preserve">
+    <value>本地的包</value>
+  </data>
+  <data name="NoLogoImageAvailable" xml:space="preserve">
+    <value>没有 Logo 可用</value>
+  </data>
+  <data name="PackageInstaller" xml:space="preserve">
+    <value>包安装程序</value>
+  </data>
+  <data name="Package_LatestRelease" xml:space="preserve">
+    <value>最新发行版</value>
+  </data>
+  <data name="Package_LatestVersion" xml:space="preserve">
+    <value>最新版本号</value>
+  </data>
+  <data name="Package_Screenshots" xml:space="preserve">
+    <value>截图</value>
+  </data>
+  <data name="Package_SelectedRelease" xml:space="preserve">
+    <value>选中的发行版</value>
+  </data>
+  <data name="Package_Tags" xml:space="preserve">
+    <value>选中的 Tag</value>
+  </data>
+</root>
