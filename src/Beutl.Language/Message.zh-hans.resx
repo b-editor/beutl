@@ -140,4 +140,40 @@
   <data name="Unable_to_save_file" xml:space="preserve">
     <value>无法保存文件</value>
   </data>
+  <data name="Failed_to_load_package" xml:space="preserve">
+    <value>包加载失败。</value>
+  </data>
+  <data name="Failed_to_load_N_packages" xml:space="preserve">
+    <value>{0}个包加载失败。</value>
+  </data>
+  <data name="Changes_to_the_package_are_in_progress" xml:space="preserve">
+    <value>正在对包进行变更。</value>
+  </data>
+  <data name="To_open_Beutl_close_Beutl_PackageTools" xml:space="preserve">
+    <value>要打开 Beutl，请先关闭 Beutl.PackageTools。</value>
+  </data>
+  <data name="ValueLessThanZero" xml:space="preserve">
+    <value>不能填入小于0的数值。</value>
+  </data>
+  <data name="ValueLessThanOrEqualToZero" xml:space="preserve">
+    <value>不能填入小于或等于0的数值。</value>
+  </data>
+  <data name="A_new_version_is_available" xml:space="preserve">
+    <value>有新版本可用。</value>
+  </data>
+  <data name="This_version_has_been_discontinued_for_compatibility_reasonsversion" xml:space="preserve">
+    <value>这个版本已经因为兼容性原因而停止更新，请升级到更新的版本。</value>
+  </data>
+  <data name="No_supported_extensions_were_found" xml:space="preserve">
+    <value>找不到支持的扩展程序。</value>
+  </data>
+  <data name="Could_not_restore_because_type_could_not_be_found" xml:space="preserve">
+    <value>因为类型无法找到，无法进行还原。</value>
+  </data>
+  <data name="Looks_like_it_ended_with_an_error_last_time" xml:space="preserve">
+    <value>似乎上一次因错误而结束。</value>
+  </data>
+  <data name="NullWasSpecifiedForEditorContext" xml:space="preserve">
+    <value>编辑器上下文为空。</value>
+  </data>
 </root>

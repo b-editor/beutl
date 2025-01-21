@@ -107,4 +107,58 @@
   <data name="FrameCacheMaxSize" xml:space="preserve">
     <value>最大大小</value>
   </data>
+  <data name="Telemetry_Beutl_Logging" xml:space="preserve">
+    <value>日志</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_PackageManagement" xml:space="preserve">
+    <value>收集安装或卸载扩展程序的用时。</value>
+  </data>
+  <data name="Telemetry_Beutl_Api_Client" xml:space="preserve">
+    <value>API 客户端</value>
+  </data>
+  <data name="Telemetry_Description" xml:space="preserve">
+    <value>为了改进 Beutl，我们会收集匿名的数据。这项设定将在 Beutl 重新启动后生效。要了解更多信息，请访问我们网站的相关页面。</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Api_Client" xml:space="preserve">
+    <value>收集扩展程序商店和账户功能相关 API 的调用耗时等信息</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Logging" xml:space="preserve">
+    <value>要了解更多收集的信息，请查看同样保存在 “.beutl/log” 目录下的日志文件</value>
+  </data>
+  <data name="Telemetry_ShortDescription" xml:space="preserve">
+    <value>设置要收集的数据</value>
+  </data>
+  <data name="This_file_extension_already_exists" xml:space="preserve">
+    <value>这个文件后缀名已存在。</value>
+  </data>
+  <data name="Theme_Tip" xml:space="preserve">
+    <value>选择您喜欢的应用程序主题。</value>
+  </data>
+  <data name="Telemetry_Description_Beutl_Application" xml:space="preserve">
+    <value>收集以下信息以提高应用程序性能：应用程序启动时间、运行时间和应用程序接口的调用情况</value>
+  </data>
+  <data name="The_following_characters_are_not_allowed" xml:space="preserve">
+    <value>不允许使用下列字符 (" &gt; &lt; | : ? * \ /)</value>
+  </data>
+  <data name="Telemetry" xml:space="preserve">
+    <value>遥测数据采集</value>
+  </data>
+  <data name="SwapTimelineScrollDirection" xml:space="preserve">
+    <value>交换时间线的滚动方向</value>
+  </data>
+  <data name="ShowExactBoundaries" xml:space="preserve">
+    <value>更精确地显示边框</value>
+  </data>
+  <data name="ShowExactBoundaries_Description" xml:space="preserve">
+    <value>在预览窗口中更精确地显示边框。启用该选项可能会导致边框不可见。</value>
+  </data>
+  <data name="EnableAutoSave" xml:space="preserve">
+    <value>启用自动保存</value>
+  </data>
+  <data name="EnableAutoSave_Description" xml:space="preserve">
+    <value>在进行每一步操作后都会自动保存。</value>
+  </data>
+  <data name="FrameCacheMaxSize_Description" xml:space="preserve">
+    <value>调整缓存的大小，使其不超过这个字节数。</value>
+  </data>
 </root>

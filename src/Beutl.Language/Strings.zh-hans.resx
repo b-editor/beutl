@@ -30,7 +30,7 @@
     <value>同意</value>
   </data>
   <data name="Amount" xml:space="preserve">
-    <value>量</value>
+    <value>值</value>
   </data>
   <data name="Angle" xml:space="preserve">
     <value>角度</value>
@@ -261,7 +261,7 @@
     <value>保存为图片</value>
   </data>
   <data name="SaveFrameAsImage" xml:space="preserve">
-    <value>保存一帧作为图片</value>
+    <value>保存一帧为图片</value>
   </data>
   <data name="SaveSelectedElementAsImage" xml:space="preserve">
     <value>保存选中的元素为图片</value>
@@ -468,7 +468,7 @@
     <value>打开文档</value>
   </data>
   <data name="OpenAFileYouHaveAlreadyCreated" xml:space="preserve">
-    <value>打开一个您已经创建的文件</value>
+    <value>打开已有的文件</value>
   </data>
   <data name="Open" xml:space="preserve">
     <value>打开</value>
@@ -582,7 +582,7 @@
     <value>图片</value>
   </data>
   <data name="Hue" xml:space="preserve">
-    <value>色相</value>
+    <value>色调</value>
   </data>
   <data name="Help" xml:space="preserve">
     <value>帮助</value>
@@ -597,7 +597,7 @@
     <value>绿色</value>
   </data>
   <data name="GraphEditor" xml:space="preserve">
-    <value>图形编辑器</value>
+    <value>曲线编辑器</value>
   </data>
   <data name="GradientOrigin" xml:space="preserve">
     <value>渐变原点</value>
@@ -774,10 +774,10 @@
     <value>高对比度</value>
   </data>
   <data name="HueRange" xml:space="preserve">
-    <value>色相范围</value>
+    <value>色调范围</value>
   </data>
   <data name="HueRotate" xml:space="preserve">
-    <value>色相调整</value>
+    <value>色调调整</value>
   </data>
   <data name="ImageFilter" xml:space="preserve">
     <value>图片滤镜</value>
@@ -807,7 +807,7 @@
     <value>移动至</value>
   </data>
   <data name="NodeTree" xml:space="preserve">
-    <value>节点数</value>
+    <value>节点树</value>
   </data>
   <data name="NoFilesUsedRecently" xml:space="preserve">
     <value>没有最近使用的文件</value>
@@ -816,7 +816,7 @@
     <value>层数</value>
   </data>
   <data name="OpacityMask" xml:space="preserve">
-    <value>不透明度遮罩</value>
+    <value>不透明度蒙版</value>
   </data>
   <data name="TimelineZoom" xml:space="preserve">
     <value>缩放</value>
@@ -838,5 +838,245 @@
   </data>
   <data name="FrameCache" xml:space="preserve">
     <value>帧缓存</value>
+  </data>
+  <data name="Symmetry" xml:space="preserve">
+    <value>对称</value>
+  </data>
+  <data name="Exclude" xml:space="preserve">
+    <value>排除</value>
+  </data>
+  <data name="ExcludeAlphaChannel" xml:space="preserve">
+    <value>排除 Alpha 通道</value>
+  </data>
+  <data name="Exclude_Description" xml:space="preserve">
+    <value>排除选中的对象。</value>
+  </data>
+  <data name="UseGlobalClock" xml:space="preserve">
+    <value>使用全局时钟</value>
+  </data>
+  <data name="AddOutputProfile" xml:space="preserve">
+    <value>添加配置</value>
+  </data>
+  <data name="BlendMode_Difference" xml:space="preserve">
+    <value>相差值的绝对值</value>
+  </data>
+  <data name="BlendMode_Plus" xml:space="preserve">
+    <value>相加</value>
+  </data>
+  <data name="Element" xml:space="preserve">
+    <value>元素</value>
+  </data>
+  <data name="Encode" xml:space="preserve">
+    <value>编码</value>
+  </data>
+  <data name="Encoder" xml:space="preserve">
+    <value>编码器</value>
+  </data>
+  <data name="Encoder_Tip" xml:space="preserve">
+    <value>选择编码器</value>
+  </data>
+  <data name="Figure" xml:space="preserve">
+    <value>形状</value>
+  </data>
+  <data name="FilterEffect" xml:space="preserve">
+    <value>滤镜效果</value>
+  </data>
+  <data name="SplitByCurrentFrame" xml:space="preserve">
+    <value>切割于当前帧</value>
+  </data>
+  <data name="Hand" xml:space="preserve">
+    <value>移动</value>
+  </data>
+  <data name="AdjustDurationToCurrent" xml:space="preserve">
+    <value>对齐到当前帧</value>
+  </data>
+  <data name="Addition" xml:space="preserve">
+    <value>相加</value>
+  </data>
+  <data name="Stroke" xml:space="preserve">
+    <value>描边</value>
+  </data>
+  <data name="StrokeEffect" xml:space="preserve">
+    <value>描边</value>
+  </data>
+  <data name="ThirdPartyLicenses" xml:space="preserve">
+    <value>第三方许可证</value>
+  </data>
+  <data name="VerticalSpacing" xml:space="preserve">
+    <value>垂直方向间隔</value>
+  </data>
+  <data name="VerticalDivisions" xml:space="preserve">
+    <value>垂直分割数</value>
+  </data>
+  <data name="SpreadMethod" xml:space="preserve">
+    <value>蔓延模式</value>
+  </data>
+  <data name="SplitByCharacters" xml:space="preserve">
+    <value>按文字分割</value>
+  </data>
+  <data name="Radial" xml:space="preserve">
+    <value>放射状</value>
+  </data>
+  <data name="Skew" xml:space="preserve">
+    <value>倾斜</value>
+  </data>
+  <data name="AdjustDurationToPointer" xml:space="preserve">
+    <value>对齐到指针处</value>
+  </data>
+  <data name="Threshold" xml:space="preserve">
+    <value>二值化</value>
+  </data>
+  <data name="TileMode" xml:space="preserve">
+    <value>平铺模式</value>
+  </data>
+  <data name="BlendMode_ColorBurn_Description" xml:space="preserve">
+    <value>背景的暗色在前景中得到强调，使暗色更加突出。</value>
+  </data>
+  <data name="BlendMode_ColorBurn" xml:space="preserve">
+    <value>颜色加深</value>
+  </data>
+  <data name="Pen_StrokeJoin" xml:space="preserve">
+    <value>连接方法</value>
+  </data>
+  <data name="Pen_StrokeCap" xml:space="preserve">
+    <value>描边线帽</value>
+  </data>
+  <data name="Pen_StrokeAlignment" xml:space="preserve">
+    <value>位置</value>
+  </data>
+  <data name="ShakeEffect" xml:space="preserve">
+    <value>震动</value>
+  </data>
+  <data name="BlendMode_Plus_Description" xml:space="preserve">
+    <value>将前景与背景的颜色相加。</value>
+  </data>
+  <data name="BlendMode_ColorDodge" xml:space="preserve">
+    <value>颜色减淡</value>
+  </data>
+  <data name="BlendMode_ColorDodge_Description" xml:space="preserve">
+    <value>通过添加前景色来提亮背景。</value>
+  </data>
+  <data name="BlendMode_Color_Description" xml:space="preserve">
+    <value>将前景色调和饱和度应用于背景亮度。</value>
+  </data>
+  <data name="BlendMode_Darken" xml:space="preserve">
+    <value>调暗</value>
+  </data>
+  <data name="BlendMode_Darken_Description" xml:space="preserve">
+    <value>保持前景或背景的深色。</value>
+  </data>
+  <data name="BlendMode_Difference_Description" xml:space="preserve">
+    <value>强调颜色的相差值的绝对值</value>
+  </data>
+  <data name="BlendMode_Dst" xml:space="preserve">
+    <value>保持原样</value>
+  </data>
+  <data name="BlendMode_Xor" xml:space="preserve">
+    <value>位或</value>
+  </data>
+  <data name="BlendMode_Xor_Description" xml:space="preserve">
+    <value>使重叠区域透明，保留非重叠区域。</value>
+  </data>
+  <data name="BlendMode_Multiply" xml:space="preserve">
+    <value>相乘</value>
+  </data>
+  <data name="BlendMode_Multiply_Description" xml:space="preserve">
+    <value>将前景和背景的 RGB 颜色值相乘，产生更暗的效果。</value>
+  </data>
+  <data name="BlendMode_Modulate" xml:space="preserve">
+    <value>混合透明度</value>
+  </data>
+  <data name="BlendMode_Modulate_Description" xml:space="preserve">
+    <value>将前景色和背景色相乘，并考虑透明度。</value>
+  </data>
+  <data name="BlendMode_Luminosity" xml:space="preserve">
+    <value>亮度</value>
+  </data>
+  <data name="BlendMode_Luminosity_Description" xml:space="preserve">
+    <value>保持背景的色调和饱和度，并应用前景亮度。</value>
+  </data>
+  <data name="BlendMode_Hue" xml:space="preserve">
+    <value>色调</value>
+  </data>
+  <data name="BlendMode_Hue_Description" xml:space="preserve">
+    <value>保持背景的亮度和饱和度，并应用前景色调。</value>
+  </data>
+  <data name="BlendMode_Exclusion_Description" xml:space="preserve">
+    <value>产生更柔和的差异效果。</value>
+  </data>
+  <data name="BlendMode_Exclusion" xml:space="preserve">
+    <value>排除</value>
+  </data>
+  <data name="ChangeToOriginalLength" xml:space="preserve">
+    <value>更改回原长</value>
+  </data>
+  <data name="EllipticalArc" xml:space="preserve">
+    <value>圆弧</value>
+  </data>
+  <data name="EnableElement" xml:space="preserve">
+    <value>启用元素</value>
+  </data>
+  <data name="EnableLivePreview" xml:space="preserve">
+    <value>启用实时预览</value>
+  </data>
+  <data name="EndPoint" xml:space="preserve">
+    <value>终点</value>
+  </data>
+  <data name="Grayscale" xml:space="preserve">
+    <value>灰度</value>
+  </data>
+  <data name="HorizontalDivisions" xml:space="preserve">
+    <value>水平分割数</value>
+  </data>
+  <data name="HorizontalSpacing" xml:space="preserve">
+    <value>水平分割间隔</value>
+  </data>
+  <data name="Lighting" xml:space="preserve">
+    <value>亮度调节</value>
+  </data>
+  <data name="MaskType" xml:space="preserve">
+    <value>蒙版类型</value>
+  </data>
+  <data name="Negaposi" xml:space="preserve">
+    <value>正负</value>
+  </data>
+  <data name="Dilate" xml:space="preserve">
+    <value>膨胀</value>
+  </data>
+  <data name="EditInFrame" xml:space="preserve">
+    <value>在帧内编辑</value>
+  </data>
+  <data name="EditInTab" xml:space="preserve">
+    <value>在标签页内编辑</value>
+  </data>
+  <data name="Erode" xml:space="preserve">
+    <value>收缩</value>
+  </data>
+  <data name="StrokeJoin_Miter" xml:space="preserve">
+    <value>尖角连接</value>
+  </data>
+  <data name="StrokeJoin_Bevel" xml:space="preserve">
+    <value>倾斜连接</value>
+  </data>
+  <data name="StrokeJoin_Round" xml:space="preserve">
+    <value>圆弧连接</value>
+  </data>
+  <data name="Pen_MiterLimit" xml:space="preserve">
+    <value>尖角延伸限制</value>
+  </data>
+  <data name="Pen_DashArray" xml:space="preserve">
+    <value>虚线配置</value>
+  </data>
+  <data name="Pen_DashOffset" xml:space="preserve">
+    <value>虚线偏移</value>
+  </data>
+  <data name="Sigma" xml:space="preserve">
+    <value>强度</value>
+  </data>
+  <data name="ShadowOnly" xml:space="preserve">
+    <value>仅阴影</value>
+  </data>
+  <data name="FlatShadow" xml:space="preserve">
+    <value>扁平阴影</value>
   </data>
 </root>

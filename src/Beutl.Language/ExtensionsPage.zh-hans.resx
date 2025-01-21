@@ -77,4 +77,28 @@
   <data name="Package_Tags" xml:space="preserve">
     <value>选中的 Tag</value>
   </data>
+  <data name="Could_not_find_a_package_from_remote" xml:space="preserve">
+    <value>无法在服务器找到 '{0}' 这个包。</value>
+  </data>
+  <data name="PackageInstaller_ScheduledInstallation" xml:space="preserve">
+    <value>已经安排对 '{0}' 的安装。安装将在退出 Beutl 后开始。</value>
+  </data>
+  <data name="PackageInstaller_ScheduledUninstallation" xml:space="preserve">
+    <value>已经安排对 '{0}' 的卸载。卸载将在退出 Beutl 后开始。</value>
+  </data>
+  <data name="PackageInstaller_ScheduledUpdate" xml:space="preserve">
+    <value>已经安排对 '{0}' 的更新。更新装将在退出 Beutl 后开始。</value>
+  </data>
+  <data name="Package_InstalledVersion" xml:space="preserve">
+    <value>已安装版本</value>
+  </data>
+  <data name="Profile_PublishedPackages" xml:space="preserve">
+    <value>已发布的包</value>
+  </data>
+  <data name="Search_Packages" xml:space="preserve">
+    <value>包</value>
+  </data>
+  <data name="This_extension_does_not_support_your_Beutl_version" xml:space="preserve">
+    <value>该扩展程序不支持这个版本的 Beutl，如要强制安装，请使用 CLI 工具。</value>
+  </data>
 </root>
