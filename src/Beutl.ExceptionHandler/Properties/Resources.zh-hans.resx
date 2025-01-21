@@ -11,4 +11,22 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="Close" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="Content" xml:space="preserve">
+    <value>抱歉！发生了一个 Beutl 无法处理的错误。如果遥测数据采集已打开，那么日志是自动采集的。</value>
+  </data>
+  <data name="ErrorOccurred" xml:space="preserve">
+    <value>错误发生。</value>
+  </data>
+  <data name="LogFileNotFound" xml:space="preserve">
+    <value>日志文件未找到</value>
+  </data>
+  <data name="MoreDetails" xml:space="preserve">
+    <value>更多信息</value>
+  </data>
+  <data name="ShowLog" xml:space="preserve">
+    <value>显示日志</value>
+  </data>
 </root>
