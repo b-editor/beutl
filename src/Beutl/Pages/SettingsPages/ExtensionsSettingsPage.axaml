@@ -40,7 +40,7 @@
                                           Navigates="True"
                                           NavigationCommand="{Binding NavigateToDecoderPriority}" />
 
-                <ctrls:OptionsDisplayItem Expands="True" Header="拡張機能の設定">
+                <ctrls:OptionsDisplayItem Expands="True" Header="{x:Static lang:Strings.ExtensionsSettings}">
                     <ctrls:OptionsDisplayItem.Styles>
                         <Style Selector="ctrls|OptionsDisplayItem /template/ ContentPresenter#ExpandedContentPresenter">
                             <Setter Property="Background" Value="Transparent" />

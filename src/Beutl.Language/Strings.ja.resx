@@ -1367,4 +1367,10 @@
   <data name="BlendMode_Luminosity_Description" xml:space="preserve">
     <value>背景の色相と彩度を維持し、前景の明度を適用します。</value>
   </data>
+  <data name="ExtensionsSettings" xml:space="preserve">
+    <value>拡張機能の設定</value>
+  </data>
+  <data name="AboutBeutl" xml:space="preserve">
+    <value>Beutlについて</value>
+  </data>
 </root>

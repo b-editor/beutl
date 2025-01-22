@@ -2534,5 +2534,17 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("BlendMode_Screen_Description", resourceCulture);
             }
         }
+        
+        public static string ExtensionsSettings {
+            get {
+                return ResourceManager.GetString("ExtensionsSettings", resourceCulture);
+            }
+        }
+        
+        public static string AboutBeutl {
+            get {
+                return ResourceManager.GetString("AboutBeutl", resourceCulture);
+            }
+        }
     }
 }

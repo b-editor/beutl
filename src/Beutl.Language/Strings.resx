@@ -1362,4 +1362,10 @@
   <data name="BlendMode_Screen_Description" xml:space="preserve">
     <value>Multiplies the inverted colors of the foreground and background, creating a lighter effect.</value>
   </data>
+  <data name="ExtensionsSettings" xml:space="preserve">
+    <value>Extensions Settings</value>
+  </data>
+  <data name="AboutBeutl" xml:space="preserve">
+    <value>About Beutl</value>
+  </data>
 </root>
