@@ -15,9 +15,11 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
     private readonly ILogger _logger = Log.CreateLogger<DiscoverPageViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly DiscoverService _discover;
+    private readonly BeutlApiApplication _apiApp;
 
     public DiscoverPageViewModel(BeutlApiApplication apiApp)
     {
+        _apiApp = apiApp;
         _discover = apiApp.GetResource<DiscoverService>();
         DataContextFactory = new DataContextFactory(_discover, apiApp);
 
@@ -102,6 +104,11 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
         using (await _discover.Lock.LockAsync())
         {
             activity?.AddEvent(new("Entered_AsyncLock"));
+            if (_apiApp.AuthorizedUser.Value != null)
+            {
+                await _apiApp.AuthorizedUser.Value.RefreshAsync();
+            }
+
             return await _discover.GetFeatured(start, count);
         }
     }
