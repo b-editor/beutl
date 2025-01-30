@@ -41,6 +41,8 @@ Refer to the [documentation](https://beutl.beditor.net/docs/get-started/install)
 - [GNU GENERAL PUBLIC LICENSE](https://github.com/b-editor/beutl/blob/main/LICENSE)
 
 ## Patrons
+
+- [darthaunty1](https://www.patreon.com/user/creators?u=89848438)
 - [calloc134](https://github.com/calloc134)
 - [Bony_Chops](https://github.com/BonyChops)
 - [Hayashi Tomonari](https://www.patreon.com/user/creators?u=62872137)
