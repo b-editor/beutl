@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.EditView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:dock="using:ReDocking"
              xmlns:lang="clr-namespace:Beutl.Language;assembly=Beutl.Language"
@@ -16,7 +17,7 @@
              mc:Ignorable="d">
     <UserControl.Resources>
         <DataTemplate x:Key="LeftSideBarButtonDataTemplate" x:DataType="vm:ToolTabViewModel">
-            <dock:SideBarButton DisplayMode="{Binding Context.DisplayMode.Value}"
+            <dock:SideBarButton DisplayMode="{Binding Context.DisplayMode.Value, Converter={x:Static conv:DockableDisplayModeConverter.Instance}}"
                                 IsChecked="{Binding Context.IsSelected.Value}"
                                 ToolTip.Placement="Right"
                                 ToolTip.ShowDelay="200"
@@ -26,7 +27,7 @@
             </dock:SideBarButton>
         </DataTemplate>
         <DataTemplate x:Key="RightSideBarButtonDataTemplate" x:DataType="vm:ToolTabViewModel">
-            <dock:SideBarButton DisplayMode="{Binding Context.DisplayMode.Value}"
+            <dock:SideBarButton DisplayMode="{Binding Context.DisplayMode.Value, Converter={x:Static conv:DockableDisplayModeConverter.Instance}}"
                                 IsChecked="{Binding Context.IsSelected.Value}"
                                 ToolTip.Placement="Left"
                                 ToolTip.ShowDelay="200"
