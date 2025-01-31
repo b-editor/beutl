@@ -1,4 +1,4 @@
-﻿using System.Collections.Specialized;
+using System.Collections.Specialized;
 using System.Numerics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
@@ -133,46 +133,43 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             .ToReactiveCommandSlim()
             .WithSubscribe(() =>
             {
-                if (HoveredCacheBlock.Value is { } block)
-                {
-                    FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
-                    if (block.IsLocked)
-                    {
-                        manager.Unlock(
-                            block.StartFrame, block.StartFrame + block.LengthFrame);
-                    }
+                if (HoveredCacheBlock.Value is not { } block) return;
 
-                    manager.DeleteAndUpdateBlocks(
-                        new[] { (block.StartFrame, block.StartFrame + block.LengthFrame) });
+                FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
+                if (block.IsLocked)
+                {
+                    manager.Unlock(
+                        block.StartFrame, block.StartFrame + block.LengthFrame);
                 }
+
+                manager.DeleteAndUpdateBlocks(
+                    [(block.StartFrame, block.StartFrame + block.LengthFrame)]);
             });
 
         LockFrameCache = HoveredCacheBlock.Select(v => v?.IsLocked == false)
             .ToReactiveCommandSlim()
             .WithSubscribe(() =>
             {
-                if (HoveredCacheBlock.Value is { } block)
-                {
-                    FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
-                    manager.Lock(
-                        block.StartFrame, block.StartFrame + block.LengthFrame);
+                if (HoveredCacheBlock.Value is not { } block) return;
 
-                    manager.UpdateBlocks();
-                }
+                FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
+                manager.Lock(
+                    block.StartFrame, block.StartFrame + block.LengthFrame);
+
+                manager.UpdateBlocks();
             });
 
         UnlockFrameCache = HoveredCacheBlock.Select(v => v?.IsLocked == true)
             .ToReactiveCommandSlim()
             .WithSubscribe(() =>
             {
-                if (HoveredCacheBlock.Value is { } block)
-                {
-                    FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
-                    manager.Unlock(
-                        block.StartFrame, block.StartFrame + block.LengthFrame);
+                if (HoveredCacheBlock.Value is not { } block) return;
 
-                    manager.UpdateBlocks();
-                }
+                FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
+                manager.Unlock(
+                    block.StartFrame, block.StartFrame + block.LengthFrame);
+
+                manager.UpdateBlocks();
             });
     }
 
