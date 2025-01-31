@@ -6,6 +6,7 @@ using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.Operation;
@@ -37,6 +38,7 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
     private T _value = null!;
     private readonly PropertyWithDefaultValue[] _properties;
     private bool _deserializing;
+    private Element? _element;
 
     private readonly EvaluationTarget _evaluationTarget =
         typeof(T).IsAssignableTo(typeof(Drawable)) ? EvaluationTarget.Graphics
@@ -70,6 +72,12 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
     public override void Evaluate(OperatorEvaluationContext context)
     {
         context.AddFlowRenderable(Value);
+        if (_element == null) return;
+
+        Value.ZIndex = _element.ZIndex;
+        Value.TimeRange = new TimeRange(_element.Start, _element.Length);
+        Value.ApplyAnimations(_element.Clock);
+        Value.IsVisible = _element.IsEnabled;
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -178,6 +186,18 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
                 }
             }
         }
+    }
+
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
+    {
+        base.OnAttachedToHierarchy(in args);
+        _element = this.FindHierarchicalParent<Element>();
+    }
+
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
+    {
+        base.OnDetachedFromHierarchy(in args);
+        _element = null;
     }
 
     private void OnValueInvalidated(object? sender, RenderInvalidatedEventArgs e)
