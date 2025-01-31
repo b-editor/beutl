@@ -1,4 +1,4 @@
-﻿using System.Collections.Specialized;
+using System.Collections.Specialized;
 using System.Numerics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
@@ -74,11 +74,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         if (Scene.Children.Count > 0)
         {
             AddLayerHeaders(Scene.Children.Max(i => i.ZIndex) + 1);
-            var items = new ElementViewModel[Scene.Children.Count];
-            Parallel.ForEach(
-                Scene.Children,
-                (item, _, idx) => items[idx] = new ElementViewModel(item, this));
-            Elements.AddRange(items);
+            Elements.EnsureCapacity(Scene.Children.Count);
+            Elements.AddRange(Scene.Children.Select(item => new ElementViewModel(item, this)));
         }
 
         Scene.Children.TrackCollectionChanged(
