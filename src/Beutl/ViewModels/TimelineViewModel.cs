@@ -1,4 +1,4 @@
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Numerics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
@@ -98,7 +98,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 {
                     ElementViewModel[] tmp = [.. Elements];
                     Elements.Clear();
-                    foreach (ElementViewModel? item in Elements.GetMarshal().Value)
+                    foreach (ElementViewModel? item in tmp)
                     {
                         item.Dispose();
                     }
