@@ -1,7 +1,6 @@
 ﻿using System.Buffers;
 using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json.Nodes;
 
 using Beutl.Animation;
 using Beutl.Collections;
@@ -83,15 +82,6 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
                         item.FlowRenderables = flow;
                         item.Operator.Evaluate(item);
                     }
-                }
-
-
-                foreach (Renderable item in flow.Span)
-                {
-                    item.ZIndex = element.ZIndex;
-                    item.TimeRange = new TimeRange(element.Start, element.Length);
-                    item.ApplyAnimations(element.Clock);
-                    item.IsVisible = element.IsEnabled;
                 }
             }
 
