@@ -72,7 +72,7 @@ public static class FFmpegLoader
 
     private static void OpenDocumentUrl()
     {
-        Process.Start(new ProcessStartInfo("https://github.com/b-editor/beutl-docs/blob/main/ja/ffmpeg-install.md")
+        Process.Start(new ProcessStartInfo("https://docs.beutl.beditor.net/get-started/ffmpeg-install")
         {
             UseShellExecute = true,
             Verb = "open"

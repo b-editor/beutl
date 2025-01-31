@@ -34,7 +34,7 @@ Create a Beutl account to acquire extensions or publish your own developed exten
 From basic effects like color filters, blurs, shadows, and LUTs, to minor effects like outlines, inner shadows, and long shadows, Beutl offers a wide range of effects. These can be further expanded through extensions.
 
 ## 📥 Installation
-Refer to the [documentation](https://beutl.beditor.net/docs/get-started/install) here.
+Refer to the [documentation](https://docs.beutl.beditor.net/get-started/install) here.
 
 ## License
 

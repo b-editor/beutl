@@ -34,7 +34,7 @@ Beutl アカウントを作成して、拡張機能を取得したり、自身�
 色フィルター、ぼかし、シャドウ、LUT などの基本的なエフェクトから 縁取り、内側シャドウ、ロングシャドウなどのマイナーなエフェクトがあります。 もちろんこれらは拡張機能で増やすことができます。
 
 ## 📥 インストール
-[こちら](https://beutl.beditor.net/docs/get-started/install)のドキュメントを参照してください。
+[こちら](https://docs.beutl.beditor.net/get-started/install)のドキュメントを参照してください。
 
 ## License
 
