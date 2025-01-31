@@ -207,27 +207,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public ReactiveCommand<ElementDescription> AddElement { get; } = new();
 
-    [Obsolete("Use AddElement property instead.")]
-    public ReactiveCommand<ElementDescription> AddLayer
-    {
-        get
-        {
-            Debug.Fail("Use AddElement property instead.");
-            return AddElement;
-        }
-    }
-
     public CoreList<ElementViewModel> Elements { get; } = [];
-
-    [Obsolete("Use Elements property instead.")]
-    public CoreList<ElementViewModel> Layers
-    {
-        get
-        {
-            Debug.Fail("Use Elements property instead.");
-            return Elements;
-        }
-    }
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = [];
 
