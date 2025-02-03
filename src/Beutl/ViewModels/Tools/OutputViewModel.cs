@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
@@ -151,6 +151,7 @@ public sealed class OutputViewModel : IOutputContext
         {
             _lastCts = new CancellationTokenSource();
             _isEncoding.Value = true;
+            ProgressText.Value = "";
             Started?.Invoke(this, EventArgs.Empty);
 
             await RenderThread.Dispatcher.InvokeAsync(async () =>
