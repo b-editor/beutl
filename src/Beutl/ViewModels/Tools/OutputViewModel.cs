@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
@@ -189,8 +189,10 @@ public sealed class OutputViewModel : IOutputContext
                     var sampleProvider = new SampleProviderImpl(
                         scene, composer, audioSettings.SampleRate, sampleProgress);
 
-                    using (frameProgress.CombineLatest(sampleProgress).Subscribe(t =>
-                               ProgressValue.Value = t.Item1.TotalSeconds + t.Item2.TotalSeconds))
+                    using (frameProgress.CombineLatest(sampleProgress)
+                               .ObserveOnUIDispatcher()
+                               .Subscribe(t =>
+                                   ProgressValue.Value = t.Item1.TotalSeconds + t.Item2.TotalSeconds))
                     {
                         RenderNodeCacheContext cacheContext = renderer.GetCacheContext();
                         cacheContext.CacheOptions = RenderCacheOptions.Disabled;
