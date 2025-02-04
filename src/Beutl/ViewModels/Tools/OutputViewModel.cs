@@ -151,6 +151,7 @@ public sealed class OutputViewModel : IOutputContext
         {
             _lastCts = new CancellationTokenSource();
             _isEncoding.Value = true;
+            ProgressText.Value = "";
             Started?.Invoke(this, EventArgs.Empty);
 
             await RenderThread.Dispatcher.InvokeAsync(async () =>
@@ -188,15 +189,13 @@ public sealed class OutputViewModel : IOutputContext
                     var sampleProvider = new SampleProviderImpl(
                         scene, composer, audioSettings.SampleRate, sampleProgress);
 
-                    using (frameProgress.CombineLatest(sampleProgress).Subscribe(t =>
-                               ProgressValue.Value = t.Item1.TotalSeconds + t.Item2.TotalSeconds))
+                    using (frameProgress.CombineLatest(sampleProgress)
+                               .ObserveOnUIDispatcher()
+                               .Subscribe(t =>
+                                   ProgressValue.Value = t.Item1.TotalSeconds + t.Item2.TotalSeconds))
                     {
-                        RenderNodeCacheContext? cacheContext = renderer.GetCacheContext();
-
-                        if (cacheContext != null)
-                        {
-                            cacheContext.CacheOptions = RenderCacheOptions.Disabled;
-                        }
+                        RenderNodeCacheContext cacheContext = renderer.GetCacheContext();
+                        cacheContext.CacheOptions = RenderCacheOptions.Disabled;
 
                         await controller.Encode(frameProvider, sampleProvider, _lastCts.Token);
                     }

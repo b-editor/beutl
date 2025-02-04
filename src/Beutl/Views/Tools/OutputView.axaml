@@ -25,7 +25,6 @@
                     VerticalAlignment="Bottom"
                     Classes="accent"
                     Click="StartEncodeClick"
-                    Command="{Binding StartEncode}"
                     Content="{x:Static lang:Strings.Encode}"
                     IsEnabled="{Binding CanEncode.Value}"
                     IsVisible="{Binding !IsEncoding.Value}" />
