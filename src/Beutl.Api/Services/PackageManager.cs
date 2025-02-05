@@ -92,9 +92,11 @@ public sealed class PackageManager(
                 string versionStr = version.ToString();
                 try
                 {
-                    activity?.AddEvent(new("Start_GetPackage"));
+                    activity?.AddEvent(new("Checking updates"));
+                    activity?.SetTag("PackageId", pkg.Id);
+                    activity?.SetTag("Version", versionStr);
                     Package remotePackage = await discover.GetPackage(pkg.Id).ConfigureAwait(false);
-                    activity?.AddEvent(new("Done_GetPackage"));
+                    activity?.AddEvent(new("Checked updates"));
 
                     Release[] releases = await remotePackage.GetReleasesAsync().ConfigureAwait(false);
 
@@ -107,6 +109,7 @@ public sealed class PackageManager(
                                 .TryGetOrDefault(() => remotePackage.GetReleaseAsync(versionStr))
                                 .ConfigureAwait(false);
                             updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
+                            _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, item.Version.Value);
                             break;
                         }
                     }
@@ -134,9 +137,11 @@ public sealed class PackageManager(
             {
                 string versionStr = pkg.Version;
                 var version = new NuGetVersion(versionStr);
-                activity?.AddEvent(new("Start_GetPackage"));
+                activity?.AddEvent(new("Checking updates"));
+                activity?.SetTag("PackageName", pkg.Name);
+                activity?.SetTag("Version", versionStr);
                 Package remotePackage = await discover.GetPackage(pkg.Name).ConfigureAwait(false);
-                activity?.AddEvent(new("Done_GetPackage"));
+                activity?.AddEvent(new("Checked updates"));
 
                 Release[] releases = await remotePackage.GetReleasesAsync().ConfigureAwait(false);
 
@@ -148,6 +153,7 @@ public sealed class PackageManager(
                         Release? oldRelease = await Helper
                             .TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version))
                             .ConfigureAwait(false);
+                        _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, item.Version.Value);
                         return new PackageUpdate(remotePackage, oldRelease, item);
                     }
                 }
@@ -162,7 +168,7 @@ public sealed class PackageManager(
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("GetPackages"))
         {
             PackageIdentity[] packages = installedPackageRepository.GetLocalPackages().ToArray();
-            activity?.SetTag("Packages_Count", packages.Length);
+            activity?.SetTag("PackagesCount", packages.Length);
 
             var list = new List<LocalPackage>(packages.Length);
 
@@ -180,9 +186,7 @@ public sealed class PackageManager(
         }
     }
 
-#pragma warning disable CA1822
     public IReadOnlyList<LocalPackage> GetSideLoadPackages()
-#pragma warning restore CA1822
     {
         if (Directory.Exists(Helper.SideLoadsPath))
         {
@@ -201,6 +205,7 @@ public sealed class PackageManager(
                         InstalledPath = item,
                         SideLoad = true
                     });
+                    _logger.LogInformation("Side-loaded package found: {PackageName}", name);
                 }
             }
 
@@ -214,6 +219,8 @@ public sealed class PackageManager(
     {
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("Load"))
         {
+            activity?.SetTag("PackageName", package.Name);
+            activity?.SetTag("PackageVersion", package.Version);
             if (package.InstalledPath == null)
             {
                 var packageId = new PackageIdentity(package.Name, NuGetVersion.Parse(package.Version));
@@ -224,8 +231,8 @@ public sealed class PackageManager(
                 ? Load(package.InstalledPath)
                 : SideLoad(package.InstalledPath);
 
-            activity?.AddEvent(new ActivityEvent("Loaded_Assemblies"));
-            activity?.SetTag("Assembly_Count", assemblies.Length);
+            activity?.AddEvent(new ActivityEvent("Assemblies loaded"));
+            activity?.SetTag("AssemblyCount", assemblies.Length);
 
             var extensions = new List<Extension>();
 
@@ -234,9 +241,10 @@ public sealed class PackageManager(
                 LoadExtensions(assembly, extensions);
             }
 
-            activity?.AddEvent(new ActivityEvent("Loaded_Extensions"));
+            activity?.AddEvent(new ActivityEvent("Extensions loaded"));
+            activity?.SetTag("ExtensionCount", extensions.Count);
 
-            ExtensionProvider.AddExtensions(package.LocalId, [.. extensions]);
+            ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
 
             _loadedPackage.Add(package);
 
@@ -261,6 +269,7 @@ public sealed class PackageManager(
                     extension.Load();
 
                     extensions.Add(extension);
+                    _logger.LogInformation("Extension {ExtensionName} loaded from assembly {AssemblyName}", type.Name, assembly.GetName().Name);
                 }
             }
         }
@@ -273,6 +282,7 @@ public sealed class PackageManager(
             _settingsStore.Restore(extension, settings);
 
             settings.ConfigurationChanged += (_, _) => _settingsStore.Save(extension, settings);
+            _logger.LogInformation("Settings restored for extension {ExtensionName}", extension.GetType().Name);
         }
     }
 

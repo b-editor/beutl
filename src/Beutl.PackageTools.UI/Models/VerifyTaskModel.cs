@@ -57,6 +57,7 @@ public class VerifyTaskModel : IProgress<double>
     {
         PackageInstaller installer = _app.GetResource<PackageInstaller>();
         IsRunning.Value = true;
+        _logger.LogInformation("Verification process started.");
 
         try
         {
@@ -67,15 +68,14 @@ public class VerifyTaskModel : IProgress<double>
                 IsIndeterminate.Value = true;
 
                 VerifyMessage.Value = Strings.VerifyingHashCode;
+                _logger.LogInformation("Verifying hash code for package: {PackageName}, version: {Version}", _context.PackageName, _context.Version);
                 await installer.VerifyPackageFile(_context, this, token);
                 VerifyMessage.Value = Strings.Verified;
 
                 FailedToVerify.Value = !_context.HashVerified;
                 if (!_context.HashVerified)
                 {
-                    _logger.LogWarning(
-                        "Verify failed. ({PackageId}/{Version})",
-                        _context.PackageName, _context.Version);
+                    _logger.LogWarning("Hash verification failed for package: {PackageName}, version: {Version}", _context.PackageName, _context.Version);
 
                     Task<bool>? task;
                     if (!IsContinued.Value.HasValue)
@@ -90,6 +90,7 @@ public class VerifyTaskModel : IProgress<double>
 
                     if (!await task.WaitAsync(token))
                     {
+                        _logger.LogInformation("User chose not to continue after verification failure.");
                         Failed.Value = false;
                         return false;
                     }
@@ -97,21 +98,24 @@ public class VerifyTaskModel : IProgress<double>
             }
             else
             {
+                _logger.LogInformation("Verification skipped due to missing asset or package file.");
                 Skipped.Value = true;
             }
 
+            _logger.LogInformation("Verification succeeded for package: {PackageName}, version: {Version}", _context.PackageName, _context.Version);
             Succeeded.Value = true;
             return true;
         }
         catch (OperationCanceledException)
         {
+            _logger.LogWarning("Verification operation was canceled.");
             ErrorMessage.Value = Strings.Operation_canceled;
             Failed.Value = true;
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An exception occurred while verifying the hash code.");
+            _logger.LogError(ex, "An exception occurred while verifying the hash code for package: {PackageName}, version: {Version}", _context.PackageName, _context.Version);
             ErrorMessage.Value = ex.Message;
             Failed.Value = true;
             return false;
@@ -120,6 +124,7 @@ public class VerifyTaskModel : IProgress<double>
         {
             IsIndeterminate.Value = false;
             IsRunning.Value = false;
+            _logger.LogInformation("Verification process ended.");
         }
     }
 

@@ -14,11 +14,15 @@ public partial class PackageInstaller
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        _logger.LogInformation("Preparing for uninstall. Installed path: {InstalledPath}, Clean: {Clean}", installedPath, clean);
+
         PackageIdentity uninstallPackage = new PackageFolderReader(installedPath).GetIdentity();
         PackageIdentity[] unnecessaryPackages = [uninstallPackage];
 
         if (clean)
         {
+            _logger.LogInformation("Cleaning unnecessary packages.");
+
             PackageIdentity[] installedPackages = _installedPackageRepository.GetLocalPackages()
                 .Except(unnecessaryPackages, PackageIdentityComparer.Default)
                 .ToArray();
@@ -35,6 +39,8 @@ public partial class PackageInstaller
                 size += new FileInfo(file).Length;
             }
         }
+
+        _logger.LogInformation("Prepared uninstall context. Uninstall package: {UninstallPackage}, Size to be released: {SizeToBeReleased}", uninstallPackage, size);
 
         return new PackageUninstallContext(uninstallPackage, installedPath)
         {
@@ -55,7 +61,7 @@ public partial class PackageInstaller
         foreach (PackageIdentity package in context.UnnecessaryPackages)
         {
             string directory = Helper.PackagePathResolver.GetInstalledPath(package);
-            bool hasAnyFailtures = false;
+            bool hasAnyFailures = false;
             foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
             {
                 try
@@ -63,11 +69,12 @@ public partial class PackageInstaller
                     var fi = new FileInfo(file);
                     totalSize += fi.Length;
                     fi.Delete();
+                    _logger.LogInformation("Deleted file: {FileName}", file);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to remove files contained in package. (FileName: {FileName})", Path.GetFileName(file));
-                    hasAnyFailtures = true;
+                    _logger.LogError(ex, "Failed to delete file: {FileName}", file);
+                    hasAnyFailures = true;
                 }
 
                 progress.Report(totalSize / (double)context.SizeToBeReleased);
@@ -76,16 +83,22 @@ public partial class PackageInstaller
             try
             {
                 Directory.Delete(directory, true);
+                _logger.LogInformation("Deleted directory: {Directory}", directory);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to remove package directory. (PackageId: {PackageId})", package.Id);
-                hasAnyFailtures = true;
+                _logger.LogError(ex, "Failed to delete directory: {Directory}", directory);
+                hasAnyFailures = true;
             }
 
-            if (hasAnyFailtures)
+            if (hasAnyFailures)
             {
                 failedPackages.Add(directory);
+                _logger.LogWarning("Package uninstallation had failures: {PackageId}", package.Id);
+            }
+            else
+            {
+                _logger.LogInformation("Successfully uninstalled package: {PackageId}", package.Id);
             }
 
             _installedPackageRepository.RemovePackage(package);

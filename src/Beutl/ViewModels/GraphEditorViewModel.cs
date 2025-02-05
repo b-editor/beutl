@@ -24,6 +24,7 @@ public sealed class GraphEditorViewModel<T>(
 {
     public override void DropEasing(Easing easing, TimeSpan keyTime)
     {
+        _logger.LogInformation("Dropping easing at key time {KeyTime}", keyTime);
         CommandRecorder recorder = EditorContext.CommandRecorder;
         TimeSpan originalKeyTime = keyTime;
         keyTime = ConvertKeyTime(keyTime);
@@ -35,18 +36,21 @@ public sealed class GraphEditorViewModel<T>(
         IKeyFrame? keyFrame = Animation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
         if (keyFrame != null)
         {
+            _logger.LogInformation("Editing existing key frame at {KeyTime}", keyTime);
             RecordableCommands.Edit(keyFrame, KeyFrame.EasingProperty, easing)
                 .WithStoables(GetStorables())
                 .DoAndRecord(recorder);
         }
         else
         {
+            _logger.LogInformation("Inserting new key frame at {KeyTime}", keyTime);
             InsertKeyFrame(easing, originalKeyTime);
         }
     }
 
     public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
     {
+        _logger.LogInformation("Inserting key frame at {KeyTime}", keyTime);
         keyTime = ConvertKeyTime(keyTime);
         var kfAnimation = (KeyFrameAnimation<T>)Animation;
         if (!kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
@@ -67,11 +71,12 @@ public abstract class GraphEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly GraphEditorViewViewModelFactory[] _factories;
-    private readonly ILogger _logger = Log.CreateLogger<GraphEditorViewModel>();
+    protected readonly ILogger _logger = Log.CreateLogger<GraphEditorViewModel>();
     private bool _editting;
 
     protected GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Element? element)
     {
+        _logger.LogInformation("Initializing GraphEditorViewModel");
         EditorContext = editViewModel;
         Element = element;
         Animation = animation;
@@ -190,17 +195,20 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public void BeginEditing()
     {
+        _logger.LogInformation("Begin editing");
         _editting = true;
     }
 
     public void EndEditting()
     {
+        _logger.LogInformation("End editing");
         _editting = false;
         CalculateMaxHeight();
     }
 
     public void UpdateUseGlobalClock(bool value)
     {
+        _logger.LogInformation("Updating UseGlobalClock to {Value}", value);
         CommandRecorder recorder = EditorContext.CommandRecorder;
         RecordableCommands.Edit((ICoreObject)Animation, KeyFrameAnimation.UseGlobalClockProperty, value)
             .WithStoables(GetStorables())
@@ -209,11 +217,13 @@ public abstract class GraphEditorViewModel : IDisposable
 
     private void OnItemVerticalRangeChanged(object? sender, EventArgs e)
     {
+        _logger.LogInformation("Vertical range changed");
         Dispatcher.UIThread.Post(CalculateMaxHeight);
     }
 
     private void CalculateMaxHeight()
     {
+        _logger.LogInformation("Calculating max height");
         double max = 0d;
         double min = 0d;
         foreach (GraphEditorViewViewModel view in Views)
@@ -239,6 +249,7 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public TimeSpan ConvertKeyTime(TimeSpan globalkeyTime)
     {
+        _logger.LogInformation("Converting key time {GlobalKeyTime}", globalkeyTime);
         TimeSpan localKeyTime = Element != null ? globalkeyTime - Element.Start : globalkeyTime;
         TimeSpan keyTime = Animation.UseGlobalClock ? globalkeyTime : localKeyTime;
 
@@ -254,6 +265,7 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public void RemoveKeyFrame(TimeSpan keyTime)
     {
+        _logger.LogInformation("Removing key frame at {KeyTime}", keyTime);
         keyTime = ConvertKeyTime(keyTime);
         IKeyFrame? keyframe = Animation.KeyFrames.FirstOrDefault(x => x.KeyTime == keyTime);
         if (keyframe != null)
@@ -268,8 +280,10 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public void Paste(string json)
     {
+        _logger.LogInformation("Pasting JSON");
         if (JsonNode.Parse(json) is not JsonObject newJson)
         {
+            _logger.LogError("Invalid JSON");
             NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON");
             return;
         }
@@ -304,13 +318,14 @@ public abstract class GraphEditorViewModel : IDisposable
         }
         catch (Exception ex)
         {
-            NotificationService.ShowError(Strings.GraphEditor, ex.Message);
             _logger.LogError(ex, "An exception occurred while pasting JSON.");
+            NotificationService.ShowError(Strings.GraphEditor, ex.Message);
         }
     }
 
     public void Dispose()
     {
+        _logger.LogInformation("Disposing GraphEditorViewModel");
         _disposables.Dispose();
         foreach (GraphEditorViewViewModel item in Views)
         {

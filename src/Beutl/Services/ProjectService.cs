@@ -80,11 +80,12 @@ public sealed class ProjectService
             _projectObservable.OnNext((New: project, null));
 
             AddToRecentProjects(file);
+            _logger.LogInformation("Opened project. File: {File}, AppVersion: {AppVersion}, MinVersion: {MinVersion}", file, appVersion, minVersion);
         }
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            _logger.LogError(ex, "Unable to open the project.");
+            _logger.LogError(ex, "Unable to open the project. File: {File}", file);
             NotificationService.ShowInformation("", Message.CouldNotOpenProject);
         }
     }
@@ -97,6 +98,7 @@ public sealed class ProjectService
             _projectObservable.OnNext((New: null, project));
             project.Dispose();
             _app.Project = null;
+            _logger.LogInformation("Closed project. Project: {Project}", project);
         }
     }
 
@@ -133,13 +135,14 @@ public sealed class ProjectService
             _app.Project = project;
 
             AddToRecentProjects(projectFile);
+            _logger.LogInformation("Created new project. Name: {Name}, Location: {Location}, Width: {Width}, Height: {Height}, Framerate: {Framerate}, Samplerate: {Samplerate}", name, location, width, height, framerate, samplerate);
 
             return project;
         }
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            _logger.LogError(ex, "Unable to open the project.");
+            _logger.LogError(ex, "Unable to create the project. Name: {Name}, Location: {Location}", name, location);
             return null;
         }
     }

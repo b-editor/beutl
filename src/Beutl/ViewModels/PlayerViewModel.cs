@@ -272,6 +272,7 @@ public sealed class PlayerViewModel : IDisposable
                 IsPlaying.Value = false;
                 bufferStatus.StartTime.Value = TimeSpan.Zero;
                 bufferStatus.EndTime.Value = TimeSpan.Zero;
+                _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
             }
             catch (Exception ex)
             {

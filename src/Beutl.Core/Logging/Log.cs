@@ -32,4 +32,34 @@ public class Log
             return LoggerFactory.CreateLogger<T>();
         }
     }
+
+    public static ILogger CreateLogger(Type type)
+    {
+#if DEBUG
+        if (s_loggerFactory == null)
+        {
+            var tmp = new LoggerFactory();
+            return tmp.CreateLogger(type);
+        }
+        else
+#endif
+        {
+            return LoggerFactory.CreateLogger(type);
+        }
+    }
+
+    public static ILogger CreateLogger(string categoryName)
+    {
+#if DEBUG
+        if (s_loggerFactory == null)
+        {
+            var tmp = new LoggerFactory();
+            return tmp.CreateLogger(categoryName);
+        }
+        else
+#endif
+        {
+            return LoggerFactory.CreateLogger(categoryName);
+        }
+    }
 }

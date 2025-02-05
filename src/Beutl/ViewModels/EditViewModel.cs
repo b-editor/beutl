@@ -34,9 +34,10 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
 
     private readonly CompositeDisposable _disposables = [];
-
     public EditViewModel(Scene scene)
     {
+        _logger.LogInformation("Initializing EditViewModel for Scene ({SceneId}).", scene.Id);
+        
         Scene = scene;
         SceneId = scene.Id.ToString();
         CurrentTime = new ReactivePropertySlim<TimeSpan>()
@@ -94,6 +95,8 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         CommandRecorder.Executed += OnCommandRecorderExecuted;
 
         RestoreState();
+
+        _logger.LogInformation("Initialized EditViewModel for Scene ({SceneId}).", SceneId);
     }
 
     private static FrameCacheOptions CreateFrameCacheOptions()
@@ -109,6 +112,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         {
             if (e.PropertyName is nameof(EditorConfig.FrameCacheColorType) or nameof(EditorConfig.FrameCacheScale))
             {
+                _logger.LogInformation("Updating FrameCacheManager options due to EditorConfig change.");
                 FrameCacheManager.Value.Options = FrameCacheManager.Value.Options with
                 {
                     ColorType = (FrameCacheColorType)config.FrameCacheColorType,
@@ -117,6 +121,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             }
             else if (e.PropertyName is nameof(EditorConfig.IsFrameCacheEnabled))
             {
+                _logger.LogInformation("Updating FrameCacheManager IsEnabled due to EditorConfig change.");
                 FrameCacheManager.Value.IsEnabled = config.IsFrameCacheEnabled;
                 if (!config.IsFrameCacheEnabled)
                 {
@@ -127,6 +132,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                      or nameof(EditorConfig.NodeCacheMaxPixels)
                      or nameof(EditorConfig.NodeCacheMinPixels))
             {
+                _logger.LogInformation("Updating RenderNodeCacheContext options due to EditorConfig change.");
                 RenderNodeCacheContext? cacheContext = Renderer.Value.GetCacheContext();
                 if (cacheContext != null)
                 {
@@ -138,6 +144,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     private void OnCommandRecorderExecuted(object? sender, CommandExecutedEventArgs e)
     {
+        _logger.LogInformation("Command executed, updating FrameCacheManager and saving state if needed.");
         Task.Run(() =>
         {
             int rate = Player.GetFrameRate();
@@ -182,6 +189,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     private void OnSelectedObjectDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
     {
+        _logger.LogInformation("Selected object detached from hierarchy, clearing selection.");
         SelectedObject.Value = null;
     }
 
@@ -310,6 +318,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         if (File.Exists(viewStateFile))
         {
+            _logger.LogInformation("Restoring state from {ViewStateFile}.", viewStateFile);
             using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
             var json = JsonNode.Parse(stream);
             if (json is not JsonObject jsonObject)
@@ -324,8 +333,9 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                     SelectedObject.Value = searcher.Search() as CoreObject;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "An error occurred while restoring the selected object.");
             }
 
             var timelineOptions = new TimelineOptions();
@@ -364,6 +374,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         }
         else
         {
+            _logger.LogInformation("No state file found, opening default tabs.");
             DockHost.OpenDefaultTabs();
         }
     }
@@ -384,11 +395,13 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         return null;
     }
-
     public void AddElement(ElementDescription desc)
     {
+        _logger.LogInformation("Adding new element with description: {Description}", desc);
+
         Element CreateElement()
         {
+            _logger.LogDebug("Creating new element with start: {Start}, length: {Length}, layer: {Layer}", desc.Start, desc.Length, desc.Layer);
             return new Element()
             {
                 Start = desc.Start,
@@ -401,6 +414,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         void SetAccentColor(Element element, string str)
         {
+            _logger.LogDebug("Setting accent color for element: {Element}, color string: {ColorString}", element, str);
             element.AccentColor = ColorGenerator.GenerateColor(str);
         }
 
@@ -408,6 +422,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         {
             if (!desc.Position.IsDefault)
             {
+                _logger.LogDebug("Setting transform for operation: {Operation}, operator: {Operator}, position: {Position}", operation, op, desc.Position);
                 if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is
                     IPropertyAdapter<ITransform?> transformp)
                 {
@@ -430,6 +445,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         if (desc.FileName != null)
         {
+            _logger.LogInformation("Adding element from file: {FileName}", desc.FileName);
             (TimeRange Range, int ZIndex)? scrollPos = null;
 
             Element CreateElementFor<T>(out T t)
@@ -448,6 +464,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             var list = new List<IRecordableCommand>();
             if (MatchFileImage(desc.FileName))
             {
+                _logger.LogDebug("File is an image.");
                 Element element = CreateElementFor(out SourceImageOperator t);
                 BitmapSource.TryOpen(desc.FileName, out BitmapSource? image);
                 t.Value.Source = image;
@@ -458,6 +475,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             }
             else if (MatchFileVideoOnly(desc.FileName))
             {
+                _logger.LogDebug("File is a video.");
                 Element element1 = CreateElementFor(out SourceVideoOperator t1);
                 Element element2 = CreateElementFor(out SourceSoundOperator t2);
                 element2.ZIndex++;
@@ -479,6 +497,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             }
             else if (MatchFileAudioOnly(desc.FileName))
             {
+                _logger.LogDebug("File is an audio.");
                 Element element = CreateElementFor(out SourceSoundOperator t);
                 SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
                 t.Value.Source = sound;
@@ -498,11 +517,13 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
             if (scrollPos.HasValue && timeline != null)
             {
+                _logger.LogDebug("Scrolling to position: {ScrollPosition}", scrollPos.Value);
                 timeline?.ScrollTo.Execute(scrollPos.Value);
             }
         }
         else
         {
+            _logger.LogInformation("Adding new element without file.");
             Element element = CreateElement();
             if (desc.InitialOperator != null)
             {
@@ -526,6 +547,8 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
             timeline?.ScrollTo.Execute((element.Range, element.ZIndex));
         }
+
+        _logger.LogInformation("Element added successfully.");
     }
 
     private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)
@@ -580,10 +603,13 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     void ISupportCloseAnimation.Close(object obj)
     {
+        _logger.LogInformation("Closing animations related to object ({ObjectId}).", obj);
+
         var searcher = new ObjectSearcher(obj, v => v is IAnimation);
 
         IAnimation[] animations = searcher.SearchAll().OfType<IAnimation>().ToArray();
         TimelineViewModel? timeline = FindToolTab<TimelineViewModel>();
+
         // Timelineのインライン表示を削除
         if (timeline != null)
         {
@@ -592,6 +618,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                          .ToArray())
             {
                 timeline.DetachInline(item);
+                _logger.LogInformation("Detached inline animation ({AnimationId}) from timeline.", item.Property.Animation);
             }
         }
 
@@ -609,6 +636,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                     if (animations.Contains(animation.Object))
                     {
                         graph.Items.Remove(animation);
+                        _logger.LogInformation("Removed animation ({AnimationId}) from graph editor.", animation);
                     }
                 }
 
@@ -616,6 +644,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 {
                     list.Remove(item);
                     item.Dispose();
+                    _logger.LogInformation("Disposed empty graph editor tab.");
                 }
             }
         }
@@ -625,23 +654,29 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
     {
         public ValueTask<bool> OnSave()
         {
+            viewModel._logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
             scene.Save(scene.FileName);
             Parallel.ForEach(scene.Children, item => item.Save(item.FileName));
             viewModel.SaveState();
+            viewModel._logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
 
             return ValueTask.FromResult(true);
         }
 
         public ValueTask<bool> OnUndo()
         {
+            viewModel._logger.LogInformation("Undoing last command.");
             viewModel.CommandRecorder.Undo();
+            viewModel._logger.LogInformation("Undo completed.");
 
             return ValueTask.FromResult(true);
         }
 
         public ValueTask<bool> OnRedo()
         {
+            viewModel._logger.LogInformation("Redoing last undone command.");
             viewModel.CommandRecorder.Redo();
+            viewModel._logger.LogInformation("Redo completed.");
 
             return ValueTask.FromResult(true);
         }

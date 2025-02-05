@@ -7,9 +7,7 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
-
 using Microsoft.Extensions.Logging;
-
 using Reactive.Bindings;
 
 namespace Beutl.Models;
@@ -57,19 +55,28 @@ public sealed class BufferedPlayer : IPlayer
         {
             try
             {
+                _logger.LogInformation("Start rendering from frame {StartFrame} to {DurationFrame}", startFrame,
+                    durationFrame);
                 for (int frame = startFrame; frame < durationFrame; frame++)
                 {
                     if (!_isPlaying.Value)
+                    {
+                        _logger.LogInformation("Rendering stopped at frame {Frame}", frame);
                         break;
+                    }
 
                     if (_queue.Count >= 120)
                     {
-                        _logger.LogTrace("Wait timer. {QueueCount}", _queue.Count);
+                        _logger.LogInformation("Queue is full. Waiting for timer. Current queue count: {QueueCount}",
+                            _queue.Count);
                         WaitTimer();
                     }
 
                     if (!_isPlaying.Value)
+                    {
+                        _logger.LogInformation("Rendering stopped at frame {Frame}", frame);
                         break;
+                    }
 
                     TimeSpan time = TimeSpanExtensions.ToTimeSpan(frame, _rate);
 
@@ -104,15 +111,20 @@ public sealed class BufferedPlayer : IPlayer
                     int? requestedFrame = _requestedFrame;
                     if (requestedFrame > frame)
                     {
-                        _logger.LogTrace("Delay {RequestedFrame} > {Frame}", requestedFrame, frame);
+                        _logger.LogInformation(
+                            "Frame delay detected. Requested frame {RequestedFrame} is greater than current frame {Frame}",
+                            requestedFrame, frame);
                         frame = requestedFrame.Value + 2;
                         _requestedFrame = null;
                     }
                 }
+
+                _logger.LogInformation("Rendering completed.");
             }
             catch (Exception ex)
             {
-                NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, Message.An_exception_occurred_while_drawing_frame);
+                NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
+                    Message.An_exception_occurred_while_drawing_frame);
                 _logger.LogError(ex, "An exception occurred while drawing the frame.");
             }
         }, Threading.DispatchPriority.High);
@@ -127,7 +139,7 @@ public sealed class BufferedPlayer : IPlayer
             return true;
         }
 
-        _logger.LogTrace("Wait rendered.");
+        _logger.LogInformation("Waiting for frame to be rendered.");
         WaitRender();
 
         return _queue.TryDequeue(out frame);
@@ -153,19 +165,30 @@ public sealed class BufferedPlayer : IPlayer
 
     public void Skipped(int requestedFrame)
     {
-        _logger.LogTrace("Skip. {RequestedFrame}", requestedFrame);
+        _logger.LogInformation("Frame skip requested. Requested frame: {RequestedFrame}", requestedFrame);
         _requestedFrame = requestedFrame;
     }
 
     public void Dispose()
     {
-        _isDisposed = true;
-        _waitRenderToken?.Cancel();
-        _waitTimerToken?.Cancel();
-        _disposable.Dispose();
-        while (_queue.TryDequeue(out var f))
+        try
         {
-            f.Bitmap.Dispose();
+            _logger.LogInformation("Disposing BufferedPlayer.");
+
+            _isDisposed = true;
+            _waitRenderToken?.Cancel();
+            _waitTimerToken?.Cancel();
+            _disposable.Dispose();
+            while (_queue.TryDequeue(out var f))
+            {
+                f.Bitmap.Dispose();
+            }
+
+            _logger.LogInformation("BufferedPlayer disposed.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception occurred while disposing.");
         }
     }
 }

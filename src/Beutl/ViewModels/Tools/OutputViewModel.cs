@@ -150,6 +150,7 @@ public sealed class OutputViewModel : IOutputContext
     {
         try
         {
+            _logger.LogInformation("Starting encoding process.");
             _lastCts = new CancellationTokenSource();
             _isEncoding.Value = true;
             ProgressText.Value = "";
@@ -162,6 +163,7 @@ public sealed class OutputViewModel : IOutputContext
                 {
                     // シーンの読み込みに失敗。
                     ProgressText.Value = Message.Could_not_load_scene;
+                    _logger.LogError("Failed to load scene: {TargetFile}", TargetFile);
                 }
                 else
                 {
@@ -170,7 +172,7 @@ public sealed class OutputViewModel : IOutputContext
                         || AudioSettings.Value?.Settings is not AudioEncoderSettings audioSettings)
                     {
                         ProgressText.Value = Message.AnUnexpectedErrorHasOccurred;
-                        _logger.LogWarning("EncoderSettings is null. ({Encoder})", SelectedEncoder.Value);
+                        _logger.LogWarning("Encoder settings are null. (Encoder: {Encoder})", SelectedEncoder.Value);
                         return;
                     }
 
@@ -179,7 +181,16 @@ public sealed class OutputViewModel : IOutputContext
                     ProgressMax.Value = scene.Duration.TotalSeconds * 2;
 
                     EncodingController? controller = Controller.Value;
-                    if (controller == null) return;
+                    if (controller == null)
+                    {
+                        _logger.LogWarning("Encoding controller is null.");
+                        return;
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Using encoding controller: {Controller}", controller);
+                    }
+
                     // フレームプロバイダー作成
                     // using var renderer = new SceneRenderer(scene);
                     var renderer = _editViewModel.Renderer.Value;
@@ -204,11 +215,12 @@ public sealed class OutputViewModel : IOutputContext
             });
 
             ProgressText.Value = Strings.Completed;
+            _logger.LogInformation("Encoding process completed successfully.");
         }
         catch (Exception ex)
         {
             NotificationService.ShowError(Message.An_exception_occurred_during_output, ex.Message);
-            _logger.LogError(ex, "An exception occurred during output.");
+            _logger.LogError(ex, "An exception occurred during the encoding process.");
         }
         finally
         {
@@ -221,17 +233,21 @@ public sealed class OutputViewModel : IOutputContext
             _isEncoding.Value = false;
             _lastCts = null;
             Finished?.Invoke(this, EventArgs.Empty);
+            _logger.LogInformation("Encoding process finished.");
         }
     }
 
     public void CancelEncode()
     {
+        _logger.LogInformation("Encoding process cancellation requested.");
         _lastCts?.Cancel();
     }
 
     public void Dispose()
     {
+        _logger.LogInformation("Disposing OutputViewModel.");
         _disposable1.Dispose();
+        _logger.LogInformation("OutputViewModel disposed.");
     }
 
     public void WriteToJson(JsonObject json)
@@ -245,7 +261,7 @@ public sealed class OutputViewModel : IOutputContext
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "An exception occurred during serialize.");
+                _logger.LogError(e, "An exception occurred during serialization.");
                 return null;
             }
         }
@@ -259,6 +275,8 @@ public sealed class OutputViewModel : IOutputContext
 
         json[nameof(VideoSettings)] = Serialize(VideoSettings.Value?.Settings);
         json[nameof(AudioSettings)] = Serialize(AudioSettings.Value?.Settings);
+
+        _logger.LogInformation("State written to JSON.");
     }
 
     public void ReadFromJson(JsonObject json)
@@ -272,7 +290,7 @@ public sealed class OutputViewModel : IOutputContext
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "An exception occurred during deserialize.");
+                _logger.LogError(e, "An exception occurred during deserialization.");
             }
         }
 
@@ -312,5 +330,7 @@ public sealed class OutputViewModel : IOutputContext
         {
             Deserialize(AudioSettings.Value?.Settings, audioObj);
         }
+
+        _logger.LogInformation("State read from JSON.");
     }
 }

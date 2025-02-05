@@ -36,6 +36,7 @@ public class InstalledPackageRepository : IBeutlApiResource
 
     public void UpgradePackages(PackageIdentity package)
     {
+        _logger.LogInformation("Upgrading package: {PackageId} to version: {PackageVersion}", package.Id, package.Version);
         PackageIdentity[] removedItems = [];
         if (_subject.HasObservers)
         {
@@ -51,37 +52,50 @@ public class InstalledPackageRepository : IBeutlApiResource
         }
 
         _subject.OnNext((package, true));
+        _logger.LogInformation("Upgraded package: {PackageId} to version: {PackageVersion}", package.Id, package.Version);
     }
 
     public void AddPackage(string name, string version)
     {
+        _logger.LogInformation("Adding package: {PackageName} with version: {PackageVersion}", name, version);
         var package = new PackageIdentity(name, new NuGetVersion(version));
         string installedPath = Helper.PackagePathResolver.GetInstalledPath(package);
         if (!Directory.Exists(installedPath))
+        {
+            _logger.LogError("Directory not found for package: {PackageName} with version: {PackageVersion}", name, version);
             throw new DirectoryNotFoundException();
+        }
 
         if (_packages.Add(package))
         {
             Save();
             _subject.OnNext((package, true));
         }
+
+        _logger.LogInformation("Added package: {PackageName} with version: {PackageVersion}", name, version);
     }
 
     public void AddPackage(PackageIdentity package)
     {
+        _logger.LogInformation("Adding package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
         string installedPath = Helper.PackagePathResolver.GetInstalledPath(package);
         if (!Directory.Exists(installedPath))
+        {
+            _logger.LogError("Directory not found for package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
             throw new DirectoryNotFoundException();
+        }
 
         if (_packages.Add(package))
         {
             Save();
             _subject.OnNext((package, true));
         }
+        _logger.LogInformation("Added package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
     }
 
     public void RemovePackage(string name, string version)
     {
+        _logger.LogInformation("Removing package: {PackageName} with version: {PackageVersion}", name, version);
         var nugetVersion = new NuGetVersion(version);
         PackageIdentity? package = _packages.FirstOrDefault(
             x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name) && x.Version == nugetVersion);
@@ -90,19 +104,23 @@ public class InstalledPackageRepository : IBeutlApiResource
             Save();
             _subject.OnNext((package, false));
         }
+        _logger.LogInformation("Removed package: {PackageName} with version: {PackageVersion}", name, version);
     }
 
     public void RemovePackage(PackageIdentity package)
     {
+        _logger.LogInformation("Removing package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
         if (_packages.Remove(package))
         {
             Save();
             _subject.OnNext((package, false));
         }
+        _logger.LogInformation("Removed package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
     }
 
     public void RemovePackages(string name)
     {
+        _logger.LogInformation("Removing all packages with name: {PackageName}", name);
         PackageIdentity[] removed = [];
         if (_subject.HasObservers)
         {
@@ -114,6 +132,7 @@ public class InstalledPackageRepository : IBeutlApiResource
         {
             _subject.OnNext((package, false));
         }
+        _logger.LogInformation("Removed {Count} packages with name: {PackageName}", removed.Length, name);
     }
 
     public bool ExistsPackage(PackageIdentity package)
@@ -140,6 +159,7 @@ public class InstalledPackageRepository : IBeutlApiResource
 
     private void Save()
     {
+        _logger.LogInformation("Saving installed packages to file.");
         string fileName = Path.Combine(Helper.AppRoot, FileName);
         using (FileStream stream = File.Create(fileName))
         {
@@ -147,10 +167,12 @@ public class InstalledPackageRepository : IBeutlApiResource
                 .Select(x => new S_Package(x.Id, x.Version.ToString()))
                 .ToArray());
         }
+        _logger.LogInformation("Saved {Count} packages to file.", _packages.Count);
     }
 
     private void Restore()
     {
+        _logger.LogInformation("Restoring installed packages from file.");
         string fileName = Path.Combine(Helper.AppRoot, FileName);
         if (File.Exists(fileName))
         {
@@ -167,9 +189,15 @@ public class InstalledPackageRepository : IBeutlApiResource
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to restore file.");
+                    _logger.LogError(ex, "Failed to restore packages from file.");
                 }
             }
+
+            _logger.LogInformation("Restored {Count} packages from file.", _packages.Count);
+        }
+        else
+        {
+            _logger.LogWarning("No installed packages file found.");
         }
     }
 

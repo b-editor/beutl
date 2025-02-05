@@ -36,6 +36,7 @@ public class CleanViewModel : IProgress<double>
 
     private void ConditionChanged(PackageIdentity package, bool condition)
     {
+        _logger.LogDebug("Condition changed for package {PackageId} to {Condition}.", package.Id, condition);
         long size = SizeToBeReleased.Value;
 
         string directory = Helper.PackagePathResolver.GetInstalledPath(package);
@@ -52,6 +53,7 @@ public class CleanViewModel : IProgress<double>
         }
 
         SizeToBeReleased.Value = size;
+        _logger.LogDebug("Updated SizeToBeReleased to {Size}.", size);
     }
 
     public CleanPackage[] Items { get; }
@@ -78,7 +80,7 @@ public class CleanViewModel : IProgress<double>
     {
         try
         {
-            _logger.LogInformation("Delete unnecessary packages.");
+            _logger.LogInformation("Starting to delete unnecessary packages.");
 
             PackageCleanContext context = _installer.PrepareForClean(Items.Where(v => !v.Condition.Value).Select(v => v.Package), token);
 
@@ -92,22 +94,25 @@ public class CleanViewModel : IProgress<double>
                     {Strings.These_packages_were_not_deleted_successfully}
                     {string.Join('\n', context.FailedPackages.Select(i => $"- {Path.GetFileName(i)}"))}
                     """;
+                _logger.LogWarning("Some packages were not deleted successfully: {FailedPackages}", context.FailedPackages);
                 Failed.Value = true;
             }
             else
             {
+                _logger.LogInformation("Successfully deleted all unnecessary packages.");
                 Succeeded.Value = true;
             }
 
         }
         catch (OperationCanceledException)
         {
+            _logger.LogWarning("Operation was canceled.");
             ErrorMessage.Value = Strings.Operation_canceled;
             Canceled.Value = true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An exception occured.");
+            _logger.LogError(ex, "An exception occurred while deleting packages.");
             ErrorMessage.Value = ex.Message;
             Failed.Value = true;
         }
