@@ -2,12 +2,10 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-
 using Beutl.Extensions.FFmpeg.Properties;
+using Beutl.Logging;
 using Beutl.Services;
-
 using FFmpeg.AutoGen;
-
 using Microsoft.Extensions.Logging;
 
 #if FFMPEG_BUILD_IN
@@ -18,7 +16,8 @@ namespace Beutl.Extensions.FFmpeg;
 
 public static class FFmpegLoader
 {
-    private static readonly ILogger s_logger = BeutlApplication.Current.LoggerFactory.CreateLogger(typeof(FFmpegLoader));
+    private static readonly ILogger s_logger = Log.CreateLogger(typeof(FFmpegLoader));
+    private static readonly ILogger s_ffmpegLogger = Log.CreateLogger("FFmpeg");
     private static bool s_isInitialized;
     private static readonly string s_defaultFFmpegExePath;
     private static readonly string s_defaultFFmpegPath;
@@ -26,7 +25,8 @@ public static class FFmpegLoader
     static FFmpegLoader()
     {
         s_defaultFFmpegPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "ffmpeg");
-        s_defaultFFmpegExePath = Path.Combine(s_defaultFFmpegPath, OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg");
+        s_defaultFFmpegExePath =
+            Path.Combine(s_defaultFFmpegPath, OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg");
     }
 
     public static void Initialize()
@@ -37,6 +37,20 @@ public static class FFmpegLoader
         try
         {
             ffmpeg.RootPath = GetRootPath();
+            FFmpegSharp.FFmpegLog.SetupLogging(
+                logWrite: (s, i) =>
+                {
+                    var level = (FFmpegSharp.LogLevel)i;
+                    var convertedLevel = level switch
+                    {
+                        FFmpegSharp.LogLevel.Debug => LogLevel.Debug,
+                        FFmpegSharp.LogLevel.Warning => LogLevel.Warning,
+                        FFmpegSharp.LogLevel.Error => LogLevel.Error,
+                        FFmpegSharp.LogLevel.Fatal => LogLevel.Critical,
+                        _ => LogLevel.Information
+                    };
+                    s_ffmpegLogger.Log(convertedLevel, "{OriginalLevel} {FFmpegLog}", level, s.TrimEnd('\n').TrimEnd('\r'));
+                });
             var sb = new StringBuilder();
             sb.AppendLine("Versions:");
 
@@ -74,8 +88,7 @@ public static class FFmpegLoader
     {
         Process.Start(new ProcessStartInfo("https://docs.beutl.beditor.net/get-started/ffmpeg-install")
         {
-            UseShellExecute = true,
-            Verb = "open"
+            UseShellExecute = true, Verb = "open"
         });
     }
 
@@ -91,6 +104,7 @@ public static class FFmpegLoader
         {
             paths.Add("/usr/bin/ffmpeg");
         }
+
         if (OperatingSystem.IsMacOS())
         {
             switch (RuntimeInformation.OSArchitecture)

@@ -176,7 +176,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     public bool OpenToolTab(IToolContext item)
     {
-        _logger.LogInformation("'{ToolTabName}' has been opened. ({SceneId})", item.Extension.Name, _sceneId);
+        _logger.LogInformation("Attempting to open tool tab '{ToolTabName}' ({SceneId})", item.Extension.Name, _sceneId);
         try
         {
             var tools = GetAllTools();
@@ -184,11 +184,13 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             if (tools.Any(x => x.Context == item))
             {
                 item.IsSelected.Value = true;
+                _logger.LogInformation("Tool tab '{ToolTabName}' is already open. ({SceneId})", item.Extension.Name, _sceneId);
                 return true;
             }
             else if (!item.Extension.CanMultiple
                      && tools.Any(x => x.Context.Extension == item.Extension))
             {
+                _logger.LogWarning("Tool tab '{ToolTabName}' cannot be opened multiple times. ({SceneId})", item.Extension.Name, _sceneId);
                 return false;
             }
             else
@@ -198,27 +200,26 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                     .List;
                 if (list == null)
                 {
-                    _logger.LogWarning("Placement is invalid. ({Placement}, {SceneId})", item.Placement.Value,
-                        _sceneId);
+                    _logger.LogWarning("Invalid placement for tool tab '{ToolTabName}'. ({Placement}, {SceneId})", item.Extension.Name, item.Placement.Value, _sceneId);
                     return false;
                 }
 
                 item.IsSelected.Value = true;
                 list.Add(new ToolTabViewModel(item, _editViewModel));
+                _logger.LogInformation("Tool tab '{ToolTabName}' opened successfully. ({SceneId})", item.Extension.Name, _sceneId);
                 return true;
             }
-            // ReSharper restore PossibleMultipleEnumeration
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to OpenToolTab.");
+            _logger.LogError(ex, "Failed to open tool tab '{ToolTabName}'. ({SceneId})", item.Extension.Name, _sceneId);
             return false;
         }
     }
 
     public void CloseToolTab(IToolContext item)
     {
-        _logger.LogInformation("CloseToolTab {ToolName}", item.Extension.Name);
+        _logger.LogInformation("Attempting to close tool tab '{ToolName}' ({SceneId})", item.Extension.Name, _sceneId);
         try
         {
             item.IsSelected.Value = false;
@@ -239,15 +240,17 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             }
 
             item.Dispose();
+            _logger.LogInformation("Tool tab '{ToolName}' closed successfully. ({SceneId})", item.Extension.Name, _sceneId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to CloseToolTab.");
+            _logger.LogError(ex, "Failed to close tool tab '{ToolName}'. ({SceneId})", item.Extension.Name, _sceneId);
         }
     }
 
     public void Dispose()
     {
+        _logger.LogInformation("Disposing DockHostViewModel ({SceneId})", _sceneId);
         foreach (var tools in GetNestedTools())
         {
             foreach (ToolTabViewModel item in tools)
@@ -259,10 +262,12 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         }
 
         _disposables.Dispose();
+        _logger.LogInformation("DockHostViewModel disposed successfully ({SceneId})", _sceneId);
     }
 
     public void WriteToJson(JsonObject json)
     {
+        _logger.LogInformation("Writing DockHostViewModel to JSON ({SceneId})", _sceneId);
         foreach (var (list, placement) in GetNestedToolsWithPlacement())
         {
             var jsonObject = new JsonObject();
@@ -298,6 +303,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         json[nameof(CenterTopBottomProportion)] = CreateJson(CenterTopBottomProportion);
         json[nameof(RightTopBottomProportion)] = CreateJson(RightTopBottomProportion);
         json[nameof(BottomLeftRightProportion)] = CreateJson(BottomLeftRightProportion);
+        _logger.LogInformation("DockHostViewModel written to JSON successfully ({SceneId})", _sceneId);
         return;
 
         static JsonObject CreateJson(IJsonSerializable serializable)
@@ -310,6 +316,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     public void ReadFromJson(JsonObject json)
     {
+        _logger.LogInformation("Reading DockHostViewModel from JSON ({SceneId})", _sceneId);
         foreach (var (list, placement) in GetNestedToolsWithPlacement())
         {
             if (!json.TryGetPropertyValue(placement.ToString(), out JsonNode? node)) continue;
@@ -333,13 +340,13 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         RestoreProportion(RightTopBottomProportion, nameof(RightTopBottomProportion));
         RestoreProportion(BottomLeftRightProportion, nameof(BottomLeftRightProportion));
 
-
         // 何もタブを開いていない場合、デフォルトのタブを開く
         if (!GetAllTools().Any())
         {
             OpenDefaultTabs();
         }
 
+        _logger.LogInformation("DockHostViewModel read from JSON successfully ({SceneId})", _sceneId);
         return;
 
         void RestoreTabItems(JsonArray source, ReactiveCollection<ToolTabViewModel> destination)
@@ -359,7 +366,6 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             }
         }
 
-        // Restore proportions safely
         void RestoreProportion(IJsonSerializable serializable, string name)
         {
             if (json.TryGetPropertyValue(name, out JsonNode? proportionNode)
@@ -372,6 +378,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     public void OpenDefaultTabs()
     {
+        _logger.LogInformation("Opening default tabs ({SceneId})", _sceneId);
         var tabs = new ToolTabExtension[]
         {
             TimelineTabExtension.Instance,
@@ -384,5 +391,6 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             if (ext.TryCreateContext(_editViewModel, out IToolContext? tab))
                 OpenToolTab(tab);
         }
+        _logger.LogInformation("Default tabs opened successfully ({SceneId})", _sceneId);
     }
 }

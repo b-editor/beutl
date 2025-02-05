@@ -33,7 +33,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
 
                     if (await ShowDialog(sideloads))
                     {
-                        activity?.AddEvent(new ActivityEvent("Loading_SideLoadPackages"));
+                        activity?.AddEvent(new ActivityEvent("Started loading side-load-packages."));
 
                         Parallel.ForEach(sideloads, item =>
                         {
@@ -44,12 +44,16 @@ public sealed class LoadSideloadExtensionTask : StartupTask
                             catch (Exception e)
                             {
                                 activity?.SetStatus(ActivityStatusCode.Error);
-                                _logger.LogError(e, "Failed to load package");
+                                _logger.LogError(e, "Failed to load package: {PackageName}", item.Name);
                                 Failures.Add((item, e));
                             }
                         });
 
-                        activity?.AddEvent(new ActivityEvent("Loaded_SideLoadPackages"));
+                        activity?.AddEvent(new ActivityEvent("Finished loading side-load-packages."));
+                    }
+                    else
+                    {
+                        _logger.LogWarning("User canceled loading side-load-packages.");
                     }
                 }
             }

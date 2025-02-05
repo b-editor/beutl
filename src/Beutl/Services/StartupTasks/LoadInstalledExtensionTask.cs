@@ -31,7 +31,7 @@ public sealed class LoadInstalledExtensionTask : StartupTask
                 {
                     IReadOnlyList<LocalPackage> packages = await _manager.GetPackages();
 
-                    activity?.AddEvent(new ActivityEvent("Loading_InstalledPackages"));
+                    activity?.AddEvent(new ActivityEvent("Started loading installed packages."));
 
                     Parallel.ForEach(packages, item =>
                     {
@@ -42,12 +42,16 @@ public sealed class LoadInstalledExtensionTask : StartupTask
                         catch (Exception e)
                         {
                             activity?.SetStatus(ActivityStatusCode.Error);
-                            _logger.LogError(e, "Failed to load package");
+                            _logger.LogError(e, "Failed to load package: {PackageName}", item.Name);
                             Failures.Add((item, e));
                         }
                     });
 
-                    activity?.AddEvent(new ActivityEvent("Loaded_InstalledPackages"));
+                    activity?.AddEvent(new ActivityEvent("Finished loading installed packages."));
+                }
+                else
+                {
+                    _logger.LogWarning("Running in restricted mode, skipping package loading.");
                 }
             }
         });

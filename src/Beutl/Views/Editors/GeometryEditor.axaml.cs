@@ -51,15 +51,18 @@ public partial class GeometryEditor : UserControl
             {
                 try
                 {
+                    _logger.LogInformation("Adding item to group.");
                     viewModel.AddItem();
                 }
                 catch (Exception ex)
                 {
+                    _logger.LogError(ex, "Error occurred while adding item to group.");
                     NotificationService.ShowError("Error", ex.Message);
                 }
             }
             else
             {
+                _logger.LogInformation("Group is not selected, showing context flyout.");
                 //expandToggle.ContextFlyout?.ShowAt(expandToggle);
             }
         }
@@ -69,6 +72,7 @@ public partial class GeometryEditor : UserControl
     {
         if (DataContext is not GeometryEditorViewModel viewModel) return;
 
+        _logger.LogInformation("Importing from SVG path.");
         var dialog = new ContentDialog()
         {
             Title = Strings.ImportSvgPath,
@@ -98,12 +102,14 @@ public partial class GeometryEditor : UserControl
             string? path = textBox.Text;
             if (string.IsNullOrWhiteSpace(path))
             {
+                _logger.LogWarning("SVG path is empty.");
                 NotificationService.ShowWarning(Strings.ImportSvgPath, Message.PleaseEnterString);
                 return;
             }
 
             try
             {
+                _logger.LogInformation("Parsing SVG path.");
                 var obj = PathGeometry.Parse(path);
                 viewModel.SetValue(viewModel.Value.Value, obj);
             }
@@ -125,10 +131,12 @@ public partial class GeometryEditor : UserControl
         {
             try
             {
+                _logger.LogInformation("Adding item from menu flyout.");
                 viewModel.AddItem();
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error occurred while adding item from menu flyout.");
                 NotificationService.ShowError("Error", ex.Message);
             }
         }
@@ -138,6 +146,7 @@ public partial class GeometryEditor : UserControl
     {
         if (DataContext is GeometryEditorViewModel viewModel)
         {
+            _logger.LogInformation("Setting value to null.");
             viewModel.SetNull();
         }
     }

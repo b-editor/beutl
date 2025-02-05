@@ -46,6 +46,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public TimelineViewModel(EditViewModel editViewModel)
     {
+        _logger.LogInformation("Initializing TimelineViewModel.");
         EditorContext = editViewModel;
         Scene = editViewModel.Scene;
         Player = editViewModel.Player;
@@ -81,18 +82,21 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         Scene.Children.TrackCollectionChanged(
                 (idx, item) =>
                 {
+                    _logger.LogDebug("Element added {Id}.", item.Id);
                     AddLayerHeaders(item.ZIndex + 1);
                     Elements.Insert(idx, new ElementViewModel(item, this));
                 },
                 (idx, _) =>
                 {
                     ElementViewModel element = Elements[idx];
+                    _logger.LogDebug("Element removed {Id}.", element.Model.Id);
                     this.GetService<ISupportCloseAnimation>()?.Close(element.Model);
                     Elements.RemoveAt(idx);
                     element.Dispose();
                 },
                 () =>
                 {
+                    _logger.LogDebug("All elements cleared.");
                     ElementViewModel[] tmp = [.. Elements];
                     Elements.Clear();
                     foreach (ElementViewModel? item in tmp)
@@ -112,7 +116,11 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
             .ToReactiveProperty();
-        AutoAdjustSceneDuration.Subscribe(b => editorConfig.AutoAdjustSceneDuration = b);
+        AutoAdjustSceneDuration.Subscribe(b =>
+        {
+            _logger.LogDebug("AutoAdjustSceneDuration changed to {Value}.", b);
+            editorConfig.AutoAdjustSceneDuration = b;
+        });
 
         IsLockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: false })
             .ToReadOnlyReactivePropertySlim()
@@ -123,8 +131,11 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             .DisposeWith(_disposables);
 
         DeleteAllFrameCache = new ReactiveCommandSlim()
-            // EditorContext.FrameCacheManager.Valueは変更されるので、Clearは直接代入しない
-            .WithSubscribe(() => EditorContext.FrameCacheManager.Value.Clear());
+            .WithSubscribe(() =>
+            {
+                _logger.LogInformation("Deleting all frame cache.");
+                EditorContext.FrameCacheManager.Value.Clear();
+            });
 
         DeleteFrameCache = HoveredCacheBlock.Select(v => v != null)
             .ToReactiveCommandSlim()
@@ -132,6 +143,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             {
                 if (HoveredCacheBlock.Value is not { } block) return;
 
+                _logger.LogInformation("Deleting frame cache for block starting at frame {StartFrame}.", block.StartFrame);
                 FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
                 if (block.IsLocked)
                 {
@@ -149,6 +161,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             {
                 if (HoveredCacheBlock.Value is not { } block) return;
 
+                _logger.LogInformation("Locking frame cache for block starting at frame {StartFrame}.", block.StartFrame);
                 FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
                 manager.Lock(
                     block.StartFrame, block.StartFrame + block.LengthFrame);
@@ -162,32 +175,38 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             {
                 if (HoveredCacheBlock.Value is not { } block) return;
 
+                _logger.LogInformation("Unlocking frame cache for block starting at frame {StartFrame}.", block.StartFrame);
                 FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
                 manager.Unlock(
                     block.StartFrame, block.StartFrame + block.LengthFrame);
 
                 manager.UpdateBlocks();
             });
-    }
 
+        _logger.LogInformation("TimelineViewModel initialized successfully.");
+    }
     private void OnAdjustDurationToPointer()
     {
+        _logger.LogInformation("Adjusting scene duration to pointer position.");
         int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
         TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate);
 
         RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
             .WithStoables([Scene])
             .DoAndRecord(EditorContext.CommandRecorder);
+        _logger.LogInformation("Scene duration adjusted to {Time}.", time);
     }
 
     private void OnAdjustDurationToCurrent()
     {
+        _logger.LogInformation("Adjusting scene duration to current time.");
         int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
         TimeSpan time = EditorContext.CurrentTime.Value + TimeSpan.FromSeconds(1d / rate);
 
         RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
             .WithStoables([Scene])
             .DoAndRecord(EditorContext.CommandRecorder);
+        _logger.LogInformation("Scene duration adjusted to {Time}.", time);
     }
 
     public Scene Scene { get; private set; }
@@ -258,6 +277,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public void Dispose()
     {
+        _logger.LogInformation("Disposing TimelineViewModel.");
         _disposables.Dispose();
         foreach (ElementViewModel? item in Elements.GetMarshal().Value)
         {
@@ -292,17 +312,20 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         Scene = null!;
         Player = null!;
         EditorContext = null!;
+        _logger.LogInformation("TimelineViewModel disposed successfully.");
     }
 
     // ClickedPositionから最後にクリックしたレイヤーを計算します。
     public int CalculateClickedLayer()
     {
+        _logger.LogDebug("Calculating clicked layer from position {Position}.", ClickedPosition);
         return ToLayerNumber(ClickedPosition.Y);
     }
 
     // zindexまでLayerHeaderを追加します。
     private void AddLayerHeaders(int count)
     {
+        _logger.LogDebug("Adding layer headers up to count {Count}.", count);
         if (LayerHeaders.Count != 0)
         {
             LayerHeaderViewModel last = LayerHeaders[LayerHeaders.Count - 1];
@@ -323,6 +346,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     private void TryApplyLayerCount(int count)
     {
+        _logger.LogDebug("Trying to apply layer count {Count}.", count);
         if (LayerHeaders.Count > count)
         {
             for (int i = LayerHeaders.Count - 1; i >= count; i--)
@@ -349,6 +373,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public void ReadFromJson(JsonObject json)
     {
+        _logger.LogInformation("Reading TimelineViewModel state from JSON.");
+
         if (json.TryGetPropertyValue(nameof(LayerHeaders), out JsonNode? layersNode)
             && layersNode is JsonArray layersArray)
         {
@@ -365,6 +391,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                              (x, y) => (y, x.Item2!)))
             {
                 layer.ReadFromJson(item);
+                _logger.LogDebug("LayerHeader {Number} state restored from JSON.", layer.Number.Value);
             }
         }
 
@@ -373,10 +400,14 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         {
             RestoreInlineAnimation(inlinesArray);
         }
+
+        _logger.LogInformation("TimelineViewModel state read from JSON successfully.");
     }
 
     private void RestoreInlineAnimation(JsonArray inlinesArray)
     {
+        _logger.LogInformation("Restoring inline animations from JSON.");
+
         static (Guid ElementId, Guid AnimationId) GetIds(JsonObject v)
         {
             return v.TryGetPropertyValueAsJsonValue("ElementId", out Guid elementId)
@@ -438,6 +469,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 if (anmProp != null)
                 {
                     AttachInline(anmProp, element);
+                    _logger.LogDebug("Inline animation attached for element {ElementId} and animation {AnimationId}.", element.Id, anmId);
                 }
                 else if (animatable != null)
                 {
@@ -447,24 +479,30 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                         var createdProp =
                             (IAnimatablePropertyAdapter)Activator.CreateInstance(type, anm.Property, animatable)!;
                         AttachInline(createdProp!, element);
+                        _logger.LogDebug("Inline animation created and attached for element {ElementId} and animation {AnimationId}.", element.Id, anmId);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "An exception occurred while restoring the UI.");
+                        _logger.LogError(ex, "An exception occurred while restoring the inline animation for element {ElementId} and animation {AnimationId}.", element.Id, anmId);
                     }
                 }
             }
         }
+
+        _logger.LogInformation("Inline animations restored from JSON successfully.");
     }
 
     public void WriteToJson(JsonObject json)
     {
+        _logger.LogInformation("Writing TimelineViewModel state to JSON.");
+
         var array = new JsonArray();
         array.AddRange(LayerHeaders.Where(v => v.ShouldSaveState())
             .Select(v =>
             {
                 var obj = new JsonObject { [nameof(LayerHeaderViewModel.Number)] = v.Number.Value };
                 v.WriteToJson(obj);
+                _logger.LogDebug("LayerHeader {Number} state written to JSON.", v.Number.Value);
                 return obj;
             }));
 
@@ -478,37 +516,54 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 Guid elementId = item.Element.Model.Id;
 
                 inlines.Add(new JsonObject { ["AnimationId"] = anmId, ["ElementId"] = elementId });
+                _logger.LogDebug("Inline animation state written to JSON for element {ElementId} and animation {AnimationId}.", elementId, anmId);
             }
         }
 
         json[nameof(Inlines)] = inlines;
+
+        _logger.LogInformation("TimelineViewModel state written to JSON successfully.");
     }
 
     public void AttachInline(IAnimatablePropertyAdapter property, Element element)
     {
-        if (!Inlines.Any(x => x.Element.Model == element && x.Property == property)
-            && GetViewModelFor(element) is { } viewModel)
+        _logger.LogInformation("Attaching inline animation for element {ElementId} and property {Property}.", element.Id, property);
+        if (Inlines.Any(x => x.Element.Model == element && x.Property == property))
         {
-            // タイムラインのタブを開く
-            Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.PropertyType);
-            if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel
-                anmTimelineViewModel)
-            {
-                Inlines.Add(anmTimelineViewModel);
-            }
+            _logger.LogWarning("Inline animation already attached for element {ElementId}.", element.Id);
+            return;
+        }
+
+        if (GetViewModelFor(element) is not { } viewModel)
+        {
+            _logger.LogError("Failed to attach inline animation for element {ElementId}.", element.Id);
+            return;
+        }
+
+        // タイムラインのタブを開く
+        Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.PropertyType);
+        if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel anmTimelineViewModel)
+        {
+            Inlines.Add(anmTimelineViewModel);
+            _logger.LogInformation("Inline animation attached successfully for element {ElementId}.", element.Id);
+        }
+        else
+        {
+            _logger.LogError("Failed to attach inline animation for element {ElementId}.", element.Id);
         }
     }
 
     public void DetachInline(InlineAnimationLayerViewModel item)
     {
+        _logger.LogInformation("Detaching inline animation for element {ElementId}.", item.Element.Model.Id);
         if (item.LayerHeader.Value is { } layerHeader)
         {
             layerHeader.Inlines.Remove(item);
         }
 
         Inlines.Remove(item);
-
         item.Dispose();
+        _logger.LogInformation("Inline animation detached successfully for element {ElementId}.", item.Element.Model.Id);
     }
 
     public IObservable<double> GetTrackedLayerTopObservable(IObservable<int> layer)
@@ -627,12 +682,14 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public void Execute(ContextCommandExecution execution)
     {
+        _logger.LogDebug("Executing context command {CommandName}.", execution.CommandName);
         if (execution.CommandName == "Paste")
         {
             Paste.Execute();
             if (execution.KeyEventArgs != null)
             {
                 execution.KeyEventArgs.Handled = true;
+                _logger.LogDebug("Paste command executed and KeyEventArgs handled.");
             }
         }
     }

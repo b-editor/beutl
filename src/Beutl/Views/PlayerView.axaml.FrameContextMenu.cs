@@ -19,7 +19,6 @@ public partial class PlayerView
 {
     private MenuItem? _saveElementAsImage;
     private MenuItem? _saveFrameAsImage;
-
     private void ConfigureFrameContextMenu(Control control)
     {
         _saveElementAsImage = new MenuItem
@@ -61,6 +60,7 @@ public partial class PlayerView
         if (DataContext is PlayerViewModel viewModel)
         {
             viewModel.FrameMatrix.Value = Matrix.Identity;
+            _logger.LogInformation("Zoom reset to default.");
         }
     }
 
@@ -110,11 +110,12 @@ public partial class PlayerView
                 {
                     using Bitmap<Bgra8888> bitmap = await renderTask;
                     await SaveImage(file, bitmap);
+                    _logger.LogInformation("Selected element saved as image: {FilePath}", file.Path);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to save image.");
+                _logger.LogError(ex, "Failed to save selected element as image.");
                 NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
             }
         }
@@ -137,11 +138,12 @@ public partial class PlayerView
                 {
                     using Bitmap<Bgra8888> bitmap = await renderTask;
                     await SaveImage(file, bitmap);
+                    _logger.LogInformation("Frame saved as image: {FilePath}", file.Path);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to save image.");
+                _logger.LogError(ex, "Failed to save frame as image.");
                 NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
             }
         }

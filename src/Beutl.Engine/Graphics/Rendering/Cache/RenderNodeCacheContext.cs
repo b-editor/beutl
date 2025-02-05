@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Text.Json.Serialization;
 using Beutl.Configuration;
+using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
 
@@ -9,8 +10,7 @@ namespace Beutl.Graphics.Rendering.Cache;
 // TODO: インスタンスのあるクラスである必要はないので、近々削除する
 public sealed class RenderNodeCacheContext(RenderScene scene)
 {
-    private readonly ILogger<RenderNodeCacheContext> _logger =
-        BeutlApplication.Current.LoggerFactory.CreateLogger<RenderNodeCacheContext>();
+    internal static readonly ILogger _logger = Log.CreateLogger("RenderNodeCache");
 
     private RenderCacheOptions _cacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
 
@@ -126,7 +126,7 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
         var arr = list.Select(i => (i.RenderTarget, i.Bounds)).ToArray();
         node.Cache.StoreCache(arr);
 
-        Debug.WriteLine($"[RenderCache:Created] '{node}'");
+        _logger.LogInformation("Created cache for node {Node}.", node);
     }
 }
 

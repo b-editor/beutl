@@ -74,10 +74,12 @@ public class AcceptLicenseTaskModel
     {
         IsAccepted.Value = value;
         _userInput?.SetResult(value);
+        _logger.LogInformation("User accepted all licenses: {Accepted}", value);
     }
 
     public async Task<bool> Run(CancellationToken token)
     {
+        _logger.LogInformation("License acceptance task started.");
         IsRunning.Value = true;
 
         try
@@ -90,6 +92,7 @@ public class AcceptLicenseTaskModel
                 {
                     _userInput = new TaskCompletionSource<bool>();
                     task = _userInput.Task;
+                    _logger.LogInformation("Waiting for user input on license acceptance.");
                 }
                 else
                 {
@@ -98,6 +101,7 @@ public class AcceptLicenseTaskModel
 
                 if (!await task.WaitAsync(token))
                 {
+                    _logger.LogWarning("User did not accept the licenses.");
                     Failed.Value = false;
                     return false;
                 }
@@ -105,26 +109,30 @@ public class AcceptLicenseTaskModel
                 {
                     // 同意したことを記録
                     _acceptedLicenseManager.Accepts(Licenses.Value!.Select(v => (v.Package, v.License)).ToArray());
+                    _logger.LogInformation("User accepted the licenses.");
                 }
             }
 
             Succeeded.Value = true;
+            _logger.LogInformation("License acceptance task succeeded.");
             return true;
         }
         catch (OperationCanceledException)
         {
+            _logger.LogWarning("License acceptance task was canceled.");
             Failed.Value = true;
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An exception occured.");
+            _logger.LogError(ex, "An exception occurred during the license acceptance task.");
             Failed.Value = true;
             return false;
         }
         finally
         {
             IsRunning.Value = false;
+            _logger.LogInformation("License acceptance task ended.");
         }
     }
 }

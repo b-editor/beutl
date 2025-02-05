@@ -36,6 +36,7 @@ public class ResolveTaskModel : NuGet.Common.LoggerBase
     {
         PackageInstaller installer = _app.GetResource<PackageInstaller>();
         IsRunning.Value = true;
+        _logger.LogInformation("Starting dependency resolution.");
 
         try
         {
@@ -43,12 +44,14 @@ public class ResolveTaskModel : NuGet.Common.LoggerBase
 
             await installer.ResolveDependencies(_context, this, token);
             Succeeded.Value = true;
+            _logger.LogInformation("Dependency resolution succeeded.");
             return true;
         }
         catch (OperationCanceledException)
         {
             ErrorMessage.Value = Strings.Operation_canceled;
             Failed.Value = true;
+            _logger.LogWarning("Dependency resolution was canceled.");
             throw;
         }
         catch (Exception ex)
@@ -62,6 +65,7 @@ public class ResolveTaskModel : NuGet.Common.LoggerBase
         {
             IsProgressBarVisible.Value = false;
             IsRunning.Value = false;
+            _logger.LogInformation("Dependency resolution process has ended.");
         }
     }
 
@@ -75,6 +79,7 @@ public class ResolveTaskModel : NuGet.Common.LoggerBase
         {
             Message.Value = $"{Message.Value}\n{message.Message}";
         }
+        _logger.LogInformation("NuGet Log: {Message}", message.Message);
     }
 
     public override Task LogAsync(ILogMessage message)

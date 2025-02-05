@@ -117,7 +117,7 @@ public partial class MenuBarViewModel
                     else
                     {
                         Type type = item.Extension.Value.GetType();
-                        _logger.LogError("{Extension} failed to save file", type.FullName ?? type.Name);
+                        _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name, item.FileName.Value);
                         NotificationService.ShowError(Message.Unable_to_save_file, item.FileName.Value);
                     }
                 }
@@ -168,14 +168,14 @@ public partial class MenuBarViewModel
                 else
                 {
                     Type type = item.Extension.Value.GetType();
-                    _logger.LogError("{Extension} failed to save file", type.FullName ?? type.Name);
+                    _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name, item.FileName.Value);
                     NotificationService.ShowInformation(string.Empty, Message.OperationCouldNotBeExecuted);
                 }
             }
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
-                _logger.LogError(ex, "Failed to save file");
+                _logger.LogError(ex, "Failed to save file: {FileName}", item.FileName.Value);
                 NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }
         }

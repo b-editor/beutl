@@ -14,6 +14,7 @@ public class OutputTabViewModel : IToolContext
 
     public OutputTabViewModel(EditViewModel editViewModel)
     {
+        _logger.LogInformation("Initializing OutputTabViewModel.");
         EditViewModel = editViewModel;
         _outputService = new OutputService(editViewModel);
         CanRemove = SelectedItem
@@ -21,6 +22,7 @@ public class OutputTabViewModel : IToolContext
             .ToReadOnlyReactivePropertySlim();
         CreateDefaultProfile();
         SelectedItem.Value = Items.FirstOrDefault();
+        _logger.LogInformation("OutputTabViewModel initialized.");
     }
 
     public EditViewModel EditViewModel { get; }
@@ -47,11 +49,13 @@ public class OutputTabViewModel : IToolContext
     {
         try
         {
+            _logger.LogInformation("Adding item with extension: {ExtensionName}", extension.Name);
             _outputService.AddItem(EditViewModel.Scene.FileName, extension);
+            _logger.LogInformation("Item added successfully.");
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "An exception has occurred.");
+            _logger.LogError(e, "An exception occurred while adding an item.");
             e.Handle();
         }
     }
@@ -60,39 +64,50 @@ public class OutputTabViewModel : IToolContext
     {
         if (SelectedItem.Value != null)
         {
+            _logger.LogInformation("Removing selected item: {ItemName}", SelectedItem.Value.Context.Name.Value);
             Items.Remove(SelectedItem.Value);
+            _logger.LogInformation("Selected item removed successfully.");
         }
     }
 
     public void Save()
     {
+        _logger.LogInformation("Saving items.");
         _outputService.SaveItems();
+        _logger.LogInformation("Items saved successfully.");
     }
 
     public void Dispose()
     {
+        _logger.LogInformation("Disposing OutputTabViewModel.");
     }
 
     public void WriteToJson(JsonObject json)
     {
+        _logger.LogInformation("Writing items to JSON.");
         _outputService.SaveItems();
+        _logger.LogInformation("Items written to JSON successfully.");
     }
 
     public void ReadFromJson(JsonObject json)
     {
+        _logger.LogInformation("Reading items from JSON.");
         _outputService.RestoreItems();
         CreateDefaultProfile();
         SelectedItem.Value = Items.FirstOrDefault();
+        _logger.LogInformation("Items read from JSON successfully.");
     }
 
     private void CreateDefaultProfile()
     {
         if (Items.Count != 0) return;
 
+        _logger.LogInformation("Creating default profile.");
         var ext = OutputService.GetExtensions(EditViewModel.Scene.FileName);
         if (ext.Length == 1)
         {
             AddItem(ext[0]);
+            _logger.LogInformation("Default profile created with extension: {ExtensionName}", ext[0].Name);
         }
     }
 

@@ -12,7 +12,8 @@ public partial class PackageInstaller
     {
         if (!Directory.Exists(Helper.InstallPath))
         {
-            return [];
+            _logger.LogWarning("Install path does not exist: {InstallPath}", Helper.InstallPath);
+            return Array.Empty<PackageIdentity>();
         }
 
         NuGetFramework framework = Helper.GetFrameworkName();
@@ -67,6 +68,8 @@ public partial class PackageInstaller
             }
         }
 
+        _logger.LogInformation("Prepared for clean. Unnecessary packages: {PackageCount}, Total size: {TotalSize} bytes", unnecessaryPackages.Length, size);
+
         return new PackageCleanContext(unnecessaryPackages, size);
     }
 
@@ -82,7 +85,7 @@ public partial class PackageInstaller
         foreach (PackageIdentity package in context.UnnecessaryPackages)
         {
             string directory = Helper.PackagePathResolver.GetInstalledPath(package);
-            bool hasAnyFailtures = false;
+            bool hasAnyFailures = false;
             foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
             {
                 try
@@ -93,8 +96,8 @@ public partial class PackageInstaller
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to remove files contained in package. (FileName: {FileName})", Path.GetFileName(file));
-                    hasAnyFailtures = true;
+                    _logger.LogError(ex, "Failed to delete file: {FileName} in package: {PackageId}", Path.GetFileName(file), package.Id);
+                    hasAnyFailures = true;
                 }
 
                 progress.Report(totalSize / (double)context.SizeToBeReleased);
@@ -106,11 +109,11 @@ public partial class PackageInstaller
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to remove package directory. (PackageId: {PackageId})", package.Id);
-                hasAnyFailtures = true;
+                _logger.LogError(ex, "Failed to delete package directory: {Directory} for package: {PackageId}", directory, package.Id);
+                hasAnyFailures = true;
             }
 
-            if (hasAnyFailtures)
+            if (hasAnyFailures)
             {
                 failedPackages.Add(directory);
             }
@@ -119,5 +122,14 @@ public partial class PackageInstaller
         }
 
         context.FailedPackages = failedPackages;
+
+        if (failedPackages.Count > 0)
+        {
+            _logger.LogWarning("Clean completed with failures. Failed packages: {FailedPackageCount}", failedPackages.Count);
+        }
+        else
+        {
+            _logger.LogInformation("Clean completed successfully. Total size released: {TotalSize} bytes", totalSize);
+        }
     }
 }

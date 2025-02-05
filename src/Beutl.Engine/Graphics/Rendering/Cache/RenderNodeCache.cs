@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering.Cache;
 
@@ -107,12 +108,10 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     public void Invalidate()
     {
-#if DEBUG
         if (_cache.Count != 0)
         {
-            Debug.WriteLine($"[RenderCache:Invalildated] '{(_node.TryGetTarget(out RenderNode? node) ? node : null)}'");
+            RenderNodeCacheContext._logger.LogInformation("Invalidating Cache for {Node}", _node.TryGetTarget(out RenderNode? node) ? node : null);
         }
-#endif
 
         foreach ((RenderTarget, Rect) item in _cache)
         {

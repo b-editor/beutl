@@ -59,10 +59,11 @@ public sealed class SceneProjectItemExtension : ProjectItemExtension
             {
                 scene = new Scene();
                 scene.Restore(file);
+                _logger.LogInformation("Successfully restored the scene from file: {File}", file);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unable to restore the scene.");
+                _logger.LogError(ex, "Unable to restore the scene from file: {File}", file);
                 return false;
             }
             result = scene;

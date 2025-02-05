@@ -58,7 +58,6 @@ public sealed class CheckForUpdatesTask : StartupTask
 
     private async ValueTask<CheckForUpdatesResponse?> CheckForUpdates(Activity? activity)
     {
-#pragma warning disable CS0436
         try
         {
             return await _beutlApiApplication.CheckForUpdatesAsync(BeutlApplication.Version);
@@ -67,10 +66,9 @@ public sealed class CheckForUpdatesTask : StartupTask
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "An error occurred while checking for updates");
-            ex.Handle();
+            await ex.Handle();
             return null;
         }
-#pragma warning restore CS0436
     }
 
     private static async Task ShowDialogAndClose(CheckForUpdatesResponse response)

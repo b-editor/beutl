@@ -90,14 +90,14 @@ public class CommandRecorder : INotifyPropertyChanged
     {
         if (command.Nothing)
         {
-            _logger.LogInformation("IRecordableCommand.Nothing is True. (Type: {Type})", command.GetType());
+            _logger.LogInformation("Command '{CommandType}' has nothing to record.", command.GetType());
             return null;
         }
 
         Entry entry = CreateEntry(command);
         if (entry.Storables.Count == 0)
         {
-            _logger.LogWarning("Storables.Count is 0. (Type: {Type})", command.GetType());
+            _logger.LogWarning("Command '{CommandType}' has no storables.", command.GetType());
         }
 
         return entry;
@@ -107,7 +107,7 @@ public class CommandRecorder : INotifyPropertyChanged
     {
         if (!_semaphoreSlim.Wait(1000))
         {
-            _logger.LogWarning("SemaphoreSlim timeout. (ExecutingCommand: {Command})", _executingCommand);
+            _logger.LogWarning("SemaphoreSlim wait timeout. Currently executing command: '{Command}'", _executingCommand);
             NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             Canceled?.Invoke(null, EventArgs.Empty);
             return false;
@@ -120,6 +120,8 @@ public class CommandRecorder : INotifyPropertyChanged
 
     public void PushOnly(IRecordableCommand command)
     {
+        _logger.LogDebug("Attempting to push command '{CommandType}' to undo stack.", command.GetType());
+
         if (!SemaphoreWait())
         {
             return;
@@ -143,10 +145,14 @@ public class CommandRecorder : INotifyPropertyChanged
         {
             _semaphoreSlim.Release();
         }
+
+        _logger.LogInformation("Command '{CommandType}' pushed to undo stack.", command.GetType());
     }
 
     public void DoAndPush(IRecordableCommand command)
     {
+        _logger.LogDebug("Executing and pushing command '{CommandType}' to undo stack.", command.GetType());
+
         if (!SemaphoreWait())
         {
             return;
@@ -170,7 +176,7 @@ public class CommandRecorder : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An exception occurred while executing the command. {Command}", command);
+            _logger.LogError(ex, "Exception occurred while executing command '{CommandType}'.", command.GetType());
             NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             Canceled?.Invoke(null, EventArgs.Empty);
         }
@@ -182,10 +188,14 @@ public class CommandRecorder : INotifyPropertyChanged
 
         LastExecutedTime = DateTime.UtcNow;
         Executed?.Invoke(command, new(command, CommandType.Do, entry!.Storables));
+
+        _logger.LogInformation("Command '{CommandType}' executed and pushed to undo stack.", command.GetType());
     }
 
     public void Undo()
     {
+        _logger.LogDebug("Attempting to undo last command.");
+
         if (_undoStack.Count >= 1)
         {
             if (!SemaphoreWait())
@@ -213,7 +223,7 @@ public class CommandRecorder : INotifyPropertyChanged
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An exception occurred while executing the undo command. {Command}", entry.Command);
+                _logger.LogError(ex, "Exception occurred while undoing command '{CommandType}'.", entry.Command.GetType());
                 NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }
             finally
@@ -224,11 +234,15 @@ public class CommandRecorder : INotifyPropertyChanged
 
             LastExecutedTime = DateTime.UtcNow;
             Executed?.Invoke(entry.Command, new(entry.Command, CommandType.Undo, entry.Storables));
+
+            _logger.LogInformation("Command '{CommandType}' undone.", entry.Command.GetType());
         }
     }
 
     public void Redo()
     {
+        _logger.LogDebug("Attempting to redo last undone command.");
+
         if (_redoStack.Count >= 1)
         {
             if (!SemaphoreWait())
@@ -256,7 +270,7 @@ public class CommandRecorder : INotifyPropertyChanged
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An exception occurred while executing the redo command. {Command}", entry.Command);
+                _logger.LogError(ex, "Exception occurred while redoing command '{CommandType}'.", entry.Command.GetType());
                 NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
             }
             finally
@@ -267,11 +281,15 @@ public class CommandRecorder : INotifyPropertyChanged
 
             LastExecutedTime = DateTime.UtcNow;
             Executed?.Invoke(entry.Command, new(entry.Command, CommandType.Redo, entry.Storables));
+
+            _logger.LogInformation("Command '{CommandType}' redone.", entry.Command.GetType());
         }
     }
 
     public void Clear()
     {
+        _logger.LogDebug("Clearing all command stacks.");
+
         LastExecutedTime = DateTime.MinValue;
         _undoStack.Clear();
         _redoStack.Clear();
@@ -279,5 +297,7 @@ public class CommandRecorder : INotifyPropertyChanged
         CanRedo = false;
 
         Cleared?.Invoke(this, EventArgs.Empty);
+
+        _logger.LogInformation("All command stacks cleared.");
     }
 }
