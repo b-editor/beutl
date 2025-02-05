@@ -11,15 +11,18 @@ namespace Beutl.Services;
 
 public sealed class OutputProfileItem : IDisposable
 {
-    public OutputProfileItem(IOutputContext context)
+    public OutputProfileItem(IOutputContext context, IEditorContext editorContext)
     {
         Context = context;
+        EditorContext = editorContext;
 
         Context.Started += OnStarted;
         Context.Finished += OnFinished;
     }
 
     public IOutputContext Context { get; }
+
+    public IEditorContext EditorContext { get; }
 
     private void OnStarted(object? sender, EventArgs e)
     {
@@ -56,7 +59,7 @@ public sealed class OutputProfileItem : IDisposable
         };
     }
 
-    public static OutputProfileItem? FromJson(JsonNode json, ILogger logger)
+    public static OutputProfileItem? FromJson(IEditorContext editorContext, JsonNode json, ILogger logger)
     {
         try
         {
@@ -74,10 +77,10 @@ public sealed class OutputProfileItem : IDisposable
             if (contextJson != null
                 && extension != null
                 && File.Exists(file)
-                && extension.TryCreateContext(file, out IOutputContext? context))
+                && extension.TryCreateContext(editorContext, out IOutputContext? context))
             {
                 context.ReadFromJson(contextJson.AsObject());
-                return new OutputProfileItem(context);
+                return new OutputProfileItem(context, editorContext);
             }
             else
             {
@@ -109,13 +112,13 @@ public sealed class OutputService(EditViewModel editViewModel)
 
     public void AddItem(string file, OutputExtension extension)
     {
-        if (!extension.TryCreateContext(file, out IOutputContext? context))
+        if (!extension.TryCreateContext(editViewModel, out IOutputContext? context))
         {
             throw new Exception("Failed to create context");
         }
 
         context.Name.Value = Items.Count == 0 ? "Default" : $"Profile {Items.Count}";
-        var item = new OutputProfileItem(context);
+        var item = new OutputProfileItem(context, editViewModel);
         Items.Add(item);
         SelectedItem.Value = item;
     }
@@ -159,7 +162,7 @@ public sealed class OutputService(EditViewModel editViewModel)
         {
             if (jsonItem == null) continue;
 
-            var item = OutputProfileItem.FromJson(jsonItem, _logger);
+            var item = OutputProfileItem.FromJson(editViewModel, jsonItem, _logger);
             if (item != null)
             {
                 _items.Add(item);

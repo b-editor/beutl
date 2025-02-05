@@ -22,6 +22,7 @@ namespace Beutl.ViewModels.Tools;
 
 public sealed class OutputViewModel : IOutputContext
 {
+    private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<OutputViewModel>();
     private readonly ReactiveProperty<bool> _isIndeterminate = new();
     private readonly ReactiveProperty<bool> _isEncoding = new();
@@ -31,10 +32,10 @@ public sealed class OutputViewModel : IOutputContext
     private readonly ProjectItemContainer _itemContainer = ProjectItemContainer.Current;
     private CancellationTokenSource? _lastCts;
 
-    public OutputViewModel(SceneFile model)
+    public OutputViewModel(EditViewModel editViewModel)
     {
-        Model = model;
-
+        _editViewModel = editViewModel;
+        Model = editViewModel.Scene;
         Controller = SelectedEncoder.CombineLatest(DestinationFile)
             .Select(obj => obj is { First: not null, Second: not null }
                 ? obj.First.CreateController(obj.Second)
@@ -47,8 +48,8 @@ public sealed class OutputViewModel : IOutputContext
             {
                 if (s == null) return null;
 
-                s.SourceSize = new PixelSize(Model.Width, Model.Height);
-                s.DestinationSize = new PixelSize(Model.Width, Model.Height);
+                s.SourceSize = Model.FrameSize;
+                s.DestinationSize = Model.FrameSize;
                 return new EncoderSettingsViewModel(s);
             })
             .DisposePreviousValue()
@@ -77,7 +78,7 @@ public sealed class OutputViewModel : IOutputContext
 
     public OutputExtension Extension => SceneOutputExtension.Instance;
 
-    public SceneFile Model { get; }
+    public Scene Model { get; }
 
     public string TargetFile => Model.FileName;
 
@@ -180,19 +181,19 @@ public sealed class OutputViewModel : IOutputContext
                     EncodingController? controller = Controller.Value;
                     if (controller == null) return;
                     // フレームプロバイダー作成
-                    using var renderer = new SceneRenderer(scene);
+                    // using var renderer = new SceneRenderer(scene);
+                    var renderer = _editViewModel.Renderer.Value;
                     var frameProgress = new Subject<TimeSpan>();
                     var frameProvider = new FrameProviderImpl(scene, videoSettings.FrameRate, renderer, frameProgress);
                     // サンプルプロバイダー作成
-                    using var composer = new SceneComposer(scene, renderer);
+                    // using var composer = new SceneComposer(scene, renderer);
+                    var composer = _editViewModel.Composer.Value;
                     var sampleProgress = new Subject<TimeSpan>();
                     var sampleProvider = new SampleProviderImpl(
                         scene, composer, audioSettings.SampleRate, sampleProgress);
 
                     using (frameProgress.CombineLatest(sampleProgress)
-                               .ObserveOnUIDispatcher()
-                               .Subscribe(t =>
-                                   ProgressValue.Value = t.Item1.TotalSeconds + t.Item2.TotalSeconds))
+                               .Subscribe(t => ProgressValue.Value = t.Item1.TotalSeconds + t.Item2.TotalSeconds))
                     {
                         RenderNodeCacheContext cacheContext = renderer.GetCacheContext();
                         cacheContext.CacheOptions = RenderCacheOptions.Disabled;
@@ -211,6 +212,8 @@ public sealed class OutputViewModel : IOutputContext
         }
         finally
         {
+            _editViewModel.Renderer.Value.GetCacheContext().CacheOptions =
+                RenderCacheOptions.CreateFromGlobalConfiguration();
             _progress.Value = 0;
             ProgressMax.Value = 0;
             ProgressValue.Value = 0;
