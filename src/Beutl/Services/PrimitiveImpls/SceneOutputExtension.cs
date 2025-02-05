@@ -41,7 +41,7 @@ public sealed class SceneOutputExtension : OutputExtension
 
     public override bool MatchFileExtension(string ext)
     {
-        return ext is ".scene";
+        return string.Equals(ext, ".scene", StringComparison.OrdinalIgnoreCase);
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IOutputContext? context)

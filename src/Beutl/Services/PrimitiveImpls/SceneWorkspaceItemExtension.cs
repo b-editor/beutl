@@ -46,13 +46,13 @@ public sealed class SceneProjectItemExtension : ProjectItemExtension
 
     public override bool IsSupported(string file)
     {
-        return file.EndsWith($".{Constants.SceneFileExtension}");
+        return file.EndsWith($".{Constants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase);
     }
 
     public override bool TryCreateItem(string file, [NotNullWhen(true)] out ProjectItem? result)
     {
         result = null;
-        if (file.EndsWith($".{Constants.SceneFileExtension}"))
+        if (file.EndsWith($".{Constants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase))
         {
             Scene? scene;
             try
