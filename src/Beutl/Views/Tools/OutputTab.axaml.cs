@@ -83,7 +83,7 @@ public partial class OutputTab : UserControl
                     control.DataContext = item.Context;
                     return control;
                 }
-                else if (item.Context.Extension.TryCreateControl(item.Context.TargetFile, out control))
+                else if (item.Context.Extension.TryCreateControl(item.EditorContext, out control))
                 {
                     _contextToViewType[item.Context.Extension] = control;
                     control.DataContext = item.Context;

@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 
 using Beutl.ProjectSystem;
+using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
 using FluentAvalonia.UI.Controls;
@@ -43,11 +44,11 @@ public sealed class SceneOutputExtension : OutputExtension
         return ext is ".scene";
     }
 
-    public override bool TryCreateContext(string file, [NotNullWhen(true)] out IOutputContext? context)
+    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IOutputContext? context)
     {
-        if (file.EndsWith(".scene") && File.Exists(file))
+        if (editorContext is EditViewModel editViewModel)
         {
-            context = new OutputViewModel(new SceneFile(file));
+            context = new OutputViewModel(editViewModel);
             return true;
         }
         else
@@ -57,9 +58,9 @@ public sealed class SceneOutputExtension : OutputExtension
         }
     }
 
-    public override bool TryCreateControl(string file, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateControl(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (file.EndsWith(".scene"))
+        if (editorContext is EditViewModel)
         {
             control = new OutputView();
             return true;
