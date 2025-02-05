@@ -9,7 +9,7 @@ public interface IEncoderInfo
 
     bool IsSupported(string file)
     {
-        return SupportExtensions().Contains(Path.GetExtension(file));
+        return SupportExtensions().Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase);
     }
 
     IEnumerable<string> SupportExtensions();

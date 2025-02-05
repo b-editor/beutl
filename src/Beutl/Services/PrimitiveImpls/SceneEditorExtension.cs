@@ -49,7 +49,7 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override bool TryCreateEditor(string file, [NotNullWhen(true)] out Control? editor)
     {
-        if (file.EndsWith($".{Constants.SceneFileExtension}"))
+        if (file.EndsWith($".{Constants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase))
         {
             editor = new EditView();
             return true;
@@ -63,7 +63,7 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override bool TryCreateContext(string file, [NotNullWhen(true)] out IEditorContext? context)
     {
-        if (file.EndsWith($".{Constants.SceneFileExtension}")
+        if (file.EndsWith($".{Constants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase)
             && ProjectItemContainer.Current.TryGetOrCreateItem(file, out Scene? model))
         {
             context = new EditViewModel(model);
@@ -88,6 +88,6 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override bool MatchFileExtension(string ext)
     {
-        return ext is ".scene";
+        return ext.Equals(".scene", StringComparison.OrdinalIgnoreCase);
     }
 }

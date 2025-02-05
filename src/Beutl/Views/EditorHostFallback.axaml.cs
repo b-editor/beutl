@@ -163,7 +163,7 @@ public partial class EditorHostFallback : UserControl
 
             try
             {
-                if (fileName.EndsWith($".{Constants.ProjectFileExtension}"))
+                if (fileName.EndsWith($".{Constants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))
                 {
                     viewModel.MenuBar.OpenRecentProject.Execute(fileName);
                 }
@@ -220,8 +220,8 @@ public partial class EditorHostFallback : UserControl
         viewConfig.RecentFiles.ToObservableChangeSet<CoreList<string>, string>()
             .Filter(filter.Select<int, Func<string, bool>>(
                 f => (x) => f == 0
-                        || (f == 1 && x.EndsWith($".{Constants.ProjectFileExtension}"))
-                        || (f == 2 && !x.EndsWith($".{Constants.ProjectFileExtension}"))))
+                        || (f == 1 && x.EndsWith($".{Constants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))
+                        || (f == 2 && !x.EndsWith($".{Constants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))))
             .AddKey(x => x)
             .Cast(x => new FileInfo(x))
             .SortBy(x => x.LastAccessTimeUtc, sortOrder: SortDirection.Descending)

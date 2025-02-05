@@ -8,7 +8,7 @@ public interface IDecoderInfo
 
     bool IsSupported(string file)
     {
-        return VideoExtensions().Concat(AudioExtensions()).Contains(Path.GetExtension(file));
+        return VideoExtensions().Concat(AudioExtensions()).Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase);
     }
 
     IEnumerable<string> VideoExtensions();

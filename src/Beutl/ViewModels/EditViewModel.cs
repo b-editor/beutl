@@ -553,6 +553,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)
     {
+        string ext = Path.GetExtension(filePath);
         return extensions
             .Select(x =>
             {
@@ -562,7 +563,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 else
                     return x;
             })
-            .Any(filePath.EndsWith);
+            .Contains(ext, StringComparer.OrdinalIgnoreCase);
     }
 
     private static bool MatchFileAudioOnly(string filePath)
