@@ -34,9 +34,9 @@ public abstract class OutputExtension : Extension
 
     public abstract IconSource? GetIcon();
 
-    public abstract bool TryCreateControl(string file, [NotNullWhen(true)] out Control? control);
+    public abstract bool TryCreateControl(IEditorContext editorContext, [NotNullWhen(true)] out Control? control);
 
-    public abstract bool TryCreateContext(string file, [NotNullWhen(true)] out IOutputContext? context);
+    public abstract bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IOutputContext? context);
 
     public virtual bool IsSupported(string file)
     {
