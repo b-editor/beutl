@@ -14,7 +14,7 @@
                   CloseButtonText="{x:Static lang:Strings.Cancel}"
                   IsPrimaryButtonEnabled="{Binding IsPrimaryButtonEnabled.Value}"
                   PrimaryButtonCommand="{Binding HandlePrimaryButtonClick}"
-                  PrimaryButtonText="再起動"
+                  PrimaryButtonText="{x:Static lang:Strings.Next}"
                   mc:Ignorable="d">
     <ui:ContentDialog.Resources>
         <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />

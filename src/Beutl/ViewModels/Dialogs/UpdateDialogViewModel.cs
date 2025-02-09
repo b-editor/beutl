@@ -10,6 +10,7 @@ namespace Beutl.ViewModels.Dialogs;
 public class UpdateDialogViewModel
 {
     private readonly CancellationTokenSource _cts = new();
+    private string? _downloadFile;
 
     public UpdateDialogViewModel(AppUpdateResponse update)
     {
@@ -37,6 +38,74 @@ public class UpdateDialogViewModel
             return;
         }
 
+        if (OperatingSystem.IsMacOS())
+        {
+            await InstallOnOSX(metadata);
+        }
+        else if (OperatingSystem.IsWindows())
+        {
+            await InstallOnWindows(metadata);
+        }
+    }
+
+    private async Task InstallOnWindows(AssetMetadataJson metadata)
+    {
+        if (metadata.Type == "installer")
+        {
+            if (_downloadFile == null)
+            {
+                ProgressText.Value = "ダウンロードに失敗しました";
+                return;
+            }
+
+            var psi = new ProcessStartInfo(_downloadFile) { UseShellExecute = true, Verb = "open" };
+            Process.Start(psi);
+            (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+        }
+        else if (metadata.Type == "zip")
+        {
+            var script =
+                typeof(UpdateDialogViewModel).Assembly.GetManifestResourceStream("Beutl.Resources.win-update.ps1");
+            if (script == null)
+            {
+                ProgressText.Value = "スクリプトの読み込みに失敗しました";
+                return;
+            }
+
+            var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update",
+                new DirectoryInfo(AppContext.BaseDirectory).Name);
+            var target = AppContext.BaseDirectory;
+
+            var scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.ps1");
+            await using (var fs = File.Create(scriptPath))
+            {
+                await script.CopyToAsync(fs);
+            }
+
+            var psi = new ProcessStartInfo("powershell")
+            {
+                UseShellExecute = true,
+                Verb = "open",
+                ArgumentList =
+                {
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    scriptPath,
+                    directory,
+                    target,
+                    "Beutl",
+                    Path.Combine(AppContext.BaseDirectory, "Beutl")
+                }
+            };
+
+            Process.Start(psi);
+            (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+        }
+    }
+
+    private async Task InstallOnOSX(AssetMetadataJson metadata)
+    {
         var script = typeof(UpdateDialogViewModel).Assembly.GetManifestResourceStream("Beutl.Resources.osx-update.sh");
         if (script == null)
         {
@@ -87,9 +156,8 @@ public class UpdateDialogViewModel
     {
         Task.Run(async () =>
         {
-            var downloadFile = Path.GetTempFileName();
-            var result = await DownloadFile(downloadFile);
-            if (!result) return;
+            _downloadFile = await DownloadFile();
+            if (_downloadFile == null) return;
 
             var metadata = await BeutlApiApplication.LoadMetadata();
             if (metadata == null)
@@ -112,15 +180,22 @@ public class UpdateDialogViewModel
                 }
 
                 Directory.CreateDirectory(destination);
-                result = await ExtractIfNeeded(downloadFile, destination);
+                var result = await ExtractIfNeeded(_downloadFile, destination);
                 if (!result) return;
 
+                ProgressText.Value = "アプリケーションの再起動が必要です。\n再起動しますか？";
+                IsPrimaryButtonEnabled.Value = true;
+            }
+
+            if (metadata.Type == "installer")
+            {
+                ProgressText.Value = "インストーラーを起動します";
                 IsPrimaryButtonEnabled.Value = true;
             }
         });
     }
 
-    private async Task<bool> DownloadFile(string file)
+    private async Task<string?> DownloadFile()
     {
         try
         {
@@ -130,11 +205,21 @@ public class UpdateDialogViewModel
             ProgressText.Value = "ダウンロード中...";
             var ct = _cts.Token;
 
-            await using var destination = File.Create(file);
             using var client = new HttpClient();
             using var response =
                 await client.GetAsync(Update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
             long? contentLength = response.Content.Headers.ContentLength;
+            var file = response.Content.Headers.ContentDisposition?.FileName;
+            if (file == null)
+            {
+                // urlからファイル名を取得
+                var arr = Update.DownloadUrl!.Split('/');
+                file = arr[^1].Length == 0 ? arr[^2] : arr[^1];
+            }
+
+            file = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", file);
+
+            await using var destination = File.Create(file);
             await using Stream download = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
 
             if (!contentLength.HasValue)
@@ -160,17 +245,17 @@ public class UpdateDialogViewModel
             ProgressValue.Value = 1;
             IsIndeterminate.Value = false;
 
-            return true;
+            return file;
         }
         catch (OperationCanceledException)
         {
             ProgressText.Value = "キャンセルされました";
-            return false;
+            return null;
         }
         catch (Exception e)
         {
             ProgressText.Value = e.Message;
-            return false;
+            return null;
         }
     }
 
