@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.Api;
 using Beutl.Api.Clients;
+using Beutl.Configuration;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
@@ -79,13 +80,15 @@ public class UpdateDialogViewModel
             var scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.ps1");
             await using (var fs = File.Create(scriptPath))
             {
+                // UTF-8 BOMを書き込む
+                await fs.WriteAsync(new byte[] { 0xEF, 0xBB, 0xBF });
                 await script.CopyToAsync(fs);
             }
 
-            var psi = new ProcessStartInfo("powershell")
+            var psi = new ProcessStartInfo(@"C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.EXE")
             {
-                UseShellExecute = true,
-                Verb = "open",
+                WorkingDirectory = BeutlEnvironment.GetHomeDirectoryPath(),
+                CreateNoWindow = !Preferences.Default.Get("Updater.ShowWindow", false),
                 ArgumentList =
                 {
                     "-ExecutionPolicy",
@@ -95,7 +98,7 @@ public class UpdateDialogViewModel
                     directory,
                     target,
                     "Beutl",
-                    Path.Combine(AppContext.BaseDirectory, "Beutl")
+                    Path.Combine(AppContext.BaseDirectory, "Beutl.exe")
                 }
             };
 
