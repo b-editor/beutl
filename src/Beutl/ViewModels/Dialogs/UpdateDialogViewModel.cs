@@ -267,23 +267,26 @@ public class UpdateDialogViewModel
     private async Task<bool> ExtractIfNeeded(string file, string destination)
     {
         var ct = _cts.Token;
-        using var source = ZipFile.Open(file, ZipArchiveMode.Read);
-        ProgressMax.Value = source.Entries.Count;
-        ProgressText.Value = "展開中...";
-        foreach (var entry in source.Entries)
+        using (var source = ZipFile.Open(file, ZipArchiveMode.Read))
         {
-            if (entry.Length != 0)
+            ProgressMax.Value = source.Entries.Count;
+            ProgressText.Value = "展開中...";
+            foreach (var entry in source.Entries)
             {
-                var dst = Path.Combine(destination, string.Join(Path.DirectorySeparatorChar, entry.FullName));
-                Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
-                await using var fs = File.Create(dst);
-                await using var es = entry.Open();
-                await es.CopyToAsync(fs, ct).ConfigureAwait(false);
-            }
+                if (entry.Length != 0)
+                {
+                    var dst = Path.Combine(destination, string.Join(Path.DirectorySeparatorChar, entry.FullName));
+                    Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+                    await using var fs = File.Create(dst);
+                    await using var es = entry.Open();
+                    await es.CopyToAsync(fs, ct).ConfigureAwait(false);
+                }
 
-            ProgressValue.Value++;
+                ProgressValue.Value++;
+            }
         }
 
+        File.Delete(file);
         ProgressText.Value = "展開が完了しました";
         ProgressValue.Value = ProgressMax.Value;
         IsIndeterminate.Value = false;
