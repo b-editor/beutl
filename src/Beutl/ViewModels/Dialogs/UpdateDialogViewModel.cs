@@ -217,7 +217,12 @@ public class UpdateDialogViewModel
                 file = arr[^1].Length == 0 ? arr[^2] : arr[^1];
             }
 
-            file = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", file);
+            var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp");
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            file = Path.Combine(directory, file);
 
             await using var destination = File.Create(file);
             await using Stream download = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
