@@ -83,12 +83,14 @@ fi
 BACKUP_APP_PATH="${TARGET_APP_PATH}_backup_$(date +%Y%m%d%H%M%S)"
 if [ -d "$TARGET_APP_PATH" ]; then
     echo "現行アプリケーションのバックアップを作成: $BACKUP_APP_PATH"
-    mv "$TARGET_APP_PATH" "$BACKUP_APP_PATH"
+    cp -R  "$TARGET_APP_PATH" "$BACKUP_APP_PATH"
     if [ $? -ne 0 ]; then
         show_dialog "バックアップの作成に失敗しました。"
         release_lock
         exit 1
     fi
+
+    rm -rf "$TARGET_APP_PATH"
 fi
 
 # 更新ファイルの配置（ここでは単純にmvで更新ディレクトリを移動）
@@ -120,6 +122,7 @@ if [ "$USER_RESPONSE" = "はい" ]; then
         show_dialog "アプリケーションの実行権限の変更に失敗しました。"
         exit 1
     fi
+
     "$EXECUTABLE_PATH" &
 else
     echo "アプリケーションは起動されませんでした。"
