@@ -34,7 +34,7 @@ function show_dialog() {
     # ダブルクォート(")をエスケープしておく
     local safe_message
     safe_message=$(echo "$message" | sed 's/"/\\"/g')
-    osascript -e "display dialog \"$safe_message\" with title \"アップデート\" buttons {\"OK\"} default button \"OK\""
+    osascript -e "display dialog \"$safe_message\" with title \"@(Strings.Update)\" buttons {\"OK\"} default button \"OK\""
 }
 
 # アプリケーション終了待機
@@ -43,7 +43,7 @@ function show_dialog() {
 #    後続で終了後のメッセージを表示する方法としています。
 sleep 3
 while pgrep -x "$APP_PROCESS_NAME" >/dev/null; do
-    show_dialog "アプリケーション ($APP_PROCESS_NAME) を終了してください（終了後OKをクリックしてください）"
+    show_dialog "@(Message.Exit_the_application) (@(Message.Click_OK_after_completion))"
 done
 
 # ロックファイルの設定
@@ -70,22 +70,22 @@ release_lock() {
     rmdir "$LOCKDIR"
 }
 
-echo "ロックを取得中…"
+echo "@(Message.Acquiring_lock)"
 # 排他ロックを取得
 if acquire_lock; then
-    echo "ロックを取得しました。"
+    echo "@(Message.Lock_acquired)"
 else
-    show_dialog "ロックの取得に失敗しました。"
+    show_dialog "@(Message.Failed_to_acquire_lock)"
     exit 1
 fi
 
 # 既存アプリケーションのバックアップ作成（失敗時のロールバック用）
 BACKUP_APP_PATH="${TARGET_APP_PATH}_backup_$(date +%Y%m%d%H%M%S)"
 if [ -d "$TARGET_APP_PATH" ]; then
-    echo "現行アプリケーションのバックアップを作成: $BACKUP_APP_PATH"
+    echo "@(Message.Create_backup_of_current_application) $BACKUP_APP_PATH"
     cp -R  "$TARGET_APP_PATH" "$BACKUP_APP_PATH"
     if [ $? -ne 0 ]; then
-        show_dialog "バックアップの作成に失敗しました。"
+        show_dialog "@(Message.Failed_to_create_backup)"
         release_lock
         exit 1
     fi
@@ -94,10 +94,10 @@ if [ -d "$TARGET_APP_PATH" ]; then
 fi
 
 # 更新ファイルの配置（ここでは単純にmvで更新ディレクトリを移動）
-echo "更新ファイルを配置中…"
+echo "@(Message.Updating_files_in_place)"
 cp -R "$UPDATE_DIR" "$TARGET_APP_PATH"
 if [ $? -ne 0 ]; then
-    show_dialog "更新の配置に失敗しました。バックアップを復元します…"
+    show_dialog "@(Message.Update_placement_failed_Restore_backup)"
     cp -R "$BACKUP_APP_PATH" "$TARGET_APP_PATH"
     release_lock
     exit 1
@@ -105,27 +105,27 @@ fi
 # cpに成功したら、更新ディレクトリは不要なので削除
 rm -rf "$UPDATE_DIR"
 
-# ※ 必要に応じてバックアップは削除（今回は正常時は削除）
+# ※ 必要に応じてバックアップは削除
 rm -rf "$BACKUP_APP_PATH"
-echo "更新が完了しました。"
+echo "@(Message.The_update_has_been_completed)"
 
 # ロック解除
 release_lock
-echo "ロックを解除しました。"
+echo "@(Message.Lock_released)"
 
 # ユーザーにアプリケーション起動の確認をする
-USER_RESPONSE=$(osascript -e 'display dialog "更新が完了しました。\nアプリケーションを起動しますか？" buttons {"はい", "いいえ"} default button "はい" with title "アップデート完了"' -e 'button returned of result')
+USER_RESPONSE=$(osascript -e 'display dialog "@(Message.Update_completed_Do_you_want_to_start_the_ߋn_application)" buttons {"はい", "いいえ"} default button "はい" with title "アップデート完了"' -e 'button returned of result')
 
 if [ "$USER_RESPONSE" = "はい" ]; then
-    echo "アプリケーションを起動します…"
+    echo "@(Message.Launch_the_application)"
     if ! chmod +x "$EXECUTABLE_PATH"; then
-        show_dialog "アプリケーションの実行権限の変更に失敗しました。"
+        show_dialog "@(Message.Failed_to_change_application_execution_permissions)"
         exit 1
     fi
 
     "$EXECUTABLE_PATH" &
 else
-    echo "アプリケーションは起動されませんでした。"
+    echo "@(Message.The_application_was_not_launched)"
 fi
 
 exit 0

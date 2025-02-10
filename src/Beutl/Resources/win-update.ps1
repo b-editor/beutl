@@ -27,7 +27,7 @@ Add-Type -AssemblyName System.Windows.Forms
 function Show-Dialog {
     param (
         [string]$Message,
-        [string]$Title = "アップデート"
+        [string]$Title = "@(Strings.Update)"
     )
     [System.Windows.Forms.MessageBox]::Show($Message, $Title, `
         [System.Windows.Forms.MessageBoxButtons]::OK, `
@@ -38,7 +38,7 @@ function Show-Dialog {
 function Prompt-YesNo {
     param (
         [string]$Message,
-        [string]$Title = "アップデート完了"
+        [string]$Title = "@(Strings.Update)"
     )
     return [System.Windows.Forms.MessageBox]::Show($Message, $Title, `
         [System.Windows.Forms.MessageBoxButtons]::YesNo, `
@@ -79,7 +79,7 @@ function Release-Lock {
             Remove-Item -Path $LockDir -Recurse -Force
         }
         catch {
-            Write-Log "ロックディレクトリの削除に失敗しました: $_"
+            Write-Log "Failed to delete locked directory: $_"
         }
     }
 }
@@ -106,18 +106,18 @@ try {
     # アプリケーション終了待機
     Start-Sleep -Seconds 3
     while (Get-Process -Name $APP_PROCESS_NAME -ErrorAction SilentlyContinue) {
-        Show-Dialog "アプリケーション ($APP_PROCESS_NAME) を終了してください（終了後OKをクリックしてください）"
+        Show-Dialog "@(Message.Exit_the_application) (@(Message.Click_OK_after_completion))"
     }
 
     # ロックの取得（テンポラリフォルダ内にロック用ディレクトリを作成）
     $lockDir = Join-Path ([System.IO.Path]::GetTempPath()) "${APP_PROCESS_NAME}_update.lock"
     $LOCK_WAIT_TIME = 10
-    Write-Log "ロックを取得中…"
+    Write-Log "@(Message.Acquiring_lock)"
     if (Acquire-Lock -LockDir $lockDir -LockWaitTime $LOCK_WAIT_TIME) {
-        Write-Log "ロックを取得しました。"
+        Write-Log "@(Message.Lock_acquired)"
     }
     else {
-        Show-Dialog "ロックの取得に失敗しました。"
+        Show-Dialog "@(Message.Failed_to_acquire_lock)"
         exit 1
     }
 
@@ -125,29 +125,29 @@ try {
     if (Test-Path -Path $TARGET_APP_PATH -PathType Container) {
         $timestamp = Get-Date -Format "yyyyMMddHHmmss"
         $BACKUP_APP_PATH = "${TARGET_APP_PATH}_backup_$timestamp"
-        Write-Log "現行アプリケーションのバックアップを作成: $BACKUP_APP_PATH"
+        Write-Log "@(Message.Create_backup_of_current_application) $BACKUP_APP_PATH"
         try {
             Move-Item -Path $TARGET_APP_PATH -Destination $BACKUP_APP_PATH -Force
         }
         catch {
-            Show-Dialog "バックアップの作成に失敗しました。"
+            Show-Dialog "@(Message.Failed_to_create_backup)"
             Release-Lock -LockDir $lockDir
             exit 1
         }
     }
 
     # 更新ファイルの配置
-    Write-Log "更新ファイルを配置中…"
+    Write-Log "@(Message.Updating_files_in_place)"
     try {
         Move-Item -Path $UPDATE_DIR -Destination $TARGET_APP_PATH -Force
     }
     catch {
-        Show-Dialog "更新の配置に失敗しました。バックアップを復元します…"
+        Show-Dialog "@(Message.Update_placement_failed_Restore_backup)"
         try {
             Move-Item -Path $BACKUP_APP_PATH -Destination $TARGET_APP_PATH -Force
         }
         catch {
-            Show-Dialog "バックアップの復元に失敗しました。"
+            Show-Dialog "@(Message.Failed_to_restore_backup)"
         }
         Release-Lock -LockDir $lockDir
         exit 1
@@ -159,37 +159,33 @@ try {
             Remove-Item -Path $BACKUP_APP_PATH -Recurse -Force
         }
         catch {
-            Write-Log "バックアップディレクトリの削除に失敗しました。"
+            Write-Log "@(Message.Failed_to_delete_backup)"
         }
     }
-    Write-Log "更新が完了しました。"
+    Write-Log "@(Message.The_update_has_been_completed)"
 
     # ロック解除
     Release-Lock -LockDir $lockDir
-    Write-Log "ロックを解除しました。"
+    Write-Log "@(Message.Lock_released)"
 
     # ユーザーにアプリケーション起動の確認をする
-    $response = Prompt-YesNo "更新が完了しました。`nアプリケーションを起動しますか？"
+    $response = Prompt-YesNo "@(Message.Message.Update_completed_Do_you_want_to_start_the_ߋn_application)"
     if ($response -eq [System.Windows.Forms.DialogResult]::Yes) {
-        Write-Log "アプリケーションを起動します…"
+        Write-Log "@(Message.Launch_the_application)"
         if (![string]::IsNullOrEmpty($EXECUTABLE_PATH)) {
-            if (-not (Test-Path -Path $EXECUTABLE_PATH)) {
-                Show-Dialog "アプリケーションの実行ファイルが見つかりません。"
-                exit 1
-            }
             Start-Process -FilePath $EXECUTABLE_PATH
         }
         else {
-            Show-Dialog "アプリケーションの実行パスが指定されていません。"
+            Show-Dialog "@(Message.The_application_execution_path_is_not_specified)"
         }
     }
     else {
-        Write-Log "アプリケーションは起動されませんでした。"
+        Write-Log "@(Message.The_application_was_not_launched)"
     }
 
     exit 0
 }
 catch {
-    Show-Dialog "スクリプト実行中にエラーが発生しました。`nエラー内容: $_"
+    Show-Dialog "@(Message.An_error_has_occurred_Terminate_script)`n $_"
     exit 1
 }

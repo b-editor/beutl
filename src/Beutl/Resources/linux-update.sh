@@ -13,13 +13,13 @@
 
 # エラー発生時は即時終了する設定
 set -e
-trap 'echo "エラーが発生しました。スクリプトを終了します。" >&2; exit 1' ERR
+trap 'echo "@(Message.An_error_has_occurred_Terminate_script)" >&2; exit 1' ERR
 
 # ユーザーにメッセージを表示し、Enterキー待ちで続行させる関数
 prompt_continue() {
     local message="$1"
     echo "$message"
-    read -r -p "Enterキーを押して続行してください..." dummy
+    read -r -p "@(Message.Press_Enter_to_continue)" dummy
 }
 
 # 引数チェック
@@ -36,14 +36,14 @@ EXECUTABLE_PATH="$4"
 
 # 更新用ディレクトリの存在確認
 if [ ! -d "$UPDATE_DIR" ]; then
-    echo "Error: 更新用ディレクトリが存在しません。"
+    echo "@(Message.Error_Update_directory_does_not_exist)"
     exit 1
 fi
 
 # アプリケーション終了待機
 sleep 3
 while pgrep -x "$APP_PROCESS_NAME" >/dev/null; do
-    prompt_continue "アプリケーション ($APP_PROCESS_NAME) を終了してください。終了後、Enterキーを押してください。"
+    prompt_continue "@(Message.Exit_the_application)@(Message.Press_the_Enter_key_when_finished)"
 done
 
 # ロックの取得
@@ -71,11 +71,11 @@ release_lock() {
     rm -rf "$LOCKDIR"
 }
 
-echo "ロックを取得中..."
+echo "@(Message.Acquiring_lock)"
 if acquire_lock; then
-    echo "ロックを取得しました。"
+    echo "@(Message.Lock_acquired)"
 else
-    echo "ロックの取得に失敗しました。"
+    echo "@(Message.Failed_to_acquire_lock)"
     exit 1
 fi
 
@@ -83,10 +83,10 @@ fi
 if [ -d "$TARGET_APP_PATH" ]; then
     TIMESTAMP=$(date +%Y%m%d%H%M%S)
     BACKUP_APP_PATH="${TARGET_APP_PATH}_backup_${TIMESTAMP}"
-    echo "現行アプリケーションのバックアップを作成: $BACKUP_APP_PATH"
+    echo "@(Message.Create_backup_of_current_application) $BACKUP_APP_PATH"
     cp -R "$TARGET_APP_PATH" "$BACKUP_APP_PATH"
     if [ $? -ne 0 ]; then
-        echo "バックアップの作成に失敗しました。"
+        echo "@(Message.Failed_to_create_backup)"
         release_lock
         exit 1
     fi
@@ -94,10 +94,10 @@ if [ -d "$TARGET_APP_PATH" ]; then
 fi
 
 # 更新ファイルの配置
-echo "更新ファイルを配置中..."
+echo "@(Message.Updating_files_in_place)"
 cp -R "$UPDATE_DIR" "$TARGET_APP_PATH"
 if [ $? -ne 0 ]; then
-    echo "更新の配置に失敗しました。バックアップを復元します..."
+    echo "@(Message.Update_placement_failed_Restore_backup)"
     cp -R "$BACKUP_APP_PATH" "$TARGET_APP_PATH"
     release_lock
     exit 1
@@ -108,24 +108,24 @@ rm -rf "$UPDATE_DIR"
 
 # 正常時はバックアップも削除（必要に応じてバックアップを保持してください）
 rm -rf "$BACKUP_APP_PATH"
-echo "更新が完了しました。"
+echo "@(Message.The_update_has_been_completed)"
 
 # ロック解除
 release_lock
-echo "ロックを解除しました。"
+echo "@(Message.Lock_released)"
 
 # アプリケーション起動の確認
-read -r -p "更新が完了しました。アプリケーションを起動しますか？ (y/n): " USER_RESPONSE
+read -r -p "@(Message.Update_completed_yes_no)" USER_RESPONSE
 if [ "$USER_RESPONSE" = "y" ] || [ "$USER_RESPONSE" = "Y" ]; then
-    echo "アプリケーションを起動します..."
+    echo "@(Message.Launch_the_application)"
     if [ -n "$EXECUTABLE_PATH" ]; then
-        chmod +x "$EXECUTABLE_PATH" || { echo "アプリケーションの実行権限の変更に失敗しました。"; exit 1; }
+        chmod +x "$EXECUTABLE_PATH" || { echo "@(Message.Failed_to_change_application_execution_permissions)"; exit 1; }
         "$EXECUTABLE_PATH" &
     else
-        echo "アプリケーションの実行パスが指定されていません。"
+        echo "@(Message.The_application_execution_path_is_not_specified)"
     fi
 else
-    echo "アプリケーションは起動されませんでした。"
+    echo "@(Message.The_application_was_not_launched)"
 fi
 
 exit 0
