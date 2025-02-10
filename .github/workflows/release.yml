@@ -184,7 +184,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: beutl-linux_x64-${{ needs.determine-version.outputs.semVer }}
+          name: beutl-linux_x64-standalone-${{ needs.determine-version.outputs.semVer }}
           path: artifacts
 
       - name: Extract zip
