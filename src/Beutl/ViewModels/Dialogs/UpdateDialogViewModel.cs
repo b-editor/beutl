@@ -4,7 +4,9 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Configuration;
+using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
@@ -12,6 +14,7 @@ namespace Beutl.ViewModels.Dialogs;
 public class UpdateDialogViewModel
 {
     private readonly CancellationTokenSource _cts = new();
+    private readonly ILogger _logger = Log.CreateLogger<UpdateDialogViewModel>();
     private string? _downloadFile;
 
     public UpdateDialogViewModel(AppUpdateResponse update)
@@ -33,24 +36,32 @@ public class UpdateDialogViewModel
 
     public async Task HandlePrimaryButtonClick()
     {
-        var metadata = await BeutlApiApplication.LoadMetadata();
-        if (metadata == null)
+        try
         {
-            ProgressText.Value = Message.Failed_to_load_metadata;
-            return;
-        }
+            var metadata = await BeutlApiApplication.LoadMetadata();
+            if (metadata == null)
+            {
+                ProgressText.Value = Message.Failed_to_load_metadata;
+                return;
+            }
 
-        if (OperatingSystem.IsMacOS())
-        {
-            await InstallOnOSX(metadata);
+            if (OperatingSystem.IsMacOS())
+            {
+                await InstallOnOSX(metadata);
+            }
+            else if (OperatingSystem.IsLinux())
+            {
+                await InstallOnLinux(metadata);
+            }
+            else if (OperatingSystem.IsWindows())
+            {
+                await InstallOnWindows(metadata);
+            }
         }
-        else if (OperatingSystem.IsLinux())
+        catch (Exception e)
         {
-            await InstallOnLinux(metadata);
-        }
-        else if (OperatingSystem.IsWindows())
-        {
-            await InstallOnWindows(metadata);
+            _logger.LogError(e, "Failed to handle primary button click");
+            NotificationService.ShowError("Error", e.Message);
         }
     }
 
@@ -210,6 +221,7 @@ public class UpdateDialogViewModel
     {
         Task.Run(async () =>
         {
+            _logger.LogInformation("Starting update process");
             _downloadFile = await DownloadFile();
             if (_downloadFile == null) return;
 
@@ -259,6 +271,7 @@ public class UpdateDialogViewModel
             ProgressText.Value = Message.Downloading;
             var ct = _cts.Token;
 
+            _logger.LogInformation("Downloading update from {DownloadUrl}", Update.DownloadUrl);
             using var client = new HttpClient();
             using var response =
                 await client.GetAsync(Update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -270,6 +283,8 @@ public class UpdateDialogViewModel
                 var arr = Update.DownloadUrl!.Split('/');
                 file = arr[^1].Length == 0 ? arr[^2] : arr[^1];
             }
+
+            _logger.LogInformation("Guessed file name: {FileName}", file);
 
             var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp");
             if (!Directory.Exists(directory))
@@ -304,16 +319,19 @@ public class UpdateDialogViewModel
             ProgressText.Value = Message.Download_is_complete;
             ProgressValue.Value = 1;
             IsIndeterminate.Value = false;
+            _logger.LogInformation("Downloaded update to {FilePath}", file);
 
             return file;
         }
         catch (OperationCanceledException)
         {
+            _logger.LogWarning("Download canceled");
             ProgressText.Value = Message.Canceled;
             return null;
         }
         catch (Exception e)
         {
+            _logger.LogError(e, "Failed to download update");
             ProgressText.Value = e.Message;
             return null;
         }
@@ -322,43 +340,69 @@ public class UpdateDialogViewModel
     private async Task<bool> ExtractIfNeeded(string file, string destination)
     {
         var ct = _cts.Token;
-        using (var source = ZipFile.Open(file, ZipArchiveMode.Read))
+        _logger.LogInformation("Extracting update to {Destination}", destination);
+        try
         {
-            ProgressMax.Value = source.Entries.Count;
-            ProgressText.Value = Message.Extracting;
-            foreach (var entry in source.Entries)
+            using (var source = ZipFile.Open(file, ZipArchiveMode.Read))
             {
-                if (entry.Length != 0)
+                ProgressMax.Value = source.Entries.Count;
+                ProgressText.Value = Message.Extracting;
+                foreach (var entry in source.Entries)
                 {
-                    var dst = Path.Combine(destination, string.Join(Path.DirectorySeparatorChar, entry.FullName));
-                    Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
-                    await using var fs = File.Create(dst);
-                    await using var es = entry.Open();
-                    await es.CopyToAsync(fs, ct).ConfigureAwait(false);
+                    if (entry.Length != 0)
+                    {
+                        string dst = Path.GetFullPath(Path.Combine(destination, entry.FullName));
+                        if (!dst.StartsWith(destination))
+                        {
+                            _logger.LogError("Entry is outside of the target directory: {Entry}", entry.FullName);
+                            throw new InvalidOperationException("Entry is outside of the target directory.");
+                        }
+
+                        Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+                        await using var fs = File.Create(dst);
+                        await using var es = entry.Open();
+                        await es.CopyToAsync(fs, ct).ConfigureAwait(false);
+                    }
+
+                    ProgressValue.Value++;
                 }
-
-                ProgressValue.Value++;
             }
-        }
 
-        File.Delete(file);
-        ProgressText.Value = Message.Extraction_is_complete;
-        ProgressValue.Value = ProgressMax.Value;
-        IsIndeterminate.Value = false;
-        return true;
+            File.Delete(file);
+            _logger.LogInformation("Extraction complete");
+            ProgressText.Value = Message.Extraction_is_complete;
+            ProgressValue.Value = ProgressMax.Value;
+            IsIndeterminate.Value = false;
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Extraction canceled");
+            ProgressText.Value = Message.Canceled;
+            return false;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Failed to extract update");
+            ProgressText.Value = e.Message;
+            return false;
+        }
     }
 
     public void Cancel()
     {
         if (_cts.IsCancellationRequested) return;
+        _logger.LogInformation("Canceling update process");
         _cts.Cancel();
     }
 
     private async Task<bool> LoadScript(string name, Stream stream)
     {
+        _logger.LogInformation("Loading script {Name}", name);
         var source = typeof(UpdateDialogViewModel).Assembly.GetManifestResourceStream(name);
         if (source == null)
         {
+            _logger.LogError("Failed to load script {Name}", name);
             return false;
         }
 

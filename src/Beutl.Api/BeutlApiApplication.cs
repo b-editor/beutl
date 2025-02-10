@@ -10,6 +10,9 @@ using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
+using Nito.AsyncEx;
 using NuGet.Versioning;
 using Reactive.Bindings;
 using Refit;
@@ -27,6 +30,22 @@ public class BeutlApiApplication
     private readonly HttpClient _httpClient;
     private readonly ReactivePropertySlim<AuthorizedUser?> _authorizedUser = new();
     private readonly Dictionary<Type, Lazy<object>> _services = [];
+    private static readonly ILogger s_logger = Log.CreateLogger<BeutlApiApplication>();
+    private static readonly AsyncLazy<AssetMetadataJson?> s_metadata = new(async () =>
+    {
+        s_logger.LogInformation("Loading asset metadata");
+        string path = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
+        if (!File.Exists(path))
+        {
+            s_logger.LogWarning("Asset metadata not found");
+            return null;
+        }
+        string json = await File.ReadAllTextAsync(path);
+        var metadata = JsonSerializer.Deserialize<AssetMetadataJson>(json);
+        s_logger.LogInformation("Loaded asset metadata: {Metadata}", json);
+
+        return metadata;
+    });
 
     public BeutlApiApplication(HttpClient httpClient)
     {
@@ -89,11 +108,7 @@ public class BeutlApiApplication
 
     public static async Task<AssetMetadataJson?> LoadMetadata()
     {
-        string path = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
-        if (!File.Exists(path)) return null;
-        string json = await File.ReadAllTextAsync(path);
-
-        return JsonSerializer.Deserialize<AssetMetadataJson>(json);
+        return await s_metadata;
     }
 
     public T GetResource<T>()

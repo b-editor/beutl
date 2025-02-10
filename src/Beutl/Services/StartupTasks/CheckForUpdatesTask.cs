@@ -1,15 +1,12 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Threading;
-
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Logging;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.Logging;
-
 using OpenTelemetry.Trace;
 
 namespace Beutl.Services.StartupTasks;
@@ -26,28 +23,29 @@ public sealed class CheckForUpdatesTask : StartupTask
         {
             using (Activity? activity = Telemetry.StartActivity("CheckForUpdatesTask"))
             {
+                activity?.AddEvent(new("Checking for updates"));
                 var (v1, v3) = await CheckForUpdates(activity);
-                activity?.AddEvent(new("Done_CheckForUpdates"));
+                activity?.AddEvent(new("Checked for updates"));
+                activity?.SetTag("IsLatest", v1?.IsLatest ?? v3?.IsLatest ?? true);
+                activity?.SetTag("MustLatest", v1?.MustLatest ?? v3?.MustLatest ?? false);
 
                 if (v1 != null)
                 {
                     if (!v1.IsLatest)
                     {
+                        _logger.LogInformation("A new version is available: {VersionUrl}", v1.Url);
                         NotificationService.ShowInformation(
                             Message.A_new_version_is_available,
                             v1.Url,
                             onActionButtonClick: () =>
                             {
-                                Process.Start(new ProcessStartInfo(v1.Url)
-                                {
-                                    UseShellExecute = true,
-                                    Verb = "open"
-                                });
+                                Process.Start(new ProcessStartInfo(v1.Url) { UseShellExecute = true, Verb = "open" });
                             },
                             actionButtonText: Strings.Open);
                     }
                     else if (v1.MustLatest)
                     {
+                        _logger.LogWarning("Current version must be updated to the latest version.");
                         await ShowDialogAndClose(v1);
                     }
                 }
@@ -55,6 +53,7 @@ public sealed class CheckForUpdatesTask : StartupTask
                 {
                     if (!v3.IsLatest)
                     {
+                        _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
                         NotificationService.ShowInformation(
                             Message.A_new_version_is_available,
                             message: Message.Do_you_want_to_install,
@@ -70,6 +69,7 @@ public sealed class CheckForUpdatesTask : StartupTask
                     }
                     else if (v3.MustLatest)
                     {
+                        _logger.LogWarning("Current version must be updated to the latest version.");
                         await ShowDialogAndClose(new CheckForUpdatesResponse
                         {
                             Url = v3.Url!,
@@ -115,11 +115,7 @@ public sealed class CheckForUpdatesTask : StartupTask
 
             await dialog.ShowAsync();
 
-            Process.Start(new ProcessStartInfo(response.Url)
-            {
-                UseShellExecute = true,
-                Verb = "open"
-            });
+            Process.Start(new ProcessStartInfo(response.Url) { UseShellExecute = true, Verb = "open" });
 
             (App.GetTopLevel() as Window)?.Close();
         });
