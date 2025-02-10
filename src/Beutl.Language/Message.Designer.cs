@@ -584,5 +584,11 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Failed_to_delete_backup", resourceCulture);
             }
         }
+        
+        public static string Do_you_want_to_install {
+            get {
+                return ResourceManager.GetString("Do_you_want_to_install", resourceCulture);
+            }
+        }
     }
 }

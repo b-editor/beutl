@@ -57,7 +57,7 @@ public sealed class CheckForUpdatesTask : StartupTask
                     {
                         NotificationService.ShowInformation(
                             Message.A_new_version_is_available,
-                            message: "インストールしますか？",
+                            message: Message.Do_you_want_to_install,
                             onActionButtonClick: () =>
                             {
                                 var viewModel = new UpdateDialogViewModel(v3);
@@ -68,10 +68,16 @@ public sealed class CheckForUpdatesTask : StartupTask
                             // TODO: Stringsに移動
                             actionButtonText: ExtensionsPage.Install);
                     }
-                    // else if (v3.MustLatest)
-                    // {
-                    //     await ShowDialogAndClose(v1);
-                    // }
+                    else if (v3.MustLatest)
+                    {
+                        await ShowDialogAndClose(new CheckForUpdatesResponse
+                        {
+                            Url = v3.Url!,
+                            IsLatest = v3.IsLatest,
+                            MustLatest = v3.MustLatest,
+                            LatestVersion = v3.LatestVersion
+                        });
+                    }
                 }
             }
         });

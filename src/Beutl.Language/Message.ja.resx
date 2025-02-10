@@ -394,4 +394,8 @@
   <data name="Failed_to_delete_backup" xml:space="preserve">
     <value>バックアップの削除に失敗しました。</value>
   </data>
+  <data name="Do_you_want_to_install" xml:space="preserve">
+    <value>インストールしますか？
+(アップデート機能は実験的な機能です)</value>
+  </data>
 </root>
