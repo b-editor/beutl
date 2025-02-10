@@ -294,4 +294,108 @@ Please wait a moment.</value>
   <data name="ProjectVersionMismatch_Content" xml:space="preserve">
     <value>The project was created with a newer version of Beutl (&gt;= {0}). Please update Beutl to open the project.</value>
   </data>
+  <data name="Failed_to_load_metadata" xml:space="preserve">
+    <value>Failed to retrieve metadata.</value>
+  </data>
+  <data name="Download_failed" xml:space="preserve">
+    <value>Download failed.</value>
+  </data>
+  <data name="Failed_to_load_script" xml:space="preserve">
+    <value>Failed to load script.</value>
+  </data>
+  <data name="The_application_needs_to_be_restarted" xml:space="preserve">
+    <value>The application needs to be restarted.
+Do you want to restart the application?</value>
+  </data>
+  <data name="Start_the_installer" xml:space="preserve">
+    <value>Start the installer,</value>
+  </data>
+  <data name="Downloading" xml:space="preserve">
+    <value>Downloading...</value>
+  </data>
+  <data name="Download_is_complete" xml:space="preserve">
+    <value>Download is complete.</value>
+  </data>
+  <data name="Canceled" xml:space="preserve">
+    <value>Canceled.</value>
+  </data>
+  <data name="Extracting" xml:space="preserve">
+    <value>Extracting...</value>
+  </data>
+  <data name="Extraction_is_complete" xml:space="preserve">
+    <value>Extraction is complete.</value>
+  </data>
+  <data name="An_error_has_occurred_Terminate_script" xml:space="preserve">
+    <value>An error has occurred. Terminate script.</value>
+  </data>
+  <data name="Press_Enter_to_continue" xml:space="preserve">
+    <value>Press Enter to continue...</value>
+  </data>
+  <data name="Error_Update_directory_does_not_exist" xml:space="preserve">
+    <value>Error: Update directory does not exist.</value>
+  </data>
+  <data name="Exit_the_application" xml:space="preserve">
+    <value>Exit the application (Beutl).</value>
+  </data>
+  <data name="Press_the_Enter_key_when_finished" xml:space="preserve">
+    <value>Press the Enter key when finished.</value>
+  </data>
+  <data name="Acquiring_lock" xml:space="preserve">
+    <value>Getting a lock...</value>
+  </data>
+  <data name="Lock_acquired" xml:space="preserve">
+    <value>Lock acquired.</value>
+  </data>
+  <data name="Failed_to_acquire_lock" xml:space="preserve">
+    <value>Failed to acquire lock.</value>
+  </data>
+  <data name="Create_backup_of_current_application" xml:space="preserve">
+    <value>Create backup of current application:</value>
+  </data>
+  <data name="Failed_to_create_backup" xml:space="preserve">
+    <value>Failed to create backup.</value>
+  </data>
+  <data name="Updating_files_in_place" xml:space="preserve">
+    <value>Updating files in place...</value>
+  </data>
+  <data name="Update_placement_failed_Restore_backup" xml:space="preserve">
+    <value>Update placement failed. Restore backup...</value>
+  </data>
+  <data name="The_update_has_been_completed" xml:space="preserve">
+    <value>The update has been completed.</value>
+  </data>
+  <data name="Lock_released" xml:space="preserve">
+    <value>Unlocked.</value>
+  </data>
+  <data name="Update_completed_yes_no" xml:space="preserve">
+    <value>Update completed. Do you want to start the application? (y/n):</value>
+  </data>
+  <data name="Launch_the_application" xml:space="preserve">
+    <value>Launch the application...</value>
+  </data>
+  <data name="Failed_to_change_application_execution_permissions" xml:space="preserve">
+    <value>Failed to change application execution permissions.</value>
+  </data>
+  <data name="The_application_execution_path_is_not_specified" xml:space="preserve">
+    <value>The application execution path is not specified.</value>
+  </data>
+  <data name="The_application_was_not_launched" xml:space="preserve">
+    <value>The application was not launched.</value>
+  </data>
+  <data name="Click_OK_after_completion" xml:space="preserve">
+    <value>Click OK after completion</value>
+  </data>
+  <data name="Update_completed_Do_you_want_to_start_the_ߋn_application" xml:space="preserve">
+    <value>Update completed. Do you want to start the ߋn application?</value>
+  </data>
+  <data name="Failed_to_restore_backup" xml:space="preserve">
+    <value>Failed to restore backup.</value>
+  </data>
+  <data name="Failed_to_delete_backup" xml:space="preserve">
+    <value>Failed to delete backup.</value>
+  </data>
+  <data name="Do_you_want_to_install" xml:space="preserve">
+    <value>Do you want to install?
+(The update function is an experimental feature.)</value>
+  </data>
 </root>

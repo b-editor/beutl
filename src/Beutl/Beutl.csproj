@@ -135,6 +135,15 @@
       <DependentUpon>EditPageFallback.axaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Update="Views\Dialogs\UpdateDialog.axaml.cs">
+      <DependentUpon>UpdateDialog.axaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\osx-update.sh" />
+    <EmbeddedResource Include="Resources\linux-update.sh" />
+    <EmbeddedResource Include="Resources\win-update.ps1" />
   </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />

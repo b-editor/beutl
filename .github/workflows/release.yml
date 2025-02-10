@@ -89,6 +89,25 @@ jobs:
           cd output/Beutl
           gh api -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" /repos/yuto-trd/opencvsharp-extern-builds/releases/assets/$ASSET_ID > libOpenCvSharpExtern.so
 
+      - name: Store Metadata
+        run: |
+          cd output/Beutl
+          ASSET_METADATA_ID=`uuidgen`
+          ASSET_METADATA_OS=`echo ${{ matrix.rid }} | cut -d '_' -f 1`
+          ASSET_METADATA_ARCH=`echo ${{ matrix.rid }} | cut -d '_' -f 2`
+          ASSET_METADATA_VERSION=${{ needs.determine-version.outputs.semVer }}
+          ASSET_METADATA_STANDALONE=${{ matrix.standalone }}
+          ASSET_METADATA_TYPE=zip
+          echo '{}' | jq \
+             --arg id $ASSET_METADATA_ID \
+             --arg os $ASSET_METADATA_OS \
+             --arg arch $ASSET_METADATA_ARCH \
+             --arg version $ASSET_METADATA_VERSION \
+             --arg standalone $ASSET_METADATA_STANDALONE \
+             --arg type $ASSET_METADATA_TYPE \
+            '.id=$id | .os=$os | .arch=$arch | .version=$version | .standalone=$standalone | .type=$type' > asset_metadata.json
+          cat asset_metadata.json
+
       - name: Zip
         run: |
           ./build.sh zip \
@@ -130,6 +149,13 @@ jobs:
           cd output/Beutl
           7z x ../../artifacts/beutl-win-x64-standalone-${{ needs.determine-version.outputs.semVer }}.zip
 
+      - name: Update Metadata
+        shell: bash
+        run: |
+          cd output/Beutl
+          cat asset_metadata.json | jq '. .id=`uuidgen` | .type="installer"' > asset_metadata.json
+          cat asset_metadata.json
+
       - name: Build installer
         run: |
           ./build.cmd build-installer `
@@ -158,7 +184,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: beutl-linux_x64-${{ needs.determine-version.outputs.semVer }}
+          name: beutl-linux_x64-standalone-${{ needs.determine-version.outputs.semVer }}
           path: artifacts
 
       - name: Extract zip
@@ -167,6 +193,13 @@ jobs:
           mkdir -p lib/beutl
           cd lib/beutl
           unzip ${{ github.workspace }}/artifacts/Beutl-linux-x64-${{ needs.determine-version.outputs.semVer }}.zip
+
+      - name: Update Metadata
+        shell: bash
+        run: |
+          cd packages/ubuntu22.04_amd64/usr/lib/beutl
+          cat asset_metadata.json | jq '. .id=`uuidgen` | .type="debian"' > asset_metadata.json
+          cat asset_metadata.json
 
       - name: Change mode
         run: |
@@ -233,6 +266,26 @@ jobs:
             --version ${{ needs.determine-version.outputs.nugetVer }} \
             --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
             --informational-version ${{ needs.determine-version.outputs.infoVer }}
+
+      - name: Store Metadata
+        shell: bash
+        run: |
+          cd output/AppBundle/Beutl.app/Contents/MacOS
+          ASSET_METADATA_ID=`uuidgen`
+          ASSET_METADATA_OS=`echo ${{ matrix.rid }} | cut -d '_' -f 1`
+          ASSET_METADATA_ARCH=`echo ${{ matrix.rid }} | cut -d '_' -f 2`
+          ASSET_METADATA_VERSION=${{ needs.determine-version.outputs.semVer }}
+          ASSET_METADATA_STANDALONE=true
+          ASSET_METADATA_TYPE=app
+          echo '{}' | jq \
+             --arg id $ASSET_METADATA_ID \
+             --arg os $ASSET_METADATA_OS \
+             --arg arch $ASSET_METADATA_ARCH \
+             --arg version $ASSET_METADATA_VERSION \
+             --arg standalone $ASSET_METADATA_STANDALONE \
+             --arg type $ASSET_METADATA_TYPE \
+            '.id=$id | .os=$os | .arch=$arch | .version=$version | .standalone=$standalone | .type=$type' > asset_metadata.json
+          cat asset_metadata.json
 
       - name: Zip
         run: |

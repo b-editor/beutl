@@ -1,14 +1,12 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Threading;
-
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Logging;
-
+using Beutl.ViewModels.Dialogs;
+using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.Logging;
-
 using OpenTelemetry.Trace;
 
 namespace Beutl.Services.StartupTasks;
@@ -25,29 +23,60 @@ public sealed class CheckForUpdatesTask : StartupTask
         {
             using (Activity? activity = Telemetry.StartActivity("CheckForUpdatesTask"))
             {
-                CheckForUpdatesResponse? response = await CheckForUpdates(activity);
-                activity?.AddEvent(new("Done_CheckForUpdates"));
+                activity?.AddEvent(new("Checking for updates"));
+                var (v1, v3) = await CheckForUpdates(activity);
+                activity?.AddEvent(new("Checked for updates"));
+                activity?.SetTag("IsLatest", v1?.IsLatest ?? v3?.IsLatest ?? true);
+                activity?.SetTag("MustLatest", v1?.MustLatest ?? v3?.MustLatest ?? false);
 
-                if (response != null)
+                if (v1 != null)
                 {
-                    if (!response.IsLatest)
+                    if (!v1.IsLatest)
                     {
+                        _logger.LogInformation("A new version is available: {VersionUrl}", v1.Url);
                         NotificationService.ShowInformation(
                             Message.A_new_version_is_available,
-                            response.Url,
+                            v1.Url,
                             onActionButtonClick: () =>
                             {
-                                Process.Start(new ProcessStartInfo(response.Url)
-                                {
-                                    UseShellExecute = true,
-                                    Verb = "open"
-                                });
+                                Process.Start(new ProcessStartInfo(v1.Url) { UseShellExecute = true, Verb = "open" });
                             },
                             actionButtonText: Strings.Open);
                     }
-                    else if (response.MustLatest)
+                    else if (v1.MustLatest)
                     {
-                        await ShowDialogAndClose(response);
+                        _logger.LogWarning("Current version must be updated to the latest version.");
+                        await ShowDialogAndClose(v1);
+                    }
+                }
+                else if (v3 != null)
+                {
+                    if (!v3.IsLatest)
+                    {
+                        _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
+                        NotificationService.ShowInformation(
+                            Message.A_new_version_is_available,
+                            message: Message.Do_you_want_to_install,
+                            onActionButtonClick: () =>
+                            {
+                                var viewModel = new UpdateDialogViewModel(v3);
+                                var dialog = new UpdateDialog { DataContext = viewModel };
+                                dialog.ShowAsync();
+                                viewModel.Start();
+                            },
+                            // TODO: Stringsに移動
+                            actionButtonText: ExtensionsPage.Install);
+                    }
+                    else if (v3.MustLatest)
+                    {
+                        _logger.LogWarning("Current version must be updated to the latest version.");
+                        await ShowDialogAndClose(new CheckForUpdatesResponse
+                        {
+                            Url = v3.Url!,
+                            IsLatest = v3.IsLatest,
+                            MustLatest = v3.MustLatest,
+                            LatestVersion = v3.LatestVersion
+                        });
                     }
                 }
             }
@@ -56,7 +85,7 @@ public sealed class CheckForUpdatesTask : StartupTask
 
     public override Task Task { get; }
 
-    private async ValueTask<CheckForUpdatesResponse?> CheckForUpdates(Activity? activity)
+    private async ValueTask<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdates(Activity? activity)
     {
         try
         {
@@ -67,7 +96,7 @@ public sealed class CheckForUpdatesTask : StartupTask
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "An error occurred while checking for updates");
             await ex.Handle();
-            return null;
+            return default;
         }
     }
 
@@ -86,11 +115,7 @@ public sealed class CheckForUpdatesTask : StartupTask
 
             await dialog.ShowAsync();
 
-            Process.Start(new ProcessStartInfo(response.Url)
-            {
-                UseShellExecute = true,
-                Verb = "open"
-            });
+            Process.Start(new ProcessStartInfo(response.Url) { UseShellExecute = true, Verb = "open" });
 
             (App.GetTopLevel() as Window)?.Close();
         });

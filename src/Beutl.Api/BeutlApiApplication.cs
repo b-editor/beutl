@@ -5,12 +5,21 @@ using System.Net.Mime;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
+using Nito.AsyncEx;
+using NuGet.Versioning;
 using Reactive.Bindings;
 using Refit;
+using Activity = System.Diagnostics.Activity;
+using IPackagesClient = Beutl.Api.Clients.IPackagesClient;
+using IReleasesClient = Beutl.Api.Clients.IReleasesClient;
+using IUsersClient = Beutl.Api.Clients.IUsersClient;
 
 namespace Beutl.Api;
 
@@ -21,6 +30,22 @@ public class BeutlApiApplication
     private readonly HttpClient _httpClient;
     private readonly ReactivePropertySlim<AuthorizedUser?> _authorizedUser = new();
     private readonly Dictionary<Type, Lazy<object>> _services = [];
+    private static readonly ILogger s_logger = Log.CreateLogger<BeutlApiApplication>();
+    private static readonly AsyncLazy<AssetMetadataJson?> s_metadata = new(async () =>
+    {
+        s_logger.LogInformation("Loading asset metadata");
+        string path = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
+        if (!File.Exists(path))
+        {
+            s_logger.LogWarning("Asset metadata not found");
+            return null;
+        }
+        string json = await File.ReadAllTextAsync(path);
+        var metadata = JsonSerializer.Deserialize<AssetMetadataJson>(json);
+        s_logger.LogInformation("Loaded asset metadata: {Metadata}", json);
+
+        return metadata;
+    });
 
     public BeutlApiApplication(HttpClient httpClient)
     {
@@ -68,9 +93,22 @@ public class BeutlApiApplication
 
     public IReadOnlyReactiveProperty<AuthorizedUser?> AuthorizedUser => _authorizedUser;
 
-    public Task<CheckForUpdatesResponse> CheckForUpdatesAsync(string version)
+    // 更新があるかどうかをチェックします
+    // このアプリケーションがアセットメタデータを持っている場合は、AppUpdateResponseを返します
+    // そうでない場合は、CheckForUpdatesResponseを返します
+    public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(string version)
     {
-        return App.CheckForUpdates(version);
+        var metadata = await LoadMetadata();
+        if (metadata == null) return (await App.CheckForUpdates(version), null);
+        var update = await App.GetUpdate(
+            version, metadata.Type, metadata.OS, metadata.Arch,
+            metadata.Standalone, "false");
+        return (null, update);
+    }
+
+    public static async Task<AssetMetadataJson?> LoadMetadata()
+    {
+        return await s_metadata;
     }
 
     public T GetResource<T>()
@@ -166,8 +204,7 @@ public class BeutlApiApplication
 
             AuthResponse authResponse = await Account.Exchange(new ExchangeRequest
             {
-                Code = code,
-                SessionId = authUriRes.SessionId
+                Code = code, SessionId = authUriRes.SessionId
             });
             activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
@@ -211,8 +248,7 @@ public class BeutlApiApplication
 
                 AuthResponse authResponse = await Account.Exchange(new ExchangeRequest
                 {
-                    Code = code,
-                    SessionId = authUriRes.SessionId
+                    Code = code, SessionId = authUriRes.SessionId
                 });
                 activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
@@ -298,12 +334,7 @@ public class BeutlApiApplication
                 {
                     return new AuthorizedUser(
                         new Profile(profile, this),
-                        new AuthResponse
-                        {
-                            Expiration = expiration.Value,
-                            RefreshToken = refreshToken,
-                            Token = token
-                        },
+                        new AuthResponse { Expiration = expiration.Value, RefreshToken = refreshToken, Token = token },
                         this,
                         _httpClient,
                         lastWriteTime);
@@ -383,4 +414,20 @@ public class BeutlApiApplication
 
         return stream ?? throw new Exception("Embedded resource not found.");
     }
+}
+
+public sealed class AssetMetadataJson
+{
+    [JsonPropertyName("id")] public required string Id { get; init; }
+
+    [JsonPropertyName("os")] public required string OS { get; init; }
+
+    [JsonPropertyName("arch")] public required string Arch { get; init; }
+
+    [JsonPropertyName("version")] public required string Version { get; init; }
+
+    [JsonPropertyName("standalone")] public required string Standalone { get; init; }
+
+    // zip,debian,installer,app
+    [JsonPropertyName("type")] public required string Type { get; init; }
 }

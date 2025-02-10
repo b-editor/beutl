@@ -1373,4 +1373,7 @@
   <data name="AboutBeutl" xml:space="preserve">
     <value>Beutlについて</value>
   </data>
+  <data name="Update" xml:space="preserve">
+    <value>更新</value>
+  </data>
 </root>
