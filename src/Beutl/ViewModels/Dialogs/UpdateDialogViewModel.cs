@@ -115,15 +115,23 @@ public class UpdateDialogViewModel
     {
         if (metadata.Type == "debian")
         {
-            // if (_downloadFile == null)
-            // {
-            //     ProgressText.Value = "ダウンロードに失敗しました";
-            //     return;
-            // }
+            if (_downloadFile == null)
+            {
+                ProgressText.Value = "ダウンロードに失敗しました";
+                return;
+            }
 
-            // var psi = new ProcessStartInfo(_downloadFile) { UseShellExecute = true, Verb = "open" };
-            // _ = Process.Start(psi);
-            // (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+            var psi = new ProcessStartInfo("bash")
+            {
+                UseShellExecute = true,
+                ArgumentList =
+                {
+                    "-c",
+                    $"sudo apt update && sudo apt install {_downloadFile}"
+                }
+            };
+            _ = Process.Start(psi);
+            (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
         }
         else if (metadata.Type == "zip")
         {
@@ -247,7 +255,7 @@ public class UpdateDialogViewModel
                 IsPrimaryButtonEnabled.Value = true;
             }
 
-            if (metadata.Type == "installer")
+            if (metadata.Type is "installer" or "debian")
             {
                 ProgressText.Value = "インストーラーを起動します";
                 IsPrimaryButtonEnabled.Value = true;
