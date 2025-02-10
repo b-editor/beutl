@@ -89,17 +89,6 @@ public class BeutlApiApplication
 
     public static async Task<AssetMetadataJson?> LoadMetadata()
     {
-        #if DEBUG
-        return new AssetMetadataJson
-        {
-            Arch = "arm64",
-            Id = Guid.NewGuid().ToString(),
-            OS = "osx",
-            Standalone = "false",
-            Type = "zip",
-            Version = "1.0.0"
-        };
-        #endif
         string path = Path.Combine(AppContext.BaseDirectory, "asset_metadata.json");
         if (!File.Exists(path)) return null;
         string json = await File.ReadAllTextAsync(path);
