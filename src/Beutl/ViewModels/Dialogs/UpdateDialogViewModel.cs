@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.Api;
 using Beutl.Api.Clients;
 using Beutl.Configuration;
+using Beutl.Services;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
@@ -35,7 +36,7 @@ public class UpdateDialogViewModel
         var metadata = await BeutlApiApplication.LoadMetadata();
         if (metadata == null)
         {
-            ProgressText.Value = "メタデータの取得に失敗しました";
+            ProgressText.Value = Message.Failed_to_load_metadata;
             return;
         }
 
@@ -59,7 +60,7 @@ public class UpdateDialogViewModel
         {
             if (_downloadFile == null)
             {
-                ProgressText.Value = "ダウンロードに失敗しました";
+                ProgressText.Value = Message.Download_failed;
                 return;
             }
 
@@ -69,25 +70,21 @@ public class UpdateDialogViewModel
         }
         else if (metadata.Type == "zip")
         {
-            var script =
-                typeof(UpdateDialogViewModel).Assembly.GetManifestResourceStream("Beutl.Resources.win-update.ps1");
-            if (script == null)
+            string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.sh");
+            await using (var fs = File.Create(scriptPath))
             {
-                ProgressText.Value = "スクリプトの読み込みに失敗しました";
-                return;
+                // UTF-8 BOMを書き込む
+                await fs.WriteAsync(new byte[] { 0xEF, 0xBB, 0xBF });
+                if (!await LoadScript("Beutl.Resources.win-update.ps1", fs))
+                {
+                    ProgressText.Value = Message.Failed_to_load_script;
+                    return;
+                }
             }
 
             var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update",
                 new DirectoryInfo(AppContext.BaseDirectory).Name);
             var target = AppContext.BaseDirectory;
-
-            var scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.ps1");
-            await using (var fs = File.Create(scriptPath))
-            {
-                // UTF-8 BOMを書き込む
-                await fs.WriteAsync(new byte[] { 0xEF, 0xBB, 0xBF });
-                await script.CopyToAsync(fs);
-            }
 
             var psi = new ProcessStartInfo(@"C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.EXE")
             {
@@ -117,41 +114,33 @@ public class UpdateDialogViewModel
         {
             if (_downloadFile == null)
             {
-                ProgressText.Value = "ダウンロードに失敗しました";
+                ProgressText.Value = Message.Download_failed;
                 return;
             }
 
             var psi = new ProcessStartInfo("bash")
             {
                 UseShellExecute = true,
-                ArgumentList =
-                {
-                    "-c",
-                    $"sudo apt update && sudo apt install {_downloadFile}"
-                }
+                ArgumentList = { "-c", $"sudo apt update && sudo apt install {_downloadFile}" }
             };
             _ = Process.Start(psi);
             (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
         }
         else if (metadata.Type == "zip")
         {
-            var script =
-                typeof(UpdateDialogViewModel).Assembly.GetManifestResourceStream("Beutl.Resources.linux-update.sh");
-            if (script == null)
+            string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.sh");
+            await using (var fs = File.Create(scriptPath))
             {
-                ProgressText.Value = "スクリプトの読み込みに失敗しました";
-                return;
+                if (!await LoadScript("Beutl.Resources.linux-update.sh", fs))
+                {
+                    ProgressText.Value = Message.Failed_to_load_script;
+                    return;
+                }
             }
 
             var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update",
                 new DirectoryInfo(AppContext.BaseDirectory).Name);
             var target = AppContext.BaseDirectory;
-
-            var scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.sh");
-            await using (var fs = File.Create(scriptPath))
-            {
-                await script.CopyToAsync(fs);
-            }
 
             var psi = new ProcessStartInfo("bash")
             {
@@ -174,11 +163,14 @@ public class UpdateDialogViewModel
 
     private async Task InstallOnOSX(AssetMetadataJson metadata)
     {
-        var script = typeof(UpdateDialogViewModel).Assembly.GetManifestResourceStream("Beutl.Resources.osx-update.sh");
-        if (script == null)
+        string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.sh");
+        await using (var fs = File.Create(scriptPath))
         {
-            ProgressText.Value = "スクリプトの読み込みに失敗しました";
-            return;
+            if (!await LoadScript("Beutl.Resources.osx-update.sh", fs))
+            {
+                ProgressText.Value = Message.Failed_to_load_script;
+                return;
+            }
         }
 
         var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update");
@@ -195,12 +187,6 @@ public class UpdateDialogViewModel
         if (metadata.Type == "app")
         {
             target = Path.GetFullPath("../../", AppContext.BaseDirectory);
-        }
-
-        var scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.sh");
-        await using (var fs = File.Create(scriptPath))
-        {
-            await script.CopyToAsync(fs);
         }
 
         var psi = new ProcessStartInfo("bash")
@@ -230,7 +216,7 @@ public class UpdateDialogViewModel
             var metadata = await BeutlApiApplication.LoadMetadata();
             if (metadata == null)
             {
-                ProgressText.Value = "メタデータの取得に失敗しました";
+                ProgressText.Value = Message.Failed_to_load_metadata;
                 return;
             }
 
@@ -251,13 +237,13 @@ public class UpdateDialogViewModel
                 var result = await ExtractIfNeeded(_downloadFile, destination);
                 if (!result) return;
 
-                ProgressText.Value = "アプリケーションの再起動が必要です。\n再起動しますか？";
+                ProgressText.Value = Message.The_application_needs_to_be_restarted;
                 IsPrimaryButtonEnabled.Value = true;
             }
 
             if (metadata.Type is "installer" or "debian")
             {
-                ProgressText.Value = "インストーラーを起動します";
+                ProgressText.Value = Message.Start_the_installer;
                 IsPrimaryButtonEnabled.Value = true;
             }
         });
@@ -270,7 +256,7 @@ public class UpdateDialogViewModel
             ProgressValue.Value = 0;
             ProgressMax.Value = 1;
             IsIndeterminate.Value = false;
-            ProgressText.Value = "ダウンロード中...";
+            ProgressText.Value = Message.Downloading;
             var ct = _cts.Token;
 
             using var client = new HttpClient();
@@ -290,6 +276,7 @@ public class UpdateDialogViewModel
             {
                 Directory.CreateDirectory(directory);
             }
+
             file = Path.Combine(directory, file);
 
             await using var destination = File.Create(file);
@@ -314,7 +301,7 @@ public class UpdateDialogViewModel
                 }
             }
 
-            ProgressText.Value = "ダウンロードが完了しました";
+            ProgressText.Value = Message.Download_is_complete;
             ProgressValue.Value = 1;
             IsIndeterminate.Value = false;
 
@@ -322,7 +309,7 @@ public class UpdateDialogViewModel
         }
         catch (OperationCanceledException)
         {
-            ProgressText.Value = "キャンセルされました";
+            ProgressText.Value = Message.Canceled;
             return null;
         }
         catch (Exception e)
@@ -338,7 +325,7 @@ public class UpdateDialogViewModel
         using (var source = ZipFile.Open(file, ZipArchiveMode.Read))
         {
             ProgressMax.Value = source.Entries.Count;
-            ProgressText.Value = "展開中...";
+            ProgressText.Value = Message.Extracting;
             foreach (var entry in source.Entries)
             {
                 if (entry.Length != 0)
@@ -355,7 +342,7 @@ public class UpdateDialogViewModel
         }
 
         File.Delete(file);
-        ProgressText.Value = "展開が完了しました";
+        ProgressText.Value = Message.Extraction_is_complete;
         ProgressValue.Value = ProgressMax.Value;
         IsIndeterminate.Value = false;
         return true;
@@ -365,5 +352,23 @@ public class UpdateDialogViewModel
     {
         if (_cts.IsCancellationRequested) return;
         _cts.Cancel();
+    }
+
+    private async Task<bool> LoadScript(string name, Stream stream)
+    {
+        var source = typeof(UpdateDialogViewModel).Assembly.GetManifestResourceStream(name);
+        if (source == null)
+        {
+            return false;
+        }
+
+        using var reader = new StreamReader(source);
+        await using var writer = new StreamWriter(stream);
+
+        var renderer = new SimpleTemplateRenderer(
+            await reader.ReadToEndAsync(), [typeof(Strings), typeof(Message)]);
+        var script = renderer.Render();
+        await writer.WriteAsync(script);
+        return true;
     }
 }
