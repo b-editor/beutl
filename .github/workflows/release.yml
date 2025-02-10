@@ -267,11 +267,24 @@ jobs:
             --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
             --informational-version ${{ needs.determine-version.outputs.infoVer }}
 
-      - name: Update Metadata
+      - name: Store Metadata
         shell: bash
         run: |
-          cd cd output/AppBundle/Beutl.app/Contents/MacOS
-          cat asset_metadata.json | jq '. .id=`uuidgen` | .type="app"' > asset_metadata.json
+          cd output/AppBundle/Beutl.app/Contents/MacOS
+          ASSET_METADATA_ID=`uuidgen`
+          ASSET_METADATA_OS=`echo ${{ matrix.rid }} | cut -d '_' -f 1`
+          ASSET_METADATA_ARCH=`echo ${{ matrix.rid }} | cut -d '_' -f 2`
+          ASSET_METADATA_VERSION=${{ needs.determine-version.outputs.semVer }}
+          ASSET_METADATA_STANDALONE=true
+          ASSET_METADATA_TYPE=app
+          echo '{}' | jq \
+             --arg id $ASSET_METADATA_ID \
+             --arg os $ASSET_METADATA_OS \
+             --arg arch $ASSET_METADATA_ARCH \
+             --arg version $ASSET_METADATA_VERSION \
+             --arg standalone $ASSET_METADATA_STANDALONE \
+             --arg type $ASSET_METADATA_TYPE \
+            '.id=$id | .os=$os | .arch=$arch | .version=$version | .standalone=$standalone | .type=$type' > asset_metadata.json
           cat asset_metadata.json
 
       - name: Zip
