@@ -142,6 +142,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\osx-update.sh" />
+    <EmbeddedResource Include="Resources\linux-update.sh" />
     <EmbeddedResource Include="Resources\win-update.ps1" />
   </ItemGroup>
 

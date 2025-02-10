@@ -43,6 +43,10 @@ public class UpdateDialogViewModel
         {
             await InstallOnOSX(metadata);
         }
+        else if (OperatingSystem.IsLinux())
+        {
+            await InstallOnLinux(metadata);
+        }
         else if (OperatingSystem.IsWindows())
         {
             await InstallOnWindows(metadata);
@@ -99,6 +103,59 @@ public class UpdateDialogViewModel
                     target,
                     "Beutl",
                     Path.Combine(AppContext.BaseDirectory, "Beutl.exe")
+                }
+            };
+
+            Process.Start(psi);
+            (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+        }
+    }
+
+    private async Task InstallOnLinux(AssetMetadataJson metadata)
+    {
+        if (metadata.Type == "debian")
+        {
+            // if (_downloadFile == null)
+            // {
+            //     ProgressText.Value = "ダウンロードに失敗しました";
+            //     return;
+            // }
+
+            // var psi = new ProcessStartInfo(_downloadFile) { UseShellExecute = true, Verb = "open" };
+            // _ = Process.Start(psi);
+            // (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+        }
+        else if (metadata.Type == "zip")
+        {
+            var script =
+                typeof(UpdateDialogViewModel).Assembly.GetManifestResourceStream("Beutl.Resources.linux-update.sh");
+            if (script == null)
+            {
+                ProgressText.Value = "スクリプトの読み込みに失敗しました";
+                return;
+            }
+
+            var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update",
+                new DirectoryInfo(AppContext.BaseDirectory).Name);
+            var target = AppContext.BaseDirectory;
+
+            var scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.sh");
+            await using (var fs = File.Create(scriptPath))
+            {
+                await script.CopyToAsync(fs);
+            }
+
+            var psi = new ProcessStartInfo("bash")
+            {
+                UseShellExecute = true,
+                Verb = "open",
+                ArgumentList =
+                {
+                    scriptPath,
+                    directory,
+                    target,
+                    "Beutl",
+                    Path.Combine(AppContext.BaseDirectory, "Beutl")
                 }
             };
 
