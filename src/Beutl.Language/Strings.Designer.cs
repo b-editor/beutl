@@ -2546,5 +2546,11 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("AboutBeutl", resourceCulture);
             }
         }
+        
+        public static string Update {
+            get {
+                return ResourceManager.GetString("Update", resourceCulture);
+            }
+        }
     }
 }

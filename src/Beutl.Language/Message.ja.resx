@@ -294,4 +294,104 @@
   <data name="ProjectVersionMismatch_Title" xml:space="preserve">
     <value>バージョンの不一致</value>
   </data>
+  <data name="Failed_to_load_metadata" xml:space="preserve">
+    <value>メタデータの読み込みに失敗しました</value>
+  </data>
+  <data name="Download_failed" xml:space="preserve">
+    <value>ダウンロードに失敗しました。</value>
+  </data>
+  <data name="Failed_to_load_script" xml:space="preserve">
+    <value>スクリプトの読み込みに失敗しました。</value>
+  </data>
+  <data name="The_application_needs_to_be_restarted" xml:space="preserve">
+    <value>アプリケーションの再起動が必要です。
+再起動しますか？</value>
+  </data>
+  <data name="Start_the_installer" xml:space="preserve">
+    <value>インストーラーを起動します</value>
+  </data>
+  <data name="Downloading" xml:space="preserve">
+    <value>ダウンロード中...</value>
+  </data>
+  <data name="Download_is_complete" xml:space="preserve">
+    <value>ダウンロードが完了しました。</value>
+  </data>
+  <data name="Canceled" xml:space="preserve">
+    <value>キャンセルされました</value>
+  </data>
+  <data name="Extracting" xml:space="preserve">
+    <value>展開中...</value>
+  </data>
+  <data name="Extraction_is_complete" xml:space="preserve">
+    <value>展開が完了しました。</value>
+  </data>
+  <data name="An_error_has_occurred_Terminate_script" xml:space="preserve">
+    <value>エラーが発生しました。スクリプトを終了します。</value>
+  </data>
+  <data name="Press_Enter_to_continue" xml:space="preserve">
+    <value>Enterキーを押して続行してください...</value>
+  </data>
+  <data name="Error_Update_directory_does_not_exist" xml:space="preserve">
+    <value>Error: 更新用ディレクトリが存在しません。</value>
+  </data>
+  <data name="Exit_the_application" xml:space="preserve">
+    <value>アプリケーション (Beutl) を終了してください。</value>
+  </data>
+  <data name="Press_the_Enter_key_when_finished" xml:space="preserve">
+    <value>終了後、Enterキーを押してください。</value>
+  </data>
+  <data name="Acquiring_lock" xml:space="preserve">
+    <value>ロックを取得中...</value>
+  </data>
+  <data name="Lock_acquired" xml:space="preserve">
+    <value>ロックを取得しました。</value>
+  </data>
+  <data name="Failed_to_acquire_lock" xml:space="preserve">
+    <value>ロックの取得に失敗しました。</value>
+  </data>
+  <data name="Create_backup_of_current_application" xml:space="preserve">
+    <value>現行アプリケーションのバックアップを作成:</value>
+  </data>
+  <data name="Failed_to_create_backup" xml:space="preserve">
+    <value>バックアップの作成に失敗しました。</value>
+  </data>
+  <data name="Updating_files_in_place" xml:space="preserve">
+    <value>更新ファイルを配置中...</value>
+  </data>
+  <data name="Update_placement_failed_Restore_backup" xml:space="preserve">
+    <value>更新の配置に失敗しました。バックアップを復元します...</value>
+  </data>
+  <data name="The_update_has_been_completed" xml:space="preserve">
+    <value>更新が完了しました。</value>
+  </data>
+  <data name="Lock_released" xml:space="preserve">
+    <value>ロックを解除しました。</value>
+  </data>
+  <data name="Update_completed_yes_no" xml:space="preserve">
+    <value>更新が完了しました。アプリケーションを起動しますか？ (y/n):</value>
+  </data>
+  <data name="Launch_the_application" xml:space="preserve">
+    <value>アプリケーションを起動します...</value>
+  </data>
+  <data name="Failed_to_change_application_execution_permissions" xml:space="preserve">
+    <value>アプリケーションの実行権限の変更に失敗しました。</value>
+  </data>
+  <data name="The_application_execution_path_is_not_specified" xml:space="preserve">
+    <value>アプリケーションの実行パスが指定されていません。</value>
+  </data>
+  <data name="The_application_was_not_launched" xml:space="preserve">
+    <value>アプリケーションは起動されませんでした。</value>
+  </data>
+  <data name="Click_OK_after_completion" xml:space="preserve">
+    <value>終了後OKをクリックしてください</value>
+  </data>
+  <data name="Update_completed_Do_you_want_to_start_the_ߋn_application" xml:space="preserve">
+    <value>更新が完了しました。アプリケーションを起動しますか？</value>
+  </data>
+  <data name="Failed_to_restore_backup" xml:space="preserve">
+    <value>バックアップの復元に失敗しました。</value>
+  </data>
+  <data name="Failed_to_delete_backup" xml:space="preserve">
+    <value>バックアップの削除に失敗しました。</value>
+  </data>
 </root>

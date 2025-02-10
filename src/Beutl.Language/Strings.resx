@@ -1368,4 +1368,7 @@
   <data name="AboutBeutl" xml:space="preserve">
     <value>About Beutl</value>
   </data>
+  <data name="Update" xml:space="preserve">
+    <value>Update</value>
+  </data>
 </root>

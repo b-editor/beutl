@@ -386,5 +386,203 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("ProjectVersionMismatch_Content", resourceCulture);
             }
         }
+        
+        public static string Failed_to_load_metadata {
+            get {
+                return ResourceManager.GetString("Failed_to_load_metadata", resourceCulture);
+            }
+        }
+        
+        public static string Download_failed {
+            get {
+                return ResourceManager.GetString("Download_failed", resourceCulture);
+            }
+        }
+        
+        public static string Failed_to_load_script {
+            get {
+                return ResourceManager.GetString("Failed_to_load_script", resourceCulture);
+            }
+        }
+        
+        public static string The_application_needs_to_be_restarted {
+            get {
+                return ResourceManager.GetString("The_application_needs_to_be_restarted", resourceCulture);
+            }
+        }
+        
+        public static string Start_the_installer {
+            get {
+                return ResourceManager.GetString("Start_the_installer", resourceCulture);
+            }
+        }
+        
+        public static string Downloading {
+            get {
+                return ResourceManager.GetString("Downloading", resourceCulture);
+            }
+        }
+        
+        public static string Download_is_complete {
+            get {
+                return ResourceManager.GetString("Download_is_complete", resourceCulture);
+            }
+        }
+        
+        public static string Canceled {
+            get {
+                return ResourceManager.GetString("Canceled", resourceCulture);
+            }
+        }
+        
+        public static string Extracting {
+            get {
+                return ResourceManager.GetString("Extracting", resourceCulture);
+            }
+        }
+        
+        public static string Extraction_is_complete {
+            get {
+                return ResourceManager.GetString("Extraction_is_complete", resourceCulture);
+            }
+        }
+        
+        public static string An_error_has_occurred_Terminate_script {
+            get {
+                return ResourceManager.GetString("An_error_has_occurred_Terminate_script", resourceCulture);
+            }
+        }
+        
+        public static string Press_Enter_to_continue {
+            get {
+                return ResourceManager.GetString("Press_Enter_to_continue", resourceCulture);
+            }
+        }
+        
+        public static string Error_Update_directory_does_not_exist {
+            get {
+                return ResourceManager.GetString("Error_Update_directory_does_not_exist", resourceCulture);
+            }
+        }
+        
+        public static string Exit_the_application {
+            get {
+                return ResourceManager.GetString("Exit_the_application", resourceCulture);
+            }
+        }
+        
+        public static string Press_the_Enter_key_when_finished {
+            get {
+                return ResourceManager.GetString("Press_the_Enter_key_when_finished", resourceCulture);
+            }
+        }
+        
+        public static string Acquiring_lock {
+            get {
+                return ResourceManager.GetString("Acquiring_lock", resourceCulture);
+            }
+        }
+        
+        public static string Lock_acquired {
+            get {
+                return ResourceManager.GetString("Lock_acquired", resourceCulture);
+            }
+        }
+        
+        public static string Failed_to_acquire_lock {
+            get {
+                return ResourceManager.GetString("Failed_to_acquire_lock", resourceCulture);
+            }
+        }
+        
+        public static string Create_backup_of_current_application {
+            get {
+                return ResourceManager.GetString("Create_backup_of_current_application", resourceCulture);
+            }
+        }
+        
+        public static string Failed_to_create_backup {
+            get {
+                return ResourceManager.GetString("Failed_to_create_backup", resourceCulture);
+            }
+        }
+        
+        public static string Updating_files_in_place {
+            get {
+                return ResourceManager.GetString("Updating_files_in_place", resourceCulture);
+            }
+        }
+        
+        public static string Update_placement_failed_Restore_backup {
+            get {
+                return ResourceManager.GetString("Update_placement_failed_Restore_backup", resourceCulture);
+            }
+        }
+        
+        public static string The_update_has_been_completed {
+            get {
+                return ResourceManager.GetString("The_update_has_been_completed", resourceCulture);
+            }
+        }
+        
+        public static string Lock_released {
+            get {
+                return ResourceManager.GetString("Lock_released", resourceCulture);
+            }
+        }
+        
+        public static string Update_completed_yes_no {
+            get {
+                return ResourceManager.GetString("Update_completed_yes_no", resourceCulture);
+            }
+        }
+        
+        public static string Launch_the_application {
+            get {
+                return ResourceManager.GetString("Launch_the_application", resourceCulture);
+            }
+        }
+        
+        public static string Failed_to_change_application_execution_permissions {
+            get {
+                return ResourceManager.GetString("Failed_to_change_application_execution_permissions", resourceCulture);
+            }
+        }
+        
+        public static string The_application_execution_path_is_not_specified {
+            get {
+                return ResourceManager.GetString("The_application_execution_path_is_not_specified", resourceCulture);
+            }
+        }
+        
+        public static string The_application_was_not_launched {
+            get {
+                return ResourceManager.GetString("The_application_was_not_launched", resourceCulture);
+            }
+        }
+        
+        public static string Click_OK_after_completion {
+            get {
+                return ResourceManager.GetString("Click_OK_after_completion", resourceCulture);
+            }
+        }
+        
+        public static string Update_completed_Do_you_want_to_start_the_ߋn_application {
+            get {
+                return ResourceManager.GetString("Update_completed_Do_you_want_to_start_the_ߋn_application", resourceCulture);
+            }
+        }
+        
+        public static string Failed_to_restore_backup {
+            get {
+                return ResourceManager.GetString("Failed_to_restore_backup", resourceCulture);
+            }
+        }
+        
+        public static string Failed_to_delete_backup {
+            get {
+                return ResourceManager.GetString("Failed_to_delete_backup", resourceCulture);
+            }
+        }
     }
 }
