@@ -90,6 +90,7 @@ internal class Telemetry : IDisposable
             return Sdk.CreateTracerProviderBuilder()
                 .SetResourceBuilder(_resourceBuilder.Value)
                 .AddProcessor(new AddVersionActivityProcessor())
+                .AddProcessor(new RemoveSensitiveDataProcessor())
                 .AddSource([.. list])
                 .AddAzureMonitorTraceExporter(b => b.ConnectionString = $"InstrumentationKey={Instrumentation}")
                 .Build();
@@ -144,6 +145,7 @@ internal class Telemetry : IDisposable
                 builder.AddOpenTelemetry(o => o
                     .SetResourceBuilder(_resourceBuilder.Value)
                     .AddProcessor(new AddVersionLogProcessor())
+                    .AddProcessor(new RemoveSensitiveDataLogProcessor())
                     .AddAzureMonitorLogExporter(az => az.ConnectionString = $"InstrumentationKey={Instrumentation}"));
             }
         });
@@ -252,6 +254,49 @@ internal class Telemetry : IDisposable
             else
             {
                 data.Attributes = s_attributes!;
+            }
+        }
+    }
+
+    internal static class SensitiveData
+    {
+        public static readonly string Home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    }
+
+    internal class RemoveSensitiveDataProcessor : BaseProcessor<Activity>
+    {
+        public override void OnEnd(Activity data)
+        {
+            base.OnEnd(data);
+            foreach (KeyValuePair<string, string?> pair in data.Tags)
+            {
+                if (pair.Value?.Contains(SensitiveData.Home) == true)
+                {
+                    data.SetTag(pair.Key, pair.Value.Replace(SensitiveData.Home, "<Home>"));
+                }
+            }
+        }
+    }
+
+    internal class RemoveSensitiveDataLogProcessor : BaseProcessor<LogRecord>
+    {
+        public override void OnEnd(LogRecord data)
+        {
+            base.OnEnd(data);
+            if (data.Attributes != null)
+            {
+                data.Attributes =
+                [
+                    ..data.Attributes.Select(i =>
+                    {
+                        if (i.Value is string str && str.Contains(SensitiveData.Home))
+                        {
+                            return new KeyValuePair<string, object?>(i.Key, str.Replace(SensitiveData.Home, "<Home>"));
+                        }
+
+                        return i;
+                    })
+                ];
             }
         }
     }
