@@ -150,13 +150,12 @@ jobs:
           7z x ../../artifacts/beutl-win-x64${{ matrix.standalone == true && '-standalone' || '' }}-${{ needs.determine-version.outputs.semVer }}.zip
 
       - name: Update Metadata
-        shell: bash
+        shell: pwsh
         run: |
             cd output/Beutl
-            ASSET_METADATA_ID=$(uuidgen)
-            jq --arg id "$ASSET_METADATA_ID" '.id=$id | .type="installer"' asset_metadata.json > temp_asset_metadata.json
-            mv temp_asset_metadata.json asset_metadata.json
-            cat asset_metadata.json
+            $ASSET_METADATA_ID = [guid]::NewGuid().ToString()
+            Get-Content asset_metadata.json | jq --arg id "$ASSET_METADATA_ID" '.id=$id | .type="installer"' | Set-Content asset_metadata.json
+            Get-Content asset_metadata.json
 
       - name: Build installer
         run: |
@@ -200,7 +199,8 @@ jobs:
         shell: bash
         run: |
           cd packages/ubuntu22.04_amd64/usr/lib/beutl
-          cat asset_metadata.json | jq '. .id=`uuidgen` | .type="debian"' > asset_metadata.json
+          ASSET_METADATA_ID=`uuidgen`
+          cat asset_metadata.json | jq --arg id "$ASSET_METADATA_ID" '. .id=$id | .type="debian"' > asset_metadata.json
           cat asset_metadata.json
 
       - name: Change mode
