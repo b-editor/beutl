@@ -111,7 +111,7 @@ public class DownloadTaskModel : IProgress<double>
         }
         catch (ApiException apiEx)
         {
-            var errorResponse = await apiEx.GetContentAsAsync<ApiErrorResponse>();
+            var errorResponse = await TryGetApiErrorResponse(apiEx);
             _logger.LogError(apiEx, "API exception occurred while downloading package {PackageId} version {Version}.", _model.Id, _model.Version);
             ErrorMessage.Value = errorResponse?.Message ?? apiEx.Message;
             Failed.Value = true;
@@ -141,6 +141,19 @@ public class DownloadTaskModel : IProgress<double>
             IsIndeterminate.Value = false;
             IsRunning.Value = false;
             _logger.LogInformation("Download task ended for package {PackageId} version {Version}.", _model.Id, _model.Version);
+        }
+    }
+
+    private async Task<ApiErrorResponse?> TryGetApiErrorResponse(ApiException error)
+    {
+        try
+        {
+            return await error.GetContentAsAsync<ApiErrorResponse>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while handling API error: {ApiContent}", error.Content);
+            return null;
         }
     }
 

@@ -29,15 +29,23 @@ public sealed class AuthenticationTask : StartupTask
                     _logger.LogError(e, "An error occurred during authentication");
                     if (e is ApiException error)
                     {
-                        var apiErr = await error.GetContentAsAsync<ApiErrorResponse>();
-                        if (apiErr?.ErrorCode == ApiErrorCode.InvalidRefreshToken)
+                        try
                         {
-                            _beutlApiApplication.SignOut();
-                            NotificationService.ShowError(
-                                Strings.Account,
-                                Message.Signin_has_become_invalid,
-                                onActionButtonClick: () => _ = _beutlApiApplication.SignInAsync(default),
-                                actionButtonText: SettingsPage.SignIn);
+                            var apiErr = await error.GetContentAsAsync<ApiErrorResponse>();
+                            if (apiErr?.ErrorCode == ApiErrorCode.InvalidRefreshToken)
+                            {
+                                _beutlApiApplication.SignOut();
+                                NotificationService.ShowError(
+                                    Strings.Account,
+                                    Message.Signin_has_become_invalid,
+                                    onActionButtonClick: () => _ = _beutlApiApplication.SignInAsync(default),
+                                    actionButtonText: SettingsPage.SignIn);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error while handling API error: {ApiContent}", error.Content);
+                            NotificationService.ShowError("API Error", error.Message);
                         }
                     }
                     else
