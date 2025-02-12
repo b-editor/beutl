@@ -302,7 +302,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.KEYCHAIN_PASSWORD}}" build.keychain
 
           # Store the credential in the keychain
-          xcrun notarytool store-credentials "AC_PASSWORD" --apple-id "${{ secrets.APPLE_ID }}" --team-id ${{ env.TEAM_ID }} --password "${{ secrets.APPLE_APP_PASSWORD }}"
+          xcrun notarytool store-credentials "AC_PASSWORD" --apple-id "${{ secrets.APPLE_ID }}" --team-id ${{ secrets.TEAM_ID }} --password "${{ secrets.APPLE_APP_PASSWORD }}"
 
       - name: Code sign
         env:
