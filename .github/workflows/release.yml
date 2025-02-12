@@ -313,13 +313,13 @@ jobs:
           find "$APP_NAME/Contents/MacOS/"|while read fname; do
             if [[ -f $fname ]]; then
               echo "[INFO] Signing $fname"
-              codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" "$fname"
+              codesign --deep --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" "$fname"
             fi
           done
 
           echo "[INFO] Signing app file"
 
-          codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" "$APP_NAME"
+          codesign --deep --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" "$APP_NAME"
 
       - name: Verify
         run: |
