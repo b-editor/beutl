@@ -152,9 +152,11 @@ jobs:
       - name: Update Metadata
         shell: bash
         run: |
-          cd output/Beutl
-          cat asset_metadata.json | jq '. .id=`uuidgen` | .type="installer"' > asset_metadata.json
-          cat asset_metadata.json
+            cd output/Beutl
+            ASSET_METADATA_ID=$(uuidgen)
+            jq --arg id "$ASSET_METADATA_ID" '.id=$id | .type="installer"' asset_metadata.json > temp_asset_metadata.json
+            mv temp_asset_metadata.json asset_metadata.json
+            cat asset_metadata.json
 
       - name: Build installer
         run: |
