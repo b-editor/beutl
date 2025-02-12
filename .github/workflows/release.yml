@@ -140,14 +140,14 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: beutl-win_x64-standalone-${{ needs.determine-version.outputs.semVer }}
+          name: beutl-win_x64${{ matrix.standalone == true && '-standalone' || '' }}-${{ needs.determine-version.outputs.semVer }}
           path: artifacts
 
       - name: Extract zip
         run: |
           mkdir output/Beutl
           cd output/Beutl
-          7z x ../../artifacts/beutl-win-x64-standalone-${{ needs.determine-version.outputs.semVer }}.zip
+          7z x ../../artifacts/beutl-win-x64${{ matrix.standalone == true && '-standalone' || '' }}-${{ needs.determine-version.outputs.semVer }}.zip
 
       - name: Update Metadata
         shell: bash
@@ -160,7 +160,7 @@ jobs:
         run: |
           ./build.cmd build-installer `
             --skip publish `
-            --self-contained true `
+            --self-contained ${{ matrix.standalone }} `
             --assembly-version ${{ needs.determine-version.outputs.asmVer }}
 
       - name: Save installer
@@ -192,7 +192,7 @@ jobs:
           cd packages/ubuntu22.04_amd64/usr
           mkdir -p lib/beutl
           cd lib/beutl
-          unzip ${{ github.workspace }}/artifacts/Beutl-linux-x64-${{ needs.determine-version.outputs.semVer }}.zip
+          unzip ${{ github.workspace }}/artifacts/Beutl-linux-x64-standalone-${{ needs.determine-version.outputs.semVer }}.zip
 
       - name: Update Metadata
         shell: bash
