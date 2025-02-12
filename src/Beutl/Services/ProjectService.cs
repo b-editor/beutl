@@ -98,7 +98,7 @@ public sealed class ProjectService
             _projectObservable.OnNext((New: null, project));
             project.Dispose();
             _app.Project = null;
-            _logger.LogInformation("Closed project. Project: {Project}", project);
+            _logger.LogInformation("Closed project. Project: {Project}", project.FileName);
         }
     }
 
