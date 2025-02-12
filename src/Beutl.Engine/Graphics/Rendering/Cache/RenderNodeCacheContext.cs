@@ -127,6 +127,12 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
         node.Cache.StoreCache(arr);
 
         _logger.LogInformation("Created cache for node {Node}.", node);
+
+        // 参照のデクリメント
+        foreach ((RenderTarget target, Rect _) in arr)
+        {
+            target.Dispose();
+        }
     }
 }
 
