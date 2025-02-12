@@ -124,13 +124,12 @@ internal class Telemetry : IDisposable
         const string OutputTemplate =
             "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{SourceContext:l}] {Message:lj}{NewLine}{Exception}";
         LoggerConfiguration config = new LoggerConfiguration()
-            .Enrich.FromLogContext();
+            .Enrich.FromLogContext()
+            .MinimumLevel.Verbose();
 
 #if DEBUG && !Beutl_PackageTools
-        config = config.MinimumLevel.Verbose()
+        config = config
             .WriteTo.Debug(outputTemplate: OutputTemplate);
-#else
-        config = config.MinimumLevel.Debug();
 #endif
         config = config.WriteTo.Async(b => b.File(logFile, outputTemplate: OutputTemplate));
 

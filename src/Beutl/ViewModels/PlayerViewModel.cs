@@ -534,7 +534,7 @@ public sealed class PlayerViewModel : IDisposable
 
     public void Pause()
     {
-        _logger.LogTrace("Pause the playback. ({SceneId})", _editViewModel.SceneId);
+        _logger.LogInformation("Pause the playback. ({SceneId})", _editViewModel.SceneId);
         IsPlaying.Value = false;
     }
 
