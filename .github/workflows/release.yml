@@ -287,11 +287,55 @@ jobs:
             '.id=$id | .os=$os | .arch=$arch | .version=$version | .standalone=$standalone | .type=$type' > asset_metadata.json
           cat asset_metadata.json
 
+      - name: Install Developer ID certificate
+        run: |
+          # Set up the keychain
+          security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+
+          # Import the certificate
+          echo "${{ secrets.CERTIFICATES_P12 }}" | base64 --decode > certificates.p12
+          security import certificates.p12 -k build.keychain -P "${{ secrets.CERTIFICATES_P12_PASSWORD }}" -T /usr/bin/codesign
+
+          # Allow codesign to access keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.KEYCHAIN_PASSWORD}}" build.keychain
+
+          # Store the credential in the keychain
+          xcrun notarytool store-credentials "AC_PASSWORD" --apple-id "${{ secrets.APPLE_ID }}" --team-id ${{ env.TEAM_ID }} --password "${{ secrets.APPLE_APP_PASSWORD }}"
+
+      - name: Code sign
+        env:
+          APP_NAME: output/AppBundle/Beutl.app
+          ENTITLEMENTS: build/AppEntitlements.entitlements
+          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+        run: |
+          find "$APP_NAME/Contents/MacOS/"|while read fname; do
+            if [[ -f $fname ]]; then
+              echo "[INFO] Signing $fname"
+              codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" "$fname"
+            fi
+          done
+
+          echo "[INFO] Signing app file"
+
+          codesign --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" "$APP_NAME"
+
+      - name: Verify
+        run: |
+          codesign --verify --deep --strict --verbose output/AppBundle/Beutl.app
+
+      - name: Notarize app
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent "output/AppBundle/Beutl.app" "output/AppBundle/Beutl.zip"
+          xcrun notarytool submit "output/AppBundle/Beutl.zip" --wait --keychain-profile "AC_PASSWORD"
+          xcrun stapler staple "output/AppBundle/Beutl.app
+          xcrun stapler validate output/AppBundle/Beutl.app
+
       - name: Zip
         run: |
           mkdir -p artifacts
-          cd output/AppBundle
-          zip ../../artifacts/Beutl.${{ matrix.rid }}.app.zip -r Beutl.app
+          zip artifacts/Beutl.${{ matrix.rid }}.app.zip -r output/AppBundle/Beutl.app
 
       - name: Save
         uses: actions/upload-artifact@v4

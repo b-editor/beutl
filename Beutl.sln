@@ -39,6 +39,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl", "src\Beutl\Beutl.csproj", "{B4C3B9FD-CAC7-FDA4-E241-8D008154D7E9}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{DEE5DD87-39C1-BF34-B639-A387DCCF972B}"
+	ProjectSection(SolutionItems) = preProject
+		build\AppEntitlements.entitlements = build\AppEntitlements.entitlements
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{5DE17B5D-9CA0-A77B-9917-05CF9A0AA19E}"
 	ProjectSection(SolutionItems) = preProject
