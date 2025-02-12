@@ -1,5 +1,7 @@
 ﻿<Solution>
-  <Folder Name="/Build/" />
+  <Folder Name="/Build/">
+    <File Path="build\AppEntitlements.entitlements" />
+  </Folder>
   <Folder Name="/Build/Props/">
     <File Path="build\props\CoreLibraries.props" />
   </Folder>
