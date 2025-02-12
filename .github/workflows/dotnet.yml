@@ -25,13 +25,13 @@ jobs:
       - run: dotnet tool install -g dotnet-reportgenerator-globaltool
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore Beutl.slnx
 
       - name: Build
-        run: dotnet build --no-restore -f net9.0
+        run: dotnet build Beutl.slnx --no-restore -f net9.0
 
       - name: Test
-        run: dotnet test Beutl.sln --no-build --verbosity normal -f net9.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+        run: dotnet test Beutl.slnx --no-build --verbosity normal -f net9.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 
       - name: Code Coverage Report
         uses: irongut/CodeCoverageSummary@v1.3.0
