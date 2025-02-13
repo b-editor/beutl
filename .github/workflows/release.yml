@@ -331,8 +331,8 @@ jobs:
         run: |
           ditto -c -k --sequesterRsrc --keepParent "output/AppBundle/Beutl.app" "output/AppBundle/Beutl.zip"
           xcrun notarytool submit "output/AppBundle/Beutl.zip" --wait --keychain-profile "AC_PASSWORD"
-          xcrun stapler staple "output/AppBundle/Beutl.app
-          xcrun stapler validate output/AppBundle/Beutl.app
+          xcrun stapler staple "output/AppBundle/Beutl.app"
+          xcrun stapler validate "output/AppBundle/Beutl.app"
 
       - name: Zip
         run: |
