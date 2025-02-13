@@ -200,7 +200,8 @@ jobs:
         run: |
           cd packages/ubuntu22.04_amd64/usr/lib/beutl
           ASSET_METADATA_ID=`uuidgen`
-          cat asset_metadata.json | jq --arg id "$ASSET_METADATA_ID" '. .id=$id | .type="debian"' > asset_metadata.json
+          cat asset_metadata.json | jq --arg id "$ASSET_METADATA_ID" '. .id=$id | .type="debian"' > asset_metadata_tmp.json
+          mv asset_metadata_tmp.json asset_metadata.json
           cat asset_metadata.json
 
       - name: Change mode
