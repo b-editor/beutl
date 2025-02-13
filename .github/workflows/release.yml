@@ -337,7 +337,7 @@ jobs:
       - name: Zip
         run: |
           mkdir -p artifacts
-          zip artifacts/Beutl.${{ matrix.rid }}.app.zip -r output/AppBundle/Beutl.app
+          ditto -c -k --sequesterRsrc --keepParent "output/AppBundle/Beutl.app" "artifacts/Beutl.${{ matrix.rid }}.app.zip"
 
       - name: Save
         uses: actions/upload-artifact@v4
