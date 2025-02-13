@@ -248,7 +248,7 @@ public class UpdateDialogViewModel
                 }
 
                 Directory.CreateDirectory(destination);
-                var result = await ExtractIfNeeded(_downloadFile, destination);
+                var result = await ExtractIfNeeded(metadata, _downloadFile, destination);
                 if (!result) return;
 
                 ProgressText.Value = Message.The_application_needs_to_be_restarted;
@@ -339,14 +339,16 @@ public class UpdateDialogViewModel
         }
     }
 
-    private async Task<bool> ExtractIfNeeded(string file, string destination)
+    private async Task<bool> ExtractIfNeeded(AssetMetadataJson metadata, string file, string destination)
     {
         var ct = _cts.Token;
         _logger.LogInformation("Extracting update to {Destination}", destination);
         try
         {
-            using (var source = ZipFile.Open(file, ZipArchiveMode.Read))
+            if (metadata.Type is "zip")
             {
+                using var source = ZipFile.Open(file, ZipArchiveMode.Read);
+
                 ProgressMax.Value = source.Entries.Count;
                 ProgressText.Value = Message.Extracting;
                 foreach (var entry in source.Entries)
@@ -368,6 +370,28 @@ public class UpdateDialogViewModel
 
                     ProgressValue.Value++;
                 }
+            }
+            else if (metadata.Type is "app")
+            {
+                // dittoを使って展開
+                IsIndeterminate.Value = true;
+                var psi = new ProcessStartInfo("/usr/bin/ditto")
+                {
+                    ArgumentList =
+                    {
+                        "-xk",
+                        file,
+                        destination
+                    }
+                };
+                var process = Process.Start(psi);
+                if (process == null)
+                {
+                    _logger.LogError("Failed to start ditto");
+                    throw new InvalidOperationException("Failed to start ditto");
+                }
+
+                await process.WaitForExitAsync(ct);
             }
 
             File.Delete(file);
