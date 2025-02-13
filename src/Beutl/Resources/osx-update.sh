@@ -83,7 +83,7 @@ fi
 BACKUP_APP_PATH="${TARGET_APP_PATH}_backup_$(date +%Y%m%d%H%M%S)"
 if [ -d "$TARGET_APP_PATH" ]; then
     echo "@(Message.Create_backup_of_current_application) $BACKUP_APP_PATH"
-    cp -R  "$TARGET_APP_PATH" "$BACKUP_APP_PATH"
+    ditto  "$TARGET_APP_PATH" "$BACKUP_APP_PATH"
     if [ $? -ne 0 ]; then
         show_dialog "@(Message.Failed_to_create_backup)"
         release_lock
@@ -95,10 +95,10 @@ fi
 
 # 更新ファイルの配置（ここでは単純にmvで更新ディレクトリを移動）
 echo "@(Message.Updating_files_in_place)"
-cp -R "$UPDATE_DIR" "$TARGET_APP_PATH"
+ditto "$UPDATE_DIR" "$TARGET_APP_PATH"
 if [ $? -ne 0 ]; then
     show_dialog "@(Message.Update_placement_failed_Restore_backup)"
-    cp -R "$BACKUP_APP_PATH" "$TARGET_APP_PATH"
+    ditto "$BACKUP_APP_PATH" "$TARGET_APP_PATH"
     release_lock
     exit 1
 fi
