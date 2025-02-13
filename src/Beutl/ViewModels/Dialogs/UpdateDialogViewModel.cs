@@ -129,10 +129,15 @@ public class UpdateDialogViewModel
                 return;
             }
 
-            var psi = new ProcessStartInfo("bash")
+            var psi = new ProcessStartInfo("gnome-terminal")
             {
-                UseShellExecute = true,
-                ArgumentList = { "-c", $"sudo apt update && sudo apt install {_downloadFile}" }
+                ArgumentList =
+                {
+                    "--",
+                    "bash",
+                    "-c",
+                     $"sudo apt update && sudo apt install \"{_downloadFile}\""
+                }
             };
             _ = Process.Start(psi);
             (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
@@ -153,17 +158,14 @@ public class UpdateDialogViewModel
                 new DirectoryInfo(AppContext.BaseDirectory).Name);
             var target = AppContext.BaseDirectory;
 
-            var psi = new ProcessStartInfo("bash")
+            var psi = new ProcessStartInfo("gnome-terminal")
             {
-                UseShellExecute = true,
-                Verb = "open",
                 ArgumentList =
                 {
-                    scriptPath,
-                    directory,
-                    target,
-                    "Beutl",
-                    Path.Combine(AppContext.BaseDirectory, "Beutl")
+                    "--",
+                    "bash",
+                    "-c",
+                    $"chmod +x \"{scriptPath}\" && \"{scriptPath}\" \"{directory}\" \"{target}\" Beutl \"{Path.Combine(AppContext.BaseDirectory, "Beutl")}\""
                 }
             };
 
