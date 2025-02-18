@@ -1,11 +1,8 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Animation;
 using Beutl.Media;
 using Beutl.Media.Immutable;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -116,6 +113,17 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         }
     }
 
+    public void SetColor(Color oldValue, Color newValue)
+    {
+        if (Value.Value is SolidColorBrush solid)
+        {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+            RecordableCommands.Edit(solid, SolidColorBrush.ColorProperty, newValue, oldValue)
+                .WithStoables(GetStorables())
+                .DoAndRecord(recorder);
+        }
+    }
+
     public void InsertGradientStop(int index, GradientStop item)
     {
         if (Value.Value is GradientBrush { GradientStops: { } list })
@@ -147,9 +155,11 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         if (Value.Value is GradientBrush { GradientStops: { } list })
         {
-            IRecordableCommand? move = oldIndex == newIndex ? null : list.BeginRecord<GradientStop>()
-                .Move(oldIndex, newIndex)
-                .ToCommand([]);
+            IRecordableCommand? move = oldIndex == newIndex
+                ? null
+                : list.BeginRecord<GradientStop>()
+                    .Move(oldIndex, newIndex)
+                    .ToCommand([]);
 
             IRecordableCommand? offset = obj.Offset != oldObject.Offset
                 ? RecordableCommands.Edit(obj, GradientStop.OffsetProperty, obj.Offset, oldObject.Offset)
@@ -184,6 +194,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             {
                 IsExpanded.Value = (bool)isExpanded;
             }
+
             ChildContext.Value?.ReadFromJson(json);
         }
         catch
