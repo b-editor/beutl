@@ -1,18 +1,14 @@
 ﻿using System.Collections.Specialized;
-
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
 using Beutl.ViewModels.Editors;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
@@ -124,11 +120,9 @@ public sealed partial class BrushEditor : UserControl
 
     private void OnColorConfirmed(object? sender, (Color2 OldValue, Color2 NewValue) e)
     {
-        if (DataContext is BrushEditorViewModel { Value.Value: SolidColorBrush solid } viewModel)
+        if (DataContext is BrushEditorViewModel { Value.Value: SolidColorBrush } viewModel)
         {
-            CommandRecorder recorder = viewModel.GetRequiredService<CommandRecorder>();
-            RecordableCommands.Edit(solid, SolidColorBrush.ColorProperty, e.NewValue.ToBtlColor(), e.OldValue.ToBtlColor())
-                .DoAndRecord(recorder);
+            viewModel.SetColor(e.OldValue.ToBtlColor(), e.NewValue.ToBtlColor());
         }
     }
 
@@ -137,6 +131,7 @@ public sealed partial class BrushEditor : UserControl
         if (DataContext is BrushEditorViewModel { Value.Value: SolidColorBrush solid } viewModel)
         {
             solid.Color = e.NewValue.ToBtlColor();
+            viewModel.InvalidateFrameCache();
         }
     }
 
@@ -158,7 +153,8 @@ public sealed partial class BrushEditor : UserControl
 
     private void OnGradientStopConfirmed(
         object? sender,
-        (int OldIndex, int NewIndex, Avalonia.Media.GradientStop Object, Avalonia.Media.Immutable.ImmutableGradientStop OldObject) e)
+        (int OldIndex, int NewIndex, Avalonia.Media.GradientStop Object, Avalonia.Media.Immutable.ImmutableGradientStop
+            OldObject) e)
     {
         if (DataContext is BrushEditorViewModel { Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
         {
@@ -169,15 +165,18 @@ public sealed partial class BrushEditor : UserControl
         }
     }
 
-    private void OnGradientStopChanged(object? sender, (int OldIndex, int NewIndex, Avalonia.Media.GradientStop Object) e)
+    private void OnGradientStopChanged(object? sender,
+        (int OldIndex, int NewIndex, Avalonia.Media.GradientStop Object) e)
     {
-        if (DataContext is BrushEditorViewModel { Value.Value: GradientBrush { GradientStops: { } list } })
+        if (DataContext is BrushEditorViewModel { Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
         {
             GradientStop obj = list[e.OldIndex];
             obj.Offset = (float)e.Object.Offset;
             obj.Color = e.Object.Color.ToMedia();
             if (e.NewIndex != e.OldIndex)
                 list.Move(e.OldIndex, e.NewIndex);
+
+            viewModel.InvalidateFrameCache();
         }
     }
 

@@ -1,17 +1,14 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Xaml.Interactivity;
-
 using Beutl.Animation;
 using Beutl.Media;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-
 using BtlPoint = Beutl.Graphics.Point;
 using BtlVector = Beutl.Graphics.Vector;
 
@@ -47,10 +44,13 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         base.OnAttached();
         if (AssociatedObject is { })
         {
-            AssociatedObject.AddHandler(InputElement.PointerPressedEvent, OnThumbPointerPressed, handledEventsToo: true);
-            AssociatedObject.AddHandler(InputElement.PointerReleasedEvent, OnThumbPointerReleased, handledEventsToo: true);
+            AssociatedObject.AddHandler(InputElement.PointerPressedEvent, OnThumbPointerPressed,
+                handledEventsToo: true);
+            AssociatedObject.AddHandler(InputElement.PointerReleasedEvent, OnThumbPointerReleased,
+                handledEventsToo: true);
             AssociatedObject.AddHandler(InputElement.PointerMovedEvent, OnThumbPointerMoved, handledEventsToo: true);
-            AssociatedObject.AddHandler(InputElement.PointerCaptureLostEvent, OnThumbPointerCaptureLost, handledEventsToo: true);
+            AssociatedObject.AddHandler(InputElement.PointerCaptureLostEvent, OnThumbPointerCaptureLost,
+                handledEventsToo: true);
         }
     }
 
@@ -146,7 +146,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         _lastPoint = null;
     }
 
-    private static PathSegment? GetAnchor(IPathEditorViewModel viewModel, PathFigure figure, PathSegment segment, object? tag)
+    private static PathSegment? GetAnchor(IPathEditorViewModel viewModel, PathFigure figure, PathSegment segment,
+        object? tag)
     {
         if (tag is not string s || figure.Segments.Count <= 1) return null;
 
@@ -182,7 +183,10 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     {
         IPathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<IPathEditorView>();
         if (AssociatedObject is not { DataContext: PathSegment segment }
-            || parent is not { DataContext: IPathEditorViewModel { PathFigure.Value: { } figure, Element.Value: { } element } viewModel }
+            || parent is not
+            {
+                DataContext: IPathEditorViewModel { PathFigure.Value: { } figure, Element.Value: { } element } viewModel
+            }
             || !_lastPoint.HasValue)
         {
             return;
@@ -289,17 +293,20 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                                         length = Length(d2);
                                     }
 
-                                    keyframe.Value = PathEditorHelper.Round(anchorpoint + CalculatePoint(angle, length));
+                                    keyframe.Value =
+                                        PathEditorHelper.Round(anchorpoint + CalculatePoint(angle, length));
                                 }
 
                                 Set(c.Previous);
                                 Set(c.Next);
 
-                                UpdateThumbPosition(c.Thumb, c.GetInterpolatedValue(element, viewModel.EditViewModel.CurrentTime.Value));
+                                UpdateThumbPosition(c.Thumb,
+                                    c.GetInterpolatedValue(element, viewModel.EditViewModel.CurrentTime.Value));
                             }
                             else
                             {
-                                BtlPoint point = _dragState.GetInterpolatedValue(element, viewModel.EditViewModel.CurrentTime.Value);
+                                BtlPoint point = _dragState.GetInterpolatedValue(element,
+                                    viewModel.EditViewModel.CurrentTime.Value);
                                 BtlPoint anchorpoint = anchor.GetEndPoint();
                                 BtlPoint d = anchorpoint - point;
                                 float angle = MathF.Atan2(d.X, d.Y);
@@ -340,6 +347,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                     }
                 }
             }
+
+            viewModel.FigureContext.Value?.InvalidateFrameCache();
         }
     }
 
