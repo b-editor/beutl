@@ -4,6 +4,8 @@ using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
+using NAudio.Dsp;
+using NAudio.Wave.SampleProviders;
 
 namespace Beutl.Audio;
 
@@ -12,8 +14,10 @@ namespace Beutl.Audio;
 public abstract class Sound : Renderable
 {
     public static readonly CoreProperty<float> GainProperty;
+    public static readonly CoreProperty<float> SpeedProperty;
     public static readonly CoreProperty<ISoundEffect?> EffectProperty;
     private float _gain = 100;
+    private float _speed = 100;
     // 現在の再生位置が前の再生位置よりも戻った場合、エフェクトプロセッサを無効にするために使用
     private TimeRange _prevRange;
     private TimeRange _range;
@@ -26,6 +30,11 @@ public abstract class Sound : Renderable
     {
         GainProperty = ConfigureProperty<float, Sound>(nameof(Gain))
             .Accessor(o => o.Gain, (o, v) => o.Gain = v)
+            .DefaultValue(100)
+            .Register();
+
+        SpeedProperty = ConfigureProperty<float, Sound>(nameof(Speed))
+            .Accessor(o => o.Speed, (o, v) => o.Speed = v)
             .DefaultValue(100)
             .Register();
 
@@ -60,6 +69,12 @@ public abstract class Sound : Renderable
     {
         get => _gain;
         set => SetAndRaise(GainProperty, ref _gain, value);
+    }
+
+    public float Speed
+    {
+        get => _speed;
+        set => SetAndRaise(SpeedProperty, ref _speed, value);
     }
 
     public TimeSpan Duration { get; private set; }

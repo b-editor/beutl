@@ -2552,5 +2552,11 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Update", resourceCulture);
             }
         }
+        
+        public static string Source {
+            get {
+                return ResourceManager.GetString("Source", resourceCulture);
+            }
+        }
     }
 }

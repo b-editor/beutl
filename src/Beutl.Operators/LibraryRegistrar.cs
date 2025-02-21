@@ -16,11 +16,6 @@ public static class LibraryRegistrar
     public static void RegisterAll()
     {
         LibraryService.Current
-            .AddMultiple("Video", m => m
-                .BindSourceOperator<Source.DrawableVideoOperator>()
-            );
-
-        LibraryService.Current
             .AddMultiple(Strings.Ellipse, m => m
                 .BindSourceOperator<Source.EllipseOperator>()
                 .BindDrawable<Graphics.Shapes.EllipseShape>()

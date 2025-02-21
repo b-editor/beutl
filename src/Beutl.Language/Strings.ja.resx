@@ -1376,4 +1376,7 @@
   <data name="Update" xml:space="preserve">
     <value>更新</value>
   </data>
+  <data name="Source" xml:space="preserve">
+    <value>ソース</value>
+  </data>
 </root>
