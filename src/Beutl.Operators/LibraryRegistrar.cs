@@ -96,22 +96,18 @@ public static class LibraryRegistrar
                     .BindTransform<TranslateTransform>()
                     .BindNode<TranslateTransformNode>()
                 )
-
                 .AddMultiple(Strings.Skew, m => m
                     .BindTransform<SkewTransform>()
                     .BindNode<SkewTransformNode>()
                 )
-
                 .AddMultiple(Strings.Scale, m => m
                     .BindTransform<ScaleTransform>()
                     .BindNode<ScaleTransformNode>()
                 )
-
                 .AddMultiple(Strings.Rotation, m => m
                     .BindTransform<RotationTransform>()
                     .BindNode<RotationTransformNode>()
                 )
-
                 .AddMultiple(Strings.Rotation3D, m => m
                     .BindTransform<Rotation3DTransform>()
                     .BindNode<Rotation3DTransformNode>()
@@ -121,63 +117,34 @@ public static class LibraryRegistrar
         LibraryService.Current
             .RegisterGroup(Strings.FilterEffect, g => g
                 .AddFilterEffect<Blur>(Strings.Blur)
-
                 .AddFilterEffect<DropShadow>(Strings.DropShadow)
-
                 .AddFilterEffect<InnerShadow>(Strings.InnerShadow)
-
                 .AddFilterEffect<FlatShadow>(Strings.FlatShadow)
-
                 .AddFilterEffect<Border>($"{Strings.Border} (deprecated)")
-
                 .AddFilterEffect<StrokeEffect>(Strings.StrokeEffect)
-
                 .AddFilterEffect<Clipping>(Strings.Clipping)
-
                 .AddFilterEffect<Dilate>(Strings.Dilate)
-
                 .AddFilterEffect<Erode>(Strings.Erode)
-
                 .AddFilterEffect<HighContrast>(Strings.HighContrast)
-
                 .AddFilterEffect<HueRotate>(Strings.HueRotate)
-
                 .AddFilterEffect<Lighting>(Strings.Lighting)
-
                 .AddFilterEffect<LumaColor>(Strings.LumaColor)
-
                 .AddFilterEffect<Saturate>(Strings.Saturate)
-
                 .AddFilterEffect<Threshold>(Strings.Threshold)
-
                 .AddFilterEffect<Brightness>(Strings.Brightness)
-
                 .AddFilterEffect<Gamma>(Strings.Gamma)
-
                 .AddFilterEffect<Invert>(Strings.Invert)
-
                 .AddFilterEffect<LutEffect>(Strings.LUT_Cube_File)
-
                 .AddFilterEffect<BlendEffect>(Strings.BlendEffect)
-
                 .AddFilterEffect<Negaposi>(Strings.Negaposi)
-
                 .AddFilterEffect<ChromaKey>(Strings.ChromaKey)
-
                 .AddFilterEffect<ColorKey>(Strings.ColorKey)
-
                 .AddFilterEffect<SplitEffect>(Strings.SplitEquallyEffect)
-
                 .AddFilterEffect<PartsSplitEffect>(Strings.SplitByPartsEffect)
-
                 .AddFilterEffect<TransformEffect>(Strings.Transform)
-
                 .AddFilterEffect<Mosaic>(Strings.Mosaic)
-
                 .AddFilterEffect<ColorShift>(Strings.ColorShift)
-
                 .AddFilterEffect<ShakeEffect>(Strings.ShakeEffect)
-
                 .AddGroup("OpenCV", gg => gg
                     .AddFilterEffect<Graphics.Effects.OpenCv.Blur>("CvBlur")
                     .AddFilterEffect<Graphics.Effects.OpenCv.GaussianBlur>("CvGaussianBlur")

@@ -9,8 +9,7 @@ namespace Beutl.Operators.Source;
 public sealed class SourceVideoOperator() : PublishOperator<SourceVideo>(
 [
     (SourceVideo.OffsetPositionProperty, TimeSpan.Zero),
-    (SourceVideo.PlaybackPositionProperty, TimeSpan.Zero),
-    (SourceVideo.PositionModeProperty, VideoPositionMode.Automatic),
+    (SourceVideo.SpeedProperty, 100f),
     SourceVideo.SourceProperty,
     (Drawable.TransformProperty, () => new TransformGroup()),
     Drawable.AlignmentXProperty,
@@ -52,9 +51,10 @@ public sealed class SourceVideoOperator() : PublishOperator<SourceVideo>(
 
     public override bool TryGetOriginalLength(out TimeSpan timeSpan)
     {
-        if (Value?.Source?.IsDisposed == false)
+        var ts = Value.CalculateOriginalTime();
+        if (ts.HasValue)
         {
-            timeSpan = Value.Source.Duration - Value.OffsetPosition;
+            timeSpan = ts.Value - Value.OffsetPosition;
             return true;
         }
         else
