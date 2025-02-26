@@ -49,7 +49,7 @@ public partial class ImmediateCanvas : ICanvas
                 return;
 
             _currentTransform = value;
-            Canvas.SetMatrix(_currentTransform.ToSKMatrix());
+            Canvas.SetMatrix((SKMatrix44)_currentTransform.ToSKMatrix());
         }
     }
 
@@ -160,12 +160,12 @@ public partial class ImmediateCanvas : ICanvas
         {
             using var img = SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data);
 
-            Canvas.DrawImage(img, SKPoint.Empty, _sharedFillPaint);
+            Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
         }
         else
         {
-            using var skbmp = bmp.ToSKBitmap();
-            Canvas.DrawBitmap(skbmp, SKPoint.Empty, _sharedFillPaint);
+            using var img = bmp.ToSKImage();
+            Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
         }
     }
 

@@ -2,14 +2,10 @@
 using System.Reactive;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-
 using Beutl.Collections.Pooled;
 using Beutl.Media;
-
 using Microsoft.Extensions.ObjectPool;
-
 using SkiaSharp;
-
 using FilterEffectOrFEItemWrapper = object;
 
 namespace Beutl.Graphics.Effects;
@@ -101,7 +97,8 @@ public sealed class FilterEffectContext : IDisposable
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory, Func<T, Rect, Rect> transformBounds)
+    public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory,
+        Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {
         AddItem(new FEItem_Skia<T>(data, factory, transformBounds));
@@ -119,7 +116,8 @@ public sealed class FilterEffectContext : IDisposable
     {
         AppendSkiaFilter(
             data: (position, sigma, color),
-            factory: static (t, input, _) => SKImageFilter.CreateDropShadowOnly(t.position.X, t.position.Y, t.sigma.Width, t.sigma.Height, t.color.ToSKColor(), input),
+            factory: static (t, input, _) => SKImageFilter.CreateDropShadowOnly(t.position.X, t.position.Y,
+                t.sigma.Width, t.sigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds
                 .Translate(t.position)
                 .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3)));
@@ -135,7 +133,8 @@ public sealed class FilterEffectContext : IDisposable
     {
         AppendSkiaFilter(
             data: (position, sigma, color),
-            factory: static (t, input, _) => SKImageFilter.CreateDropShadow(t.position.X, t.position.Y, t.sigma.Width, t.sigma.Height, t.color.ToSKColor(), input),
+            factory: static (t, input, _) => SKImageFilter.CreateDropShadow(t.position.X, t.position.Y, t.sigma.Width,
+                t.sigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds.Union(bounds
                 .Translate(t.position)
                 .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))));
@@ -163,7 +162,8 @@ public sealed class FilterEffectContext : IDisposable
 
                 return SKImageFilter.CreateBlur(sigma.Width, sigma.Height, input);
             },
-            transformBounds: static (sigma, bounds) => bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
+            transformBounds: static (sigma, bounds) =>
+                bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
     }
 
     [Obsolete("Use Blur(Size)")]
@@ -192,8 +192,14 @@ public sealed class FilterEffectContext : IDisposable
 
         AppendSkiaFilter(
             data: (xChannelSelector, yChannelSelector, scale, child),
-            factory: static (t, input, activator)
-                => SKImageFilter.CreateDisplacementMapEffect(t.xChannelSelector, t.yChannelSelector, t.scale, activator.Activate(t.child), input),
+            factory: static (t, input, activator) =>
+            {
+                SKImageFilter? displacement = activator.Activate(t.child);
+                if (displacement is null)
+                    return input;
+                return SKImageFilter.CreateDisplacementMapEffect(t.xChannelSelector, t.yChannelSelector, t.scale,
+                    displacement, input);
+            },
             transformBounds: static (data, bounds) => bounds.Inflate(data.scale / 2));
     }
 
@@ -216,10 +222,7 @@ public sealed class FilterEffectContext : IDisposable
                             using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
                             using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
                             using var filter = SKImageFilter.CreateColorFilter(blend, blur);
-                            using var paint = new SKPaint
-                            {
-                                ImageFilter = filter
-                            };
+                            using var paint = new SKPaint { ImageFilter = filter };
 
                             using (canvas.PushPaint(paint))
                             {
@@ -264,10 +267,7 @@ public sealed class FilterEffectContext : IDisposable
                             using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
                             using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
                             using var filter = SKImageFilter.CreateColorFilter(blend, blur);
-                            using var paint = new SKPaint
-                            {
-                                ImageFilter = filter
-                            };
+                            using var paint = new SKPaint { ImageFilter = filter };
 
                             using (canvas.PushPaint(paint))
                             {
@@ -298,7 +298,8 @@ public sealed class FilterEffectContext : IDisposable
     {
         AppendSkiaFilter(
             (matrix, bitmapInterpolationMode),
-            (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(), data.bitmapInterpolationMode.ToSKFilterQuality(), input),
+            (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(),
+                data.bitmapInterpolationMode.ToSKSamplingOptions(), input),
             (data, rect) => rect.TransformToAABB(data.matrix));
     }
 
@@ -473,7 +474,8 @@ public sealed class FilterEffectContext : IDisposable
     {
         AppendSKColorFilter(
             (grayscale, invertStyle, contrast),
-            (data, _) => SKColorFilter.CreateHighContrast(data.grayscale, (SKHighContrastConfigInvertStyle)data.invertStyle, data.contrast));
+            (data, _) => SKColorFilter.CreateHighContrast(data.grayscale,
+                (SKHighContrastConfigInvertStyle)data.invertStyle, data.contrast));
     }
 
     public void Lighting(Color multiply, Color add)
@@ -579,14 +581,16 @@ public sealed class FilterEffectContext : IDisposable
     }
 
     [Obsolete("Use CustomEffect")]
-    public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action, Func<T, Rect, Rect> transformBounds)
+    public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action,
+        Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {
         AddItem(new FEItem_Custom<T>(data, action, transformBounds));
         Bounds = transformBounds.Invoke(data, Bounds);
     }
 
-    public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action, Func<T, Rect, Rect> transformBounds)
+    public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action,
+        Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
     {
         AddItem(new FEItem_CustomEffect<T>(data, action, transformBounds));

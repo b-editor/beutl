@@ -1,12 +1,9 @@
 ﻿using System.Collections.Frozen;
 using System.Collections.Immutable;
-
 using Beutl.Graphics.Operations;
 using Beutl.Media;
 using Beutl.Media.Pixel;
-
 using OpenCvSharp;
-
 using SkiaSharp;
 
 namespace Beutl.Graphics;
@@ -141,6 +138,41 @@ public static unsafe partial class Image
             var result = new SKBitmap(new(typed.Width, typed.Height, SKColorType.Bgra8888));
 
             result.SetPixels(typed.Data);
+
+            return result;
+        }
+    }
+
+    public static SKImage ToSKImage(this IBitmap self)
+    {
+        if (self is Bitmap<Bgra8888> bgra8888)
+        {
+            var result = SKImage.FromPixelCopy(
+                new(bgra8888.Width, bgra8888.Height, SKColorType.Bgra8888),
+                bgra8888.Data);
+
+            return result;
+        }
+        else if (self is Bitmap<Bgra4444> bgra4444)
+        {
+            var result = SKImage.FromPixelCopy(
+                new(bgra4444.Width, bgra4444.Height, SKColorType.Argb4444),
+                bgra4444.Data);
+
+            return result;
+        }
+        else if (self is Bitmap<Grayscale8> grayscale8)
+        {
+            var result = SKImage.FromPixelCopy(
+                new(grayscale8.Width, grayscale8.Height, SKColorType.Alpha8),
+                grayscale8.Data);
+
+            return result;
+        }
+        else
+        {
+            using Bitmap<Bgra8888> typed = self.Convert<Bgra8888>();
+            var result = SKImage.FromPixelCopy(new(typed.Width, typed.Height, SKColorType.Bgra8888), typed.Data);
 
             return result;
         }
