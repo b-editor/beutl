@@ -53,6 +53,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
+        IsDrawable = Value.Select(v => v is IDrawableBrush)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         Value.CombineWithPrevious()
             .Select(v => v.OldValue as IAnimatable)
             .Where(v => v != null)
@@ -87,6 +91,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     public ReadOnlyReactivePropertySlim<bool> IsRadialGradient { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsPerlinNoise { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsDrawable { get; }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
