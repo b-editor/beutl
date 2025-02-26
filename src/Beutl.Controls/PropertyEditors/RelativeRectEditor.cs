@@ -9,20 +9,30 @@ using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class RelativePointEditor : Vector2Editor
+public class RelativeRectEditor : Vector4Editor
 {
-    public static readonly DirectProperty<RelativePointEditor, float> FirstValueProperty =
-        Vector4Editor<float>.FirstValueProperty.AddOwner<RelativePointEditor>(
+    public static readonly DirectProperty<RelativeRectEditor, float> FirstValueProperty =
+        Vector4Editor<float>.FirstValueProperty.AddOwner<RelativeRectEditor>(
             o => o.FirstValue,
             (o, v) => o.FirstValue = v);
 
-    public static readonly DirectProperty<RelativePointEditor, float> SecondValueProperty =
-        Vector4Editor<float>.SecondValueProperty.AddOwner<RelativePointEditor>(
+    public static readonly DirectProperty<RelativeRectEditor, float> SecondValueProperty =
+        Vector4Editor<float>.SecondValueProperty.AddOwner<RelativeRectEditor>(
             o => o.SecondValue,
             (o, v) => o.SecondValue = v);
 
-    public static readonly DirectProperty<RelativePointEditor, Graphics.RelativeUnit> UnitProperty =
-        AvaloniaProperty.RegisterDirect<RelativePointEditor, Graphics.RelativeUnit>(
+    public static readonly DirectProperty<RelativeRectEditor, float> ThirdValueProperty =
+        Vector4Editor<float>.ThirdValueProperty.AddOwner<RelativeRectEditor>(
+            o => o.ThirdValue,
+            (o, v) => o.ThirdValue = v);
+
+    public static readonly DirectProperty<RelativeRectEditor, float> FourthValueProperty =
+        Vector4Editor<float>.FourthValueProperty.AddOwner<RelativeRectEditor>(
+            o => o.FourthValue,
+            (o, v) => o.FourthValue = v);
+
+    public static readonly DirectProperty<RelativeRectEditor, Graphics.RelativeUnit> UnitProperty =
+        AvaloniaProperty.RegisterDirect<RelativeRectEditor, Graphics.RelativeUnit>(
             nameof(Unit),
             o => o.Unit,
             (o, v) => o.Unit = v,
@@ -33,6 +43,10 @@ public class RelativePointEditor : Vector2Editor
     private float _oldFirstValue;
     private float _secondValue;
     private float _oldSecondValue;
+    private float _thirdValue;
+    private float _oldThirdValue;
+    private float _fourthValue;
+    private float _oldFourthValue;
     private Graphics.RelativeUnit _unit;
     private Graphics.RelativeUnit _oldUnit;
 
@@ -60,6 +74,30 @@ public class RelativePointEditor : Vector2Editor
         }
     }
 
+    public float ThirdValue
+    {
+        get => _thirdValue;
+        set
+        {
+            if (SetAndRaise(ThirdValueProperty, ref _thirdValue, value))
+            {
+                UpdateText();
+            }
+        }
+    }
+
+    public float FourthValue
+    {
+        get => _fourthValue;
+        set
+        {
+            if (SetAndRaise(FourthValueProperty, ref _fourthValue, value))
+            {
+                UpdateText();
+            }
+        }
+    }
+
     public Graphics.RelativeUnit Unit
     {
         get => _unit;
@@ -78,11 +116,15 @@ public class RelativePointEditor : Vector2Editor
         {
             FirstText = $"{_firstValue * 100:f}%";
             SecondText = $"{_secondValue * 100:f}%";
+            ThirdText = $"{_thirdValue * 100:f}%";
+            FourthText = $"{_fourthValue * 100:f}%";
         }
         else
         {
             FirstText = $"{_firstValue}";
             SecondText = $"{_secondValue}";
+            ThirdText = $"{_thirdValue}";
+            FourthText = $"{_fourthValue}";
         }
     }
 
@@ -119,6 +161,8 @@ public class RelativePointEditor : Vector2Editor
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
+        SubscribeEvents(InnerThirdTextBox);
+        SubscribeEvents(InnerFourthTextBox);
 
         UpdateErrors();
     }
@@ -129,6 +173,8 @@ public class RelativePointEditor : Vector2Editor
         {
             _oldFirstValue = FirstValue;
             _oldSecondValue = SecondValue;
+            _oldThirdValue = ThirdValue;
+            _oldFourthValue = FourthValue;
             _oldUnit = Unit;
         }
     }
@@ -139,11 +185,14 @@ public class RelativePointEditor : Vector2Editor
         {
             if (FirstValue != _oldFirstValue
                 || SecondValue != _oldSecondValue
+                || ThirdValue != _oldThirdValue
+                || FourthValue != _oldFourthValue
                 || Unit != _oldUnit)
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
-                    new Graphics.RelativePoint(FirstValue, SecondValue, Unit),
-                    new Graphics.RelativePoint(_oldFirstValue, _oldSecondValue, _oldUnit),
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativeRect>(
+                    new Graphics.RelativeRect(FirstValue, SecondValue, ThirdValue, FourthValue, Unit),
+                    new Graphics.RelativeRect(_oldFirstValue, _oldSecondValue, _oldThirdValue, _oldFourthValue,
+                        _oldUnit),
                     ValueConfirmedEvent));
             }
         }
@@ -198,14 +247,14 @@ public class RelativePointEditor : Vector2Editor
 
             if (invalidOldValue || newValue2 != oldValue2)
             {
-                var newValues = (FirstValue, SecondValue);
-                var oldValues = (FirstValue, SecondValue);
+                var newValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
+                var oldValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
                 Unit = newUnit;
                 if (IsUniform)
                 {
-                    FirstValue = SecondValue = newValue2;
-                    newValues = (newValue2, newValue2);
-                    oldValues = (oldValue2, oldValue2);
+                    FirstValue = SecondValue = ThirdValue = FourthValue = newValue2;
+                    newValues = (newValue2, newValue2, newValue2, newValue2);
+                    oldValues = (oldValue2, oldValue2, oldValue2, oldValue2);
                 }
                 else
                 {
@@ -221,12 +270,22 @@ public class RelativePointEditor : Vector2Editor
                             newValues.SecondValue = newValue2;
                             oldValues.SecondValue = oldValue2;
                             break;
+                        case "PART_InnerThirdTextBox":
+                            ThirdValue = newValue2;
+                            newValues.ThirdValue = newValue2;
+                            oldValues.ThirdValue = oldValue2;
+                            break;
+                        case "PART_InnerFourthTextBox":
+                            FourthValue = newValue2;
+                            newValues.FourthValue = newValue2;
+                            oldValues.FourthValue = oldValue2;
+                            break;
                     }
                 }
 
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativePoint>(
-                    new Graphics.RelativePoint(newValues.FirstValue, newValues.SecondValue, newUnit),
-                    new Graphics.RelativePoint(oldValues.FirstValue, oldValues.SecondValue, oldUnit),
+                RaiseEvent(new PropertyEditorValueChangedEventArgs<Graphics.RelativeRect>(
+                    new Graphics.RelativeRect(newValues.FirstValue, newValues.SecondValue, newValues.ThirdValue, newValues.FourthValue, newUnit),
+                    new Graphics.RelativeRect(oldValues.FirstValue, oldValues.SecondValue, oldValues.ThirdValue, oldValues.FourthValue, oldUnit),
                     ValueChangedEvent));
             }
         }
@@ -237,7 +296,7 @@ public class RelativePointEditor : Vector2Editor
     private void UpdateErrors()
     {
         if (TryParse(InnerFirstTextBox.Text, out _, out _)
-            && (IsUniform || TryParse(InnerSecondTextBox.Text, out _, out _)))
+            && (IsUniform || TryParse(InnerSecondTextBox.Text, out _, out _) || TryParse(InnerThirdTextBox.Text, out _, out _) || TryParse(InnerFourthTextBox.Text, out _, out _)))
         {
             DataValidationErrors.ClearErrors(this);
         }
@@ -277,7 +336,7 @@ public class RelativePointEditor : Vector2Editor
 
             if (IsUniform)
             {
-                FirstValue = SecondValue = value;
+                FirstValue = SecondValue = ThirdValue = FourthValue = value;
             }
             else
             {
@@ -288,6 +347,12 @@ public class RelativePointEditor : Vector2Editor
                         break;
                     case "PART_InnerSecondTextBox":
                         SecondValue = value;
+                        break;
+                    case "PART_InnerThirdTextBox":
+                        ThirdValue = value;
+                        break;
+                    case "PART_InnerFourthTextBox":
+                        FourthValue = value;
                         break;
                     default:
                         break;
