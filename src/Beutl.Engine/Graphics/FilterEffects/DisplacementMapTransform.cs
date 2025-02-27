@@ -152,13 +152,13 @@ public class DisplacementMapScaleTransform : DisplacementMapTransform
     public static readonly CoreProperty<float> ScaleProperty;
     public static readonly CoreProperty<float> ScaleXProperty;
     public static readonly CoreProperty<float> ScaleYProperty;
-    public static readonly CoreProperty<float> OffsetXProperty;
-    public static readonly CoreProperty<float> OffsetYProperty;
+    public static readonly CoreProperty<float> CenterXProperty;
+    public static readonly CoreProperty<float> CenterYProperty;
     private float _scale = 100;
     private float _scaleX = 100;
     private float _scaleY = 100;
-    private float _offsetX;
-    private float _offsetY;
+    private float _centerX;
+    private float _centerY;
     private static readonly SKRuntimeEffect s_runtimeEffect;
 
     static DisplacementMapScaleTransform()
@@ -178,13 +178,13 @@ public class DisplacementMapScaleTransform : DisplacementMapTransform
             .DefaultValue(100)
             .Register();
 
-        OffsetXProperty = ConfigureProperty<float, DisplacementMapScaleTransform>(nameof(OffsetX))
-            .Accessor(o => o.OffsetX, (o, v) => o.OffsetX = v)
+        CenterXProperty = ConfigureProperty<float, DisplacementMapScaleTransform>(nameof(CenterX))
+            .Accessor(o => o.CenterX, (o, v) => o.CenterX = v)
             .DefaultValue(0)
             .Register();
 
-        OffsetYProperty = ConfigureProperty<float, DisplacementMapScaleTransform>(nameof(OffsetY))
-            .Accessor(o => o.OffsetY, (o, v) => o.OffsetY = v)
+        CenterYProperty = ConfigureProperty<float, DisplacementMapScaleTransform>(nameof(CenterY))
+            .Accessor(o => o.CenterY, (o, v) => o.CenterY = v)
             .DefaultValue(0)
             .Register();
 
@@ -192,8 +192,8 @@ public class DisplacementMapScaleTransform : DisplacementMapTransform
             ScaleProperty,
             ScaleXProperty,
             ScaleYProperty,
-            OffsetXProperty,
-            OffsetYProperty);
+            CenterXProperty,
+            CenterYProperty);
 
         string sksl =
             """
@@ -234,23 +234,23 @@ public class DisplacementMapScaleTransform : DisplacementMapTransform
         set => SetAndRaise(ScaleYProperty, ref _scaleY, value);
     }
 
-    public float OffsetX
+    public float CenterX
     {
-        get => _offsetX;
-        set => SetAndRaise(OffsetXProperty, ref _offsetX, value);
+        get => _centerX;
+        set => SetAndRaise(CenterXProperty, ref _centerX, value);
     }
 
-    public float OffsetY
+    public float CenterY
     {
-        get => _offsetY;
-        set => SetAndRaise(OffsetYProperty, ref _offsetY, value);
+        get => _centerY;
+        set => SetAndRaise(CenterYProperty, ref _centerY, value);
     }
 
     internal override void ApplyTo(IBrush displacementMap, FilterEffectContext context)
     {
         context.CustomEffect(
             (displacementMap, x: Scale * ScaleX / 10000, y: Scale * ScaleY / 10000,
-                center: new Point(OffsetX, OffsetY)),
+                center: new Point(CenterX, CenterY)),
             (d, c) =>
             {
                 var (displacementMap_, scaleX, scaleY, center) = d;
