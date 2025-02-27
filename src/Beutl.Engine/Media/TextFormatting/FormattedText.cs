@@ -128,16 +128,15 @@ public class FormattedText : IEquatable<FormattedText>
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
 
-        using SKPaint paint = new() { TextSize = Size, Typeface = font.Typeface };
-        SKShaper.Result result = shaper.Shape(buffer, paint);
+        SKShaper.Result result = shaper.Shape(buffer, font);
 
         // create the text blob
         using var builder = new SKTextBlobBuilder();
         SKPositionedRunBuffer run = builder.AllocatePositionedRun(font, result.Codepoints.Length);
 
         // copy the glyphs
-        Span<ushort> glyphs = run.GetGlyphSpan();
-        Span<SKPoint> positions = run.GetPositionSpan();
+        Span<ushort> glyphs = run.Glyphs;
+        Span<SKPoint> positions = run.Positions;
         for (int i = 0; i < result.Codepoints.Length; i++)
         {
             glyphs[i] = (ushort)result.Codepoints[i];
@@ -147,7 +146,7 @@ public class FormattedText : IEquatable<FormattedText>
         }
 
         // build
-        using SKTextBlob textBlob = builder.Build();
+        using SKTextBlob? textBlob = builder.Build();
 
         for (int i = 0; i < glyphs.Length; i++)
         {
@@ -208,16 +207,15 @@ public class FormattedText : IEquatable<FormattedText>
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
 
-        using SKPaint paint = new() { TextSize = Size, Typeface = font.Typeface, };
-        SKShaper.Result result = shaper.Shape(buffer, paint);
+        SKShaper.Result result = shaper.Shape(buffer, font);
 
         // create the text blob
         using var builder = new SKTextBlobBuilder();
         SKPositionedRunBuffer run = builder.AllocatePositionedRun(font, result.Codepoints.Length);
 
         var fillPath = new SKPath();
-        Span<ushort> glyphs = run.GetGlyphSpan();
-        Span<SKPoint> positions = run.GetPositionSpan();
+        Span<ushort> glyphs = run.Glyphs;
+        Span<SKPoint> positions = run.Positions;
         CollectionsMarshal.SetCount(_pathList, result.Codepoints.Length);
         Span<SKPathGeometry> pathList = CollectionsMarshal.AsSpan(_pathList);
         for (int i = 0; i < result.Codepoints.Length; i++)
@@ -250,7 +248,7 @@ public class FormattedText : IEquatable<FormattedText>
         // 空白で開始または、終了した場合
         var bounds = new Rect(0, 0, (glyphs.Length - 1) * Spacing + result.Width, fillPath.TightBounds.Height);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
-        SKTextBlob textBlob = builder.Build();
+        SKTextBlob? textBlob = builder.Build();
 
         if (result.Codepoints.Length > 0)
         {

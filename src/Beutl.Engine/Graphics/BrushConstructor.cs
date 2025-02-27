@@ -18,9 +18,6 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
         float opacity = (Brush?.Opacity ?? 0) / 100f;
         paint.IsAntialias = true;
         paint.BlendMode = (SKBlendMode)BlendMode;
-        paint.HintingLevel = SKPaintHinting.Full;
-        paint.LcdRenderText = true;
-        paint.SubpixelText = true;
 
         paint.Color = new SKColor(255, 255, 255, (byte)(255 * opacity));
 
@@ -46,7 +43,31 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
         }
     }
 
-    private void ConfigureGradientBrush(SKPaint paint, IGradientBrush gradientBrush)
+    public SKShader? CreateShader()
+    {
+        float opacity = (Brush?.Opacity ?? 0) / 100f;
+        if (Brush is ISolidColorBrush solid)
+        {
+            return SKShader.CreateColor(new SKColor(solid.Color.R, solid.Color.G, solid.Color.B,
+                (byte)(solid.Color.A * opacity)));
+        }
+        else if (Brush is IGradientBrush gradient)
+        {
+            return CreateGradientShader(gradient);
+        }
+        else if (Brush is ITileBrush tileBrush)
+        {
+            return CreateTileShader(tileBrush);
+        }
+        else if (Brush is IPerlinNoiseBrush perlinNoiseBrush)
+        {
+            return CreatePerlinNoiseShader(perlinNoiseBrush);
+        }
+
+        return null;
+    }
+
+    private SKShader? CreateGradientShader(IGradientBrush gradientBrush)
     {
         var tileMode = gradientBrush.SpreadMethod.ToSKShaderTileMode();
         SKColor[] stopColors = gradientBrush.GradientStops.Select(s => s.Color.ToSKColor()).ToArray();
@@ -63,10 +84,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
 
                     if (linearGradient.Transform is null)
                     {
-                        using (var shader = SKShader.CreateLinearGradient(start, end, stopColors, stopOffsets, tileMode))
-                        {
-                            paint.Shader = shader;
-                        }
+                        return SKShader.CreateLinearGradient(start, end, stopColors, stopOffsets, tileMode);
                     }
                     else
                     {
@@ -74,13 +92,9 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                         var offset = Matrix.CreateTranslation(transformOrigin + Bounds.Position);
                         Matrix transform = (-offset) * linearGradient.Transform.Value * offset;
 
-                        using (var shader = SKShader.CreateLinearGradient(start, end, stopColors, stopOffsets, tileMode, transform.ToSKMatrix()))
-                        {
-                            paint.Shader = shader;
-                        }
+                        return SKShader.CreateLinearGradient(
+                            start, end, stopColors, stopOffsets, tileMode, transform.ToSKMatrix());
                     }
-
-                    break;
                 }
             case IRadialGradientBrush radialGradient:
                 {
@@ -95,10 +109,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                         // when the origin is the same as the center the Skia RadialGradient acts the same as D2D
                         if (radialGradient.Transform is null)
                         {
-                            using (var shader = SKShader.CreateRadialGradient(center, radius, stopColors, stopOffsets, tileMode))
-                            {
-                                paint.Shader = shader;
-                            }
+                            return SKShader.CreateRadialGradient(center, radius, stopColors, stopOffsets, tileMode);
                         }
                         else
                         {
@@ -106,10 +117,8 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                             var offset = Matrix.CreateTranslation(transformOrigin + Bounds.Position);
                             Matrix transform = (-offset) * radialGradient.Transform.Value * (offset);
 
-                            using (var shader = SKShader.CreateRadialGradient(center, radius, stopColors, stopOffsets, tileMode, transform.ToSKMatrix()))
-                            {
-                                paint.Shader = shader;
-                            }
+                            return SKShader.CreateRadialGradient(
+                                center, radius, stopColors, stopOffsets, tileMode, transform.ToSKMatrix());
                         }
                     }
                     else
@@ -135,32 +144,24 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                         // compose with a background colour of the final stop to match D2D's behaviour of filling with the final color
                         if (radialGradient.Transform is null)
                         {
-                            using (var shader = SKShader.CreateCompose(
+                            return SKShader.CreateCompose(
                                 SKShader.CreateColor(reversedColors[0]),
-                                SKShader.CreateTwoPointConicalGradient(center, radius, origin, 0, reversedColors, reversedStops, tileMode)
-                            ))
-                            {
-                                paint.Shader = shader;
-                            }
+                                SKShader.CreateTwoPointConicalGradient(
+                                    center, radius, origin, 0, reversedColors, reversedStops, tileMode));
                         }
                         else
                         {
-
                             Point transformOrigin = radialGradient.TransformOrigin.ToPixels(Bounds.Size);
                             var offset = Matrix.CreateTranslation(transformOrigin + Bounds.Position);
                             Matrix transform = (-offset) * radialGradient.Transform.Value * (offset);
 
-                            using (var shader = SKShader.CreateCompose(
+                            return SKShader.CreateCompose(
                                 SKShader.CreateColor(reversedColors[0]),
-                                SKShader.CreateTwoPointConicalGradient(center, radius, origin, 0, reversedColors, reversedStops, tileMode, transform.ToSKMatrix())
-                            ))
-                            {
-                                paint.Shader = shader;
-                            }
+                                SKShader.CreateTwoPointConicalGradient(
+                                    center, radius, origin, 0, reversedColors,
+                                    reversedStops, tileMode, transform.ToSKMatrix()));
                         }
                     }
-
-                    break;
                 }
             case IConicGradientBrush conicGradient:
                 {
@@ -172,7 +173,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                     float angle = conicGradient.Angle - 90;
                     var rotation = SKMatrix.CreateRotationDegrees(angle, center.X, center.Y);
 
-                    if (conicGradient.Transform is { })
+                    if (conicGradient.Transform is not null)
                     {
                         Point transformOrigin = conicGradient.TransformOrigin.ToPixels(Bounds.Size);
                         var offset = Matrix.CreateTranslation(transformOrigin + Bounds.Position);
@@ -181,20 +182,26 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                         rotation = rotation.PreConcat(transform.ToSKMatrix());
                     }
 
-                    using (var shader = SKShader.CreateSweepGradient(center, stopColors, stopOffsets, rotation))
-                    {
-                        paint.Shader = shader;
-                    }
-
-                    break;
+                    return SKShader.CreateSweepGradient(center, stopColors, stopOffsets, rotation);
                 }
+        }
+
+        return null;
+    }
+
+    private void ConfigureGradientBrush(SKPaint paint, IGradientBrush gradientBrush)
+    {
+        using var shader = CreateGradientShader(gradientBrush);
+        if (shader != null)
+        {
+            paint.Shader = shader;
         }
     }
 
-    private void ConfigureTileBrush(SKPaint paint, ITileBrush tileBrush)
+    private SKShader? CreateTileShader(ITileBrush tileBrush)
     {
         RenderTarget? renderTarget = null;
-        SKBitmap? skbitmap = null;
+        SKImage? skImage;
         PixelSize pixelSize;
 
         if (tileBrush is RenderSceneBrush sceneBrush)
@@ -203,67 +210,70 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
             if (scene != null)
             {
                 renderTarget = RenderTarget.Create(scene.Size.Width, scene.Size.Height);
-                if (renderTarget != null)
+                if (renderTarget == null) return null;
+
+                using (var icanvas = new ImmediateCanvas(renderTarget))
+                using (icanvas.PushTransform(Matrix.CreateTranslation(-sceneBrush.Bounds.X, -sceneBrush.Bounds.Y)))
                 {
-                    using (var icanvas = new ImmediateCanvas(renderTarget))
-                    using (icanvas.PushTransform(Matrix.CreateTranslation(-sceneBrush.Bounds.X, -sceneBrush.Bounds.Y)))
-                    {
-                        scene.Render(icanvas);
-                    }
+                    scene.Render(icanvas);
                 }
 
                 pixelSize = scene.Size;
+                skImage = renderTarget.Value.Snapshot();
             }
             else
             {
-                using (SKShader shader = SKShader.CreateEmpty())
-                {
-                    paint.Shader = shader;
-                    return;
-                }
+                return null;
             }
         }
         else if (tileBrush is IImageBrush imageBrush
-            && imageBrush.Source?.TryGetRef(out Ref<IBitmap>? bitmap) == true)
+                 && imageBrush.Source?.TryGetRef(out Ref<IBitmap>? bitmap) == true)
         {
             using (bitmap)
             {
-                skbitmap = bitmap.Value.ToSKBitmap();
+                skImage = bitmap.Value.ToSKImage();
                 pixelSize = new(bitmap.Value.Width, bitmap.Value.Height);
             }
+        }
+        else if (tileBrush is IDrawableBrush drawableBrush)
+        {
+            if (drawableBrush.Drawable is null) return null;
+            renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height);
+            if (renderTarget == null) return null;
+
+            using (var icanvas = new ImmediateCanvas(renderTarget))
+            {
+                icanvas.DrawDrawable(drawableBrush.Drawable);
+            }
+
+            pixelSize = new PixelSize(renderTarget.Width, renderTarget.Height);
+            skImage = renderTarget.Value.Snapshot();
         }
         else
         {
             throw new InvalidOperationException($"'{tileBrush.GetType().Name}' not supported.");
         }
 
-        if (renderTarget == null && skbitmap == null)
-            return;
-
         RenderTarget? intermediate = null;
         try
         {
+            if (skImage == null) return null;
+
             var calc = new TileBrushCalculator(tileBrush, pixelSize.ToSize(1), Bounds.Size);
             SKSizeI intermediateSize = calc.IntermediateSize.ToSKSize().ToSizeI();
 
             intermediate = RenderTarget.Create(intermediateSize.Width, intermediateSize.Height);
-            if (intermediate == null)
-                return;
+            if (intermediate == null) return null;
 
             SKCanvas canvas = intermediate.Value.Canvas;
-            using var ipaint = new SKPaint();
+            using (var paintTmp = new SKPaint())
             {
-                ipaint.FilterQuality = tileBrush.BitmapInterpolationMode.ToSKFilterQuality();
-
                 canvas.Clear();
                 canvas.Save();
                 canvas.ClipRect(calc.IntermediateClip.ToSKRect());
                 canvas.SetMatrix(calc.IntermediateTransform.ToSKMatrix());
 
-                if (renderTarget != null)
-                    canvas.DrawSurface(renderTarget.Value, default, ipaint);
-                else if (skbitmap != null)
-                    canvas.DrawBitmap(skbitmap, (SKPoint)default, ipaint);
+                canvas.DrawImage(skImage, 0, 0, tileBrush.BitmapInterpolationMode.ToSKSamplingOptions(), paintTmp);
 
                 canvas.Restore();
             }
@@ -285,7 +295,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                     : SKShaderTileMode.Repeat;
 
 
-            if (tileBrush.Transform is { })
+            if (tileBrush.Transform is not null)
             {
                 Point origin = tileBrush.TransformOrigin.ToPixels(Bounds.Size);
                 var offset = Matrix.CreateTranslation(origin + Bounds.Position);
@@ -294,54 +304,68 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                 tileTransform = tileTransform.PreConcat(transform.ToSKMatrix());
             }
 
-            using (SKImage skimage = intermediate.Value.Snapshot())
-            using (SKShader shader = skimage.ToShader(tileX, tileY, tileTransform))
+            using (SKImage snapshot = intermediate.Value.Snapshot())
             {
-                paint.Shader = shader;
+                return snapshot.ToShader(tileX, tileY, tileTransform);
             }
         }
         finally
         {
-            renderTarget?.Dispose();
-            skbitmap?.Dispose();
+            skImage?.Dispose();
             intermediate?.Dispose();
+            renderTarget?.Dispose();
         }
+    }
+
+    private void ConfigureTileBrush(SKPaint paint, ITileBrush tileBrush)
+    {
+        using var shader = CreateTileShader(tileBrush);
+        if (shader != null)
+        {
+            paint.Shader = shader;
+        }
+    }
+
+    private SKShader? CreatePerlinNoiseShader(IPerlinNoiseBrush perlinNoiseBrush)
+    {
+        SKShader? shader = perlinNoiseBrush.PerlinNoiseType switch
+        {
+            PerlinNoiseType.Turbulence => SKShader.CreatePerlinNoiseTurbulence(
+                perlinNoiseBrush.BaseFrequencyX / 100f,
+                perlinNoiseBrush.BaseFrequencyY / 100f,
+                perlinNoiseBrush.Octaves,
+                perlinNoiseBrush.Seed),
+            PerlinNoiseType.Fractal => SKShader.CreatePerlinNoiseFractalNoise(
+                perlinNoiseBrush.BaseFrequencyX / 100f,
+                perlinNoiseBrush.BaseFrequencyY / 100f,
+                perlinNoiseBrush.Octaves,
+                perlinNoiseBrush.Seed),
+            _ => null
+        };
+
+        if (shader == null) return null;
+
+        if (perlinNoiseBrush.Transform == null) return shader;
+
+        Point transformOrigin = perlinNoiseBrush.TransformOrigin.ToPixels(Bounds.Size);
+        var offset = Matrix.CreateTranslation(transformOrigin + Bounds.Position);
+        Matrix transform = (-offset) * perlinNoiseBrush.Transform.Value * offset;
+
+        if (!transform.IsIdentity)
+        {
+            SKShader tmp = shader;
+            shader = shader.WithLocalMatrix(transform.ToSKMatrix());
+            tmp.Dispose();
+        }
+
+        return shader;
     }
 
     private void ConfigurePerlinNoiseBrush(SKPaint paint, IPerlinNoiseBrush perlinNoiseBrush)
     {
-        SKShader? shader = null;
-        switch (perlinNoiseBrush.PerlinNoiseType)
-        {
-            case PerlinNoiseType.Turbulence:
-                shader = SKShader.CreatePerlinNoiseTurbulence(
-                    perlinNoiseBrush.BaseFrequencyX / 100f, perlinNoiseBrush.BaseFrequencyY / 100f,
-                    perlinNoiseBrush.Octaves, perlinNoiseBrush.Seed);
-                break;
-
-            case PerlinNoiseType.Fractal:
-                shader = SKShader.CreatePerlinNoiseFractalNoise(
-                    perlinNoiseBrush.BaseFrequencyX / 100f, perlinNoiseBrush.BaseFrequencyY / 100f,
-                    perlinNoiseBrush.Octaves, perlinNoiseBrush.Seed);
-                break;
-        }
-
+        SKShader? shader = CreatePerlinNoiseShader(perlinNoiseBrush);
         if (shader != null)
         {
-            if (perlinNoiseBrush.Transform != null)
-            {
-                Point transformOrigin = perlinNoiseBrush.TransformOrigin.ToPixels(Bounds.Size);
-                var offset = Matrix.CreateTranslation(transformOrigin + Bounds.Position);
-                Matrix transform = (-offset) * perlinNoiseBrush.Transform.Value * offset;
-
-                if (!transform.IsIdentity)
-                {
-                    SKShader tmp = shader;
-                    shader = shader.WithLocalMatrix(transform.ToSKMatrix());
-                    tmp.Dispose();
-                }
-            }
-
             paint.Shader = shader;
         }
     }

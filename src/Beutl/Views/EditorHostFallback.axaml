@@ -136,12 +136,14 @@
             <Button Click="SocialClick"
                     Tag="GitHub"
                     ToolTip.Tip="GitHub">
-                <Image x:Name="githubLogo" />
+                <Image x:Name="githubLogo" RenderOptions.BitmapInterpolationMode="HighQuality" />
             </Button>
             <Button Click="SocialClick"
                     Tag="X"
                     ToolTip.Tip="X">
-                <Image x:Name="xLogo" Margin="2" />
+                <Image x:Name="xLogo"
+                       Margin="2"
+                       RenderOptions.BitmapInterpolationMode="HighQuality" />
             </Button>
             <Button Click="SocialClick"
                     Tag="Url"
