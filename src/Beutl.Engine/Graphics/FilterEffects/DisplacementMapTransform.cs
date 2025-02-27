@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Media;
+using Beutl.Utilities;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -273,6 +274,123 @@ public class DisplacementMapScaleTransform : DisplacementMapTransform
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
                     builder.Uniforms["uScale"] = new SKPoint(scaleX, scaleY);
+                    builder.Uniforms["uPivot"] = new SKPoint(
+                        effectTarget.Bounds.Width / 2 + center.X,
+                        effectTarget.Bounds.Height / 2 + center.Y);
+
+                    // 最終的なシェーダーを生成
+                    using (SKShader finalShader = builder.Build())
+                    using (var paint = new SKPaint())
+                    {
+                        var newTarget = c.CreateTarget(effectTarget.Bounds);
+                        var canvas = newTarget.RenderTarget!.Value.Canvas;
+                        paint.Shader = finalShader;
+                        canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
+
+                        c.Targets[i] = newTarget;
+                    }
+
+                    effectTarget.Dispose();
+                }
+            });
+    }
+}
+
+public class DisplacementMapRotationTransform : DisplacementMapTransform
+{
+    public static readonly CoreProperty<float> RotationProperty;
+    public static readonly CoreProperty<float> CenterXProperty;
+    public static readonly CoreProperty<float> CenterYProperty;
+    private float _rotation;
+    private float _centerX;
+    private float _centerY;
+    private static readonly SKRuntimeEffect s_runtimeEffect;
+
+    static DisplacementMapRotationTransform()
+    {
+        RotationProperty = ConfigureProperty<float, DisplacementMapRotationTransform>(nameof(Rotation))
+            .Accessor(o => o.Rotation, (o, v) => o.Rotation = v)
+            .DefaultValue(0)
+            .Register();
+
+        CenterXProperty = ConfigureProperty<float, DisplacementMapRotationTransform>(nameof(CenterX))
+            .Accessor(o => o.CenterX, (o, v) => o.CenterX = v)
+            .DefaultValue(0)
+            .Register();
+
+        CenterYProperty = ConfigureProperty<float, DisplacementMapRotationTransform>(nameof(CenterY))
+            .Accessor(o => o.CenterY, (o, v) => o.CenterY = v)
+            .DefaultValue(0)
+            .Register();
+
+        AffectsRender<DisplacementMapRotationTransform>(RotationProperty, CenterXProperty, CenterYProperty);
+
+        string sksl =
+            """
+            uniform shader uBaseTexture;
+            uniform shader uDisplacementMap;
+
+            uniform float uAngle;
+            uniform float2 uPivot;
+
+            half4 main(float2 coord) {
+                half4 dispColor = uDisplacementMap.eval(coord);
+                float2 offset = float2(cos(uAngle * dispColor.a), sin(uAngle * dispColor.a));
+
+                float2 uv = coord - uPivot;
+                float2 rotated = float2(uv.x * offset.x - uv.y * offset.y, uv.x * offset.y + uv.y * offset.x);
+                uv = rotated + uPivot;
+                return uBaseTexture.eval(uv);
+            }
+            """;
+        // SKRuntimeEffectを使ってSKSLコードをコンパイル
+        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out var errorText);
+    }
+
+    public float Rotation
+    {
+        get => _rotation;
+        set => SetAndRaise(RotationProperty, ref _rotation, value);
+    }
+
+    public float CenterX
+    {
+        get => _centerX;
+        set => SetAndRaise(CenterXProperty, ref _centerX, value);
+    }
+
+    public float CenterY
+    {
+        get => _centerY;
+        set => SetAndRaise(CenterYProperty, ref _centerY, value);
+    }
+
+    internal override void ApplyTo(IBrush displacementMap, FilterEffectContext context)
+    {
+        context.CustomEffect(
+            (displacementMap, Rotation, new Point(CenterX, CenterY)),
+            (d, c) =>
+            {
+                var (displacementMap_, rotation, center) = d;
+                for (int i = 0; i < c.Targets.Count; i++)
+                {
+                    EffectTarget effectTarget = c.Targets[i];
+                    var renderTarget = effectTarget.RenderTarget!;
+                    using var displacementMapShader =
+                        new BrushConstructor(new(effectTarget.Bounds.Size), displacementMap_, BlendMode.SrcOver)
+                            .CreateShader();
+
+                    using var image = renderTarget.Value.Snapshot();
+                    using var baseShader = SKShader.CreateImage(image);
+
+                    // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
+                    var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
+
+                    // child shaderとしてテクスチャ用のシェーダーを設定
+                    builder.Children["uBaseTexture"] = baseShader;
+                    builder.Children["uDisplacementMap"] = displacementMapShader;
+
+                    builder.Uniforms["uAngle"] = MathUtilities.Deg2Rad(rotation);
                     builder.Uniforms["uPivot"] = new SKPoint(
                         effectTarget.Bounds.Width / 2 + center.X,
                         effectTarget.Bounds.Height / 2 + center.Y);
