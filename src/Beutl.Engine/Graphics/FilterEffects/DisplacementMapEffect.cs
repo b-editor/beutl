@@ -1,7 +1,6 @@
-﻿using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Transformation;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Language;
 using Beutl.Media;
-using Beutl.Utilities;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -11,7 +10,6 @@ public class DisplacementMapEffect : FilterEffect
     public static readonly CoreProperty<IBrush?> DisplacementMapProperty;
     public static readonly CoreProperty<DisplacementMapTransform?> TransformProperty;
     public static readonly CoreProperty<bool> ShowDisplacementMapProperty;
-    private static readonly SKRuntimeEffect? s_runtimeEffect;
     private IBrush? _displacementMap;
     private DisplacementMapTransform? _transform;
     private bool _showDisplacementMap;
@@ -37,18 +35,21 @@ public class DisplacementMapEffect : FilterEffect
             ShowDisplacementMapProperty);
     }
 
+    [Display(Name = nameof(Strings.DisplacementMap), ResourceType = typeof(Strings))]
     public IBrush? DisplacementMap
     {
         get => _displacementMap;
         set => SetAndRaise(DisplacementMapProperty, ref _displacementMap, value);
     }
 
+    [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings))]
     public DisplacementMapTransform? Transform
     {
         get => _transform;
         set => SetAndRaise(TransformProperty, ref _transform, value);
     }
 
+    [Display(Name = nameof(Strings.ShowDisplacementMap), ResourceType = typeof(Strings))]
     public bool ShowDisplacementMap
     {
         get => _showDisplacementMap;
@@ -58,11 +59,11 @@ public class DisplacementMapEffect : FilterEffect
     public override void ApplyTo(FilterEffectContext context)
     {
         if (DisplacementMap is null) return;
-        var displacementMap_ = (DisplacementMap as IMutableBrush)?.ToImmutable() ?? DisplacementMap;
+        var displacementMap = (DisplacementMap as IMutableBrush)?.ToImmutable() ?? DisplacementMap;
 
         if (ShowDisplacementMap)
         {
-            context.CustomEffect(displacementMap_,
+            context.CustomEffect(displacementMap,
                 (d, c) =>
                 {
                     for (int i = 0; i < c.Targets.Count; i++)
@@ -87,9 +88,9 @@ public class DisplacementMapEffect : FilterEffect
                     }
                 });
         }
-        else if (Transform != null)
+        else if (Transform is not null)
         {
-            Transform.ApplyTo(displacementMap_, context);
+            Transform.ApplyTo(displacementMap, context);
         }
     }
 }
