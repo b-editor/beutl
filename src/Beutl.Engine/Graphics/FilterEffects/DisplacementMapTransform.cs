@@ -49,7 +49,8 @@ public abstract class DisplacementMapTransform : Animatable, IAffectsRender
         Invalidated?.Invoke(this, args);
     }
 
-    internal abstract void ApplyTo(IBrush displacementMap, FilterEffectContext context);
+    internal abstract void ApplyTo(
+        IBrush displacementMap, GradientSpreadMethod spreadMethod, FilterEffectContext context);
 }
 
 [Display(Name = nameof(Strings.Translate), ResourceType = typeof(Strings))]
@@ -114,24 +115,26 @@ public class DisplacementMapTranslateTransform : DisplacementMapTransform
         set => SetAndRaise(YProperty, ref _y, value);
     }
 
-    internal override void ApplyTo(IBrush displacementMap, FilterEffectContext context)
+    internal override void ApplyTo(IBrush displacementMap, GradientSpreadMethod spreadMethod,
+        FilterEffectContext context)
     {
         if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
 
-        context.CustomEffect((displacementMap, X, Y),
+        context.CustomEffect((displacementMap, spreadMethod, X, Y),
             (d, c) =>
             {
-                var (displacementMap_, x, y) = d;
+                var (map, sm, x, y) = d;
                 for (int i = 0; i < c.Targets.Count; i++)
                 {
                     EffectTarget effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
                     using var displacementMapShader =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), displacementMap_, BlendMode.SrcOver)
+                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver)
                             .CreateShader();
 
                     using var image = renderTarget.Value.Snapshot();
-                    using var baseShader = SKShader.CreateImage(image);
+                    using var baseShader = SKShader.CreateImage(
+                        image, sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
 
                     // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
                     var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
@@ -265,26 +268,28 @@ public class DisplacementMapScaleTransform : DisplacementMapTransform
         set => SetAndRaise(CenterYProperty, ref _centerY, value);
     }
 
-    internal override void ApplyTo(IBrush displacementMap, FilterEffectContext context)
+    internal override void ApplyTo(IBrush displacementMap, GradientSpreadMethod spreadMethod,
+        FilterEffectContext context)
     {
         if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
 
         context.CustomEffect(
-            (displacementMap, x: Scale * ScaleX / 10000, y: Scale * ScaleY / 10000,
+            (displacementMap, spreadMethod, x: Scale * ScaleX / 10000, y: Scale * ScaleY / 10000,
                 center: new Point(CenterX, CenterY)),
             (d, c) =>
             {
-                var (displacementMap_, scaleX, scaleY, center) = d;
+                var (map, sm, scaleX, scaleY, center) = d;
                 for (int i = 0; i < c.Targets.Count; i++)
                 {
                     EffectTarget effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
                     using var displacementMapShader =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), displacementMap_, BlendMode.SrcOver)
+                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver)
                             .CreateShader();
 
                     using var image = renderTarget.Value.Snapshot();
-                    using var baseShader = SKShader.CreateImage(image);
+                    using var baseShader = SKShader.CreateImage(
+                        image, sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
 
                     // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
                     var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
@@ -391,25 +396,27 @@ public class DisplacementMapRotationTransform : DisplacementMapTransform
         set => SetAndRaise(CenterYProperty, ref _centerY, value);
     }
 
-    internal override void ApplyTo(IBrush displacementMap, FilterEffectContext context)
+    internal override void ApplyTo(IBrush displacementMap, GradientSpreadMethod spreadMethod,
+        FilterEffectContext context)
     {
         if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
 
         context.CustomEffect(
-            (displacementMap, Rotation, new Point(CenterX, CenterY)),
+            (displacementMap, spreadMethod, Rotation, new Point(CenterX, CenterY)),
             (d, c) =>
             {
-                var (displacementMap_, rotation, center) = d;
+                var (map, sm, rotation, center) = d;
                 for (int i = 0; i < c.Targets.Count; i++)
                 {
                     EffectTarget effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
                     using var displacementMapShader =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), displacementMap_, BlendMode.SrcOver)
+                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver)
                             .CreateShader();
 
                     using var image = renderTarget.Value.Snapshot();
-                    using var baseShader = SKShader.CreateImage(image);
+                    using var baseShader = SKShader.CreateImage(
+                        image, sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
 
                     // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
                     var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);

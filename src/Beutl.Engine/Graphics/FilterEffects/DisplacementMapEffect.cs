@@ -10,9 +10,11 @@ public class DisplacementMapEffect : FilterEffect
 {
     public static readonly CoreProperty<IBrush?> DisplacementMapProperty;
     public static readonly CoreProperty<DisplacementMapTransform?> TransformProperty;
+    public static readonly CoreProperty<GradientSpreadMethod> SpreadMethodProperty;
     public static readonly CoreProperty<bool> ShowDisplacementMapProperty;
     private IBrush? _displacementMap;
     private DisplacementMapTransform? _transform;
+    private GradientSpreadMethod _spreadMethod = GradientSpreadMethod.Pad;
     private bool _showDisplacementMap;
 
     static DisplacementMapEffect()
@@ -25,6 +27,11 @@ public class DisplacementMapEffect : FilterEffect
             .Accessor(o => o.Transform, (o, v) => o.Transform = v)
             .Register();
 
+        SpreadMethodProperty = ConfigureProperty<GradientSpreadMethod, DisplacementMapEffect>(nameof(SpreadMethod))
+            .Accessor(o => o.SpreadMethod, (o, v) => o.SpreadMethod = v)
+            .DefaultValue(GradientSpreadMethod.Pad)
+            .Register();
+
         ShowDisplacementMapProperty =
             ConfigureProperty<bool, DisplacementMapEffect>(nameof(ShowDisplacementMap))
                 .Accessor(o => o.ShowDisplacementMap, (o, v) => o.ShowDisplacementMap = v)
@@ -33,6 +40,7 @@ public class DisplacementMapEffect : FilterEffect
         AffectsRender<DisplacementMapEffect>(
             DisplacementMapProperty,
             TransformProperty,
+            SpreadMethodProperty,
             ShowDisplacementMapProperty);
     }
 
@@ -48,6 +56,13 @@ public class DisplacementMapEffect : FilterEffect
     {
         get => _transform;
         set => SetAndRaise(TransformProperty, ref _transform, value);
+    }
+
+    [Display(Name = nameof(Strings.SpreadMethod), ResourceType = typeof(Strings))]
+    public GradientSpreadMethod SpreadMethod
+    {
+        get => _spreadMethod;
+        set => SetAndRaise(SpreadMethodProperty, ref _spreadMethod, value);
     }
 
     [Display(Name = nameof(Strings.ShowDisplacementMap), ResourceType = typeof(Strings))]
@@ -91,7 +106,7 @@ public class DisplacementMapEffect : FilterEffect
         }
         else if (Transform is not null)
         {
-            Transform.ApplyTo(displacementMap, context);
+            Transform.ApplyTo(displacementMap, _spreadMethod, context);
         }
     }
 
