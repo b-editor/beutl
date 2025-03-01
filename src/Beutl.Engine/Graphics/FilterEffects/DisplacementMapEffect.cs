@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Animation;
 using Beutl.Language;
 using Beutl.Media;
 using SkiaSharp;
@@ -92,5 +93,12 @@ public class DisplacementMapEffect : FilterEffect
         {
             Transform.ApplyTo(displacementMap, context);
         }
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        (DisplacementMap as IAnimatable)?.ApplyAnimations(clock);
+        Transform?.ApplyAnimations(clock);
     }
 }
