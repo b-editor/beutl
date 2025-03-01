@@ -1,8 +1,9 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
 using System.Globalization;
 using System.Numerics;
+using System.Text.Json.Serialization;
 using System.Text.Unicode;
-
+using Beutl.Converters;
 using Beutl.Utilities;
 
 namespace Beutl.Graphics;
@@ -10,6 +11,8 @@ namespace Beutl.Graphics;
 /// <summary>
 /// Defines a rectangle that may be defined relative to a containing element.
 /// </summary>
+[JsonConverter(typeof(RelativeRectJsonConverter))]
+[TypeConverter(typeof(RelativeRectConverter))]
 public readonly struct RelativeRect
     : IEquatable<RelativeRect>,
       IParsable<RelativeRect>,
