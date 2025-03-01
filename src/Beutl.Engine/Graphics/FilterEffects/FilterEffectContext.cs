@@ -172,37 +172,6 @@ public sealed class FilterEffectContext : IDisposable
         Blur(new Size(sigma.X, sigma.Y));
     }
 
-    public void DisplacementMap(
-        SKColorChannel xChannelSelector,
-        SKColorChannel yChannelSelector,
-        float scale,
-        FilterEffect displacement)
-    {
-        DisplacementMap(xChannelSelector, yChannelSelector, scale, context => context.Apply(displacement));
-    }
-
-    public void DisplacementMap(
-        SKColorChannel xChannelSelector,
-        SKColorChannel yChannelSelector,
-        float scale,
-        Action<FilterEffectContext> displacementFactory)
-    {
-        FilterEffectContext child = CreateChildContext();
-        displacementFactory.Invoke(child);
-
-        AppendSkiaFilter(
-            data: (xChannelSelector, yChannelSelector, scale, child),
-            factory: static (t, input, activator) =>
-            {
-                SKImageFilter? displacement = activator.Activate(t.child);
-                if (displacement is null)
-                    return input;
-                return SKImageFilter.CreateDisplacementMapEffect(t.xChannelSelector, t.yChannelSelector, t.scale,
-                    displacement, input);
-            },
-            transformBounds: static (data, bounds) => bounds.Inflate(data.scale / 2));
-    }
-
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
     public void InnerShadow(Point position, Size sigma, Color color)
     {
