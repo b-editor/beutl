@@ -44,6 +44,23 @@ public class DisplacementMapEffect : FilterEffect
             ShowDisplacementMapProperty);
     }
 
+    public DisplacementMapEffect()
+    {
+        DisplacementMap = new RadialGradientBrush
+        {
+            GradientStops =
+            {
+                new GradientStop(Colors.White, 0),
+                new GradientStop(Colors.Transparent, 1)
+            }
+        };
+        Transform = new DisplacementMapTranslateTransform
+        {
+            X = 0,
+            Y = 0
+        };
+    }
+
     [Display(Name = nameof(Strings.DisplacementMap), ResourceType = typeof(Strings))]
     public IBrush? DisplacementMap
     {
