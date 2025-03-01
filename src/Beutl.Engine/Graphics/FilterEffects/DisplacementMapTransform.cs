@@ -4,6 +4,7 @@ using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Utilities;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -58,7 +59,8 @@ public class DisplacementMapTranslateTransform : DisplacementMapTransform
     public static readonly CoreProperty<float> YProperty;
     private float _x;
     private float _y;
-    private static readonly SKRuntimeEffect s_runtimeEffect;
+    private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapTranslateTransform>();
+    private static readonly SKRuntimeEffect? s_runtimeEffect;
 
     static DisplacementMapTranslateTransform()
     {
@@ -93,7 +95,11 @@ public class DisplacementMapTranslateTransform : DisplacementMapTransform
             """;
 
         // SKRuntimeEffectを使ってSKSLコードをコンパイル
-        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out var errorText);
+        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
+        if (errorText is not null)
+        {
+            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+        }
     }
 
     public float X
@@ -110,6 +116,8 @@ public class DisplacementMapTranslateTransform : DisplacementMapTransform
 
     internal override void ApplyTo(IBrush displacementMap, FilterEffectContext context)
     {
+        if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
+
         context.CustomEffect((displacementMap, X, Y),
             (d, c) =>
             {
@@ -165,7 +173,8 @@ public class DisplacementMapScaleTransform : DisplacementMapTransform
     private float _scaleY = 100;
     private float _centerX;
     private float _centerY;
-    private static readonly SKRuntimeEffect s_runtimeEffect;
+    private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapScaleTransform>();
+    private static readonly SKRuntimeEffect? s_runtimeEffect;
 
     static DisplacementMapScaleTransform()
     {
@@ -220,6 +229,10 @@ public class DisplacementMapScaleTransform : DisplacementMapTransform
             """;
         // SKRuntimeEffectを使ってSKSLコードをコンパイル
         s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out var errorText);
+        if (errorText is not null)
+        {
+            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+        }
     }
 
     public float Scale
@@ -254,6 +267,8 @@ public class DisplacementMapScaleTransform : DisplacementMapTransform
 
     internal override void ApplyTo(IBrush displacementMap, FilterEffectContext context)
     {
+        if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
+
         context.CustomEffect(
             (displacementMap, x: Scale * ScaleX / 10000, y: Scale * ScaleY / 10000,
                 center: new Point(CenterX, CenterY)),
@@ -310,6 +325,7 @@ public class DisplacementMapRotationTransform : DisplacementMapTransform
     private float _rotation;
     private float _centerX;
     private float _centerY;
+    private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapRotationTransform>();
     private static readonly SKRuntimeEffect s_runtimeEffect;
 
     static DisplacementMapRotationTransform()
@@ -351,6 +367,10 @@ public class DisplacementMapRotationTransform : DisplacementMapTransform
             """;
         // SKRuntimeEffectを使ってSKSLコードをコンパイル
         s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out var errorText);
+        if (errorText is not null)
+        {
+            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+        }
     }
 
     public float Rotation
@@ -373,6 +393,8 @@ public class DisplacementMapRotationTransform : DisplacementMapTransform
 
     internal override void ApplyTo(IBrush displacementMap, FilterEffectContext context)
     {
+        if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
+
         context.CustomEffect(
             (displacementMap, Rotation, new Point(CenterX, CenterY)),
             (d, c) =>
