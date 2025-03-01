@@ -1,4 +1,7 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Animation;
+using Beutl.Language;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Utilities;
 using SkiaSharp;
@@ -48,6 +51,7 @@ public abstract class DisplacementMapTransform : Animatable, IAffectsRender
     internal abstract void ApplyTo(IBrush displacementMap, FilterEffectContext context);
 }
 
+[Display(Name = nameof(Strings.Translate), ResourceType = typeof(Strings))]
 public class DisplacementMapTranslateTransform : DisplacementMapTransform
 {
     public static readonly CoreProperty<float> XProperty;
@@ -148,6 +152,7 @@ public class DisplacementMapTranslateTransform : DisplacementMapTransform
     }
 }
 
+[Display(Name = nameof(Strings.Scale), ResourceType = typeof(Strings))]
 public class DisplacementMapScaleTransform : DisplacementMapTransform
 {
     public static readonly CoreProperty<float> ScaleProperty;
@@ -296,6 +301,7 @@ public class DisplacementMapScaleTransform : DisplacementMapTransform
     }
 }
 
+[Display(Name = nameof(Strings.Rotation), ResourceType = typeof(Strings))]
 public class DisplacementMapRotationTransform : DisplacementMapTransform
 {
     public static readonly CoreProperty<float> RotationProperty;

@@ -2558,5 +2558,17 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Source", resourceCulture);
             }
         }
+        
+        public static string DisplacementMap {
+            get {
+                return ResourceManager.GetString("DisplacementMap", resourceCulture);
+            }
+        }
+        
+        public static string ShowDisplacementMap {
+            get {
+                return ResourceManager.GetString("ShowDisplacementMap", resourceCulture);
+            }
+        }
     }
 }
