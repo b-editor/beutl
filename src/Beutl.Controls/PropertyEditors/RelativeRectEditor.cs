@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Language;
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -49,6 +50,12 @@ public class RelativeRectEditor : Vector4Editor
     private float _oldFourthValue;
     private Graphics.RelativeUnit _unit;
     private Graphics.RelativeUnit _oldUnit;
+
+    public RelativeRectEditor()
+    {
+        ThirdHeader = Strings.Width;
+        FourthHeader = Strings.Height;
+    }
 
     public float FirstValue
     {
