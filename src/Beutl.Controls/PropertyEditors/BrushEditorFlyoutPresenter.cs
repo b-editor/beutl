@@ -43,6 +43,8 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     private ComboBox? _gradientTypeBox;
     private GradientStopsSlider? _gradientStopsSlider;
     private ToggleButton? _lastSelectedTab;
+    private Button? _changeDrawableTypeButton;
+    private Button? _editDrawableButton;
 
     // ドラッグ操作中
     public event EventHandler<(int OldIndex, int NewIndex, GradientStop Object)>? GradientStopChanged;
@@ -59,6 +61,10 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     public event EventHandler<(Color2 OldValue, Color2 NewValue)>? ColorConfirmed;
 
     public event EventHandler<BrushType>? BrushTypeChanged;
+
+    public event EventHandler<Button>? ChangeDrawableClicked;
+
+    public event EventHandler? EditDrawableClicked;
 
     public Brush? Brush
     {
@@ -215,6 +221,8 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         _contentPresenter = e.NameScope.Find<ContentPresenter>("ContentPresenter");
         _gradientTypeBox = e.NameScope.Find<ComboBox>("GradientTypeBox");
         _gradientStopsSlider = e.NameScope.Find<GradientStopsSlider>("GradientStopsSlider");
+        _changeDrawableTypeButton = e.NameScope.Find<Button>("ChangeDrawableButton");
+        _editDrawableButton = e.NameScope.Find<Button>("EditDrawableButton");
 
         foreach (ToggleButton? item in new[]
                  {
@@ -231,7 +239,7 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         {
             _gradientTypeBox.SelectedIndex = GetGradientTabIndex(Brush?.GetType());
 
-            _gradientTypeBox.GetObservable(ComboBox.SelectedIndexProperty)
+            _gradientTypeBox.GetObservable(SelectingItemsControl.SelectedIndexProperty)
                 .Subscribe(OnGradientTypeChanged)
                 .DisposeWith(_disposables);
         }
@@ -262,6 +270,18 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 
             Observable.FromEventPattern<(int Index, GradientStop Object)>(_gradientStopsSlider, nameof(_gradientStopsSlider.Deleted))
                 .Subscribe(t => GradientStopDeleted?.Invoke(this, t.EventArgs))
+                .DisposeWith(_disposables);
+        }
+
+        if (_changeDrawableTypeButton != null)
+        {
+            _changeDrawableTypeButton.AddDisposableHandler(Button.ClickEvent, (_, _) => ChangeDrawableClicked?.Invoke(this, _changeDrawableTypeButton))
+                .DisposeWith(_disposables);
+        }
+
+        if (_editDrawableButton != null)
+        {
+            _editDrawableButton.AddDisposableHandler(Button.ClickEvent, (_, _) => EditDrawableClicked?.Invoke(this, EventArgs.Empty))
                 .DisposeWith(_disposables);
         }
     }

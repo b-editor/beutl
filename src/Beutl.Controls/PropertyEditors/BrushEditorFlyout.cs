@@ -81,14 +81,19 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
 
     public event EventHandler<BrushType>? BrushTypeChanged;
 
+    public event EventHandler<Button>? ChangeDrawableClicked;
+
+    public event EventHandler? EditDrawableClicked;
+
     protected override Control CreatePresenter()
     {
         var pfp = new BrushEditorFlyoutPresenter()
         {
             Content = new SimpleColorPicker(),
-            Brush = Brush
             Brush = Brush,
             OriginalBrush = OriginalBrush,
+            DrawableName = DrawableName,
+            CanEditDrawable = CanEditDrawable
         };
         pfp.CloseClicked += (_, _) => Hide();
         pfp.KeyDown += (_, e) =>
@@ -105,6 +110,8 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
         pfp.ColorChanged += (_, t) => ColorChanged?.Invoke(this, t);
         pfp.ColorConfirmed += (_, t) => ColorConfirmed?.Invoke(this, t);
         pfp.BrushTypeChanged += (_, t) => BrushTypeChanged?.Invoke(this, t);
+        pfp.ChangeDrawableClicked += (_, t) => ChangeDrawableClicked?.Invoke(this, t);
+        pfp.EditDrawableClicked += (_, _) => EditDrawableClicked?.Invoke(this, EventArgs.Empty);
         pfp.GetObservable(BrushEditorFlyoutPresenter.BrushProperty)
             .Subscribe(b => Brush = b);
 
