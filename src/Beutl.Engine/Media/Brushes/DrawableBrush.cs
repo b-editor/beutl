@@ -5,7 +5,7 @@ using Beutl.Media.Immutable;
 namespace Beutl.Media;
 
 /// <summary>
-/// Paints an area with an <see cref="IDrawable"/>.
+/// Paints an area with an <see cref="Drawable"/>.
 /// </summary>
 public class DrawableBrush : TileBrush, IDrawableBrush, IEquatable<IDrawableBrush?>
 {
@@ -46,6 +46,8 @@ public class DrawableBrush : TileBrush, IDrawableBrush, IEquatable<IDrawableBrus
         set => SetAndRaise(DrawableProperty, ref _drawable, value);
     }
 
+    int? IDrawableBrush.Version => Drawable?.Version;
+
     /// <inheritdoc/>
     public override IBrush ToImmutable()
     {
@@ -71,7 +73,7 @@ public class DrawableBrush : TileBrush, IDrawableBrush, IEquatable<IDrawableBrus
             && TileMode == other.TileMode
             && BitmapInterpolationMode == other.BitmapInterpolationMode
             && ReferenceEquals(Drawable, other.Drawable)
-            && Drawable?.Version == other.Drawable?.Version;
+            && Drawable?.Version == other.Version;
     }
 
     public override int GetHashCode()

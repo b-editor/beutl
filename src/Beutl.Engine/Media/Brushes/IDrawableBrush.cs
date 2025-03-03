@@ -11,4 +11,9 @@ public interface IDrawableBrush : ITileBrush
     /// Gets the drawable to draw.
     /// </summary>
     Drawable? Drawable { get; }
+
+    /// <summary>
+    /// Gets the version of the drawable.
+    /// </summary>
+    int? Version { get; }
 }
