@@ -2,18 +2,14 @@
 
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-
 using Avalonia;
-
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
-
 using Beutl.Reactive;
-
 using FluentAvalonia.UI.Media;
 
 
@@ -26,6 +22,12 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     public static readonly StyledProperty<Media.IBrush?> OriginalBrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyoutPresenter, Media.IBrush?>(nameof(OriginalBrush));
+
+    public static readonly StyledProperty<string?> DrawableNameProperty =
+        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, string?>(nameof(DrawableName));
+
+    public static readonly StyledProperty<bool> CanEditDrawableProperty =
+        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, bool>(nameof(CanEditDrawable), false);
 
     private readonly CompositeDisposable _disposables = [];
     private const string Palette = ":palette";
@@ -68,6 +70,18 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         get => GetValue(OriginalBrushProperty);
         set => SetValue(OriginalBrushProperty, value);
+    }
+
+    public string? DrawableName
+    {
+        get => GetValue(DrawableNameProperty);
+        set => SetValue(DrawableNameProperty, value);
+    }
+
+    public bool CanEditDrawable
+    {
+        get => GetValue(CanEditDrawableProperty);
+        set => SetValue(CanEditDrawableProperty, value);
     }
 
     public void SetColorPaletteItem(Color2 color)

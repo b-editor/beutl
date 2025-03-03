@@ -67,7 +67,6 @@ public sealed partial class BrushEditor : UserControl
         base.OnPropertyChanged(change);
         if (_flyout != null)
         {
-            _flyout.Brush = Brush;
             if (change.Property == BrushProperty)
             {
                 _flyout.Brush = Brush;
@@ -76,8 +75,44 @@ public sealed partial class BrushEditor : UserControl
             if (change.Property == OriginalBrushProperty)
             {
                 _flyout.OriginalBrush = OriginalBrush;
+                _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable);
+                _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable is not null;
+
+                if (change.OldValue is Media.DrawableBrush oldBrush)
+                {
+                    oldBrush.PropertyChanged -= OnDrawableBrushPropertyChanged;
+                }
+
+                if (change.NewValue is Media.DrawableBrush newBrush)
+                {
+                    newBrush.PropertyChanged += OnDrawableBrushPropertyChanged;
+                }
             }
         }
+    }
+
+    private void OnDrawableBrushPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_flyout != null)
+        {
+            if (e is CorePropertyChangedEventArgs<Graphics.Drawable> e2 &&
+                e2.Property.Id == Media.DrawableBrush.DrawableProperty.Id)
+            {
+                _flyout.DrawableName = GetDrawableName(e2.NewValue);
+                _flyout.CanEditDrawable = e2.NewValue is not null;
+            }
+        }
+    }
+
+    private string GetDrawableName(Drawable? drawable)
+    {
+        if (drawable == null)
+        {
+            return "新規オブジェクトを作成";
+        }
+
+        var type = drawable.GetType();
+        return LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
     }
 
     private void OpenFlyout_Click(object? sender, RoutedEventArgs e)
@@ -98,6 +133,8 @@ public sealed partial class BrushEditor : UserControl
 
             _flyout.Brush = Brush;
             _flyout.OriginalBrush = OriginalBrush;
+            _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable);
+            _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable is not null;
 
             _flyout.ShowAt(this);
         }

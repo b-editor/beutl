@@ -1,11 +1,9 @@
 ﻿using System.ComponentModel;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
-
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
 using FluentAvalonia.UI.Media;
@@ -37,6 +35,12 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
     public static readonly StyledProperty<Media.IBrush?> OriginalBrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyout, Media.IBrush?>(nameof(OriginalBrush));
 
+    public static readonly StyledProperty<string?> DrawableNameProperty =
+        AvaloniaProperty.Register<BrushEditorFlyout, string?>(nameof(DrawableName));
+
+    public static readonly StyledProperty<bool> CanEditDrawableProperty =
+        AvaloniaProperty.Register<BrushEditorFlyout, bool>(nameof(CanEditDrawable), false);
+
     public Brush? Brush
     {
         get => GetValue(BrushProperty);
@@ -47,6 +51,18 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
     {
         get => GetValue(OriginalBrushProperty);
         set => SetValue(OriginalBrushProperty, value);
+    }
+
+    public string? DrawableName
+    {
+        get => GetValue(DrawableNameProperty);
+        set => SetValue(DrawableNameProperty, value);
+    }
+
+    public bool CanEditDrawable
+    {
+        get => GetValue(CanEditDrawableProperty);
+        set => SetValue(CanEditDrawableProperty, value);
     }
 
     // ドラッグ操作中または、Colorプロパティの変更
@@ -109,6 +125,8 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
             pfp.ShowHideButtons = ShouldShowConfirmationButtons();
             pfp.Brush = Brush;
             pfp.OriginalBrush = OriginalBrush;
+            pfp.DrawableName = DrawableName;
+            pfp.CanEditDrawable = CanEditDrawable;
         }
 
         Popup.IsLightDismissEnabled = false;
@@ -121,7 +139,6 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
         base.OnPropertyChanged(change);
         if (Popup.Child is BrushEditorFlyoutPresenter pfp)
         {
-            pfp.Brush = Brush;
             if (change.Property == BrushProperty)
             {
                 pfp.Brush = Brush;
@@ -130,6 +147,16 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
             if (change.Property == OriginalBrushProperty)
             {
                 pfp.OriginalBrush = OriginalBrush;
+            }
+
+            if (change.Property == DrawableNameProperty)
+            {
+                pfp.DrawableName = DrawableName;
+            }
+
+            if (change.Property == CanEditDrawableProperty)
+            {
+                pfp.CanEditDrawable = CanEditDrawable;
             }
         }
     }

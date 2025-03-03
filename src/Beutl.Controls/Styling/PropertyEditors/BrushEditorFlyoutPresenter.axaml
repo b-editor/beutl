@@ -134,6 +134,39 @@
                                                            Grid.ColumnSpan="3"
                                                            DockPanel.Dock="Bottom" />
                             </Grid>
+                            <Grid Name="DrawableOptions"
+                                  Margin="6,0,6,6"
+                                  IsVisible="False"
+                                  RowDefinitions="Auto,Auto">
+                                <Button Name="ChangeDrawableButton" Theme="{StaticResource LiteButtonStyle}">
+                                    <Grid ColumnDefinitions="*,32">
+                                        <TextBlock Padding="6,5,0,5"
+                                                   VerticalAlignment="Center"
+                                                   Text="{TemplateBinding DrawableName}" />
+
+                                        <ui:FontIcon Grid.Column="1"
+                                                     MinHeight="{DynamicResource ComboBoxMinHeight}"
+                                                     Margin="0,0,14,0"
+                                                     HorizontalAlignment="Right"
+                                                     VerticalAlignment="Center"
+                                                     FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                                     FontSize="12"
+                                                     Foreground="{DynamicResource ComboBoxDropDownGlyphForeground}"
+                                                     Glyph="&#xE70D;"
+                                                     IsHitTestVisible="False" />
+                                    </Grid>
+                                </Button>
+
+                                <Button Name="EditDrawableButton"
+                                        Grid.Row="1"
+                                        Height="32"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalContentAlignment="Center"
+                                        Classes="accent"
+                                        IsEnabled="{TemplateBinding CanEditDrawable}">
+                                    描画オブジェクトを編集
+                                </Button>
+                            </Grid>
 
                             <ContentPresenter Name="ContentPresenter"
                                               Margin="{TemplateBinding Padding}"
@@ -199,6 +232,13 @@
 
         <Style Selector="^:solid /template/ ContentPresenter#ContentPresenter">
             <Setter Property="IsEnabled" Value="True" />
+        </Style>
+
+        <Style Selector="^:drawable /template/ Grid#DrawableOptions">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:drawable /template/ ContentPresenter#ContentPresenter">
+            <Setter Property="IsVisible" Value="False" />
         </Style>
 
         <Style Selector="^ /template/ WrapPanel#TabLayout">
