@@ -28,6 +28,7 @@ public sealed partial class BrushEditor : UserControl
     private CancellationTokenSource? _lastTransitionCts;
 
     private BrushEditorFlyout? _flyout;
+    private bool _flyoutOpen;
 
     public BrushEditor()
     {
@@ -115,6 +116,44 @@ public sealed partial class BrushEditor : UserControl
         return LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
     }
 
+    private async Task<Type?> SelectType()
+    {
+        if (_flyoutOpen) return null;
+
+        try
+        {
+            _flyoutOpen = true;
+            var viewModel = new SelectDrawableTypeViewModel();
+            var dialog = new LibraryItemPickerFlyout(viewModel);
+            dialog.ShowAt(this);
+            var tcs = new TaskCompletionSource<Type?>();
+            dialog.Pinned += (_, item) => viewModel.Pin(item);
+            dialog.Unpinned += (_, item) => viewModel.Unpin(item);
+            dialog.Dismissed += (_, _) => tcs.SetResult(null);
+            dialog.Confirmed += (_, _) =>
+            {
+                switch (viewModel.SelectedItem.Value?.UserData)
+                {
+                    case SingleTypeLibraryItem single:
+                        tcs.SetResult(single.ImplementationType);
+                        break;
+                    case MultipleTypeLibraryItem multi:
+                        tcs.SetResult(multi.Types.GetValueOrDefault(KnownLibraryItemFormats.Drawable));
+                        break;
+                    default:
+                        tcs.SetResult(null);
+                        break;
+                }
+            };
+
+            return await tcs.Task;
+        }
+        finally
+        {
+            _flyoutOpen = false;
+        }
+    }
+
     private void OpenFlyout_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BrushEditorViewModel viewModel)
@@ -129,6 +168,8 @@ public sealed partial class BrushEditor : UserControl
                 _flyout.ColorChanged += OnColorChanged;
                 _flyout.ColorConfirmed += OnColorConfirmed;
                 _flyout.BrushTypeChanged += OnBrushTypeChanged;
+                _flyout.ChangeDrawableClicked += OnChangeDrawableClicked;
+                _flyout.EditDrawableClicked += OnEditDrawableClicked;
             }
 
             _flyout.Brush = Brush;
@@ -137,6 +178,24 @@ public sealed partial class BrushEditor : UserControl
             _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable is not null;
 
             _flyout.ShowAt(this);
+        }
+    }
+
+    private void OnEditDrawableClicked(object? sender, EventArgs e)
+    {
+        // TODO: DrawablePropertyEditorを開く
+        // ObjectPropertyEditorは不要なプロパティも表示されてしまうので
+    }
+
+    private async void OnChangeDrawableClicked(object? sender, Button e)
+    {
+        if (DataContext is BrushEditorViewModel viewModel)
+        {
+            Type? type = await SelectType();
+            if (type != null)
+            {
+                viewModel.ChangeDrawableType(type);
+            }
         }
     }
 
@@ -217,8 +276,8 @@ public sealed partial class BrushEditor : UserControl
 
     private void OnGradientStopConfirmed(
         object? sender,
-        (int OldIndex, int NewIndex, Avalonia.Media.GradientStop Object, Avalonia.Media.Immutable.ImmutableGradientStop
-            OldObject) e)
+        (int OldIndex, int NewIndex,
+            Avalonia.Media.GradientStop Object, Avalonia.Media.Immutable.ImmutableGradientStop OldObject) e)
     {
         if (DataContext is BrushEditorViewModel { Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
         {

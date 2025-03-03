@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Immutable;
 using Microsoft.Extensions.DependencyInjection;
@@ -178,6 +179,20 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
                 .Append(color)
                 .WithStoables(GetStorables())
                 .DoAndRecord(recorder);
+        }
+    }
+
+    public void ChangeDrawableType(Type type)
+    {
+        if (Value.Value is Media.DrawableBrush drawable)
+        {
+            if (Activator.CreateInstance(type) is Drawable instance)
+            {
+                CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+                RecordableCommands.Edit(drawable, DrawableBrush.DrawableProperty, instance, drawable.Drawable)
+                    .WithStoables(GetStorables())
+                    .DoAndRecord(recorder);
+            }
         }
     }
 
