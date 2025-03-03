@@ -65,6 +65,11 @@
                                         <Rectangle Fill="{DynamicResource BrushEditorFlyoutGradientIcon}" />
                                     </Border>
                                 </ToggleButton>
+                                <ToggleButton Name="DrawableBrushTabButton">
+                                    <Border Classes="icon">
+                                        <ui:SymbolIcon Symbol="ImageFilled" />
+                                    </Border>
+                                </ToggleButton>
                                 <ToggleButton Name="PaletteTabButton">
                                     <ui:FontIcon Glyph="&#xF0E2;" />
                                 </ToggleButton>
@@ -197,27 +202,31 @@
         </Style>
 
         <Style Selector="^ /template/ WrapPanel#TabLayout">
-            <Style Selector="^ > ToggleButton">
+            <Style Selector="^ &gt; ToggleButton">
                 <Setter Property="Width" Value="32" />
                 <Setter Property="Height" Value="32" />
                 <Setter Property="Margin" Value="0,0,4,0" />
                 <Setter Property="Theme" Value="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" />
 
-                <Style Selector="^ > ui|FontIcon">
+                <Style Selector="^ &gt; ui|FontIcon">
                     <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
                 </Style>
 
-                <Style Selector="^ > Border.icon">
+                <Style Selector="^ &gt; Border.icon">
                     <Setter Property="Padding" Value="2" />
                     <Setter Property="BorderThickness" Value="1" />
                     <Setter Property="BorderBrush" Value="{DynamicResource TextFillColorPrimaryBrush}" />
                     <Setter Property="CornerRadius" Value="2" />
 
-                    <Style Selector="^ > Rectangle">
+                    <Style Selector="^ &gt; Rectangle">
                         <Setter Property="Width" Value="12" />
                         <Setter Property="Height" Value="12" />
                         <Setter Property="RadiusX" Value="1" />
                         <Setter Property="RadiusY" Value="1" />
+                    </Style>
+                    <Style Selector="^ &gt; ui|SymbolIcon">
+                        <Setter Property="Width" Value="12" />
+                        <Setter Property="Height" Value="12" />
                     </Style>
                 </Style>
             </Style>

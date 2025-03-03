@@ -24,7 +24,9 @@ public enum BrushType
 
     RadialGradientBrush,
 
-    Null
+    Null,
+
+    DrawableBrush
 }
 
 public sealed class BrushEditorFlyout : PickerFlyoutBase

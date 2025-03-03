@@ -31,8 +31,10 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     private const string Palette = ":palette";
     private const string Solid = ":solid";
     private const string Gradient = ":gradient";
+    private const string Drawable = ":drawable";
     private ToggleButton? _solidBrushTabButton;
     private ToggleButton? _gradientBrushTabButton;
+    private ToggleButton? _drawableBrushTabButton;
     private ToggleButton? _paletteTabButton;
     private Control? _paletteContent;
     private ContentPresenter? _contentPresenter;
@@ -84,26 +86,35 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     private void UpdateTabCheckedState()
     {
-        if (_solidBrushTabButton == null || _gradientBrushTabButton == null) return;
+        if (_solidBrushTabButton == null || _gradientBrushTabButton == null || _drawableBrushTabButton == null) return;
 
         switch (OriginalBrush)
         {
             case Media.SolidColorBrush:
                 _solidBrushTabButton.IsChecked = true;
                 _gradientBrushTabButton.IsChecked = false;
+                _drawableBrushTabButton.IsChecked = false;
                 break;
             case Media.GradientBrush:
                 _solidBrushTabButton.IsChecked = false;
                 _gradientBrushTabButton.IsChecked = true;
+                _drawableBrushTabButton.IsChecked = false;
+                break;
+            case Media.DrawableBrush:
+                _solidBrushTabButton.IsChecked = false;
+                _gradientBrushTabButton.IsChecked = false;
+                _drawableBrushTabButton.IsChecked = true;
                 break;
             case null:
                 _solidBrushTabButton.IsChecked = false;
                 _gradientBrushTabButton.IsChecked = false;
+                _drawableBrushTabButton.IsChecked = false;
                 break;
         }
 
         PseudoClasses.Set(Gradient, _gradientBrushTabButton.IsChecked == true);
         PseudoClasses.Set(Solid, _solidBrushTabButton.IsChecked == true);
+        PseudoClasses.Set(Drawable, _drawableBrushTabButton.IsChecked == true);
 
         OnTabButtonIsCheckedChanged();
     }
@@ -184,13 +195,17 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         base.OnApplyTemplate(e);
         _solidBrushTabButton = e.NameScope.Find<ToggleButton>("SolidBrushTabButton");
         _gradientBrushTabButton = e.NameScope.Find<ToggleButton>("GradientBrushTabButton");
+        _drawableBrushTabButton = e.NameScope.Find<ToggleButton>("DrawableBrushTabButton");
         _paletteTabButton = e.NameScope.Find<ToggleButton>("PaletteTabButton");
         _paletteContent = e.NameScope.Find<Control>("PaletteContent");
         _contentPresenter = e.NameScope.Find<ContentPresenter>("ContentPresenter");
         _gradientTypeBox = e.NameScope.Find<ComboBox>("GradientTypeBox");
         _gradientStopsSlider = e.NameScope.Find<GradientStopsSlider>("GradientStopsSlider");
 
-        foreach (ToggleButton? item in new[] { _solidBrushTabButton, _gradientBrushTabButton, _paletteTabButton })
+        foreach (ToggleButton? item in new[]
+                 {
+                     _solidBrushTabButton, _gradientBrushTabButton, _drawableBrushTabButton, _paletteTabButton
+                 })
         {
             item?.AddDisposableHandler(Button.ClickEvent, OnTagButtonClicked)
                 .DisposeWith(_disposables);
@@ -283,7 +298,10 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         if (sender is ToggleButton self)
         {
-            foreach (ToggleButton? item in new[] { _solidBrushTabButton, _gradientBrushTabButton, _paletteTabButton })
+            foreach (ToggleButton? item in new[]
+                     {
+                         _solidBrushTabButton, _gradientBrushTabButton, _drawableBrushTabButton, _paletteTabButton
+                     })
             {
                 if (item != self && item != null)
                 {
@@ -352,7 +370,8 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     private void OnTabButtonIsCheckedChanged()
     {
-        if (_paletteTabButton != null && _solidBrushTabButton != null && _gradientBrushTabButton != null)
+        if (_paletteTabButton != null && _solidBrushTabButton != null && _gradientBrushTabButton != null &&
+            _drawableBrushTabButton != null)
         {
             if (_paletteTabButton.IsChecked == true
                 && _paletteContent != null
@@ -364,6 +383,7 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
             PseudoClasses.Set(Palette, _paletteTabButton.IsChecked == true);
             PseudoClasses.Set(Gradient, _gradientBrushTabButton.IsChecked == true);
             PseudoClasses.Set(Solid, _solidBrushTabButton.IsChecked == true);
+            PseudoClasses.Set(Drawable, _drawableBrushTabButton.IsChecked == true);
             if (_gradientBrushTabButton.IsChecked == true)
             {
                 MakeGradientBrush();
@@ -374,6 +394,10 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
             }
             else if (_paletteTabButton.IsChecked == true)
             {
+            }
+            else if (_drawableBrushTabButton.IsChecked == true)
+            {
+                MakeDrawableBrush();
             }
             else
             {
@@ -402,6 +426,14 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         if (Brush is not SolidColorBrush)
         {
             BrushTypeChanged?.Invoke(this, BrushType.SolidColorBrush);
+        }
+    }
+
+    private void MakeDrawableBrush()
+    {
+        if (OriginalBrush is not Media.DrawableBrush)
+        {
+            BrushTypeChanged?.Invoke(this, BrushType.DrawableBrush);
         }
     }
 }

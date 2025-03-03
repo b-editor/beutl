@@ -115,7 +115,9 @@ public sealed partial class BrushEditor : UserControl
             {
                 viewModel.SetValue(viewModel.Value.Value, null);
             }
-            else
+            else if (e is BrushType.ConicGradientBrush
+                     or BrushType.LinearGradientBrush
+                     or BrushType.RadialGradientBrush)
             {
                 var gradStops = new GradientStops();
                 if (viewModel.Value.Value is GradientBrush oldBrush)
@@ -130,11 +132,15 @@ public sealed partial class BrushEditor : UserControl
 
                 viewModel.SetValue(viewModel.Value.Value, e switch
                 {
-                    BrushType.LinearGradientBrush => new LinearGradientBrush() { GradientStops = gradStops },
-                    BrushType.ConicGradientBrush => new ConicGradientBrush() { GradientStops = gradStops },
-                    BrushType.RadialGradientBrush => new RadialGradientBrush() { GradientStops = gradStops },
-                    _ => null,
+                    BrushType.LinearGradientBrush => new LinearGradientBrush { GradientStops = gradStops },
+                    BrushType.ConicGradientBrush => new ConicGradientBrush { GradientStops = gradStops },
+                    BrushType.RadialGradientBrush => new RadialGradientBrush { GradientStops = gradStops },
+                    _ => throw new ArgumentOutOfRangeException(nameof(e), e, null)
                 });
+            }
+            else if (e == BrushType.DrawableBrush)
+            {
+                viewModel.SetValue(viewModel.Value.Value, new DrawableBrush());
             }
         }
     }
@@ -214,6 +220,7 @@ public sealed partial class BrushEditor : UserControl
         if (DataContext is BrushEditorViewModel viewModel
             && sender is RadioMenuFlyoutItem { Tag: string tag })
         {
+            // TODO: デフォルト値を設定する
             IBrush? newBrush = tag switch
             {
                 "Solid" => new SolidColorBrush(),
