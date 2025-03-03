@@ -87,6 +87,10 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
                 _solidBrushTabButton.IsChecked = false;
                 _gradientBrushTabButton.IsChecked = true;
                 break;
+            case null:
+                _solidBrushTabButton.IsChecked = false;
+                _gradientBrushTabButton.IsChecked = false;
+                break;
         }
 
         PseudoClasses.Set(Gradient, _gradientBrushTabButton.IsChecked == true);
