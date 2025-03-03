@@ -24,6 +24,9 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     public static readonly StyledProperty<Brush?> BrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyoutPresenter, Brush?>(nameof(Brush));
 
+    public static readonly StyledProperty<Media.IBrush?> OriginalBrushProperty =
+        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, Media.IBrush?>(nameof(OriginalBrush));
+
     private readonly CompositeDisposable _disposables = [];
     private const string Palette = ":palette";
     private const string Solid = ":solid";
@@ -57,6 +60,12 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         get => GetValue(BrushProperty);
         set => SetValue(BrushProperty, value);
+    }
+
+    public Media.IBrush? OriginalBrush
+    {
+        get => GetValue(OriginalBrushProperty);
+        set => SetValue(OriginalBrushProperty, value);
     }
 
     public void SetColorPaletteItem(Color2 color)

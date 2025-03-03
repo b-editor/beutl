@@ -1,15 +1,17 @@
-﻿using System.Collections.Specialized;
+﻿using System.ComponentModel;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Services;
+using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
 
@@ -17,6 +19,9 @@ public sealed partial class BrushEditor : UserControl
 {
     public static readonly StyledProperty<Avalonia.Media.Brush?> BrushProperty =
         AvaloniaProperty.Register<BrushEditor, Avalonia.Media.Brush?>(nameof(Brush));
+
+    public static readonly StyledProperty<Media.IBrush?> OriginalBrushProperty =
+        AvaloniaProperty.Register<BrushEditor, Media.IBrush?>(nameof(OriginalBrush));
 
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
 
@@ -51,12 +56,27 @@ public sealed partial class BrushEditor : UserControl
         set => SetValue(BrushProperty, value);
     }
 
+    public Media.IBrush? OriginalBrush
+    {
+        get => GetValue(OriginalBrushProperty);
+        set => SetValue(OriginalBrushProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == BrushProperty && _flyout != null)
+        if (_flyout != null)
         {
             _flyout.Brush = Brush;
+            if (change.Property == BrushProperty)
+            {
+                _flyout.Brush = Brush;
+            }
+
+            if (change.Property == OriginalBrushProperty)
+            {
+                _flyout.OriginalBrush = OriginalBrush;
+            }
         }
     }
 
@@ -77,6 +97,7 @@ public sealed partial class BrushEditor : UserControl
             }
 
             _flyout.Brush = Brush;
+            _flyout.OriginalBrush = OriginalBrush;
 
             _flyout.ShowAt(this);
         }

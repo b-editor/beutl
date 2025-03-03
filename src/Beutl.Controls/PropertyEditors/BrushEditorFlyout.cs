@@ -32,10 +32,19 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
     public static readonly StyledProperty<Brush?> BrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyout, Brush?>(nameof(Brush));
 
+    public static readonly StyledProperty<Media.IBrush?> OriginalBrushProperty =
+        AvaloniaProperty.Register<BrushEditorFlyout, Media.IBrush?>(nameof(OriginalBrush));
+
     public Brush? Brush
     {
         get => GetValue(BrushProperty);
         set => SetValue(BrushProperty, value);
+    }
+
+    public Media.IBrush? OriginalBrush
+    {
+        get => GetValue(OriginalBrushProperty);
+        set => SetValue(OriginalBrushProperty, value);
     }
 
     // ドラッグ操作中または、Colorプロパティの変更
@@ -60,6 +69,8 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
         {
             Content = new SimpleColorPicker(),
             Brush = Brush
+            Brush = Brush,
+            OriginalBrush = OriginalBrush,
         };
         pfp.CloseClicked += (_, _) => Hide();
         pfp.KeyDown += (_, e) =>
@@ -95,6 +106,7 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
         {
             pfp.ShowHideButtons = ShouldShowConfirmationButtons();
             pfp.Brush = Brush;
+            pfp.OriginalBrush = OriginalBrush;
         }
 
         Popup.IsLightDismissEnabled = false;
@@ -105,9 +117,18 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == BrushProperty && Popup.Child is BrushEditorFlyoutPresenter pfp)
+        if (Popup.Child is BrushEditorFlyoutPresenter pfp)
         {
             pfp.Brush = Brush;
+            if (change.Property == BrushProperty)
+            {
+                pfp.Brush = Brush;
+            }
+
+            if (change.Property == OriginalBrushProperty)
+            {
+                pfp.OriginalBrush = OriginalBrush;
+            }
         }
     }
 }

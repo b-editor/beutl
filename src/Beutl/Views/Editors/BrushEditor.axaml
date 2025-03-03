@@ -16,6 +16,7 @@
              x:CompileBindings="True"
              x:DataType="vm:BrushEditorViewModel"
              Brush="{Binding AvaloniaBrush.Value}"
+             OriginalBrush="{Binding Value.Value}"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
