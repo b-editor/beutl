@@ -86,13 +86,13 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         if (_solidBrushTabButton == null || _gradientBrushTabButton == null) return;
 
-        switch (Brush)
+        switch (OriginalBrush)
         {
-            case SolidColorBrush:
+            case Media.SolidColorBrush:
                 _solidBrushTabButton.IsChecked = true;
                 _gradientBrushTabButton.IsChecked = false;
                 break;
-            case GradientBrush:
+            case Media.GradientBrush:
                 _solidBrushTabButton.IsChecked = false;
                 _gradientBrushTabButton.IsChecked = true;
                 break;
@@ -113,7 +113,6 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         base.OnPropertyChanged(change);
         if (change.Property == BrushProperty)
         {
-            UpdateTabCheckedState();
             if (change.OldValue is GradientBrush oldGradientBrush)
             {
                 oldGradientBrush.PropertyChanged -= OnGradientBrushPropertyChanged;
@@ -146,6 +145,10 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
                     colorPicker.Color = newSolid.Color;
                 }
             }
+        }
+        else if (change.Property == OriginalBrushProperty)
+        {
+            UpdateTabCheckedState();
         }
         else if (change.Property == ContentProperty)
         {
