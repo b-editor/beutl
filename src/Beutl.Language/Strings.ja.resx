@@ -1379,6 +1379,12 @@
   <data name="Source" xml:space="preserve">
     <value>ソース</value>
   </data>
+  <data name="DisplacementMap" xml:space="preserve">
+    <value>ディスプレイスメントマップ</value>
+  </data>
+  <data name="ShowDisplacementMap" xml:space="preserve">
+    <value>ディスプレイスメントマップを表示</value>
+  </data>
   <data name="Drawable" xml:space="preserve">
     <value>描画オブジェクト</value>
   </data>
