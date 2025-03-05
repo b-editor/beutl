@@ -119,8 +119,7 @@ public sealed partial class BrushEditor : UserControl
     {
         if (drawable == null)
         {
-            // TODO: ローカライズ
-            return "新規オブジェクトを作成";
+            return Strings.CreateNew;
         }
 
         var type = drawable.GetType();

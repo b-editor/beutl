@@ -1374,4 +1374,10 @@
   <data name="Source" xml:space="preserve">
     <value>Source</value>
   </data>
+  <data name="Drawable" xml:space="preserve">
+    <value>Drawable</value>
+  </data>
+  <data name="EditDrawable" xml:space="preserve">
+    <value>Edit drawable</value>
+  </data>
 </root>

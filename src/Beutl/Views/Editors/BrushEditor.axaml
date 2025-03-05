@@ -74,7 +74,7 @@
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding IsDrawable.Value, Mode=OneWay}"
                                                         Tag="Drawable"
-                                                        Text="Drawable" />
+                                                        Text="{x:Static lang:Strings.Drawable}" />
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                         Tag="Null"

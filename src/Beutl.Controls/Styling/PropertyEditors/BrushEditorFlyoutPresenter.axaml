@@ -163,10 +163,8 @@
                                         HorizontalAlignment="Stretch"
                                         VerticalContentAlignment="Center"
                                         Classes="accent"
-                                        IsEnabled="{TemplateBinding CanEditDrawable}">
-                                    <!-- TODO: ローカライズ -->
-                                    描画オブジェクトを編集
-                                </Button>
+                                        Content="{x:Static lang:Strings.EditDrawable}"
+                                        IsEnabled="{TemplateBinding CanEditDrawable}" />
                             </Grid>
 
                             <ContentPresenter Name="ContentPresenter"
