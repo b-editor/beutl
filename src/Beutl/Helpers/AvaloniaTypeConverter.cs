@@ -1,9 +1,22 @@
 ﻿using System.Collections.Specialized;
-
+using System.ComponentModel;
 using Avalonia;
-
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Avalonia.Threading;
+using Beutl.Media;
 using Beutl.Reactive;
+using Beutl.Threading;
+using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using SkiaSharp;
+using Dispatcher = Avalonia.Threading.Dispatcher;
+using ImageBrush = Avalonia.Media.ImageBrush;
+using PixelPoint = Avalonia.PixelPoint;
+using PixelRect = Avalonia.PixelRect;
+using PixelSize = Avalonia.PixelSize;
+using Point = Avalonia.Point;
+using TileBrush = Beutl.Media.TileBrush;
 
 namespace Beutl;
 
@@ -144,10 +157,7 @@ public static class AvaloniaTypeConverter
         switch (brush)
         {
             case Media.ISolidColorBrush s:
-                return new Avalonia.Media.SolidColorBrush
-                {
-                    Color = s.Color.ToAvalonia(),
-                };
+                return new Avalonia.Media.SolidColorBrush { Color = s.Color.ToAvalonia(), };
             case Media.IGradientBrush g:
                 {
                     var stops = new Avalonia.Media.GradientStops();
@@ -156,24 +166,15 @@ public static class AvaloniaTypeConverter
                     switch (g)
                     {
                         case Media.ILinearGradientBrush:
-                            return new Avalonia.Media.LinearGradientBrush
-                            {
-                                GradientStops = stops,
-                            };
+                            return new Avalonia.Media.LinearGradientBrush { GradientStops = stops, };
 
 
                         case Media.IConicGradientBrush:
-                            return new Avalonia.Media.ConicGradientBrush
-                            {
-                                GradientStops = stops,
-                            };
+                            return new Avalonia.Media.ConicGradientBrush { GradientStops = stops, };
 
 
                         case Media.IRadialGradientBrush:
-                            return new Avalonia.Media.RadialGradientBrush
-                            {
-                                GradientStops = stops,
-                            };
+                            return new Avalonia.Media.RadialGradientBrush { GradientStops = stops, };
                     }
                 }
                 break;
@@ -210,6 +211,7 @@ public static class AvaloniaTypeConverter
                             subscription[item!] = t.Item2;
                             stops.Insert(index++, t.Item1);
                         }
+
                         break;
 
                     case NotifyCollectionChangedAction.Remove:
@@ -222,6 +224,7 @@ public static class AvaloniaTypeConverter
                                 disposable.Dispose();
                                 subscription.Remove(item);
                             }
+
                             stops.RemoveAt(index + i);
                         }
 
@@ -238,11 +241,13 @@ public static class AvaloniaTypeConverter
                                 disposable.Dispose();
                                 subscription.Remove(oldItem);
                             }
+
                             (Avalonia.Media.GradientStop, IDisposable) t = newItem.ToAvaGradientStopSync();
 
                             stops[index] = t.Item1;
                             index++;
                         }
+
                         break;
                     case NotifyCollectionChangedAction.Move:
                         int newIndex = e.NewStartingIndex;
@@ -250,6 +255,7 @@ public static class AvaloniaTypeConverter
                         {
                             newIndex += e.OldItems!.Count;
                         }
+
                         stops.MoveRange(e.OldStartingIndex, e.NewItems!.Count, newIndex);
                         break;
 
@@ -259,6 +265,7 @@ public static class AvaloniaTypeConverter
                         {
                             item.Dispose();
                         }
+
                         subscription.Clear();
                         break;
                     default:
@@ -277,18 +284,19 @@ public static class AvaloniaTypeConverter
         return (stops, d);
     }
 
-    public static (Avalonia.Media.Brush?, IDisposable) ToAvaBrushSync(this Media.IBrush? brush)
+    public static (Avalonia.Media.Brush?, IDisposable, Action?) ToAvaBrushSync(this Media.IBrush? brush)
     {
         switch (brush)
         {
             case Media.SolidColorBrush s:
                 {
                     var ss = new Avalonia.Media.SolidColorBrush();
-                    var d = ss.Bind(Avalonia.Media.SolidColorBrush.ColorProperty, s.GetObservable(Media.SolidColorBrush.ColorProperty)
+                    var d = ss.Bind(Avalonia.Media.SolidColorBrush.ColorProperty, s
+                        .GetObservable(Media.SolidColorBrush.ColorProperty)
                         .Select(v => v.ToAvalonia())
                         .ToBinding());
 
-                    return (ss, d);
+                    return (ss, d, null);
                 }
 
             case Media.GradientBrush g:
@@ -298,23 +306,26 @@ public static class AvaloniaTypeConverter
                     switch (g)
                     {
                         case Media.ILinearGradientBrush:
-                            return (new Avalonia.Media.LinearGradientBrush
-                            {
-                                GradientStops = stops,
-                            }, d);
+                            return (new Avalonia.Media.LinearGradientBrush { GradientStops = stops, }, d, null);
 
                         case Media.IConicGradientBrush:
-                            return (new Avalonia.Media.ConicGradientBrush
-                            {
-                                GradientStops = stops,
-                            }, d);
+                            return (new Avalonia.Media.ConicGradientBrush { GradientStops = stops, }, d, null);
 
                         case Media.IRadialGradientBrush:
-                            return (new Avalonia.Media.RadialGradientBrush
-                            {
-                                GradientStops = stops,
-                            }, d);
+                            return (new Avalonia.Media.RadialGradientBrush { GradientStops = stops, }, d, null);
                     }
+                }
+                break;
+
+            case Media.DrawableBrush db:
+                {
+                    var imageBrush = new ImageBrush();
+                    var prop = db.GetObservable(DrawableBrush.DrawableProperty)
+                        .ObserveOnUIDispatcher()
+                        .Select(i => i != null ? new DrawableImageBrushHandler(db, i, imageBrush) : null)
+                        .DisposePreviousValue()
+                        .ToReadOnlyReactivePropertySlim();
+                    return (imageBrush, prop, () => prop.Value?.Update());
                 }
                 break;
         }
@@ -328,10 +339,7 @@ public static class AvaloniaTypeConverter
         switch (brush)
         {
             case Avalonia.Media.ISolidColorBrush s:
-                return new Media.SolidColorBrush
-                {
-                    Color = s.Color.ToMedia(),
-                };
+                return new Media.SolidColorBrush { Color = s.Color.ToMedia(), };
             case Avalonia.Media.IGradientBrush g:
                 {
                     var stops = new Media.GradientStops();
@@ -340,22 +348,13 @@ public static class AvaloniaTypeConverter
                     switch (g)
                     {
                         case Avalonia.Media.ILinearGradientBrush:
-                            return new Media.LinearGradientBrush
-                            {
-                                GradientStops = stops,
-                            };
+                            return new Media.LinearGradientBrush { GradientStops = stops, };
 
                         case Avalonia.Media.IConicGradientBrush:
-                            return new Media.ConicGradientBrush
-                            {
-                                GradientStops = stops,
-                            };
+                            return new Media.ConicGradientBrush { GradientStops = stops, };
 
                         case Avalonia.Media.IRadialGradientBrush:
-                            return new Media.RadialGradientBrush
-                            {
-                                GradientStops = stops,
-                            };
+                            return new Media.RadialGradientBrush { GradientStops = stops, };
                     }
                 }
                 break;
@@ -367,5 +366,92 @@ public static class AvaloniaTypeConverter
     public static Vector SwapAxis(this Vector vector)
     {
         return new Vector(vector.Y, vector.X);
+    }
+
+    public sealed class DrawableImageBrushHandler : IDisposable
+    {
+        private WriteableBitmap? _bitmap;
+        private CancellationTokenSource? _cts;
+        private readonly Graphics.Drawable _drawable;
+        private readonly ImageBrush _imageBrush;
+        private readonly DrawableBrush _drawableBrush;
+
+        public DrawableImageBrushHandler(DrawableBrush drawableBrush, Graphics.Drawable drawable, ImageBrush imageBrush)
+        {
+            _drawable = drawable;
+            _imageBrush = imageBrush;
+            _drawableBrush = drawableBrush;
+            Update();
+            _drawableBrush.PropertyChanged += OnDrawableBrushPropertyChanged;
+        }
+
+        private void OnDrawableBrushPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e is not CorePropertyChangedEventArgs ce) return;
+
+            if (ce.Property.Id == TileBrush.StretchProperty.Id)
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    _imageBrush.Stretch = _drawableBrush.Stretch switch
+                    {
+                        Media.Stretch.Fill => Avalonia.Media.Stretch.Fill,
+                        Media.Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
+                        Media.Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
+                        Media.Stretch.None => Avalonia.Media.Stretch.None,
+                        _ => Avalonia.Media.Stretch.Fill,
+                    };
+                }, DispatcherPriority.Background);
+            }
+        }
+
+        public void Dispose()
+        {
+            _drawableBrush.PropertyChanged -= OnDrawableBrushPropertyChanged;
+        }
+
+        public void Update()
+        {
+            _cts?.Cancel();
+            _cts = new CancellationTokenSource();
+            var token = _cts.Token;
+
+            Graphics.Rendering.RenderThread.Dispatcher.Dispatch(async () =>
+            {
+                _drawable.Measure(Graphics.Size.Infinity);
+                var bounds = _drawable.Bounds;
+                using var renderTarget = Graphics.Rendering.RenderTarget.Create(
+                    (int)Math.Ceiling(bounds.Width),
+                    (int)Math.Ceiling(bounds.Height));
+                if (renderTarget is null) return;
+
+                using (var canvas = new Graphics.ImmediateCanvas(renderTarget))
+                using (canvas.PushTransform(Graphics.Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
+                {
+                    canvas.DrawDrawable(_drawable);
+                }
+
+                var previous = _bitmap;
+                var pixelSize = new PixelSize(renderTarget.Width, renderTarget.Height);
+                _bitmap = new WriteableBitmap(pixelSize, new Vector(96, 96), PixelFormat.Bgra8888,
+                    AlphaFormat.Unpremul);
+
+                using (var locked = _bitmap.Lock())
+                {
+                    renderTarget.Value.ReadPixels(
+                        new SKImageInfo(pixelSize.Width, pixelSize.Height, SKColorType.Bgra8888,
+                            SKAlphaType.Unpremul),
+                        locked.Address,
+                        locked.RowBytes,
+                        0, 0);
+                }
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _imageBrush.Source = _bitmap;
+                    previous?.Dispose();
+                }, DispatcherPriority.Background);
+            }, DispatchPriority.Low, token);
+        }
     }
 }

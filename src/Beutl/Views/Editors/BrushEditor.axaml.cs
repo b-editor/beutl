@@ -67,6 +67,12 @@ public sealed partial class BrushEditor : UserControl
         set => SetValue(OriginalBrushProperty, value);
     }
 
+    protected override void OnPointerEntered(PointerEventArgs e)
+    {
+        base.OnPointerEntered(e);
+        (DataContext as BrushEditorViewModel)?.UpdateBrushPreview();
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
