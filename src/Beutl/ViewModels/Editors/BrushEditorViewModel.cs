@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Immutable;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,6 +11,7 @@ namespace Beutl.ViewModels.Editors;
 public sealed class BrushEditorViewModel : BaseEditorViewModel
 {
     private IDisposable? _revoker;
+    private Action? _update;
 
     public BrushEditorViewModel(IPropertyAdapter property)
         : base(property)
@@ -24,7 +26,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         {
             _revoker?.Dispose();
             _revoker = null;
-            (AvaloniaBrush.Value, _revoker) = v.ToAvaBrushSync();
+            (AvaloniaBrush.Value, _revoker, _update) = v.ToAvaBrushSync();
         });
 
         ChildContext = Value.Select(v => v as ICoreObject)
@@ -50,6 +52,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             .DisposeWith(Disposables);
 
         IsPerlinNoise = Value.Select(v => v is IPerlinNoiseBrush)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsDrawable = Value.Select(v => v is IDrawableBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -88,7 +94,14 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
     public ReadOnlyReactivePropertySlim<bool> IsPerlinNoise { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> IsDrawable { get; }
+
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
+
+    public void UpdateBrushPreview()
+    {
+        _update?.Invoke();
+    }
 
     public override void Reset()
     {
@@ -172,6 +185,20 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
                 .Append(color)
                 .WithStoables(GetStorables())
                 .DoAndRecord(recorder);
+        }
+    }
+
+    public void ChangeDrawableType(Type type)
+    {
+        if (Value.Value is Media.DrawableBrush drawable)
+        {
+            if (Activator.CreateInstance(type) is Drawable instance)
+            {
+                CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+                RecordableCommands.Edit(drawable, DrawableBrush.DrawableProperty, instance, drawable.Drawable)
+                    .WithStoables(GetStorables())
+                    .DoAndRecord(recorder);
+            }
         }
     }
 

@@ -16,6 +16,7 @@
              x:CompileBindings="True"
              x:DataType="vm:BrushEditorViewModel"
              Brush="{Binding AvaloniaBrush.Value}"
+             OriginalBrush="{Binding Value.Value}"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
@@ -71,6 +72,10 @@
                                                         Tag="PerlinNoise"
                                                         Text="{x:Static lang:Strings.Brush_PerlinNoise}" />
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                        IsChecked="{Binding IsDrawable.Value, Mode=OneWay}"
+                                                        Tag="Drawable"
+                                                        Text="{x:Static lang:Strings.Drawable}" />
+                                <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                         Tag="Null"
                                                         Text="Null" />
@@ -91,8 +96,7 @@
             <local:PropertiesEditor Padding="0"
                                     DataContext="{Binding ChildContext.Value}"
                                     IsEnabled="{ReflectionBinding #root.DataContext.CanEdit.Value}"
-                                    IsVisible="{ReflectionBinding #root.DataContext.Value.Value,
-                                                                  Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                    IsVisible="{ReflectionBinding #root.DataContext.Value.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
         </Panel>
     </Grid>
 </UserControl>

@@ -38,6 +38,8 @@ public static class AnimatorRegistry
         (type => typeof(Vector3).IsAssignableFrom(type), typeof(Vector3Animator)),
         (type => typeof(Vector4).IsAssignableFrom(type), typeof(Vector4Animator)),
         (type => typeof(Graphics.Vector).IsAssignableFrom(type), typeof(VectorAnimator)),
+        (type => typeof(RelativePoint).IsAssignableFrom(type), typeof(RelativePointAnimator)),
+        (type => typeof(RelativeRect).IsAssignableFrom(type), typeof(RelativeRectAnimator)),
     ];
 
     public static Animator<T> CreateAnimator<T>()

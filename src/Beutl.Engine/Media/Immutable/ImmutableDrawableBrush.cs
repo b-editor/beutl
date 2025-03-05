@@ -41,6 +41,8 @@ public class ImmutableDrawableBrush : ImmutableTileBrush, IDrawableBrush, IEquat
 
     public Drawable? Drawable { get; }
 
+    int? IDrawableBrush.Version => Drawable?.Version;
+
     public override bool Equals(object? obj)
     {
         return Equals(obj as IDrawableBrush);
@@ -60,7 +62,7 @@ public class ImmutableDrawableBrush : ImmutableTileBrush, IDrawableBrush, IEquat
             && TileMode == other.TileMode
             && BitmapInterpolationMode == other.BitmapInterpolationMode
             && ReferenceEquals(Drawable, other.Drawable)
-            && Drawable?.Version == other.Drawable?.Version;
+            && Drawable?.Version == other.Version;
     }
 
     public override int GetHashCode()

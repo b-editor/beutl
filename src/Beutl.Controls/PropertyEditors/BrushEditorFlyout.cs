@@ -1,11 +1,9 @@
 ﻿using System.ComponentModel;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
-
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
 using FluentAvalonia.UI.Media;
@@ -24,7 +22,9 @@ public enum BrushType
 
     RadialGradientBrush,
 
-    Null
+    Null,
+
+    DrawableBrush
 }
 
 public sealed class BrushEditorFlyout : PickerFlyoutBase
@@ -32,10 +32,37 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
     public static readonly StyledProperty<Brush?> BrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyout, Brush?>(nameof(Brush));
 
+    public static readonly StyledProperty<Media.IBrush?> OriginalBrushProperty =
+        AvaloniaProperty.Register<BrushEditorFlyout, Media.IBrush?>(nameof(OriginalBrush));
+
+    public static readonly StyledProperty<string?> DrawableNameProperty =
+        AvaloniaProperty.Register<BrushEditorFlyout, string?>(nameof(DrawableName));
+
+    public static readonly StyledProperty<bool> CanEditDrawableProperty =
+        AvaloniaProperty.Register<BrushEditorFlyout, bool>(nameof(CanEditDrawable), false);
+
     public Brush? Brush
     {
         get => GetValue(BrushProperty);
         set => SetValue(BrushProperty, value);
+    }
+
+    public Media.IBrush? OriginalBrush
+    {
+        get => GetValue(OriginalBrushProperty);
+        set => SetValue(OriginalBrushProperty, value);
+    }
+
+    public string? DrawableName
+    {
+        get => GetValue(DrawableNameProperty);
+        set => SetValue(DrawableNameProperty, value);
+    }
+
+    public bool CanEditDrawable
+    {
+        get => GetValue(CanEditDrawableProperty);
+        set => SetValue(CanEditDrawableProperty, value);
     }
 
     // ドラッグ操作中または、Colorプロパティの変更
@@ -54,12 +81,19 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
 
     public event EventHandler<BrushType>? BrushTypeChanged;
 
+    public event EventHandler<Button>? ChangeDrawableClicked;
+
+    public event EventHandler? EditDrawableClicked;
+
     protected override Control CreatePresenter()
     {
         var pfp = new BrushEditorFlyoutPresenter()
         {
             Content = new SimpleColorPicker(),
-            Brush = Brush
+            Brush = Brush,
+            OriginalBrush = OriginalBrush,
+            DrawableName = DrawableName,
+            CanEditDrawable = CanEditDrawable
         };
         pfp.CloseClicked += (_, _) => Hide();
         pfp.KeyDown += (_, e) =>
@@ -76,6 +110,8 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
         pfp.ColorChanged += (_, t) => ColorChanged?.Invoke(this, t);
         pfp.ColorConfirmed += (_, t) => ColorConfirmed?.Invoke(this, t);
         pfp.BrushTypeChanged += (_, t) => BrushTypeChanged?.Invoke(this, t);
+        pfp.ChangeDrawableClicked += (_, t) => ChangeDrawableClicked?.Invoke(this, t);
+        pfp.EditDrawableClicked += (_, _) => EditDrawableClicked?.Invoke(this, EventArgs.Empty);
         pfp.GetObservable(BrushEditorFlyoutPresenter.BrushProperty)
             .Subscribe(b => Brush = b);
 
@@ -95,6 +131,9 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
         {
             pfp.ShowHideButtons = ShouldShowConfirmationButtons();
             pfp.Brush = Brush;
+            pfp.OriginalBrush = OriginalBrush;
+            pfp.DrawableName = DrawableName;
+            pfp.CanEditDrawable = CanEditDrawable;
         }
 
         Popup.IsLightDismissEnabled = false;
@@ -105,9 +144,27 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == BrushProperty && Popup.Child is BrushEditorFlyoutPresenter pfp)
+        if (Popup.Child is BrushEditorFlyoutPresenter pfp)
         {
-            pfp.Brush = Brush;
+            if (change.Property == BrushProperty)
+            {
+                pfp.Brush = Brush;
+            }
+
+            if (change.Property == OriginalBrushProperty)
+            {
+                pfp.OriginalBrush = OriginalBrush;
+            }
+
+            if (change.Property == DrawableNameProperty)
+            {
+                pfp.DrawableName = DrawableName;
+            }
+
+            if (change.Property == CanEditDrawableProperty)
+            {
+                pfp.CanEditDrawable = CanEditDrawable;
+            }
         }
     }
 }

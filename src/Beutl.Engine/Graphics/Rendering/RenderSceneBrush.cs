@@ -34,6 +34,8 @@ internal sealed class RenderSceneBrush(IDrawableBrush @base, RenderScene? scene,
 
     public Drawable? Drawable => Base.Drawable;
 
+    public int? Version { get; } = @base.Drawable?.Version;
+
     public void Dispose()
     {
         Scene?.Dispose();
@@ -59,7 +61,7 @@ internal sealed class RenderSceneBrush(IDrawableBrush @base, RenderScene? scene,
             && TileMode == other.TileMode
             && BitmapInterpolationMode == other.BitmapInterpolationMode
             && ReferenceEquals(Drawable, other.Drawable)
-            && Drawable?.Version == other.Drawable?.Version;
+            && Version == other.Version;
     }
 
     public override int GetHashCode()

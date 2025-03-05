@@ -2558,5 +2558,17 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Source", resourceCulture);
             }
         }
+        
+        public static string Drawable {
+            get {
+                return ResourceManager.GetString("Drawable", resourceCulture);
+            }
+        }
+        
+        public static string EditDrawable {
+            get {
+                return ResourceManager.GetString("EditDrawable", resourceCulture);
+            }
+        }
     }
 }
