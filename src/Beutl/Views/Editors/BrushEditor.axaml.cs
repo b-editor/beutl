@@ -337,19 +337,23 @@ public sealed partial class BrushEditor : UserControl
         if (DataContext is BrushEditorViewModel viewModel
             && sender is RadioMenuFlyoutItem { Tag: string tag })
         {
-            // TODO: デフォルト値を設定する
-            IBrush? newBrush = tag switch
+            if (tag is "PerlinNoise")
             {
-                "Solid" => new SolidColorBrush(),
-                "LinearGradient" => new LinearGradientBrush(),
-                "ConicGradient" => new ConicGradientBrush(),
-                "RadialGradient" => new RadialGradientBrush(),
-                "PerlinNoise" => new PerlinNoiseBrush(),
-                "Drawable" => new DrawableBrush(),
-                _ => null
-            };
+                viewModel.SetValue(viewModel.Value.Value, new PerlinNoiseBrush());
+            }
+            else
+            {
+                OnBrushTypeChanged(null, tag switch
+                {
+                    "Solid" => BrushType.SolidColorBrush,
+                    "LinearGradient" => BrushType.LinearGradientBrush,
+                    "ConicGradient" => BrushType.ConicGradientBrush,
+                    "RadialGradient" => BrushType.RadialGradientBrush,
+                    "Drawable" => BrushType.DrawableBrush,
+                    _ => BrushType.Null
+                });
+            }
 
-            viewModel.SetValue(viewModel.Value.Value, newBrush);
             expandToggle.IsChecked = true;
         }
     }
