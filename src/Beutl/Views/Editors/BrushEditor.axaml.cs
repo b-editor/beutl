@@ -3,15 +3,19 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Services;
+using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
+using Beutl.ViewModels.Tools;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
 
@@ -109,6 +113,7 @@ public sealed partial class BrushEditor : UserControl
     {
         if (drawable == null)
         {
+            // TODO: ローカライズ
             return "新規オブジェクトを作成";
         }
 
@@ -185,6 +190,16 @@ public sealed partial class BrushEditor : UserControl
     {
         // TODO: DrawablePropertyEditorを開く
         // ObjectPropertyEditorは不要なプロパティも表示されてしまうので
+        if (DataContext is not BrushEditorViewModel viewModel) return;
+        if (viewModel.Value.Value is not DrawableBrush { Drawable: { } drawable }) return;
+        if (viewModel.GetService<EditViewModel>() is not { } editViewModel) return;
+
+        ObjectPropertyEditorViewModel objViewModel
+            = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>()
+              ?? new ObjectPropertyEditorViewModel(editViewModel);
+
+        objViewModel.NavigateCore(drawable, false, viewModel);
+        editViewModel.OpenToolTab(objViewModel);
     }
 
     private async void OnChangeDrawableClicked(object? sender, Button e)
