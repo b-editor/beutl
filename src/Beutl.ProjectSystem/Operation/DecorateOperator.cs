@@ -2,6 +2,8 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.Media;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Operation;
 
@@ -13,6 +15,7 @@ public sealed class DecorateOperator() : PublishOperator<DrawableDecorator>([
 ])
 {
     private readonly ConditionalWeakTable<Drawable, DrawableDecorator> _bag = [];
+    private Element? _element;
 
     public override void Evaluate(OperatorEvaluationContext context)
     {
@@ -37,6 +40,13 @@ public sealed class DecorateOperator() : PublishOperator<DrawableDecorator>([
             {
                 decorator.FilterEffect ??= Value.FilterEffect.CreateDelegatedInstance();
             }
+
+
+            if (_element == null) continue;
+            decorator.ZIndex = _element.ZIndex;
+            decorator.TimeRange = new TimeRange(_element.Start, _element.Length);
+            decorator.ApplyAnimations(_element.Clock);
+            decorator.IsVisible = _element.IsEnabled;
         }
     }
 
@@ -47,5 +57,17 @@ public sealed class DecorateOperator() : PublishOperator<DrawableDecorator>([
         {
             entry.Value.Child = null;
         }
+    }
+
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
+    {
+        base.OnAttachedToHierarchy(in args);
+        _element = this.FindHierarchicalParent<Element>();
+    }
+
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
+    {
+        base.OnDetachedFromHierarchy(in args);
+        _element = null;
     }
 }
