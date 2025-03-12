@@ -1,8 +1,6 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Logging;
 using Beutl.Media;
-using ILGPU;
-using ILGPU.Runtime;
-using OpenCvSharp;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -13,6 +11,8 @@ public class ColorShift : FilterEffect
     public static readonly CoreProperty<PixelPoint> GreenOffsetProperty;
     public static readonly CoreProperty<PixelPoint> BlueOffsetProperty;
     public static readonly CoreProperty<PixelPoint> AlphaOffsetProperty;
+    private static readonly ILogger s_logger = Log.CreateLogger<ColorShift>();
+    private static readonly SKRuntimeEffect? s_runtimeEffect;
     private PixelPoint _redOffset;
     private PixelPoint _greenOffset;
     private PixelPoint _blueOffset;
@@ -38,6 +38,40 @@ public class ColorShift : FilterEffect
 
         AffectsRender<ColorShift>(
             RedOffsetProperty, GreenOffsetProperty, BlueOffsetProperty, AlphaOffsetProperty);
+
+        string sksl =
+            """
+            uniform shader src;
+            uniform float2 redOffset;
+            uniform float2 greenOffset;
+            uniform float2 blueOffset;
+            uniform float2 alphaOffset;
+            uniform float2 minOffset;
+
+            half4 main(float2 fragCoord) {
+                // 出力画素座標 fragCoord に対し、各色成分のサンプル位置を計算
+                float2 redCoord   = fragCoord - redOffset   + minOffset;
+                float2 greenCoord = fragCoord - greenOffset + minOffset;
+                float2 blueCoord  = fragCoord - blueOffset  + minOffset;
+                float2 alphaCoord = fragCoord - alphaOffset + minOffset;
+
+                // 各色成分をそれぞれのオフセット位置からサンプル
+                // ※ サンプラーは通常 RGBA 順で色成分を返します
+                float red   = src.eval(redCoord).r;
+                float green = src.eval(greenCoord).g;
+                float blue  = src.eval(blueCoord).b;
+                float alpha = src.eval(alphaCoord).a;
+
+                return half4(red, green, blue, alpha);
+            }
+            """;
+
+        // SKRuntimeEffectを使ってSKSLコードをコンパイル
+        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
+        if (errorText is not null)
+        {
+            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+        }
     }
 
     public PixelPoint RedOffset
@@ -67,6 +101,11 @@ public class ColorShift : FilterEffect
     public override void ApplyTo(FilterEffectContext context)
     {
         context.CustomEffect((RedOffset, GreenOffset, BlueOffset, AlphaOffset), OnApply, TransformBoundsCore);
+
+        if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
+
+        context.CustomEffect((RedOffset, GreenOffset, BlueOffset, AlphaOffset),
+            OnApply, TransformBoundsCore);
     }
 
     private static Rect TransformBoundsCore(
@@ -80,66 +119,49 @@ public class ColorShift : FilterEffect
     }
 
     private static void OnApply(
-        (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) data,
-        CustomFilterEffectContext context)
+        (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) d,
+        CustomFilterEffectContext c)
     {
-        for (int i = 0; i < context.Targets.Count; i++)
+        for (int i = 0; i < c.Targets.Count; i++)
         {
-            var target = context.Targets[i];
-            var renderTarget = target.RenderTarget!;
-
-            var bounds = TransformBoundsCore(data, target.Bounds);
+            EffectTarget effectTarget = c.Targets[i];
+            var renderTarget = effectTarget.RenderTarget!;
+            var bounds = TransformBoundsCore(d, effectTarget.Bounds);
             var pixelRect = PixelRect.FromRect(bounds);
-            int minOffsetX = Math.Min(data.RedOffset.X,
-                Math.Min(data.GreenOffset.X, Math.Min(data.BlueOffset.X, data.AlphaOffset.X)));
-            int minOffsetY = Math.Min(data.RedOffset.Y,
-                Math.Min(data.GreenOffset.Y, Math.Min(data.BlueOffset.Y, data.AlphaOffset.Y)));
+            int minOffsetX = Math.Min(d.RedOffset.X,
+                Math.Min(d.GreenOffset.X, Math.Min(d.BlueOffset.X, d.AlphaOffset.X)));
+            int minOffsetY = Math.Min(d.RedOffset.Y,
+                Math.Min(d.GreenOffset.Y, Math.Min(d.BlueOffset.Y, d.AlphaOffset.Y)));
 
-            var size = new PixelSize(renderTarget.Width, renderTarget.Height);
-            Accelerator accelerator = SharedGPUContext.Accelerator;
-            var kernel = accelerator.LoadAutoGroupedStreamKernel<
-                Index2D, ArrayView2D<Vec4b, Stride2D.DenseX>, ArrayView2D<Vec4b, Stride2D.DenseX>,
-                PixelPoint, PixelPoint, PixelPoint, PixelPoint, PixelPoint>(
-                Kernel);
-            using var source = accelerator.Allocate2DDenseX<Vec4b>(new(size.Width, size.Height));
-            using var dest = accelerator.Allocate2DDenseX<Vec4b>(new(pixelRect.Width, pixelRect.Height));
+            using var image = renderTarget.Value.Snapshot();
+            using var baseShader = SKShader.CreateImage(
+                image, SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
 
-            SharedGPUContext.CopyFromCPU(source, renderTarget.Value,
-                new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888));
+            // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
+            var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
 
-            kernel(
-                new Index2D(size.Width, size.Height),
-                source, dest,
-                data.RedOffset, data.GreenOffset, data.BlueOffset, data.AlphaOffset,
-                new PixelPoint(minOffsetX, minOffsetY));
+            // child shaderとしてテクスチャ用のシェーダーを設定
+            builder.Children["src"] = baseShader;
+            builder.Uniforms["redOffset"] = new SKPoint(d.RedOffset.X, d.RedOffset.Y);
+            builder.Uniforms["greenOffset"] = new SKPoint(d.GreenOffset.X, d.GreenOffset.Y);
+            builder.Uniforms["blueOffset"] = new SKPoint(d.BlueOffset.X, d.BlueOffset.Y);
+            builder.Uniforms["alphaOffset"] = new SKPoint(d.AlphaOffset.X, d.AlphaOffset.Y);
+            builder.Uniforms["minOffset"] = new SKPoint(minOffsetX, minOffsetY);
 
-            using var skBmp =
-                new SKBitmap(new SKImageInfo(pixelRect.Width, pixelRect.Height, SKColorType.Bgra8888));
+            // 最終的なシェーダーを生成
+            using (SKShader finalShader = builder.Build())
+            using (var paint = new SKPaint())
+            {
+                var newTarget = c.CreateTarget(bounds);
+                var canvas = newTarget.RenderTarget!.Value.Canvas;
+                paint.Shader = finalShader;
+                canvas.DrawRect(new SKRect(0, 0, bounds.Width, bounds.Height), paint);
 
-            SharedGPUContext.CopyToCPU(dest, skBmp);
+                c.Targets[i] = newTarget;
+            }
 
-            EffectTarget newTarget = context.CreateTarget(bounds);
-            newTarget.RenderTarget!.Value.Canvas.DrawBitmap(skBmp, 0, 0);
-
-            target.Dispose();
-            context.Targets[i] = newTarget;
+            effectTarget.Dispose();
         }
-    }
-
-    private static void Kernel(
-        Index2D index, ArrayView2D<Vec4b, Stride2D.DenseX> src, ArrayView2D<Vec4b, Stride2D.DenseX> dst,
-        PixelPoint redOffset, PixelPoint greenOffset, PixelPoint blueOffset, PixelPoint alphaOffset,
-        PixelPoint minOffset)
-    {
-        var color = src[index.X, index.Y];
-
-        dst[index.X + redOffset.X - minOffset.X, index.Y + redOffset.Y - minOffset.Y].Item2 = color.Item2;
-        dst[index.X + greenOffset.X - minOffset.X, index.Y + greenOffset.Y - minOffset.Y].Item1 =
-            color.Item1;
-        dst[index.X + blueOffset.X - minOffset.X, index.Y + blueOffset.Y - minOffset.Y].Item0 =
-            color.Item0;
-        dst[index.X + alphaOffset.X - minOffset.X, index.Y + alphaOffset.Y - minOffset.Y].Item3 =
-            color.Item3;
     }
 
     public override Rect TransformBounds(Rect bounds)
