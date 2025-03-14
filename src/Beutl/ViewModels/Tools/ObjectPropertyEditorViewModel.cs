@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
-
+using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Editors;
 
@@ -147,6 +147,10 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
 
     public object? GetService(Type serviceType)
     {
+        if (serviceType == typeof(Element))
+        {
+            return (ChildContext.Value?.Target as IHierarchical)?.FindHierarchicalParent<Element>();
+        }
         return _viewModel.GetService(serviceType);
     }
 

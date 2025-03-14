@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Animation;
+using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.Media.Immutable;
 
@@ -57,6 +58,12 @@ public class DrawableBrush : TileBrush, IDrawableBrush, IEquatable<IDrawableBrus
     public override bool Equals(object? obj)
     {
         return Equals(obj as IDrawableBrush);
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        Drawable?.ApplyAnimations(clock);
     }
 
     public bool Equals(IDrawableBrush? other)

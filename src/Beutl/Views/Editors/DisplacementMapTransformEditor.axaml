@@ -1,0 +1,77 @@
+<UserControl x:Class="Beutl.Views.Editors.DisplacementMapTransformEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels.Editors"
+             x:Name="root"
+             d:DesignHeight="300"
+             d:DesignWidth="300"
+             x:DataType="viewModel:DisplacementMapTransformEditorViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto">
+        <ToggleButton x:Name="expandToggle"
+                      Margin="8,4"
+                      IsChecked="{Binding IsExpanded.Value}"
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+            <ToggleButton.ContextFlyout>
+                <ui:FAMenuFlyout>
+                    <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
+                                            IsChecked="{Binding IsTranslate.Value, Mode=OneWay}"
+                                            Tag="Translate"
+                                            Text="{x:Static lang:Strings.Translate}">
+                        <ui:RadioMenuFlyoutItem.IconSource>
+                            <ui:PathIconSource Data="{StaticResource TranslateTransformIconData}" />
+                        </ui:RadioMenuFlyoutItem.IconSource>
+                    </ui:RadioMenuFlyoutItem>
+                    <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
+                                            IsChecked="{Binding IsRotation.Value, Mode=OneWay}"
+                                            Tag="Rotation"
+                                            Text="{x:Static lang:Strings.Rotation}">
+                        <ui:RadioMenuFlyoutItem.IconSource>
+                            <ui:PathIconSource Data="{StaticResource RotationTransformIconData}" />
+                        </ui:RadioMenuFlyoutItem.IconSource>
+                    </ui:RadioMenuFlyoutItem>
+                    <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
+                                            IsChecked="{Binding IsScale.Value, Mode=OneWay}"
+                                            Tag="Scale"
+                                            Text="{x:Static lang:Strings.Scale}">
+                        <ui:RadioMenuFlyoutItem.IconSource>
+                            <ui:PathIconSource Data="{StaticResource ScaleTransformIconData}" />
+                        </ui:RadioMenuFlyoutItem.IconSource>
+                    </ui:RadioMenuFlyoutItem>
+                    <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
+                                            IsChecked="{Binding !Value.Value, Mode=OneWay}"
+                                            Tag="Null"
+                                            Text="Null" />
+                </ui:FAMenuFlyout>
+            </ToggleButton.ContextFlyout>
+            <ToggleButton.Tag>
+                <Button Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Classes="size-24x24"
+                        Click="Tag_Click"
+                        Theme="{StaticResource TransparentButton}">
+                    <icons:SymbolIcon Symbol="Compose" />
+                </Button>
+            </ToggleButton.Tag>
+            <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Transform}" />
+        </ToggleButton>
+
+        <Panel x:Name="content"
+               Grid.Row="1"
+               MinHeight="32">
+            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
+
+            <local:PropertiesEditor Margin="16,0,0,0"
+                                    Padding="0"
+                                    DataContext="{Binding Properties.Value}"
+                                    IsVisible="{ReflectionBinding #root.DataContext.Properties.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </Panel>
+    </Grid>
+</UserControl>
