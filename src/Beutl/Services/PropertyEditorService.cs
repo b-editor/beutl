@@ -200,6 +200,7 @@ public static class PropertyEditorService
             new(typeof(ISoundEffect), new(_ => new SoundEffectEditor(), s => new SoundEffectEditorViewModel(s.ToTyped<ISoundEffect?>()))),
             new(typeof(ITransform), new(_ => new TransformEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>()))),
             new(typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>()))),
+            new(typeof(DisplacementMapTransform), new(_ => new DisplacementMapTransformEditor(), s => new DisplacementMapTransformEditorViewModel(s.ToTyped<DisplacementMapTransform?>()))),
             new(typeof(IList), new(CreateListEditor, CreateListEditorViewModel)),
             new(typeof(ICoreObject), new(CreateNavigationButton, CreateNavigationButtonViewModel)),
             new(typeof(IParsable<>), new(CreateParsableEditor, CreateParsableEditorViewModel)),
