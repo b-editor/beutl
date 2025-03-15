@@ -64,30 +64,10 @@ jobs:
 
       - if: ${{ matrix.rid == 'linux_x64' }}
         name: Download libOpenCvSharpExtern.so
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          PACKAGES_JSON=`dotnet list src/Beutl.Engine/Beutl.Engine.csproj package --framework net9.0 --format json`
-
-          #4.9.0.2024
-          OPENCVSHARP_VERSION=`echo $PACKAGES_JSON | jq -r '.projects[0].frameworks[0].topLevelPackages | map(select(.id == "OpenCvSharp4"))[0].requestedVersion'`
-          echo $OPENCVSHARP_VERSION
-
-          #4.9.0
-          OPENCV_VERSION=`echo $OPENCVSHARP_VERSION | cut -d '.' -f 1-3`
-          echo $OPENCV_VERSION
-
-          #GitのタグとNuGetのバージョンが違う場合があるので
-          RELEASES_JSON=`gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/shimat/opencvsharp/releases`
-          FILTER='map(select(.tag_name | startswith("'$OPENCV_VERSION'")))[0].tag_name'
-          OPENCVSHARP_TAG=`echo "$RELEASES_JSON" | jq -r "$FILTER"`
-
-          #ダウンロード
-          RELEASE=`gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/yuto-trd/opencvsharp-extern-builds/releases/tags/$OPENCVSHARP_TAG`
-          ASSET_ID=`echo "$RELEASE" | jq '.assets | map(select(.name == "libOpenCvSharpExtern.so"))[0].id'`
-
-          cd output/Beutl
-          gh api -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" /repos/yuto-trd/opencvsharp-extern-builds/releases/assets/$ASSET_ID > libOpenCvSharpExtern.so
+          git clone https://github.com/b-editor/beutl-native-deps.git
+          cp beutl-native-deps/linux-x64/* output/Beutl
+          rm -rf beutl-native-deps
 
       - name: Store Metadata
         run: |
