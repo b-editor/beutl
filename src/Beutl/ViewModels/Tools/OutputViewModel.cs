@@ -208,6 +208,8 @@ public sealed class OutputViewModel : IOutputContext
                     {
                         RenderNodeCacheContext cacheContext = renderer.GetCacheContext();
                         cacheContext.CacheOptions = RenderCacheOptions.Disabled;
+                        // FrameCacheも無効化
+                        _editViewModel.FrameCacheManager.Value.Clear();
 
                         await controller.Encode(frameProvider, sampleProvider, _lastCts.Token);
                     }
