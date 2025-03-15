@@ -63,7 +63,7 @@ public sealed partial class EditorConfig : ConfigurationBase
             .Register();
 
         IsFrameCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsFrameCacheEnabled))
-            .DefaultValue(true)
+            .DefaultValue(false)
             .Register();
 
         ulong memSize = OperatingSystem.IsWindows() ? GetWindowsMemoryCapacity()
@@ -86,7 +86,7 @@ public sealed partial class EditorConfig : ConfigurationBase
             .Register();
 
         IsNodeCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsNodeCacheEnabled))
-            .DefaultValue(true)
+            .DefaultValue(false)
             .Register();
 
         NodeCacheMaxPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMaxPixels))
