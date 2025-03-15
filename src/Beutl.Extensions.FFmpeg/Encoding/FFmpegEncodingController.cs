@@ -191,7 +191,8 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         CancellationToken cancellationToken)
     {
         bool encodeVideo = false, encodeAudio = false;
-        using (var muxer = MediaMuxer.Create(OutputFile))
+        using (var fs = File.OpenWrite(OutputFile))
+        using (var muxer = MediaMuxer.Create(fs, OutFormat.GuessFormat(null, OutputFile, null)))
         using (var videoFrame = new MediaFrame())
         using (var audioFrame = new MediaFrame())
         {
