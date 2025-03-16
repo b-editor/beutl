@@ -191,7 +191,8 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         CancellationToken cancellationToken)
     {
         bool encodeVideo = false, encodeAudio = false;
-        using (var muxer = MediaMuxer.Create(OutputFile))
+        using (var fs = File.OpenWrite(OutputFile))
+        using (var muxer = MediaMuxer.Create(fs, OutFormat.GuessFormat(null, OutputFile, null)))
         using (var videoFrame = new MediaFrame())
         using (var audioFrame = new MediaFrame())
         {
@@ -307,7 +308,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             // Console.WriteLine(
             //     $"pts:{pkt.Pts} pts_time:{0} dst:{pkt.Dts} dts_time:{0} duration:{pkt.Duration} duration_time:{0} stream_index:{streamIndex}");
             ffmpeg.av_packet_rescale_ts(pkt, encoder.TimeBase, stream.TimeBase);
-            muxer.WritePacket(pkt);
+            muxer.WritePacket(pkt).ThrowIfError();
         }
 
         return frame != null;
