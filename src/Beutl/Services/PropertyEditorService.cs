@@ -61,6 +61,13 @@ public static class PropertyEditorService
         return Activator.CreateInstance(controlType) as Control;
     }
 
+    private static IListItemEditor? CreateCoreObjectListItemEditor(IPropertyAdapter s)
+    {
+        Type controlType = typeof(CoreObjectListItemEditor<>);
+        controlType = controlType.MakeGenericType(s.PropertyType);
+        return Activator.CreateInstance(controlType) as IListItemEditor;
+    }
+
     private static BaseEditorViewModel? CreateCoreObjectEditorViewModel(IPropertyAdapter s)
     {
         Type viewModelType = typeof(CoreObjectEditorViewModel<>);
@@ -136,7 +143,8 @@ public static class PropertyEditorService
             { typeof(PathSegment), new(_ => new PathOperationListItemEditor(), s => new PathOperationEditorViewModel(s.ToTyped<PathSegment?>())) },
             { typeof(PathFigure), new(_ => new PathFigureListItemEditor(), s => new PathFigureEditorViewModel(s.ToTyped<PathFigure>())) },
             { typeof(ISoundEffect), new(_ => new SoundEffectListItemEditor(), s => new SoundEffectEditorViewModel(s.ToTyped<ISoundEffect?>())) },
-            { typeof(ITransform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) }
+            { typeof(ITransform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) },
+            { typeof(ICoreObject), new(CreateCoreObjectListItemEditor, CreateCoreObjectEditorViewModel) }
         };
 
         private static readonly Dictionary<int, Editor> s_editorsOverride =
