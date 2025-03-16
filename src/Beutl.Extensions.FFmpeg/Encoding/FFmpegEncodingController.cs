@@ -131,20 +131,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         var fps = VideoSettings.FrameRate;
         var format = VideoSettings.Format;
         int bitRate = VideoSettings.Bitrate;
-        var options = new MediaDictionary
-        {
-            { "preset", VideoSettings.Preset },
-            { "crf", VideoSettings.Crf },
-            { "profile", VideoSettings.Profile },
-            { "level", VideoSettings.Level }
-        };
-        foreach (var item in options)
-        {
-            if (item.Value.Equals("(unset)", StringComparison.OrdinalIgnoreCase))
-            {
-                options.Remove(item.Key);
-            }
-        }
+        var options = new MediaDictionary(VideoSettings.Options
+            .Where(item => !string.IsNullOrWhiteSpace(item.Key))
+            .Select(item => new KeyValuePair<string, string>(item.Key, item.Value)));
 
         encoder = MediaEncoder.Create(codec, codecContext =>
         {
