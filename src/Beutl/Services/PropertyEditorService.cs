@@ -54,16 +54,23 @@ public static class PropertyEditorService
         return Activator.CreateInstance(type, s) as BaseEditorViewModel;
     }
 
-    private static Control? CreateNavigationButton(IPropertyAdapter s)
+    private static Control? CreateCoreObjectEditor(IPropertyAdapter s)
     {
-        Type controlType = typeof(NavigateButton<>);
+        Type controlType = typeof(CoreObjectEditor<>);
         controlType = controlType.MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(controlType) as Control;
     }
 
-    private static BaseEditorViewModel? CreateNavigationButtonViewModel(IPropertyAdapter s)
+    private static IListItemEditor? CreateCoreObjectListItemEditor(IPropertyAdapter s)
     {
-        Type viewModelType = typeof(NavigationButtonViewModel<>);
+        Type controlType = typeof(CoreObjectListItemEditor<>);
+        controlType = controlType.MakeGenericType(s.PropertyType);
+        return Activator.CreateInstance(controlType) as IListItemEditor;
+    }
+
+    private static BaseEditorViewModel? CreateCoreObjectEditorViewModel(IPropertyAdapter s)
+    {
+        Type viewModelType = typeof(CoreObjectEditorViewModel<>);
         viewModelType = viewModelType.MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
     }
@@ -136,7 +143,8 @@ public static class PropertyEditorService
             { typeof(PathSegment), new(_ => new PathOperationListItemEditor(), s => new PathOperationEditorViewModel(s.ToTyped<PathSegment?>())) },
             { typeof(PathFigure), new(_ => new PathFigureListItemEditor(), s => new PathFigureEditorViewModel(s.ToTyped<PathFigure>())) },
             { typeof(ISoundEffect), new(_ => new SoundEffectListItemEditor(), s => new SoundEffectEditorViewModel(s.ToTyped<ISoundEffect?>())) },
-            { typeof(ITransform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) }
+            { typeof(ITransform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) },
+            { typeof(ICoreObject), new(CreateCoreObjectListItemEditor, CreateCoreObjectEditorViewModel) }
         };
 
         private static readonly Dictionary<int, Editor> s_editorsOverride =
@@ -202,7 +210,7 @@ public static class PropertyEditorService
             new(typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>()))),
             new(typeof(DisplacementMapTransform), new(_ => new DisplacementMapTransformEditor(), s => new DisplacementMapTransformEditorViewModel(s.ToTyped<DisplacementMapTransform?>()))),
             new(typeof(IList), new(CreateListEditor, CreateListEditorViewModel)),
-            new(typeof(ICoreObject), new(CreateNavigationButton, CreateNavigationButtonViewModel)),
+            new(typeof(ICoreObject), new(CreateCoreObjectEditor, CreateCoreObjectEditorViewModel)),
             new(typeof(IParsable<>), new(CreateParsableEditor, CreateParsableEditorViewModel)),
         }.ToFrozenDictionary();
 

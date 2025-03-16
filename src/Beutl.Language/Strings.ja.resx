@@ -1391,4 +1391,7 @@
   <data name="EditDrawable" xml:space="preserve">
     <value>描画オブジェクトを編集</value>
   </data>
+  <data name="Item" xml:space="preserve">
+    <value>アイテム</value>
+  </data>
 </root>
