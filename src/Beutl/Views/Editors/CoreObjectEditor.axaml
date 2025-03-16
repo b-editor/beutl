@@ -1,0 +1,111 @@
+<UserControl x:Class="Beutl.Views.Editors.CoreObjectEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.Editors"
+             d:DesignWidth="300"
+             x:CompileBindings="True"
+             x:DataType="vm:ICoreObjectEditorViewModel"
+             mc:Ignorable="d">
+    <!-- <Grid ColumnDefinitions="2*,3*,24"> -->
+    <!--  <TextBlock Margin="8,0,0,0"  -->
+    <!--  HorizontalAlignment="Left"  -->
+    <!--  VerticalAlignment="Center"  -->
+    <!--  Text="{Binding Header}" />  -->
+    <!--    -->
+    <!--  <Button Grid.Column="1"  -->
+    <!--  Margin="4"  -->
+    <!--  HorizontalAlignment="Stretch"  -->
+    <!--  HorizontalContentAlignment="Left"  -->
+    <!--  Click="Navigate_Click"  -->
+    <!--  IsVisible="{Binding IsSet.Value}">  -->
+    <!--         <StackPanel Orientation="Horizontal" Spacing="16"> -->
+    <!--             <ui:SymbolIcon Symbol="Open" /> -->
+    <!--             <TextBlock Text="{x:Static lang:Strings.Edit}" /> -->
+    <!--         </StackPanel> -->
+    <!--     </Button> -->
+    <!--    -->
+    <!--  <Button Grid.Column="1"  -->
+    <!--  Margin="4"  -->
+    <!--  HorizontalAlignment="Stretch"  -->
+    <!--  HorizontalContentAlignment="Left"  -->
+    <!--  Click="New_Click"  -->
+    <!--  IsEnabled="{Binding CanEdit.Value}"  -->
+    <!--  IsVisible="{Binding IsNotSetAndCanWrite.Value}">  -->
+    <!--         <StackPanel Orientation="Horizontal" Spacing="16"> -->
+    <!--             <ui:SymbolIcon Symbol="New" /> -->
+    <!--             <TextBlock Text="{x:Static lang:Strings.CreateNew}" /> -->
+    <!--         </StackPanel> -->
+    <!--     </Button> -->
+    <!--    -->
+    <!--  <Button Grid.Column="2"  -->
+    <!--  Width="24"  -->
+    <!--  Height="24"  -->
+    <!--  Margin="0,0,8,0"  -->
+    <!--  Padding="0"  -->
+    <!--  HorizontalAlignment="Center"  -->
+    <!--  Background="Transparent"  -->
+    <!--  BorderThickness="0"  -->
+    <!--  Click="Menu_Click">  -->
+    <!--         <Button.ContextMenu> -->
+    <!--             <ContextMenu> -->
+    <!--  <MenuItem Click="Navigate_Click"  -->
+    <!--  Header="{x:Static lang:Strings.Edit}"  -->
+    <!--  IsEnabled="{Binding IsSet.Value}" />  -->
+    <!--  <MenuItem Click="New_Click"  -->
+    <!--  Header="{x:Static lang:Strings.CreateNew}"  -->
+    <!--  IsEnabled="{Binding CanWrite}" />  -->
+    <!--             </ContextMenu> -->
+    <!--         </Button.ContextMenu> -->
+    <!--         <icons:SymbolIcon Symbol="MoreVertical" /> -->
+    <!--     </Button> -->
+    <!-- </Grid> -->
+    <Grid RowDefinitions="Auto,Auto">
+        <ToggleButton x:Name="expandToggle"
+                      Margin="8,4"
+                      IsChecked="{Binding IsExpanded.Value}"
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+            <ToggleButton.ContextFlyout>
+                <ui:FAMenuFlyout>
+                    <ui:MenuFlyoutItem Click="NewClick"
+                                       FontWeight="Normal"
+                                       IconSource="New"
+                                       Text="{x:Static lang:Strings.Change}" />
+                    <ui:MenuFlyoutItem Click="SetNullClick"
+                                       FontWeight="Normal"
+                                       Text="Null" />
+                    <ui:MenuFlyoutItem Click="Navigate_Click"
+                                       FontWeight="Normal"
+                                       Text="Open in tab" />
+                </ui:FAMenuFlyout>
+            </ToggleButton.ContextFlyout>
+            <ToggleButton.Tag>
+                <Button Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Classes="size-24x24"
+                        Click="NewClick"
+                        Theme="{StaticResource TransparentButton}">
+                    <icons:SymbolIcon Symbol="New" />
+                </Button>
+            </ToggleButton.Tag>
+            <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Transform}" />
+        </ToggleButton>
+
+        <Panel x:Name="content"
+               Grid.Row="1"
+               MinHeight="32">
+            <TextBlock IsVisible="{Binding IsNull.Value}" Text="{x:Static lang:Message.Property_is_unset}" />
+
+            <local:PropertiesEditor Margin="16,0,0,0"
+                                    Padding="0"
+                                    DataContext="{Binding Properties.Value}"
+                                    IsVisible="{ReflectionBinding #root.DataContext.Properties.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </Panel>
+    </Grid>
+</UserControl>
