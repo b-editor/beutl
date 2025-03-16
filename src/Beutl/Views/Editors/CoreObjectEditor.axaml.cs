@@ -86,7 +86,8 @@ public sealed class CoreObjectEditor<T> : CoreObjectEditor
         if (viewModel.GetService<EditViewModel>() is not { } editViewModel) return;
 
         ObjectPropertyEditorViewModel objViewModel
-            = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>()
+            = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>(i =>
+                  ReferenceEquals(i.ChildContext.Value?.Target, viewModel.Value.Value))
               ?? new ObjectPropertyEditorViewModel(editViewModel);
 
         objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);
