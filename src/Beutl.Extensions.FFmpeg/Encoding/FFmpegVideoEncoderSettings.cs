@@ -1,4 +1,5 @@
-﻿using Beutl.Media.Encoding;
+﻿using Beutl.Collections;
+using Beutl.Media.Encoding;
 using Beutl.Serialization;
 using FFmpeg.AutoGen;
 using FFmpegSharp;
@@ -9,14 +10,50 @@ namespace Beutl.Embedding.FFmpeg.Encoding;
 namespace Beutl.Extensions.FFmpeg.Encoding;
 #endif
 
+public sealed class AdditionalOption : CoreObject
+{
+    public static readonly CoreProperty<string> KeyProperty;
+    public static readonly CoreProperty<string> ValueProperty;
+
+    static AdditionalOption()
+    {
+        KeyProperty = ConfigureProperty<string, AdditionalOption>(nameof(Key))
+            .DefaultValue("")
+            .Register();
+
+        ValueProperty = ConfigureProperty<string, AdditionalOption>(nameof(Value))
+            .DefaultValue("")
+            .Register();
+    }
+
+    public AdditionalOption()
+    {
+    }
+
+    public AdditionalOption(string key, string value)
+    {
+        Key = key;
+        Value = value;
+    }
+
+    public string Key
+    {
+        get => GetValue(KeyProperty);
+        set => SetValue(KeyProperty, value);
+    }
+
+    public string Value
+    {
+        get => GetValue(ValueProperty);
+        set => SetValue(ValueProperty, value);
+    }
+}
+
 public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
 {
     public static readonly CoreProperty<AVPixelFormat> FormatProperty;
     public static readonly CoreProperty<CodecRecord> CodecProperty;
-    public static readonly CoreProperty<string> PresetProperty;
-    public static readonly CoreProperty<string> CrfProperty;
-    public static readonly CoreProperty<string> ProfileProperty;
-    public static readonly CoreProperty<string> LevelProperty;
+    public static readonly CoreProperty<CoreList<AdditionalOption>> OptionsProperty;
 
     static FFmpegVideoEncoderSettings()
     {
@@ -28,21 +65,19 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
             .DefaultValue(CodecRecord.Default)
             .Register();
 
-        PresetProperty = ConfigureProperty<string, FFmpegVideoEncoderSettings>(nameof(Preset))
-            .DefaultValue("medium")
+        OptionsProperty = ConfigureProperty<CoreList<AdditionalOption>, FFmpegVideoEncoderSettings>(nameof(Options))
             .Register();
+    }
 
-        CrfProperty = ConfigureProperty<string, FFmpegVideoEncoderSettings>(nameof(Crf))
-            .DefaultValue("22")
-            .Register();
-
-        ProfileProperty = ConfigureProperty<string, FFmpegVideoEncoderSettings>(nameof(Profile))
-            .DefaultValue("high")
-            .Register();
-
-        LevelProperty = ConfigureProperty<string, FFmpegVideoEncoderSettings>(nameof(Level))
-            .DefaultValue("4.0")
-            .Register();
+    public FFmpegVideoEncoderSettings()
+    {
+        Options =
+        [
+            new("preset", "medium"),
+            new("crf", "22"),
+            new("profile", "high"),
+            new("level", "4.0")
+        ];
     }
 
     public AVPixelFormat Format
@@ -59,28 +94,10 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
         set => SetValue(CodecProperty, value);
     }
 
-    public string Preset
+    public CoreList<AdditionalOption> Options
     {
-        get => GetValue(PresetProperty);
-        set => SetValue(PresetProperty, value);
-    }
-
-    public string Crf
-    {
-        get => GetValue(CrfProperty);
-        set => SetValue(CrfProperty, value);
-    }
-
-    public string Profile
-    {
-        get => GetValue(ProfileProperty);
-        set => SetValue(ProfileProperty, value);
-    }
-
-    public string Level
-    {
-        get => GetValue(LevelProperty);
-        set => SetValue(LevelProperty, value);
+        get => GetValue(OptionsProperty);
+        set => SetValue(OptionsProperty, value);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -93,12 +110,44 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
                 .Cast<CodecRecord>()
                 .FirstOrDefault(i => i.Name == codecName, CodecRecord.Default);
         }
+
+        SetOption(context, "Preset", "preset");
+        SetOption(context, "Crf", "crf");
+        SetOption(context, "Profile", "profile");
+        SetOption(context, "Level", "level");
     }
 
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
         context.SetValue(nameof(Codec), Codec.Name);
+    }
+
+    private void SetOption(ICoreSerializationContext context, string key, string newKey)
+    {
+        if (!context.Contains(key)) return;
+
+        string? value = context.GetValue<string>(key);
+        if (string.IsNullOrEmpty(value)) return;
+        bool unset = value.Equals("(unset)", StringComparison.OrdinalIgnoreCase);
+
+        AdditionalOption? option = Options.FirstOrDefault(i => i.Key == newKey);
+        if (option == null)
+        {
+            if (unset) return;
+            option = new AdditionalOption(newKey, value);
+            Options.Add(option);
+        }
+        else
+        {
+            if (unset)
+            {
+                Options.Remove(option);
+                return;
+            }
+
+            option.Value = value;
+        }
     }
 }
 
