@@ -41,7 +41,7 @@
                     <icons:SymbolIcon Symbol="New" />
                 </Button>
             </ToggleButton.Tag>
-            <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Transform}" />
+            <TextBlock FontWeight="DemiBold" Text="{Binding Header}" />
         </ToggleButton>
 
         <Panel x:Name="content"
