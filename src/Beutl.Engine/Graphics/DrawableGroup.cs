@@ -56,7 +56,7 @@ public sealed class DrawableGroup : Drawable
             rect = FilterEffect.TransformBounds(rect);
         }
 
-        Bounds = rect.TransformToAABB(transform);
+        Bounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
     }
 
     private Rect PrivateMeasureCore(Size availableSize)
