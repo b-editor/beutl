@@ -11,7 +11,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Fills an area with a solid color.
 /// </summary>
-public class SolidColorBrush : Brush, ISolidColorBrush, IEquatable<ISolidColorBrush?>
+public class SolidColorBrush : Brush, ISolidColorBrush
 {
     public static readonly CoreProperty<Color> ColorProperty;
     private Color _color;
@@ -81,24 +81,5 @@ public class SolidColorBrush : Brush, ISolidColorBrush, IEquatable<ISolidColorBr
     public override IBrush ToImmutable()
     {
         return new ImmutableSolidColorBrush(Color, Opacity);
-    }
-
-    public override bool Equals(object? obj)
-    {
-        return Equals(obj as ISolidColorBrush);
-    }
-
-    public bool Equals(ISolidColorBrush? other)
-    {
-        return other is not null
-            && Color.Equals(other.Color)
-            && Opacity == other.Opacity
-            && EqualityComparer<ITransform?>.Default.Equals(Transform, other.Transform)
-            && TransformOrigin.Equals(other.TransformOrigin);
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(Color, Opacity, Transform, TransformOrigin);
     }
 }

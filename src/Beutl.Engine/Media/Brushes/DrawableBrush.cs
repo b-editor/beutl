@@ -8,7 +8,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with an <see cref="Drawable"/>.
 /// </summary>
-public class DrawableBrush : TileBrush, IDrawableBrush, IEquatable<IDrawableBrush?>
+public class DrawableBrush : TileBrush, IDrawableBrush
 {
     public static readonly CoreProperty<Drawable?> DrawableProperty;
     private Drawable? _drawable;
@@ -55,48 +55,9 @@ public class DrawableBrush : TileBrush, IDrawableBrush, IEquatable<IDrawableBrus
         return new ImmutableDrawableBrush(this);
     }
 
-    public override bool Equals(object? obj)
-    {
-        return Equals(obj as IDrawableBrush);
-    }
-
     public override void ApplyAnimations(IClock clock)
     {
         base.ApplyAnimations(clock);
         Drawable?.ApplyAnimations(clock);
-    }
-
-    public bool Equals(IDrawableBrush? other)
-    {
-        return other is not null
-            && AlignmentX == other.AlignmentX
-            && AlignmentY == other.AlignmentY
-            && DestinationRect.Equals(other.DestinationRect)
-            && Opacity == other.Opacity
-            && EqualityComparer<ITransform?>.Default.Equals(Transform, other.Transform)
-            && TransformOrigin.Equals(other.TransformOrigin)
-            && SourceRect.Equals(other.SourceRect)
-            && Stretch == other.Stretch
-            && TileMode == other.TileMode
-            && BitmapInterpolationMode == other.BitmapInterpolationMode
-            && ReferenceEquals(Drawable, other.Drawable)
-            && Drawable?.Version == other.Version;
-    }
-
-    public override int GetHashCode()
-    {
-        var hash = new HashCode();
-        hash.Add(AlignmentX);
-        hash.Add(AlignmentY);
-        hash.Add(DestinationRect);
-        hash.Add(Opacity);
-        hash.Add(Transform);
-        hash.Add(TransformOrigin);
-        hash.Add(SourceRect);
-        hash.Add(Stretch);
-        hash.Add(TileMode);
-        hash.Add(BitmapInterpolationMode);
-        hash.Add(Drawable);
-        return hash.ToHashCode();
     }
 }
