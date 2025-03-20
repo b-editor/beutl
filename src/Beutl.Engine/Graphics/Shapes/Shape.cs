@@ -206,7 +206,7 @@ public abstract class Shape : Drawable
             rect = FilterEffect.TransformBounds(rect);
         }
 
-        Bounds = rect.TransformToAABB(transform);
+        Bounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
     }
 
     protected override Size MeasureCore(Size availableSize)
@@ -268,13 +268,13 @@ public abstract class Shape : Drawable
             Size availableSize = context.Size.ToSize(1);
             Size size = MeasureCore(availableSize);
             var rect = new Rect(size).Translate(CreatedGeometry?.Bounds.Position ?? default);
-            if (FilterEffect != null)
+            if (FilterEffect != null && !rect.IsInvalid)
             {
                 rect = FilterEffect.TransformBounds(rect);
             }
 
             Matrix transform = GetTransformMatrix(availableSize, size);
-            Rect transformedBounds = rect.TransformToAABB(transform);
+            Rect transformedBounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
             using (context.PushBlendMode(BlendMode))
             using (context.PushTransform(transform))
             using (context.PushOpacity(Opacity / 100f))
