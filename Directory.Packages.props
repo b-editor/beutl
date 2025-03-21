@@ -44,8 +44,8 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
     <PackageVersion Include="NuGet.ProjectModel" Version="6.12.1" />
-    <PackageVersion Include="NuGet.Protocol" Version="6.12.1" />
-    <PackageVersion Include="NuGet.Resolver" Version="6.12.1" />
+    <PackageVersion Include="NuGet.Protocol" Version="6.13.2" />
+    <PackageVersion Include="NuGet.Resolver" Version="6.13.2" />
     <PackageVersion Include="Nuke.Common" Version="9.0.3" />
     <PackageVersion Include="NUnit" Version="4.3.2" />
     <PackageVersion Include="NUnit3TestAdapter" Version="5.0.0" />
