@@ -10,7 +10,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with a swept circular gradient.
 /// </summary>
-public sealed class ConicGradientBrush : GradientBrush, IConicGradientBrush, IEquatable<IConicGradientBrush?>
+public sealed class ConicGradientBrush : GradientBrush, IConicGradientBrush
 {
     public static readonly CoreProperty<RelativePoint> CenterProperty;
     public static readonly CoreProperty<float> AngleProperty;
@@ -56,27 +56,5 @@ public sealed class ConicGradientBrush : GradientBrush, IConicGradientBrush, IEq
     public override IBrush ToImmutable()
     {
         return new ImmutableConicGradientBrush(this);
-    }
-
-    public override bool Equals(object? obj)
-    {
-        return Equals(obj as IConicGradientBrush);
-    }
-
-    public bool Equals(IConicGradientBrush? other)
-    {
-        return other is not null
-            && GradientStops.SequenceEqual(other.GradientStops)
-            && Opacity == other.Opacity
-            && EqualityComparer<ITransform?>.Default.Equals(Transform, other.Transform)
-            && TransformOrigin.Equals(other.TransformOrigin)
-            && SpreadMethod == other.SpreadMethod
-            && Center.Equals(other.Center)
-            && Angle == other.Angle;
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(GradientStops, Opacity, Transform, TransformOrigin, SpreadMethod, Center, Angle);
     }
 }
