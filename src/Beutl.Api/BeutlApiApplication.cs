@@ -305,7 +305,7 @@ public class BeutlApiApplication
                 await user.RefreshAsync();
 
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
-                await user.Profile.RefreshAsync();
+                await user.Profile.RefreshAsync(true);
                 _authorizedUser.Value = user;
                 SaveUser();
             }

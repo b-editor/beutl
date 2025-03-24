@@ -26,7 +26,7 @@ public class Profile
 
     public string Id { get; }
 
-    public string Name { get; }
+    public string Name { get; private set; }
 
     public IReadOnlyReactiveProperty<string> Biography { get; }
 
@@ -36,11 +36,19 @@ public class Profile
 
     public MyAsyncLock Lock => _clients.Lock;
 
-    public async Task RefreshAsync()
+    public async Task RefreshAsync(bool self = false)
     {
         using Activity? activity = _clients.ActivitySource.StartActivity("Profile.Refresh", ActivityKind.Client);
 
-        _response.Value = await _clients.Users.GetUser(Name);
+        if (self)
+        {
+            _response.Value = await _clients.Users.GetSelf();
+            Name = _response.Value.Name;
+        }
+        else
+        {
+            _response.Value = await _clients.Users.GetUser(Name);
+        }
     }
 
     public async Task<Package[]> GetPackagesAsync(int start = 0, int count = 30)
