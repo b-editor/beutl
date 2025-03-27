@@ -25,7 +25,18 @@ public sealed class FontManager
             if (OperatingSystem.IsLinux())
             {
                 var output = new StringBuilder();
-                using Process process = Process.Start(new ProcessStartInfo("/usr/bin/fc-match", "--format %{file}")
+                string applicationPath = "/usr/bin/fc-match";
+                var paths = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? [];
+                foreach (var path in paths)
+                {
+                    var fullPath = Path.Combine(path, "fc-match");
+                    if (File.Exists(fullPath))
+                    {
+                        applicationPath = fullPath;
+                        break;
+                    }
+                }
+                using Process process = Process.Start(new ProcessStartInfo(applicationPath, "--format %{file}")
                 {
                     RedirectStandardOutput = true
                 })!;

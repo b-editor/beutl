@@ -155,6 +155,8 @@ public static class FFmpegLoader
         else if (OperatingSystem.IsLinux())
         {
             paths.Add($"/usr/lib/{(Environment.Is64BitProcess ? "x86_64" : "x86")}-linux-gnu");
+            var libraryPath = Environment.GetEnvironmentVariable("LD_LIBRARY_PATH")?.Split(Path.PathSeparator) ?? [];
+            paths.AddRange(libraryPath);
         }
         else if (OperatingSystem.IsMacOS())
         {
