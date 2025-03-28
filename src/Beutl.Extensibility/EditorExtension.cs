@@ -1,8 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Extensibility;
@@ -24,9 +22,9 @@ public abstract class EditorExtension : ViewExtension
         string file,
         [NotNullWhen(true)] out IEditorContext? context);
 
-    public virtual bool IsSupported(string file)
+    public virtual bool IsSupported(string? file)
     {
-        return MatchFileExtension(Path.GetExtension(file));
+        return file != null && MatchFileExtension(Path.GetExtension(file));
     }
 
     // extはピリオドを含む
