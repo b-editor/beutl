@@ -13,17 +13,7 @@
                            IsBackButtonVisible="True"
                            IsBackEnabled="{Binding #frame.CanGoBack}"
                            IsSettingsVisible="False"
-                           IsVisible="{Binding IsAuthorized.Value}"
                            PaneDisplayMode="Top">
-            <!--<ui:NavigationView.Styles>
-            <Style Selector="ui|NavigationView /template/ SplitView Border#ContentGridBorder">
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="BorderBrush" Value="Transparent" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="Margin" Value="{DynamicResource NavigationViewContentMargin}" />
-                <Setter Property="CornerRadius" Value="{DynamicResource NavigationViewContentGridCornerRadius}" />
-            </Style>
-        </ui:NavigationView.Styles>-->
             <ui:NavigationView.Resources>
                 <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
@@ -47,36 +37,5 @@
             <!--  InvalidCastException対策に{x:Null}を指定  -->
             <ui:Frame x:Name="frame" DataContext="{x:Null}" />
         </ui:NavigationView>
-
-        <StackPanel HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    IsVisible="{Binding !IsAuthorized.Value}"
-                    Spacing="8">
-            <TextBlock Text="{x:Static lang:ExtensionsPage.AuthorizationIsRequired}" Theme="{StaticResource SubtitleTextBlockStyle}" />
-
-            <SelectableTextBlock>
-                <Run Text="{x:Static lang:ExtensionsPage.AnAccountIsRequiredToGetExtension}" />
-                <LineBreak />
-                <Run Text="{x:Static lang:ExtensionsPage.GotoSettings_Account}" />
-            </SelectableTextBlock>
-
-            <Button Height="40"
-                    Margin="0,16,0,0"
-                    HorizontalAlignment="Stretch"
-                    Classes="accent"
-                    Click="OpenSettings_Click"
-                    Content="{x:Static lang:ExtensionsPage.OpenSettings}" />
-
-            <Grid ColumnDefinitions="*,*">
-                <HyperlinkButton Grid.Column="0"
-                                 HorizontalAlignment="Center"
-                                 Content="{x:Static lang:Strings.PrivacyPolicy}"
-                                 NavigateUri="https://beutl.beditor.net/about/privacy" />
-                <HyperlinkButton Grid.Column="1"
-                                 HorizontalAlignment="Center"
-                                 Content="{x:Static lang:Strings.TermsOfService}"
-                                 NavigateUri="https://beutl.beditor.net/about/toc" />
-            </Grid>
-        </StackPanel>
     </Panel>
 </UserControl>

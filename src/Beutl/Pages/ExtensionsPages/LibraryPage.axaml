@@ -32,23 +32,6 @@
         <DataTemplate x:Key="UserPackageItemTemplate">
             <ContentControl Content="{ReflectionBinding}">
                 <ContentControl.DataTemplates>
-                    <DataTemplate x:DataType="viewModel:LoadMoreItem">
-                        <Button Padding="0"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Stretch"
-                                VerticalContentAlignment="Stretch"
-                                Click="Package_Click">
-                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                <Border Width="48" Height="48">
-                                    <icons:SymbolIcon FontSize="32" Symbol="MoreHorizontal" />
-                                </Border>
-
-                                <TextBlock Grid.Column="2"
-                                           VerticalAlignment="Center"
-                                           Text="{x:Static lang:Strings.ShowMore}" />
-                            </Grid>
-                        </Button>
-                    </DataTemplate>
                     <DataTemplate x:DataType="viewModel:IUserPackageViewModel">
                         <Button Padding="0"
                                 HorizontalAlignment="Stretch"

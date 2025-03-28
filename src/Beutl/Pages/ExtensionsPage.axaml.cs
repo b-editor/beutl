@@ -113,7 +113,7 @@ public sealed partial class ExtensionsPage : UserControl
     private void OnItemInvoked(NavigationViewItem nvi)
     {
         if (nvi.Tag is Type typ
-            && DataContext is ExtensionsPageViewModel { IsAuthorized.Value: true } viewModel)
+            && DataContext is ExtensionsPageViewModel viewModel)
         {
             NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
             if (typ == typeof(LibraryPage))

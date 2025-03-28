@@ -163,12 +163,21 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                     using (await _app.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
-                        await _app.AuthorizedUser.Value!.RefreshAsync();
+                        Release? release = null;
+                        if (_app.AuthorizedUser.Value != null)
+                        {
+                            await _app.AuthorizedUser.Value.RefreshAsync();
+                            release = await _library.Acquire(Package);
+                        }
 
-                        Release release = await _library.Acquire(Package);
                         if (SelectedRelease.Value != null)
                         {
                             release = SelectedRelease.Value;
+                        }
+
+                        if (release == null)
+                        {
+                            release = (await Package.GetReleasesAsync())[0];
                         }
 
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
@@ -203,12 +212,21 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                     using (await _app.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
-                        await _app.AuthorizedUser.Value!.RefreshAsync();
+                        Release? release = null;
+                        if (_app.AuthorizedUser.Value != null)
+                        {
+                            await _app.AuthorizedUser.Value.RefreshAsync();
+                            release = await _library.Acquire(Package);
+                        }
 
-                        Release release = await _library.Acquire(Package);
                         if (SelectedRelease.Value != null)
                         {
                             release = SelectedRelease.Value;
+                        }
+
+                        if (release == null)
+                        {
+                            release = (await Package.GetReleasesAsync())[0];
                         }
 
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
