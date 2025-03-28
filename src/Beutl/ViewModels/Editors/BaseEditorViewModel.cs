@@ -18,7 +18,6 @@ namespace Beutl.ViewModels.Editors;
 public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProvider
 {
     protected CompositeDisposable Disposables = [];
-    private bool _disposedValue;
     private IDisposable? _currentFrameRevoker;
     private bool _skipKeyFrameIndexSubscription;
     private Element? _element;
@@ -112,9 +111,11 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     ~BaseEditorViewModel()
     {
-        if (!_disposedValue)
+        if (!IsDisposed)
             Dispose(false);
     }
+
+    public bool IsDisposed { get; private set; }
 
     public IPropertyAdapter PropertyAdapter { get; private set; }
 
@@ -146,10 +147,10 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public void Dispose()
     {
-        if (!_disposedValue)
+        if (!IsDisposed)
         {
             Dispose(true);
-            _disposedValue = true;
+            IsDisposed = true;
             GC.SuppressFinalize(this);
         }
     }

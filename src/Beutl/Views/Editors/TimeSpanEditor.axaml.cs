@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-
 using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;
@@ -25,14 +24,14 @@ public sealed partial class TimeSpanEditor : UserControl
 
     private void TextBox_GotFocus(object? sender, GotFocusEventArgs e)
     {
-        if (DataContext is not TimeSpanEditorViewModel vm) return;
+        if (DataContext is not TimeSpanEditorViewModel { IsDisposed: false } vm) return;
 
         _oldValue = vm.PropertyAdapter.GetValue();
     }
 
     private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is TimeSpanEditorViewModel { PropertyAdapter: { } property } viewModel
+        if (DataContext is TimeSpanEditorViewModel { PropertyAdapter: { } property, IsDisposed: false } viewModel
             && TimeSpan.TryParse(textBox.Text, out TimeSpan newValue))
         {
             viewModel.SetValue(_oldValue, newValue);
@@ -43,7 +42,7 @@ public sealed partial class TimeSpanEditor : UserControl
     {
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            if (DataContext is TimeSpanEditorViewModel { PropertyAdapter: { } property } viewModel)
+            if (DataContext is TimeSpanEditorViewModel { PropertyAdapter: { } property, IsDisposed: false } viewModel)
             {
                 await Task.Delay(10);
 
@@ -57,7 +56,7 @@ public sealed partial class TimeSpanEditor : UserControl
 
     private void TextBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        if (DataContext is TimeSpanEditorViewModel { PropertyAdapter: { } property } viewModel
+        if (DataContext is TimeSpanEditorViewModel { PropertyAdapter: { } property, IsDisposed: false } viewModel
             && textBox.IsKeyboardFocusWithin
             && TimeSpan.TryParse(textBox.Text, out TimeSpan value))
         {

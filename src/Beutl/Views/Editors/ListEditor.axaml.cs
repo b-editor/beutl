@@ -10,10 +10,8 @@ using Avalonia.Media.Transformation;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
-
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
@@ -398,7 +396,7 @@ public sealed class ListEditor<TItem> : ListEditor
 
     protected override async ValueTask OnAddClick(object? sender)
     {
-        if (DataContext is ListEditorViewModel<TItem> viewModel)
+        if (DataContext is ListEditorViewModel<TItem> { IsDisposed: false } viewModel)
         {
             if (viewModel.List.Value == null && sender is Button btn)
             {
@@ -415,7 +413,7 @@ public sealed class ListEditor<TItem> : ListEditor
 
                     if (itemType.IsSealed
                         && (itemType.GetConstructor([]) != null
-                        || itemType.GetConstructors().Length == 0))
+                            || itemType.GetConstructors().Length == 0))
                     {
                         availableTypes = [itemType];
                     }
@@ -424,10 +422,10 @@ public sealed class ListEditor<TItem> : ListEditor
                         availableTypes = AppDomain.CurrentDomain.GetAssemblies()
                             .SelectMany(x => x.GetTypes())
                             .Where(x => !x.IsAbstract
-                                && x.IsPublic
-                                && x.IsAssignableTo(itemType)
-                                && (itemType.GetConstructor([]) != null
-                                || itemType.GetConstructors().Length == 0))
+                                        && x.IsPublic
+                                        && x.IsAssignableTo(itemType)
+                                        && (itemType.GetConstructor([]) != null
+                                            || itemType.GetConstructors().Length == 0))
                             .ToArray();
                     }
 
@@ -441,11 +439,7 @@ public sealed class ListEditor<TItem> : ListEditor
                     {
                         selectedType = await Dispatcher.UIThread.InvokeAsync(async () =>
                         {
-                            var combobox = new ComboBox
-                            {
-                                ItemsSource = availableTypes,
-                                SelectedIndex = 0
-                            };
+                            var combobox = new ComboBox { ItemsSource = availableTypes, SelectedIndex = 0 };
 
                             var dialog = new ContentDialog
                             {

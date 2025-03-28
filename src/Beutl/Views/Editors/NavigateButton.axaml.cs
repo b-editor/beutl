@@ -1,14 +1,11 @@
 ﻿using System.Reflection;
-
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
-
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.ViewModels.Tools;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
@@ -57,11 +54,11 @@ public sealed class NavigateButton<T> : NavigateButton
     protected override void OnNavigate()
     {
         if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
-            && DataContext is NavigationButtonViewModel<T> viewModel)
+            && DataContext is NavigationButtonViewModel<T> { IsDisposed: false } viewModel)
         {
             ObjectPropertyEditorViewModel objViewModel
                 = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>()
-                    ?? new ObjectPropertyEditorViewModel(editViewModel);
+                  ?? new ObjectPropertyEditorViewModel(editViewModel);
 
             objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);
             editViewModel.OpenToolTab(objViewModel);
@@ -71,7 +68,7 @@ public sealed class NavigateButton<T> : NavigateButton
     protected override async void OnNew()
     {
         //progress.IsVisible = true;
-        if (DataContext is NavigationButtonViewModel<T> viewModel)
+        if (DataContext is NavigationButtonViewModel<T> { IsDisposed: false } viewModel)
         {
             await Task.Run(async () =>
             {
@@ -79,9 +76,9 @@ public sealed class NavigateButton<T> : NavigateButton
                 Type[] types = AppDomain.CurrentDomain.GetAssemblies()
                     .SelectMany(x => x.GetTypes())
                     .Where(x => !x.IsAbstract
-                        && x.IsPublic
-                        && x.IsAssignableTo(type)
-                        && x.GetConstructor([]) != null)
+                                && x.IsPublic
+                                && x.IsAssignableTo(type)
+                                && x.GetConstructor([]) != null)
                     .ToArray();
                 Type? type2 = null;
                 ConstructorInfo? constructorInfo = null;
@@ -94,11 +91,7 @@ public sealed class NavigateButton<T> : NavigateButton
                 {
                     type2 = await Dispatcher.UIThread.InvokeAsync(async () =>
                     {
-                        var combobox = new ComboBox
-                        {
-                            ItemsSource = types,
-                            SelectedIndex = 0
-                        };
+                        var combobox = new ComboBox { ItemsSource = types, SelectedIndex = 0 };
 
                         var dialog = new ContentDialog
                         {

@@ -16,7 +16,7 @@ public partial class ImageSourceEditor : UserControl
 
     private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not ImageSourceEditorViewModel vm) return;
+        if (DataContext is not ImageSourceEditorViewModel { IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
         // 画像を開く

@@ -59,62 +59,61 @@ public sealed class CoreObjectListItemEditor<T> : CoreObjectListItemEditor
     protected override async void OnNew()
     {
         //progress.IsVisible = true;
-        if (DataContext is CoreObjectEditorViewModel<T> viewModel)
+        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return;
+
+        await Task.Run(async () =>
         {
-            await Task.Run(async () =>
+            Type type = viewModel.PropertyAdapter.PropertyType;
+            Type[] types = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(x => x.GetTypes())
+                .Where(x => !x.IsAbstract
+                            && x.IsPublic
+                            && x.IsAssignableTo(type)
+                            && x.GetConstructor([]) != null)
+                .ToArray();
+            Type? type2 = null;
+            ConstructorInfo? constructorInfo = null;
+
+            if (types.Length == 1)
             {
-                Type type = viewModel.PropertyAdapter.PropertyType;
-                Type[] types = AppDomain.CurrentDomain.GetAssemblies()
-                    .SelectMany(x => x.GetTypes())
-                    .Where(x => !x.IsAbstract
-                                && x.IsPublic
-                                && x.IsAssignableTo(type)
-                                && x.GetConstructor([]) != null)
-                    .ToArray();
-                Type? type2 = null;
-                ConstructorInfo? constructorInfo = null;
+                type2 = types[0];
+            }
+            else if (types.Length > 1)
+            {
+                type2 = await Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    var combobox = new ComboBox { ItemsSource = types, SelectedIndex = 0 };
 
-                if (types.Length == 1)
-                {
-                    type2 = types[0];
-                }
-                else if (types.Length > 1)
-                {
-                    type2 = await Dispatcher.UIThread.InvokeAsync(async () =>
+                    var dialog = new ContentDialog
                     {
-                        var combobox = new ComboBox { ItemsSource = types, SelectedIndex = 0 };
+                        Content = combobox,
+                        Title = Message.MultipleTypesAreAvailable,
+                        PrimaryButtonText = Strings.OK,
+                        CloseButtonText = Strings.Cancel
+                    };
 
-                        var dialog = new ContentDialog
-                        {
-                            Content = combobox,
-                            Title = Message.MultipleTypesAreAvailable,
-                            PrimaryButtonText = Strings.OK,
-                            CloseButtonText = Strings.Cancel
-                        };
+                    if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                    {
+                        return combobox.SelectedItem as Type;
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                });
+            }
+            else if (type.IsSealed)
+            {
+                type2 = type;
+            }
 
-                        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                        {
-                            return combobox.SelectedItem as Type;
-                        }
-                        else
-                        {
-                            return null;
-                        }
-                    });
-                }
-                else if (type.IsSealed)
-                {
-                    type2 = type;
-                }
+            constructorInfo = type2?.GetConstructor([]);
 
-                constructorInfo = type2?.GetConstructor([]);
-
-                if (constructorInfo?.Invoke(null) is T typed)
-                {
-                    await Dispatcher.UIThread.InvokeAsync(() => viewModel.SetValue(viewModel.Value.Value, typed));
-                }
-            });
-        }
+            if (constructorInfo?.Invoke(null) is T typed)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => viewModel.SetValue(viewModel.Value.Value, typed));
+            }
+        });
 
         //progress.IsVisible = false;
     }

@@ -61,7 +61,7 @@ public partial class FilterEffectEditor : UserControl
     {
         if (e.Data.Contains(KnownLibraryItemFormats.FilterEffect)
             && e.Data.Get(KnownLibraryItemFormats.FilterEffect) is Type type
-            && DataContext is FilterEffectEditorViewModel viewModel)
+            && DataContext is FilterEffectEditorViewModel { IsDisposed: false } viewModel)
         {
             if (viewModel.IsGroup.Value)
             {
@@ -79,36 +79,34 @@ public partial class FilterEffectEditor : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.FilterEffect))
-        {
-            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
-            e.Handled = true;
-        }
+        if (!e.Data.Contains(KnownLibraryItemFormats.FilterEffect)) return;
+
+        e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
+        e.Handled = true;
     }
 
     private async void Tag_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is FilterEffectEditorViewModel viewModel)
+        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
+
+        if (viewModel.IsGroup.Value)
         {
-            if (viewModel.IsGroup.Value)
+            Type? type = await SelectType();
+            if (type != null)
             {
-                Type? type = await SelectType();
-                if (type != null)
+                try
                 {
-                    try
-                    {
-                        viewModel.AddItem(type);
-                    }
-                    catch (Exception ex)
-                    {
-                        NotificationService.ShowError("Error", ex.Message);
-                    }
+                    viewModel.AddItem(type);
+                }
+                catch (Exception ex)
+                {
+                    NotificationService.ShowError("Error", ex.Message);
                 }
             }
-            else
-            {
-                expandToggle.ContextFlyout?.ShowAt(expandToggle);
-            }
+        }
+        else
+        {
+            expandToggle.ContextFlyout?.ShowAt(expandToggle);
         }
     }
 
@@ -152,28 +150,25 @@ public partial class FilterEffectEditor : UserControl
 
     private async void ChangeFilterTypeClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is FilterEffectEditorViewModel viewModel)
+        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
+
+        Type? type = await SelectType();
+        if (type == null) return;
+
+        try
         {
-            Type? type = await SelectType();
-            if (type != null)
-            {
-                try
-                {
-                    viewModel.ChangeFilterType(type);
-                }
-                catch (Exception ex)
-                {
-                    NotificationService.ShowError("Error", ex.Message);
-                }
-            }
+            viewModel.ChangeFilterType(type);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError("Error", ex.Message);
         }
     }
 
     private void SetNullClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is FilterEffectEditorViewModel viewModel)
-        {
-            viewModel.SetNull();
-        }
+        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
+
+        viewModel.SetNull();
     }
 }

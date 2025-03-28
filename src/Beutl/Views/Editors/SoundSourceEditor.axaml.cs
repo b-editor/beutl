@@ -47,7 +47,7 @@ public partial class SoundSourceEditor : UserControl
 
     private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not SoundSourceEditorViewModel vm) return;
+        if (DataContext is not SoundSourceEditorViewModel{ IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
         // 音声ファイルを開く

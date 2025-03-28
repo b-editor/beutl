@@ -30,7 +30,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void Button_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel viewModel)
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
         {
             if (!viewModel.HasAnimation.Value && sender is Button button)
             {
@@ -53,7 +53,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel viewModel
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
             && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
             && viewModel.GetService<EditViewModel>() is { } editViewModel)
         {
@@ -69,7 +69,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void RemoveAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel viewModel
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
             && viewModel.PropertyAdapter is IAnimatablePropertyAdapter { Animation: { } animation }
             && viewModel.GetService<EditViewModel>() is { } editViewModel)
         {
@@ -80,7 +80,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditInlineAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel viewModel
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
             && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
             && viewModel.GetService<EditViewModel>() is { } editViewModel
             && viewModel.GetService<Element>() is { } element

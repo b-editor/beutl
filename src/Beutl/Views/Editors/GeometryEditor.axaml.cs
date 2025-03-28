@@ -3,14 +3,11 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
-
 using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Views.Editors;
@@ -45,32 +42,31 @@ public partial class GeometryEditor : UserControl
 
     private void Tag_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is GeometryEditorViewModel viewModel)
+        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
+
+        if (viewModel.IsGroup.Value)
         {
-            if (viewModel.IsGroup.Value)
+            try
             {
-                try
-                {
-                    _logger.LogInformation("Adding item to group.");
-                    viewModel.AddItem();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error occurred while adding item to group.");
-                    NotificationService.ShowError("Error", ex.Message);
-                }
+                _logger.LogInformation("Adding item to group.");
+                viewModel.AddItem();
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogInformation("Group is not selected, showing context flyout.");
-                //expandToggle.ContextFlyout?.ShowAt(expandToggle);
+                _logger.LogError(ex, "Error occurred while adding item to group.");
+                NotificationService.ShowError("Error", ex.Message);
             }
+        }
+        else
+        {
+            _logger.LogInformation("Group is not selected, showing context flyout.");
+            //expandToggle.ContextFlyout?.ShowAt(expandToggle);
         }
     }
 
     private async void ImportFromSvgPathClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not GeometryEditorViewModel viewModel) return;
+        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
 
         _logger.LogInformation("Importing from SVG path.");
         var dialog = new ContentDialog()
@@ -79,14 +75,8 @@ public partial class GeometryEditor : UserControl
             PrimaryButtonText = Strings.Import,
             CloseButtonText = Strings.Cancel
         };
-        var stack = new StackPanel()
-        {
-            Spacing = 8
-        };
-        var description = new TextBlock()
-        {
-            Text = Strings.ImportSvgPath_Description
-        };
+        var stack = new StackPanel() { Spacing = 8 };
+        var description = new TextBlock() { Text = Strings.ImportSvgPath_Description };
         var textBox = new TextBox();
 
         dialog[!ContentDialog.IsPrimaryButtonEnabledProperty] = textBox.GetObservable(TextBox.TextProperty)
@@ -125,7 +115,7 @@ public partial class GeometryEditor : UserControl
 
     private void AddClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is GeometryEditorViewModel viewModel
+        if (DataContext is GeometryEditorViewModel { IsDisposed: false } viewModel
             && sender is MenuFlyoutItem item
             && viewModel.IsGroup.Value)
         {
@@ -144,10 +134,9 @@ public partial class GeometryEditor : UserControl
 
     private void SetNullClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is GeometryEditorViewModel viewModel)
-        {
-            _logger.LogInformation("Setting value to null.");
-            viewModel.SetNull();
-        }
+        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
+
+        _logger.LogInformation("Setting value to null.");
+        viewModel.SetNull();
     }
 }

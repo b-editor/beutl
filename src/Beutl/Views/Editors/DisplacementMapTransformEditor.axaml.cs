@@ -49,22 +49,21 @@ public partial class DisplacementMapTransformEditor : UserControl
 
     private void TransformTypeClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem { Tag: string type }
-            && DataContext is DisplacementMapTransformEditorViewModel viewModel)
+        if (sender is not MenuFlyoutItem { Tag: string type }) return;
+        if (DataContext is not DisplacementMapTransformEditorViewModel { IsDisposed: false } viewModel) return;
+
+        viewModel.ChangeType(type switch
         {
-            viewModel.ChangeType(type switch
-            {
-                "Translate" => DispMapTransformType.Translate,
-                "Rotation" => DispMapTransformType.Rotation,
-                "Scale" => DispMapTransformType.Scale,
-                _ => DispMapTransformType.Null
-            });
-        }
+            "Translate" => DispMapTransformType.Translate,
+            "Rotation" => DispMapTransformType.Rotation,
+            "Scale" => DispMapTransformType.Scale,
+            _ => DispMapTransformType.Null
+        });
     }
 
     private void SetNullClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is DisplacementMapTransformEditorViewModel viewModel)
+        if (DataContext is DisplacementMapTransformEditorViewModel { IsDisposed: false } viewModel)
         {
             viewModel.SetNull();
         }
