@@ -42,7 +42,7 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
 
     private readonly EvaluationTarget _evaluationTarget =
         typeof(T).IsAssignableTo(typeof(Drawable)) ? EvaluationTarget.Graphics
-        : typeof(T).IsAssignableTo(typeof(Audio.Audio)) ? EvaluationTarget.Audio : EvaluationTarget.Unknown;
+        : typeof(T).IsAssignableTo(typeof(Audio.Sound)) ? EvaluationTarget.Audio : EvaluationTarget.Unknown;
 
     static PublishOperator()
     {

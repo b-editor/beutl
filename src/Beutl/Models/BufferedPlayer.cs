@@ -67,8 +67,9 @@ public sealed class BufferedPlayer : IPlayer
 
                     if (_queue.Count >= 120)
                     {
-                        _logger.LogInformation("Queue is full. Waiting for timer. Current queue count: {QueueCount}",
-                            _queue.Count);
+                        // _logger.LogInformation(
+                        //     "Queue is full. Waiting for timer. Current queue count: {QueueCount}",
+                        //     _queue.Count);
                         WaitTimer();
                     }
 
