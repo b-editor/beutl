@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
@@ -43,6 +44,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
         Properties = Value
             .Select(x => x != null ? new PropertiesEditorViewModel(x, m => m.Browsable) : null)
+            .DisposePreviousValue()
             .Do(AcceptProperties)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
