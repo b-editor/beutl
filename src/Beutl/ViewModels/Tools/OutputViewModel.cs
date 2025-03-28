@@ -28,7 +28,7 @@ public sealed class OutputViewModel : IOutputContext
     private readonly ReactiveProperty<bool> _isEncoding = new();
     private readonly ReactivePropertySlim<double> _progress = new();
     private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
-    private readonly IDisposable _disposable1;
+    private readonly CompositeDisposable _disposable = [];
     private readonly ProjectItemContainer _itemContainer = ProjectItemContainer.Current;
     private CancellationTokenSource? _lastCts;
 
@@ -40,7 +40,8 @@ public sealed class OutputViewModel : IOutputContext
             .Select(obj => obj is { First: not null, Second: not null }
                 ? obj.First.CreateController(obj.Second)
                 : null)
-            .ToReadOnlyReactivePropertySlim();
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposable);
 
         VideoSettings = Controller.Select(c => c?.VideoSettings)
             .DistinctUntilChanged()
@@ -53,19 +54,22 @@ public sealed class OutputViewModel : IOutputContext
                 return new EncoderSettingsViewModel(s);
             })
             .DisposePreviousValue()
-            .ToReadOnlyReactivePropertySlim();
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposable);
 
         AudioSettings = Controller.Select(c => c?.AudioSettings)
             .DistinctUntilChanged()
             .Select(s => s == null ? null : new EncoderSettingsViewModel(s))
             .DisposePreviousValue()
-            .ToReadOnlyReactivePropertySlim();
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposable);
 
         CanEncode = DestinationFile.Select(x => x != null)
             .AreTrue(SelectedEncoder.Select(x => x != null))
-            .ToReadOnlyReactivePropertySlim();
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposable);
 
-        _disposable1 = ExtensionProvider.Current
+        ExtensionProvider.Current
             .GetExtensions<ControllableEncodingExtension>()
             .AsObservableChangeSet()
             .Filter(DestinationFile.Select<string?, Func<ControllableEncodingExtension, bool>>(
@@ -73,7 +77,8 @@ public sealed class OutputViewModel : IOutputContext
                     ? _ => false
                     : ext => ext.IsSupported(f)))
             .Bind(out _encoders)
-            .Subscribe();
+            .Subscribe()
+            .DisposeWith(_disposable);
     }
 
     public OutputExtension Extension => SceneOutputExtension.Instance;
@@ -278,7 +283,7 @@ public sealed class OutputViewModel : IOutputContext
     public void Dispose()
     {
         _logger.LogInformation("Disposing OutputViewModel.");
-        _disposable1.Dispose();
+        _disposable.Dispose();
         _logger.LogInformation("OutputViewModel disposed.");
     }
 
