@@ -310,7 +310,7 @@ public sealed partial class MainView : UserControl
                 }
                 catch (Exception ex)
                 {
-                    ex.Handle();
+                    await ex.Handle();
                 }
             };
 
