@@ -68,6 +68,10 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
+        IsScale = TransformType.Select(v => v == DispMapTransformType.Scale)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         IsNull = Value.Select(v => v == null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -76,18 +80,18 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
             .Take(1)
             .Subscribe(_ =>
                 Value.Subscribe(v =>
-                {
-                    Properties.Value?.Dispose();
-                    Properties.Value = null;
-
-                    if (v is not null)
                     {
-                        Properties.Value = new PropertiesEditorViewModel(v, (p, m) => m.Browsable);
-                    }
+                        Properties.Value?.Dispose();
+                        Properties.Value = null;
 
-                    AcceptChild();
-                })
-                .DisposeWith(Disposables))
+                        if (v is not null)
+                        {
+                            Properties.Value = new PropertiesEditorViewModel(v, (p, m) => m.Browsable);
+                        }
+
+                        AcceptChild();
+                    })
+                    .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
         Value.CombineWithPrevious()
@@ -179,7 +183,8 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
         Properties.Value?.Dispose();
     }
 
-    private sealed record Visitor(DisplacementMapTransformEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(DisplacementMapTransformEditorViewModel Obj)
+        : IServiceProvider, IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {
