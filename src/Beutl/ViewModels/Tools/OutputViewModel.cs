@@ -151,6 +151,7 @@ public sealed class OutputViewModel : IOutputContext
         try
         {
             _logger.LogInformation("Starting encoding process.");
+            LogEncodingSettings();
             _lastCts = new CancellationTokenSource();
             _isEncoding.Value = true;
             ProgressText.Value = "";
@@ -192,7 +193,7 @@ public sealed class OutputViewModel : IOutputContext
                     }
 
                     // キャッシュ無効化
-                    OutputViewModel.DisableAllCache();
+                    DisableAllCache();
 
                     // フレームプロバイダー作成
                     // using var renderer = new SceneRenderer(scene);
@@ -224,7 +225,7 @@ public sealed class OutputViewModel : IOutputContext
         }
         finally
         {
-            OutputViewModel.EnableAllCache();
+            EnableAllCache();
             _progress.Value = 0;
             ProgressMax.Value = 0;
             ProgressValue.Value = 0;
@@ -266,6 +267,14 @@ public sealed class OutputViewModel : IOutputContext
         _lastCts?.Cancel();
     }
 
+    private void LogEncodingSettings()
+    {
+        _logger.LogInformation("Encoding settings:");
+        _logger.LogInformation("SelectedEncoder: {SelectedEncoder}", SelectedEncoder.Value?.Name);
+        _logger.LogInformation("VideoSettings: {VideoSettings}", SerializeEncoderSettings(VideoSettings.Value?.Settings)?.ToJsonString(JsonHelper.SerializerOptions));
+        _logger.LogInformation("AudioSettings: {AudioSettings}", SerializeEncoderSettings(AudioSettings.Value?.Settings)?.ToJsonString(JsonHelper.SerializerOptions));
+    }
+
     public void Dispose()
     {
         _logger.LogInformation("Disposing OutputViewModel.");
@@ -273,22 +282,22 @@ public sealed class OutputViewModel : IOutputContext
         _logger.LogInformation("OutputViewModel disposed.");
     }
 
+    private JsonObject? SerializeEncoderSettings(MediaEncoderSettings? settings)
+    {
+        if (settings == null) return null;
+        try
+        {
+            return CoreSerializerHelper.SerializeToJsonObject(settings, settings.GetType());
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "An exception occurred during serialization.");
+            return null;
+        }
+    }
+
     public void WriteToJson(JsonObject json)
     {
-        JsonObject? Serialize(MediaEncoderSettings? settings)
-        {
-            if (settings == null) return null;
-            try
-            {
-                return CoreSerializerHelper.SerializeToJsonObject(settings, settings.GetType());
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, "An exception occurred during serialization.");
-                return null;
-            }
-        }
-
         json[nameof(Name)] = Name.Value;
         json[nameof(DestinationFile)] = DestinationFile.Value;
         if (SelectedEncoder.Value != null)
@@ -296,8 +305,8 @@ public sealed class OutputViewModel : IOutputContext
             json[nameof(SelectedEncoder)] = TypeFormat.ToString(SelectedEncoder.Value.GetType());
         }
 
-        json[nameof(VideoSettings)] = Serialize(VideoSettings.Value?.Settings);
-        json[nameof(AudioSettings)] = Serialize(AudioSettings.Value?.Settings);
+        json[nameof(VideoSettings)] = SerializeEncoderSettings(VideoSettings.Value?.Settings);
+        json[nameof(AudioSettings)] = SerializeEncoderSettings(AudioSettings.Value?.Settings);
 
         _logger.LogInformation("State written to JSON.");
     }
