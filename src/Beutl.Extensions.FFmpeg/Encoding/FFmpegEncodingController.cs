@@ -60,27 +60,30 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         int bitRate = AudioSettings.Bitrate;
         encoder = MediaEncoder.Create(codec, codecContext =>
         {
+            int[] supportedSampleRates = codec.GetSupportedSamplerates().ToArray();
+            var supportedFmts = codec.GetSampelFmts().ToArray();
+
             if (channelLayout.nb_channels <= 0 || sampleRate <= 0 || bitRate < 0)
                 throw new InvalidOperationException("Invalid audio settings");
-            if (!codec.GetSampelFmts().Any() || !codec.GetSupportedSamplerates().Any())
+            if (supportedFmts.Length == 0 || supportedSampleRates.Length == 0)
                 throw new InvalidOperationException("Invalid audio codec");
 
             if (sampleRate <= 0)
             {
-                sampleRate = codec.GetSupportedSamplerates().First();
+                sampleRate = supportedSampleRates[0];
             }
-            else if (codec.GetSupportedSamplerates().All(i => i != sampleRate))
+            else if (supportedSampleRates.All(i => i != sampleRate))
             {
-                throw new InvalidOperationException("Invalid sample rate");
+                throw new InvalidOperationException($"Invalid sample rate.\nSupported sample rates: {string.Join(", ", supportedSampleRates)}");
             }
 
             if (format == AVSampleFormat.AV_SAMPLE_FMT_NONE)
             {
-                format = codec.GetSampelFmts().First();
+                format = supportedFmts.First();
             }
-            else if (codec.GetSampelFmts().All(i => i != format))
+            else if (supportedFmts.All(i => i != format))
             {
-                throw new InvalidOperationException("Invalid sample format");
+                throw new InvalidOperationException($"Invalid sample format.\nSupported sample formats: {string.Join(", ", supportedFmts.Cast<FFmpegAudioEncoderSettings.AudioFormat>())}");
             }
 
             if (codec.GetChLayouts().Any()
@@ -137,15 +140,17 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
         encoder = MediaEncoder.Create(codec, codecContext =>
         {
+            var supportedPixelFmts = codec.GetPixelFmts().ToArray();
+
             if (width <= 0 || height <= 0 || fps.ToDouble() <= 0 || bitRate < 0)
                 throw new InvalidOperationException("Invalid video settings");
-            if (!codec.GetPixelFmts().Any())
+            if (!supportedPixelFmts.Any())
                 throw new InvalidOperationException("Invalid video codec");
 
             if (format == AVPixelFormat.AV_PIX_FMT_NONE)
-                format = codec.GetPixelFmts().First(i => ffmpeg.sws_isSupportedInput(i) != 0);
-            else if (codec.GetPixelFmts().All(i => i != format))
-                throw new InvalidOperationException("Invalid pixel format");
+                format = supportedPixelFmts.First(i => ffmpeg.sws_isSupportedInput(i) != 0);
+            else if (supportedPixelFmts.All(i => i != format))
+                throw new InvalidOperationException($"Invalid pixel format.\nSupported pixel formats: {string.Join(", ", supportedPixelFmts)}");
             codecContext.Width = width;
             codecContext.Height = height;
             codecContext.TimeBase =
