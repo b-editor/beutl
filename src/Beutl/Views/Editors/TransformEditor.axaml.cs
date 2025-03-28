@@ -4,11 +4,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-
 using Beutl.Graphics.Transformation;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
@@ -70,7 +68,7 @@ public partial class TransformEditor : UserControl
 
         if (e.Data.Contains(KnownLibraryItemFormats.Transform)
             && e.Data.Get(KnownLibraryItemFormats.Transform) is Type type
-            && DataContext is TransformEditorViewModel viewModel)
+            && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
         {
             KnownTransformType knownType = ToKnownType(type);
             if (knownType == KnownTransformType.Unknown)
@@ -103,20 +101,16 @@ public partial class TransformEditor : UserControl
     {
         var items = new (KnownTransformType Tag, string Name, string? Icon)[]
         {
-            (KnownTransformType.Group,      Strings.Group,      null),
-            (KnownTransformType.Translate,  Strings.Translate,  "TranslateTransformIconData"),
-            (KnownTransformType.Rotation,   Strings.Rotation,   "RotationTransformIconData"),
-            (KnownTransformType.Scale,      Strings.Scale,      "ScaleTransformIconData"),
-            (KnownTransformType.Skew,       Strings.Skew,       "SkewTransformIconData"),
+            (KnownTransformType.Group, Strings.Group, null),
+            (KnownTransformType.Translate, Strings.Translate, "TranslateTransformIconData"),
+            (KnownTransformType.Rotation, Strings.Rotation, "RotationTransformIconData"),
+            (KnownTransformType.Scale, Strings.Scale, "ScaleTransformIconData"),
+            (KnownTransformType.Skew, Strings.Skew, "SkewTransformIconData"),
             (KnownTransformType.Rotation3D, Strings.Rotation3D, "Rotation3DTransformIconData"),
         };
         return items.Select(x =>
             {
-                var obj = new MenuFlyoutItem()
-                {
-                    Tag = x.Tag,
-                    Text = x.Name
-                };
+                var obj = new MenuFlyoutItem() { Tag = x.Tag, Text = x.Name };
                 if (handler != null)
                 {
                     obj.Click += handler;
@@ -155,7 +149,7 @@ public partial class TransformEditor : UserControl
             }
         }
 
-        if (DataContext is TransformEditorViewModel viewModel)
+        if (DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
         {
             if (viewModel.IsGroup.Value)
             {
@@ -175,7 +169,7 @@ public partial class TransformEditor : UserControl
     private void AddTransformClick(object? sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem { Tag: KnownTransformType type }
-            && DataContext is TransformEditorViewModel viewModel)
+            && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
         {
             viewModel.AddItem(type);
         }
@@ -184,7 +178,7 @@ public partial class TransformEditor : UserControl
     private void TransformTypeClicked(object? sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem { Tag: KnownTransformType type }
-            && DataContext is TransformEditorViewModel viewModel)
+            && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
         {
             viewModel.ChangeType(type);
         }
@@ -192,7 +186,7 @@ public partial class TransformEditor : UserControl
 
     private void SetNullClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is TransformEditorViewModel viewModel)
+        if (DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
         {
             viewModel.SetNull();
         }

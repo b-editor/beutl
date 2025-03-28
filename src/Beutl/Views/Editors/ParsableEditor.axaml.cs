@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-
 using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;
@@ -31,14 +30,14 @@ public sealed class ParsableEditor<T> : ParsableEditor
 
     private void TextBox_GotFocus(object? sender, GotFocusEventArgs e)
     {
-        if (DataContext is not ParsableEditorViewModel<T> vm) return;
+        if (DataContext is not ParsableEditorViewModel<T> { IsDisposed: false } vm) return;
 
         _oldValue = vm.PropertyAdapter.GetValue();
     }
 
     private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is ParsableEditorViewModel<T> vm
+        if (DataContext is ParsableEditorViewModel<T> { IsDisposed: false } vm
             && T.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out T? newValue))
         {
             vm.SetValue(_oldValue, newValue);
@@ -49,7 +48,7 @@ public sealed class ParsableEditor<T> : ParsableEditor
     {
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            if (DataContext is not ParsableEditorViewModel<T> vm) return;
+            if (DataContext is not ParsableEditorViewModel<T> { IsDisposed: false } vm) return;
 
             await Task.Delay(10);
 

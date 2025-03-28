@@ -40,13 +40,16 @@ public partial class VideoSourceEditor : UserControl
             message.IsVisible = true;
         }
 
-        FileEditor.OpenOptions = new FilePickerOpenOptions { FileTypeFilter = new[] { new FilePickerFileType("Video File") { Patterns = fileExtensions } } };
+        FileEditor.OpenOptions = new FilePickerOpenOptions
+        {
+            FileTypeFilter = new[] { new FilePickerFileType("Video File") { Patterns = fileExtensions } }
+        };
         FileEditor.ValueConfirmed += FileEditorOnValueConfirmed;
     }
 
     private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not VideoSourceEditorViewModel vm) return;
+        if (DataContext is not VideoSourceEditorViewModel { IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
         // 動画を開く

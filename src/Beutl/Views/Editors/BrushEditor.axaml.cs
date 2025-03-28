@@ -76,46 +76,44 @@ public sealed partial class BrushEditor : UserControl
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (_flyout != null)
+        if (_flyout == null) return;
+
+        if (change.Property == BrushProperty)
         {
-            if (change.Property == BrushProperty)
+            _flyout.Brush = Brush;
+        }
+
+        if (change.Property == OriginalBrushProperty)
+        {
+            _flyout.OriginalBrush = OriginalBrush;
+            _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable);
+            _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable is not null;
+
+            if (change.OldValue is Media.DrawableBrush oldBrush)
             {
-                _flyout.Brush = Brush;
+                oldBrush.PropertyChanged -= OnDrawableBrushPropertyChanged;
             }
 
-            if (change.Property == OriginalBrushProperty)
+            if (change.NewValue is Media.DrawableBrush newBrush)
             {
-                _flyout.OriginalBrush = OriginalBrush;
-                _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable);
-                _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable is not null;
-
-                if (change.OldValue is Media.DrawableBrush oldBrush)
-                {
-                    oldBrush.PropertyChanged -= OnDrawableBrushPropertyChanged;
-                }
-
-                if (change.NewValue is Media.DrawableBrush newBrush)
-                {
-                    newBrush.PropertyChanged += OnDrawableBrushPropertyChanged;
-                }
+                newBrush.PropertyChanged += OnDrawableBrushPropertyChanged;
             }
         }
     }
 
     private void OnDrawableBrushPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_flyout != null)
+        if (_flyout == null) return;
+
+        if (e is CorePropertyChangedEventArgs<Graphics.Drawable> e2 &&
+            e2.Property.Id == Media.DrawableBrush.DrawableProperty.Id)
         {
-            if (e is CorePropertyChangedEventArgs<Graphics.Drawable> e2 &&
-                e2.Property.Id == Media.DrawableBrush.DrawableProperty.Id)
-            {
-                _flyout.DrawableName = GetDrawableName(e2.NewValue);
-                _flyout.CanEditDrawable = e2.NewValue is not null;
-            }
+            _flyout.DrawableName = GetDrawableName(e2.NewValue);
+            _flyout.CanEditDrawable = e2.NewValue is not null;
         }
     }
 
-    private string GetDrawableName(Drawable? drawable)
+    private static string GetDrawableName(Drawable? drawable)
     {
         if (drawable == null)
         {
@@ -166,36 +164,35 @@ public sealed partial class BrushEditor : UserControl
 
     private void OpenFlyout_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BrushEditorViewModel viewModel)
+        if (DataContext is not BrushEditorViewModel) return;
+
+        if (_flyout == null)
         {
-            if (_flyout == null)
-            {
-                _flyout = new BrushEditorFlyout();
-                _flyout.GradientStopChanged += OnGradientStopChanged;
-                _flyout.GradientStopConfirmed += OnGradientStopConfirmed;
-                _flyout.GradientStopDeleted += OnGradientStopDeleted;
-                _flyout.GradientStopAdded += OnGradientStopAdded;
-                _flyout.ColorChanged += OnColorChanged;
-                _flyout.ColorConfirmed += OnColorConfirmed;
-                _flyout.BrushTypeChanged += OnBrushTypeChanged;
-                _flyout.ChangeDrawableClicked += OnChangeDrawableClicked;
-                _flyout.EditDrawableClicked += OnEditDrawableClicked;
-            }
-
-            _flyout.Brush = Brush;
-            _flyout.OriginalBrush = OriginalBrush;
-            _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable);
-            _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable is not null;
-
-            _flyout.ShowAt(this);
+            _flyout = new BrushEditorFlyout();
+            _flyout.GradientStopChanged += OnGradientStopChanged;
+            _flyout.GradientStopConfirmed += OnGradientStopConfirmed;
+            _flyout.GradientStopDeleted += OnGradientStopDeleted;
+            _flyout.GradientStopAdded += OnGradientStopAdded;
+            _flyout.ColorChanged += OnColorChanged;
+            _flyout.ColorConfirmed += OnColorConfirmed;
+            _flyout.BrushTypeChanged += OnBrushTypeChanged;
+            _flyout.ChangeDrawableClicked += OnChangeDrawableClicked;
+            _flyout.EditDrawableClicked += OnEditDrawableClicked;
         }
+
+        _flyout.Brush = Brush;
+        _flyout.OriginalBrush = OriginalBrush;
+        _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable);
+        _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable is not null;
+
+        _flyout.ShowAt(this);
     }
 
     private void OnEditDrawableClicked(object? sender, EventArgs e)
     {
         // TODO: DrawablePropertyEditorを開く
         // ObjectPropertyEditorは不要なプロパティも表示されてしまうので
-        if (DataContext is not BrushEditorViewModel viewModel) return;
+        if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
         if (viewModel.Value.Value is not DrawableBrush { Drawable: { } drawable }) return;
         if (viewModel.GetService<EditViewModel>() is not { } editViewModel) return;
 
@@ -209,89 +206,87 @@ public sealed partial class BrushEditor : UserControl
 
     private async void OnChangeDrawableClicked(object? sender, Button e)
     {
-        if (DataContext is BrushEditorViewModel viewModel)
+        if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
+
+        Type? type = await SelectType();
+        if (type != null)
         {
-            Type? type = await SelectType();
-            if (type != null)
-            {
-                viewModel.ChangeDrawableType(type);
-            }
+            viewModel.ChangeDrawableType(type);
         }
     }
 
     private void OnBrushTypeChanged(object? sender, BrushType e)
     {
-        if (DataContext is BrushEditorViewModel viewModel)
-        {
-            if (e == BrushType.SolidColorBrush)
-            {
-                viewModel.SetValue(viewModel.Value.Value, new SolidColorBrush() { Color = Colors.White });
-            }
-            else if (e == BrushType.Null)
-            {
-                viewModel.SetValue(viewModel.Value.Value, null);
-            }
-            else if (e is BrushType.ConicGradientBrush
-                     or BrushType.LinearGradientBrush
-                     or BrushType.RadialGradientBrush)
-            {
-                var gradStops = new GradientStops();
-                if (viewModel.Value.Value is GradientBrush oldBrush)
-                {
-                    gradStops.AddRange(oldBrush.GradientStops.Select(v => new GradientStop(v.Color, v.Offset)));
-                }
-                else
-                {
-                    gradStops.Add(new GradientStop(Colors.White, 0));
-                    gradStops.Add(new GradientStop(Colors.Black, 1));
-                }
+        if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
 
-                viewModel.SetValue(viewModel.Value.Value, e switch
-                {
-                    BrushType.LinearGradientBrush => new LinearGradientBrush { GradientStops = gradStops },
-                    BrushType.ConicGradientBrush => new ConicGradientBrush { GradientStops = gradStops },
-                    BrushType.RadialGradientBrush => new RadialGradientBrush { GradientStops = gradStops },
-                    _ => throw new ArgumentOutOfRangeException(nameof(e), e, null)
-                });
-            }
-            else if (e == BrushType.DrawableBrush)
+        if (e == BrushType.SolidColorBrush)
+        {
+            viewModel.SetValue(viewModel.Value.Value, new SolidColorBrush() { Color = Colors.White });
+        }
+        else if (e == BrushType.Null)
+        {
+            viewModel.SetValue(viewModel.Value.Value, null);
+        }
+        else if (e is BrushType.ConicGradientBrush
+                 or BrushType.LinearGradientBrush
+                 or BrushType.RadialGradientBrush)
+        {
+            var gradStops = new GradientStops();
+            if (viewModel.Value.Value is GradientBrush oldBrush)
             {
-                viewModel.SetValue(viewModel.Value.Value, new DrawableBrush());
+                gradStops.AddRange(oldBrush.GradientStops.Select(v => new GradientStop(v.Color, v.Offset)));
             }
+            else
+            {
+                gradStops.Add(new GradientStop(Colors.White, 0));
+                gradStops.Add(new GradientStop(Colors.Black, 1));
+            }
+
+            viewModel.SetValue(viewModel.Value.Value, e switch
+            {
+                BrushType.LinearGradientBrush => new LinearGradientBrush { GradientStops = gradStops },
+                BrushType.ConicGradientBrush => new ConicGradientBrush { GradientStops = gradStops },
+                BrushType.RadialGradientBrush => new RadialGradientBrush { GradientStops = gradStops },
+                _ => throw new ArgumentOutOfRangeException(nameof(e), e, null)
+            });
+        }
+        else if (e == BrushType.DrawableBrush)
+        {
+            viewModel.SetValue(viewModel.Value.Value, new DrawableBrush());
         }
     }
 
     private void OnColorConfirmed(object? sender, (Color2 OldValue, Color2 NewValue) e)
     {
-        if (DataContext is BrushEditorViewModel { Value.Value: SolidColorBrush } viewModel)
-        {
-            viewModel.SetColor(e.OldValue.ToBtlColor(), e.NewValue.ToBtlColor());
-        }
+        if (DataContext is not BrushEditorViewModel viewModel) return;
+        if (viewModel.Value.Value is not SolidColorBrush) return;
+        if (viewModel.IsDisposed) return;
+
+        viewModel.SetColor(e.OldValue.ToBtlColor(), e.NewValue.ToBtlColor());
     }
 
     private void OnColorChanged(object? sender, (Color2 OldValue, Color2 NewValue) e)
     {
-        if (DataContext is BrushEditorViewModel { Value.Value: SolidColorBrush solid } viewModel)
-        {
-            solid.Color = e.NewValue.ToBtlColor();
-            viewModel.InvalidateFrameCache();
-        }
+        if (DataContext is not BrushEditorViewModel viewModel) return;
+        if (viewModel.Value.Value is not SolidColorBrush solid) return;
+        if (viewModel.IsDisposed) return;
+
+        solid.Color = e.NewValue.ToBtlColor();
+        viewModel.InvalidateFrameCache();
     }
 
     private void OnGradientStopAdded(object? sender, (int Index, Avalonia.Media.GradientStop Object) e)
     {
-        if (DataContext is BrushEditorViewModel viewModel)
-        {
-            viewModel.InsertGradientStop(e.Index, e.Object.ToBtlGradientStop());
-        }
+        if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
+
+        viewModel.InsertGradientStop(e.Index, e.Object.ToBtlGradientStop());
     }
 
     private void OnGradientStopDeleted(object? sender, (int Index, Avalonia.Media.GradientStop Object) e)
     {
-        if (DataContext is BrushEditorViewModel viewModel)
-        {
-            viewModel.RemoveGradientStop(e.Index);
-        }
+        if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
+
+        viewModel.RemoveGradientStop(e.Index);
     }
 
     private void OnGradientStopConfirmed(
@@ -299,28 +294,30 @@ public sealed partial class BrushEditor : UserControl
         (int OldIndex, int NewIndex,
             Avalonia.Media.GradientStop Object, Avalonia.Media.Immutable.ImmutableGradientStop OldObject) e)
     {
-        if (DataContext is BrushEditorViewModel { Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
-        {
-            if (e.NewIndex != e.OldIndex)
-                list.Move(e.NewIndex, e.OldIndex);
-            GradientStop obj = list[e.OldIndex];
-            viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex, e.OldObject.ToBtlImmutableGradientStop(), obj);
-        }
+        if (DataContext is not BrushEditorViewModel viewModel) return;
+        if (viewModel.Value.Value is not GradientBrush { GradientStops: { } list }) return;
+        if (viewModel.IsDisposed) return;
+
+        if (e.NewIndex != e.OldIndex)
+            list.Move(e.NewIndex, e.OldIndex);
+        GradientStop obj = list[e.OldIndex];
+        viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex, e.OldObject.ToBtlImmutableGradientStop(), obj);
     }
 
     private void OnGradientStopChanged(object? sender,
         (int OldIndex, int NewIndex, Avalonia.Media.GradientStop Object) e)
     {
-        if (DataContext is BrushEditorViewModel { Value.Value: GradientBrush { GradientStops: { } list } } viewModel)
-        {
-            GradientStop obj = list[e.OldIndex];
-            obj.Offset = (float)e.Object.Offset;
-            obj.Color = e.Object.Color.ToMedia();
-            if (e.NewIndex != e.OldIndex)
-                list.Move(e.OldIndex, e.NewIndex);
+        if (DataContext is not BrushEditorViewModel viewModel) return;
+        if (viewModel.Value.Value is not GradientBrush { GradientStops: { } list }) return;
+        if (viewModel.IsDisposed) return;
 
-            viewModel.InvalidateFrameCache();
-        }
+        GradientStop obj = list[e.OldIndex];
+        obj.Offset = (float)e.Object.Offset;
+        obj.Color = e.Object.Color.ToMedia();
+        if (e.NewIndex != e.OldIndex)
+            list.Move(e.OldIndex, e.NewIndex);
+
+        viewModel.InvalidateFrameCache();
     }
 
     private void Menu_Click(object? sender, RoutedEventArgs e)
@@ -333,27 +330,26 @@ public sealed partial class BrushEditor : UserControl
 
     private void ChangeBrushType(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BrushEditorViewModel viewModel
-            && sender is RadioMenuFlyoutItem { Tag: string tag })
-        {
-            if (tag is "PerlinNoise")
-            {
-                viewModel.SetValue(viewModel.Value.Value, new PerlinNoiseBrush());
-            }
-            else
-            {
-                OnBrushTypeChanged(null, tag switch
-                {
-                    "Solid" => BrushType.SolidColorBrush,
-                    "LinearGradient" => BrushType.LinearGradientBrush,
-                    "ConicGradient" => BrushType.ConicGradientBrush,
-                    "RadialGradient" => BrushType.RadialGradientBrush,
-                    "Drawable" => BrushType.DrawableBrush,
-                    _ => BrushType.Null
-                });
-            }
+        if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
+        if (sender is not RadioMenuFlyoutItem { Tag: string tag }) return;
 
-            expandToggle.IsChecked = true;
+        if (tag is "PerlinNoise")
+        {
+            viewModel.SetValue(viewModel.Value.Value, new PerlinNoiseBrush());
         }
+        else
+        {
+            OnBrushTypeChanged(null, tag switch
+            {
+                "Solid" => BrushType.SolidColorBrush,
+                "LinearGradient" => BrushType.LinearGradientBrush,
+                "ConicGradient" => BrushType.ConicGradientBrush,
+                "RadialGradient" => BrushType.RadialGradientBrush,
+                "Drawable" => BrushType.DrawableBrush,
+                _ => BrushType.Null
+            });
+        }
+
+        expandToggle.IsChecked = true;
     }
 }

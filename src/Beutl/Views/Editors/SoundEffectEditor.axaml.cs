@@ -48,7 +48,7 @@ public partial class SoundEffectEditor : UserControl
     {
         if (e.Data.Contains(KnownLibraryItemFormats.SoundEffect)
             && e.Data.Get(KnownLibraryItemFormats.SoundEffect) is Type type
-            && DataContext is SoundEffectEditorViewModel viewModel)
+            && DataContext is SoundEffectEditorViewModel { IsDisposed: false } viewModel)
         {
             if (viewModel.IsGroup.Value)
             {
@@ -75,27 +75,26 @@ public partial class SoundEffectEditor : UserControl
 
     private async void Tag_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is SoundEffectEditorViewModel viewModel)
+        if (DataContext is not SoundEffectEditorViewModel { IsDisposed: false } viewModel) return;
+
+        if (viewModel.IsGroup.Value)
         {
-            if (viewModel.IsGroup.Value)
+            Type? type = await SelectType();
+            if (type != null)
             {
-                Type? type = await SelectType();
-                if (type != null)
+                try
                 {
-                    try
-                    {
-                        viewModel.AddItem(type);
-                    }
-                    catch (Exception ex)
-                    {
-                        NotificationService.ShowError("Error", ex.Message);
-                    }
+                    viewModel.AddItem(type);
+                }
+                catch (Exception ex)
+                {
+                    NotificationService.ShowError("Error", ex.Message);
                 }
             }
-            else
-            {
-                expandToggle.ContextFlyout?.ShowAt(expandToggle);
-            }
+        }
+        else
+        {
+            expandToggle.ContextFlyout?.ShowAt(expandToggle);
         }
     }
 
@@ -139,26 +138,25 @@ public partial class SoundEffectEditor : UserControl
 
     private async void ChangeEffectTypeClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is SoundEffectEditorViewModel viewModel)
+        if (DataContext is not SoundEffectEditorViewModel { IsDisposed: false } viewModel) return;
+
+        Type? type = await SelectType();
+        if (type != null)
         {
-            Type? type = await SelectType();
-            if (type != null)
+            try
             {
-                try
-                {
-                    viewModel.ChangeFilterType(type);
-                }
-                catch (Exception ex)
-                {
-                    NotificationService.ShowError("Error", ex.Message);
-                }
+                viewModel.ChangeFilterType(type);
+            }
+            catch (Exception ex)
+            {
+                NotificationService.ShowError("Error", ex.Message);
             }
         }
     }
 
     private void SetNullClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is SoundEffectEditorViewModel viewModel)
+        if (DataContext is SoundEffectEditorViewModel { IsDisposed: false } viewModel)
         {
             viewModel.SetNull();
         }

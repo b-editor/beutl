@@ -4,14 +4,11 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.Transformation;
-
 using Beutl.Helpers;
 using Beutl.Media;
 using Beutl.Utilities;
 using Beutl.ViewModels.Editors;
-
 using FluentAvalonia.UI.Controls;
-
 using AM = Avalonia.Media;
 using FAM = FluentAvalonia.UI.Media;
 
@@ -33,41 +30,41 @@ public sealed partial class GradientStopsEditor : UserControl
 
     private void OnSliderAdded(object? sender, (int Index, AM.GradientStop Object) e)
     {
-        if (DataContext is GradientStopsEditorViewModel viewModel)
-        {
-            viewModel.InsertGradientStop(e.Index, e.Object.ToBtlGradientStop());
-        }
+        if (DataContext is not GradientStopsEditorViewModel { IsDisposed: false } viewModel) return;
+
+        viewModel.InsertGradientStop(e.Index, e.Object.ToBtlGradientStop());
     }
 
     private void OnSliderDeleted(object? sender, (int Index, AM.GradientStop Object) e)
     {
-        if (DataContext is GradientStopsEditorViewModel viewModel)
-        {
-            viewModel.RemoveGradientStop(e.Index);
-        }
+        if (DataContext is not GradientStopsEditorViewModel { IsDisposed: false } viewModel) return;
+
+        viewModel.RemoveGradientStop(e.Index);
     }
 
-    private void OnSliderConfirmed(object? sender, (int OldIndex, int NewIndex, AM.GradientStop Object, ImmutableGradientStop OldObject) e)
+    private void OnSliderConfirmed(
+        object? sender,
+        (int OldIndex, int NewIndex, AM.GradientStop Object, ImmutableGradientStop OldObject) e)
     {
-        if (DataContext is GradientStopsEditorViewModel { Value.Value: { } list } viewModel)
-        {
-            if (e.NewIndex != e.OldIndex)
-                list.Move(e.NewIndex, e.OldIndex);
-            GradientStop obj = list[e.OldIndex];
-            viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex, e.OldObject.ToBtlImmutableGradientStop(), obj);
-        }
+        if (DataContext is not GradientStopsEditorViewModel { Value.Value: { } list } viewModel) return;
+        if (viewModel.IsDisposed) return;
+
+        if (e.NewIndex != e.OldIndex)
+            list.Move(e.NewIndex, e.OldIndex);
+        GradientStop obj = list[e.OldIndex];
+        viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex, e.OldObject.ToBtlImmutableGradientStop(), obj);
     }
 
     private void OnSliderChanged(object? sender, (int OldIndex, int NewIndex, AM.GradientStop Object) e)
     {
-        if (DataContext is GradientStopsEditorViewModel { Value.Value: { } list })
-        {
-            GradientStop obj = list[e.OldIndex];
-            obj.Offset = (float)e.Object.Offset;
-            obj.Color = e.Object.Color.ToMedia();
-            if (e.NewIndex != e.OldIndex)
-                list.Move(e.OldIndex, e.NewIndex);
-        }
+        if (DataContext is not GradientStopsEditorViewModel { Value.Value: { } list } viewModel) return;
+        if (viewModel.IsDisposed) return;
+
+        GradientStop obj = list[e.OldIndex];
+        obj.Offset = (float)e.Object.Offset;
+        obj.Color = e.Object.Color.ToMedia();
+        if (e.NewIndex != e.OldIndex)
+            list.Move(e.OldIndex, e.NewIndex);
     }
 
     private void Delete_Click(object? sender, RoutedEventArgs e)
