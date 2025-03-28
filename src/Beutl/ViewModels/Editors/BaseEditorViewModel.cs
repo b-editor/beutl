@@ -3,13 +3,15 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Data;
+using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
-using Beutl.Operation;
+using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -17,6 +19,7 @@ namespace Beutl.ViewModels.Editors;
 
 public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProvider
 {
+    protected readonly ILogger Logger;
     protected CompositeDisposable Disposables = [];
     private IDisposable? _currentFrameRevoker;
     private bool _skipKeyFrameIndexSubscription;
@@ -26,6 +29,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     protected BaseEditorViewModel(IPropertyAdapter property)
     {
+        Logger = Log.CreateLogger(GetType());
         PropertyAdapter = property;
 
         Header = property.DisplayName;
@@ -111,8 +115,14 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     ~BaseEditorViewModel()
     {
-        if (!IsDisposed)
+        if (IsDisposed) return;
+
+        Logger.LogWarning("Finalizer called on {TypeName}", GetType().Name);
+        Dispatcher.UIThread.Post(() =>
+        {
             Dispose(false);
+            IsDisposed = true;
+        });
     }
 
     public bool IsDisposed { get; private set; }
