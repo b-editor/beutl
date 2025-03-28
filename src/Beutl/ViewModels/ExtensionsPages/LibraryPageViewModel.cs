@@ -1,18 +1,13 @@
 ﻿using System.Collections;
-
 using Avalonia.Collections;
-
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
-
 using NuGet.Versioning;
-
 using OpenTelemetry.Trace;
-
 using Reactive.Bindings;
 using LibraryService = Beutl.Api.Services.LibraryService;
 
@@ -21,12 +16,12 @@ namespace Beutl.ViewModels.ExtensionsPages;
 public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.CreateLogger<LibraryPageViewModel>();
-    private readonly AuthorizedUser _user;
+    private readonly AuthorizedUser? _user;
     private readonly BeutlApiApplication _clients;
     private readonly CompositeDisposable _disposables = [];
     private readonly LibraryService _service;
 
-    public LibraryPageViewModel(AuthorizedUser user, BeutlApiApplication clients)
+    public LibraryPageViewModel(AuthorizedUser? user, BeutlApiApplication clients)
     {
         _user = user;
         _clients = clients;
@@ -49,11 +44,15 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
 
-                        await _user.RefreshAsync();
+                        if (_user != null)
+                        {
+                            await _user.RefreshAsync();
+                        }
 
-                        await RefreshPackages();
+                        await RefreshPackages(_user != null);
                         activity?.AddEvent(new("Refreshed_Packages"));
                     }
+
                     await task;
                 }
                 catch (Exception e)
@@ -71,37 +70,6 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
         Refresh.Execute();
 
-        More = new AsyncReactiveCommand(IsBusy.Not())
-            .WithSubscribe(async () =>
-            {
-                using Activity? activity = Services.Telemetry.StartActivity("LibraryPage.More");
-
-                try
-                {
-                    IsBusy.Value = true;
-                    using (await _clients.Lock.LockAsync())
-                    {
-                        activity?.AddEvent(new("Entered_AsyncLock"));
-
-                        await _user.RefreshAsync();
-
-                        await MoreLoadPackages();
-                        activity?.AddEvent(new("Done_MoreLoadPackages"));
-                    }
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
-                finally
-                {
-                    IsBusy.Value = false;
-                }
-            })
-            .DisposeWith(_disposables);
-
         CheckUpdate = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
@@ -114,7 +82,10 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
 
-                        await _user.RefreshAsync();
+                        if (_user != null)
+                        {
+                            await _user.RefreshAsync();
+                        }
 
                         PackageManager manager = _clients.GetResource<PackageManager>();
                         foreach (PackageUpdate item in await manager.CheckUpdate())
@@ -129,7 +100,8 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
                             RemoteUserPackageViewModel? remotePackage = Packages.OfType<RemoteUserPackageViewModel>()
                                 .FirstOrDefault(
-                                    x => x?.Package?.Name?.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase) == true);
+                                    x => x?.Package?.Name?.Equals(item.Package.Name,
+                                        StringComparison.OrdinalIgnoreCase) == true);
 
                             if (remotePackage != null)
                                 Packages.Remove(remotePackage);
@@ -205,7 +177,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
         var dict = new Dictionary<string, LocalPackage>(StringComparer.OrdinalIgnoreCase);
         foreach (LocalPackage item in manager.GetLocalSourcePackages()
-            .Concat(await manager.GetPackages()))
+                     .Concat(await manager.GetPackages()))
         {
             if (dict.TryGetValue(item.Name, out LocalPackage? localPackage))
             {
@@ -227,42 +199,50 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         }
     }
 
-    private async Task RefreshPackages()
+    private async Task RefreshPackages(bool auth)
     {
-        Package[] array = await _service.GetPackages(0, 30);
+        PackageManager manager = _clients.GetResource<PackageManager>();
+        DiscoverService discover = _clients.GetResource<DiscoverService>();
+        List<Package> own = auth ? await LoadAll() : [];
         Packages.Clear();
 
-        foreach (Package item in array)
+        foreach (var item in await manager.GetPackages())
         {
-            Packages.Add(new RemoteUserPackageViewModel(item, _clients)
+            var remote = own.FirstOrDefault(i => i.Name == item.Name);
+            if (remote == null)
             {
-                OnRemoveFromLibrary = OnPackageRemoveFromLibrary
-            });
-        }
+                try
+                {
+                    remote = await discover.GetPackage(item.Name);
+                }
+                catch
+                {
+                    Packages.Add(new LocalUserPackageViewModel(item, _clients));
+                }
+            }
 
-        if (array.Length == 30)
-        {
-            Packages.Add(new LoadMoreItem());
+            if (remote != null)
+            {
+                Packages.Add(new RemoteUserPackageViewModel(remote, _clients)
+                {
+                    OnRemoveFromLibrary = OnPackageRemoveFromLibrary
+                });
+            }
         }
     }
 
-    private async Task MoreLoadPackages()
+    private async Task<List<Package>> LoadAll()
     {
-        Packages.RemoveAt(Packages.Count - 1);
-        Package[] array = await _service.GetPackages(Packages.Count, 30);
-
-        foreach (Package item in array)
+        var list = new List<Package>();
+        Package[] array = await _service.GetPackages(0, 30);
+        list.AddRange(array);
+        while (array.Length == 30)
         {
-            Packages.Add(new RemoteUserPackageViewModel(item, _clients)
-            {
-                OnRemoveFromLibrary = OnPackageRemoveFromLibrary
-            });
+            array = await _service.GetPackages(list.Count, 30);
+            list.AddRange(array);
         }
 
-        if (array.Length == 30)
-        {
-            Packages.Add(new LoadMoreItem());
-        }
+        return list;
     }
 
     private static void DisposeAll<T>(IEnumerable<T?> items)
