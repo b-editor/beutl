@@ -84,7 +84,8 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
         if (Items.SequenceEqual(tmp)) return;
 
-        Items.Replace(tmp);
+        Items.Clear();
+        Items.AddRange(tmp);
         SelectedItem.Value = Items.FirstOrDefault(i => i.Object == selected?.Object);
     }
 
