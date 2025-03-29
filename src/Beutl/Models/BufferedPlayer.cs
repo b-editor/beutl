@@ -115,7 +115,7 @@ public sealed class BufferedPlayer : IPlayer
                         _logger.LogInformation(
                             "Frame delay detected. Requested frame {RequestedFrame} is greater than current frame {Frame}",
                             requestedFrame, frame);
-                        frame = requestedFrame.Value + 2;
+                        frame = requestedFrame.Value + (requestedFrame.Value - frame) * 2;
                         _requestedFrame = null;
                     }
                 }
@@ -151,7 +151,7 @@ public sealed class BufferedPlayer : IPlayer
         if (_isDisposed) return;
         _waitRenderToken = new CancellationTokenSource();
 
-        _waitRenderToken.Token.WaitHandle.WaitOne(TimeSpan.FromSeconds(1d / _rate));
+        _waitRenderToken.Token.WaitHandle.WaitOne();
         _waitRenderToken = null;
     }
 
