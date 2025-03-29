@@ -621,7 +621,7 @@ public sealed unsafe class FFmpegReader : MediaReader
     private long GetNowFrame()
     {
         double f = (_videoFrame->pts - _videoStream->start_time) * _videoTimeBaseDouble * _videoAvgFrameRateDouble + 0.5;
-        return (long)Math.Round(f, MidpointRounding.AwayFromZero);
+        return (long)f;
     }
 
     private void ConfigureVideoStream()

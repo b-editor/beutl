@@ -218,9 +218,13 @@ public class SourceVideo : Drawable
         {
             TimeSpan pos = _requestedPosition + _offsetPosition;
             Rational rate = _source.FrameRate;
-            double frameNum = pos.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
+            double frameNum = pos.Ticks * rate.Numerator / (double)(TimeSpan.TicksPerSecond * rate.Denominator);
 
-            context.DrawVideoSource(_source, (int)frameNum, Brushes.White, null);
+            context.DrawVideoSource(
+                _source,
+                (int)Math.Round(frameNum, MidpointRounding.AwayFromZero),
+                Brushes.White,
+                null);
             _renderedPosition = _requestedPosition;
         }
     }

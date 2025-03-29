@@ -31,7 +31,9 @@ public class FrameProviderImpl(Scene scene, Rational rate, SceneRenderer rendere
 
     public async ValueTask<Bitmap<Bgra8888>> RenderFrame(long frame)
     {
-        var time = TimeSpan.FromSeconds(frame / rate.ToDouble());
+        // rate.Numerator, rate.Denominatorを使ってできるだけ正確に
+        // (frame / (rate.Numerator / rate.Denominator)) * TimeSpan.TicksPerSecond
+        var time = TimeSpan.FromTicks(frame * rate.Denominator * TimeSpan.TicksPerSecond / rate.Numerator);
         try
         {
             if (RenderThread.Dispatcher.CheckAccess())
