@@ -240,50 +240,57 @@ public sealed class PlayerViewModel : IDisposable
                 DateTime startDateTime = DateTime.UtcNow;
                 var tcs = new TaskCompletionSource<bool>();
                 int nextExpectedFrame = startFrame + 1;
+                bool processing = false;
                 using var timer = new Timer(_ =>
                 {
-                    if (!IsPlaying.Value)
+                    if (processing) return;
+                    processing = true;
+                    try
                     {
-                        tcs.TrySetResult(true);
-                        return;
-                    }
-
-                    var expectFrame = (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame;
-                    if (expectFrame < nextExpectedFrame)
-                    {
-                        Debug.WriteLine($"フレーム過剰消費 {expectFrame} < {nextExpectedFrame}");
-                        return;
-                    }
-
-                    while (playerImpl.TryDequeue(out IPlayer.Frame frame))
-                    {
-                        using (frame.Bitmap)
+                        if (!IsPlaying.Value)
                         {
-                            UpdateImage(frame.Bitmap.Value);
+                            tcs.TrySetResult(true);
+                            return;
+                        }
 
-                            if (Scene != null)
+                        var expectFrame = (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame;
+                        if (expectFrame < nextExpectedFrame)
+                        {
+                            return;
+                        }
+
+                        while (playerImpl.TryDequeue(out IPlayer.Frame frame))
+                        {
+                            using (frame.Bitmap)
                             {
-                                EditViewModel.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
-                                EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
+                                UpdateImage(frame.Bitmap.Value);
+
+                                if (Scene != null)
+                                {
+                                    EditViewModel.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
+                                    EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
+                                }
                             }
-                        }
 
-                        // タイマーが正確じゃないから、だんだんとフレームがずれてくる
-                        // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
-                        // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
-                        if (expectFrame <= frame.Time)
-                        {
-                            nextExpectedFrame = frame.Time + 1;
-                            break;
-                        }
-                        else
-                        {
+                            // タイマーが正確じゃないから、だんだんとフレームがずれてくる
+                            // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
+                            // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
+                            if (expectFrame <= frame.Time)
+                            {
+                                nextExpectedFrame = frame.Time + 1;
+                                break;
+                            }
+
                             // 期待していたフレームよりも前のフレームが来た場合
-                            continue;
                         }
-                    }
 
-                    playerImpl.Skipped((int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame + 1);
+                        playerImpl.Skipped(
+                            (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame + 1);
+                    }
+                    finally
+                    {
+                        processing = false;
+                    }
                 }, null, tick, tick);
 
                 await tcs.Task;
