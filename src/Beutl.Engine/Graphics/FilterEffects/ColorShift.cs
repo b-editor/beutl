@@ -135,7 +135,7 @@ public class ColorShift : FilterEffect
 
             using var image = renderTarget.Value.Snapshot();
             using var baseShader = SKShader.CreateImage(
-                image, SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
+                image, SKShaderTileMode.Decal, SKShaderTileMode.Decal);
 
             // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
             var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
