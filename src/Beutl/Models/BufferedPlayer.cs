@@ -140,7 +140,7 @@ public sealed class BufferedPlayer : IPlayer
             return true;
         }
 
-        _logger.LogInformation("Waiting for frame to be rendered.");
+        // _logger.LogInformation("Waiting for frame to be rendered.");
         WaitRender();
 
         return _queue.TryDequeue(out frame);
@@ -166,7 +166,7 @@ public sealed class BufferedPlayer : IPlayer
 
     public void Skipped(int requestedFrame)
     {
-        _logger.LogInformation("Frame skip requested. Requested frame: {RequestedFrame}", requestedFrame);
+        // _logger.LogInformation("Frame skip requested. Requested frame: {RequestedFrame}", requestedFrame);
         _requestedFrame = requestedFrame;
     }
 

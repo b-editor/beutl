@@ -237,36 +237,56 @@ public sealed class PlayerViewModel : IDisposable
 
                 PlayAudio(Scene);
 
-                await await Task.Factory.StartNew(async () =>
+                DateTime startDateTime = DateTime.UtcNow;
+                var tcs = new TaskCompletionSource<bool>();
+                int nextExpectedFrame = startFrame + 1;
+                using var timer = new Timer(_ =>
                 {
-                    using var periodicTimer = new PeriodicTimer(tick);
-                    DateTime startDateTime = DateTime.UtcNow;
-                    while (await periodicTimer.WaitForNextTickAsync() && IsPlaying.Value)
+                    if (!IsPlaying.Value)
                     {
-                        var start = DateTime.UtcNow;
-                        if (playerImpl.TryDequeue(out IPlayer.Frame frame))
-                        {
-                            // 所有権が移転したので
-                            using (frame.Bitmap)
-                            {
-                                UpdateImage(frame.Bitmap.Value);
+                        tcs.TrySetResult(true);
+                        return;
+                    }
 
-                                if (Scene != null)
-                                {
-                                    EditViewModel.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
-                                    EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
-                                }
+                    var expectFrame = (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame;
+                    if (expectFrame < nextExpectedFrame)
+                    {
+                        Debug.WriteLine($"フレーム過剰消費 {expectFrame} < {nextExpectedFrame}");
+                        return;
+                    }
+
+                    while (playerImpl.TryDequeue(out IPlayer.Frame frame))
+                    {
+                        using (frame.Bitmap)
+                        {
+                            UpdateImage(frame.Bitmap.Value);
+
+                            if (Scene != null)
+                            {
+                                EditViewModel.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
+                                EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
                             }
                         }
 
-                        var elapsed = DateTime.UtcNow - start;
-                        if (elapsed > tick)
+                        // タイマーが正確じゃないから、だんだんとフレームがずれてくる
+                        // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
+                        // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
+                        if (expectFrame <= frame.Time)
                         {
-                            playerImpl.Skipped((int)((DateTime.UtcNow - startDateTime) / tick));
-                            Thread.Sleep(elapsed - tick);
+                            nextExpectedFrame = frame.Time + 1;
+                            break;
+                        }
+                        else
+                        {
+                            // 期待していたフレームよりも前のフレームが来た場合
+                            continue;
                         }
                     }
-                }, TaskCreationOptions.LongRunning);
+
+                    playerImpl.Skipped((int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame + 1);
+                }, null, tick, tick);
+
+                await tcs.Task;
 
                 frameCacheManager.UpdateBlocks();
                 IsPlaying.Value = false;
