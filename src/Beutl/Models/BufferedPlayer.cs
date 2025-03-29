@@ -67,9 +67,6 @@ public sealed class BufferedPlayer : IPlayer
 
                     if (_queue.Count >= 120)
                     {
-                        // _logger.LogInformation(
-                        //     "Queue is full. Waiting for timer. Current queue count: {QueueCount}",
-                        //     _queue.Count);
                         WaitTimer();
                     }
 
@@ -91,7 +88,6 @@ public sealed class BufferedPlayer : IPlayer
                     {
                         if (_renderer.Render(time))
                         {
-                            // Debug.WriteLine($"{frame} rendered.");
                             using (Ref<Bitmap<Bgra8888>> bitmap = Ref<Bitmap<Bgra8888>>.Create(_renderer.Snapshot()))
                             {
                                 _queue.Enqueue(new(bitmap.Clone(), frame));
@@ -112,10 +108,10 @@ public sealed class BufferedPlayer : IPlayer
                     int? requestedFrame = _requestedFrame;
                     if (requestedFrame > frame)
                     {
-                        _logger.LogInformation(
+                        _logger.LogDebug(
                             "Frame delay detected. Requested frame {RequestedFrame} is greater than current frame {Frame}",
                             requestedFrame, frame);
-                        frame = requestedFrame.Value + 2;
+                        frame = requestedFrame.Value + (requestedFrame.Value - frame) * 2;
                         _requestedFrame = null;
                     }
                 }
@@ -140,7 +136,6 @@ public sealed class BufferedPlayer : IPlayer
             return true;
         }
 
-        _logger.LogInformation("Waiting for frame to be rendered.");
         WaitRender();
 
         return _queue.TryDequeue(out frame);
@@ -151,7 +146,7 @@ public sealed class BufferedPlayer : IPlayer
         if (_isDisposed) return;
         _waitRenderToken = new CancellationTokenSource();
 
-        _waitRenderToken.Token.WaitHandle.WaitOne(TimeSpan.FromSeconds(1d / _rate));
+        _waitRenderToken.Token.WaitHandle.WaitOne();
         _waitRenderToken = null;
     }
 
@@ -166,7 +161,6 @@ public sealed class BufferedPlayer : IPlayer
 
     public void Skipped(int requestedFrame)
     {
-        _logger.LogInformation("Frame skip requested. Requested frame: {RequestedFrame}", requestedFrame);
         _requestedFrame = requestedFrame;
     }
 

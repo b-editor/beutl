@@ -237,16 +237,30 @@ public sealed class PlayerViewModel : IDisposable
 
                 PlayAudio(Scene);
 
-                await await Task.Factory.StartNew(async () =>
+                DateTime startDateTime = DateTime.UtcNow;
+                var tcs = new TaskCompletionSource<bool>();
+                int nextExpectedFrame = startFrame + 1;
+                bool processing = false;
+                using var timer = new Timer(_ =>
                 {
-                    using var periodicTimer = new PeriodicTimer(tick);
-                    DateTime startDateTime = DateTime.UtcNow;
-                    while (await periodicTimer.WaitForNextTickAsync() && IsPlaying.Value)
+                    if (processing) return;
+                    processing = true;
+                    try
                     {
-                        var start = DateTime.UtcNow;
-                        if (playerImpl.TryDequeue(out IPlayer.Frame frame))
+                        var expectFrame = (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame;
+                        if (!IsPlaying.Value || expectFrame >= durationFrame)
                         {
-                            // 所有権が移転したので
+                            tcs.TrySetResult(true);
+                            return;
+                        }
+
+                        if (expectFrame < nextExpectedFrame)
+                        {
+                            return;
+                        }
+
+                        while (playerImpl.TryDequeue(out IPlayer.Frame frame))
+                        {
                             using (frame.Bitmap)
                             {
                                 UpdateImage(frame.Bitmap.Value);
@@ -257,16 +271,29 @@ public sealed class PlayerViewModel : IDisposable
                                     EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
                                 }
                             }
+
+                            // タイマーが正確じゃないから、だんだんとフレームがずれてくる
+                            // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
+                            // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
+                            if (expectFrame <= frame.Time)
+                            {
+                                nextExpectedFrame = frame.Time + 1;
+                                break;
+                            }
+
+                            // 期待していたフレームよりも前のフレームが来た場合
                         }
 
-                        var elapsed = DateTime.UtcNow - start;
-                        if (elapsed > tick)
-                        {
-                            playerImpl.Skipped((int)((DateTime.UtcNow - startDateTime) / tick));
-                            Thread.Sleep(elapsed - tick);
-                        }
+                        playerImpl.Skipped(
+                            (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame + 1);
                     }
-                }, TaskCreationOptions.LongRunning);
+                    finally
+                    {
+                        processing = false;
+                    }
+                }, null, tick, tick);
+
+                await tcs.Task;
 
                 frameCacheManager.UpdateBlocks();
                 IsPlaying.Value = false;
