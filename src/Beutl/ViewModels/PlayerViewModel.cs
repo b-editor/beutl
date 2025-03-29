@@ -247,13 +247,13 @@ public sealed class PlayerViewModel : IDisposable
                     processing = true;
                     try
                     {
-                        if (!IsPlaying.Value)
+                        var expectFrame = (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame;
+                        if (!IsPlaying.Value || expectFrame >= durationFrame)
                         {
                             tcs.TrySetResult(true);
                             return;
                         }
 
-                        var expectFrame = (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame;
                         if (expectFrame < nextExpectedFrame)
                         {
                             return;
