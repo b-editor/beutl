@@ -226,14 +226,6 @@ public sealed class PlayerViewModel : IAsyncDisposable
             _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
                 _editViewModel.SceneId, rate, startFrame, durationFrame);
             playerImpl.Start();
-            //
-            // if (!await _audioSemaphoreSlim.WaitAsync(1000))
-            // {
-            //     NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
-            //         Message.An_exception_occurred_during_audio_playback);
-            //     _logger.LogWarning("Failed to acquire the semaphore for audio playback.");
-            //     return;
-            // }
 
             var audioTask = PlayAudio(Scene);
 
