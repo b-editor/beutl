@@ -190,7 +190,15 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
             return;
         }
 
+        var items = _items.ToArray();
         _items.Clear();
+        _selectedItem.Value = null;
+        _selectedItem.Dispose();
+        foreach (OutputProfileItem item in items)
+        {
+            item.Dispose();
+        }
+
         _items.EnsureCapacity(jsonArray.Count);
 
         foreach (JsonNode? jsonItem in jsonArray)
