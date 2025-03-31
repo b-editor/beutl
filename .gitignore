@@ -355,6 +355,8 @@ tools/*
 
 !packages/Beutl.Sdk/
 !packages/ubuntu22.04_amd64/
+!packages/AppImage
+packages/AppImage/Beutl
 packages/ubuntu22.04_amd64/usr/lib/
 packages/ubuntu22.04_amd64/usr/bin/
 /output
