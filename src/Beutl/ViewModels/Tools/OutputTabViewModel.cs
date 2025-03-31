@@ -91,11 +91,18 @@ public class OutputTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        _logger.LogInformation("Reading items from JSON.");
-        _outputService.RestoreItems();
-        CreateDefaultProfile();
-        SelectedItem.Value = Items.FirstOrDefault();
-        _logger.LogInformation("Items read from JSON successfully.");
+        try
+        {
+            _logger.LogInformation("Reading items from JSON.");
+            _outputService.RestoreItems();
+            CreateDefaultProfile();
+            SelectedItem.Value = Items.FirstOrDefault();
+            _logger.LogInformation("Items read from JSON successfully.");
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "An exception occurred while reading items from JSON.");
+        }
     }
 
     private void CreateDefaultProfile()
