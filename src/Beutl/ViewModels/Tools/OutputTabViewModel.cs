@@ -61,12 +61,12 @@ public class OutputTabViewModel : IToolContext
 
     public void RemoveSelected()
     {
-        if (SelectedItem.Value != null)
-        {
-            _logger.LogInformation("Removing selected item: {ItemName}", SelectedItem.Value.Context.Name.Value);
-            Items.Remove(SelectedItem.Value);
-            _logger.LogInformation("Selected item removed successfully.");
-        }
+        if (SelectedItem.Value is not { } item) return;
+
+        _logger.LogInformation("Removing selected item: {ItemName}", item.Context.Name.Value);
+        Items.Remove(item);
+        item.Dispose();
+        _logger.LogInformation("Selected item removed successfully.");
     }
 
     public void Save()
