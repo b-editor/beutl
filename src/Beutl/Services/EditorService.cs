@@ -10,7 +10,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public sealed class EditorTabItem : IDisposable
+public sealed class EditorTabItem : IAsyncDisposable
 {
     private string? _hash;
 
@@ -56,9 +56,9 @@ public sealed class EditorTabItem : IDisposable
         return _hash;
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        Context.Value.Dispose();
+        await Context.Value.DisposeAsync();
         Context.Value = null!;
 
         Context.Dispose();
@@ -127,12 +127,12 @@ public sealed class EditorService
         }
     }
 
-    public void CloseTabItem(string? file)
+    public async ValueTask CloseTabItem(string? file)
     {
         if (TryGetTabItem(file, out EditorTabItem? item))
         {
             TabItems.Remove(item);
-            item.Dispose();
+            await item.DisposeAsync();
         }
     }
 }

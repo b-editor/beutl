@@ -199,7 +199,7 @@ public partial class MenuBarViewModel
         EditorService.Current.ActivateTabItem(file);
     }
 
-    private void OnCloseFileCore(EditorTabItem? item)
+    private async void OnCloseFileCore(EditorTabItem? item)
     {
         if (IsProjectOpened.Value)
         {
@@ -210,7 +210,7 @@ public partial class MenuBarViewModel
             EditorTabItem? tabItem = item ?? EditorService.Current.SelectedTabItem.Value;
             if (tabItem != null)
             {
-                EditorService.Current.CloseTabItem(tabItem.FilePath.Value);
+                await EditorService.Current.CloseTabItem(tabItem.FilePath.Value);
             }
         }
     }

@@ -16,14 +16,10 @@ public class EditorHostViewModel
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;
 
-    private void ProjectChanged(Project? @new, Project? old)
+    private async void ProjectChanged(Project? @new, Project? old)
     {
-        for (int i = _editorService.TabItems.Count - 1; i >= 0; i--)
-        {
-            var item = _editorService.TabItems[i];
-            _editorService.TabItems.RemoveAt(i);
-            item.Dispose();
-        }
+        var oldItems = _editorService.TabItems.ToArray();
+        _editorService.TabItems.Clear();
 
         // プロジェクトが閉じた
         if (old != null)
@@ -40,9 +36,14 @@ public class EditorHostViewModel
                 _editorService.ActivateTabItem(item.FileName);
             }
         }
+
+        foreach (var item in oldItems)
+        {
+            await item.DisposeAsync();
+        }
     }
 
-    private void Project_Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private async void Project_Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (e.Action == NotifyCollectionChangedAction.Add &&
             e.NewItems != null)
@@ -57,7 +58,7 @@ public class EditorHostViewModel
         {
             foreach (ProjectItem item in e.OldItems.OfType<ProjectItem>())
             {
-                _editorService.CloseTabItem(item.FileName);
+                await _editorService.CloseTabItem(item.FileName);
             }
         }
     }

@@ -2,7 +2,7 @@
 
 namespace Beutl.Extensibility;
 
-public interface IEditorContext : IDisposable, IServiceProvider
+public interface IEditorContext : IDisposable, IAsyncDisposable, IServiceProvider
 {
     EditorExtension Extension { get; }
 
@@ -21,4 +21,14 @@ public interface IEditorContext : IDisposable, IServiceProvider
     bool OpenToolTab(IToolContext item);
 
     void CloseToolTab(IToolContext item);
+
+    void IDisposable.Dispose()
+    {
+    }
+
+    ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        Dispose();
+        return ValueTask.CompletedTask;
+    }
 }

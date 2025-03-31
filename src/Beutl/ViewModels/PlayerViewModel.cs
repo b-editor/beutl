@@ -25,7 +25,7 @@ using Vortice.Multimedia;
 
 namespace Beutl.ViewModels;
 
-public sealed class PlayerViewModel : IDisposable
+public sealed class PlayerViewModel : IAsyncDisposable
 {
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
     private readonly ILogger _logger = Log.CreateLogger<PlayerViewModel>();
@@ -35,7 +35,6 @@ public sealed class PlayerViewModel : IDisposable
     private IDisposable? _currentFrameSubscription;
     private CancellationTokenSource? _cts;
     private Size _maxFrameSize;
-    private SemaphoreSlim _audioSemaphoreSlim = new(1, 1);
     private Task _playbackTask = Task.CompletedTask;
 
     public PlayerViewModel(EditViewModel editViewModel)
@@ -227,14 +226,14 @@ public sealed class PlayerViewModel : IDisposable
             _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
                 _editViewModel.SceneId, rate, startFrame, durationFrame);
             playerImpl.Start();
-
-            if (!await _audioSemaphoreSlim.WaitAsync(1000))
-            {
-                NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
-                    Message.An_exception_occurred_during_audio_playback);
-                _logger.LogWarning("Failed to acquire the semaphore for audio playback.");
-                return;
-            }
+            //
+            // if (!await _audioSemaphoreSlim.WaitAsync(1000))
+            // {
+            //     NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
+            //         Message.An_exception_occurred_during_audio_playback);
+            //     _logger.LogWarning("Failed to acquire the semaphore for audio playback.");
+            //     return;
+            // }
 
             var audioTask = PlayAudio(Scene);
 
@@ -326,6 +325,7 @@ public sealed class PlayerViewModel : IDisposable
     {
         try
         {
+            await Task.Delay(5000);
             if (OperatingSystem.IsWindows())
             {
                 using var audioContext = new XAudioContext();
@@ -344,7 +344,7 @@ public sealed class PlayerViewModel : IDisposable
         {
             // 呼び出し元でWaitAsync()しているので、ここでRelease()する
             // PlayAudio内でWaitAsyncしないのは、セマフォを取得するまで、動画の再生を開始しないため
-            _audioSemaphoreSlim.Release();
+            // _audioSemaphoreSlim.Release();
         }
     }
 
@@ -743,7 +743,7 @@ public sealed class PlayerViewModel : IDisposable
         }
     }
 
-    public async void Dispose()
+    public async ValueTask DisposeAsync()
     {
         _logger.LogInformation("Disposing PlayerViewModel. ({SceneId})", _editViewModel.SceneId);
         await Pause();

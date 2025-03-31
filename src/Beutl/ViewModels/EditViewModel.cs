@@ -34,10 +34,11 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
 
     private readonly CompositeDisposable _disposables = [];
+
     public EditViewModel(Scene scene)
     {
         _logger.LogInformation("Initializing EditViewModel for Scene ({SceneId}).", scene.Id);
-        
+
         Scene = scene;
         SceneId = scene.Id.ToString();
         CurrentTime = new ReactivePropertySlim<TimeSpan>()
@@ -82,8 +83,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             .Switch()
             .ToReadOnlyReactivePropertySlim();
 
-        Player = new PlayerViewModel(this)
-            .DisposeWith(_disposables);
+        Player = new PlayerViewModel(this);
         Commands = new KnownCommandsImpl(scene, this);
         CommandRecorder = new CommandRecorder();
         BufferStatus = new BufferStatusViewModel(this)
@@ -235,11 +235,12 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     public DockHostViewModel DockHost { get; }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         SaveState();
+        await Player.DisposeAsync();
         _disposables.Dispose();
         Options.Dispose();
         IsEnabled.Dispose();
