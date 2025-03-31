@@ -4,6 +4,7 @@ using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ViewModels;
+using ILGPU.Runtime;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -20,7 +21,8 @@ public sealed class OutputProfileItem : IDisposable
 
         Context.Started += OnStarted;
         Context.Finished += OnFinished;
-        _logger.LogInformation("OutputProfileItem created. File: {File}, Context: {Context}", Context.TargetFile, Context);
+        _logger.LogInformation("OutputProfileItem created. File: {File}, Context: {Context}", Context.TargetFile,
+            Context);
     }
 
     public IOutputContext Context { get; }
@@ -98,12 +100,14 @@ public sealed class OutputProfileItem : IDisposable
                 && extension.TryCreateContext(editorContext, out IOutputContext? context))
             {
                 context.ReadFromJson(contextJson.AsObject());
-                logger.LogInformation("OutputProfileItem created from JSON. File: {File}, Context: {Context}", file, context);
+                logger.LogInformation("OutputProfileItem created from JSON. File: {File}, Context: {Context}", file,
+                    context);
                 return new OutputProfileItem(context, editorContext);
             }
             else
             {
-                logger.LogWarning("Failed to create OutputProfileItem from JSON. File: {File}, Extension: {Extension}", file, extensionStr);
+                logger.LogWarning("Failed to create OutputProfileItem from JSON. File: {File}, Extension: {Extension}",
+                    file, extensionStr);
                 return null;
             }
         }
@@ -115,7 +119,7 @@ public sealed class OutputProfileItem : IDisposable
     }
 }
 
-public sealed class OutputService(EditViewModel editViewModel)
+public sealed class OutputService(EditViewModel editViewModel) : IDisposable
 {
     private readonly CoreList<OutputProfileItem> _items = [];
     private readonly ReactivePropertySlim<OutputProfileItem?> _selectedItem = new();
@@ -199,6 +203,23 @@ public sealed class OutputService(EditViewModel editViewModel)
                 _items.Add(item);
             }
         }
+
         _logger.LogInformation("Restored {Count} OutputProfileItems from file: {FilePath}", _items.Count, _filePath);
+    }
+
+    public void Dispose()
+    {
+        _logger.LogInformation("Disposing OutputService.");
+
+        var items = _items.ToArray();
+        _items.Clear();
+        _selectedItem.Value = null;
+        _selectedItem.Dispose();
+        foreach (OutputProfileItem item in items)
+        {
+            item.Dispose();
+        }
+
+        _logger.LogInformation("OutputService disposed.");
     }
 }

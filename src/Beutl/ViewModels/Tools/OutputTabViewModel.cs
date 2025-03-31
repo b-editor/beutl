@@ -78,7 +78,7 @@ public class OutputTabViewModel : IToolContext
 
     public void Dispose()
     {
-        _logger.LogInformation("Disposing OutputTabViewModel.");
+        _outputService.Dispose();
     }
 
     public void WriteToJson(JsonObject json)
