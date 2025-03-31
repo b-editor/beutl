@@ -323,28 +323,18 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
     private async Task PlayAudio(Scene scene)
     {
-        try
+        if (OperatingSystem.IsWindows())
         {
-            await Task.Delay(5000);
-            if (OperatingSystem.IsWindows())
-            {
-                using var audioContext = new XAudioContext();
-                await PlayWithXA2(audioContext, scene).ConfigureAwait(false);
-            }
-            else
-            {
-                await Task.Run(async () =>
-                {
-                    using var audioContext = new AudioContext();
-                    await PlayWithOpenAL(audioContext, scene);
-                });
-            }
+            using var audioContext = new XAudioContext();
+            await PlayWithXA2(audioContext, scene).ConfigureAwait(false);
         }
-        finally
+        else
         {
-            // 呼び出し元でWaitAsync()しているので、ここでRelease()する
-            // PlayAudio内でWaitAsyncしないのは、セマフォを取得するまで、動画の再生を開始しないため
-            // _audioSemaphoreSlim.Release();
+            await Task.Run(async () =>
+            {
+                using var audioContext = new AudioContext();
+                await PlayWithOpenAL(audioContext, scene);
+            });
         }
     }
 
