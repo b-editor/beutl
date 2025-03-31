@@ -20,8 +20,7 @@ public class OutputTabViewModel : IToolContext
         CanRemove = SelectedItem
             .SelectMany(x => x?.Context?.IsEncoding?.Not() ?? Observable.Return(false))
             .ToReadOnlyReactivePropertySlim();
-        CreateDefaultProfile();
-        SelectedItem.Value = Items.FirstOrDefault();
+        ReadFromJson(null);
         _logger.LogInformation("OutputTabViewModel initialized.");
     }
 
@@ -89,7 +88,7 @@ public class OutputTabViewModel : IToolContext
         _logger.LogInformation("Items written to JSON successfully.");
     }
 
-    public void ReadFromJson(JsonObject json)
+    public void ReadFromJson(JsonObject? json)
     {
         try
         {
