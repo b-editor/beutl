@@ -1,12 +1,11 @@
 ﻿using System.Reactive.Subjects;
 using Beutl.Api;
 using Beutl.Api.Services;
-using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.ViewModels;
 
-public sealed class SettingsDialogViewModel
+public sealed class SettingsDialogViewModel : IDisposable
 {
     private readonly Subject<object> _navigateRequested = new();
     private readonly Lazy<AccountSettingsPageViewModel> _account;
@@ -52,5 +51,24 @@ public sealed class SettingsDialogViewModel
     public void GoToAccountSettingsPage()
     {
         _navigateRequested.OnNext(Account);
+    }
+
+    public void Dispose()
+    {
+        _navigateRequested.Dispose();
+        if (_account.IsValueCreated)
+            _account.Value.Dispose();
+
+        if (_view.IsValueCreated)
+            _view.Value.Dispose();
+
+        if (_editor.IsValueCreated)
+            _editor.Value.Dispose();
+
+        if (_font.IsValueCreated)
+            _font.Value.Dispose();
+
+        if (_extensionsPage.IsValueCreated)
+            _extensionsPage.Value.Dispose();
     }
 }

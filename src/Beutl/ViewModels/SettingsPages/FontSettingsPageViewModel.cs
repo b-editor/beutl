@@ -6,7 +6,7 @@ using Beutl.Controls.Navigation;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
-public sealed class FontSettingsPageViewModel : PageContext
+public sealed class FontSettingsPageViewModel : PageContext, IDisposable
 {
     public FontSettingsPageViewModel()
     {
@@ -23,4 +23,10 @@ public sealed class FontSettingsPageViewModel : PageContext
     public ReadOnlyReactiveProperty<bool> IsSelected { get; }
 
     public ReactiveCommand<string> Remove { get; } = new();
+
+    public void Dispose()
+    {
+        IsSelected.Dispose();
+        Remove.Dispose();
+    }
 }

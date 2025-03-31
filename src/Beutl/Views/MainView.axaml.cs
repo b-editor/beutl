@@ -369,7 +369,7 @@ public sealed partial class MainView : UserControl
     {
         if (DataContext is MainViewModel viewModel && TopLevel.GetTopLevel(this) is Window window)
         {
-            var dialogViewModel = viewModel.SettingsDialog;
+            using var dialogViewModel = viewModel.CreateSettingsDialog();
             var dialog = new SettingsDialog { DataContext = dialogViewModel };
             dialogViewModel.GoToSettingsPage();
             await dialog.ShowDialog(window);
@@ -385,7 +385,7 @@ public sealed partial class MainView : UserControl
         }
     }
 
-    private void OpenSettingsDialog(object? sender, RoutedEventArgs e)
+    private async void OpenSettingsDialog(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not MainViewModel viewModel)
             return;
@@ -393,9 +393,9 @@ public sealed partial class MainView : UserControl
         if (TopLevel.GetTopLevel(this) is not Window window)
             return;
 
-        var settingsPage = viewModel.SettingsDialog;
-        var dialog = new SettingsDialog { DataContext = settingsPage };
-        settingsPage.GoToAccountSettingsPage();
-        dialog.ShowDialog(window);
+        using var dialogViewModel = viewModel.CreateSettingsDialog();
+        var dialog = new SettingsDialog { DataContext = dialogViewModel };
+        dialogViewModel.GoToAccountSettingsPage();
+        await dialog.ShowDialog(window);
     }
 }

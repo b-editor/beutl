@@ -12,8 +12,9 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
 
-public sealed class ExtensionsSettingsPageViewModel : PageContext
+public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
 {
+    private readonly CompositeDisposable _disposables = [];
     private EditorExtensionPriorityPageViewModel? _editorPriority;
     private DecoderPriorityPageViewModel? _decoderPriority;
 
@@ -26,7 +27,8 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext
                 await nav.NavigateAsync(
                     x => x is not null,
                     () => EditorPriority);
-            });
+            })
+            .DisposeWith(_disposables);
 
         NavigateToDecoderPriority = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
@@ -35,7 +37,8 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext
                 await nav.NavigateAsync(
                     x => x is not null,
                     () => DecoderPriority);
-            });
+            })
+            .DisposeWith(_disposables);
 
         NavigateToExtensionSettings = new AsyncReactiveCommand<Extension>()
             .WithSubscribe(async e =>
@@ -44,7 +47,8 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext
                 await nav.NavigateAsync(
                     x => x?.Extension == e,
                     () => new AnExtensionSettingsPageViewModel(e));
-            });
+            })
+            .DisposeWith(_disposables);
 
         ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
         var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
@@ -52,7 +56,8 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext
             .Filter(v => v.Settings != null)
             .Sort(comparer)
             .Bind(out ReadOnlyObservableCollection<Extension>? extensions)
-            .Subscribe();
+            .Subscribe()
+            .DisposeWith(_disposables);
 
         Extensions = extensions;
     }
@@ -68,4 +73,11 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext
     public AsyncReactiveCommand<Extension> NavigateToExtensionSettings { get; }
 
     public ReadOnlyObservableCollection<Extension> Extensions { get; }
+
+    public void Dispose()
+    {
+        _editorPriority?.Dispose();
+        _decoderPriority?.Dispose();
+        _disposables.Dispose();
+    }
 }

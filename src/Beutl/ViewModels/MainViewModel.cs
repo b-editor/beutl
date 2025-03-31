@@ -29,7 +29,6 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         _authorizedHttpClient = new HttpClient();
         _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
-        SettingsDialog = new SettingsDialogViewModel(_beutlClients);
 
         MenuBar = new MenuBarViewModel();
 
@@ -89,9 +88,12 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public ReadOnlyObservableCollection<PageExtension> PageExtensions { get; }
 
-    public SettingsDialogViewModel SettingsDialog { get; }
-
     public ContextCommandManager? ContextCommandManager { get; }
+
+    public SettingsDialogViewModel CreateSettingsDialog()
+    {
+        return new SettingsDialogViewModel(_beutlClients);
+    }
 
     public Startup RunStartupTask()
     {

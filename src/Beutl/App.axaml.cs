@@ -189,7 +189,7 @@ public sealed class App : Application
         if (_mainViewModel != null
             && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
         {
-            var dialogViewModel = _mainViewModel.SettingsDialog;
+            using var dialogViewModel = _mainViewModel.CreateSettingsDialog();
             var dialog = new SettingsDialog { DataContext = dialogViewModel };
             dialogViewModel.GoToSettingsPage();
             await dialog.ShowDialog(window);
@@ -201,7 +201,7 @@ public sealed class App : Application
         if (_mainViewModel != null
             && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
         {
-            var dialogViewModel = _mainViewModel.SettingsDialog;
+            using var dialogViewModel = _mainViewModel.CreateSettingsDialog();
             var dialog = new SettingsDialog { DataContext = dialogViewModel };
             dialogViewModel.GoToAccountSettingsPage();
             await dialog.ShowDialog(window);

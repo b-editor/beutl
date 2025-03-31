@@ -58,20 +58,6 @@ public sealed partial class ExtensionsPage : UserControl
         frame.Navigate(typeof(SearchPage), searchTextBox.Text);
     }
 
-    private async void OpenSettings_Click(object? sender, RoutedEventArgs e)
-    {
-        if (this.FindLogicalAncestorOfType<MainView>() is not { DataContext: MainViewModel viewModel })
-            return;
-
-        if (TopLevel.GetTopLevel(this) is not Window window)
-            return;
-
-        var dialogViewModel = viewModel.SettingsDialog;
-        var dialog = new SettingsDialog { DataContext = dialogViewModel };
-        dialogViewModel.GoToAccountSettingsPage();
-        await dialog.ShowDialog(window);
-    }
-
     private static List<NavigationViewItem> GetItems()
     {
         return

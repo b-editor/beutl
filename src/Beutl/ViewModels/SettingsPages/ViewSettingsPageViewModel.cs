@@ -1,19 +1,18 @@
 ﻿using Avalonia.Media;
-
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
-
 using FluentAvalonia.Styling;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
 
-public sealed class ViewSettingsPageViewModel : PageContext
+public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
 {
     private readonly ViewConfig _config;
+
     // 一部の設定を移動したので、ナビゲーションするために
     private readonly Lazy<EditorSettingsPageViewModel> _editorSettings;
+    private readonly CompositeDisposable _disposables = [];
 
     public ViewSettingsPageViewModel(Lazy<EditorSettingsPageViewModel> editorSettings)
     {
@@ -21,13 +20,17 @@ public sealed class ViewSettingsPageViewModel : PageContext
         _editorSettings = editorSettings;
 
         SelectedTheme = _config.GetObservable(ViewConfig.ThemeProperty).Select(x => (int)x)
-            .ToReactiveProperty();
-        SelectedTheme.Subscribe(v => _config.Theme = (ViewConfig.ViewTheme)v);
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        SelectedTheme.Subscribe(v => _config.Theme = (ViewConfig.ViewTheme)v)
+            .DisposeWith(_disposables);
 
         SelectedLanguage = _config.GetObservable(ViewConfig.UICultureProperty)
-            .ToReactiveProperty()!;
+            .ToReactiveProperty()
+            .DisposeWith(_disposables)!;
 
-        SelectedLanguage.Subscribe(ci => _config.UICulture = ci);
+        SelectedLanguage.Subscribe(ci => _config.UICulture = ci)
+            .DisposeWith(_disposables);
 
         GetPredefColors();
 
@@ -37,43 +40,49 @@ public sealed class ViewSettingsPageViewModel : PageContext
         ListBoxColor = new ReactiveProperty<Color?>(result ? customColor : null);
         CustomAccentColor = new ReactiveProperty<Color>(customColor);
 
-        UseCustomAccent.Skip(1).Subscribe(value =>
-        {
-            if (value)
+        UseCustomAccent.Skip(1)
+            .Subscribe(value =>
             {
-                FluentAvaloniaTheme? faTheme = App.GetFATheme();
-                if (faTheme?.TryGetResource("SystemAccentColor", null, out object? curColor) == true)
+                if (value)
                 {
-                    CustomAccentColor.Value = (Color)curColor;
+                    FluentAvaloniaTheme? faTheme = App.GetFATheme();
+                    if (faTheme?.TryGetResource("SystemAccentColor", null, out object? curColor) == true)
+                    {
+                        CustomAccentColor.Value = (Color)curColor;
+                    }
+                    else
+                    {
+                        Debug.Fail("Unable to retreive SystemAccentColor");
+                    }
                 }
                 else
                 {
-                    Debug.Fail("Unable to retreive SystemAccentColor");
+                    // Restore system color
+                    CustomAccentColor.Value = default;
+                    ListBoxColor.Value = default;
+                    UpdateAppAccentColor(null);
                 }
-            }
-            else
-            {
-                // Restore system color
-                CustomAccentColor.Value = default;
-                ListBoxColor.Value = default;
-                UpdateAppAccentColor(null);
-            }
-        });
+            })
+            .DisposeWith(_disposables);
 
-        ListBoxColor.Skip(1).Subscribe(value =>
-        {
-            if (value != null)
+        ListBoxColor.Skip(1)
+            .Subscribe(value =>
             {
-                CustomAccentColor.Value = value.Value;
-                UpdateAppAccentColor(value.Value);
-            }
-        });
+                if (value != null)
+                {
+                    CustomAccentColor.Value = value.Value;
+                    UpdateAppAccentColor(value.Value);
+                }
+            })
+            .DisposeWith(_disposables);
 
-        CustomAccentColor.Skip(1).Subscribe(value =>
-        {
-            ListBoxColor.Value = value;
-            UpdateAppAccentColor(value);
-        });
+        CustomAccentColor.Skip(1)
+            .Subscribe(value =>
+            {
+                ListBoxColor.Value = value;
+                UpdateAppAccentColor(value);
+            })
+            .DisposeWith(_disposables);
 
         NavigateToEditorSettings = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
@@ -82,7 +91,8 @@ public sealed class ViewSettingsPageViewModel : PageContext
                 await nav.NavigateAsync(
                     x => x is not null,
                     () => _editorSettings.Value);
-            });
+            })
+            .DisposeWith(_disposables);
     }
 
     public ReactiveProperty<int> SelectedTheme { get; }
@@ -168,5 +178,10 @@ public sealed class ViewSettingsPageViewModel : PageContext
         {
             faTheme.CustomAccentColor = color;
         }
+    }
+
+    public void Dispose()
+    {
+        _disposables.Dispose();
     }
 }

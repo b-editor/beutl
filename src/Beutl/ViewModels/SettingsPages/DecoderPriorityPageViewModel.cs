@@ -57,6 +57,7 @@ public sealed class DecoderPriorityPageViewModel : BasePageViewModel
 
     public override void Dispose()
     {
+        NavigateParent.Dispose();
     }
 
     public void MoveItem(int oldIndex, int newIndex)
