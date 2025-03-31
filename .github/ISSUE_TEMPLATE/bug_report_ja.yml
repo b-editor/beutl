@@ -1,0 +1,46 @@
+name: バグ報告
+description: バグを報告する
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: バグの内容
+      description: バグの内容を明確かつ簡潔に記述してください。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: バグを再現するための手順を記述してください。
+    validations:
+      required: true
+  - type: textarea
+    id: what-expected
+    attributes:
+      label: 期待される動作
+      description: 本来どうなることを期待していたかを明確かつ簡潔に記述してください。
+  - type: input
+    id: beutl-version
+    attributes:
+      label: Beutl のバージョン
+      placeholder: 例：1.0.0-preview.5
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 使用している OS
+      multiple: true
+      options:
+        - Windows
+        - macOS
+        - Linux
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: 追加の情報
+      description: |
+        問題に関するその他の情報を記述してください。
+        可能であれば、問題の説明に役立つスクリーンショットを追加してください。
