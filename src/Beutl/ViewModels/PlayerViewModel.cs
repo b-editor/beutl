@@ -315,18 +315,28 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
     private async Task PlayAudio(Scene scene)
     {
-        if (OperatingSystem.IsWindows())
+        try
         {
-            using var audioContext = new XAudioContext();
-            await PlayWithXA2(audioContext, scene).ConfigureAwait(false);
-        }
-        else
-        {
-            await Task.Run(async () =>
+            if (OperatingSystem.IsWindows())
             {
-                using var audioContext = new AudioContext();
-                await PlayWithOpenAL(audioContext, scene);
-            });
+                using var audioContext = new XAudioContext();
+                await PlayWithXA2(audioContext, scene).ConfigureAwait(false);
+            }
+            else
+            {
+                await Task.Run(async () =>
+                {
+                    using var audioContext = new AudioContext();
+                    await PlayWithOpenAL(audioContext, scene);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
+                Message.An_exception_occurred_during_audio_playback);
+            _logger.LogError(ex, "An exception occurred during audio playback.");
+            IsPlaying.Value = false;
         }
     }
 
@@ -370,6 +380,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
         var cts = new CancellationTokenSource();
         IDisposable revoker = IsPlaying.Where(v => !v)
+            .Take(1)
             .Subscribe(_ =>
             {
                 // ReSharper disable AccessToDisposedClosure
@@ -413,13 +424,6 @@ public sealed class PlayerViewModel : IAsyncDisposable
         {
             source.Stop();
         }
-        catch (Exception ex)
-        {
-            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
-                Message.An_exception_occurred_during_audio_playback);
-            _logger.LogError(ex, "An exception occurred during audio playback.");
-            IsPlaying.Value = false;
-        }
         finally
         {
             revoker.Dispose();
@@ -444,6 +448,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
         var cts = new CancellationTokenSource();
         IDisposable revoker = IsPlaying.Where(v => !v)
+            .Take(1)
             .Subscribe(_ => cts.Cancel());
 
         try
@@ -534,15 +539,10 @@ public sealed class PlayerViewModel : IAsyncDisposable
             AL.DeleteSource(source);
             CheckError();
         }
-        catch (Exception ex)
+        finally
         {
-            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
-                Message.An_exception_occurred_during_audio_playback);
-            _logger.LogError(ex, "An exception occurred during audio playback.");
-            IsPlaying.Value = false;
+            revoker.Dispose();
         }
-
-        revoker.Dispose();
     }
 
     public async Task Pause()
