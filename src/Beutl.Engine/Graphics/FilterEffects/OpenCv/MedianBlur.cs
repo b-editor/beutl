@@ -33,6 +33,7 @@ public class MedianBlur : FilterEffect
     }
 
     [Display(Name = nameof(Strings.KernelSize), ResourceType = typeof(Strings))]
+    [Range(0, int.MaxValue)]
     public int KernelSize
     {
         get => _kernelSize;

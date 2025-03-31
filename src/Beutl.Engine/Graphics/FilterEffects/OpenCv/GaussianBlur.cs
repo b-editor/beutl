@@ -38,6 +38,7 @@ public class GaussianBlur : FilterEffect
     }
 
     [Display(Name = nameof(Strings.KernelSize), ResourceType = typeof(Strings))]
+    [Range(typeof(PixelSize), "0,0", "max,max")]
     public PixelSize KernelSize
     {
         get => _kernelSize;
