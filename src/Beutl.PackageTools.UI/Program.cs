@@ -1,5 +1,5 @@
 ﻿using Avalonia;
-
+using Avalonia.Media;
 using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Services;
@@ -45,5 +45,9 @@ internal class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .With(new FontManagerOptions
+            {
+                DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
+            })
             .LogToTrace();
 }
