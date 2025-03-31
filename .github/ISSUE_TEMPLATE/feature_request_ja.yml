@@ -1,0 +1,28 @@
+name: 機能の提案
+description: このプロジェクトに対するアイデアを提案する
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: この機能の提案は何らかの問題に関連していますか？その内容を記述してください。
+      description: 問題の内容を明確かつ簡潔に記述してください。
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: 望ましい解決策について記述してください
+      description: 実現してほしいことを明確かつ簡潔に記述してください。
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 検討した他の代替案について記述してください
+      description: 検討した他の解決策や機能について明確かつ簡潔に記述してください。
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: その他の情報
+      description: この機能提案に関する追加の情報やスクリーンショットがあれば記述してください。
