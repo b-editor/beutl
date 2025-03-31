@@ -36,18 +36,19 @@ public sealed class PlayerViewModel : IDisposable
     private CancellationTokenSource? _cts;
     private Size _maxFrameSize;
     private SemaphoreSlim _audioSemaphoreSlim = new(1, 1);
+    private Task _playbackTask = Task.CompletedTask;
 
     public PlayerViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
         Scene = editViewModel.Scene;
         _isEnabled = editViewModel.IsEnabled;
-        PlayPause = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(() =>
+        PlayPause = new AsyncReactiveCommand(_isEnabled.AsObservable())
+            .WithSubscribe(async () =>
             {
                 if (IsPlaying.Value)
                 {
-                    Pause();
+                    await Pause();
                 }
                 else
                 {
@@ -82,11 +83,11 @@ public sealed class PlayerViewModel : IDisposable
 
         Scene.Invalidated += OnSceneInvalidated;
 
-        _isEnabled.Subscribe(v =>
+        _isEnabled.Subscribe(async v =>
             {
                 if (!v && IsPlaying.Value)
                 {
-                    Pause();
+                    await Pause();
                 }
             })
             .DisposeWith(_disposables);
@@ -132,7 +133,7 @@ public sealed class PlayerViewModel : IDisposable
 
     public ReadOnlyReactiveProperty<TimeSpan> Duration { get; }
 
-    public ReactiveCommand PlayPause { get; }
+    public AsyncReactiveCommand PlayPause { get; }
 
     public ReactiveCommand Next { get; }
 
@@ -194,7 +195,9 @@ public sealed class PlayerViewModel : IDisposable
 
     public void Play()
     {
-        Task.Run(async () =>
+        if (IsPlaying.Value) return;
+
+        _playbackTask = Task.Run(async () =>
         {
             if (!_isEnabled.Value || Scene == null)
                 return;
@@ -204,118 +207,107 @@ public sealed class PlayerViewModel : IDisposable
             Scene.Invalidated -= OnSceneInvalidated;
             _currentFrameSubscription?.Dispose();
 
-            try
+            IsPlaying.Value = true;
+            int rate = GetFrameRate();
+
+            TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
+            TimeSpan startTime = EditViewModel.CurrentTime.Value;
+            TimeSpan durationTime = Scene.Duration;
+            int startFrame = (int)startTime.ToFrameNumber(rate);
+            int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
+            bufferStatus.StartTime.Value = startTime;
+            bufferStatus.EndTime.Value = startTime;
+            frameCacheManager.Options = frameCacheManager.Options with
             {
-                IsPlaying.Value = true;
-                int rate = GetFrameRate();
+                DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock
+            };
 
-                TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
-                TimeSpan startTime = EditViewModel.CurrentTime.Value;
-                TimeSpan durationTime = Scene.Duration;
-                int startFrame = (int)startTime.ToFrameNumber(rate);
-                int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
-                bufferStatus.StartTime.Value = startTime;
-                bufferStatus.EndTime.Value = startTime;
-                frameCacheManager.Options = frameCacheManager.Options with
+            frameCacheManager.CurrentFrame = startFrame;
+            using var playerImpl = new BufferedPlayer(EditViewModel, Scene, IsPlaying, rate);
+            _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
+                _editViewModel.SceneId, rate, startFrame, durationFrame);
+            playerImpl.Start();
+
+            if (!await _audioSemaphoreSlim.WaitAsync(1000))
+            {
+                NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
+                    Message.An_exception_occurred_during_audio_playback);
+                _logger.LogWarning("Failed to acquire the semaphore for audio playback.");
+                return;
+            }
+
+            var audioTask = PlayAudio(Scene);
+
+            DateTime startDateTime = DateTime.UtcNow;
+            var tcs = new TaskCompletionSource<bool>();
+            int nextExpectedFrame = startFrame + 1;
+            bool processing = false;
+            await using var timer = new Timer(_ =>
+            {
+                if (processing) return;
+                processing = true;
+                try
                 {
-                    DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock
-                };
+                    var expectFrame = (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame;
+                    if (!IsPlaying.Value || expectFrame >= durationFrame)
+                    {
+                        tcs.TrySetResult(true);
+                        return;
+                    }
 
-                frameCacheManager.CurrentFrame = startFrame;
-                using var playerImpl = new BufferedPlayer(EditViewModel, Scene, IsPlaying, rate);
-                _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
-                    _editViewModel.SceneId, rate, startFrame, durationFrame);
-                playerImpl.Start();
+                    if (expectFrame < nextExpectedFrame)
+                    {
+                        return;
+                    }
 
-                if (!await _audioSemaphoreSlim.WaitAsync(1000))
-                {
-                    NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred,
-                        Message.An_exception_occurred_during_audio_playback);
-                    _logger.LogWarning("Failed to acquire the semaphore for audio playback.");
-                    return;
+                    while (playerImpl.TryDequeue(out IPlayer.Frame frame))
+                    {
+                        using (frame.Bitmap)
+                        {
+                            UpdateImage(frame.Bitmap.Value);
+
+                            if (Scene != null)
+                            {
+                                EditViewModel.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
+                                EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
+                            }
+                        }
+
+                        // タイマーが正確じゃないから、だんだんとフレームがずれてくる
+                        // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
+                        // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
+                        if (expectFrame <= frame.Time)
+                        {
+                            nextExpectedFrame = frame.Time + 1;
+                            break;
+                        }
+
+                        // 期待していたフレームよりも前のフレームが来た場合
+                    }
+
+                    playerImpl.Skipped(
+                        (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame + 1);
                 }
-
-                PlayAudio(Scene);
-
-                DateTime startDateTime = DateTime.UtcNow;
-                var tcs = new TaskCompletionSource<bool>();
-                int nextExpectedFrame = startFrame + 1;
-                bool processing = false;
-                using var timer = new Timer(_ =>
+                finally
                 {
-                    if (processing) return;
-                    processing = true;
-                    try
-                    {
-                        var expectFrame = (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame;
-                        if (!IsPlaying.Value || expectFrame >= durationFrame)
-                        {
-                            tcs.TrySetResult(true);
-                            return;
-                        }
+                    processing = false;
+                }
+            }, null, tick, tick);
 
-                        if (expectFrame < nextExpectedFrame)
-                        {
-                            return;
-                        }
+            await Task.WhenAll(tcs.Task, audioTask);
 
-                        while (playerImpl.TryDequeue(out IPlayer.Frame frame))
-                        {
-                            using (frame.Bitmap)
-                            {
-                                UpdateImage(frame.Bitmap.Value);
-
-                                if (Scene != null)
-                                {
-                                    EditViewModel.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
-                                    EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
-                                }
-                            }
-
-                            // タイマーが正確じゃないから、だんだんとフレームがずれてくる
-                            // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
-                            // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
-                            if (expectFrame <= frame.Time)
-                            {
-                                nextExpectedFrame = frame.Time + 1;
-                                break;
-                            }
-
-                            // 期待していたフレームよりも前のフレームが来た場合
-                        }
-
-                        playerImpl.Skipped(
-                            (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame + 1);
-                    }
-                    finally
-                    {
-                        processing = false;
-                    }
-                }, null, tick, tick);
-
-                await tcs.Task;
-
-                frameCacheManager.UpdateBlocks();
-                IsPlaying.Value = false;
-                bufferStatus.StartTime.Value = TimeSpan.Zero;
-                bufferStatus.EndTime.Value = TimeSpan.Zero;
-                _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
-            }
-            catch (Exception ex)
+            IsPlaying.Value = false;
+            frameCacheManager.UpdateBlocks();
+            bufferStatus.StartTime.Value = TimeSpan.Zero;
+            bufferStatus.EndTime.Value = TimeSpan.Zero;
+            frameCacheManager.Options = frameCacheManager.Options with
             {
-                // 本来ここには例外が来ないはず
-                _logger.LogError(ex, "An exception occurred during the playback process.");
-            }
-            finally
-            {
-                frameCacheManager.Options = frameCacheManager.Options with
-                {
-                    DeletionStrategy = FrameCacheDeletionStrategy.Old
-                };
+                DeletionStrategy = FrameCacheDeletionStrategy.Old
+            };
 
-                _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
-                Scene.Invalidated += OnSceneInvalidated;
-            }
+            _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
+            Scene.Invalidated += OnSceneInvalidated;
+            _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
         });
     }
 
@@ -330,7 +322,7 @@ public sealed class PlayerViewModel : IDisposable
         return rate;
     }
 
-    private async void PlayAudio(Scene scene)
+    private async Task PlayAudio(Scene scene)
     {
         try
         {
@@ -468,6 +460,10 @@ public sealed class PlayerViewModel : IDisposable
             }
         }
 
+        var cts = new CancellationTokenSource();
+        IDisposable revoker = IsPlaying.Where(v => !v)
+            .Subscribe(_ => cts.Cancel());
+
         try
         {
             audioContext.MakeCurrent();
@@ -498,45 +494,51 @@ public sealed class PlayerViewModel : IDisposable
             AL.SourcePlay(source);
             CheckError();
 
-            while (IsPlaying.Value)
+            try
             {
-                audioContext.MakeCurrent();
-                AL.GetSource(source, ALGetSourcei.BuffersProcessed, out int processed);
-                CheckError();
-                while (processed > 0)
+                while (IsPlaying.Value)
                 {
-                    using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
-                    cur += s_second;
-                    int buffer = AL.SourceUnqueueBuffer(source);
+                    audioContext.MakeCurrent();
+                    AL.GetSource(source, ALGetSourcei.BuffersProcessed, out int processed);
                     CheckError();
-                    if (pcmf != null)
+                    while (processed > 0)
                     {
-                        using Pcm<Stereo16BitInteger> pcm = pcmf.Convert<Stereo16BitInteger>();
+                        using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
+                        cur += s_second;
+                        int buffer = AL.SourceUnqueueBuffer(source);
+                        CheckError();
+                        if (pcmf != null)
+                        {
+                            using Pcm<Stereo16BitInteger> pcm = pcmf.Convert<Stereo16BitInteger>();
 
-                        AL.BufferData<Stereo16BitInteger>(buffer, ALFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
+                            AL.BufferData<Stereo16BitInteger>(buffer, ALFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
+                            CheckError();
+                        }
+
+                        AL.SourceQueueBuffer(source, buffer);
+                        CheckError();
+                        processed--;
+                    }
+
+                    if (AL.GetSourceState(source) != ALSourceState.Playing)
+                    {
+                        CheckError();
+                        AL.SourcePlay(source);
                         CheckError();
                     }
 
-                    AL.SourceQueueBuffer(source, buffer);
-                    CheckError();
-                    processed--;
+                    await Task.Delay(100, cts.Token).ConfigureAwait(false);
+                    if (cur > scene.Duration)
+                        break;
                 }
 
-                if (AL.GetSourceState(source) != ALSourceState.Playing)
+                while (AL.GetSourceState(source) == ALSourceState.Playing && IsPlaying.Value)
                 {
-                    CheckError();
-                    AL.SourcePlay(source);
-                    CheckError();
+                    await Task.Delay(100, cts.Token).ConfigureAwait(false);
                 }
-
-                await Task.Delay(100).ConfigureAwait(false);
-                if (cur > scene.Duration)
-                    break;
             }
-
-            while (AL.GetSourceState(source) == ALSourceState.Playing && IsPlaying.Value)
+            catch (OperationCanceledException)
             {
-                await Task.Delay(100).ConfigureAwait(false);
             }
 
             CheckError();
@@ -557,12 +559,17 @@ public sealed class PlayerViewModel : IDisposable
             _logger.LogError(ex, "An exception occurred during audio playback.");
             IsPlaying.Value = false;
         }
+
+        revoker.Dispose();
     }
 
-    public void Pause()
+    public async Task Pause()
     {
+        if (!IsPlaying.Value) return;
+
         _logger.LogInformation("Pause the playback. ({SceneId})", _editViewModel.SceneId);
         IsPlaying.Value = false;
+        await _playbackTask;
     }
 
     private unsafe void UpdateImage(Bitmap<Bgra8888> source)
@@ -736,10 +743,11 @@ public sealed class PlayerViewModel : IDisposable
         }
     }
 
-    public void Dispose()
+    public async void Dispose()
     {
         _logger.LogInformation("Disposing PlayerViewModel. ({SceneId})", _editViewModel.SceneId);
-        Pause();
+        await Pause();
+        Scene!.Invalidated -= OnSceneInvalidated;
         _disposables.Dispose();
         _currentFrameSubscription?.Dispose();
         AfterRendered.Dispose();
@@ -760,11 +768,11 @@ public sealed class PlayerViewModel : IDisposable
 
     public TaskCompletionSource<Rect>? TcsForCrop { get; private set; }
 
-    public Task<Bitmap<Bgra8888>> DrawSelectedDrawable(Drawable drawable)
+    public async Task<Bitmap<Bgra8888>> DrawSelectedDrawable(Drawable drawable)
     {
-        Pause();
+        await Pause();
 
-        return RenderThread.Dispatcher.InvokeAsync(() =>
+        return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
             if (Scene == null) throw new Exception("Scene is null.");
             // TODO: Rendererに特定のDrawableのみを描画するクラスを追加する
@@ -781,11 +789,11 @@ public sealed class PlayerViewModel : IDisposable
         });
     }
 
-    public Task<Bitmap<Bgra8888>> DrawFrame()
+    public async Task<Bitmap<Bgra8888>> DrawFrame()
     {
-        Pause();
+        await Pause();
 
-        return RenderThread.Dispatcher.InvokeAsync(() =>
+        return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
             if (Scene == null) throw new Exception("Scene is null.");
             SceneRenderer renderer = EditViewModel.Renderer.Value;

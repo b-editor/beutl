@@ -16,7 +16,7 @@
             Margin="4"
             CurrentTime="{Binding CurrentFrame.Value, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
             EndButtonCommand="{Binding End}"
-            IsPlaying="{Binding IsPlaying.Value, Mode=TwoWay}"
+            IsPlaying="{Binding IsPlaying.Value, Mode=OneWay}"
             Maximum="{Binding Duration.Value, Converter={x:Static converters:TimeSpanToDoubleConverter.Instance}}"
             NextButtonCommand="{Binding Next}"
             PlayButtonCommand="{Binding PlayPause}"

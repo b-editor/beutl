@@ -47,12 +47,12 @@ public partial class PlayerView : UserControl
         framePanel.AddHandler(DragDrop.DropEvent, OnFrameDrop);
     }
 
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override async void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
         if (DataContext is PlayerViewModel viewModel && viewModel.IsPlaying.Value)
         {
-            viewModel.Pause();
+            await viewModel.Pause();
         }
     }
 
