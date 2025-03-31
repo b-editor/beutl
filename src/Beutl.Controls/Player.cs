@@ -1,5 +1,4 @@
 ﻿using System.Windows.Input;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -170,5 +169,34 @@ public class Player : RangeBase
     private void OnInnerLeftBoundsChanged(Rect rect)
     {
         _contentPresenter.Margin = new Thickness(rect.Width, 0);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == PlayButtonCommandProperty)
+        {
+            if (change.OldValue is ICommand oldValue)
+            {
+                oldValue.CanExecuteChanged -= OnPlayButtonCommandCanExecuteChanged;
+                if (_playButton != null)
+                    _playButton.IsEnabled = false;
+            }
+
+            if (change.NewValue is ICommand newValue)
+            {
+                newValue.CanExecuteChanged += OnPlayButtonCommandCanExecuteChanged;
+                if (_playButton != null)
+                    _playButton.IsEnabled = newValue.CanExecute(null);
+            }
+        }
+    }
+
+    private void OnPlayButtonCommandCanExecuteChanged(object sender, EventArgs e)
+    {
+        if (_playButton != null && PlayButtonCommand != null)
+        {
+            _playButton.IsEnabled = PlayButtonCommand.CanExecute(null);
+        }
     }
 }
