@@ -1,6 +1,8 @@
 ﻿using Beutl.Extensibility;
+using Beutl.Logging;
 using FFmpeg.AutoGen;
 using FFmpegSharp;
+using Microsoft.Extensions.Logging;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Encoding;
@@ -11,6 +13,7 @@ namespace Beutl.Extensions.FFmpeg.Encoding;
 public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings settings)
     : EncodingController(outputFile)
 {
+    private readonly ILogger _logger = Log.CreateLogger<FFmpegEncodingController>();
     const int AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX = 0x01;
 
     private class EncodeState
@@ -63,10 +66,16 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             int[] supportedSampleRates = codec.GetSupportedSamplerates().ToArray();
             var supportedFmts = codec.GetSampelFmts().ToArray();
 
-            if (channelLayout.nb_channels <= 0 || sampleRate <= 0 || bitRate < 0)
-                throw new InvalidOperationException("Invalid audio settings");
+            if (channelLayout.nb_channels <= 0)
+                throw new InvalidOperationException("Channels must be greater than 0");
+            if (bitRate < 0)
+                throw new InvalidOperationException("Bitrate must be greater than 0");
             if (supportedFmts.Length == 0 || supportedSampleRates.Length == 0)
+            {
+                _logger.LogInformation("Supported sample rates: {Rates}", string.Join(", ", supportedSampleRates));
+                _logger.LogInformation("Supported sample formats: {Formats}", string.Join(", ", supportedFmts));
                 throw new InvalidOperationException("Invalid audio codec");
+            }
 
             if (sampleRate <= 0)
             {
@@ -74,7 +83,8 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             }
             else if (supportedSampleRates.All(i => i != sampleRate))
             {
-                throw new InvalidOperationException($"Invalid sample rate.\nSupported sample rates: {string.Join(", ", supportedSampleRates)}");
+                throw new InvalidOperationException(
+                    $"Invalid sample rate.\nSupported sample rates: {string.Join(", ", supportedSampleRates)}");
             }
 
             if (format == AVSampleFormat.AV_SAMPLE_FMT_NONE)
@@ -83,11 +93,13 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             }
             else if (supportedFmts.All(i => i != format))
             {
-                throw new InvalidOperationException($"Invalid sample format.\nSupported sample formats: {string.Join(", ", supportedFmts.Cast<FFmpegAudioEncoderSettings.AudioFormat>())}");
+                throw new InvalidOperationException(
+                    $"Invalid sample format.\nSupported sample formats: {string.Join(", ", supportedFmts.Cast<FFmpegAudioEncoderSettings.AudioFormat>())}");
             }
 
-            if (codec.GetChLayouts().Any()
-                && codec.GetChLayouts().All(i => !i.IsContentEqual(channelLayout)))
+            var layouts = codec.GetChLayouts().ToArray();
+            if (layouts.Length > 0
+                && layouts.All(i => !i.IsContentEqual(channelLayout)))
             {
                 throw new InvalidOperationException("Invalid channel layout");
             }
@@ -150,7 +162,8 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             if (format == AVPixelFormat.AV_PIX_FMT_NONE)
                 format = supportedPixelFmts.First(i => ffmpeg.sws_isSupportedInput(i) != 0);
             else if (supportedPixelFmts.All(i => i != format))
-                throw new InvalidOperationException($"Invalid pixel format.\nSupported pixel formats: {string.Join(", ", supportedPixelFmts)}");
+                throw new InvalidOperationException(
+                    $"Invalid pixel format.\nSupported pixel formats: {string.Join(", ", supportedPixelFmts)}");
             codecContext.Width = width;
             codecContext.Height = height;
             codecContext.TimeBase =
