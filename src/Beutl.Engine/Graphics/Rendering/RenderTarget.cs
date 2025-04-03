@@ -152,7 +152,14 @@ public class RenderTarget : IDisposable
                         {
                             if (_dispatcher != null)
                             {
-                                _dispatcher.Dispatch(value.Dispose);
+                                if (_dispatcher.CheckAccess())
+                                {
+                                    value.Dispose();
+                                }
+                                else
+                                {
+                                    _dispatcher.Dispatch(value.Dispose);
+                                }
                             }
                             else
                             {
