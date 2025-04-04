@@ -217,8 +217,6 @@ public sealed class Clipping : FilterEffect
                 float pointX = MathF.CopySign(MathF.Ceiling(thickness.Left) - thickness.Left, thickness.Left);
                 float pointY = MathF.CopySign(MathF.Ceiling(thickness.Top) - thickness.Top, thickness.Top);
 
-                using SKImage skImage = surface.Snapshot(SKRectI.Floor(intersect.ToSKRect()));
-
                 // 新しいBounds
                 var newBounds = clipRect
                     .WithX(target.Bounds.X + thickness.Left - pointX)
@@ -246,11 +244,10 @@ public sealed class Clipping : FilterEffect
                     newTarget = context.CreateTarget(newBounds);
                 }
 
-                newTarget.RenderTarget?.Value?.Canvas?.DrawImage(
-                    skImage,
-                    intersect.X - clipRect.X + pointX,
-                    intersect.Y - clipRect.Y + pointY);
-                // Debug.WriteLine(target.Bounds.X + thickness.Left - pointX);
+                newTarget.RenderTarget?.Value?.Canvas?.DrawSurface(
+                    surface,
+                    -clipRect.X + pointX,
+                    -clipRect.Y + pointY);
 
                 target.Dispose();
                 context.Targets[i] = newTarget;
