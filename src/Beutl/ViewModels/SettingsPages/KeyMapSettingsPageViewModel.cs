@@ -31,7 +31,7 @@ public class KeyMapSettingsItem
             OperatingSystem.IsLinux() ? OSPlatform.Linux :
             OSPlatform.OSX;
         var gesture = command.KeyGestures
-            .FirstOrDefault(i => !i.Platform.HasValue || i.Platform == os)
+            .FirstOrDefault(i => i.Platform == os)
             ?.KeyGesture;
         KeyGesture = new ReactiveProperty<KeyGesture?>(gesture);
     }
@@ -45,7 +45,8 @@ public class KeyMapSettingsItem
         KeyGesture.Value = gesture;
         OSPlatform os = OperatingSystem.IsWindows() ? OSPlatform.Windows :
             OperatingSystem.IsLinux() ? OSPlatform.Linux :
-            OSPlatform.OSX;
+            OperatingSystem.IsMacOS() ? OSPlatform.OSX :
+            throw new NotSupportedException();
         _commandManager.ChangeKeyGesture(Command, gesture, os);
     }
 }

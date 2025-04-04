@@ -59,9 +59,9 @@ public class GetCommandGestureExtension : MarkupExtension
         OSPlatform pid = OperatingSystem.IsWindows() ? OSPlatform.Windows :
             OperatingSystem.IsMacOS() ? OSPlatform.OSX :
             OperatingSystem.IsLinux() ? OSPlatform.Linux :
-            OSPlatform.Create("Unknown");
+            throw new NotSupportedException();
 
         return e.KeyGestures
-            .FirstOrDefault(gesture => !gesture.Platform.HasValue || gesture.Platform == pid)?.KeyGesture!;
+            .FirstOrDefault(gesture => gesture.Platform == pid)?.KeyGesture!;
     }
 }
