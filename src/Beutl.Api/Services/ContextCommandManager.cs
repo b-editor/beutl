@@ -16,7 +16,7 @@ public record ContextCommandEntry(
     ContextCommandDefinition Definition,
     CoreList<ContextCommandParsedKeyGesture> KeyGestures);
 
-public record ContextCommandParsedKeyGesture(KeyGesture? KeyGesture, OSPlatform? Platform);
+public record ContextCommandParsedKeyGesture(KeyGesture? KeyGesture, OSPlatform Platform);
 
 public record ContextCommandHandler(MethodInfo MethodInfo, ParameterInfo[] Parameters)
 {
@@ -107,22 +107,25 @@ public class ContextCommandManager(
                 => new ContextCommandEntry(
                     extension.GetType(),
                     def,
-                    [
-                        .. def.KeyGestures?.Select(g =>
-                          {
-                              try
-                              {
-                                  return new ContextCommandParsedKeyGesture(
-                                      g.KeyGesture == null ? null : KeyGesture.Parse(g.KeyGesture), g.Platform);
-                              }
-                              catch (Exception ex)
-                              {
-                                  _logger.LogWarning(ex, "Failed to parse key gesture: {KeyGesture}", g.KeyGesture);
-                                  return new ContextCommandParsedKeyGesture(null, g.Platform);
-                              }
-                          }).OrderBy(i => i.Platform.HasValue ? 0 : int.MaxValue)
-                          ?? Enumerable.Empty<ContextCommandParsedKeyGesture>()
-                    ]))
+                    new(def.KeyGestures?.Select(g =>
+                    {
+                        if (!g.Platform.HasValue)
+                        {
+                            _logger.LogWarning("Key gesture platform is not specified: {KeyGesture}", g.KeyGesture);
+                            return null!;
+                        }
+
+                        try
+                        {
+                            return new ContextCommandParsedKeyGesture(
+                                g.KeyGesture == null ? null : KeyGesture.Parse(g.KeyGesture), g.Platform.Value);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to parse key gesture: {KeyGesture}", g.KeyGesture);
+                            return new ContextCommandParsedKeyGesture(null, g.Platform.Value);
+                        }
+                    }).Where(i => i != null!) ?? [])))
             .ToArray();
 
         Restore(definitions);
@@ -145,7 +148,7 @@ public class ContextCommandManager(
         return _entries.Values.SelectMany(i => i);
     }
 
-    public void ChangeKeyGesture(ContextCommandEntry entry, KeyGesture? keyGesture, OSPlatform? platform)
+    public void ChangeKeyGesture(ContextCommandEntry entry, KeyGesture? keyGesture, OSPlatform platform)
     {
         bool changed = false;
         for (int i = 0; i < entry.KeyGestures.Count; i++)
@@ -161,14 +164,7 @@ public class ContextCommandManager(
         // platformId が見つからなかった場合、追加する
         if (!changed)
         {
-            if (platform.HasValue)
-            {
-                entry.KeyGestures.Add(new ContextCommandParsedKeyGesture(keyGesture, platform));
-            }
-            else
-            {
-                entry.KeyGestures.Insert(0, new ContextCommandParsedKeyGesture(keyGesture, platform));
-            }
+            entry.KeyGestures.Add(new ContextCommandParsedKeyGesture(keyGesture, platform));
         }
 
         settingsStore.Save(GetFullName(entry), keyGesture, platform);
@@ -200,12 +196,9 @@ public class ContextCommandManager(
                 }
 
                 // プラットフォームが指定されていない場合、先頭に追加する
-                if (i.Platform.HasValue)
-                    entry.KeyGestures.Add(i);
-                else
-                    entry.KeyGestures.Insert(0, i);
+                entry.KeyGestures.Add(i);
 
-                NextItem:;
+                NextItem: ;
             }
         }
     }
@@ -224,14 +217,14 @@ public class ContextCommandManager(
                 OSPlatform pid = OperatingSystem.IsWindows() ? OSPlatform.Windows :
                     OperatingSystem.IsMacOS() ? OSPlatform.OSX :
                     OperatingSystem.IsLinux() ? OSPlatform.Linux :
-                    OSPlatform.Create("Unknown");
+                    throw new PlatformNotSupportedException();
                 if (context is IContextCommandHandler compiledHandler)
                 {
                     foreach (ContextCommandEntry entry in entries)
                     {
                         // Platformが一致するものがない場合はスキップ
                         // Gestureが一致するものがない場合はスキップ
-                        if (entry.KeyGestures.Where(gesture => !gesture.Platform.HasValue || gesture.Platform == pid)
+                        if (entry.KeyGestures.Where(gesture => gesture.Platform == pid)
                             .All(gesture => gesture.KeyGesture?.Matches(args) != true))
                         {
                             continue;
@@ -255,7 +248,7 @@ public class ContextCommandManager(
                 {
                     // Platformが一致するものがない場合はスキップ
                     // Gestureが一致するものがない場合はスキップ
-                    if (entry.KeyGestures.Where(gesture => !gesture.Platform.HasValue || gesture.Platform == pid)
+                    if (entry.KeyGestures.Where(gesture => gesture.Platform == pid)
                         .All(gesture => gesture.KeyGesture?.Matches(args) != true))
                     {
                         continue;
@@ -282,9 +275,9 @@ public record ContextCommandSettingsStore : IBeutlApiResource
         RestoreAll();
     }
 
-    public void Save(string name, KeyGesture? keyGesture, OSPlatform? os)
+    public void Save(string name, KeyGesture? keyGesture, OSPlatform os)
     {
-        string platform = os.ToString() ?? "Default";
+        string platform = os.ToString();
         if (!_json.TryGetPropertyValue(platform, out var node)
             || node is not JsonObject obj)
         {
@@ -297,24 +290,30 @@ public record ContextCommandSettingsStore : IBeutlApiResource
         SaveAll();
     }
 
+    private static bool ValidateKey(string key)
+    {
+        return key.Equals("Windows", StringComparison.OrdinalIgnoreCase)
+               || key.Equals("Linux", StringComparison.OrdinalIgnoreCase)
+               || key.Equals("OSX", StringComparison.OrdinalIgnoreCase);
+    }
+
     public IEnumerable<ContextCommandParsedKeyGesture> Restore(string name)
     {
         foreach (var (key, node) in _json)
         {
+            if (!ValidateKey(key)) continue;
             if (node is JsonObject obj && obj.TryGetPropertyValueAsJsonValue(name, out string? value))
             {
                 ContextCommandParsedKeyGesture? gesture = null;
                 if (string.IsNullOrEmpty(value))
                 {
-                    gesture = new ContextCommandParsedKeyGesture(null,
-                        key == "Default" ? null : OSPlatform.Create(key));
+                    gesture = new ContextCommandParsedKeyGesture(null, OSPlatform.Create(key));
                 }
                 else
                 {
                     try
                     {
-                        gesture = new ContextCommandParsedKeyGesture(KeyGesture.Parse(value),
-                            key == "Default" ? null : OSPlatform.Create(key));
+                        gesture = new ContextCommandParsedKeyGesture(KeyGesture.Parse(value), OSPlatform.Create(key));
                     }
                     catch (Exception ex)
                     {
