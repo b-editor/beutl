@@ -207,6 +207,7 @@ public sealed class Clipping : FilterEffect
             if (intersect.IsEmpty || clipRect.Width == 0 || clipRect.Height == 0)
             {
                 context.Targets.RemoveAt(i);
+                target.Dispose();
                 i--;
             }
             else

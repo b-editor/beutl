@@ -108,6 +108,7 @@ public class RenderTarget : IDisposable
 
         _surface.Release();
         IsDisposed = true;
+        GC.SuppressFinalize(this);
     }
 
     private sealed class SKSurfaceCounter(SKSurface value)
@@ -152,7 +153,14 @@ public class RenderTarget : IDisposable
                         {
                             if (_dispatcher != null)
                             {
-                                _dispatcher.Dispatch(value.Dispose);
+                                if (_dispatcher.CheckAccess())
+                                {
+                                    value.Dispose();
+                                }
+                                else
+                                {
+                                    _dispatcher.Dispatch(value.Dispose);
+                                }
                             }
                             else
                             {
