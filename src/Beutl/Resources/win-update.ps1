@@ -169,7 +169,7 @@ try {
     Write-Log "@(Message.Lock_released)"
 
     # ユーザーにアプリケーション起動の確認をする
-    $response = Prompt-YesNo "@(Message.Message.Update_completed_Do_you_want_to_start_the_ߋn_application)"
+    $response = Prompt-YesNo "@(Message.Update_completed_Do_you_want_to_start_the_ߋn_application)"
     if ($response -eq [System.Windows.Forms.DialogResult]::Yes) {
         Write-Log "@(Message.Launch_the_application)"
         if (![string]::IsNullOrEmpty($EXECUTABLE_PATH)) {
