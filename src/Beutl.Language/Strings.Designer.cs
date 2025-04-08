@@ -1832,6 +1832,12 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Conic", resourceCulture);
             }
         }
+
+        public static string IsLoop {
+            get {
+                return ResourceManager.GetString("IsLoop", resourceCulture);
+            }
+        }
         
         public static string Symmetry {
             get {
