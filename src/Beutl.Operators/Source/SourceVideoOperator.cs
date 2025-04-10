@@ -11,6 +11,7 @@ public sealed class SourceVideoOperator() : PublishOperator<SourceVideo>(
     (SourceVideo.OffsetPositionProperty, TimeSpan.Zero),
     (SourceVideo.SpeedProperty, 100f),
     SourceVideo.SourceProperty,
+    (SourceVideo.IsLoopProperty, false),
     (Drawable.TransformProperty, () => new TransformGroup()),
     Drawable.AlignmentXProperty,
     Drawable.AlignmentYProperty,

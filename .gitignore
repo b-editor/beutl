@@ -362,3 +362,4 @@ packages/ubuntu22.04_amd64/usr/bin/
 .DS_Store
 
 coverage_report/
+.nuke/temp

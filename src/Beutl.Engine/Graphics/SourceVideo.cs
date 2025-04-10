@@ -12,9 +12,11 @@ public class SourceVideo : Drawable
     public static readonly CoreProperty<TimeSpan> OffsetPositionProperty;
     public static readonly CoreProperty<float> SpeedProperty;
     public static readonly CoreProperty<IVideoSource?> SourceProperty;
+    public static readonly CoreProperty<bool> IsLoopProperty;
     private TimeSpan _offsetPosition;
     private float _speed = 100;
     private IVideoSource? _source;
+    private bool _isLoop;
     private TimeSpan _requestedPosition;
     private TimeSpan? _renderedPosition;
 
@@ -34,10 +36,16 @@ public class SourceVideo : Drawable
             .Accessor(o => o.Source, (o, v) => o.Source = v)
             .Register();
 
+        IsLoopProperty = ConfigureProperty<bool, SourceVideo>(nameof(IsLoop))
+            .Accessor(o => o.IsLoop, (o, v) => o.IsLoop = v)
+            .DefaultValue(false)
+            .Register();
+
         AffectsRender<SourceVideo>(
             OffsetPositionProperty,
             SpeedProperty,
-            SourceProperty);
+            SourceProperty,
+            IsLoopProperty);
     }
 
     [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
@@ -59,6 +67,13 @@ public class SourceVideo : Drawable
     {
         get => _source;
         set => SetAndRaise(SourceProperty, ref _source, value);
+    }
+
+    [Display(Name = nameof(Strings.IsLoop), ResourceType = typeof(Strings))]
+    public bool IsLoop
+    {
+        get => _isLoop;
+        set => SetAndRaise(IsLoopProperty, ref _isLoop, value);
     }
 
     private TimeSpan CalculateVideoTime(TimeSpan timeSpan)
@@ -189,7 +204,22 @@ public class SourceVideo : Drawable
             _requestedPosition = clock.CurrentTime * (_speed / 100);
         }
 
-        if (_requestedPosition < TimeSpan.Zero)
+        // ループ処理を追加
+        if (IsLoop && Source?.IsDisposed == false && Source.Duration > TimeSpan.Zero)
+        {
+            // 正の値の場合、動画の長さでモジュロ計算
+            if (_requestedPosition >= TimeSpan.Zero)
+            {
+                _requestedPosition = TimeSpan.FromTicks(_requestedPosition.Ticks % Source.Duration.Ticks);
+            }
+            // 負の値の場合、動画の長さを足してからモジュロ計算
+            else
+            {
+                var positiveTicks = Source.Duration.Ticks + (_requestedPosition.Ticks % Source.Duration.Ticks);
+                _requestedPosition = TimeSpan.FromTicks(positiveTicks % Source.Duration.Ticks);
+            }
+        }
+        else if (_requestedPosition < TimeSpan.Zero)
         {
             _requestedPosition = (Source?.Duration ?? TimeSpan.Zero) + _requestedPosition;
         }

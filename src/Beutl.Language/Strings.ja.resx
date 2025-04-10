@@ -1016,6 +1016,9 @@
   <data name="Conic" xml:space="preserve">
     <value>円錐</value>
   </data>
+  <data name="IsLoop" xml:space="preserve">
+    <value>ループ</value>
+  </data>
   <data name="Symmetry" xml:space="preserve">
     <value>対称</value>
   </data>

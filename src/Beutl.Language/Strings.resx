@@ -1011,6 +1011,9 @@
   <data name="Conic" xml:space="preserve">
     <value>Conic</value>
   </data>
+  <data name="IsLoop" xml:space="preserve">
+    <value>Loop</value>
+  </data>
   <data name="Symmetry" xml:space="preserve">
     <value>Symmetry</value>
   </data>
