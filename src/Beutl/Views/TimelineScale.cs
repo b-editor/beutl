@@ -285,6 +285,17 @@ public sealed class TimelineScale : Control
             context.DrawLine(_seekBarPen, seekbar, seekbar + bottom);
 
             context.DrawLine(_endingBarPen, endingbar, endingbar + bottom);
+
+            // EndingBarのドラッグ可能マーカーを描画
+            if (EndingBarBrush?.ToImmutable() is { } brush)
+            {
+                const int markerHeight = 16;
+                const int markerWidth = 4;
+                double left = _endingBarMargin.Left - markerWidth / 2.0;
+                double markerTop = height - markerHeight;
+                context.FillRectangle(brush, new Rect(left, markerTop, markerWidth, markerHeight));
+                context.DrawRectangle(brush, null, new Rect(left, markerTop, markerWidth, markerHeight));
+            }
         }
     }
 }
