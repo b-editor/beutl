@@ -137,6 +137,7 @@
         <Panel>
             <TextBlock x:Name="textBlock"
                        VerticalAlignment="Center"
+                       ClipToBounds="True"
                        Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
                        Text="{Binding Name.Value}" />
             <TextBox x:Name="textBox"
