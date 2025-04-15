@@ -34,11 +34,13 @@ public sealed partial class Timeline : UserControl
     {
         Free,
         SeekBarPressed,
-        RangeSelectionPressed
+        RangeSelectionPressed,
+        EndingBarMarkerPressed
     }
 
     internal MouseFlags _mouseFlag = MouseFlags.Free;
     internal TimeSpan _pointerFrame;
+    private TimeSpan _initialDuration;
     private bool _rightButtonPressed;
     private readonly ILogger _logger = Log.CreateLogger<Timeline>();
     private readonly CompositeDisposable _disposables = [];
@@ -345,7 +347,8 @@ public sealed partial class Timeline : UserControl
         int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
         _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
 
-        if (_pointerFrame >= viewModel.Scene.Duration)
+        if (_pointerFrame >= viewModel.Scene.Duration && 
+            _mouseFlag != MouseFlags.EndingBarMarkerPressed)
         {
             _pointerFrame = viewModel.Scene.Duration - TimeSpan.FromSeconds(1d / rate);
         }
@@ -365,9 +368,32 @@ public sealed partial class Timeline : UserControl
             overlay.SelectionRange = new(rect.Position, pointerPt.Position);
             UpdateRangeSelection();
         }
+        else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
+        {
+            // ポインタ位置に基づいてシーンDurationを更新
+            TimeSpan newDuration = _pointerFrame;
+            if (newDuration < TimeSpan.FromSeconds(1d / rate))
+            {
+                newDuration = TimeSpan.FromSeconds(1d / rate);
+            }
+            
+            // 直接値を更新（コマンド記録なし）
+            viewModel.Scene.Duration = newDuration;           
+        }
         else
         {
             Point posScale = e.GetPosition(Scale);
+            double endingBarX = viewModel.EndingBarMargin.Value.Left;
+
+            // EndingBarマーカーの当たり判定チェック
+            if (IsPointInTimelineScaleMarker(posScale, endingBarX, Scale.Bounds.Height))
+            {
+                Scale.Cursor = new Cursor(StandardCursorType.SizeWestEast);
+            }
+            else
+            {
+                Scale.Cursor = Cursors.Arrow;
+            }
 
             if (Scale.IsPointerOver && posScale.Y > Scale.Bounds.Height - 8)
             {
@@ -394,6 +420,11 @@ public sealed partial class Timeline : UserControl
             {
                 overlay.SelectionRange = default;
                 _rangeSelection.Clear();
+            }
+            else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
+            {
+                RecordableCommands.Edit(ViewModel.Scene, Scene.DurationProperty, ViewModel.Scene.Duration, _initialDuration)
+                    .DoAndRecord(ViewModel.EditorContext.CommandRecorder);
             }
 
             if (Scale.IsPointerOver && ViewModel.HoveredCacheBlock.Value is { } cache)
@@ -447,6 +478,22 @@ public sealed partial class Timeline : UserControl
         }
     }
 
+    // TimelineScaleの長方形マーカーの当たり判定
+    private bool IsPointInTimelineScaleMarker(Point point, double endingBarX, double height)
+    {
+        // 長方形マーカーのサイズを定義
+        const int markerHeight = 16;
+        const int markerWidth = 4;
+
+        // 長方形の範囲を計算
+        double left = endingBarX - markerWidth / 2.0;
+        double top = height - markerHeight;
+        var rect = new Rect(left, top, markerWidth, markerHeight);
+
+        // 点が長方形内にあるか判定
+        return rect.Contains(point);
+    }
+
     // ポインターが押された
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -469,8 +516,20 @@ public sealed partial class Timeline : UserControl
             }
             else
             {
-                _mouseFlag = MouseFlags.SeekBarPressed;
-                viewModel.EditorContext.CurrentTime.Value = viewModel.ClickedFrame;
+                double endingBarX = viewModel.EndingBarMargin.Value.Left;
+                Point scalePoint = e.GetPosition(Scale);
+
+                // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
+                if (IsPointInTimelineScaleMarker(scalePoint, endingBarX, Scale.Bounds.Height))
+                {
+                    _mouseFlag = MouseFlags.EndingBarMarkerPressed;
+                    _initialDuration = viewModel.Scene.Duration; // 初期値を保存
+                }
+                else
+                {
+                    _mouseFlag = MouseFlags.SeekBarPressed;
+                    viewModel.EditorContext.CurrentTime.Value = viewModel.ClickedFrame;
+                }
             }
         }
 
