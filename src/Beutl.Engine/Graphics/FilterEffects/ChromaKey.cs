@@ -12,11 +12,13 @@ public class ChromaKey : FilterEffect
     public static readonly CoreProperty<Color> ColorProperty;
     public static readonly CoreProperty<float> HueRangeProperty;
     public static readonly CoreProperty<float> SaturationRangeProperty;
+    public static readonly CoreProperty<float> BoundaryProperty;
     private static readonly ILogger s_logger = Log.CreateLogger<ChromaKey>();
     private static readonly SKRuntimeEffect? s_runtimeEffect;
     private Color _color;
     private float _hueRange;
     private float _saturationRange;
+    private float _boundary = 2f;
 
     static ChromaKey()
     {
@@ -32,13 +34,19 @@ public class ChromaKey : FilterEffect
             .Accessor(o => o.SaturationRange, (o, v) => o.SaturationRange = v)
             .Register();
 
-        AffectsRender<ChromaKey>(ColorProperty, HueRangeProperty, SaturationRangeProperty);
+        BoundaryProperty = ConfigureProperty<float, ChromaKey>(nameof(Boundary))
+            .Accessor(o => o.Boundary, (o, v) => o.Boundary = v)
+            .DefaultValue(2f)
+            .Register();
+
+        AffectsRender<ChromaKey>(ColorProperty, HueRangeProperty, SaturationRangeProperty, BoundaryProperty);
         string sksl =
             """
             uniform shader src;
             uniform float4 color;
             uniform float hueRange;
             uniform float saturationRange;
+            uniform float boundary;
 
             // RGBからHSVへの変換関数
             half3 rgb2hsv(half3 c) {
@@ -72,18 +80,23 @@ public class ChromaKey : FilterEffect
 
                 // 入力色と基準色をHSVに変換
                 half3 hsv = rgb2hsv(c.rgb);
-                half3 refHsv = rgb2hsv(color.rgb);
+                half3 keyHSV = rgb2hsv(color.rgb);
 
                 // 色相の差を計算（周期性を考慮）
-                half hueDiff = abs(hsv.x - refHsv.x);
+                half hueDiff = abs(hsv.x - keyHSV.x);
                 hueDiff = min(hueDiff, 1.0 - hueDiff);
 
-                // 色相と彩度が指定範囲内ならアルファ値を0（透明）に
-                if (hueDiff < hueRange && abs(hsv.y - refHsv.y) < saturationRange) {
-                    return half4(c.r, c.g, c.b, 0.0);
-                }
+                // 彩度の差の絶対値
+                half satDiff = abs(hsv.y - keyHSV.y);
 
-                return c;
+                half maskHue = smoothstep(hueRange + boundary, hueRange, hueDiff);
+                half maskSat = smoothstep(saturationRange + boundary, saturationRange, satDiff);
+
+                // 色相と彩度の両条件を満たすかを判定（両方のマスク値が低いほど基準色に近いと判断）
+                half mask = min(maskHue, maskSat);
+
+                // 出力色のアルファ値にマスクを乗算して、クロマキー部分を透過させる
+                return half4(c.rgb, c.a * (1.0 - mask));
             }
             """;
 
@@ -116,12 +129,20 @@ public class ChromaKey : FilterEffect
         set => SetAndRaise(SaturationRangeProperty, ref _saturationRange, value);
     }
 
-    public override void ApplyTo(FilterEffectContext context)
+    // TODO: 言語リソースを追加
+    // [Display(Name = nameof(Strings.Boundary), ResourceType = typeof(Strings))]
+    public float Boundary
     {
-        context.CustomEffect((Color, HueRange, SaturationRange), OnApplyTo, (_, r) => r);
+        get => _boundary;
+        set => SetAndRaise(BoundaryProperty, ref _boundary, value);
     }
 
-    private static void OnApplyTo((Color color, float hueRange, float satRange) data, CustomFilterEffectContext c)
+    public override void ApplyTo(FilterEffectContext context)
+    {
+        context.CustomEffect((Color, HueRange, SaturationRange, Boundary), OnApplyTo, (_, r) => r);
+    }
+
+    private static void OnApplyTo((Color color, float hueRange, float satRange, float boundary) data, CustomFilterEffectContext c)
     {
         for (int i = 0; i < c.Targets.Count; i++)
         {
@@ -139,6 +160,7 @@ public class ChromaKey : FilterEffect
             builder.Uniforms["color"] = new SKColor(data.color.R, data.color.G, data.color.B, data.color.A);
             builder.Uniforms["hueRange"] = data.hueRange / 360f;
             builder.Uniforms["saturationRange"] = data.satRange / 100f;
+            builder.Uniforms["boundary"] = data.boundary / 100f;
 
             // 最終的なシェーダーを生成
             using (SKShader finalShader = builder.Build())
