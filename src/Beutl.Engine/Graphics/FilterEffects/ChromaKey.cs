@@ -96,7 +96,7 @@ public class ChromaKey : FilterEffect
                 half mask = min(maskHue, maskSat);
 
                 // 出力色のアルファ値にマスクを乗算して、クロマキー部分を透過させる
-                return half4(c.rgb, c.a * (1.0 - mask));
+                return c * (1.0 - mask);
             }
             """;
 
