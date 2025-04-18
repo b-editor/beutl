@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
@@ -53,12 +54,14 @@ public class MosaicEffect : FilterEffect
     }
 
     [Range(typeof(Size), "0.0001, 0.0001", "max,max")]
+    [Display(Name = nameof(Strings.TileSize), ResourceType = typeof(Strings))]
     public Size TileSize
     {
         get => _tileSize;
         set => SetAndRaise(TileSizeProperty, ref _tileSize, value);
     }
 
+    [Display(Name = nameof(Strings.Origin), ResourceType = typeof(Strings))]
     public RelativePoint Origin
     {
         get => _origin;

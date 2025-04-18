@@ -129,8 +129,7 @@ public class ChromaKey : FilterEffect
         set => SetAndRaise(SaturationRangeProperty, ref _saturationRange, value);
     }
 
-    // TODO: 言語リソースを追加
-    // [Display(Name = nameof(Strings.Boundary), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(Strings.BoundaryCorrection), ResourceType = typeof(Strings))]
     public float Boundary
     {
         get => _boundary;

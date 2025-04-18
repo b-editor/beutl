@@ -1389,4 +1389,13 @@
   <data name="Item" xml:space="preserve">
     <value>Item</value>
   </data>
+  <data name="BoundaryCorrection" xml:space="preserve">
+    <value>Boundary correction</value>
+  </data>
+  <data name="TileSize" xml:space="preserve">
+    <value>Tile size</value>
+  </data>
+  <data name="Origin" xml:space="preserve">
+    <value>Origin</value>
+  </data>
 </root>
