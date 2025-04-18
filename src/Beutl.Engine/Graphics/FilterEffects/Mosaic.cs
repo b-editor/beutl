@@ -4,6 +4,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Obsolete("Use MosaicEffect instead.")]
 public class Mosaic : FilterEffect
 {
     public static readonly CoreProperty<float> ScaleProperty;

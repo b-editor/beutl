@@ -142,7 +142,7 @@ public static class LibraryRegistrar
                 .AddFilterEffect<SplitEffect>(Strings.SplitEquallyEffect)
                 .AddFilterEffect<PartsSplitEffect>(Strings.SplitByPartsEffect)
                 .AddFilterEffect<TransformEffect>(Strings.Transform)
-                .AddFilterEffect<Mosaic>(Strings.Mosaic)
+                .AddFilterEffect<MosaicEffect>(Strings.Mosaic)
                 .AddFilterEffect<ColorShift>(Strings.ColorShift)
                 .AddFilterEffect<ShakeEffect>(Strings.ShakeEffect)
                 .AddFilterEffect<DisplacementMapEffect>(Strings.DisplacementMap)

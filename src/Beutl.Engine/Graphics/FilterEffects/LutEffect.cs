@@ -1,17 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
-using Beutl.Media;
-using ILGPU;
-using ILGPU.Runtime;
-
 using Microsoft.Extensions.Logging;
-
-using OpenCvSharp;
-
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -20,7 +10,11 @@ public sealed class LutEffect : FilterEffect
 {
     public static readonly CoreProperty<FileInfo?> SourceProperty;
     public static readonly CoreProperty<float> StrengthProperty;
-    private static readonly ILogger<LutEffect> s_logger = BeutlApplication.Current.LoggerFactory.CreateLogger<LutEffect>();
+
+    private static readonly ILogger<LutEffect> s_logger =
+        BeutlApplication.Current.LoggerFactory.CreateLogger<LutEffect>();
+
+    private static readonly SKRuntimeEffect? s_runtimeEffect;
     private FileInfo? _source;
     private float _strength = 100;
     private CubeFile? _cube;
@@ -37,6 +31,108 @@ public sealed class LutEffect : FilterEffect
             .Register();
 
         AffectsRender<LutEffect>(SourceProperty, StrengthProperty);
+
+        // https://shizenkarasuzon.hatenablog.com/entry/2020/08/13/185223
+        string sksl =
+            """
+            uniform shader src;
+            // 横に長いシェーダー指定
+            uniform shader lut;
+            uniform int lutSize;
+            uniform float strength;
+
+            int modInt(int a, int b) {
+                return a - b * (a / b);
+            }
+
+            float3 trilinear_interpolate(float4 color)
+            {
+                int3 pos; // 0~33
+                float3 delta; //
+                int lutSize2 = lutSize * lutSize;
+
+                pos.x = int(clamp((color.r * 255.0) * float(lutSize) / 256.0, 0, 255));
+                pos.y = int(clamp((color.g * 255.0) * float(lutSize) / 256.0, 0, 255));
+                pos.z = int(clamp((color.b * 255.0) * float(lutSize) / 256.0, 0, 255));
+
+                // 小数点部分
+                delta.x = ((color.r * 255.0) * float(lutSize) / 256.0) - float(pos.x);
+                delta.y = ((color.g * 255.0) * float(lutSize) / 256.0) - float(pos.y);
+                delta.z = ((color.b * 255.0) * float(lutSize) / 256.0) - float(pos.z);
+
+                float3 vertex_color_0, vertex_color_1, vertex_color_2, vertex_color_3, vertex_color_4, vertex_color_5, vertex_color_6, vertex_color_7;
+                float3 surf_color_0, surf_color_1, surf_color_2, surf_color_3;
+                float3 line_color_0, line_color_1;
+                float3 out_color;
+
+                int index = pos.x + pos.y * lutSize + pos.z * lutSize2;
+
+                int next_index_0 = 1;
+                int next_index_1 = lutSize;
+                int next_index_2 = lutSize2;
+
+                if (modInt(index, lutSize) == lutSize - 1)
+                {
+                    next_index_0 = 0;
+                }
+                if (modInt(index / lutSize, lutSize) == lutSize - 1)
+                {
+                    next_index_1 = 0;
+                }
+                if (modInt(index / lutSize2, lutSize) == lutSize - 1)
+                {
+                    next_index_2 = 0;
+                }
+
+                // https://en.wikipedia.org/wiki/Trilinear_interpolation
+                vertex_color_0 = float3(lut.eval(float2(index, 0)).rgb);
+                vertex_color_1 = float3(lut.eval(float2(index + next_index_0, 0)).rgb);
+                vertex_color_2 = float3(lut.eval(float2(index + next_index_0 + next_index_1, 0)).rgb);
+                vertex_color_3 = float3(lut.eval(float2(index + next_index_1, 0)).rgb);
+                vertex_color_4 = float3(lut.eval(float2(index + next_index_2, 0)).rgb);
+                vertex_color_5 = float3(lut.eval(float2(index + next_index_0 + next_index_2, 0)).rgb);
+                vertex_color_6 = float3(lut.eval(float2(index + next_index_0 + next_index_1 + next_index_2, 0)).rgb);
+                vertex_color_7 = float3(lut.eval(float2(index + next_index_1 + next_index_2, 0)).rgb);
+
+                surf_color_0 = vertex_color_0 * (1.0 - delta.z) + vertex_color_4 * delta.z;
+                surf_color_1 = vertex_color_1 * (1.0 - delta.z) + vertex_color_5 * delta.z;
+                surf_color_2 = vertex_color_2 * (1.0 - delta.z) + vertex_color_6 * delta.z;
+                surf_color_3 = vertex_color_3 * (1.0 - delta.z) + vertex_color_7 * delta.z;
+
+                line_color_0 = surf_color_0 * (1.0 - delta.x) + surf_color_1 * delta.x;
+                line_color_1 = surf_color_3 * (1.0 - delta.x) + surf_color_2 * delta.x;
+
+                out_color = line_color_0 * (1.0 - delta.y) + line_color_1 * delta.y;
+
+                return out_color;
+            }
+
+            float4 mix_strength(float3 color, float4 original) {
+                float4 newColor;
+
+                newColor.r = color.r * strength + (original.r * (1.0 - strength));
+                newColor.g = color.g * strength + (original.g * (1.0 - strength));
+                newColor.b = color.b * strength + (original.b * (1.0 - strength));
+                newColor.a = original.a;
+
+                return newColor;
+            }
+
+            half4 main(float2 fragCoord) {
+                // 入力画像から色を取得
+                float4 c = float4(src.eval(fragCoord));
+
+                float3 newColor = trilinear_interpolate(c);
+
+                return half4(mix_strength(newColor, c));
+            }
+            """;
+
+        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
+        if (errorText is not null)
+        {
+            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+        }
     }
 
     public FileInfo? Source
@@ -98,133 +194,50 @@ public sealed class LutEffect : FilterEffect
         }
     }
 
-    private unsafe void OnApply3DLUT_GPU((CubeFile, float) data, CustomFilterEffectContext context)
+    private void OnApply3DLUT_GPU((CubeFile, float) data, CustomFilterEffectContext c)
     {
-        for (int i = 0; i < context.Targets.Count; i++)
+        for (int i = 0; i < c.Targets.Count; i++)
         {
-            var target = context.Targets[i];
-            var surface = target.RenderTarget!.Value;
-            Accelerator accelerator = SharedGPUContext.Accelerator;
-            var kernel = accelerator.LoadAutoGroupedStreamKernel<
-                Index1D, ArrayView<Vec4b>, ArrayView<Vector3>, int, float>(Apply3DLUTKernel);
+            EffectTarget effectTarget = c.Targets[i];
+            var renderTarget = effectTarget.RenderTarget!;
 
-            var size = PixelSize.FromSize(target.Bounds.Size, 1);
-            var imgInfo = new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888);
+            using var image = renderTarget.Value.Snapshot();
+            using var baseShader = SKShader.CreateImage(image);
 
-            using var source = accelerator.Allocate1D<Vec4b>(size.Width * size.Height);
-            using var lut = accelerator.Allocate1D(data.Item1.Data);
+            // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
+            var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
 
-            CopyFromCPU(source, surface, imgInfo);
+            using var lutImage = SKImage.Create(new SKImageInfo(data.Item1.Data.Length, 1, SKColorType.RgbaF32));
+            using (var pixmap = lutImage.PeekPixels())
+            {
+                var span = pixmap.GetPixelSpan<Vector4>();
+                for (int j = 0; j < data.Item1.Data.Length; j++)
+                {
+                    var color = data.Item1.Data[j];
+                    span[j] = new Vector4(color, 1);
+                }
+            }
+            using var lutShader = SKShader.CreateImage(lutImage);
 
-            kernel((int)source.Length, source.View, lut.View, data.Item1.Size, data.Item2);
+            // child shaderとしてテクスチャ用のシェーダーを設定
+            builder.Children["src"] = baseShader;
+            builder.Children["lut"] = lutShader;
+            builder.Uniforms["lutSize"] = data.Item1.Size;
+            builder.Uniforms["strength"] = data.Item2;
 
-            SKCanvas canvas = surface.Canvas;
-            canvas.Clear();
+            // 最終的なシェーダーを生成
+            using (SKShader finalShader = builder.Build())
+            using (var paint = new SKPaint())
+            {
+                var newTarget = c.CreateTarget(effectTarget.Bounds);
+                var canvas = newTarget.RenderTarget!.Value.Canvas;
+                paint.Shader = finalShader;
+                canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
 
-            using var skBmp = new SKBitmap(imgInfo);
+                c.Targets[i] = newTarget;
+            }
 
-            CopyToCPU(source, skBmp);
-
-            canvas.DrawBitmap(skBmp, 0, 0);
+            effectTarget.Dispose();
         }
-    }
-
-    private static unsafe void CopyFromCPU(MemoryBuffer1D<Vec4b, Stride1D.Dense> source, SKSurface surface, SKImageInfo imageInfo)
-    {
-        void* tmp = NativeMemory.Alloc((nuint)source.LengthInBytes);
-        try
-        {
-            bool result = surface.ReadPixels(imageInfo, (nint)tmp, imageInfo.Width * 4, 0, 0);
-
-            source.View.CopyFromCPU(ref Unsafe.AsRef<Vec4b>(tmp), source.Length);
-        }
-        finally
-        {
-            NativeMemory.Free(tmp);
-        }
-    }
-
-    private static unsafe void CopyToCPU(MemoryBuffer1D<Vec4b, Stride1D.Dense> source, SKBitmap bitmap)
-    {
-        source.View.CopyToCPU(ref Unsafe.AsRef<Vec4b>((void*)bitmap.GetPixels()), source.Length);
-    }
-
-    private static Vector3 TrilinearInterplate(Vec4b color, int lut_size, ArrayView<Vector3> lut)
-    {
-        Vec3b pos = default; // 0~33
-        Vec3f delta = default; //
-        int lut_size_2 = lut_size * lut_size;
-
-        pos.Item0 = (byte)(color.Item0 * lut_size / 256);
-        pos.Item1 = (byte)(color.Item1 * lut_size / 256);
-        pos.Item2 = (byte)(color.Item2 * lut_size / 256);
-
-        delta.Item0 = color.Item0 * lut_size / 256.0f - pos.Item0;
-        delta.Item1 = color.Item1 * lut_size / 256.0f - pos.Item1;
-        delta.Item2 = color.Item2 * lut_size / 256.0f - pos.Item2;
-
-        Vector3 vertex_color_0, vertex_color_1, vertex_color_2, vertex_color_3, vertex_color_4, vertex_color_5, vertex_color_6, vertex_color_7;
-        Vector3 surf_color_0, surf_color_1, surf_color_2, surf_color_3;
-        Vector3 line_color_0, line_color_1;
-        Vector3 out_color;
-
-        int index = pos.Item0 + pos.Item1 * lut_size + pos.Item2 * lut_size_2;
-
-        int next_index_0 = 1, next_index_1 = lut_size, next_index_2 = lut_size_2;
-
-        if (index % lut_size == lut_size - 1)
-        {
-            next_index_0 = 0;
-        }
-        if (index / lut_size % lut_size == lut_size - 1)
-        {
-            next_index_1 = 0;
-        }
-        if (index / lut_size_2 % lut_size == lut_size - 1)
-        {
-            next_index_2 = 0;
-        }
-
-        // https://en.wikipedia.org/wiki/Trilinear_interpolation
-        vertex_color_0 = lut[index];
-        vertex_color_1 = lut[index + next_index_0];
-        vertex_color_2 = lut[index + next_index_0 + next_index_1];
-        vertex_color_3 = lut[index + next_index_1];
-        vertex_color_4 = lut[index + next_index_2];
-        vertex_color_5 = lut[index + next_index_0 + next_index_2];
-        vertex_color_6 = lut[index + next_index_0 + next_index_1 + next_index_2];
-        vertex_color_7 = lut[index + next_index_1 + next_index_2];
-
-        surf_color_0 = vertex_color_0 * (1.0f - delta.Item2) + vertex_color_4 * delta.Item2;
-        surf_color_1 = vertex_color_1 * (1.0f - delta.Item2) + vertex_color_5 * delta.Item2;
-        surf_color_2 = vertex_color_2 * (1.0f - delta.Item2) + vertex_color_6 * delta.Item2;
-        surf_color_3 = vertex_color_3 * (1.0f - delta.Item2) + vertex_color_7 * delta.Item2;
-
-        line_color_0 = surf_color_0 * (1.0f - delta.Item0) + surf_color_1 * delta.Item0;
-        line_color_1 = surf_color_2 * (1.0f - delta.Item0) + surf_color_3 * delta.Item0;
-
-        out_color = line_color_0 * (1.0f - delta.Item1) + line_color_1 * delta.Item1;
-
-        return out_color;
-    }
-
-    private static void Apply3DLUTKernel(Index1D index, ArrayView<Vec4b> src, ArrayView<Vector3> lut, int lutSize, float strength)
-    {
-        Vec4b pixel = src[index];
-
-        Vector3 newColor = TrilinearInterplate(pixel, lutSize, lut);
-
-        src[index] = SetStrength(strength, newColor, pixel);
-    }
-
-    private static Vec4b SetStrength(float strength, Vector3 color, Vec4b original)
-    {
-        var newColor = new Vec4b((byte)(color.X * 255), (byte)(color.Y * 255), (byte)(color.Z * 255), original.Item3);
-
-        newColor.Item0 = (byte)((newColor.Item0 * strength) + (original.Item0 * (1 - strength)));
-        newColor.Item1 = (byte)((newColor.Item1 * strength) + (original.Item1 * (1 - strength)));
-        newColor.Item2 = (byte)((newColor.Item2 * strength) + (original.Item2 * (1 - strength)));
-
-        return newColor;
     }
 }

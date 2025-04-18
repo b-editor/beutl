@@ -2594,5 +2594,23 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Item", resourceCulture);
             }
         }
+        
+        public static string BoundaryCorrection {
+            get {
+                return ResourceManager.GetString("BoundaryCorrection", resourceCulture);
+            }
+        }
+        
+        public static string TileSize {
+            get {
+                return ResourceManager.GetString("TileSize", resourceCulture);
+            }
+        }
+        
+        public static string Origin {
+            get {
+                return ResourceManager.GetString("Origin", resourceCulture);
+            }
+        }
     }
 }

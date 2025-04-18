@@ -1397,4 +1397,13 @@
   <data name="Item" xml:space="preserve">
     <value>アイテム</value>
   </data>
+  <data name="BoundaryCorrection" xml:space="preserve">
+    <value>境界補正</value>
+  </data>
+  <data name="TileSize" xml:space="preserve">
+    <value>タイルサイズ</value>
+  </data>
+  <data name="Origin" xml:space="preserve">
+    <value>起点</value>
+  </data>
 </root>

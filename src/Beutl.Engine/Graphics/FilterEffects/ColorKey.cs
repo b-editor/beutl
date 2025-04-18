@@ -3,12 +3,13 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using ILGPU;
 using ILGPU.Algorithms;
 using ILGPU.Runtime;
-
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -17,8 +18,12 @@ public class ColorKey : FilterEffect
 {
     public static readonly CoreProperty<Color> ColorProperty;
     public static readonly CoreProperty<float> RangeProperty;
+    private static readonly CoreProperty<float> BoundaryProperty;
+    private static readonly ILogger s_logger = Log.CreateLogger<ColorKey>();
+    private static readonly SKRuntimeEffect? s_runtimeEffect;
     private Color _color;
     private float _range;
+    private float _boundary = 2f;
 
     static ColorKey()
     {
@@ -30,7 +35,46 @@ public class ColorKey : FilterEffect
             .Accessor(o => o.Range, (o, v) => o.Range = v)
             .Register();
 
-        AffectsRender<ColorKey>(ColorProperty, RangeProperty);
+        BoundaryProperty = ConfigureProperty<float, ColorKey>(nameof(Boundary))
+            .Accessor(o => o.Boundary, (o, v) => o.Boundary = v)
+            .DefaultValue(2f)
+            .Register();
+
+        AffectsRender<ColorKey>(ColorProperty, RangeProperty, BoundaryProperty);
+        string sksl =
+            """
+            uniform shader src;
+            uniform float4 color;
+            uniform float range;
+            uniform float boundary;
+
+            // Rec.601 での輝度変換
+            half calcLuma(half3 c) {
+                return clamp(dot(c, half3(0.299, 0.587, 0.114)), 0.0, 1.0);
+            }
+
+            half4 main(float2 fragCoord) {
+                // 入力画像から色を取得
+                half4 c = src.eval(fragCoord);
+
+                // 入力色と基準色を輝度に変換
+                half luma = calcLuma(c.rgb);
+                half keyLuma = calcLuma(color.rgb);
+
+                half diff = abs(luma - keyLuma);
+
+                half mask = smoothstep(range + boundary, range, diff);
+
+                return c * (1.0 - mask);
+            }
+            """;
+
+        // SKRuntimeEffectを使ってSKSLコードをコンパイル
+        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
+        if (errorText is not null)
+        {
+            s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
+        }
     }
 
     [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
@@ -47,82 +91,50 @@ public class ColorKey : FilterEffect
         set => SetAndRaise(RangeProperty, ref _range, value);
     }
 
+    [Display(Name = nameof(Strings.BoundaryCorrection), ResourceType = typeof(Strings))]
+    public float Boundary
+    {
+        get => _boundary;
+        set => SetAndRaise(BoundaryProperty, ref _boundary, value);
+    }
+
     public override void ApplyTo(FilterEffectContext context)
     {
-        var colorNtsc =
-            (_color.R * 0.11448f) +
-            (_color.G * 0.58661f) +
-            (_color.B * 0.29891f);
-        colorNtsc = Math.Clamp(colorNtsc, 0, 255);
-        colorNtsc = MathF.Round(colorNtsc);
-
-        context.CustomEffect((colorNtsc, Range), OnApplyTo, (_, r) => r);
+        context.CustomEffect((Color, Range, Boundary), OnApplyTo, (_, r) => r);
     }
 
-    private static unsafe void CopyFromCPU(MemoryBuffer1D<Bgra8888, Stride1D.Dense> source, SKSurface surface, SKImageInfo imageInfo)
+    private static void OnApplyTo((Color color, float range, float boundary) data, CustomFilterEffectContext c)
     {
-        void* tmp = NativeMemory.Alloc((nuint)source.LengthInBytes);
-        try
+        for (int i = 0; i < c.Targets.Count; i++)
         {
-            bool result = surface.ReadPixels(imageInfo, (nint)tmp, imageInfo.Width * 4, 0, 0);
+            EffectTarget effectTarget = c.Targets[i];
+            var renderTarget = effectTarget.RenderTarget!;
 
-            source.View.CopyFromCPU(ref Unsafe.AsRef<Bgra8888>(tmp), source.Length);
-        }
-        finally
-        {
-            NativeMemory.Free(tmp);
-        }
-    }
+            using var image = renderTarget.Value.Snapshot();
+            using var baseShader = SKShader.CreateImage(image);
 
-    private static unsafe void CopyToCPU(MemoryBuffer1D<Bgra8888, Stride1D.Dense> source, SKBitmap bitmap)
-    {
-        source.View.CopyToCPU(ref Unsafe.AsRef<Bgra8888>((void*)bitmap.GetPixels()), source.Length);
-    }
+            // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
+            var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
 
-    private unsafe void OnApplyTo((float colorNtsc, float range) data, CustomFilterEffectContext context)
-    {
-        for (int i = 0; i < context.Targets.Count; i++)
-        {
-            var target = context.Targets[i];
-            var surface = target.RenderTarget!.Value;
-            Accelerator accelerator = SharedGPUContext.Accelerator;
-            var kernel = accelerator.LoadAutoGroupedStreamKernel<
-                Index1D, ArrayView<Bgra8888>, float, float>(EffectKernel);
+            // child shaderとしてテクスチャ用のシェーダーを設定
+            builder.Children["src"] = baseShader;
+            builder.Uniforms["color"] = new SKColor(data.color.R, data.color.G, data.color.B, data.color.A);
+            builder.Uniforms["range"] = data.range / 100f;
+            builder.Uniforms["boundary"] = data.boundary / 100f;
 
-            var size = PixelSize.FromSize(target.Bounds.Size, 1);
-            var imgInfo = new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888);
+            // 最終的なシェーダーを生成
+            using (SKShader finalShader = builder.Build())
+            using (var paint = new SKPaint())
+            {
+                var newTarget = c.CreateTarget(effectTarget.Bounds);
+                var canvas = newTarget.RenderTarget!.Value.Canvas;
+                paint.Shader = finalShader;
+                canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
 
-            using var source = accelerator.Allocate1D<Bgra8888>(size.Width * size.Height);
+                c.Targets[i] = newTarget;
+            }
 
-            CopyFromCPU(source, surface, imgInfo);
-
-            kernel((int)source.Length, source.View, data.colorNtsc, data.range);
-
-            SKCanvas canvas = surface.Canvas;
-            canvas.Clear();
-
-            using var skBmp = new SKBitmap(imgInfo);
-
-            CopyToCPU(source, skBmp);
-
-            canvas.DrawBitmap(skBmp, 0, 0);
-        }
-    }
-
-    private static void EffectKernel(Index1D index, ArrayView<Bgra8888> src, float colorNtsc, float range)
-    {
-        Bgra8888 pixel = src[index];
-        float ntsc =
-            (pixel.R * 0.11448f) +
-            (pixel.G * 0.58661f) +
-            (pixel.B * 0.29891f);
-
-        ntsc = IntrinsicMath.Clamp(ntsc, 0, 255);
-        ntsc = XMath.Round(ntsc);
-
-        if (IntrinsicMath.Abs(colorNtsc - ntsc) < range)
-        {
-            src[index] = default;
+            effectTarget.Dispose();
         }
     }
 }
