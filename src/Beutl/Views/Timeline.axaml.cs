@@ -710,7 +710,12 @@ public sealed partial class Timeline : UserControl
                     return;
             }
 
-            ViewModel.Options.Value = ViewModel.Options.Value with { Scale = zoom, };
+            float oldScale = ViewModel.Options.Value.Scale;
+            var offset = ViewModel.Options.Value.Offset;
+            double pointerPos = _pointerFrame.ToPixel(ViewModel.Options.Value.Scale);
+            double deltaLeft = pointerPos - offset.X;
+            offset.X = (float)((pointerPos / oldScale * zoom) - deltaLeft);
+            ViewModel.Options.Value = ViewModel.Options.Value with { Scale = zoom, Offset = offset };
         }
     }
 
