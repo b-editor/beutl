@@ -63,9 +63,9 @@ public class ColorKey : FilterEffect
 
                 half diff = abs(luma - keyLuma);
 
-                half mask = smoothstep(range + boundary, range, diff);
+                half mask = smoothstep(range, range + boundary, diff);
 
-                return c * (1.0 - mask);
+                return c * mask;
             }
             """;
 

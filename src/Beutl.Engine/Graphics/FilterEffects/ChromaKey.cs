@@ -89,14 +89,14 @@ public class ChromaKey : FilterEffect
                 // 彩度の差の絶対値
                 half satDiff = abs(hsv.y - keyHSV.y);
 
-                half maskHue = smoothstep(hueRange + boundary, hueRange, hueDiff);
-                half maskSat = smoothstep(saturationRange + boundary, saturationRange, satDiff);
+                half maskHue = smoothstep(hueRange, hueRange + boundary, hueDiff);
+                half maskSat = smoothstep(saturationRange, saturationRange + boundary, satDiff);
 
                 // 色相と彩度の両条件を満たすかを判定（両方のマスク値が低いほど基準色に近いと判断）
-                half mask = min(maskHue, maskSat);
+                half mask = max(maskHue, maskSat);
 
                 // 出力色のアルファ値にマスクを乗算して、クロマキー部分を透過させる
-                return c * (1.0 - mask);
+                return c * mask;
             }
             """;
 
