@@ -1,14 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Pixel;
-using ILGPU;
-using ILGPU.Algorithms;
-using ILGPU.Runtime;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
