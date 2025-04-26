@@ -1,4 +1,5 @@
 ﻿using Beutl.Extensibility;
+using System.ComponentModel.DataAnnotations;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Encoding;
@@ -7,12 +8,9 @@ namespace Beutl.Extensions.FFmpeg.Encoding;
 #endif
 
 [Export]
+[Display(Name = "FFmpeg Encoder")]
 public class FFmpegControlledEncodingExtension : ControllableEncodingExtension
 {
-    public override string Name => "FFmpeg Encoder";
-
-    public override string DisplayName => "FFmpeg Encoder";
-
     public override FFmpegEncodingSettings Settings { get; } = new();
 
     public override IEnumerable<string> SupportExtensions()
