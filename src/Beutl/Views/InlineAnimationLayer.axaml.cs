@@ -95,6 +95,7 @@ public partial class InlineAnimationLayer : UserControl
     {
         private bool _pressed;
         private Point _start;
+        private InlineKeyFrameViewModel[]? _items;
 
         protected override void OnAttached()
         {
@@ -129,6 +130,42 @@ public partial class InlineAnimationLayer : UserControl
 
                 viewModel.Left.Value += delta.X;
                 e.Handled = true;
+
+                if (e.KeyModifiers == KeyModifiers.Shift)
+                {
+                    if (_items != null)
+                    {
+                        foreach (InlineKeyFrameViewModel item in _items)
+                        {
+                            item.Left.Value += delta.X;
+                        }
+                    }
+                    else
+                    {
+                        // 途中から一括移動に切り替えた場合、現在の移動分を他のキーフレームに追加する
+                        float scale = viewModel.Timeline.Options.Value.Scale;
+                        double initLeft = viewModel.Model.KeyTime.ToPixel(scale);
+                        double deltaStart = viewModel.Left.Value - initLeft;
+                        _items = viewModel.Parent.Items.Where(i => i != viewModel).ToArray();
+                        foreach (InlineKeyFrameViewModel item in _items)
+                        {
+                            item.Left.Value += deltaStart;
+                        }
+                    }
+                }
+                else
+                {
+                    if (_items != null)
+                    {
+                        float scale = viewModel.Timeline.Options.Value.Scale;
+                        foreach (InlineKeyFrameViewModel item in _items)
+                        {
+                            item.Left.Value = item.Model.KeyTime.ToPixel(scale);
+                        }
+
+                        _items = null;
+                    }
+                }
             }
         }
 
@@ -137,7 +174,20 @@ public partial class InlineAnimationLayer : UserControl
             if (AssociatedObject is { DataContext: InlineKeyFrameViewModel viewModel }
                 && _pressed)
             {
-                viewModel.UpdateKeyTime();
+                if (_items != null)
+                {
+                    _items.Select(i => i.CreateUpdateCommand())
+                        .Append(viewModel.CreateUpdateCommand())
+                        .ToArray()
+                        .ToCommand([viewModel.Parent.Element.Model])
+                        .DoAndRecord(viewModel.Timeline.EditorContext.CommandRecorder);
+                }
+                else
+                {
+                    viewModel.UpdateKeyTime();
+                }
+
+                _items = null;
                 _pressed = false;
                 e.Handled = true;
             }
@@ -145,7 +195,7 @@ public partial class InlineAnimationLayer : UserControl
 
         private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject != null)
+            if (AssociatedObject is { DataContext: InlineKeyFrameViewModel viewModel })
             {
                 PointerPoint point = e.GetCurrentPoint(AssociatedObject);
 
@@ -154,6 +204,11 @@ public partial class InlineAnimationLayer : UserControl
                     _pressed = true;
                     _start = point.Position;
                     e.Handled = true;
+
+                    if (e.KeyModifiers == KeyModifiers.Shift)
+                    {
+                        _items = viewModel.Parent.Items.Where(i => i != viewModel).ToArray();
+                    }
                 }
             }
         }
