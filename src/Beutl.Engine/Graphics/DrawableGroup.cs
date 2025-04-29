@@ -1,10 +1,10 @@
-﻿using System.Text.Json.Nodes;
-using Beutl.Graphics.Effects;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 
 namespace Beutl.Graphics;
 
+[Display(Name = "Group")]
 public sealed class DrawableGroup : Drawable
 {
     public static readonly CoreProperty<Drawables> ChildrenProperty;

@@ -1,12 +1,11 @@
 ﻿using System.ComponentModel;
-using Beutl.Graphics.Effects;
+using System.ComponentModel.DataAnnotations;
 using Beutl.Graphics.Rendering;
-using Beutl.Media;
-using Beutl.Media.Immutable;
 
 namespace Beutl.Graphics;
 
 // Drawable継承しているが、Drawableのメソッドは使っていない
+[Display(Name = "Decorator")]
 public sealed class DrawableDecorator : Drawable
 {
     public static readonly CoreProperty<Drawable?> ChildProperty;
