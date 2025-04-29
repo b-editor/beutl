@@ -554,6 +554,8 @@ public partial class GraphEditorView : UserControl
     private TimeSpan _oldKeyTime;
     private GraphEditorKeyFrameViewModel? _keyframeViewModel;
     private bool _crossed;
+    // 追従移動するキーフレーム
+    private GraphEditorKeyFrameViewModel[]? _followingKeyFrames;
 
     private void OnGraphPanelPointerMoved(object? sender, PointerEventArgs e)
     {
@@ -592,37 +594,49 @@ public partial class GraphEditorView : UserControl
                     float scale = viewModel.Options.Value.Scale;
                     int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
 
-                    double right = itemViewModel.Right.Value + delta.X;
-                    var timeSpan = right.ToTimeSpan(scale);
-                    // 左のキーフレームに横断した場合
-                    if (itemViewModel._previous.Value is { Model.KeyTime: TimeSpan prevTime }
-                        && prevTime > timeSpan.RoundToRate(rate))
+                    if (_followingKeyFrames != null)
                     {
-                        itemViewModel.SubmitCrossed(timeSpan);
-                        _crossed = true;
-                        e.Handled = true;
-                        return;
+                        foreach (GraphEditorKeyFrameViewModel item in _followingKeyFrames.Append(itemViewModel))
+                        {
+                            double right = item.Right.Value + delta.X;
+                            var timeSpan = right.ToTimeSpan(scale);
+                            item.Right.Value = timeSpan.ToPixel(scale);
+                        }
                     }
                     else
                     {
-                        timeSpan = new TimeSpan(Math.Max(0, timeSpan.Ticks));
-                    }
+                        double right = itemViewModel.Right.Value + delta.X;
+                        var timeSpan = right.ToTimeSpan(scale);
+                        // 左のキーフレームに横断した場合
+                        if (itemViewModel._previous.Value is { Model.KeyTime: TimeSpan prevTime }
+                            && prevTime > timeSpan.RoundToRate(rate))
+                        {
+                            itemViewModel.SubmitCrossed(timeSpan);
+                            _crossed = true;
+                            e.Handled = true;
+                            return;
+                        }
+                        else
+                        {
+                            timeSpan = new TimeSpan(Math.Max(0, timeSpan.Ticks));
+                        }
 
-                    // 右のキーフレームに横断した場合
-                    if (itemViewModel._next is { Model.KeyTime: TimeSpan nextTime }
-                        && timeSpan.RoundToRate(rate) > nextTime)
-                    {
-                        itemViewModel.SubmitCrossed(timeSpan);
-                        _crossed = true;
-                        e.Handled = true;
-                        return;
-                    }
-                    else
-                    {
-                        timeSpan = new TimeSpan(Math.Max(0, timeSpan.Ticks));
-                    }
+                        // 右のキーフレームに横断した場合
+                        if (itemViewModel._next is { Model.KeyTime: TimeSpan nextTime }
+                            && timeSpan.RoundToRate(rate) > nextTime)
+                        {
+                            itemViewModel.SubmitCrossed(timeSpan);
+                            _crossed = true;
+                            e.Handled = true;
+                            return;
+                        }
+                        else
+                        {
+                            timeSpan = new TimeSpan(Math.Max(0, timeSpan.Ticks));
+                        }
 
-                    itemViewModel.Right.Value = timeSpan.ToPixel(scale);
+                        itemViewModel.Right.Value = timeSpan.ToPixel(scale);
+                    }
 
                     // マウスがスクロール外に行った時、スクロールを移動する
                     var scrollPos = e.GetPosition(scroll);
@@ -648,7 +662,20 @@ public partial class GraphEditorView : UserControl
             && _keyTimePressed
             && _keyframeViewModel != null)
         {
-            _keyframeViewModel.SubmitKeyTimeAndValue(_oldKeyTime);
+            if (_followingKeyFrames != null)
+            {
+                _followingKeyFrames.Select(i => i.CreateSubmitKeyTimeAndValueCommand(i.Model.KeyTime))
+                    .Append(_keyframeViewModel.CreateSubmitKeyTimeAndValueCommand(_oldKeyTime))
+                    .ToArray()
+                    .ToCommand()
+                    .DoAndRecord(viewModel.EditorContext.CommandRecorder);
+            }
+            else
+            {
+                _keyframeViewModel.SubmitKeyTimeAndValue(_oldKeyTime);
+            }
+
+            _followingKeyFrames = null;
             _keyframe = null;
             _keyframeViewModel = null;
             _crossed = false;
@@ -691,6 +718,10 @@ public partial class GraphEditorView : UserControl
                 _crossed = false;
                 viewModel.BeginEditing();
                 e.Handled = true;
+                if (e.KeyModifiers == KeyModifiers.Shift)
+                {
+                    _followingKeyFrames = itemViewModel.Parent.KeyFrames.Where(i => i != itemViewModel).ToArray();
+                }
             }
         }
     }

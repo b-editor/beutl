@@ -217,13 +217,11 @@ public abstract class GraphEditorViewModel : IDisposable
 
     private void OnItemVerticalRangeChanged(object? sender, EventArgs e)
     {
-        _logger.LogInformation("Vertical range changed");
         Dispatcher.UIThread.Post(CalculateMaxHeight);
     }
 
     private void CalculateMaxHeight()
     {
-        _logger.LogInformation("Calculating max height");
         double max = 0d;
         double min = 0d;
         foreach (GraphEditorViewViewModel view in Views)
