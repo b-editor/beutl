@@ -1,17 +1,16 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
-using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
-using Beutl.Serialization;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Shapes;
 
+[Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
 public class TextBlock : Drawable
 {
     public static readonly CoreProperty<FontFamily?> FontFamilyProperty;

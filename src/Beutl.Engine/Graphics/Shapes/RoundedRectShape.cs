@@ -4,6 +4,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
+[Display(Name = nameof(Strings.RoundedRect), ResourceType = typeof(Strings))]
 public sealed class RoundedRectShape : Shape
 {
     public static readonly CoreProperty<CornerRadius> CornerRadiusProperty;

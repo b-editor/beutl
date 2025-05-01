@@ -4,6 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics;
 
+[Display(Name = nameof(Strings.Backdrop), ResourceType = typeof(Strings))]
 public class SourceBackdrop : Drawable
 {
     public static readonly CoreProperty<bool> ClearProperty;

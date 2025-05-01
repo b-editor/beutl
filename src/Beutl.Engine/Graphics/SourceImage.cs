@@ -1,9 +1,12 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Graphics.Rendering;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Source;
 
 namespace Beutl.Graphics;
 
+[Display(Name = nameof(Strings.Image), ResourceType = typeof(Strings))]
 public class SourceImage : Drawable
 {
     public static readonly CoreProperty<IImageSource?> SourceProperty;
