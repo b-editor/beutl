@@ -19,7 +19,7 @@ internal class fdATChunk : Chunk
 
     public uint SequenceNumber { get; private set; }
 
-    public byte[] FrameData { get; private set; }
+    public byte[] FrameData { get; private set; } = null!;
 
     protected override void ParseData(MemoryStream ms)
     {
