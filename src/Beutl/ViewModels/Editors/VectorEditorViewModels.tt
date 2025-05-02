@@ -39,7 +39,7 @@ namespace Beutl.ViewModels.Editors
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
     public sealed class <#= t.Name #>EditorViewModel : ValueEditorViewModel<<#= fullName #>>, IConfigureUniformEditor
     {
-        public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
+        public <#= t.Name #>EditorViewModel(IPropertyAdapter<<#= fullName #>> property)
             : base(property)
         {
             FirstValue = Value
@@ -111,7 +111,7 @@ namespace Beutl.ViewModels.Editors
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
     public sealed class <#= t.Name #>EditorViewModel : ValueEditorViewModel<<#= fullName #>>, IConfigureUniformEditor
     {
-        public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
+        public <#= t.Name #>EditorViewModel(IPropertyAdapter<<#= fullName #>> property)
             : base(property)
         {
             FirstValue = Value
@@ -190,7 +190,7 @@ namespace Beutl.ViewModels.Editors
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
     public sealed class <#= t.Name #>EditorViewModel : ValueEditorViewModel<<#= fullName #>>, IConfigureUniformEditor
     {
-        public <#= t.Name #>EditorViewModel(IAbstractProperty<<#= fullName #>> property)
+        public <#= t.Name #>EditorViewModel(IPropertyAdapter<<#= fullName #>> property)
             : base(property)
         {
             FirstValue = Value
