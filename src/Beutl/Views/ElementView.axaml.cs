@@ -183,7 +183,7 @@ public sealed partial class ElementView : UserControl
     private void OnColorPickerFlyoutClosed(object? sender, EventArgs e)
     {
         s_colorPickerFlyout!.Confirmed -= OnColorPickerFlyoutConfirmed;
-        s_colorPickerFlyout!.Closed -= OnColorPickerFlyoutClosed;
+        s_colorPickerFlyout.Closed -= OnColorPickerFlyoutClosed;
     }
 
     private void OnColorPickerFlyoutConfirmed(ColorPickerFlyout sender, EventArgs args)

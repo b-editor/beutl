@@ -474,7 +474,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                         Type type = typeof(AnimatablePropertyAdapter<>).MakeGenericType(anm.Property.PropertyType);
                         var createdProp =
                             (IAnimatablePropertyAdapter)Activator.CreateInstance(type, anm.Property, animatable)!;
-                        AttachInline(createdProp!, element);
+                        AttachInline(createdProp, element);
                         _logger.LogDebug("Inline animation created and attached for element {ElementId} and animation {AnimationId}.", element.Id, anmId);
                     }
                     catch (Exception ex)

@@ -60,7 +60,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .AddTo(_disposables);
 
         RestBorderColor = Color.Select(v => (Avalonia.Media.Color)((Color2)v).LightenPercent(-0.15f))
-            .ToReadOnlyReactivePropertySlim()!;
+            .ToReadOnlyReactivePropertySlim();
 
         TextColor = Color.Select(ColorGenerator.GetTextColor)
             .ToReadOnlyReactivePropertySlim()

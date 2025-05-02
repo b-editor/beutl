@@ -43,7 +43,7 @@ public class SelectLibraryItemDialogViewModel
             {
                 IsBusy.Value = false;
             }
-        })!;
+        });
         ShowAll.Subscribe(_ => ProcessSearchText());
 
         // SearchBoxが並列で変更された場合、最後の一つを処理する

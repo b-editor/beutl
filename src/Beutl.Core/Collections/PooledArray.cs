@@ -143,7 +143,7 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>
             {
                 if (_index == -1)
                     throw new InvalidOperationException();
-                if (_index >= array!.Length)
+                if (_index >= array.Length)
                     throw new InvalidOperationException();
                 return ref array[_index];
             }
@@ -155,7 +155,7 @@ public struct PooledArray<T> : IDisposable, IEnumerable<T>
 
         public bool MoveNext()
         {
-            if (_index < (array!.Length - 1))
+            if (_index < (array.Length - 1))
             {
                 _index++;
                 return true;
