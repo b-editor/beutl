@@ -42,6 +42,7 @@ Beutl アカウントを作成して、拡張機能を取得したり、自身�
 
 ## Patrons
 
+- ozero
 - [darthaunty1](https://www.patreon.com/user/creators?u=89848438)
 - [calloc134](https://github.com/calloc134)
 - [Bony_Chops](https://github.com/BonyChops)
