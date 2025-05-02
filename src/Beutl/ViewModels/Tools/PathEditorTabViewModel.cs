@@ -5,9 +5,6 @@ using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Editors;
-
-using DynamicData;
-
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;

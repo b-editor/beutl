@@ -1,11 +1,9 @@
-﻿using System.Runtime.CompilerServices;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Services;
 using DynamicData;
-using NuGet.Packaging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 

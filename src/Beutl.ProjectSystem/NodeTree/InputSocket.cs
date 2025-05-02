@@ -1,6 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Text.Json.Nodes;
-
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree;

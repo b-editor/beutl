@@ -1,6 +1,5 @@
 ﻿using System.Text;
 using Nuke.Common.Tools.InnoSetup;
-using Serilog;
 using static Nuke.Common.Tools.InnoSetup.InnoSetupTasks;
 
 class Build : NukeBuild

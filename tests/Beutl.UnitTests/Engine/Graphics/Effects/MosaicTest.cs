@@ -1,7 +1,6 @@
 ﻿
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Effects;
 

@@ -1,6 +1,4 @@
 ﻿using Beutl.Graphics.Rendering;
-using Beutl.Media.Source;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 

@@ -6,7 +6,6 @@ using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
-using OpenTelemetry.Trace;
 using Reactive.Bindings;
 using LibraryService = Beutl.Api.Services.LibraryService;
 

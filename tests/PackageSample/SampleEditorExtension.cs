@@ -3,8 +3,6 @@
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Platform.Storage;
-using Avalonia.Styling;
-
 using Beutl.Extensibility;
 
 using FluentAvalonia.UI.Controls;

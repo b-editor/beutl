@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Media;
 using Avalonia.Xaml.Interactivity;
 
 using FluentAvalonia.UI.Controls;

@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using OpenCvSharp;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 

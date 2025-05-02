@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 using Beutl.Helpers;
 using Beutl.Operation;

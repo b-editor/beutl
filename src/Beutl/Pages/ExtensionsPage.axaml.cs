@@ -1,15 +1,11 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
-
 using Beutl.Logging;
 using Beutl.Pages.ExtensionsPages;
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
 using Beutl.ViewModels;
 using Beutl.ViewModels.ExtensionsPages;
-using Beutl.Views;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;

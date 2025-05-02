@@ -1,10 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
-
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
-
 using Beutl.Controls.PropertyEditors;
 
 namespace PropertyEditorViewTests

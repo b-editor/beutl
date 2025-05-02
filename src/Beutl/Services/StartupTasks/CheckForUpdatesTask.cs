@@ -7,7 +7,6 @@ using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
-using OpenTelemetry.Trace;
 
 namespace Beutl.Services.StartupTasks;
 

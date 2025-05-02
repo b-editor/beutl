@@ -1,10 +1,5 @@
-﻿using System.Collections.Immutable;
-
-using Beutl.Commands;
-using Beutl.Media;
+﻿using Beutl.Media;
 using Beutl.Media.Immutable;
-using Beutl.Utilities;
-
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;

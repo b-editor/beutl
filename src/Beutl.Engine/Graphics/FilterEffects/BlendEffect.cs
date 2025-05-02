@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Media;
 using Beutl.Serialization;
 

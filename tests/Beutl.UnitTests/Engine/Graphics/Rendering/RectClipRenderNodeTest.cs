@@ -1,6 +1,5 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 

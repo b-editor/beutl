@@ -1,8 +1,5 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using System.Reactive.Linq;
-using System.Text.Json.Nodes;
-
 using Beutl.Animation;
 using Beutl.Collections.Pooled;
 using Beutl.Graphics.Rendering;

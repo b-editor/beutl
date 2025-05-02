@@ -7,7 +7,6 @@ using System.Text.Unicode;
 
 using Beutl.Converters;
 using Beutl.Utilities;
-using Beutl.Validation;
 
 namespace Beutl.Graphics;
 

@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 using Beutl.Graphics;
-using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media.Immutable;
 

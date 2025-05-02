@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-using Beutl.Collections;
 using Beutl.Media;
 using Beutl.Serialization;
 

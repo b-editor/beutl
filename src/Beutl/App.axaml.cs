@@ -1,11 +1,7 @@
-﻿using System.Reactive.Concurrency;
-using System.Runtime.CompilerServices;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Controls.Presenters;
 using Avalonia.Input.Platform;
-using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.ReactiveUI;
@@ -22,7 +18,6 @@ using Beutl.ViewModels;
 using Beutl.Views;
 using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
-using NuGet.Configuration;
 using Reactive.Bindings;
 
 namespace Beutl;

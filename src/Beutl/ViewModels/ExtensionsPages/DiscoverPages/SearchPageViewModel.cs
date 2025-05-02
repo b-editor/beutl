@@ -4,7 +4,6 @@ using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
-using OpenTelemetry.Trace;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.ExtensionsPages.DiscoverPages;

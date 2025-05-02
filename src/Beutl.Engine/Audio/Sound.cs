@@ -4,8 +4,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
-using NAudio.Dsp;
-using NAudio.Wave.SampleProviders;
 
 namespace Beutl.Audio;
 

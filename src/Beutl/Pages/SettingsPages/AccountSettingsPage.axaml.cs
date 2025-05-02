@@ -1,7 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
-
 using Beutl.ViewModels.SettingsPages;
 
 using Reactive.Bindings.Extensions;

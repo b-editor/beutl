@@ -8,8 +8,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-
-using Beutl.Configuration;
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;

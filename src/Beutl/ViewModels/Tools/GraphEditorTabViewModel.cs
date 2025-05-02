@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
-using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;

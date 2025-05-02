@@ -1,6 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Reactive.Linq;
-
 using Beutl.Media;
 
 namespace Beutl.NodeTree;

@@ -1,6 +1,4 @@
-﻿using System.Runtime.Serialization;
-
-namespace Beutl.Graphics;
+﻿namespace Beutl.Graphics;
 
 [Serializable]
 public sealed class GraphicsException : Exception

@@ -11,7 +11,7 @@ namespace Beutl.ViewModels.Editors
     // Vector2
     public sealed class PixelPointEditorViewModel : ValueEditorViewModel<Media.PixelPoint>, IConfigureUniformEditor
     {
-        public PixelPointEditorViewModel(IPropertyAdapter<Media.PixelPoint> property)
+        public PixelPointEditorViewModel(IAbstractProperty<Media.PixelPoint> property)
             : base(property)
         {
             FirstValue = Value
@@ -73,7 +73,7 @@ namespace Beutl.ViewModels.Editors
     }
     public sealed class PixelSizeEditorViewModel : ValueEditorViewModel<Media.PixelSize>, IConfigureUniformEditor
     {
-        public PixelSizeEditorViewModel(IPropertyAdapter<Media.PixelSize> property)
+        public PixelSizeEditorViewModel(IAbstractProperty<Media.PixelSize> property)
             : base(property)
         {
             FirstValue = Value
@@ -135,7 +135,7 @@ namespace Beutl.ViewModels.Editors
     }
     public sealed class PointEditorViewModel : ValueEditorViewModel<Graphics.Point>, IConfigureUniformEditor
     {
-        public PointEditorViewModel(IPropertyAdapter<Graphics.Point> property)
+        public PointEditorViewModel(IAbstractProperty<Graphics.Point> property)
             : base(property)
         {
             FirstValue = Value
@@ -197,7 +197,7 @@ namespace Beutl.ViewModels.Editors
     }
     public sealed class SizeEditorViewModel : ValueEditorViewModel<Graphics.Size>, IConfigureUniformEditor
     {
-        public SizeEditorViewModel(IPropertyAdapter<Graphics.Size> property)
+        public SizeEditorViewModel(IAbstractProperty<Graphics.Size> property)
             : base(property)
         {
             FirstValue = Value
@@ -259,7 +259,7 @@ namespace Beutl.ViewModels.Editors
     }
     public sealed class VectorEditorViewModel : ValueEditorViewModel<Graphics.Vector>, IConfigureUniformEditor
     {
-        public VectorEditorViewModel(IPropertyAdapter<Graphics.Vector> property)
+        public VectorEditorViewModel(IAbstractProperty<Graphics.Vector> property)
             : base(property)
         {
             FirstValue = Value
@@ -321,7 +321,7 @@ namespace Beutl.ViewModels.Editors
     }
     public sealed class Vector2EditorViewModel : ValueEditorViewModel<System.Numerics.Vector2>, IConfigureUniformEditor
     {
-        public Vector2EditorViewModel(IPropertyAdapter<System.Numerics.Vector2> property)
+        public Vector2EditorViewModel(IAbstractProperty<System.Numerics.Vector2> property)
             : base(property)
         {
             FirstValue = Value
@@ -385,7 +385,7 @@ namespace Beutl.ViewModels.Editors
     // Vector3
     public sealed class Vector3EditorViewModel : ValueEditorViewModel<System.Numerics.Vector3>, IConfigureUniformEditor
     {
-        public Vector3EditorViewModel(IPropertyAdapter<System.Numerics.Vector3> property)
+        public Vector3EditorViewModel(IAbstractProperty<System.Numerics.Vector3> property)
             : base(property)
         {
             FirstValue = Value
@@ -461,7 +461,7 @@ namespace Beutl.ViewModels.Editors
     // Vector4
     public sealed class PixelRectEditorViewModel : ValueEditorViewModel<Media.PixelRect>, IConfigureUniformEditor
     {
-        public PixelRectEditorViewModel(IPropertyAdapter<Media.PixelRect> property)
+        public PixelRectEditorViewModel(IAbstractProperty<Media.PixelRect> property)
             : base(property)
         {
             FirstValue = Value
@@ -546,7 +546,7 @@ namespace Beutl.ViewModels.Editors
     }
     public sealed class RectEditorViewModel : ValueEditorViewModel<Graphics.Rect>, IConfigureUniformEditor
     {
-        public RectEditorViewModel(IPropertyAdapter<Graphics.Rect> property)
+        public RectEditorViewModel(IAbstractProperty<Graphics.Rect> property)
             : base(property)
         {
             FirstValue = Value
@@ -631,7 +631,7 @@ namespace Beutl.ViewModels.Editors
     }
     public sealed class Vector4EditorViewModel : ValueEditorViewModel<System.Numerics.Vector4>, IConfigureUniformEditor
     {
-        public Vector4EditorViewModel(IPropertyAdapter<System.Numerics.Vector4> property)
+        public Vector4EditorViewModel(IAbstractProperty<System.Numerics.Vector4> property)
             : base(property)
         {
             FirstValue = Value

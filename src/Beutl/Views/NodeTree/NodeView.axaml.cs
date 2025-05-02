@@ -12,8 +12,6 @@ using Avalonia.VisualTree;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
 using Beutl.ViewModels.NodeTree;
-
-using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Controls.Primitives;
 

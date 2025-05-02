@@ -13,7 +13,6 @@ using Beutl.Configuration;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Nito.AsyncEx;
-using NuGet.Versioning;
 using Reactive.Bindings;
 using Refit;
 using Activity = System.Diagnostics.Activity;

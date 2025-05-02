@@ -8,8 +8,6 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using DynamicData;
 using DynamicData.Binding;
-using FluentAvalonia.UI.Windowing;
-using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;

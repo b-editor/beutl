@@ -1,7 +1,4 @@
 ﻿using Avalonia.Controls;
-using Avalonia.LogicalTree;
-using Avalonia.VisualTree;
-using Beutl.Api.Services;
 using Beutl.ViewModels;
 
 namespace Beutl.Views;

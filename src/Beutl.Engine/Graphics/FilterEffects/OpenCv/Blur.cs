@@ -6,8 +6,6 @@ using Beutl.Media.Pixel;
 
 using OpenCvSharp;
 
-using SkiaSharp;
-
 namespace Beutl.Graphics.Effects.OpenCv;
 
 public class Blur : FilterEffect
