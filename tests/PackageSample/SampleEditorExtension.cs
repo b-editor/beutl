@@ -97,7 +97,7 @@ public sealed class SampleEditorExtension : EditorExtension
     {
         return new FilePickerFileType("Text File")
         {
-            Patterns = new[] { "*.txt", "*.scene" }
+            Patterns = ["*.txt", "*.scene"]
         };
     }
 

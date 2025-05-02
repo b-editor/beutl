@@ -207,13 +207,13 @@ public partial class MainView
         {
             var options = new FilePickerOpenOptions
             {
-                FileTypeFilter = new FilePickerFileType[]
-                {
+                FileTypeFilter =
+                [
                     new FilePickerFileType(Strings.ProjectFile)
                     {
-                        Patterns = new[] { $"*.{Constants.ProjectFileExtension}" }
+                        Patterns = [$"*.{Constants.ProjectFileExtension}"]
                     }
-                }
+                ]
             };
 
             IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);

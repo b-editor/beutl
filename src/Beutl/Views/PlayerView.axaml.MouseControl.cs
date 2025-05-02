@@ -282,7 +282,7 @@ public partial class PlayerView
                     int st = (int)Element.Start.ToFrameNumber(rate);
                     int ed = (int)Math.Ceiling(Element.Range.End.ToFrameNumber(rate));
 
-                    EditViewModel.FrameCacheManager.Value.DeleteAndUpdateBlocks(new[] { (st, ed) });
+                    EditViewModel.FrameCacheManager.Value.DeleteAndUpdateBlocks([(st, ed)]);
                 }
                 e.Handled = true;
             }

@@ -273,7 +273,7 @@ public class CircularBuffer<T> : IEnumerable<T>
     /// <returns>An IList with 2 segments corresponding to the buffer content.</returns>
     public IList<ArraySegment<T>> ToArraySegments()
     {
-        return new[] { ArrayOne(), ArrayTwo() };
+        return [ArrayOne(), ArrayTwo()];
     }
 
     #region IEnumerable<T> implementation

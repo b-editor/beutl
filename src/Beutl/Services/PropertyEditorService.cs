@@ -297,7 +297,7 @@ public static class PropertyEditorService
                 }
             }
 
-            if (!result && TryCreateContextCore(extension, new IPropertyAdapter[] { property }, out IPropertyEditorContext? tmp1))
+            if (!result && TryCreateContextCore(extension, [property], out IPropertyEditorContext? tmp1))
             {
                 context = tmp1;
                 return true;

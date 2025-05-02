@@ -212,7 +212,7 @@ public partial class NodeView : UserControl
         }
         else
         {
-            return Enumerable.Empty<NodeView>();
+            return [];
         }
     }
 

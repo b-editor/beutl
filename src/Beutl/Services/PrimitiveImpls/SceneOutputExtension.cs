@@ -22,10 +22,10 @@ public sealed class SceneOutputExtension : OutputExtension
     {
         return new FilePickerFileType(Strings.SceneFile)
         {
-            Patterns = new string[]
-            {
+            Patterns =
+            [
                 "*.scene"
-            }
+            ]
         };
     }
 

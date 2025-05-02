@@ -41,7 +41,13 @@ public partial class SoundSourceEditor : UserControl
             message.IsVisible = true;
         }
 
-        FileEditor.OpenOptions = new FilePickerOpenOptions { FileTypeFilter = new[] { new FilePickerFileType("Audio File") { Patterns = fileExtensions } } };
+        FileEditor.OpenOptions = new FilePickerOpenOptions
+        {
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Audio File") { Patterns = fileExtensions }
+            ]
+        };
         FileEditor.ValueConfirmed += FileEditorOnValueConfirmed;
     }
 
