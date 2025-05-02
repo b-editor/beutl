@@ -238,7 +238,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
         else if (tileBrush is IDrawableBrush drawableBrush)
         {
             if (drawableBrush.Drawable is null) return null;
-            renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height);
+            renderTarget = RenderTarget.Create((int)Bounds.Width, (int)Bounds.Height);
             if (renderTarget == null) return null;
 
             using (var icanvas = new ImmediateCanvas(renderTarget))
