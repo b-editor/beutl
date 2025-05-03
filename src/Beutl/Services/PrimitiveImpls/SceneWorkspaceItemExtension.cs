@@ -29,10 +29,10 @@ public sealed class SceneProjectItemExtension : ProjectItemExtension
     {
         return new FilePickerFileType(Strings.SceneFile)
         {
-            Patterns = new string[]
-            {
+            Patterns =
+            [
                 "*.scene"
-            }
+            ]
         };
     }
 

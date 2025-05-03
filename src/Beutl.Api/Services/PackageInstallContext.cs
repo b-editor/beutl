@@ -1,10 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Beutl.Api.Clients;
-using Beutl.Api.Objects;
-
+﻿using Beutl.Api.Clients;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
-using NuGet.Packaging.Licenses;
 
 namespace Beutl.Api.Services;
 

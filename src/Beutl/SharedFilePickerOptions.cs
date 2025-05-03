@@ -6,29 +6,29 @@ public static class SharedFilePickerOptions
 {
     public static readonly FilePickerFileType NuGetPackageFileType = new("NuGet Package File")
     {
-        MimeTypes = new string[] { "application/x-beutl-package" },
-        Patterns = new string[] { "*.nupkg" }
+        MimeTypes = ["application/x-beutl-package"],
+        Patterns = ["*.nupkg"]
     };
     public static readonly FilePickerFileType NuGetPackageManifestFileType = new("NuGet Package Manifest")
     {
-        MimeTypes = new string[] { "application/xml" },
-        Patterns = new string[] { "*.nuspec" }
+        MimeTypes = ["application/xml"],
+        Patterns = ["*.nuspec"]
     };
     public static readonly FilePickerOpenOptions NuGetPackage = new()
     {
-        FileTypeFilter = new[] { NuGetPackageFileType }
+        FileTypeFilter = [NuGetPackageFileType]
     };
 
     public static FilePickerOpenOptions OpenImage()
     {
         return new()
         {
-            FileTypeFilter = new FilePickerFileType[]
-            {
+            FileTypeFilter =
+            [
                 new FilePickerFileType("All Images")
                 {
-                    Patterns = new string[]
-                    {
+                    Patterns =
+                    [
                         // SKEncodedImageFormat
                         "*.bmp",
                         "*.gif",
@@ -43,12 +43,12 @@ public static class SharedFilePickerOptions
                         "*.astc",
                         "*.dng",
                         "*.heif",
-                        "*.avif",
-                    },
-                    AppleUniformTypeIdentifiers = new[] { "public.image" },
-                    MimeTypes = new[] { "image/*" }
+                        "*.avif"
+                    ],
+                    AppleUniformTypeIdentifiers = ["public.image"],
+                    MimeTypes = ["image/*"]
                 }
-            }
+            ]
         };
     }
 
@@ -56,12 +56,12 @@ public static class SharedFilePickerOptions
     {
         return new()
         {
-            FileTypeChoices = new FilePickerFileType[]
-            {
+            FileTypeChoices =
+            [
                 new FilePickerFileType("All Images")
                 {
-                    Patterns = new string[]
-                    {
+                    Patterns =
+                    [
                         // SKEncodedImageFormat
                         "*.bmp",
                         "*.gif",
@@ -76,12 +76,12 @@ public static class SharedFilePickerOptions
                         "*.astc",
                         "*.dng",
                         "*.heif",
-                        "*.avif",
-                    },
-                    AppleUniformTypeIdentifiers = new[] { "public.image" },
-                    MimeTypes = new[] { "image/*" }
+                        "*.avif"
+                    ],
+                    AppleUniformTypeIdentifiers = ["public.image"],
+                    MimeTypes = ["image/*"]
                 }
-            }
+            ]
         };
     }
 }

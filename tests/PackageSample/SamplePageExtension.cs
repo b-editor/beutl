@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 
 using Beutl.Extensibility;
 

@@ -17,7 +17,6 @@ using Beutl.ViewModels;
 using DynamicData;
 using DynamicData.Binding;
 using FluentAvalonia.Styling;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views;
 

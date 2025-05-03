@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-
-namespace Beutl;
+﻿namespace Beutl;
 
 public abstract class StaticProperty<T>(string name, Type ownerType, CorePropertyMetadata<T> metadata)
     : CoreProperty<T>(name, ownerType, metadata)

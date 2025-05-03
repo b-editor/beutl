@@ -8,8 +8,6 @@ using Beutl.Media.Source;
 
 using OpenCvSharp;
 
-using SkiaSharp;
-
 namespace Beutl.Graphics.Effects;
 
 [Obsolete("Use StrokeEffect instead.")]

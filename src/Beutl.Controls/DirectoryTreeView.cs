@@ -9,7 +9,6 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
-using Avalonia.Styling;
 using Avalonia.Threading;
 
 using Beutl.Language;
@@ -392,7 +391,7 @@ public sealed class DirectoryTreeView : TreeView
             else if (treeViewItem is FileTreeItem fileTree && fileTree.Info.DirectoryName != null)
                 baseDir = fileTree.Info.DirectoryName;
 
-            foreach (IStorageItem src in e.Data.GetFiles() ?? Enumerable.Empty<IStorageItem>())
+            foreach (IStorageItem src in e.Data.GetFiles() ?? [])
             {
                 if (src is IStorageFile
                     && src.TryGetLocalPath() is string localPath)

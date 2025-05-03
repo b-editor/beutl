@@ -2,13 +2,9 @@
 using Beutl.Api.Objects;
 using Beutl.Logging;
 using Beutl.Services;
-using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.ExtensionsPages;
 
 using Microsoft.Extensions.Logging;
-
-using OpenTelemetry.Trace;
-
 using Reactive.Bindings;
 using Refit;
 

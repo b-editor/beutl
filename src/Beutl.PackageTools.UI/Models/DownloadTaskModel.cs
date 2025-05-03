@@ -1,5 +1,4 @@
-﻿using Avalonia.Data.Converters;
-using Beutl.Api.Clients;
+﻿using Beutl.Api.Clients;
 using Beutl.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.TinyLinq;

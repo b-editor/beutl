@@ -4,8 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 
-using Beutl.ViewModels.Editors;
-
 namespace Beutl.Views.Editors;
 
 public partial class PathOperationListItemEditor : UserControl, IListItemEditor

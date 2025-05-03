@@ -13,7 +13,7 @@ public partial class PackageInstaller
         if (!Directory.Exists(Helper.InstallPath))
         {
             _logger.LogWarning("Install path does not exist: {InstallPath}", Helper.InstallPath);
-            return Array.Empty<PackageIdentity>();
+            return [];
         }
 
         NuGetFramework framework = Helper.GetFrameworkName();
@@ -52,7 +52,7 @@ public partial class PackageInstaller
     public PackageCleanContext PrepareForClean(IEnumerable<PackageIdentity>? excludedPackages = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        excludedPackages ??= Enumerable.Empty<PackageIdentity>();
+        excludedPackages ??= [];
 
         PackageIdentity[] unnecessaryPackages = UnnecessaryPackages()
             .Except(excludedPackages, PackageIdentityComparer.Default)

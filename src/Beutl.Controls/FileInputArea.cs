@@ -5,8 +5,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-using Avalonia.Platform.Storage.FileIO;
-
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 using Microsoft.Extensions.FileSystemGlobbing.Internal;
 using Microsoft.Extensions.FileSystemGlobbing.Internal.Patterns;

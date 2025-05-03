@@ -5,7 +5,6 @@ using Avalonia.Input;
 using Avalonia.Platform.Storage;
 
 using Beutl.Animation;
-using Beutl.Commands;
 using Beutl.Controls;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -283,7 +282,7 @@ public partial class PlayerView
                     int st = (int)Element.Start.ToFrameNumber(rate);
                     int ed = (int)Math.Ceiling(Element.Range.End.ToFrameNumber(rate));
 
-                    EditViewModel.FrameCacheManager.Value.DeleteAndUpdateBlocks(new[] { (st, ed) });
+                    EditViewModel.FrameCacheManager.Value.DeleteAndUpdateBlocks([(st, ed)]);
                 }
                 e.Handled = true;
             }

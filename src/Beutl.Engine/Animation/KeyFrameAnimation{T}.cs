@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Nodes;
-
-using Beutl.Serialization;
+﻿using Beutl.Serialization;
 
 namespace Beutl.Animation;
 

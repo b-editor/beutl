@@ -1,11 +1,9 @@
-﻿using System.Runtime.CompilerServices;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Services;
 using DynamicData;
-using NuGet.Packaging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -45,7 +43,7 @@ public class SelectLibraryItemDialogViewModel
             {
                 IsBusy.Value = false;
             }
-        })!;
+        });
         ShowAll.Subscribe(_ => ProcessSearchText());
 
         // SearchBoxが並列で変更された場合、最後の一つを処理する

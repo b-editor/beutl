@@ -6,8 +6,6 @@ using Beutl.Api.Objects;
 
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
 using Beutl.ViewModels.ExtensionsPages;
-using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 

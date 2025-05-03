@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿using System.Runtime.InteropServices;
 using Vortice.Multimedia;
 using Vortice.XAudio2;
 
@@ -18,7 +12,7 @@ public sealed partial class XAudioContext : IDisposable
     private bool _isDisposed;
 
     [LibraryImport("ole32.dll", SetLastError = true)]
-    [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvStdcall) })]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvStdcall)])]
     private static partial uint CoInitializeEx(IntPtr pvReserved, uint dwCoInit);
 
     static XAudioContext()

@@ -1,6 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-
-using Beutl.Animation;
 using Beutl.Collections.Pooled;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;

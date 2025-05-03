@@ -107,10 +107,9 @@ internal sealed class GlxContext : GlContext
             };
             if (major > 2)
             {
-                flags.AddRange(new[]
-                {
-                    Glx.GLX_CONTEXT_PROFILE_MASK_ARB, Glx.GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
-                });
+                flags.AddRange([
+                    Glx.GLX_CONTEXT_PROFILE_MASK_ARB, Glx.GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB
+                ]);
             }
             flags.Add(Xlib.None);
 

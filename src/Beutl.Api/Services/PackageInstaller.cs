@@ -1,5 +1,4 @@
-﻿using System.Reactive.Linq;
-using System.Reactive.Subjects;
+﻿using System.Reactive.Subjects;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -325,9 +324,9 @@ public partial class PackageInstaller : IBeutlApiResource
 
                 var resolverContext = new PackageResolverContext(
                     DependencyBehavior.Lowest,
-                    new[] { packageId },
-                    Enumerable.Empty<string>(),
-                    Enumerable.Empty<PackageReference>(),
+                    [packageId],
+                    [],
+                    [],
                     CoreLibraries.GetPreferredVersions(),
                     availablePackages,
                     repositories.Select(s => s.PackageSource),

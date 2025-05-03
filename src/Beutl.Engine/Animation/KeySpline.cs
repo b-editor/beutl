@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-
-using Beutl.Media;
 using Beutl.Utilities;
 
 namespace Beutl.Animation;

@@ -5,9 +5,6 @@ using Beutl.Media;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels.Editors;
-
-using DynamicData;
-
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;

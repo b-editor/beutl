@@ -1,11 +1,4 @@
-﻿using System;
-using System.IO.Pipes;
-
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
-
-using FluentAvalonia.UI.Windowing;
+﻿using Avalonia;
 
 namespace Beutl.WaitingDialog;
 internal class Program

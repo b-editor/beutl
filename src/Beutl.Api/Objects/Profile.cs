@@ -19,7 +19,7 @@ public class Profile
         Name = response.Name;
         Biography = Response.Select(x => x.Bio).ToReadOnlyReactivePropertySlim()!;
         DisplayName = Response.Select(x => x.DisplayName).ToReadOnlyReactivePropertySlim()!;
-        AvatarUrl = Response.Select(x => x.IconUrl).ToReadOnlyReactivePropertySlim()!;
+        AvatarUrl = Response.Select(x => x.IconUrl).ToReadOnlyReactivePropertySlim();
     }
 
     public IReadOnlyReactiveProperty<ProfileResponse> Response => _response;

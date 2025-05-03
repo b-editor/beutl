@@ -1,7 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 
 namespace Beutl.Views.Tools;

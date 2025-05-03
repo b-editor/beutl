@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Animation.Easings;
-using Beutl.Language;
 using Beutl.Serialization;
 
 namespace Beutl.Animation;

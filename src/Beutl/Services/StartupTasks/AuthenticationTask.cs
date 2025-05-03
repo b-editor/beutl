@@ -2,7 +2,6 @@
 using Beutl.Api.Clients;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
-using OpenTelemetry.Trace;
 using Refit;
 
 namespace Beutl.Services.StartupTasks;

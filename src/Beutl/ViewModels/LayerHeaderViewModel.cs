@@ -1,9 +1,7 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 using Avalonia.Media;
-using Beutl.Commands;
 using Beutl.ProjectSystem;
-using Beutl.Reactive;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 

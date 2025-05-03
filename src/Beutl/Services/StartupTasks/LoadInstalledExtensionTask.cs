@@ -9,8 +9,6 @@ using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.Logging;
 
-using OpenTelemetry.Trace;
-
 namespace Beutl.Services.StartupTasks;
 
 public sealed class LoadInstalledExtensionTask : StartupTask

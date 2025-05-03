@@ -6,8 +6,6 @@ using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
-using Avalonia.Threading;
-
 using Beutl.Media;
 using Beutl.Reactive;
 

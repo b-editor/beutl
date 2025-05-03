@@ -7,8 +7,6 @@ using Beutl.Graphics.Transformation;
 
 using SkiaSharp;
 
-using PathOptions = (float Thickness, Beutl.Media.StrokeAlignment Alignment, Beutl.Media.StrokeCap StrokeCap, Beutl.Media.StrokeJoin StrokeJoin, float MiterLimit);
-
 namespace Beutl.Media;
 
 public abstract class Geometry : Animatable, IAffectsRender

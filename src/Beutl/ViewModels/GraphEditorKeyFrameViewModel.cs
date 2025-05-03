@@ -4,8 +4,6 @@ using Avalonia;
 using Avalonia.Media;
 
 using Beutl.Animation;
-using Beutl.Commands;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 

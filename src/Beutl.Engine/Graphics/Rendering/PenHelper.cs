@@ -3,8 +3,6 @@ using Beutl.Utilities;
 
 using SkiaSharp;
 
-using PathOptions = (float Thickness, Beutl.Media.StrokeAlignment Alignment, Beutl.Media.StrokeCap StrokeCap, Beutl.Media.StrokeJoin StrokeJoin, float MiterLimit);
-
 namespace Beutl.Graphics.Rendering;
 
 internal static class PenHelper

@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Nodes;
-
-using Beutl.Collections;
+﻿using Beutl.Collections;
 using Beutl.Serialization;
 
 namespace Beutl.Configuration;
@@ -53,7 +51,7 @@ public sealed class ExtensionConfig : ConfigurationBase
             }
         }
 
-        string[]? dp = context.GetValue<string[]>(nameof(DecoderPriority));
+        string?[]? dp = context.GetValue<string?[]>(nameof(DecoderPriority));
         DecoderPriority.Clear();
         if (dp != null)
         {

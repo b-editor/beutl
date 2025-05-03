@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
-using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
 using FluentAvalonia.UI.Media;
 

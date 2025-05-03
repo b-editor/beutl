@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
@@ -11,7 +10,6 @@ using Beutl.NodeTree;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 

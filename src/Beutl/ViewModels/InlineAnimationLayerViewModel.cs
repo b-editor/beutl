@@ -1,10 +1,7 @@
-﻿using System.Collections.Immutable;
-
-using Avalonia;
+﻿using Avalonia;
 
 using Beutl.Animation;
 using Beutl.Animation.Easings;
-using Beutl.Commands;
 using Beutl.Reactive;
 
 using Reactive.Bindings;

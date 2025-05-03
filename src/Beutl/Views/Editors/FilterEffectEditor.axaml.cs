@@ -7,8 +7,6 @@ using Avalonia.Interactivity;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
-using Beutl.Views.Dialogs;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 

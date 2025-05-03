@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Beutl.Controls;
 using Beutl.Logging;
 using Beutl.ViewModels;

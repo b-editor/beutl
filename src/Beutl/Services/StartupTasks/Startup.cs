@@ -1,6 +1,5 @@
 ﻿using Beutl.Api;
 using Beutl.Api.Services;
-using Beutl.ViewModels;
 
 namespace Beutl.Services.StartupTasks;
 

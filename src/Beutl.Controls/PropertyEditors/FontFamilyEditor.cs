@@ -4,7 +4,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Beutl.Media;
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.Controls.PropertyEditors;
 

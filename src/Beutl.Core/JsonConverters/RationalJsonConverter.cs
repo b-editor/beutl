@@ -12,7 +12,7 @@ internal sealed class RationalJsonConverter : JsonConverter<Rational>
         {
             var node = JsonNode.Parse(ref reader) as JsonObject;
             long num = (long)node![nameof(Rational.Numerator)]!;
-            long den = (long)node![nameof(Rational.Denominator)]!;
+            long den = (long)node[nameof(Rational.Denominator)]!;
             return new Rational(num, den);
         }
         else

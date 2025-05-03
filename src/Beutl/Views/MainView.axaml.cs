@@ -1,9 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Styling;
 using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Pages;
@@ -19,7 +17,6 @@ using FluentAvalonia.UI.Windowing;
 using Microsoft.Extensions.Logging;
 using NuGet.Versioning;
 using Reactive.Bindings.Extensions;
-using ReactiveUI;
 
 namespace Beutl.Views;
 

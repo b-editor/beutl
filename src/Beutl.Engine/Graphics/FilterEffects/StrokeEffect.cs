@@ -16,10 +16,16 @@ public class StrokeEffect : FilterEffect
 {
     public static readonly CoreProperty<IPen?> PenProperty;
     public static readonly CoreProperty<Point> OffsetProperty;
-    public static readonly CoreProperty<Border.BorderStyles> StyleProperty;
+    public static readonly CoreProperty<StrokeStyles> StyleProperty;
     private IPen? _pen;
     private Point _offset;
-    private Border.BorderStyles _style;
+    private StrokeStyles _style;
+
+    public enum StrokeStyles
+    {
+        Background,
+        Foreground,
+    }
 
     static StrokeEffect()
     {
@@ -32,9 +38,9 @@ public class StrokeEffect : FilterEffect
             .DefaultValue(default)
             .Register();
 
-        StyleProperty = ConfigureProperty<Border.BorderStyles, StrokeEffect>(nameof(Style))
+        StyleProperty = ConfigureProperty<StrokeStyles, StrokeEffect>(nameof(Style))
             .Accessor(o => o.Style, (o, v) => o.Style = v)
-            .DefaultValue(Border.BorderStyles.Background)
+            .DefaultValue(StrokeStyles.Background)
             .Register();
 
         AffectsRender<StrokeEffect>(
@@ -64,7 +70,7 @@ public class StrokeEffect : FilterEffect
     }
 
     [Display(Name = nameof(Strings.BorderStyle), ResourceType = typeof(Strings))]
-    public Border.BorderStyles Style
+    public StrokeStyles Style
     {
         get => _style;
         set => SetAndRaise(StyleProperty, ref _style, value);
@@ -87,13 +93,13 @@ public class StrokeEffect : FilterEffect
         context.CustomEffect((Offset, (Pen as IMutablePen)?.ToImmutable(), Style), Apply, TransformBounds);
     }
 
-    private static Rect TransformBounds((Point Offset, IPen? Pen, Border.BorderStyles Style) data, Rect rect)
+    private static Rect TransformBounds((Point Offset, IPen? Pen, StrokeStyles Style) data, Rect rect)
     {
         Rect borderBounds = PenHelper.GetBounds(rect, data.Pen);
         return rect.Union(borderBounds.Translate(new Vector(data.Offset.X, data.Offset.Y)));
     }
 
-    private static void Apply((Point Offset, IPen? Pen, Border.BorderStyles Style) data, CustomFilterEffectContext context)
+    private static void Apply((Point Offset, IPen? Pen, StrokeStyles Style) data, CustomFilterEffectContext context)
     {
         static SKPath CreateBorderPath(Bitmap<Bgra8888> src)
         {
@@ -152,7 +158,7 @@ public class StrokeEffect : FilterEffect
                 using (newCanvas.PushTransform(origin))
                 {
                     // 縁取りの後ろに描画
-                    if (data.Style == Border.BorderStyles.Background)
+                    if (data.Style == StrokeStyles.Background)
                         newCanvas.DrawRenderTarget(srcRenderTarget, default);
 
                     // 縁取り描画
@@ -162,7 +168,7 @@ public class StrokeEffect : FilterEffect
                     }
 
                     // 縁取りの表に描画
-                    if (data.Style == Border.BorderStyles.Foreground)
+                    if (data.Style == StrokeStyles.Foreground)
                         newCanvas.DrawRenderTarget(srcRenderTarget, default);
 
                 }

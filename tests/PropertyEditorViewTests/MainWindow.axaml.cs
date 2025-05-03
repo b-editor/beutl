@@ -1,10 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
-
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
-
 using Beutl.Controls.PropertyEditors;
 
 namespace PropertyEditorViewTests
@@ -39,7 +35,7 @@ namespace PropertyEditorViewTests
             var thicknessEditor = new Vector4Editor<float>() { Header = "Property 5", Theme = (Avalonia.Styling.ControlTheme)this.FindResource("ThicknessEditorStyle")! };
             var boolEditor = new BooleanEditor() { Header = "Property 6" };
             var colorEditor = new ColorEditor() { Header = "Property 7" };
-            _enumEditor = new EnumEditor() { Header = "Property 8", Items = new string[] { "Apple", "Grape", "Orange", "Lemon" } };
+            _enumEditor = new EnumEditor() { Header = "Property 8", Items = ["Apple", "Grape", "Orange", "Lemon"] };
             _typedenumEditor = new EnumEditor<Fruits>() { Header = "Property 9" };
             _indexEditor = new NumberEditor<int>() { Header = "Property 9(Index)" };
             //stack.Children.Add(vector2Editor);

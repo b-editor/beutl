@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 
 namespace Beutl.Utilities;
 
@@ -141,7 +140,7 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
             for (int c = 0; c < _count; c++)
             {
                 if (_data[c]?.TryGetTarget(out IWeakEventSubscriber<TEventArgs>? sub) == true)
-                    sub!.OnEvent(_target, _ev, eventArgs);
+                    sub.OnEvent(_target, _ev, eventArgs);
                 else
                     needCompact = true;
             }

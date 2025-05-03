@@ -1,9 +1,7 @@
 ﻿using System.Runtime.Versioning;
 using Beutl.Extensibility;
-using Beutl.Media.Encoding;
 using MonoMac.AudioToolbox;
 using MonoMac.AVFoundation;
-using MonoMac.CoreFoundation;
 using MonoMac.CoreMedia;
 using MonoMac.CoreVideo;
 using MonoMac.Foundation;

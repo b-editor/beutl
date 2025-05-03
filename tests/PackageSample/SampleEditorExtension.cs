@@ -3,8 +3,6 @@
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Platform.Storage;
-using Avalonia.Styling;
-
 using Beutl.Extensibility;
 
 using FluentAvalonia.UI.Controls;
@@ -99,7 +97,7 @@ public sealed class SampleEditorExtension : EditorExtension
     {
         return new FilePickerFileType("Text File")
         {
-            Patterns = new[] { "*.txt", "*.scene" }
+            Patterns = ["*.txt", "*.scene"]
         };
     }
 

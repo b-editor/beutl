@@ -1,12 +1,8 @@
-﻿using System.Runtime.InteropServices;
-
-using Avalonia.Animation;
+﻿using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
-using Avalonia.Threading;
-
 using FluentAvalonia.UI.Windowing;
 
 namespace Beutl;

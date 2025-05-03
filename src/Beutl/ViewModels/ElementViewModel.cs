@@ -1,20 +1,14 @@
-﻿using System.Numerics;
-using System.Text.Json.Nodes;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Beutl.Animation;
-using Beutl.Commands;
 using Beutl.Helpers;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using Beutl.Services;
-using Beutl.Utilities;
 using FluentAvalonia.UI.Media;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using HslColor = Avalonia.Media.HslColor;
 
 namespace Beutl.ViewModels;
 
@@ -66,7 +60,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .AddTo(_disposables);
 
         RestBorderColor = Color.Select(v => (Avalonia.Media.Color)((Color2)v).LightenPercent(-0.15f))
-            .ToReadOnlyReactivePropertySlim()!;
+            .ToReadOnlyReactivePropertySlim();
 
         TextColor = Color.Select(ColorGenerator.GetTextColor)
             .ToReadOnlyReactivePropertySlim()

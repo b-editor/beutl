@@ -1,11 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Beutl.Helpers;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels.Tools;
 using Reactive.Bindings;

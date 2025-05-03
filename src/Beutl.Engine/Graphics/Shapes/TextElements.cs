@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.Collections;
+﻿using System.Collections;
 
 using Beutl.Media;
 using Beutl.Media.TextFormatting;

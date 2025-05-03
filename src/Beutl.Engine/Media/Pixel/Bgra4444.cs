@@ -1,7 +1,5 @@
 ﻿using System.Runtime.InteropServices;
 
-using Beutl.Media;
-
 namespace Beutl.Media.Pixel;
 
 [StructLayout(LayoutKind.Sequential)]

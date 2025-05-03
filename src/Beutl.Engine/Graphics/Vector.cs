@@ -1,13 +1,11 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Numerics;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
 
 using Beutl.Converters;
 using Beutl.Utilities;
-using Beutl.Validation;
 
 namespace Beutl.Graphics;
 

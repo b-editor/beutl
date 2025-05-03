@@ -5,7 +5,6 @@ using Avalonia.Threading;
 using Beutl.Models;
 
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 

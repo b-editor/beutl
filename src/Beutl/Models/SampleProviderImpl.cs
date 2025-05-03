@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Subjects;
-using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.ProjectSystem;

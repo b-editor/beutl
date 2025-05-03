@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-
-using Beutl.Media;
+﻿using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Source;
 

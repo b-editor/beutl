@@ -1,6 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Reactive.Linq;
-
 using Beutl.Media;
 
 namespace Beutl.NodeTree;
@@ -177,7 +175,7 @@ public class NodeRegistry
             string displayName)
             where T : Node, new()
         {
-            _item.Items!.Add(new RegistryItem(displayName, Colors.Teal, typeof(T)));
+            _item.Items.Add(new RegistryItem(displayName, Colors.Teal, typeof(T)));
 
             return this;
         }

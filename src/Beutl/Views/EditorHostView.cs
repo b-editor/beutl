@@ -1,8 +1,4 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.VisualTree;
-using Beutl.Api.Services;
-using Beutl.ViewModels;
 
 namespace Beutl.Views;
 

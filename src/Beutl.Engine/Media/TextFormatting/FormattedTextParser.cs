@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-
-using Beutl.Graphics;
 using Beutl.Media.Immutable;
 using Beutl.Utilities;
 

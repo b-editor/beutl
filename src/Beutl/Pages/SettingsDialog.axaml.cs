@@ -1,10 +1,8 @@
 ﻿using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Platform;
 using Beutl.Controls.Navigation;
 using Beutl.Logging;
 using Beutl.Pages.SettingsPages;
-using Beutl.Services;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
