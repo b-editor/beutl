@@ -14,7 +14,6 @@ namespace Beutl.ViewModels;
 public sealed class GraphEditorKeyFrameViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly GraphEditorViewViewModel _parent;
     internal readonly ReactivePropertySlim<GraphEditorKeyFrameViewModel?> _previous = new();
     internal GraphEditorKeyFrameViewModel? _next;
 
@@ -23,10 +22,10 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         GraphEditorViewViewModel parent)
     {
         Model = keyframe;
-        _parent = parent;
+        Parent = parent;
 
         EndY = Model.ObserveProperty(x => x.Value)
-            .Select(_parent.ConvertToDouble)
+            .Select(Parent.ConvertToDouble)
             .CombineLatest(parent.Parent.ScaleY)
             .Select(x => x.First * x.Second)
             .ToReactiveProperty()
@@ -49,7 +48,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .DisposeWith(_disposables);
 
         Left = _previous
-            .Select(x => x?.Right ?? _parent.Parent.Margin.Select(x => -x.Left))
+            .Select(x => x?.Right ?? Parent.Parent.Margin.Select(x => -x.Left))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -134,9 +133,11 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
+    public GraphEditorViewViewModel Parent { get; }
+
     public IKeyFrame Model { get; }
 
-    public ReadOnlyReactivePropertySlim<IBrush?> Stroke => _parent.Stroke;
+    public ReadOnlyReactivePropertySlim<IBrush?> Stroke => Parent.Stroke;
 
     public ReadOnlyReactivePropertySlim<bool> Decreasing { get; }
 
@@ -239,7 +240,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     {
         if (Model.Easing is SplineEasing splineEasing)
         {
-            CommandRecorder recorder = _parent.Parent.EditorContext.CommandRecorder;
+            CommandRecorder recorder = Parent.Parent.EditorContext.CommandRecorder;
             var oldValues = (X1: oldX, Y1: oldY);
             var newValues = (splineEasing.X1, splineEasing.Y1);
             if (oldValues == newValues)
@@ -257,7 +258,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     {
         if (Model.Easing is SplineEasing splineEasing)
         {
-            CommandRecorder recorder = _parent.Parent.EditorContext.CommandRecorder;
+            CommandRecorder recorder = Parent.Parent.EditorContext.CommandRecorder;
             var oldValues = (X2: oldX, Y2: oldY);
             var newValues = (splineEasing.X2, splineEasing.Y2);
             if (oldValues == newValues)
@@ -273,20 +274,20 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     public void SubmitCrossed(TimeSpan timeSpan)
     {
-        int rate = _parent.Parent.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        int rate = Parent.Parent.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
         Model.KeyTime = timeSpan.RoundToRate(rate);
     }
 
     public void SubmitKeyTimeAndValue(TimeSpan oldKeyTime)
     {
-        GraphEditorViewModel parent2 = _parent.Parent;
+        GraphEditorViewModel parent2 = Parent.Parent;
         CommandRecorder recorder = parent2.EditorContext.CommandRecorder;
         IKeyFrameAnimation animation = parent2.Animation;
 
         float scale = parent2.Options.Value.Scale;
         int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
 
-        if (_parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.Property.PropertyType, out object? obj))
+        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.Property.PropertyType, out object? obj))
         {
             var keyframe = Model;
             var (oldTime, oldValue) = (oldKeyTime, Model.Value);
@@ -298,7 +299,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 .ToCommand()
                 .DoAndRecord(recorder);
 
-            EndY.Value = _parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
+            EndY.Value = Parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
         }
         else
         {
@@ -311,11 +312,48 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 .DoAndRecord(recorder);
         }
 
-        Right.Value = Model.KeyTime.ToPixel(_parent.Parent.Options.Value.Scale);
+        Right.Value = Model.KeyTime.ToPixel(Parent.Parent.Options.Value.Scale);
+    }
+
+    public IRecordableCommand CreateSubmitKeyTimeAndValueCommand(TimeSpan oldKeyTime)
+    {
+        GraphEditorViewModel parent2 = Parent.Parent;
+        IKeyFrameAnimation animation = parent2.Animation;
+        IRecordableCommand? command;
+
+        float scale = parent2.Options.Value.Scale;
+        int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+
+        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.Property.PropertyType,
+                out object? obj))
+        {
+            var keyframe = Model;
+            var (oldTime, oldValue) = (oldKeyTime, Model.Value);
+            var (newTime, newValue) = (Right.Value.ToTimeSpan(scale).RoundToRate(rate), obj);
+
+            command = RecordableCommands.Create(GetStorables())
+                .OnDo(() => (keyframe.Value, keyframe.KeyTime) = (newValue, newTime))
+                .OnUndo(() => (keyframe.Value, keyframe.KeyTime) = (oldValue, oldTime))
+                .ToCommand();
+
+            EndY.Value = Parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
+        }
+        else
+        {
+            command = RecordableCommands.Edit(
+                    target: Model,
+                    property: KeyFrame.KeyTimeProperty,
+                    value: Right.Value.ToTimeSpan(scale).RoundToRate(rate),
+                    oldValue: oldKeyTime)
+                .WithStoables(GetStorables());
+        }
+
+        Right.Value = Model.KeyTime.ToPixel(Parent.Parent.Options.Value.Scale);
+        return command;
     }
 
     private ImmutableArray<IStorable?> GetStorables()
     {
-        return [_parent.Parent.Element];
+        return [Parent.Parent.Element];
     }
 }
