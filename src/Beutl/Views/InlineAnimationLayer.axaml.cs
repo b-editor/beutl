@@ -32,23 +32,22 @@ public partial class InlineAnimationLayer : UserControl
 
     private void OnDrap(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.Easing)
-            && e.Data.Get(KnownLibraryItemFormats.Easing) is Easing easing
-            && DataContext is InlineAnimationLayerViewModel { Timeline: { Options.Value.Scale: { } scale } } viewModel)
-        {
-            TimeSpan time = e.GetPosition(this).X.ToTimeSpan(scale);
-            viewModel.DropEasing(easing, time);
-            e.Handled = true;
-        }
+        if (!e.Data.Contains(KnownLibraryItemFormats.Easing)) return;
+        if (e.Data.Get(KnownLibraryItemFormats.Easing) is not Easing easing) return;
+        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
+
+        float scale = viewModel.Timeline.Options.Value.Scale;
+        TimeSpan time = e.GetPosition(this).X.ToTimeSpan(scale);
+        viewModel.DropEasing(easing, time);
+        e.Handled = true;
     }
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.Easing))
-        {
-            e.DragEffects = DragDropEffects.Copy;
-            e.Handled = true;
-        }
+        if (!e.Data.Contains(KnownLibraryItemFormats.Easing)) return;
+
+        e.DragEffects = DragDropEffects.Copy;
+        e.Handled = true;
     }
 
     private void OnMaterialized(object? sender, ContainerPreparedEventArgs e)
@@ -72,8 +71,34 @@ public partial class InlineAnimationLayer : UserControl
         {
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                var animation1 = new Avalonia.Animation.Animation { Easing = new Avalonia.Animation.Easings.SplineEasing(0.1, 0.9, 0.2, 1.0), Duration = TimeSpan.FromSeconds(0.25), FillMode = FillMode.Forward, Children = { new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, Margin) } }, new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, margin) } } } };
-                var animation2 = new Avalonia.Animation.Animation { Easing = new Avalonia.Animation.Easings.SplineEasing(0.1, 0.9, 0.2, 1.0), Duration = TimeSpan.FromSeconds(0.25), FillMode = FillMode.Forward, Children = { new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, items.Margin) } }, new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, leftMargin) } } } };
+                var animation1 = new Avalonia.Animation.Animation
+                {
+                    Easing = new Avalonia.Animation.Easings.SplineEasing(0.1, 0.9, 0.2, 1.0),
+                    Duration = TimeSpan.FromSeconds(0.25),
+                    FillMode = FillMode.Forward,
+                    Children =
+                    {
+                        new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, Margin) } },
+                        new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, margin) } }
+                    }
+                };
+                var animation2 = new Avalonia.Animation.Animation
+                {
+                    Easing = new Avalonia.Animation.Easings.SplineEasing(0.1, 0.9, 0.2, 1.0),
+                    Duration = TimeSpan.FromSeconds(0.25),
+                    FillMode = FillMode.Forward,
+                    Children =
+                    {
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(0), Setters = { new Setter(MarginProperty, items.Margin) }
+                        },
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(1), Setters = { new Setter(MarginProperty, leftMargin) }
+                        }
+                    }
+                };
 
                 Task task1 = animation1.RunAsync(this, token);
                 Task task2 = animation2.RunAsync(items, token);
@@ -100,88 +125,80 @@ public partial class InlineAnimationLayer : UserControl
         protected override void OnAttached()
         {
             base.OnAttached();
-            if (AssociatedObject is InputElement ie)
-            {
-                ie.PointerPressed += OnPointerPressed;
-                ie.PointerReleased += OnPointerReleased;
-                ie.PointerMoved += OnPointerMoved;
-            }
+            if (AssociatedObject is not InputElement ie) return;
+
+            ie.PointerPressed += OnPointerPressed;
+            ie.PointerReleased += OnPointerReleased;
+            ie.PointerMoved += OnPointerMoved;
         }
 
         protected override void OnDetaching()
         {
             base.OnDetaching();
-            if (AssociatedObject is InputElement ie)
-            {
-                ie.PointerPressed -= OnPointerPressed;
-                ie.PointerReleased -= OnPointerReleased;
-                ie.PointerMoved -= OnPointerMoved;
-            }
+            if (AssociatedObject is not InputElement ie) return;
+
+            ie.PointerPressed -= OnPointerPressed;
+            ie.PointerReleased -= OnPointerReleased;
+            ie.PointerMoved -= OnPointerMoved;
         }
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (AssociatedObject is { DataContext: InlineKeyFrameViewModel viewModel }
-                && _pressed)
+            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
+            if (!_pressed) return;
+
+            Point position = e.GetPosition(AssociatedObject);
+            Point delta = position - _start;
+            _start = position;
+
+            viewModel.Left.Value += delta.X;
+            e.Handled = true;
+
+            if (_items == null) return;
+            foreach (InlineKeyFrameViewModel item in _items)
             {
-                Point position = e.GetPosition(AssociatedObject);
-                Point delta = position - _start;
-                _start = position;
-
-                viewModel.Left.Value += delta.X;
-                e.Handled = true;
-
-                if (_items != null)
-                {
-                    foreach (InlineKeyFrameViewModel item in _items)
-                    {
-                        item.Left.Value += delta.X;
-                    }
-                }
+                item.Left.Value += delta.X;
             }
         }
 
         private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            if (AssociatedObject is { DataContext: InlineKeyFrameViewModel viewModel }
-                && _pressed)
-            {
-                if (_items != null)
-                {
-                    _items.Select(i => i.CreateUpdateCommand())
-                        .Append(viewModel.CreateUpdateCommand())
-                        .ToArray()
-                        .ToCommand([viewModel.Parent.Element.Model])
-                        .DoAndRecord(viewModel.Timeline.EditorContext.CommandRecorder);
-                }
-                else
-                {
-                    viewModel.UpdateKeyTime();
-                }
+            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
+            if (!_pressed) return;
 
-                _items = null;
-                _pressed = false;
-                e.Handled = true;
+            if (_items != null)
+            {
+                _items.Select(i => i.CreateUpdateCommand())
+                    .Append(viewModel.CreateUpdateCommand())
+                    .ToArray()
+                    .ToCommand([viewModel.Parent.Element.Model])
+                    .DoAndRecord(viewModel.Timeline.EditorContext.CommandRecorder);
             }
+            else
+            {
+                viewModel.UpdateKeyTime();
+            }
+
+            _items = null;
+            _pressed = false;
+            e.Handled = true;
         }
 
         private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject is { DataContext: InlineKeyFrameViewModel viewModel })
+            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
+
+            PointerPoint point = e.GetCurrentPoint(AssociatedObject);
+
+            if (!point.Properties.IsLeftButtonPressed) return;
+
+            _pressed = true;
+            _start = point.Position;
+            e.Handled = true;
+
+            if (e.KeyModifiers == KeyModifiers.Shift)
             {
-                PointerPoint point = e.GetCurrentPoint(AssociatedObject);
-
-                if (point.Properties.IsLeftButtonPressed)
-                {
-                    _pressed = true;
-                    _start = point.Position;
-                    e.Handled = true;
-
-                    if (e.KeyModifiers == KeyModifiers.Shift)
-                    {
-                        _items = viewModel.Parent.Items.Where(i => i != viewModel).ToArray();
-                    }
-                }
+                _items = viewModel.Parent.Items.Where(i => i != viewModel).ToArray();
             }
         }
     }
