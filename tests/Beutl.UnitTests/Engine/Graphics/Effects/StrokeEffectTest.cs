@@ -24,7 +24,7 @@ public class StrokeEffectTest
         var effect = new StrokeEffect();
         effect.Pen = new Pen { Brush = Brushes.Red, Thickness = 2 };
         effect.Offset = new Point(10, 10);
-        effect.Style = Border.BorderStyles.Foreground;
+        effect.Style = StrokeEffect.StrokeStyles.Foreground;
 
         Assert.That(effect.Pen, Is.Not.Null);
         Assert.That(effect.Offset, Is.EqualTo(new Point(10, 10)));
@@ -37,7 +37,7 @@ public class StrokeEffectTest
         var effect = new StrokeEffect();
         effect.Pen = new Pen { Brush = Brushes.Red, Thickness = 2 };
         effect.Offset = new Point(10, 10);
-        effect.Style = Border.BorderStyles.Foreground;
+        effect.Style = StrokeEffect.StrokeStyles.Foreground;
         using var context = new FilterEffectContext(new Rect(0, 0, 100, 100));
 
         context.Apply(effect);
