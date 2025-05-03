@@ -15,7 +15,7 @@ public class StrokeEffectTest
 
         Assert.That(effect.Pen, Is.Not.Null);
         Assert.That(effect.Offset, Is.EqualTo(new Point()));
-        Assert.That(effect.Style, Is.EqualTo(Border.BorderStyles.Background));
+        Assert.That(effect.Style, Is.EqualTo(StrokeEffect.StrokeStyles.Background));
     }
 
     [Test]
@@ -28,7 +28,7 @@ public class StrokeEffectTest
 
         Assert.That(effect.Pen, Is.Not.Null);
         Assert.That(effect.Offset, Is.EqualTo(new Point(10, 10)));
-        Assert.That(effect.Style, Is.EqualTo(Border.BorderStyles.Foreground));
+        Assert.That(effect.Style, Is.EqualTo(StrokeEffect.StrokeStyles.Foreground));
     }
 
     [Test]
