@@ -131,39 +131,11 @@ public partial class InlineAnimationLayer : UserControl
                 viewModel.Left.Value += delta.X;
                 e.Handled = true;
 
-                if (e.KeyModifiers == KeyModifiers.Shift)
+                if (_items != null)
                 {
-                    if (_items != null)
+                    foreach (InlineKeyFrameViewModel item in _items)
                     {
-                        foreach (InlineKeyFrameViewModel item in _items)
-                        {
-                            item.Left.Value += delta.X;
-                        }
-                    }
-                    else
-                    {
-                        // 途中から一括移動に切り替えた場合、現在の移動分を他のキーフレームに追加する
-                        float scale = viewModel.Timeline.Options.Value.Scale;
-                        double initLeft = viewModel.Model.KeyTime.ToPixel(scale);
-                        double deltaStart = viewModel.Left.Value - initLeft;
-                        _items = viewModel.Parent.Items.Where(i => i != viewModel).ToArray();
-                        foreach (InlineKeyFrameViewModel item in _items)
-                        {
-                            item.Left.Value += deltaStart;
-                        }
-                    }
-                }
-                else
-                {
-                    if (_items != null)
-                    {
-                        float scale = viewModel.Timeline.Options.Value.Scale;
-                        foreach (InlineKeyFrameViewModel item in _items)
-                        {
-                            item.Left.Value = item.Model.KeyTime.ToPixel(scale);
-                        }
-
-                        _items = null;
+                        item.Left.Value += delta.X;
                     }
                 }
             }
