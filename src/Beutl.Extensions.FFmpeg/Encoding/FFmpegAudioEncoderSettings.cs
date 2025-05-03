@@ -1,5 +1,5 @@
 ﻿using Beutl.Media.Encoding;
-
+using Beutl.Serialization;
 using FFmpeg.AutoGen;
 using FFmpegSharp;
 
@@ -37,6 +37,24 @@ public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
     {
         get => GetValue(FormatProperty);
         set => SetValue(FormatProperty, value);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        string? codecName = context.GetValue<string>(nameof(Codec));
+        if (codecName != null)
+        {
+            Codec = AudioCodecChoicesProvider.GetChoices()
+                .Cast<CodecRecord>()
+                .FirstOrDefault(i => i.Name == codecName, CodecRecord.Default);
+        }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        context.SetValue(nameof(Codec), Codec.Name);
     }
 
     public enum AudioFormat
