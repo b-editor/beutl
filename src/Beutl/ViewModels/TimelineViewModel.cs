@@ -2,10 +2,7 @@ using System.Collections.Specialized;
 using System.Numerics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
-using System.Windows.Input;
 using Avalonia;
-using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Logging;
@@ -22,7 +19,6 @@ using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using static Beutl.ViewModels.BufferStatusViewModel;
-using PixelPoint = Avalonia.PixelPoint;
 
 namespace Beutl.ViewModels;
 
@@ -478,7 +474,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                         Type type = typeof(AnimatablePropertyAdapter<>).MakeGenericType(anm.Property.PropertyType);
                         var createdProp =
                             (IAnimatablePropertyAdapter)Activator.CreateInstance(type, anm.Property, animatable)!;
-                        AttachInline(createdProp!, element);
+                        AttachInline(createdProp, element);
                         _logger.LogDebug("Inline animation created and attached for element {ElementId} and animation {AnimationId}.", element.Id, anmId);
                     }
                     catch (Exception ex)

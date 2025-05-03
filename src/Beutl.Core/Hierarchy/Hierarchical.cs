@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
-using System.ComponentModel;
 using Beutl.Collections;
 
 namespace Beutl;

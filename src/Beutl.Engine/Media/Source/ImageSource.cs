@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
-using Beutl.Media.Pixel;
-
 namespace Beutl.Media.Source;
 
 public abstract class ImageSource : IImageSource

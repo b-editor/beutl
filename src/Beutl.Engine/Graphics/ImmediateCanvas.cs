@@ -258,7 +258,7 @@ public partial class ImmediateCanvas : ICanvas
             && pen.Thickness > 0
             && text.GetStrokePath() is { } stroke)
         {
-            ConfigureStrokePaint(new(text.Bounds.Size), pen!);
+            ConfigureStrokePaint(new(text.Bounds.Size), pen);
             _sharedStrokePaint.IsStroke = false;
             Canvas.DrawPath(stroke, _sharedStrokePaint);
         }

@@ -42,6 +42,7 @@ Refer to the [documentation](https://docs.beutl.beditor.net/get-started/install)
 
 ## Patrons
 
+- ozero
 - [darthaunty1](https://www.patreon.com/user/creators?u=89848438)
 - [calloc134](https://github.com/calloc134)
 - [Bony_Chops](https://github.com/BonyChops)

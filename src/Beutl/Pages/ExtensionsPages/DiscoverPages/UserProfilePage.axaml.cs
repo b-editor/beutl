@@ -1,13 +1,9 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Styling;
-
 using Beutl.Api.Objects;
 
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
-
-using FluentAvalonia.Styling;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 

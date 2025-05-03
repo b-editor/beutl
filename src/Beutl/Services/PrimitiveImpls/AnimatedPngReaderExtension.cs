@@ -1,5 +1,4 @@
 ﻿using Beutl.Media.Decoding;
-using Beutl.Media.Wave;
 
 namespace Beutl.Services.PrimitiveImpls;
 

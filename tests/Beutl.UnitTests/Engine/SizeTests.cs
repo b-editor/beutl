@@ -2,7 +2,6 @@
 using System.Text;
 using Beutl.Graphics;
 using Beutl.Media;
-using NUnit.Framework;
 
 namespace Beutl.UnitTests.Engine;
 

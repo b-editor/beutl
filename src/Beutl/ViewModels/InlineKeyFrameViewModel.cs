@@ -1,5 +1,4 @@
-﻿using Beutl.Animation;
-using Beutl.Commands;
+using Beutl.Animation;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;

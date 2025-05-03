@@ -7,8 +7,6 @@ using System.Text.Json.Serialization;
 using Beutl.Converters;
 using Beutl.Graphics;
 using Beutl.Utilities;
-using Beutl.Validation;
-
 using Vector = Beutl.Graphics.Vector;
 
 namespace Beutl.Media;

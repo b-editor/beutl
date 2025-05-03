@@ -2,7 +2,6 @@
 using System.Collections.Specialized;
 
 using Beutl.Collections;
-using Beutl.Graphics.Effects;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;

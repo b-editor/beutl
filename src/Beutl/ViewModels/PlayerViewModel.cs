@@ -20,7 +20,6 @@ using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using OpenTK.Audio.OpenAL;
 using Reactive.Bindings;
-using SkiaSharp;
 using Vortice.Multimedia;
 
 namespace Beutl.ViewModels;

@@ -1,6 +1,7 @@
 ﻿using Beutl.Extensibility;
 using Beutl.Extensions.MediaFoundation.Properties;
 using Beutl.Media.Decoding;
+using System.ComponentModel.DataAnnotations;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
@@ -9,12 +10,9 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 #endif
 
 [Export]
+[Display(Name = nameof(Strings.DecodingName), ResourceType = typeof(Strings))]
 public sealed class MFDecodingExtension : DecodingExtension
 {
-    public override string Name => "MediaFoundationDecoding";
-
-    public override string DisplayName => Strings.DecodingName;
-
     public override MFDecodingSettings Settings { get; } = new MFDecodingSettings();
 
     public override IDecoderInfo GetDecoderInfo()

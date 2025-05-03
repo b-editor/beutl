@@ -6,7 +6,6 @@ using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
-using Beutl.Commands;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.ProjectSystem;

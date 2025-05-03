@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Media;

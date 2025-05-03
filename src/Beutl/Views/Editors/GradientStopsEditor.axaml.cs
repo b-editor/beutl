@@ -1,16 +1,10 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Data.Converters;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Immutable;
-using Avalonia.Media.Transformation;
-using Beutl.Helpers;
 using Beutl.Media;
-using Beutl.Utilities;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
 using AM = Avalonia.Media;
-using FAM = FluentAvalonia.UI.Media;
 
 namespace Beutl.Views.Editors;
 

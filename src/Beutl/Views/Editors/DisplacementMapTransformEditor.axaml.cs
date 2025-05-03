@@ -2,10 +2,7 @@
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Input;
 using Avalonia.Interactivity;
-using Beutl.Graphics.Transformation;
-using Beutl.Services;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
 

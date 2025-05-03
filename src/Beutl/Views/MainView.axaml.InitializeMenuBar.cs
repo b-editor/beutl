@@ -13,7 +13,6 @@ using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
-using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;
@@ -208,13 +207,13 @@ public partial class MainView
         {
             var options = new FilePickerOpenOptions
             {
-                FileTypeFilter = new FilePickerFileType[]
-                {
+                FileTypeFilter =
+                [
                     new FilePickerFileType(Strings.ProjectFile)
                     {
-                        Patterns = new[] { $"*.{Constants.ProjectFileExtension}" }
+                        Patterns = [$"*.{Constants.ProjectFileExtension}"]
                     }
-                }
+                ]
             };
 
             IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);

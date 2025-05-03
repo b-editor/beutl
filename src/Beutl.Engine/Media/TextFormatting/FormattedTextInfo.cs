@@ -1,6 +1,4 @@
-﻿using Beutl.Graphics;
-
-namespace Beutl.Media.TextFormatting;
+﻿namespace Beutl.Media.TextFormatting;
 
 public record struct FormattedTextInfo(Typeface Typeface, float Size, IBrush? Brush, float Space, IPen? Pen)
 {

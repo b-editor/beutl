@@ -21,7 +21,7 @@ public class FontFamilyPickerFlyoutViewModel
         _pinnedItems = (JsonSerializer.Deserialize<string[]>(json) ?? [])
             .Where(s => s != null)
             .Select(s => new FontFamily(s))
-            .ToList()!;
+            .ToList();
 
         _items = FontManager.Instance.FontFamilies
             .Select(v =>

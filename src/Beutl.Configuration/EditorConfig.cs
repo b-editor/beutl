@@ -1,8 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Management;
-using System.Reflection;
-using System.Runtime.Loader;
 using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
 using Beutl.Collections;

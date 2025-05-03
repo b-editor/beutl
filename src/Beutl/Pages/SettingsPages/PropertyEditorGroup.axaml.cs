@@ -1,6 +1,4 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Interactivity;
-
 using static Beutl.Pages.SettingsPages.PropertiesEditor;
 
 namespace Beutl.Pages.SettingsPages;

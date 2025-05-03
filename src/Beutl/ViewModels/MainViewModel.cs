@@ -1,21 +1,16 @@
 ﻿using System.Collections.ObjectModel;
-using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Helpers;
 using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
 using Beutl.Services.StartupTasks;
 using Beutl.ViewModels.ExtensionsPages;
 using DynamicData;
 using DynamicData.Binding;
 using NuGet.Packaging.Core;
 using Reactive.Bindings;
-using ReactiveUI;
 
 namespace Beutl.ViewModels;
 

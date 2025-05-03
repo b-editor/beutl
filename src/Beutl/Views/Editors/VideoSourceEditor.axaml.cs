@@ -42,7 +42,7 @@ public partial class VideoSourceEditor : UserControl
 
         FileEditor.OpenOptions = new FilePickerOpenOptions
         {
-            FileTypeFilter = new[] { new FilePickerFileType("Video File") { Patterns = fileExtensions } }
+            FileTypeFilter = [new FilePickerFileType("Video File") { Patterns = fileExtensions }]
         };
         FileEditor.ValueConfirmed += FileEditorOnValueConfirmed;
     }

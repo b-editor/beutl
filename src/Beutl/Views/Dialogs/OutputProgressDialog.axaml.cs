@@ -1,5 +1,4 @@
-﻿using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
+﻿using Beutl.ViewModels.Tools;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;

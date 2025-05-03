@@ -7,7 +7,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
-using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;

@@ -1,5 +1,4 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Xaml.Interactivity;
 
 namespace Beutl.Pages.SettingsPages;
 

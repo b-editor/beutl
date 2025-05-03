@@ -85,7 +85,7 @@ public class TransformParser
 
         ClassicAssert.NotNull(transform);
         ClassicAssert.AreEqual(x, transform!.SkewX);
-        ClassicAssert.AreEqual(y, transform!.SkewY);
+        ClassicAssert.AreEqual(y, transform.SkewY);
     }
 
     [Test]

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿using System.Collections.Immutable;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 

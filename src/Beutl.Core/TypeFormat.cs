@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using System.Runtime.Loader;
 using System.Text;
 
 using Beutl.JsonDiscriminator;
@@ -276,7 +275,7 @@ namespace Beutl
                         if (++i == generics.Length || (innerGenericCount == 0 && item.Type is TokenType.Comma))
                         {
                             Span<Token> genericType = generics[start..i];
-                            var parser = new TypeNameParser(new List<Token>(genericType.ToArray()));
+                            var parser = new TypeNameParser([..genericType]);
                             list.Add(parser.Parse());
                         }
                     }

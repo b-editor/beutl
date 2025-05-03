@@ -1,7 +1,10 @@
-﻿using Beutl.Media;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Language;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
+[Display(Name = nameof(Strings.Ellipse), ResourceType = typeof(Strings))]
 public sealed partial class EllipseShape : Shape
 {
     private EllipseGeometry? _geometry;

@@ -1,9 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Numerics;
 using System.Text.Json.Nodes;
-using System.Windows.Input;
-using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Configuration;

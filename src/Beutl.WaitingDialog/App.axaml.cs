@@ -2,8 +2,6 @@
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
-using FluentAvalonia.UI.Controls;
-
 namespace Beutl.WaitingDialog;
 public class App : Application
 {

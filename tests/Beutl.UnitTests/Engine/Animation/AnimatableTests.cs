@@ -1,11 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Media;
 using Beutl.Serialization;
 using Moq;
-using NUnit.Framework;
 
 namespace Beutl.UnitTests.Engine.Animation;
 

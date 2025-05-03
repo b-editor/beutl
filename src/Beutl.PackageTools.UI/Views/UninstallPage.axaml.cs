@@ -1,12 +1,8 @@
-﻿using System.Reactive.Linq;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-
-using Beutl.PackageTools.UI.Resources;
 using Beutl.PackageTools.UI.ViewModels;
 
 using FluentAvalonia.UI.Controls;

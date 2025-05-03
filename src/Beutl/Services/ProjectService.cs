@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Subjects;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Logging;
@@ -8,7 +7,6 @@ using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using NuGet.Versioning;
-using OpenTelemetry.Trace;
 using Reactive.Bindings;
 
 namespace Beutl.Services;

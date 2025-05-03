@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
@@ -11,9 +10,6 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Helpers;
-using Beutl.Models;
-using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Reactive.Bindings.Extensions;

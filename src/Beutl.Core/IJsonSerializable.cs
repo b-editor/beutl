@@ -1,7 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 
-using Beutl.Serialization;
-
 namespace Beutl;
 
 // このインターフェイスはUIの状態を保存するのに使用します

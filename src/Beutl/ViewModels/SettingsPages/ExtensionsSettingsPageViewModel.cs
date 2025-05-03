@@ -1,7 +1,4 @@
 ﻿using System.Collections.ObjectModel;
-
-using Avalonia;
-
 using Beutl.Api.Services;
 using Beutl.Controls.Navigation;
 

@@ -2,8 +2,6 @@
 
 using Beutl.Language;
 
-using SkiaSharp;
-
 namespace Beutl.Graphics.Effects;
 
 public sealed class Threshold : FilterEffect

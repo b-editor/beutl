@@ -83,7 +83,7 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override FilePickerFileType GetFilePickerFileType()
     {
-        return new FilePickerFileType(Strings.SceneFile) { Patterns = new string[] { "*.scene" } };
+        return new FilePickerFileType(Strings.SceneFile) { Patterns = ["*.scene"] };
     }
 
     public override bool MatchFileExtension(string ext)

@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Nodes;
-
-using Beutl.Collections;
+﻿using Beutl.Collections;
 using Beutl.Media;
 using Beutl.Serialization;
 

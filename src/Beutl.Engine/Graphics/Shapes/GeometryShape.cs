@@ -1,8 +1,11 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Animation;
+using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
+[Display(Name = nameof(Strings.GeometryShape), ResourceType = typeof(Strings))]
 public sealed class GeometryShape : Shape
 {
     public static readonly CoreProperty<Geometry?> DataProperty;
