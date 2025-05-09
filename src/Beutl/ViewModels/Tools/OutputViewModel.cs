@@ -35,10 +35,24 @@ public sealed class OutputViewModel : IOutputContext
     {
         _editViewModel = editViewModel;
         Model = editViewModel.Scene;
-        Controller = SelectedEncoder.CombineLatest(DestinationFile)
-            .Select(obj => obj is { First: not null, Second: not null }
-                ? obj.First.CreateController(obj.Second)
-                : null)
+        Controller = SelectedEncoder
+            .CombineLatest(DestinationFile)
+            .CombineWithPrevious()
+            .Select(obj =>
+            {
+                var (newEncoder, newFile) = obj.NewValue;
+                var (oldEncoder, _) = obj.OldValue;
+                if (newEncoder == null || newFile == null) return null;
+
+                if (oldEncoder == newEncoder
+                    && newEncoder.IsSupported(newFile)
+                    && Controller?.Value != null)
+                {
+                    return Controller.Value;
+                }
+
+                return newEncoder.CreateController(newFile);
+            })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
@@ -71,10 +85,9 @@ public sealed class OutputViewModel : IOutputContext
         ExtensionProvider.Current
             .GetExtensions<ControllableEncodingExtension>()
             .AsObservableChangeSet()
-            .Filter(DestinationFile.Select<string?, Func<ControllableEncodingExtension, bool>>(
-                f => f == null
-                    ? _ => false
-                    : ext => ext.IsSupported(f)))
+            .Filter(DestinationFile.Select<string?, Func<ControllableEncodingExtension, bool>>(f => f == null
+                ? _ => false
+                : ext => ext.IsSupported(f)))
             .Bind(out _encoders)
             .Subscribe()
             .DisposeWith(_disposable);
@@ -275,8 +288,10 @@ public sealed class OutputViewModel : IOutputContext
     {
         _logger.LogInformation("Encoding settings:");
         _logger.LogInformation("SelectedEncoder: {SelectedEncoder}", SelectedEncoder.Value?.Name);
-        _logger.LogInformation("VideoSettings: {VideoSettings}", SerializeEncoderSettings(VideoSettings.Value?.Settings)?.ToJsonString(JsonHelper.SerializerOptions));
-        _logger.LogInformation("AudioSettings: {AudioSettings}", SerializeEncoderSettings(AudioSettings.Value?.Settings)?.ToJsonString(JsonHelper.SerializerOptions));
+        _logger.LogInformation("VideoSettings: {VideoSettings}",
+            SerializeEncoderSettings(VideoSettings.Value?.Settings)?.ToJsonString(JsonHelper.SerializerOptions));
+        _logger.LogInformation("AudioSettings: {AudioSettings}",
+            SerializeEncoderSettings(AudioSettings.Value?.Settings)?.ToJsonString(JsonHelper.SerializerOptions));
     }
 
     public void Dispose()
