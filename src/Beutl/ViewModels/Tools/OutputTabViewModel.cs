@@ -18,7 +18,8 @@ public class OutputTabViewModel : IToolContext
         EditViewModel = editViewModel;
         _outputService = new OutputService(editViewModel);
         CanRemove = SelectedItem
-            .SelectMany(x => x?.Context?.IsEncoding?.Not() ?? Observable.Return(false))
+            .Select(x => x?.Context?.IsEncoding?.Not() ?? Observable.Return(false))
+            .Switch()
             .ToReadOnlyReactivePropertySlim();
         ReadFromJson(null);
         _logger.LogInformation("OutputTabViewModel initialized.");
@@ -40,6 +41,8 @@ public class OutputTabViewModel : IToolContext
 
     public ICoreList<OutputProfileItem> Items => _outputService.Items;
 
+    public ICoreList<OutputPresetItem> PresetItems => OutputPresetService.Instance.Items;
+
     public IReactiveProperty<OutputProfileItem?> SelectedItem => _outputService.SelectedItem;
 
     public ReadOnlyReactivePropertySlim<bool> CanRemove { get; }
@@ -59,14 +62,29 @@ public class OutputTabViewModel : IToolContext
         }
     }
 
-    public void RemoveSelected()
+    public void RemoveItem(OutputProfileItem item)
     {
-        if (SelectedItem.Value is not { } item) return;
-
-        _logger.LogInformation("Removing selected item: {ItemName}", item.Context.Name.Value);
+        _logger.LogInformation("Removing item: {ItemName}", item.Context.Name.Value);
+        int index = Items.IndexOf(item);
         Items.Remove(item);
         item.Dispose();
-        _logger.LogInformation("Selected item removed successfully.");
+        if (Items.Count > 0)
+        {
+            if (index < Items.Count)
+            {
+                SelectedItem.Value = Items[index];
+            }
+            else if (index == Items.Count)
+            {
+                SelectedItem.Value = Items[^1];
+            }
+        }
+        else
+        {
+            SelectedItem.Value = null;
+        }
+
+        _logger.LogInformation("Item removed successfully.");
     }
 
     public void Save()

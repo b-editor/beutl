@@ -192,7 +192,6 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
         var items = _items.ToArray();
         _items.Clear();
         _selectedItem.Value = null;
-        _selectedItem.Dispose();
         foreach (OutputProfileItem item in items)
         {
             item.Dispose();
