@@ -19,6 +19,7 @@
                       BasedOn="{StaticResource {x:Type FlyoutPresenter}}"
                       TargetType="FlyoutPresenter">
             <Setter Property="Padding" Value="4" />
+            <Setter Property="MinWidth" Value="240" />
         </ControlTheme>
         <ControlTheme x:Key="ProjectItemFlyoutButton"
                       BasedOn="{StaticResource TransparentButton}"
@@ -43,20 +44,25 @@
                        IsVisible="{Binding IsProjectOpened.Value}"
                        Symbol="ChevronRight" />
 
-        <Button VerticalAlignment="Center"
+        <Button Name="FileButton"
+                VerticalAlignment="Center"
                 Content="{Binding FileName.Value}"
                 Theme="{StaticResource LiteButtonStyle}">
             <Button.Flyout>
                 <Flyout FlyoutPresenterTheme="{StaticResource SmallPaddingFlyoutPresenterStyle}">
                     <StackPanel Spacing="4">
-                        <Button Command="{Binding OpenFile}"
+                        <Button Click="OnButtonClick"
                                 Content="{x:Static lang:Strings.Open}"
+                                Tag="OpenFile"
                                 Theme="{StaticResource ProjectItemFlyoutButton}" />
-                        <Button Command="{Binding NewScene}"
+                        <Button Click="OnButtonClick"
                                 Content="{x:Static lang:Strings.CreateNew}"
+                                Tag="NewScene"
                                 Theme="{StaticResource ProjectItemFlyoutButton}" />
                         <Separator Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
-                        <ListBox ItemsSource="{Binding TabItems}" SelectedItem="{Binding SelectedTabItem.Value}">
+                        <ListBox ItemsSource="{Binding TabItems}"
+                                 SelectedItem="{Binding SelectedTabItem.Value}"
+                                 Tapped="OnListBoxTapped">
                             <ListBox.Resources>
                                 <x:Double x:Key="ListViewItemMinHeight">36</x:Double>
                             </ListBox.Resources>
@@ -65,7 +71,7 @@
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock VerticalAlignment="Center" Text="{Binding FileName.Value}" />
                                         <Button Grid.Column="1"
-                                                Margin="4,0,0,0"
+                                                Margin="4,0,-6,0"
                                                 Padding="6"
                                                 Command="{ReflectionBinding #Root.DataContext.CloseOrRemoveFile}"
                                                 CommandParameter="{Binding .}"
