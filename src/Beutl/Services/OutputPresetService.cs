@@ -1,6 +1,10 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+using Beutl.Embedding.FFmpeg.Encoding;
+using Beutl.Helpers;
 using Beutl.Logging;
+using Beutl.Services.PrimitiveImpls;
+using FFmpeg.AutoGen;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -171,5 +175,84 @@ public sealed class OutputPresetService
         {
             _logger.LogError(ex, "An exception has occurred while restoring output preset file.");
         }
+        finally
+        {
+            if (_items.Count == 0)
+            {
+                CreateDefaultPresets();
+            }
+        }
+    }
+
+    private void CreateDefaultPresets()
+    {
+        var vid = new FFmpegVideoEncoderSettings();
+        vid.Format = AVPixelFormat.AV_PIX_FMT_YUV420P;
+        vid.Bitrate = 15000000;
+        vid.KeyframeRate = 12;
+        vid.Codec = VideoCodecChoicesProvider.GetChoices()
+            .Cast<CodecRecord>()
+            .FirstOrDefault(i => i.Name == "libx264") ?? CodecRecord.Default;
+        vid.Options.Clear();
+        vid.Options.AddRange(
+        [
+            new AdditionalOption("preset", "veryslow"),
+            new AdditionalOption("crf", "18"),
+            new AdditionalOption("profile", "high"),
+            new AdditionalOption("level", "4.0"),
+        ]);
+        var aud = new FFmpegAudioEncoderSettings();
+        aud.Bitrate = 320000;
+        aud.Codec = AudioCodecChoicesProvider.GetChoices()
+            .Cast<CodecRecord>()
+            .FirstOrDefault(i => i.Name == "aac") ?? CodecRecord.Default;
+
+        _items.Add(new OutputPresetItem(
+            SceneOutputExtension.Instance,
+            new JsonObject
+            {
+                ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
+                ["VideoSettings"] = CoreSerializerHelper.SerializeToJsonObject(vid),
+                ["AudioSettings"] = CoreSerializerHelper.SerializeToJsonObject(aud)
+            },
+            "High Quality"));
+
+        ObjectRegenerator.Regenerate<FFmpegVideoEncoderSettings>(vid, out vid);
+        ObjectRegenerator.Regenerate<FFmpegAudioEncoderSettings>(aud, out aud);
+
+        vid.Bitrate = 8000000;
+        vid.KeyframeRate = 30;
+        vid.Options.First(i => i.Key == "preset").Value = "medium";
+        vid.Options.First(i => i.Key == "crf").Value = "23";
+        aud.Bitrate = 128000;
+
+        _items.Add(new OutputPresetItem(
+            SceneOutputExtension.Instance,
+            new JsonObject
+            {
+                ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
+                ["VideoSettings"] = CoreSerializerHelper.SerializeToJsonObject(vid),
+                ["AudioSettings"] = CoreSerializerHelper.SerializeToJsonObject(aud)
+            },
+            "Medium Quality"));
+
+        ObjectRegenerator.Regenerate<FFmpegVideoEncoderSettings>(vid, out vid);
+        ObjectRegenerator.Regenerate<FFmpegAudioEncoderSettings>(aud, out aud);
+
+        vid.Bitrate = 3000000;
+        vid.KeyframeRate = 60;
+        vid.Options.First(i => i.Key == "preset").Value = "ultrafast";
+        vid.Options.First(i => i.Key == "crf").Value = "28";
+        aud.Bitrate = 128000;
+
+        _items.Add(new OutputPresetItem(
+            SceneOutputExtension.Instance,
+            new JsonObject
+            {
+                ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
+                ["VideoSettings"] = CoreSerializerHelper.SerializeToJsonObject(vid),
+                ["AudioSettings"] = CoreSerializerHelper.SerializeToJsonObject(aud)
+            },
+            "Low Quality"));
     }
 }
