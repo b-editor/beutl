@@ -1406,4 +1406,13 @@
   <data name="Origin" xml:space="preserve">
     <value>起点</value>
   </data>
+  <data name="Profiles" xml:space="preserve">
+    <value>プロファイル</value>
+  </data>
+  <data name="Presets" xml:space="preserve">
+    <value>プリセット</value>
+  </data>
+  <data name="Convert_to_preset" xml:space="preserve">
+    <value>プリセットに変換</value>
+  </data>
 </root>

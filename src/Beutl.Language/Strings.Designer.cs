@@ -1832,7 +1832,7 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Conic", resourceCulture);
             }
         }
-
+        
         public static string IsLoop {
             get {
                 return ResourceManager.GetString("IsLoop", resourceCulture);
@@ -2610,6 +2610,24 @@ namespace Beutl.Language {
         public static string Origin {
             get {
                 return ResourceManager.GetString("Origin", resourceCulture);
+            }
+        }
+        
+        public static string Profiles {
+            get {
+                return ResourceManager.GetString("Profiles", resourceCulture);
+            }
+        }
+        
+        public static string Presets {
+            get {
+                return ResourceManager.GetString("Presets", resourceCulture);
+            }
+        }
+        
+        public static string Convert_to_preset {
+            get {
+                return ResourceManager.GetString("Convert_to_preset", resourceCulture);
             }
         }
     }
