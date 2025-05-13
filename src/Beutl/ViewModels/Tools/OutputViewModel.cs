@@ -7,6 +7,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
+using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -19,7 +20,7 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Tools;
 
-public sealed class OutputViewModel : IOutputContext
+public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 {
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<OutputViewModel>();
@@ -332,6 +333,11 @@ public sealed class OutputViewModel : IOutputContext
 
     public void ReadFromJson(JsonObject json)
     {
+        ReadFromJsonCore(json, false);
+    }
+
+    private void ReadFromJsonCore(JsonObject json, bool applyingPreset)
+    {
         void Deserialize(MediaEncoderSettings? settings, JsonObject json)
         {
             if (settings == null) return;
@@ -345,18 +351,24 @@ public sealed class OutputViewModel : IOutputContext
             }
         }
 
-        if (json.TryGetPropertyValue(nameof(DestinationFile), out JsonNode? dstFileNode)
-            && dstFileNode is JsonValue dstFileValue
-            && dstFileValue.TryGetValue(out string? dstFile))
+        if (DestinationFile.Value == null || !applyingPreset)
         {
-            DestinationFile.Value = dstFile;
+            if (json.TryGetPropertyValue(nameof(DestinationFile), out JsonNode? dstFileNode)
+                && dstFileNode is JsonValue dstFileValue
+                && dstFileValue.TryGetValue(out string? dstFile))
+            {
+                DestinationFile.Value = dstFile;
+            }
         }
 
-        if (json.TryGetPropertyValue(nameof(Name), out JsonNode? nameNode)
-            && nameNode is JsonValue nameValue
-            && nameValue.TryGetValue(out string? name))
+        if (!applyingPreset)
         {
-            Name.Value = name;
+            if (json.TryGetPropertyValue(nameof(Name), out JsonNode? nameNode)
+                && nameNode is JsonValue nameValue
+                && nameValue.TryGetValue(out string? name))
+            {
+                Name.Value = name;
+            }
         }
 
         if (json.TryGetPropertyValue(nameof(SelectedEncoder), out JsonNode? encoderNode)
@@ -371,17 +383,57 @@ public sealed class OutputViewModel : IOutputContext
 
         // 上のSelectedEncoder.Value = encoder;でnull以外が指定された場合、VideoSettings, AudioSettingsもnullじゃなくなる。
         if (json.TryGetPropertyValue(nameof(VideoSettings), out JsonNode? videoNode)
-            && videoNode is JsonObject videoObj)
+            && videoNode is JsonObject videoObj
+            && VideoSettings.Value?.Settings is VideoEncoderSettings videoSettings)
         {
-            Deserialize(VideoSettings.Value?.Settings, videoObj);
+            PixelSize srcSize = default;
+            PixelSize dstSize = default;
+            Rational framerate = default;
+            if (applyingPreset)
+            {
+                srcSize = videoSettings.SourceSize;
+                dstSize = videoSettings.DestinationSize;
+                framerate = videoSettings.FrameRate;
+            }
+
+            Deserialize(videoSettings, videoObj);
+            if (applyingPreset)
+            {
+                videoSettings.SourceSize = srcSize;
+                videoSettings.DestinationSize = dstSize;
+                videoSettings.FrameRate = framerate;
+            }
         }
 
         if (json.TryGetPropertyValue(nameof(AudioSettings), out JsonNode? audioNode)
-            && audioNode is JsonObject audioObj)
+            && audioNode is JsonObject audioObj
+            && AudioSettings.Value?.Settings is AudioEncoderSettings audioSettings)
         {
+            int sampleRate = 0;
+            if (applyingPreset)
+            {
+                sampleRate = audioSettings.SampleRate;
+            }
+
             Deserialize(AudioSettings.Value?.Settings, audioObj);
+            if (applyingPreset)
+            {
+                audioSettings.SampleRate = sampleRate;
+            }
         }
 
         _logger.LogInformation("State read from JSON.");
+    }
+
+    public void Apply(JsonObject preset)
+    {
+        ReadFromJsonCore(preset, true);
+    }
+
+    public JsonObject ToPreset()
+    {
+        var obj = new JsonObject();
+        WriteToJson(obj);
+        return obj;
     }
 }
