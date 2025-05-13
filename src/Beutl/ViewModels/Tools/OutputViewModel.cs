@@ -49,7 +49,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     && newEncoder.IsSupported(newFile)
                     && Controller?.Value != null)
                 {
-                    return Controller.Value;
+                    var newController = newEncoder.CreateController(newFile);
+                    var videoSettings = CoreSerializerHelper.SerializeToJsonObject(Controller.Value.VideoSettings);
+                    CoreSerializerHelper.PopulateFromJsonObject(newController.VideoSettings, videoSettings);
+                    var audioSettings = CoreSerializerHelper.SerializeToJsonObject(Controller.Value.AudioSettings);
+                    CoreSerializerHelper.PopulateFromJsonObject(Controller.Value.AudioSettings, audioSettings);
+                    return newController;
                 }
 
                 return newEncoder.CreateController(newFile);
@@ -351,7 +356,14 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             }
         }
 
-        if (DestinationFile.Value == null || !applyingPreset)
+        if (DestinationFile.Value == null && applyingPreset)
+        {
+            DestinationFile.Value = Path.Combine(
+                Path.GetDirectoryName(TargetFile)!,
+                $"{Path.GetFileNameWithoutExtension(TargetFile)}.mp4");
+        }
+
+        if (!applyingPreset)
         {
             if (json.TryGetPropertyValue(nameof(DestinationFile), out JsonNode? dstFileNode)
                 && dstFileNode is JsonValue dstFileValue
@@ -359,10 +371,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             {
                 DestinationFile.Value = dstFile;
             }
-        }
 
-        if (!applyingPreset)
-        {
             if (json.TryGetPropertyValue(nameof(Name), out JsonNode? nameNode)
                 && nameNode is JsonValue nameValue
                 && nameValue.TryGetValue(out string? name))
