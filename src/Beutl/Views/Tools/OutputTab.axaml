@@ -1,31 +1,149 @@
 <UserControl x:Class="Beutl.Views.Tools.OutputTab"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:services="using:Beutl.Services"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModels="using:Beutl.ViewModels.Tools"
+             Name="Root"
              d:DesignHeight="450"
              d:DesignWidth="400"
              x:CompileBindings="True"
              x:DataType="viewModels:OutputTabViewModel"
              mc:Ignorable="d">
+    <UserControl.Resources>
+        <DataTemplate x:Key="OutputProfilesItemTemplate" x:DataType="services:OutputProfileItem">
+            <ComboBoxItem>
+                <ComboBoxItem.IsSelected>
+                    <MultiBinding Converter="{x:Static converters:EqualAllConverter.Instance}" Mode="OneWay">
+                        <Binding FallbackValue="{x:Null}"
+                                 Mode="OneWay"
+                                 Path="#Root.((viewModels:OutputTabViewModel)DataContext).SelectedItem.Value" />
+                        <Binding Path="." />
+                    </MultiBinding>
+                </ComboBoxItem.IsSelected>
+                <ComboBoxItem.Styles>
+                    <Style Selector="ComboBoxItem Button#ItemMoreButton">
+                        <Setter Property="Opacity" Value="0" />
+                    </Style>
+                    <Style Selector="ComboBoxItem:pointerover Button#ItemMoreButton">
+                        <Setter Property="Opacity" Value="1" />
+                    </Style>
+                </ComboBoxItem.Styles>
+                <Interaction.Behaviors>
+                    <EventTriggerBehavior EventName="Tapped">
+                        <CallMethodAction MethodName="OnProfileItemClick" TargetObject="Root" />
+                    </EventTriggerBehavior>
+                </Interaction.Behaviors>
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock VerticalAlignment="Center" Text="{Binding Context.Name.Value}" />
+                    <Button Name="ItemMoreButton"
+                            Grid.Column="1"
+                            Margin="0,0,-6,0"
+                            Padding="4"
+                            Theme="{StaticResource TransparentButton}">
+                        <Button.Flyout>
+                            <ui:FAMenuFlyout>
+                                <ui:MenuFlyoutItem Click="OnRemoveClick"
+                                                   CommandParameter="{Binding}"
+                                                   IconSource="Delete"
+                                                   Text="{x:Static lang:Strings.Remove}" />
+                                <ui:MenuFlyoutItem Click="OnRenameClick"
+                                                   CommandParameter="{Binding}"
+                                                   Tag="{Binding #ItemMoreButton}"
+                                                   Text="{x:Static lang:Strings.Rename}" />
+                                <ui:MenuFlyoutItem Click="OnConvertPresetClick"
+                                                   CommandParameter="{Binding}"
+                                                   Text="{x:Static lang:Strings.Convert_to_preset}" />
+                            </ui:FAMenuFlyout>
+                        </Button.Flyout>
+                        <ui:SymbolIcon Symbol="MoreVertical" />
+                    </Button>
+                </Grid>
+            </ComboBoxItem>
+        </DataTemplate>
+        <DataTemplate x:Key="OutputPresetsItemTemplate" x:DataType="services:OutputPresetItem">
+            <ComboBoxItem IsSelected="False">
+                <ComboBoxItem.Styles>
+                    <Style Selector="ComboBoxItem Button#ItemMoreButton">
+                        <Setter Property="Opacity" Value="0" />
+                    </Style>
+                    <Style Selector="ComboBoxItem:pointerover Button#ItemMoreButton">
+                        <Setter Property="Opacity" Value="1" />
+                    </Style>
+                </ComboBoxItem.Styles>
+                <Interaction.Behaviors>
+                    <EventTriggerBehavior EventName="Tapped">
+                        <CallMethodAction MethodName="OnPresetItemClick" TargetObject="Root" />
+                    </EventTriggerBehavior>
+                </Interaction.Behaviors>
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock VerticalAlignment="Center" Text="{Binding Name.Value}" />
+                    <Button Name="ItemMoreButton"
+                            Grid.Column="1"
+                            Margin="0,0,-6,0"
+                            Padding="4"
+                            Theme="{StaticResource TransparentButton}">
+                        <Button.Flyout>
+                            <ui:FAMenuFlyout>
+                                <ui:MenuFlyoutItem Click="OnRemoveClick"
+                                                   CommandParameter="{Binding}"
+                                                   IconSource="Delete"
+                                                   Text="{x:Static lang:Strings.Remove}" />
+                                <ui:MenuFlyoutItem Click="OnRenameClick"
+                                                   CommandParameter="{Binding}"
+                                                   Tag="{Binding #ItemMoreButton}"
+                                                   Text="{x:Static lang:Strings.Rename}" />
+                            </ui:FAMenuFlyout>
+                        </Button.Flyout>
+                        <ui:SymbolIcon Symbol="MoreVertical" />
+                    </Button>
+                </Grid>
+            </ComboBoxItem>
+        </DataTemplate>
+    </UserControl.Resources>
     <ScrollViewer>
         <StackPanel>
             <TextBlock Margin="4,8"
                        Text="{x:Static lang:Strings.Output}"
                        Theme="{StaticResource SubtitleTextBlockStyle}" />
             <Grid Margin="4,0,4,4" ColumnDefinitions="*,4,Auto,4,Auto">
-                <ComboBox HorizontalAlignment="Stretch"
-                          ItemsSource="{Binding Items}"
-                          SelectedItem="{Binding SelectedItem.Value}">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding Context.Name.Value}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+                <DropDownButton x:Name="ProfilesButton"
+                                HorizontalAlignment="Stretch"
+                                Click="OnProfilesButtonClick">
+                    <TextBlock Text="{Binding SelectedItem.Value.Context.Name.Value}" />
+                </DropDownButton>
+                <Popup Name="ProfilesPopup"
+                       MinWidth="{Binding #ProfilesButton.Bounds.Width}"
+                       MaxHeight="200"
+                       InheritsTransform="True"
+                       IsLightDismissEnabled="True"
+                       PlacementTarget="ProfilesButton"
+                       WindowManagerAddShadowHint="False">
+                    <Border Padding="{DynamicResource ComboBoxDropdownBorderPadding}"
+                            HorizontalAlignment="Stretch"
+                            Background="{DynamicResource ComboBoxDropDownBackground}"
+                            BackgroundSizing="InnerBorderEdge"
+                            BorderBrush="{DynamicResource ComboBoxDropDownBorderBrush}"
+                            BorderThickness="{DynamicResource ComboBoxDropdownBorderThickness}"
+                            CornerRadius="{DynamicResource OverlayCornerRadius}">
+                        <ScrollViewer>
+                            <StackPanel Margin="{DynamicResource ComboBoxDropdownContentMargin}">
+                                <TextBlock Margin="4"
+                                           Text="{x:Static lang:Strings.Profiles}"
+                                           Theme="{StaticResource CaptionTextBlockStyle}" />
+                                <ItemsControl ItemTemplate="{StaticResource OutputProfilesItemTemplate}" ItemsSource="{Binding Items}" />
+                                <TextBlock Margin="4"
+                                           Text="{x:Static lang:Strings.Presets}"
+                                           Theme="{StaticResource CaptionTextBlockStyle}" />
+                                <ItemsControl ItemTemplate="{StaticResource OutputPresetsItemTemplate}" ItemsSource="{Binding PresetItems}" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Popup>
 
                 <Button Grid.Column="2"
                         Padding="8"
@@ -41,12 +159,18 @@
                     <Button.Flyout>
                         <ui:FAMenuFlyout>
                             <ui:MenuFlyoutItem Click="OnRemoveClick"
+                                               CommandParameter="{Binding SelectedItem.Value}"
                                                IconSource="Delete"
                                                IsEnabled="{Binding CanRemove.Value}"
                                                Text="{x:Static lang:Strings.Remove}" />
                             <ui:MenuFlyoutItem Click="OnRenameClick"
+                                               CommandParameter="{Binding SelectedItem.Value}"
                                                IsEnabled="{Binding !!SelectedItem.Value}"
                                                Text="{x:Static lang:Strings.Rename}" />
+                            <ui:MenuFlyoutItem Click="OnConvertPresetClick"
+                                               CommandParameter="{Binding SelectedItem.Value}"
+                                               IsEnabled="{Binding !!SelectedItem.Value}"
+                                               Text="{x:Static lang:Strings.Convert_to_preset}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>
                     <ui:SymbolIcon Symbol="MoreVertical" />

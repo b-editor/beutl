@@ -1,6 +1,9 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
@@ -42,32 +45,52 @@ public partial class OutputTab : UserControl
     private void OnRemoveClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not OutputTabViewModel viewModel) return;
+        switch (sender)
+        {
+            case ICommandSource { CommandParameter: OutputProfileItem item }:
+                viewModel.RemoveItem(item);
+                viewModel.Save();
+                break;
+            case ICommandSource { CommandParameter: OutputPresetItem presetItem }:
+                OutputPresetService.Instance.Items.Remove(presetItem);
+                OutputPresetService.Instance.SaveItems();
+                break;
+        }
+    }
 
-        viewModel.RemoveSelected();
-        viewModel.Save();
+    private void OnConvertPresetClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not ICommandSource { CommandParameter: OutputProfileItem item }) return;
+
+        OutputPresetService.Instance.AddItem(item.Context, $"{item.Context.Name.Value} (Preset)");
+        OutputPresetService.Instance.SaveItems();
     }
 
     private void OnRenameClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not OutputTabViewModel viewModel) return;
+        OutputProfileItem? item = (sender as ICommandSource)?.CommandParameter as OutputProfileItem;
+        OutputPresetItem? presetItem = (sender as ICommandSource)?.CommandParameter as OutputPresetItem;
+        if (item == null && presetItem == null) return;
+        var target = (sender as Control)?.Tag as Control ?? MoreButton;
 
-        var flyout = new RenameFlyout
+        var flyout = new RenameFlyout { Text = item?.Context.Name.Value ?? presetItem?.Name.Value };
+
+        flyout.Confirmed += (_, text) =>
         {
-            Text = viewModel.SelectedItem.Value?.Context.Name.Value ?? string.Empty
+            if (item != null)
+            {
+                item.Context.Name.Value = text ?? "";
+                viewModel.Save();
+            }
+            else if (presetItem != null)
+            {
+                presetItem.Name.Value = text ?? "";
+                OutputPresetService.Instance.SaveItems();
+            }
         };
 
-        flyout.Confirmed += OnNameConfirmed;
-
-        flyout.ShowAt(MoreButton);
-    }
-
-    private void OnNameConfirmed(object? sender, string? e)
-    {
-        if (DataContext is not OutputTabViewModel viewModel) return;
-        if (viewModel.SelectedItem.Value == null) return;
-
-        viewModel.SelectedItem.Value.Context.Name.Value = e ?? "";
-        viewModel.Save();
+        flyout.ShowAt(target);
     }
 
     private sealed class _DataTemplate : IDataTemplate
@@ -98,5 +121,32 @@ public partial class OutputTab : UserControl
         {
             return data is OutputProfileItem;
         }
+    }
+
+    private void OnProfilesButtonClick(object? sender, RoutedEventArgs e)
+    {
+        ProfilesPopup.IsOpen = !ProfilesPopup.IsOpen;
+    }
+
+    public void OnProfileItemClick(object? sender, TappedEventArgs e)
+    {
+        if ((e.Source as StyledElement)?.GetSelfAndLogicalAncestors().Any(i => i is Button) == true) return;
+        if (e.Source is not StyledElement { DataContext: OutputProfileItem item }) return;
+        if (DataContext is not OutputTabViewModel viewModel) return;
+
+        viewModel.SelectedItem.Value = item;
+        ProfilesPopup.IsOpen = false;
+    }
+
+    public void OnPresetItemClick(object? sender, TappedEventArgs e)
+    {
+        if ((e.Source as StyledElement)?.GetSelfAndLogicalAncestors().Any(i => i is Button) == true) return;
+        if (e.Source is not StyledElement { DataContext: OutputPresetItem item }) return;
+        if (DataContext is not OutputTabViewModel viewModel) return;
+
+        if (viewModel.SelectedItem.Value?.Context is ISupportOutputPreset supportPreset)
+            item.Apply(supportPreset);
+
+        ProfilesPopup.IsOpen = false;
     }
 }
