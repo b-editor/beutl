@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
+using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 
@@ -26,6 +26,13 @@ public interface IOutputContext : IDisposable, IJsonSerializable
     event EventHandler? Started;
 
     event EventHandler? Finished;
+}
+
+public interface ISupportOutputPreset
+{
+    void Apply(JsonObject preset);
+
+    JsonObject ToPreset();
 }
 
 public abstract class OutputExtension : Extension
