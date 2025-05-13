@@ -118,7 +118,6 @@
                 </DropDownButton>
                 <Popup Name="ProfilesPopup"
                        MinWidth="{Binding #ProfilesButton.Bounds.Width}"
-                       MaxHeight="200"
                        InheritsTransform="True"
                        IsLightDismissEnabled="True"
                        PlacementTarget="ProfilesButton"
