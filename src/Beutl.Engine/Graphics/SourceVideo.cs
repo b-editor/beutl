@@ -122,11 +122,9 @@ public class SourceVideo : Drawable
         var duration = Source.Duration;
 
         var anm = Animations.FirstOrDefault(i => i.Property.Id == SpeedProperty.Id);
-        if (anm is not KeyFrameAnimation<float> keyFrameAnimation)
-            return duration;
 
-        // キーフレームが無い場合は、単純に逆変換する
-        if (keyFrameAnimation.KeyFrames.Count == 0)
+        // スピードのアニメーションまたはキーフレームが 1 つもない場合は、単純に逆変換する
+        if (anm is not KeyFrameAnimation<float> keyFrameAnimation || keyFrameAnimation.KeyFrames.Count == 0)
         {
             return TimeSpan.FromTicks((long)(duration.Ticks / (_speed / 100.0)));
         }
