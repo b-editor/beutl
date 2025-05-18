@@ -59,6 +59,13 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
+        StartingBarMargin = Scene.GetObservable(Scene.StartProperty)
+            .CombineLatest(editViewModel.Scale)
+            .Select(item => item.First.ToPixel(item.Second))
+            .Select(p => new Thickness(p, 0, 0, 0))
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
         EndingBarMargin = PanelWidth.Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -139,7 +146,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             {
                 if (HoveredCacheBlock.Value is not { } block) return;
 
-                _logger.LogInformation("Deleting frame cache for block starting at frame {StartFrame}.", block.StartFrame);
+                _logger.LogInformation("Deleting frame cache for block starting at frame {StartFrame}.",
+                    block.StartFrame);
                 FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
                 if (block.IsLocked)
                 {
@@ -157,7 +165,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             {
                 if (HoveredCacheBlock.Value is not { } block) return;
 
-                _logger.LogInformation("Locking frame cache for block starting at frame {StartFrame}.", block.StartFrame);
+                _logger.LogInformation("Locking frame cache for block starting at frame {StartFrame}.",
+                    block.StartFrame);
                 FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
                 manager.Lock(
                     block.StartFrame, block.StartFrame + block.LengthFrame);
@@ -171,7 +180,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             {
                 if (HoveredCacheBlock.Value is not { } block) return;
 
-                _logger.LogInformation("Unlocking frame cache for block starting at frame {StartFrame}.", block.StartFrame);
+                _logger.LogInformation("Unlocking frame cache for block starting at frame {StartFrame}.",
+                    block.StartFrame);
                 FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
                 manager.Unlock(
                     block.StartFrame, block.StartFrame + block.LengthFrame);
@@ -181,6 +191,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         _logger.LogInformation("TimelineViewModel initialized successfully.");
     }
+
     private void OnAdjustDurationToPointer()
     {
         _logger.LogInformation("Adjusting scene duration to pointer position.");
@@ -214,6 +225,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> SeekBarMargin { get; }
+
+    public ReadOnlyReactivePropertySlim<Thickness> StartingBarMargin { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
@@ -465,7 +478,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 if (anmProp != null)
                 {
                     AttachInline(anmProp, element);
-                    _logger.LogDebug("Inline animation attached for element {ElementId} and animation {AnimationId}.", element.Id, anmId);
+                    _logger.LogDebug("Inline animation attached for element {ElementId} and animation {AnimationId}.",
+                        element.Id, anmId);
                 }
                 else if (animatable != null)
                 {
@@ -475,11 +489,15 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                         var createdProp =
                             (IAnimatablePropertyAdapter)Activator.CreateInstance(type, anm.Property, animatable)!;
                         AttachInline(createdProp, element);
-                        _logger.LogDebug("Inline animation created and attached for element {ElementId} and animation {AnimationId}.", element.Id, anmId);
+                        _logger.LogDebug(
+                            "Inline animation created and attached for element {ElementId} and animation {AnimationId}.",
+                            element.Id, anmId);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "An exception occurred while restoring the inline animation for element {ElementId} and animation {AnimationId}.", element.Id, anmId);
+                        _logger.LogError(ex,
+                            "An exception occurred while restoring the inline animation for element {ElementId} and animation {AnimationId}.",
+                            element.Id, anmId);
                     }
                 }
             }
@@ -512,7 +530,9 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 Guid elementId = item.Element.Model.Id;
 
                 inlines.Add(new JsonObject { ["AnimationId"] = anmId, ["ElementId"] = elementId });
-                _logger.LogDebug("Inline animation state written to JSON for element {ElementId} and animation {AnimationId}.", elementId, anmId);
+                _logger.LogDebug(
+                    "Inline animation state written to JSON for element {ElementId} and animation {AnimationId}.",
+                    elementId, anmId);
             }
         }
 
@@ -523,7 +543,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public void AttachInline(IAnimatablePropertyAdapter property, Element element)
     {
-        _logger.LogInformation("Attaching inline animation for element {ElementId} and property {Property}.", element.Id, property);
+        _logger.LogInformation("Attaching inline animation for element {ElementId} and property {Property}.",
+            element.Id, property);
         if (Inlines.Any(x => x.Element.Model == element && x.Property == property))
         {
             _logger.LogWarning("Inline animation already attached for element {ElementId}.", element.Id);
@@ -538,7 +559,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         // タイムラインのタブを開く
         Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.PropertyType);
-        if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel anmTimelineViewModel)
+        if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel
+            anmTimelineViewModel)
         {
             Inlines.Add(anmTimelineViewModel);
             _logger.LogInformation("Inline animation attached successfully for element {ElementId}.", element.Id);
@@ -559,7 +581,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         Inlines.Remove(item);
         item.Dispose();
-        _logger.LogInformation("Inline animation detached successfully for element {ElementId}.", item.Element.Model.Id);
+        _logger.LogInformation("Inline animation detached successfully for element {ElementId}.",
+            item.Element.Model.Id);
     }
 
     public IObservable<double> GetTrackedLayerTopObservable(IObservable<int> layer)
