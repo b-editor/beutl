@@ -35,11 +35,13 @@ public sealed partial class Timeline : UserControl
         Free,
         SeekBarPressed,
         RangeSelectionPressed,
-        EndingBarMarkerPressed
+        EndingBarMarkerPressed,
+        StartingBarMarkerPressed
     }
 
     internal MouseFlags _mouseFlag = MouseFlags.Free;
     internal TimeSpan _pointerFrame;
+    private TimeSpan _initialStart;
     private TimeSpan _initialDuration;
     private bool _rightButtonPressed;
     private readonly ILogger _logger = Log.CreateLogger<Timeline>();
@@ -47,6 +49,10 @@ public sealed partial class Timeline : UserControl
     private ElementView? _selectedElement;
     private readonly List<(ElementViewModel Element, bool IsSelectedOriginal)> _rangeSelection = [];
     private CancellationTokenSource? _scrollCts;
+
+    // 長方形マーカーのサイズを定義
+    private const int MarkerHeight = 16;
+    private const int MarkerWidth = 4;
 
     public Timeline()
     {
@@ -347,7 +353,7 @@ public sealed partial class Timeline : UserControl
         int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
         _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
 
-        if (_pointerFrame >= viewModel.Scene.Duration && 
+        if (_pointerFrame >= viewModel.Scene.Duration &&
             _mouseFlag != MouseFlags.EndingBarMarkerPressed)
         {
             _pointerFrame = viewModel.Scene.Duration - TimeSpan.FromSeconds(1d / rate);
@@ -372,21 +378,36 @@ public sealed partial class Timeline : UserControl
         {
             // ポインタ位置に基づいてシーンDurationを更新
             TimeSpan newDuration = _pointerFrame;
-            if (newDuration < TimeSpan.FromSeconds(1d / rate))
+            if (newDuration < viewModel.Scene.Start)
             {
-                newDuration = TimeSpan.FromSeconds(1d / rate);
+                newDuration = viewModel.Scene.Start + TimeSpan.FromSeconds(1d / rate);
             }
-            
+
             // 直接値を更新（コマンド記録なし）
-            viewModel.Scene.Duration = newDuration;           
+            viewModel.Scene.Duration = newDuration;
+        }
+        else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
+        {
+            TimeSpan newStart = _pointerFrame;
+            if (newStart < TimeSpan.Zero)
+            {
+                newStart = TimeSpan.Zero;
+            }
+            else if (newStart > viewModel.Scene.Duration)
+            {
+                newStart = viewModel.Scene.Duration - TimeSpan.FromSeconds(1d / rate);
+            }
+
+            viewModel.Scene.Start = newStart;
         }
         else
         {
             Point posScale = e.GetPosition(Scale);
+            double startingBarX = viewModel.StartingBarMargin.Value.Left;
             double endingBarX = viewModel.EndingBarMargin.Value.Left;
 
             // EndingBarマーカーの当たり判定チェック
-            if (IsPointInTimelineScaleMarker(posScale, endingBarX, Scale.Bounds.Height))
+            if (IsPointInTimelineScaleMarker(posScale, startingBarX, endingBarX))
             {
                 Scale.Cursor = new Cursor(StandardCursorType.SizeWestEast);
             }
@@ -424,6 +445,11 @@ public sealed partial class Timeline : UserControl
             else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
             {
                 RecordableCommands.Edit(ViewModel.Scene, Scene.DurationProperty, ViewModel.Scene.Duration, _initialDuration)
+                    .DoAndRecord(ViewModel.EditorContext.CommandRecorder);
+            }
+            else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
+            {
+                RecordableCommands.Edit(ViewModel.Scene, Scene.StartProperty, ViewModel.Scene.Start, _initialStart)
                     .DoAndRecord(ViewModel.EditorContext.CommandRecorder);
             }
 
@@ -479,19 +505,27 @@ public sealed partial class Timeline : UserControl
     }
 
     // TimelineScaleの長方形マーカーの当たり判定
-    private bool IsPointInTimelineScaleMarker(Point point, double endingBarX, double height)
+    private bool IsPointInTimelineScaleMarker(Point point, double startingBarX, double endingBarX)
     {
-        // 長方形マーカーのサイズを定義
-        const int markerHeight = 16;
-        const int markerWidth = 4;
+        return IsPointInTimelineScaleStartingMarker(point, startingBarX) || IsPointInTimelineScaleEndingMarker(point, endingBarX);
+    }
 
+    private bool IsPointInTimelineScaleStartingMarker(Point point, double startingBarX)
+    {
         // 長方形の範囲を計算
-        double left = endingBarX - markerWidth / 2.0;
-        double top = height - markerHeight;
-        var rect = new Rect(left, top, markerWidth, markerHeight);
+        var startRect = new Rect(startingBarX, 0, MarkerWidth, MarkerHeight);
 
         // 点が長方形内にあるか判定
-        return rect.Contains(point);
+        return startRect.Contains(point);
+    }
+
+    private bool IsPointInTimelineScaleEndingMarker(Point point, double endingBarX)
+    {
+        // 長方形の範囲を計算
+        var endRect = new Rect(endingBarX - MarkerWidth, 0, MarkerWidth, MarkerHeight);
+
+        // 点が長方形内にあるか判定
+        return endRect.Contains(point);
     }
 
     // ポインターが押された
@@ -517,13 +551,19 @@ public sealed partial class Timeline : UserControl
             else
             {
                 double endingBarX = viewModel.EndingBarMargin.Value.Left;
+                double startingBarX = viewModel.StartingBarMargin.Value.Left;
                 Point scalePoint = e.GetPosition(Scale);
 
                 // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
-                if (IsPointInTimelineScaleMarker(scalePoint, endingBarX, Scale.Bounds.Height))
+                if (IsPointInTimelineScaleEndingMarker(scalePoint, endingBarX))
                 {
                     _mouseFlag = MouseFlags.EndingBarMarkerPressed;
                     _initialDuration = viewModel.Scene.Duration; // 初期値を保存
+                }
+                else if (IsPointInTimelineScaleStartingMarker(scalePoint, startingBarX))
+                {
+                    _mouseFlag = MouseFlags.StartingBarMarkerPressed;
+                    _initialStart = viewModel.Scene.Start; // 初期値を保存
                 }
                 else
                 {
