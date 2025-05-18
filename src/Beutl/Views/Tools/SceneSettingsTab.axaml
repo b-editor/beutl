@@ -18,6 +18,9 @@
                           Header="{x:Static lang:Strings.Size}"
                           SecondHeader="{x:Static lang:Strings.Height}" />
 
+        <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.StartTime}" />
+        <TextBox Margin="8,0" Text="{Binding StartInput.Value, Mode=TwoWay}" />
+
         <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.DurationTime}" />
         <TextBox Margin="8,0" Text="{Binding DurationInput.Value, Mode=TwoWay}" />
 
