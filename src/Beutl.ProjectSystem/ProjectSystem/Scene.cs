@@ -45,10 +45,12 @@ public class Scene : ProjectItem, IAffectsRender
 {
     public static readonly CoreProperty<PixelSize> FrameSizeProperty;
     public static readonly CoreProperty<Elements> ChildrenProperty;
+    public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly List<string> _excludeElements = [];
     private readonly Elements _children;
+    private TimeSpan _start = TimeSpan.FromMinutes(0);
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private PixelSize _frameSize;
 
@@ -77,6 +79,10 @@ public class Scene : ProjectItem, IAffectsRender
             .Accessor(o => o.Children, (o, v) => o.Children = v)
             .Register();
 
+        StartProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Start))
+            .Accessor(o => o.Start, (o, v) => o.Start = v)
+            .Register();
+
         DurationProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
             .Register();
@@ -88,6 +94,19 @@ public class Scene : ProjectItem, IAffectsRender
     {
         get => _frameSize;
         set => SetAndRaise(FrameSizeProperty, ref _frameSize, value);
+    }
+
+    [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
+    public TimeSpan Start
+    {
+        get => _start;
+        set
+        {
+            if (value < TimeSpan.Zero)
+                value = TimeSpan.Zero;
+
+            SetAndRaise(StartProperty, ref _start, value);
+        }
     }
 
     [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
