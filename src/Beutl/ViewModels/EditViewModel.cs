@@ -304,6 +304,12 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
     public async ValueTask DisposeAsync()
     {
         _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
+        foreach (Element element in Scene.Children)
+        {
+            element.PropertyChanged -= OnElementPropertyChanged;
+        }
+        Scene.Children.Attached -= OnElementAttached;
+        Scene.Children.Detached -= OnElementDetached;
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         SaveState();
         await Player.DisposeAsync();
