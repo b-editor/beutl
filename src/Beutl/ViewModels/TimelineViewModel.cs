@@ -285,7 +285,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
     private void OnSetEndTimeToPointerPosition()
     {
         int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate) - Scene.Start;
+        TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate);
         SetEndTimeCore(time);
     }
 
