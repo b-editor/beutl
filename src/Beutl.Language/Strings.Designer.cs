@@ -1443,15 +1443,15 @@ namespace Beutl.Language {
             }
         }
         
-        public static string AdjustDurationToCurrent {
+        public static string SetStartTime {
             get {
-                return ResourceManager.GetString("AdjustDurationToCurrent", resourceCulture);
+                return ResourceManager.GetString("SetStartTime", resourceCulture);
             }
         }
         
-        public static string AdjustDurationToPointer {
+        public static string SetEndTime {
             get {
-                return ResourceManager.GetString("AdjustDurationToPointer", resourceCulture);
+                return ResourceManager.GetString("SetEndTime", resourceCulture);
             }
         }
         

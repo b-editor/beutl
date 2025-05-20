@@ -816,11 +816,11 @@
   <data name="Hand" xml:space="preserve">
     <value>Hand</value>
   </data>
-  <data name="AdjustDurationToCurrent" xml:space="preserve">
-    <value>Adjust duration to current frame</value>
+  <data name="SetStartTime" xml:space="preserve">
+    <value>Set start time</value>
   </data>
-  <data name="AdjustDurationToPointer" xml:space="preserve">
-    <value>Adjust duration to pointer position</value>
+  <data name="SetEndTime" xml:space="preserve">
+    <value>Set end time</value>
   </data>
   <data name="Editor" xml:space="preserve">
     <value>Editor</value>

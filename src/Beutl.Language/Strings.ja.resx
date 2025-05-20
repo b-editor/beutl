@@ -821,11 +821,11 @@
   <data name="Hand" xml:space="preserve">
     <value>ハンド</value>
   </data>
-  <data name="AdjustDurationToCurrent" xml:space="preserve">
-    <value>現在の位置に時間を調整</value>
+  <data name="SetStartTime" xml:space="preserve">
+    <value>開始時間を設定</value>
   </data>
-  <data name="AdjustDurationToPointer" xml:space="preserve">
-    <value>ポインターの位置に時間を調整</value>
+  <data name="SetEndTime" xml:space="preserve">
+    <value>終了時間を設定</value>
   </data>
   <data name="Editor" xml:space="preserve">
     <value>エディター</value>
