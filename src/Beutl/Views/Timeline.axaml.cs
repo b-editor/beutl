@@ -383,18 +383,23 @@ public sealed partial class Timeline : UserControl
         }
         else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
         {
-            TimeSpan newStart = _pointerFrame;
-            if (newStart < TimeSpan.Zero)
+            // Calculate the new starting point for the scene based on the pointer frame
+            TimeSpan clampedStart = _pointerFrame;
+            
+            // Ensure the new start time is not negative
+            if (clampedStart < TimeSpan.Zero)
             {
-                newStart = TimeSpan.Zero;
+                clampedStart = TimeSpan.Zero;
             }
-            else if (newStart > _initialDuration + _initialStart)
+            // Ensure the new start time does not exceed the total duration
+            else if (clampedStart > _initialDuration + _initialStart)
             {
-                newStart = _initialDuration + _initialStart - TimeSpan.FromSeconds(1d / rate);
+                clampedStart = _initialDuration + _initialStart - TimeSpan.FromSeconds(1d / rate);
             }
 
-            viewModel.Scene.Start = newStart;
-            viewModel.Scene.Duration = _initialDuration + _initialStart - newStart;
+            // Update the scene's start and duration based on the clamped start time
+            viewModel.Scene.Start = clampedStart;
+            viewModel.Scene.Duration = _initialDuration + _initialStart - clampedStart;
         }
         else
         {
