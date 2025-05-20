@@ -59,6 +59,14 @@ public sealed class TimelineTabExtension : ToolTabExtension
             new ContextCommandKeyGesture("Ctrl+K"),
             new ContextCommandKeyGesture("Cmd+K", OSPlatform.OSX),
         ]),
+        new ContextCommandDefinition("SetStartTime", Strings.SetStartTime, "",
+        [
+            new ContextCommandKeyGesture("OemOpenBrackets")
+        ]),
+        new ContextCommandDefinition("SetEndTime", Strings.SetEndTime, "",
+        [
+            new ContextCommandKeyGesture("OemCloseBrackets")
+        ]),
     ];
 
     public override IconSource GetIcon()
