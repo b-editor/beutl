@@ -68,8 +68,17 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        PanelWidth = editViewModel.MaximumTime.CombineLatest(editViewModel.Scale)
-            .Select(i => i.First.ToPixel(i.Second))
+        PanelWidth = editViewModel.MaximumTime
+            .CombineLatest(
+                Scene.GetObservable(Scene.DurationProperty),
+                Scene.GetObservable(Scene.StartProperty),
+                editViewModel.CurrentTime)
+            .Select(i => TimeSpan.FromTicks(
+                Math.Max(
+                    Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
+                    i.Fourth.Ticks)))
+            .CombineLatest(editViewModel.Scale)
+            .Select(i => i.First.ToPixel(i.Second) + 500)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
