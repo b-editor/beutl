@@ -42,11 +42,13 @@
                              ScaleBrush="{DynamicResource TextControlForeground}"
                              SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
                              SeekBarMargin="{Binding SeekBarMargin.Value}"
+                             StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                             StartingBarMargin="{Binding StartingBarMargin.Value}"
                              Offset="{Binding #scroll.Offset, Mode=OneWay}" />
 
-        <local:GraphEditorScale Grid.Row="1"
+        <local:GraphEditorScale x:Name="verticalScale"
+                                Grid.Row="1"
                                 Width="20"
-                                x:Name="verticalScale"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch"
                                 Baseline="{Binding Baseline.Value}"
@@ -73,14 +75,12 @@
                                 <icons:SymbolIcon Symbol="Delete" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Header="{x:Static lang:Strings.CopyAll}"
-                                  Click="CopyAllClick">
+                        <MenuItem Click="CopyAllClick" Header="{x:Static lang:Strings.CopyAll}">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="DocumentCopy" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Header="{x:Static lang:Strings.Paste}"
-                                  Click="PasteClick">
+                        <MenuItem Click="PasteClick" Header="{x:Static lang:Strings.Paste}">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="ClipboardPaste" />
                             </MenuItem.Icon>
@@ -245,8 +245,7 @@
                                                               Fill="{DynamicResource SystemFillColorCaution}"
                                                               PointerPressed="OnKeyTimePointerPressed">
                                                             <Path.RenderTransform>
-                                                                <TranslateTransform X="{Binding RightTop.Value.X}"
-                                                                    Y="{Binding RightTop.Value.Y}" />
+                                                                <TranslateTransform X="{Binding RightTop.Value.X}" Y="{Binding RightTop.Value.Y}" />
                                                             </Path.RenderTransform>
                                                             <Path.Data>
                                                                 <PathGeometry>
@@ -271,8 +270,7 @@
                                                               StrokeThickness="3"
                                                               Tag="ControlPoint1">
                                                             <Path.RenderTransform>
-                                                                <TranslateTransform X="{Binding ControlPoint1.Value.X}"
-                                                                    Y="{Binding ControlPoint1.Value.Y}" />
+                                                                <TranslateTransform X="{Binding ControlPoint1.Value.X}" Y="{Binding ControlPoint1.Value.Y}" />
                                                             </Path.RenderTransform>
                                                         </Path>
 
@@ -288,8 +286,7 @@
                                                               StrokeThickness="3"
                                                               Tag="ControlPoint2">
                                                             <Path.RenderTransform>
-                                                                <TranslateTransform X="{Binding ControlPoint2.Value.X}"
-                                                                    Y="{Binding ControlPoint2.Value.Y}" />
+                                                                <TranslateTransform X="{Binding ControlPoint2.Value.X}" Y="{Binding ControlPoint2.Value.Y}" />
                                                             </Path.RenderTransform>
                                                         </Path>
                                                     </Panel>
@@ -309,6 +306,8 @@
                                        EndingBarMargin="{Binding EndingBarMargin.Value}"
                                        SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
                                        SeekBarMargin="{Binding SeekBarMargin.Value}"
+                                       StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                                       StartingBarMargin="{Binding StartingBarMargin.Value}"
                                        Viewport="{Binding #scroll.Viewport, Mode=OneWay}"
                                        ZIndex="6"
                                        Offset="{Binding #scroll.Offset, Mode=OneWay}" />
