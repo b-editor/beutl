@@ -47,11 +47,6 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         Scene = editViewModel.Scene;
         Player = editViewModel.Player;
         FrameSelectionRange = new FrameSelectionRange(editViewModel.Scale).DisposeWith(_disposables);
-        PanelWidth = Scene.GetObservable(Scene.DurationProperty)
-            .CombineLatest(editViewModel.Scale)
-            .Select(item => item.First.ToPixel(item.Second))
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
 
         SeekBarMargin = editViewModel.CurrentTime
             .CombineLatest(editViewModel.Scale)
@@ -66,7 +61,15 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        EndingBarMargin = PanelWidth.Select(p => new Thickness(p, 0, 0, 0))
+        EndingBarMargin = Scene.GetObservable(Scene.DurationProperty)
+            .CombineLatest(editViewModel.Scale, StartingBarMargin)
+            .Select(item => item.First.ToPixel(item.Second) + item.Third.Left)
+            .Select(p => new Thickness(p, 0, 0, 0))
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
+        PanelWidth = editViewModel.MaximumTime.CombineLatest(editViewModel.Scale)
+            .Select(i => i.First.ToPixel(i.Second))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 

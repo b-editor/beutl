@@ -40,8 +40,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         Height.SetValidateNotifyError(ValidateSize);
         LayerCount.SetValidateNotifyError(ValidateSize);
 
-        StartInput.SetValidateNotifyError(TimeSpanValidator);
-        DurationInput.SetValidateNotifyError(TimeSpanValidator);
+        StartInput.SetValidateNotifyError(StartValidator);
+        DurationInput.SetValidateNotifyError(DurationValidator);
 
         CanApply = Width.CombineLatest(Height, StartInput, DurationInput, LayerCount).Select(t =>
             {
@@ -52,7 +52,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 string durationTime = t.Fourth;
                 return width > 0 &&
                     height > 0 &&
-                    TimeSpan.TryParse(startTime, out TimeSpan ts1) && ts1 > TimeSpan.Zero &&
+                    TimeSpan.TryParse(startTime, out TimeSpan ts1) && ts1 >= TimeSpan.Zero &&
                     TimeSpan.TryParse(durationTime, out TimeSpan ts2) && ts2 > TimeSpan.Zero &&
                     t.Fifth > 0;
             })
@@ -99,13 +99,32 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         return;
     }
 
-    private static string? TimeSpanValidator(string str)
+    private static string? DurationValidator(string str)
     {
         if (TimeSpan.TryParse(str, out TimeSpan time))
         {
             if (time <= TimeSpan.Zero)
             {
                 return Message.ValueLessThanOrEqualToZero;
+            }
+            else
+            {
+                return null;
+            }
+        }
+        else
+        {
+            return Message.InvalidString;
+        }
+    }
+
+    private static string? StartValidator(string str)
+    {
+        if (TimeSpan.TryParse(str, out TimeSpan time))
+        {
+            if (time < TimeSpan.Zero)
+            {
+                return Message.ValueLessThanZero;
             }
             else
             {

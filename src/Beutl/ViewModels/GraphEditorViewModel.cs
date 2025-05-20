@@ -118,12 +118,6 @@ public abstract class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        PanelWidth = Scene.GetObservable(Scene.DurationProperty)
-            .CombineLatest(editViewModel.Scale)
-            .Select(item => item.First.ToPixel(item.Second))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
         SeekBarMargin = editViewModel.CurrentTime
             .CombineLatest(editViewModel.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
@@ -137,7 +131,15 @@ public abstract class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        EndingBarMargin = PanelWidth.Select(p => new Thickness(p, 0, 0, 0))
+        EndingBarMargin = Scene.GetObservable(Scene.DurationProperty)
+            .CombineLatest(editViewModel.Scale, StartingBarMargin)
+            .Select(item => item.First.ToPixel(item.Second) + item.Third.Left)
+            .Select(p => new Thickness(p, 0, 0, 0))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        PanelWidth = editViewModel.MaximumTime.CombineLatest(editViewModel.Scale)
+            .Select(i => i.First.ToPixel(i.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 

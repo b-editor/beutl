@@ -297,12 +297,6 @@ public partial class GraphEditorView : UserControl
             int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
             _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
 
-            if (_pointerFrame >= viewModel.Scene.Duration &&
-                _mouseFlag != Timeline.MouseFlags.EndingBarMarkerPressed)
-            {
-                _pointerFrame = viewModel.Scene.Duration - TimeSpan.FromSeconds(1d / rate);
-            }
-
             if (_pointerFrame < TimeSpan.Zero)
             {
                 _pointerFrame = TimeSpan.Zero;
@@ -316,10 +310,10 @@ public partial class GraphEditorView : UserControl
             else if (_mouseFlag == Timeline.MouseFlags.EndingBarMarkerPressed)
             {
                 // ポインタ位置に基づいてシーンDurationを更新
-                TimeSpan newDuration = _pointerFrame;
-                if (newDuration < viewModel.Scene.Start)
+                TimeSpan newDuration = _pointerFrame - viewModel.Scene.Start;
+                if (newDuration < TimeSpan.Zero)
                 {
-                    newDuration = viewModel.Scene.Start + TimeSpan.FromSeconds(1d / rate);
+                    newDuration = TimeSpan.FromSeconds(1d / rate);
                 }
 
                 // 直接値を更新（コマンド記録なし）
@@ -333,12 +327,13 @@ public partial class GraphEditorView : UserControl
                 {
                     newStart = TimeSpan.Zero;
                 }
-                else if (newStart > viewModel.Scene.Duration)
+                else if (newStart > _initialDuration + _initialStart)
                 {
-                    newStart = viewModel.Scene.Duration - TimeSpan.FromSeconds(1d / rate);
+                    newStart = _initialDuration + _initialStart - TimeSpan.FromSeconds(1d / rate);
                 }
 
                 viewModel.Scene.Start = newStart;
+                viewModel.Scene.Duration = _initialDuration + _initialStart - newStart;
                 e.Handled = true;
             }
             else
@@ -375,6 +370,8 @@ public partial class GraphEditorView : UserControl
             else if (_mouseFlag == Timeline.MouseFlags.StartingBarMarkerPressed)
             {
                 RecordableCommands.Edit(viewModel.Scene, Scene.StartProperty, viewModel.Scene.Start, _initialStart)
+                    .Append(RecordableCommands.Edit(viewModel.Scene, Scene.DurationProperty, viewModel.Scene.Duration,
+                        _initialDuration))
                     .DoAndRecord(viewModel.EditorContext.CommandRecorder);
             }
 
@@ -404,6 +401,7 @@ public partial class GraphEditorView : UserControl
                 {
                     _mouseFlag = Timeline.MouseFlags.StartingBarMarkerPressed;
                     _initialStart = viewModel.Scene.Start; // 初期値を保存
+                    _initialDuration = viewModel.Scene.Duration;
                 }
                 else
                 {

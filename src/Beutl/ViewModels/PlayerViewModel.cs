@@ -72,11 +72,36 @@ public sealed class PlayerViewModel : IAsyncDisposable
             .DisposeWith(_disposables);
 
         Start = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(() => EditViewModel.CurrentTime.Value = TimeSpan.Zero)
+            .WithSubscribe(() =>
+            {
+                // 現在の時間がスタートと同じ場合、0に移動
+                EditViewModel.CurrentTime.Value =
+                    EditViewModel.CurrentTime.Value > Scene.Start + Scene.Duration
+                        ? Scene.Start + Scene.Duration
+                        : EditViewModel.CurrentTime.Value > Scene.Start
+                            ? Scene.Start
+                            : TimeSpan.Zero;
+            })
             .DisposeWith(_disposables);
 
         End = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(() => EditViewModel.CurrentTime.Value = Scene.Duration)
+            .WithSubscribe(() =>
+            {
+                // 現在の時間がスタートと同じ場合、0に移動
+                // EditViewModel.CurrentTime.Value = EditViewModel.CurrentTime.Value == Scene.Start + Scene.Duration
+                //     ? Scene.Children.Count > 0 ? Scene.Children.Max(i => i.Start + i.Length) : TimeSpan.Zero
+                //     : Scene.Start + Scene.Duration;
+                //
+
+                EditViewModel.CurrentTime.Value =
+                    EditViewModel.CurrentTime.Value < Scene.Start
+                        ? Scene.Start
+                        : EditViewModel.CurrentTime.Value < Scene.Start + Scene.Duration
+                            ? Scene.Start + Scene.Duration
+                            : Scene.Children.Count > 0
+                                ? Scene.Children.Max(i => i.Start + i.Length)
+                                : TimeSpan.Zero;
+            })
             .DisposeWith(_disposables);
 
         Scene.Invalidated += OnSceneInvalidated;
@@ -95,7 +120,9 @@ public sealed class PlayerViewModel : IAsyncDisposable
             .DisposeWith(_disposables);
         _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
 
-        Duration = Scene.GetObservable(Scene.DurationProperty)
+        Duration = editViewModel.MaximumTime
+            .CombineLatest(Scene.GetObservable(Scene.DurationProperty), Scene.GetObservable(Scene.StartProperty), CurrentFrame)
+            .Select(i => TimeSpan.FromTicks(Math.Max(Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks), i.Fourth.Ticks)))
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
