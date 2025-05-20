@@ -38,8 +38,13 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         Scene = scene;
         SceneId = scene.Id.ToString();
+        Scene.Children.Attached += OnElementAttached;
+        Scene.Children.Detached += OnElementDetached;
         CurrentTime = new ReactivePropertySlim<TimeSpan>()
             .DisposeWith(_disposables);
+        MaximumTime = new ReactivePropertySlim<TimeSpan>()
+            .DisposeWith(_disposables);
+        CalculateMaximumTime();
         Renderer = scene.GetObservable(Scene.FrameSizeProperty).Select(_ => new SceneRenderer(Scene))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
@@ -94,6 +99,67 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         RestoreState();
 
         _logger.LogInformation("Initialized EditViewModel for Scene ({SceneId}).", SceneId);
+    }
+
+    private void OnElementDetached(Element obj)
+    {
+        obj.PropertyChanged -= OnElementPropertyChanged;
+
+        if (MaximumTime.Value < obj.Range.End)
+        {
+            MaximumTime.Value = obj.Range.End;
+        }
+        else
+        {
+            CalculateMaximumTime();
+        }
+    }
+
+    private void OnElementAttached(Element obj)
+    {
+        obj.PropertyChanged += OnElementPropertyChanged;
+
+        if (MaximumTime.Value < obj.Range.End)
+        {
+            MaximumTime.Value = obj.Range.End;
+        }
+        else
+        {
+            CalculateMaximumTime();
+        }
+    }
+
+    private void CalculateMaximumTime()
+    {
+        MaximumTime.Value = Scene.Children.Count > 0
+            ? Scene.Children.Max(i => i.Range.End)
+            : TimeSpan.Zero;
+    }
+
+    private void OnElementPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e is CorePropertyChangedEventArgs<TimeSpan> typedArgs)
+        {
+            bool startChanged = typedArgs.Property.Id == Element.StartProperty.Id;
+            bool lengthChanged = typedArgs.Property.Id == Element.LengthProperty.Id;
+
+            if (sender is Element element && (startChanged || lengthChanged))
+            {
+                // 変更前の値を取得
+                TimeRange oldRange = element.Range;
+                if (startChanged) oldRange = oldRange.WithStart(typedArgs.OldValue);
+                if (lengthChanged) oldRange = oldRange.WithDuration(typedArgs.OldValue);
+
+                if (MaximumTime.Value < element.Range.End)
+                {
+                    MaximumTime.Value = element.Range.End;
+                }
+                else if (MaximumTime.Value == oldRange.End)
+                {
+                    CalculateMaximumTime();
+                }
+            }
+        }
     }
 
     private static FrameCacheOptions CreateFrameCacheOptions()
@@ -197,6 +263,9 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     public ReactivePropertySlim<TimeSpan> CurrentTime { get; }
 
+    // Timelineの横幅をmax(MaximumTime, start+duration)で決める
+    public ReactivePropertySlim<TimeSpan> MaximumTime { get; }
+
     public ReadOnlyReactivePropertySlim<SceneRenderer> Renderer { get; }
 
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }
@@ -235,6 +304,12 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
     public async ValueTask DisposeAsync()
     {
         _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
+        foreach (Element element in Scene.Children)
+        {
+            element.PropertyChanged -= OnElementPropertyChanged;
+        }
+        Scene.Children.Attached -= OnElementAttached;
+        Scene.Children.Detached -= OnElementDetached;
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         SaveState();
         await Player.DisposeAsync();
@@ -299,7 +374,10 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             ["selected-object"] = SelectedObject.Value?.Id,
             ["max-layer-count"] = Options.Value.MaxLayerCount,
             ["scale"] = Options.Value.Scale,
-            ["offset"] = new JsonObject { ["x"] = Options.Value.Offset.X, ["y"] = Options.Value.Offset.Y, }
+            ["offset"] = new JsonObject
+            {
+                ["x"] = Options.Value.Offset.X, ["y"] = Options.Value.Offset.Y,
+            }
         };
 
         DockHost.WriteToJson(json);
@@ -393,13 +471,15 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         return null;
     }
+
     public void AddElement(ElementDescription desc)
     {
         _logger.LogInformation("Adding new element with description: {Description}", desc);
 
         Element CreateElement()
         {
-            _logger.LogDebug("Creating new element with start: {Start}, length: {Length}, layer: {Layer}", desc.Start, desc.Length, desc.Layer);
+            _logger.LogDebug("Creating new element with start: {Start}, length: {Length}, layer: {Layer}", desc.Start,
+                desc.Length, desc.Layer);
             return new Element()
             {
                 Start = desc.Start,
@@ -420,7 +500,9 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         {
             if (!desc.Position.IsDefault)
             {
-                _logger.LogDebug("Setting transform for operation: {Operation}, operator: {Operator}, position: {Position}", operation, op, desc.Position);
+                _logger.LogDebug(
+                    "Setting transform for operation: {Operation}, operator: {Operator}, position: {Position}",
+                    operation, op, desc.Position);
                 if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is
                     IPropertyAdapter<ITransform?> transformp)
                 {
@@ -617,7 +699,8 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                          .ToArray())
             {
                 timeline.DetachInline(item);
-                _logger.LogInformation("Detached inline animation ({AnimationId}) from timeline.", item.Property.Animation);
+                _logger.LogInformation("Detached inline animation ({AnimationId}) from timeline.",
+                    item.Property.Animation);
             }
         }
 

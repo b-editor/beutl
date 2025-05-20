@@ -30,6 +30,10 @@ public sealed class TimelineOverlay : Control
         = AvaloniaProperty.RegisterDirect<TimelineOverlay, Rect>(
             nameof(SelectionRange), o => o.SelectionRange, (o, v) => o.SelectionRange = v);
 
+    public static readonly DirectProperty<TimelineOverlay, Thickness> StartingBarMarginProperty
+        = AvaloniaProperty.RegisterDirect<TimelineOverlay, Thickness>(
+            nameof(StartingBarMargin), o => o.StartingBarMargin, (o, v) => o.StartingBarMargin = v);
+
     public static readonly DirectProperty<TimelineOverlay, Thickness> EndingBarMarginProperty
         = AvaloniaProperty.RegisterDirect<TimelineOverlay, Thickness>(
             nameof(EndingBarMargin), o => o.EndingBarMargin, (o, v) => o.EndingBarMargin = v);
@@ -41,15 +45,20 @@ public sealed class TimelineOverlay : Control
     public static readonly StyledProperty<IBrush?> SeekBarBrushProperty
         = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(SeekBarBrush));
 
+    public static readonly StyledProperty<IBrush?> StartingBarBrushProperty
+        = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(StartingBarBrush));
+
     public static readonly StyledProperty<IBrush?> EndingBarBrushProperty
         = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(EndingBarBrush));
 
     private Vector _offset;
+    private Thickness _startingBarMargin;
     private Thickness _endingBarMargin;
     private Thickness _seekBarMargin;
     private Size _viewport;
     private Rect _selectionRange;
     private ImmutablePen? _seekBarPen;
+    private ImmutablePen? _startingBarPen;
     private ImmutablePen? _endingBarPen;
 
     static TimelineOverlay()
@@ -58,9 +67,11 @@ public sealed class TimelineOverlay : Control
             OffsetProperty,
             ViewportProperty,
             SelectionRangeProperty,
+            StartingBarMarginProperty,
             EndingBarMarginProperty,
             SeekBarMarginProperty,
             SeekBarBrushProperty,
+            StartingBarBrushProperty,
             EndingBarBrushProperty);
     }
 
@@ -87,6 +98,12 @@ public sealed class TimelineOverlay : Control
         set => SetAndRaise(SelectionRangeProperty, ref _selectionRange, value);
     }
 
+    public Thickness StartingBarMargin
+    {
+        get => _startingBarMargin;
+        set => SetAndRaise(StartingBarMarginProperty, ref _startingBarMargin, value);
+    }
+
     public Thickness EndingBarMargin
     {
         get => _endingBarMargin;
@@ -105,6 +122,12 @@ public sealed class TimelineOverlay : Control
         set => SetValue(SeekBarBrushProperty, value);
     }
 
+    public IBrush? StartingBarBrush
+    {
+        get => GetValue(StartingBarBrushProperty);
+        set => SetValue(StartingBarBrushProperty, value);
+    }
+
     public IBrush? EndingBarBrush
     {
         get => GetValue(EndingBarBrushProperty);
@@ -118,6 +141,10 @@ public sealed class TimelineOverlay : Control
         {
             _seekBarPen = new ImmutablePen(SeekBarBrush?.ToImmutable(), 1.25);
         }
+        else if (change.Property == StartingBarBrushProperty)
+        {
+            _startingBarPen = new ImmutablePen(StartingBarBrush?.ToImmutable(), 1.25);
+        }
         else if (change.Property == EndingBarBrushProperty)
         {
             _endingBarPen = new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
@@ -128,6 +155,7 @@ public sealed class TimelineOverlay : Control
     {
         base.Render(context);
         _seekBarPen ??= new ImmutablePen(SeekBarBrush?.ToImmutable(), 1.25);
+        _startingBarPen ??= new ImmutablePen(StartingBarBrush?.ToImmutable(), 1.25);
         _endingBarPen ??= new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
 
         Rect rect = _selectionRange.Normalize();
@@ -139,10 +167,12 @@ public sealed class TimelineOverlay : Control
         {
             double height = _viewport.Height;
             var seekbar = new Point(_seekBarMargin.Left, 0);
+            var startingbar = new Point(_startingBarMargin.Left, 0);
             var endingbar = new Point(_endingBarMargin.Left, 0);
             var bottom = new Point(0, height);
 
             context.DrawLine(_seekBarPen, seekbar, seekbar + bottom);
+            context.DrawLine(_startingBarPen, startingbar, startingbar + bottom);
             context.DrawLine(_endingBarPen, endingbar, endingbar + bottom);
         }
     }

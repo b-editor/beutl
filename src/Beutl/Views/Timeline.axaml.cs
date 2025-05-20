@@ -35,11 +35,13 @@ public sealed partial class Timeline : UserControl
         Free,
         SeekBarPressed,
         RangeSelectionPressed,
-        EndingBarMarkerPressed
+        EndingBarMarkerPressed,
+        StartingBarMarkerPressed
     }
 
     internal MouseFlags _mouseFlag = MouseFlags.Free;
     internal TimeSpan _pointerFrame;
+    private TimeSpan _initialStart;
     private TimeSpan _initialDuration;
     private bool _rightButtonPressed;
     private readonly ILogger _logger = Log.CreateLogger<Timeline>();
@@ -47,6 +49,10 @@ public sealed partial class Timeline : UserControl
     private ElementView? _selectedElement;
     private readonly List<(ElementViewModel Element, bool IsSelectedOriginal)> _rangeSelection = [];
     private CancellationTokenSource? _scrollCts;
+
+    // 長方形マーカーのサイズを定義
+    private const int MarkerHeight = 18;
+    private const int MarkerWidth = 4;
 
     public Timeline()
     {
@@ -83,8 +89,7 @@ public sealed partial class Timeline : UserControl
         {
             return new Control[]
             {
-                new ElementView { DataContext = e },
-                new ElementScopeView { DataContext = e.Scope }
+                new ElementView { DataContext = e }, new ElementScopeView { DataContext = e.Scope }
             };
         }));
 
@@ -120,7 +125,8 @@ public sealed partial class Timeline : UserControl
                     _selectedElement = null;
                 }
 
-                if (e is Element element && FindElementView(element) is { DataContext: ElementViewModel viewModel } newView)
+                if (e is Element element && FindElementView(element) is
+                        { DataContext: ElementViewModel viewModel } newView)
                 {
                     viewModel.IsSelected.Value = true;
                     _selectedElement = newView;
@@ -152,7 +158,8 @@ public sealed partial class Timeline : UserControl
                 newElement.Start = ViewModel.ClickedFrame;
                 newElement.ZIndex = ViewModel.CalculateClickedLayer();
 
-                newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.ElementFileExtension));
+                newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!,
+                    Constants.ElementFileExtension));
 
                 CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
                 ViewModel.Scene.AddChild(newElement).DoAndRecord(recorder);
@@ -347,12 +354,6 @@ public sealed partial class Timeline : UserControl
         int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
         _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
 
-        if (_pointerFrame >= viewModel.Scene.Duration && 
-            _mouseFlag != MouseFlags.EndingBarMarkerPressed)
-        {
-            _pointerFrame = viewModel.Scene.Duration - TimeSpan.FromSeconds(1d / rate);
-        }
-
         if (_pointerFrame < TimeSpan.Zero)
         {
             _pointerFrame = TimeSpan.Zero;
@@ -371,24 +372,45 @@ public sealed partial class Timeline : UserControl
         else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
         {
             // ポインタ位置に基づいてシーンDurationを更新
-            TimeSpan newDuration = _pointerFrame;
-            if (newDuration < TimeSpan.FromSeconds(1d / rate))
+            TimeSpan newDuration = _pointerFrame - viewModel.Scene.Start;
+            if (newDuration < TimeSpan.Zero)
             {
                 newDuration = TimeSpan.FromSeconds(1d / rate);
             }
-            
+
             // 直接値を更新（コマンド記録なし）
-            viewModel.Scene.Duration = newDuration;           
+            viewModel.Scene.Duration = newDuration;
+        }
+        else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
+        {
+            // Calculate the new starting point for the scene based on the pointer frame
+            TimeSpan clampedStart = _pointerFrame;
+            
+            // Ensure the new start time is not negative
+            if (clampedStart < TimeSpan.Zero)
+            {
+                clampedStart = TimeSpan.Zero;
+            }
+            // Ensure the new start time does not exceed the total duration
+            else if (clampedStart > _initialDuration + _initialStart)
+            {
+                clampedStart = _initialDuration + _initialStart - TimeSpan.FromSeconds(1d / rate);
+            }
+
+            // Update the scene's start and duration based on the clamped start time
+            viewModel.Scene.Start = clampedStart;
+            viewModel.Scene.Duration = _initialDuration + _initialStart - clampedStart;
         }
         else
         {
             Point posScale = e.GetPosition(Scale);
+            double startingBarX = viewModel.StartingBarMargin.Value.Left;
             double endingBarX = viewModel.EndingBarMargin.Value.Left;
 
             // EndingBarマーカーの当たり判定チェック
-            if (IsPointInTimelineScaleMarker(posScale, endingBarX, Scale.Bounds.Height))
+            if (IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX))
             {
-                Scale.Cursor = new Cursor(StandardCursorType.SizeWestEast);
+                Scale.Cursor = Cursors.SizeWestEast;
             }
             else
             {
@@ -399,7 +421,8 @@ public sealed partial class Timeline : UserControl
             {
                 BufferStatusViewModel.CacheBlock[] cacheBlocks = viewModel.EditorContext.BufferStatus.CacheBlocks.Value;
 
-                viewModel.HoveredCacheBlock.Value = Array.Find(cacheBlocks, v => new TimeRange(v.Start, v.Length).Contains(_pointerFrame));
+                viewModel.HoveredCacheBlock.Value = Array.Find(cacheBlocks,
+                    v => new TimeRange(v.Start, v.Length).Contains(_pointerFrame));
             }
             else
             {
@@ -423,7 +446,15 @@ public sealed partial class Timeline : UserControl
             }
             else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
             {
-                RecordableCommands.Edit(ViewModel.Scene, Scene.DurationProperty, ViewModel.Scene.Duration, _initialDuration)
+                RecordableCommands.Edit(ViewModel.Scene, Scene.DurationProperty, ViewModel.Scene.Duration,
+                        _initialDuration)
+                    .DoAndRecord(ViewModel.EditorContext.CommandRecorder);
+            }
+            else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
+            {
+                RecordableCommands.Edit(ViewModel.Scene, Scene.StartProperty, ViewModel.Scene.Start, _initialStart)
+                    .Append(RecordableCommands.Edit(ViewModel.Scene, Scene.DurationProperty, ViewModel.Scene.Duration,
+                        _initialDuration))
                     .DoAndRecord(ViewModel.EditorContext.CommandRecorder);
             }
 
@@ -479,19 +510,29 @@ public sealed partial class Timeline : UserControl
     }
 
     // TimelineScaleの長方形マーカーの当たり判定
-    private bool IsPointInTimelineScaleMarker(Point point, double endingBarX, double height)
+    // GraphEditorViewでも使用
+    internal static bool IsPointInTimelineScaleMarker(double x, double y, double startingBarX, double endingBarX)
     {
-        // 長方形マーカーのサイズを定義
-        const int markerHeight = 16;
-        const int markerWidth = 4;
+        return IsPointInTimelineScaleStartingMarker(x, y, startingBarX) ||
+               IsPointInTimelineScaleEndingMarker(x, y, endingBarX);
+    }
 
+    internal static bool IsPointInTimelineScaleStartingMarker(double x, double y, double startingBarX)
+    {
         // 長方形の範囲を計算
-        double left = endingBarX - markerWidth / 2.0;
-        double top = height - markerHeight;
-        var rect = new Rect(left, top, markerWidth, markerHeight);
+        var startRect = new Rect(startingBarX, 0, MarkerWidth, MarkerHeight);
 
         // 点が長方形内にあるか判定
-        return rect.Contains(point);
+        return startRect.Contains(new Point(x, y));
+    }
+
+    internal static bool IsPointInTimelineScaleEndingMarker(double x, double y, double endingBarX)
+    {
+        // 長方形の範囲を計算
+        var endRect = new Rect(endingBarX - MarkerWidth, 0, MarkerWidth, MarkerHeight);
+
+        // 点が長方形内にあるか判定
+        return endRect.Contains(new Point(x, y));
     }
 
     // ポインターが押された
@@ -517,13 +558,21 @@ public sealed partial class Timeline : UserControl
             else
             {
                 double endingBarX = viewModel.EndingBarMargin.Value.Left;
+                double startingBarX = viewModel.StartingBarMargin.Value.Left;
                 Point scalePoint = e.GetPosition(Scale);
 
                 // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
-                if (IsPointInTimelineScaleMarker(scalePoint, endingBarX, Scale.Bounds.Height))
+                if (IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
                 {
                     _mouseFlag = MouseFlags.EndingBarMarkerPressed;
-                    _initialDuration = viewModel.Scene.Duration; // 初期値を保存
+                    // 初期値を保存
+                    _initialDuration = viewModel.Scene.Duration;
+                }
+                else if (IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
+                {
+                    _mouseFlag = MouseFlags.StartingBarMarkerPressed;
+                    _initialStart = viewModel.Scene.Start; // 初期値を保存
+                    _initialDuration = viewModel.Scene.Duration;
                 }
                 else
                 {
@@ -583,7 +632,8 @@ public sealed partial class Timeline : UserControl
             else
             {
                 viewModel.AddElement.Execute(new ElementDescription(
-                    viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(), InitialOperator: type));
+                    viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
+                    InitialOperator: type));
             }
         }
         else if (e.Data.GetFiles()
@@ -592,7 +642,8 @@ public sealed partial class Timeline : UserControl
                      .FirstOrDefault(v => v != null) is { } fileName)
         {
             viewModel.AddElement.Execute(new ElementDescription(
-                viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(), FileName: fileName));
+                viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
+                FileName: fileName));
         }
     }
 
@@ -613,7 +664,8 @@ public sealed partial class Timeline : UserControl
         var dialog = new AddElementDialog
         {
             DataContext = new AddElementDialogViewModel(ViewModel.Scene,
-                new ElementDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.CalculateClickedLayer()),
+                new ElementDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5),
+                    ViewModel.CalculateClickedLayer()),
                 recorder)
         };
         await dialog.ShowAsync();
@@ -683,7 +735,8 @@ public sealed partial class Timeline : UserControl
 
     private ElementView? FindElementView(Element element)
     {
-        return TimelinePanel.Children.FirstOrDefault(ctr => ctr.DataContext is ElementViewModel vm && vm.Model == element) as ElementView;
+        return TimelinePanel.Children.FirstOrDefault(ctr =>
+            ctr.DataContext is ElementViewModel vm && vm.Model == element) as ElementView;
     }
 
     private void ZoomClick(object? sender, RoutedEventArgs e)
@@ -749,13 +802,38 @@ public sealed partial class Timeline : UserControl
 
             _scrollCts?.Cancel();
             _scrollCts = new CancellationTokenSource();
-            var anm = new Avalonia.Animation.Animation { Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0), Duration = TimeSpan.FromSeconds(0.5), FillMode = FillMode.None, Children = { new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(ScrollViewer.OffsetProperty, ContentScroll.Offset), } }, new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(ScrollViewer.OffsetProperty, new Avalonia.Vector(newOffsetX, newOffsetY)), } } } };
+            var anm = new Avalonia.Animation.Animation
+            {
+                Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+                Duration = TimeSpan.FromSeconds(0.5),
+                FillMode = FillMode.None,
+                Children =
+                {
+                    new KeyFrame()
+                    {
+                        Cue = new Cue(0),
+                        Setters = { new Setter(ScrollViewer.OffsetProperty, ContentScroll.Offset), }
+                    },
+                    new KeyFrame()
+                    {
+                        Cue = new Cue(1),
+                        Setters =
+                        {
+                            new Setter(ScrollViewer.OffsetProperty,
+                                new Avalonia.Vector(newOffsetX, newOffsetY)),
+                        }
+                    }
+                }
+            };
             await anm.RunAsync(ContentScroll, _scrollCts.Token);
             ContentScroll.ClearValue(ScrollViewer.OffsetProperty);
             ContentScroll.Offset = new Avalonia.Vector(newOffsetX, newOffsetY);
             if (!_scrollCts.IsCancellationRequested)
             {
-                viewModel.Options.Value = viewModel.Options.Value with { Offset = new Vector2((float)newOffsetX, (float)newOffsetY) };
+                viewModel.Options.Value = viewModel.Options.Value with
+                {
+                    Offset = new Vector2((float)newOffsetX, (float)newOffsetY)
+                };
             }
         }
     }

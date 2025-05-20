@@ -72,11 +72,34 @@ public sealed class PlayerViewModel : IAsyncDisposable
             .DisposeWith(_disposables);
 
         Start = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(() => EditViewModel.CurrentTime.Value = TimeSpan.Zero)
+            .WithSubscribe(() =>
+            {
+                int rate = GetFrameRate();
+                var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
+                // 現在の時間がスタートと同じ場合、0に移動
+                EditViewModel.CurrentTime.Value =
+                    EditViewModel.CurrentTime.Value > endTime
+                        ? endTime
+                        : EditViewModel.CurrentTime.Value > Scene.Start
+                            ? Scene.Start
+                            : TimeSpan.Zero;
+            })
             .DisposeWith(_disposables);
 
         End = new ReactiveCommand(_isEnabled)
-            .WithSubscribe(() => EditViewModel.CurrentTime.Value = Scene.Duration)
+            .WithSubscribe(() =>
+            {
+                int rate = GetFrameRate();
+                var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
+                EditViewModel.CurrentTime.Value =
+                    EditViewModel.CurrentTime.Value < Scene.Start
+                        ? Scene.Start
+                        : EditViewModel.CurrentTime.Value < endTime
+                            ? endTime
+                            : Scene.Children.Count > 0
+                                ? Scene.Children.Max(i => i.Start + i.Length) - TimeSpan.FromSeconds(1d / rate)
+                                : TimeSpan.Zero;
+            })
             .DisposeWith(_disposables);
 
         Scene.Invalidated += OnSceneInvalidated;
@@ -95,7 +118,17 @@ public sealed class PlayerViewModel : IAsyncDisposable
             .DisposeWith(_disposables);
         _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
 
-        Duration = Scene.GetObservable(Scene.DurationProperty)
+        Duration = editViewModel.MaximumTime
+            .CombineLatest(Scene.GetObservable(Scene.DurationProperty), Scene.GetObservable(Scene.StartProperty),
+                CurrentFrame)
+            .Select(i =>
+            {
+                // このDurationはSliderの最大値に使うので、一フレーム分を引く
+                var frame = TimeSpan.FromSeconds(1.0 / GetFrameRate());
+                return TimeSpan.FromTicks(Math.Max(
+                    Math.Max(i.First.Ticks - frame.Ticks, i.Second.Ticks + i.Third.Ticks - frame.Ticks),
+                    i.Fourth.Ticks));
+            })
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
@@ -213,6 +246,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
             TimeSpan durationTime = Scene.Duration;
             int startFrame = (int)startTime.ToFrameNumber(rate);
             int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
+            int endFrame = (int)Scene.Start.ToFrameNumber(rate) + durationFrame;
             bufferStatus.StartTime.Value = startTime;
             bufferStatus.EndTime.Value = startTime;
             frameCacheManager.Options = frameCacheManager.Options with
@@ -239,7 +273,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
                 try
                 {
                     var expectFrame = (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame;
-                    if (!IsPlaying.Value || expectFrame >= durationFrame)
+                    if (!IsPlaying.Value || expectFrame >= endFrame)
                     {
                         tcs.TrySetResult(true);
                         return;

@@ -47,11 +47,6 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         Scene = editViewModel.Scene;
         Player = editViewModel.Player;
         FrameSelectionRange = new FrameSelectionRange(editViewModel.Scale).DisposeWith(_disposables);
-        PanelWidth = Scene.GetObservable(Scene.DurationProperty)
-            .CombineLatest(editViewModel.Scale)
-            .Select(item => item.First.ToPixel(item.Second))
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
 
         SeekBarMargin = editViewModel.CurrentTime
             .CombineLatest(editViewModel.Scale)
@@ -59,7 +54,31 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        EndingBarMargin = PanelWidth.Select(p => new Thickness(p, 0, 0, 0))
+        StartingBarMargin = Scene.GetObservable(Scene.StartProperty)
+            .CombineLatest(editViewModel.Scale)
+            .Select(item => item.First.ToPixel(item.Second))
+            .Select(p => new Thickness(p, 0, 0, 0))
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
+        EndingBarMargin = Scene.GetObservable(Scene.DurationProperty)
+            .CombineLatest(editViewModel.Scale, StartingBarMargin)
+            .Select(item => item.First.ToPixel(item.Second) + item.Third.Left)
+            .Select(p => new Thickness(p, 0, 0, 0))
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
+        PanelWidth = editViewModel.MaximumTime
+            .CombineLatest(
+                Scene.GetObservable(Scene.DurationProperty),
+                Scene.GetObservable(Scene.StartProperty),
+                editViewModel.CurrentTime)
+            .Select(i => TimeSpan.FromTicks(
+                Math.Max(
+                    Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
+                    i.Fourth.Ticks)))
+            .CombineLatest(editViewModel.Scale)
+            .Select(i => i.First.ToPixel(i.Second) + 500)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -106,8 +125,10 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             .DistinctUntilChanged()
             .Subscribe(TryApplyLayerCount);
 
-        AdjustDurationToPointer.Subscribe(OnAdjustDurationToPointer);
-        AdjustDurationToCurrent.Subscribe(OnAdjustDurationToCurrent);
+        SetStartTimeToPointerPosition.Subscribe(OnSetStartTimeToPointerPosition);
+        SetEndTimeToPointerPosition.Subscribe(OnSetEndTimeToPointerPosition);
+        SetStartTimeToCurrentTime.Subscribe(OnSetStartTimeToCurrentTime);
+        SetEndTimeToCurrentTime.Subscribe(OnSetEndTimeToCurrentTime);
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
         AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
@@ -139,7 +160,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             {
                 if (HoveredCacheBlock.Value is not { } block) return;
 
-                _logger.LogInformation("Deleting frame cache for block starting at frame {StartFrame}.", block.StartFrame);
+                _logger.LogInformation("Deleting frame cache for block starting at frame {StartFrame}.",
+                    block.StartFrame);
                 FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
                 if (block.IsLocked)
                 {
@@ -157,7 +179,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             {
                 if (HoveredCacheBlock.Value is not { } block) return;
 
-                _logger.LogInformation("Locking frame cache for block starting at frame {StartFrame}.", block.StartFrame);
+                _logger.LogInformation("Locking frame cache for block starting at frame {StartFrame}.",
+                    block.StartFrame);
                 FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
                 manager.Lock(
                     block.StartFrame, block.StartFrame + block.LengthFrame);
@@ -171,7 +194,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             {
                 if (HoveredCacheBlock.Value is not { } block) return;
 
-                _logger.LogInformation("Unlocking frame cache for block starting at frame {StartFrame}.", block.StartFrame);
+                _logger.LogInformation("Unlocking frame cache for block starting at frame {StartFrame}.",
+                    block.StartFrame);
                 FrameCacheManager manager = EditorContext.FrameCacheManager.Value;
                 manager.Unlock(
                     block.StartFrame, block.StartFrame + block.LengthFrame);
@@ -181,28 +205,101 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         _logger.LogInformation("TimelineViewModel initialized successfully.");
     }
-    private void OnAdjustDurationToPointer()
-    {
-        _logger.LogInformation("Adjusting scene duration to pointer position.");
-        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate);
 
-        RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
-            .WithStoables([Scene])
-            .DoAndRecord(EditorContext.CommandRecorder);
-        _logger.LogInformation("Scene duration adjusted to {Time}.", time);
+    private void SetStartTimeCore(TimeSpan time)
+    {
+        _logger.LogInformation("Adjusting scene start to pointer position.");
+        if (time > Scene.Duration + Scene.Start)
+        {
+            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+            time -= Scene.Duration + Scene.Start;
+            time += TimeSpan.FromSeconds(1d / rate);
+
+            RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
+                .Append(RecordableCommands.Edit(Scene, Scene.StartProperty, Scene.Duration + Scene.Start))
+                .WithStoables([Scene])
+                .DoAndRecord(EditorContext.CommandRecorder);
+        }
+        else
+        {
+            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+            if (time < TimeSpan.Zero)
+            {
+                time = TimeSpan.Zero;
+            }
+            else if (time > Scene.Duration + Scene.Start)
+            {
+                time = Scene.Duration + Scene.Start - TimeSpan.FromSeconds(1d / rate);
+            }
+
+            RecordableCommands.Edit(Scene, Scene.StartProperty, time)
+                .Append(RecordableCommands.Edit(Scene, Scene.DurationProperty, TimeSpan.FromTicks(Math.Max(
+                    (Scene.Duration + Scene.Start -
+                     time).Ticks, TimeSpan.FromSeconds(1d / rate).Ticks))))
+                .WithStoables([Scene])
+                .DoAndRecord(EditorContext.CommandRecorder);
+        }
+
+        _logger.LogInformation("Scene start adjusted to {Time}.", time);
     }
 
-    private void OnAdjustDurationToCurrent()
+    private void OnSetStartTimeToPointerPosition()
     {
-        _logger.LogInformation("Adjusting scene duration to current time.");
+        TimeSpan time = ClickedFrame;
+        SetStartTimeCore(time);
+    }
+
+    private void SetEndTimeCore(TimeSpan time)
+    {
+        _logger.LogInformation("Adjusting scene duration to pointer position.");
+        if (time < Scene.Start)
+        {
+            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+            time -= TimeSpan.FromSeconds(1d / rate);
+            if (time < TimeSpan.Zero)
+            {
+                time = TimeSpan.Zero;
+            }
+
+            RecordableCommands.Edit(Scene, Scene.StartProperty, time)
+                .Append(RecordableCommands.Edit(Scene, Scene.DurationProperty, Scene.Start - time))
+                .WithStoables([Scene])
+                .DoAndRecord(EditorContext.CommandRecorder);
+        }
+        else
+        {
+            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+            time -= Scene.Start;
+            if (time <= TimeSpan.Zero)
+            {
+                time = TimeSpan.FromSeconds(1d / rate);
+            }
+
+            RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
+                .WithStoables([Scene])
+                .DoAndRecord(EditorContext.CommandRecorder);
+            _logger.LogInformation("Scene duration adjusted to {Time}.", time);
+        }
+    }
+
+    private void OnSetEndTimeToPointerPosition()
+    {
+        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate);
+        SetEndTimeCore(time);
+    }
+
+    private void OnSetStartTimeToCurrentTime()
+    {
+        TimeSpan time = EditorContext.CurrentTime.Value;
+        SetStartTimeCore(time);
+    }
+
+    private void OnSetEndTimeToCurrentTime()
+    {
         int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
         TimeSpan time = EditorContext.CurrentTime.Value + TimeSpan.FromSeconds(1d / rate);
-
-        RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
-            .WithStoables([Scene])
-            .DoAndRecord(EditorContext.CommandRecorder);
-        _logger.LogInformation("Scene duration adjusted to {Time}.", time);
+        SetEndTimeCore(time);
     }
 
     public Scene Scene { get; private set; }
@@ -214,6 +311,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> SeekBarMargin { get; }
+
+    public ReadOnlyReactivePropertySlim<Thickness> StartingBarMargin { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
@@ -229,9 +328,13 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public ReactiveCommand<(TimeRange Range, int ZIndex)> ScrollTo { get; } = new();
 
-    public ReactiveCommandSlim AdjustDurationToPointer { get; } = new();
+    public ReactiveCommandSlim SetStartTimeToPointerPosition { get; } = new();
 
-    public ReactiveCommandSlim AdjustDurationToCurrent { get; } = new();
+    public ReactiveCommandSlim SetEndTimeToPointerPosition { get; } = new();
+
+    public ReactiveCommandSlim SetStartTimeToCurrentTime { get; } = new();
+
+    public ReactiveCommandSlim SetEndTimeToCurrentTime { get; } = new();
 
     public ReactiveCommandSlim DeleteAllFrameCache { get; }
 
@@ -465,7 +568,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 if (anmProp != null)
                 {
                     AttachInline(anmProp, element);
-                    _logger.LogDebug("Inline animation attached for element {ElementId} and animation {AnimationId}.", element.Id, anmId);
+                    _logger.LogDebug("Inline animation attached for element {ElementId} and animation {AnimationId}.",
+                        element.Id, anmId);
                 }
                 else if (animatable != null)
                 {
@@ -475,11 +579,15 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                         var createdProp =
                             (IAnimatablePropertyAdapter)Activator.CreateInstance(type, anm.Property, animatable)!;
                         AttachInline(createdProp, element);
-                        _logger.LogDebug("Inline animation created and attached for element {ElementId} and animation {AnimationId}.", element.Id, anmId);
+                        _logger.LogDebug(
+                            "Inline animation created and attached for element {ElementId} and animation {AnimationId}.",
+                            element.Id, anmId);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "An exception occurred while restoring the inline animation for element {ElementId} and animation {AnimationId}.", element.Id, anmId);
+                        _logger.LogError(ex,
+                            "An exception occurred while restoring the inline animation for element {ElementId} and animation {AnimationId}.",
+                            element.Id, anmId);
                     }
                 }
             }
@@ -512,7 +620,9 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 Guid elementId = item.Element.Model.Id;
 
                 inlines.Add(new JsonObject { ["AnimationId"] = anmId, ["ElementId"] = elementId });
-                _logger.LogDebug("Inline animation state written to JSON for element {ElementId} and animation {AnimationId}.", elementId, anmId);
+                _logger.LogDebug(
+                    "Inline animation state written to JSON for element {ElementId} and animation {AnimationId}.",
+                    elementId, anmId);
             }
         }
 
@@ -523,7 +633,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public void AttachInline(IAnimatablePropertyAdapter property, Element element)
     {
-        _logger.LogInformation("Attaching inline animation for element {ElementId} and property {Property}.", element.Id, property);
+        _logger.LogInformation("Attaching inline animation for element {ElementId} and property {Property}.",
+            element.Id, property);
         if (Inlines.Any(x => x.Element.Model == element && x.Property == property))
         {
             _logger.LogWarning("Inline animation already attached for element {ElementId}.", element.Id);
@@ -538,7 +649,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         // タイムラインのタブを開く
         Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.PropertyType);
-        if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel anmTimelineViewModel)
+        if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel
+            anmTimelineViewModel)
         {
             Inlines.Add(anmTimelineViewModel);
             _logger.LogInformation("Inline animation attached successfully for element {ElementId}.", element.Id);
@@ -559,7 +671,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         Inlines.Remove(item);
         item.Dispose();
-        _logger.LogInformation("Inline animation detached successfully for element {ElementId}.", item.Element.Model.Id);
+        _logger.LogInformation("Inline animation detached successfully for element {ElementId}.",
+            item.Element.Model.Id);
     }
 
     public IObservable<double> GetTrackedLayerTopObservable(IObservable<int> layer)
@@ -686,6 +799,22 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             {
                 execution.KeyEventArgs.Handled = true;
                 _logger.LogDebug("Paste command executed and KeyEventArgs handled.");
+            }
+        }
+        else if (execution.CommandName == "SetStartTime")
+        {
+            SetStartTimeToCurrentTime.Execute();
+            if (execution.KeyEventArgs != null)
+            {
+                execution.KeyEventArgs.Handled = true;
+            }
+        }
+        else if (execution.CommandName == "SetEndTime")
+        {
+            SetEndTimeToCurrentTime.Execute();
+            if (execution.KeyEventArgs != null)
+            {
+                execution.KeyEventArgs.Handled = true;
             }
         }
     }
