@@ -74,10 +74,12 @@ public sealed class PlayerViewModel : IAsyncDisposable
         Start = new ReactiveCommand(_isEnabled)
             .WithSubscribe(() =>
             {
+                int rate = GetFrameRate();
+                var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
                 // 現在の時間がスタートと同じ場合、0に移動
                 EditViewModel.CurrentTime.Value =
-                    EditViewModel.CurrentTime.Value > Scene.Start + Scene.Duration
-                        ? Scene.Start + Scene.Duration
+                    EditViewModel.CurrentTime.Value > endTime
+                        ? endTime
                         : EditViewModel.CurrentTime.Value > Scene.Start
                             ? Scene.Start
                             : TimeSpan.Zero;
@@ -87,19 +89,15 @@ public sealed class PlayerViewModel : IAsyncDisposable
         End = new ReactiveCommand(_isEnabled)
             .WithSubscribe(() =>
             {
-                // 現在の時間がスタートと同じ場合、0に移動
-                // EditViewModel.CurrentTime.Value = EditViewModel.CurrentTime.Value == Scene.Start + Scene.Duration
-                //     ? Scene.Children.Count > 0 ? Scene.Children.Max(i => i.Start + i.Length) : TimeSpan.Zero
-                //     : Scene.Start + Scene.Duration;
-                //
-
+                int rate = GetFrameRate();
+                var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
                 EditViewModel.CurrentTime.Value =
                     EditViewModel.CurrentTime.Value < Scene.Start
                         ? Scene.Start
-                        : EditViewModel.CurrentTime.Value < Scene.Start + Scene.Duration
-                            ? Scene.Start + Scene.Duration
+                        : EditViewModel.CurrentTime.Value < endTime
+                            ? endTime
                             : Scene.Children.Count > 0
-                                ? Scene.Children.Max(i => i.Start + i.Length)
+                                ? Scene.Children.Max(i => i.Start + i.Length) - TimeSpan.FromSeconds(1d / rate)
                                 : TimeSpan.Zero;
             })
             .DisposeWith(_disposables);
