@@ -505,12 +505,13 @@ public sealed partial class Timeline : UserControl
     }
 
     // TimelineScaleの長方形マーカーの当たり判定
-    private bool IsPointInTimelineScaleMarker(Point point, double startingBarX, double endingBarX)
+    // GraphEditorViewでも使用
+    internal static bool IsPointInTimelineScaleMarker(Point point, double startingBarX, double endingBarX)
     {
         return IsPointInTimelineScaleStartingMarker(point, startingBarX) || IsPointInTimelineScaleEndingMarker(point, endingBarX);
     }
 
-    private bool IsPointInTimelineScaleStartingMarker(Point point, double startingBarX)
+    internal static bool IsPointInTimelineScaleStartingMarker(Point point, double startingBarX)
     {
         // 長方形の範囲を計算
         var startRect = new Rect(startingBarX, 0, MarkerWidth, MarkerHeight);
@@ -519,7 +520,7 @@ public sealed partial class Timeline : UserControl
         return startRect.Contains(point);
     }
 
-    private bool IsPointInTimelineScaleEndingMarker(Point point, double endingBarX)
+    internal static bool IsPointInTimelineScaleEndingMarker(Point point, double endingBarX)
     {
         // 長方形の範囲を計算
         var endRect = new Rect(endingBarX - MarkerWidth, 0, MarkerWidth, MarkerHeight);
