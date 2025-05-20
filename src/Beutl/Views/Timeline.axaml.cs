@@ -51,7 +51,7 @@ public sealed partial class Timeline : UserControl
     private CancellationTokenSource? _scrollCts;
 
     // 長方形マーカーのサイズを定義
-    private const int MarkerHeight = 16;
+    private const int MarkerHeight = 18;
     private const int MarkerWidth = 4;
 
     public Timeline()
@@ -403,9 +403,9 @@ public sealed partial class Timeline : UserControl
             double endingBarX = viewModel.EndingBarMargin.Value.Left;
 
             // EndingBarマーカーの当たり判定チェック
-            if (IsPointInTimelineScaleMarker(posScale, startingBarX, endingBarX))
+            if (IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX))
             {
-                Scale.Cursor = new Cursor(StandardCursorType.SizeWestEast);
+                Scale.Cursor = Cursors.SizeWestEast;
             }
             else
             {
@@ -506,28 +506,28 @@ public sealed partial class Timeline : UserControl
 
     // TimelineScaleの長方形マーカーの当たり判定
     // GraphEditorViewでも使用
-    internal static bool IsPointInTimelineScaleMarker(Point point, double startingBarX, double endingBarX)
+    internal static bool IsPointInTimelineScaleMarker(double x, double y, double startingBarX, double endingBarX)
     {
-        return IsPointInTimelineScaleStartingMarker(point, startingBarX) ||
-               IsPointInTimelineScaleEndingMarker(point, endingBarX);
+        return IsPointInTimelineScaleStartingMarker(x, y, startingBarX) ||
+               IsPointInTimelineScaleEndingMarker(x, y, endingBarX);
     }
 
-    internal static bool IsPointInTimelineScaleStartingMarker(Point point, double startingBarX)
+    internal static bool IsPointInTimelineScaleStartingMarker(double x, double y, double startingBarX)
     {
         // 長方形の範囲を計算
         var startRect = new Rect(startingBarX, 0, MarkerWidth, MarkerHeight);
 
         // 点が長方形内にあるか判定
-        return startRect.Contains(point);
+        return startRect.Contains(new Point(x, y));
     }
 
-    internal static bool IsPointInTimelineScaleEndingMarker(Point point, double endingBarX)
+    internal static bool IsPointInTimelineScaleEndingMarker(double x, double y, double endingBarX)
     {
         // 長方形の範囲を計算
         var endRect = new Rect(endingBarX - MarkerWidth, 0, MarkerWidth, MarkerHeight);
 
         // 点が長方形内にあるか判定
-        return endRect.Contains(point);
+        return endRect.Contains(new Point(x, y));
     }
 
     // ポインターが押された
@@ -557,13 +557,13 @@ public sealed partial class Timeline : UserControl
                 Point scalePoint = e.GetPosition(Scale);
 
                 // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
-                if (IsPointInTimelineScaleEndingMarker(scalePoint, endingBarX))
+                if (IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
                 {
                     _mouseFlag = MouseFlags.EndingBarMarkerPressed;
                     // 初期値を保存
                     _initialDuration = viewModel.Scene.Duration;
                 }
-                else if (IsPointInTimelineScaleStartingMarker(scalePoint, startingBarX))
+                else if (IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
                 {
                     _mouseFlag = MouseFlags.StartingBarMarkerPressed;
                     _initialStart = viewModel.Scene.Start; // 初期値を保存

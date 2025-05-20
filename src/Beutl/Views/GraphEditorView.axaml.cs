@@ -343,9 +343,9 @@ public partial class GraphEditorView : UserControl
                 double endingBarX = viewModel.EndingBarMargin.Value.Left;
 
                 // EndingBarマーカーの当たり判定チェック
-                if (Timeline.IsPointInTimelineScaleMarker(posScale, startingBarX, endingBarX))
+                if (Timeline.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX))
                 {
-                    scale.Cursor = new Cursor(StandardCursorType.SizeWestEast);
+                    scale.Cursor = Cursors.SizeWestEast;
                 }
                 else
                 {
@@ -364,7 +364,8 @@ public partial class GraphEditorView : UserControl
         {
             if (_mouseFlag == Timeline.MouseFlags.EndingBarMarkerPressed)
             {
-                RecordableCommands.Edit(viewModel.Scene, Scene.DurationProperty, viewModel.Scene.Duration, _initialDuration)
+                RecordableCommands.Edit(viewModel.Scene, Scene.DurationProperty, viewModel.Scene.Duration,
+                        _initialDuration)
                     .DoAndRecord(viewModel.EditorContext.CommandRecorder);
             }
             else if (_mouseFlag == Timeline.MouseFlags.StartingBarMarkerPressed)
@@ -392,12 +393,12 @@ public partial class GraphEditorView : UserControl
                 Point scalePoint = e.GetPosition(scale);
 
                 // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
-                if (Timeline.IsPointInTimelineScaleEndingMarker(scalePoint, endingBarX))
+                if (Timeline.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
                 {
                     _mouseFlag = Timeline.MouseFlags.EndingBarMarkerPressed;
                     _initialDuration = viewModel.Scene.Duration; // 初期値を保存
                 }
-                else if (Timeline.IsPointInTimelineScaleStartingMarker(scalePoint, startingBarX))
+                else if (Timeline.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
                 {
                     _mouseFlag = Timeline.MouseFlags.StartingBarMarkerPressed;
                     _initialStart = viewModel.Scene.Start; // 初期値を保存
