@@ -116,8 +116,10 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             .DistinctUntilChanged()
             .Subscribe(TryApplyLayerCount);
 
-        AdjustDurationToPointer.Subscribe(OnAdjustDurationToPointer);
-        AdjustDurationToCurrent.Subscribe(OnAdjustDurationToCurrent);
+        SetStartTimeToPointerPosition.Subscribe(OnSetStartTimeToPointerPosition);
+        SetEndTimeToPointerPosition.Subscribe(OnSetEndTimeToPointerPosition);
+        SetStartTimeToCurrentTime.Subscribe(OnSetStartTimeToCurrentTime);
+        SetEndTimeToCurrentTime.Subscribe(OnSetEndTimeToCurrentTime);
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
         AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
@@ -195,28 +197,100 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         _logger.LogInformation("TimelineViewModel initialized successfully.");
     }
 
-    private void OnAdjustDurationToPointer()
+    private void SetStartTimeCore(TimeSpan time)
     {
-        _logger.LogInformation("Adjusting scene duration to pointer position.");
-        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate);
+        _logger.LogInformation("Adjusting scene start to pointer position.");
+        if (time > Scene.Duration + Scene.Start)
+        {
+            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+            time -= Scene.Duration + Scene.Start;
+            time += TimeSpan.FromSeconds(1d / rate);
 
-        RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
-            .WithStoables([Scene])
-            .DoAndRecord(EditorContext.CommandRecorder);
-        _logger.LogInformation("Scene duration adjusted to {Time}.", time);
+            RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
+                .Append(RecordableCommands.Edit(Scene, Scene.StartProperty, Scene.Duration + Scene.Start))
+                .WithStoables([Scene])
+                .DoAndRecord(EditorContext.CommandRecorder);
+        }
+        else
+        {
+            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+            if (time < TimeSpan.Zero)
+            {
+                time = TimeSpan.Zero;
+            }
+            else if (time > Scene.Duration + Scene.Start)
+            {
+                time = Scene.Duration + Scene.Start - TimeSpan.FromSeconds(1d / rate);
+            }
+
+            RecordableCommands.Edit(Scene, Scene.StartProperty, time)
+                .Append(RecordableCommands.Edit(Scene, Scene.DurationProperty, TimeSpan.FromTicks(Math.Max(
+                    (Scene.Duration + Scene.Start -
+                     time).Ticks, TimeSpan.FromSeconds(1d / rate).Ticks))))
+                .WithStoables([Scene])
+                .DoAndRecord(EditorContext.CommandRecorder);
+        }
+
+        _logger.LogInformation("Scene start adjusted to {Time}.", time);
     }
 
-    private void OnAdjustDurationToCurrent()
+    private void OnSetStartTimeToPointerPosition()
     {
-        _logger.LogInformation("Adjusting scene duration to current time.");
+        TimeSpan time = ClickedFrame;
+        SetStartTimeCore(time);
+    }
+
+    private void SetEndTimeCore(TimeSpan time)
+    {
+        _logger.LogInformation("Adjusting scene duration to pointer position.");
+        if (time < Scene.Start)
+        {
+            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+            time -= TimeSpan.FromSeconds(1d / rate);
+            if (time < TimeSpan.Zero)
+            {
+                time = TimeSpan.Zero;
+            }
+
+            RecordableCommands.Edit(Scene, Scene.StartProperty, time)
+                .Append(RecordableCommands.Edit(Scene, Scene.DurationProperty, Scene.Start - time))
+                .WithStoables([Scene])
+                .DoAndRecord(EditorContext.CommandRecorder);
+        }
+        else
+        {
+            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+            time -= Scene.Start;
+            if (time <= TimeSpan.Zero)
+            {
+                time = TimeSpan.FromSeconds(1d / rate);
+            }
+
+            RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
+                .WithStoables([Scene])
+                .DoAndRecord(EditorContext.CommandRecorder);
+            _logger.LogInformation("Scene duration adjusted to {Time}.", time);
+        }
+    }
+
+    private void OnSetEndTimeToPointerPosition()
+    {
+        int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate) - Scene.Start;
+        SetEndTimeCore(time);
+    }
+
+    private void OnSetStartTimeToCurrentTime()
+    {
+        TimeSpan time = EditorContext.CurrentTime.Value;
+        SetStartTimeCore(time);
+    }
+
+    private void OnSetEndTimeToCurrentTime()
+    {
         int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
         TimeSpan time = EditorContext.CurrentTime.Value + TimeSpan.FromSeconds(1d / rate);
-
-        RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
-            .WithStoables([Scene])
-            .DoAndRecord(EditorContext.CommandRecorder);
-        _logger.LogInformation("Scene duration adjusted to {Time}.", time);
+        SetEndTimeCore(time);
     }
 
     public Scene Scene { get; private set; }
@@ -245,9 +319,13 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public ReactiveCommand<(TimeRange Range, int ZIndex)> ScrollTo { get; } = new();
 
-    public ReactiveCommandSlim AdjustDurationToPointer { get; } = new();
+    public ReactiveCommandSlim SetStartTimeToPointerPosition { get; } = new();
 
-    public ReactiveCommandSlim AdjustDurationToCurrent { get; } = new();
+    public ReactiveCommandSlim SetEndTimeToPointerPosition { get; } = new();
+
+    public ReactiveCommandSlim SetStartTimeToCurrentTime { get; } = new();
+
+    public ReactiveCommandSlim SetEndTimeToCurrentTime { get; } = new();
 
     public ReactiveCommandSlim DeleteAllFrameCache { get; }
 
@@ -712,6 +790,22 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             {
                 execution.KeyEventArgs.Handled = true;
                 _logger.LogDebug("Paste command executed and KeyEventArgs handled.");
+            }
+        }
+        else if (execution.CommandName == "SetStartTime")
+        {
+            SetStartTimeToCurrentTime.Execute();
+            if (execution.KeyEventArgs != null)
+            {
+                execution.KeyEventArgs.Handled = true;
+            }
+        }
+        else if (execution.CommandName == "SetEndTime")
+        {
+            SetEndTimeToCurrentTime.Execute();
+            if (execution.KeyEventArgs != null)
+            {
+                execution.KeyEventArgs.Handled = true;
             }
         }
     }

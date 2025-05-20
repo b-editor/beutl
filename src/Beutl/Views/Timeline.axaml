@@ -122,8 +122,12 @@
                    PointerReleased="TimelinePanel_PointerReleased">
                 <Panel.ContextFlyout>
                     <ui:FAMenuFlyout>
-                        <ui:MenuFlyoutItem Command="{Binding AdjustDurationToPointer}" Text="{x:Static lang:Strings.AdjustDurationToPointer}" />
-                        <ui:MenuFlyoutItem Command="{Binding AdjustDurationToCurrent}" Text="{x:Static lang:Strings.AdjustDurationToCurrent}" />
+                        <ui:MenuFlyoutItem Command="{Binding SetStartTimeToPointerPosition}"
+                                           InputGesture="{h:GetCommandGestureExtension SetStartTime}"
+                                           Text="{x:Static lang:Strings.SetStartTime}" />
+                        <ui:MenuFlyoutItem Command="{Binding SetEndTimeToPointerPosition}"
+                                           InputGesture="{h:GetCommandGestureExtension SetEndTime}"
+                                           Text="{x:Static lang:Strings.SetEndTime}" />
                         <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsPage.AutoAdjustSceneDuration}" />
                         <ui:MenuFlyoutSeparator />
                         <ui:MenuFlyoutItem Click="AddElementClick" Text="{x:Static lang:Strings.AddElement}" />
