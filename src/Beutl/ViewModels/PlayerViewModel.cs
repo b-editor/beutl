@@ -122,7 +122,13 @@ public sealed class PlayerViewModel : IAsyncDisposable
             .CombineLatest(Scene.GetObservable(Scene.DurationProperty), Scene.GetObservable(Scene.StartProperty),
                 CurrentFrame)
             .Select(i =>
-                TimeSpan.FromTicks(Math.Max(Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks), i.Fourth.Ticks)))
+            {
+                // このDurationはSliderの最大値に使うので、一フレーム分を引く
+                var frame = TimeSpan.FromSeconds(1.0 / GetFrameRate());
+                return TimeSpan.FromTicks(Math.Max(
+                    Math.Max(i.First.Ticks - frame.Ticks, i.Second.Ticks + i.Third.Ticks - frame.Ticks),
+                    i.Fourth.Ticks));
+            })
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
