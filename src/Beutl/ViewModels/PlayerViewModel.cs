@@ -119,8 +119,10 @@ public sealed class PlayerViewModel : IAsyncDisposable
         _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
 
         Duration = editViewModel.MaximumTime
-            .CombineLatest(Scene.GetObservable(Scene.DurationProperty), Scene.GetObservable(Scene.StartProperty), CurrentFrame)
-            .Select(i => TimeSpan.FromTicks(Math.Max(Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks), i.Fourth.Ticks)))
+            .CombineLatest(Scene.GetObservable(Scene.DurationProperty), Scene.GetObservable(Scene.StartProperty),
+                CurrentFrame)
+            .Select(i =>
+                TimeSpan.FromTicks(Math.Max(Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks), i.Fourth.Ticks)))
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
@@ -238,6 +240,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
             TimeSpan durationTime = Scene.Duration;
             int startFrame = (int)startTime.ToFrameNumber(rate);
             int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
+            int endFrame = (int)Scene.Start.ToFrameNumber(rate) + durationFrame;
             bufferStatus.StartTime.Value = startTime;
             bufferStatus.EndTime.Value = startTime;
             frameCacheManager.Options = frameCacheManager.Options with
@@ -264,7 +267,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
                 try
                 {
                     var expectFrame = (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame;
-                    if (!IsPlaying.Value || expectFrame >= durationFrame)
+                    if (!IsPlaying.Value || expectFrame >= endFrame)
                     {
                         tcs.TrySetResult(true);
                         return;

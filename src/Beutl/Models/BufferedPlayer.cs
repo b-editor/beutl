@@ -57,7 +57,8 @@ public sealed class BufferedPlayer : IPlayer
             {
                 _logger.LogInformation("Start rendering from frame {StartFrame} to {DurationFrame}", startFrame,
                     durationFrame);
-                for (int frame = startFrame; frame < durationFrame; frame++)
+                int endFrame = (int)_scene.Start.ToFrameNumber(_rate) + durationFrame;
+                for (int frame = startFrame; frame < endFrame; frame++)
                 {
                     if (!_isPlaying.Value)
                     {
