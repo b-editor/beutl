@@ -96,7 +96,6 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 LayerCount.Value = _editViewModel.Options.Value.MaxLayerCount;
             })
             .DisposeWith(_disposable);
-        return;
     }
 
     private static string? DurationValidator(string str)
