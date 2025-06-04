@@ -1,17 +1,12 @@
-﻿using System.Text.Json.Nodes;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
-using Beutl.Animation;
-using Beutl.Animation.Easings;
 using Beutl.Helpers;
-using Beutl.Services;
 using Beutl.ViewModels;
 using KeyFrame = Avalonia.Animation.KeyFrame;
 
@@ -19,8 +14,6 @@ namespace Beutl.Views;
 
 public partial class InlineAnimationLayer : UserControl
 {
-    private TimeSpan _pointerPosition;
-
     public InlineAnimationLayer()
     {
         InitializeComponent();
@@ -39,22 +32,22 @@ public partial class InlineAnimationLayer : UserControl
 
     private void OnDrap(object? sender, DragEventArgs e)
     {
-        if (!e.Data.Contains(KnownLibraryItemFormats.Easing)) return;
-        if (e.Data.Get(KnownLibraryItemFormats.Easing) is not Easing easing) return;
         if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
 
-        float scale = viewModel.Timeline.Options.Value.Scale;
-        TimeSpan time = e.GetPosition(this).X.ToTimeSpan(scale);
-        viewModel.DropEasing(easing, time);
-        e.Handled = true;
+        if (viewModel.HandleDrop(e, e.GetPosition(this).X))
+        {
+            e.Handled = true;
+        }
     }
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        if (!e.Data.Contains(KnownLibraryItemFormats.Easing)) return;
+        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
 
-        e.DragEffects = DragDropEffects.Copy;
-        e.Handled = true;
+        if (viewModel.HandleDragOver(e))
+        {
+            e.Handled = true;
+        }
     }
 
     private void OnMaterialized(object? sender, ContainerPreparedEventArgs e)
@@ -114,54 +107,20 @@ public partial class InlineAnimationLayer : UserControl
         };
     }
 
-    private async void CopyKeyframeClick(object? sender, RoutedEventArgs e)
+    private void CopyKeyframeClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem { DataContext: InlineKeyFrameViewModel itemViewModel }) return;
+        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
 
-        var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel?.Clipboard == null) return;
-        var dataObject = new DataObject();
-        ObjectRegenerator.Regenerate(itemViewModel.Model, out string json);
-        dataObject.Set(DataFormats.Text, json);
-        dataObject.Set(nameof(IKeyFrame), json);
-
-        await topLevel.Clipboard.SetDataObjectAsync(dataObject);
+        viewModel.CopyKeyFrameCommand.Execute(itemViewModel);
     }
 
-    private async void PasteKeyframeClick(object? sender, RoutedEventArgs e)
+    private void PasteKeyframeClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
         if (sender is not MenuItem { DataContext: InlineKeyFrameViewModel itemViewModel }) return;
 
-        IClipboard? clipboard = App.GetClipboard();
-        if (clipboard == null) return;
-
-        string[] formats = await clipboard.GetFormatsAsync();
-
-        if (formats.Contains(nameof(IKeyFrame)))
-        {
-            var json = await clipboard.GetDataAsync(nameof(IKeyFrame)) as byte[];
-            var jsonNode = JsonNode.Parse(json!);
-            if (jsonNode is not JsonObject jsonObj)
-            {
-                NotificationService.ShowWarning("", "Invalid keyframe data format.");
-                return;
-            }
-
-            if (jsonObj.TryGetDiscriminator(out Type? type)
-                && Activator.CreateInstance(type) is IKeyFrame keyframe)
-            {
-                CoreSerializerHelper.PopulateFromJsonObject(keyframe, type, jsonObj);
-                keyframe.KeyTime = itemViewModel.Model.KeyTime;
-                // 現在のキーフレームを新しいものに置き換える
-
-                viewModel.ReplaceKeyFrame(itemViewModel.Model, keyframe);
-            }
-        }
-        else
-        {
-            NotificationService.ShowWarning("", "Invalid keyframe data format.");
-        }
+        viewModel.PasteKeyFrameCommand.Execute(itemViewModel);
     }
 
     private void DeleteClick(object? sender, RoutedEventArgs e)
@@ -169,24 +128,15 @@ public partial class InlineAnimationLayer : UserControl
         if (DataContext is InlineAnimationLayerViewModel viewModel
             && sender is MenuItem { DataContext: InlineKeyFrameViewModel itemViewModel })
         {
-            viewModel.RemoveKeyFrame(itemViewModel.Model);
+            viewModel.DeleteKeyFrameCommand.Execute(itemViewModel);
         }
     }
 
-    private async void CopyAllKeyframeClick(object? sender, RoutedEventArgs e)
+    private void CopyAllKeyframeClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
 
-        IClipboard? clipboard = App.GetClipboard();
-        if (clipboard == null) return;
-
-        string json = CoreSerializerHelper.SerializeToJsonString((IKeyFrameAnimation)viewModel.Property.Animation!, typeof(IKeyFrameAnimation));
-
-        var data = new DataObject();
-        data.Set(DataFormats.Text, json);
-        data.Set(nameof(IKeyFrameAnimation), json);
-
-        await clipboard.SetDataObjectAsync(data);
+        viewModel.CopyAllKeyFramesCommand.Execute();
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
@@ -194,48 +144,7 @@ public partial class InlineAnimationLayer : UserControl
         base.OnPointerMoved(e);
         if(DataContext is not InlineAnimationLayerViewModel viewModel) return;
         Point point = e.GetPosition(this);
-        float scale = viewModel.Timeline.Options.Value.Scale;
-        _pointerPosition = point.X.ToTimeSpan(scale);
-    }
-
-    private async void PasteClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
-
-        IClipboard? clipboard = App.GetClipboard();
-        if (clipboard == null) return;
-
-        string[] formats = await clipboard.GetFormatsAsync();
-
-        if (formats.Contains(nameof(IKeyFrame)))
-        {
-            var json = await clipboard.GetDataAsync(nameof(IKeyFrame)) as byte[];
-            var jsonNode = JsonNode.Parse(json!);
-            if (jsonNode is not JsonObject jsonObj)
-            {
-                NotificationService.ShowWarning("", "Invalid keyframe data format.");
-                return;
-            }
-
-            if (jsonObj.TryGetDiscriminator(out Type? type)
-                && Activator.CreateInstance(type) is IKeyFrame keyframe)
-            {
-                CoreSerializerHelper.PopulateFromJsonObject(keyframe, type, jsonObj);
-                keyframe.KeyTime = _pointerPosition;
-                // 現在のキーフレームを新しいものに置き換える
-
-                viewModel.InsertKeyFrame(keyframe);
-            }
-        }
-        else if (formats.Contains(nameof(IKeyFrameAnimation)))
-        {
-            byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrameAnimation)) as byte[];
-            viewModel.PasteAnimation(System.Text.Encoding.UTF8.GetString(json!));
-        }
-        else
-        {
-            NotificationService.ShowWarning("", "Invalid keyframe data format.");
-        }
+        viewModel.UpdatePointerPosition(point.X);
     }
 
     private sealed class _DragBehavior : Behavior<Control>
@@ -322,16 +231,6 @@ public partial class InlineAnimationLayer : UserControl
             {
                 _items = viewModel.Parent.Items.Where(i => i != viewModel).ToArray();
             }
-        }
-    }
-
-    private void DeleteAnimationClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is InlineAnimationLayerViewModel viewModel
-            && viewModel.Property.Animation is {}animation)
-        {
-            (viewModel.Timeline.EditorContext as ISupportCloseAnimation).Close(animation);
-            viewModel.DeleteAnimation();
         }
     }
 }

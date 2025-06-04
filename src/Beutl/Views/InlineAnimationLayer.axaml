@@ -18,17 +18,17 @@
              mc:Ignorable="d">
     <UserControl.ContextMenu>
         <ContextMenu>
-            <MenuItem Click="CopyAllKeyframeClick" Header="{x:Static lang:Strings.CopyAll}">
+            <MenuItem Command="{Binding CopyAllKeyFramesCommand}" Header="{x:Static lang:Strings.CopyAll}">
                 <MenuItem.Icon>
                     <icons:SymbolIcon Symbol="Copy" />
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Click="PasteClick" Header="{x:Static lang:Strings.Paste}">
+            <MenuItem Command="{Binding PasteKeyFrameAtCurrentPositionCommand}" Header="{x:Static lang:Strings.Paste}">
                 <MenuItem.Icon>
                     <icons:SymbolIcon Symbol="ClipboardPaste" />
                 </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Click="DeleteAnimationClick" Header="{x:Static lang:Strings.Delete}">
+            <MenuItem Command="{Binding DeleteCurrentAnimationCommand}" Header="{x:Static lang:Strings.Delete}">
                 <MenuItem.Icon>
                     <icons:SymbolIcon Symbol="Delete" />
                 </MenuItem.Icon>
