@@ -2,11 +2,9 @@
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
-using Beutl.Helpers;
 using Beutl.ViewModels;
 using KeyFrame = Avalonia.Animation.KeyFrame;
 
@@ -105,38 +103,6 @@ public partial class InlineAnimationLayer : UserControl
                 await Task.WhenAll(task1, task2);
             });
         };
-    }
-
-    private void CopyKeyframeClick(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not MenuItem { DataContext: InlineKeyFrameViewModel itemViewModel }) return;
-        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
-
-        viewModel.CopyKeyFrameCommand.Execute(itemViewModel);
-    }
-
-    private void PasteKeyframeClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
-        if (sender is not MenuItem { DataContext: InlineKeyFrameViewModel itemViewModel }) return;
-
-        viewModel.PasteKeyFrameCommand.Execute(itemViewModel);
-    }
-
-    private void DeleteClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is InlineAnimationLayerViewModel viewModel
-            && sender is MenuItem { DataContext: InlineKeyFrameViewModel itemViewModel })
-        {
-            viewModel.DeleteKeyFrameCommand.Execute(itemViewModel);
-        }
-    }
-
-    private void CopyAllKeyframeClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
-
-        viewModel.CopyAllKeyFramesCommand.Execute();
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
