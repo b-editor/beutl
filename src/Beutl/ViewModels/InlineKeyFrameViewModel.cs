@@ -1,4 +1,5 @@
 using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -57,6 +58,14 @@ public sealed class InlineKeyFrameViewModel : IDisposable
             .DoAndRecord(recorder);
 
         Left.Value = time.ToPixel(scale);
+    }
+
+    public void UpdateEasing(Easing easing)
+    {
+        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+        RecordableCommands.Edit(Model, KeyFrame.EasingProperty, easing)
+            .WithStoables([Parent.Element.Model])
+            .DoAndRecord(recorder);
     }
 
     public IRecordableCommand CreateUpdateCommand()

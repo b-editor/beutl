@@ -44,6 +44,16 @@
                           Fill="{DynamicResource SystemFillColorCaution}">
                         <Path.ContextMenu>
                             <ContextMenu>
+                                <MenuItem Click="CopyKeyframeClick" Header="{x:Static lang:Strings.Copy}">
+                                    <MenuItem.Icon>
+                                        <icons:SymbolIcon Symbol="Copy" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Click="PasteKeyframeClick" Header="{x:Static lang:Strings.Paste}">
+                                    <MenuItem.Icon>
+                                        <icons:SymbolIcon Symbol="ClipboardPaste" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
                                 <MenuItem Click="DeleteClick" Header="{x:Static lang:Strings.Delete}">
                                     <MenuItem.Icon>
                                         <icons:SymbolIcon Symbol="Delete" />
