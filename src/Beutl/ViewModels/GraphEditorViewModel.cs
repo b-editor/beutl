@@ -1,6 +1,8 @@
 ﻿using System.Collections.Immutable;
 using System.Text.Json.Nodes;
 using Avalonia;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
@@ -10,6 +12,7 @@ using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using ExCSS;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -78,6 +81,7 @@ public abstract class GraphEditorViewModel : IDisposable
     private readonly GraphEditorViewViewModelFactory[] _factories;
     protected readonly ILogger _logger = Log.CreateLogger<GraphEditorViewModel>();
     private bool _editting;
+    private TimeSpan _pointerPosition;
 
     protected GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Element? element)
     {
@@ -138,7 +142,6 @@ public abstract class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-
         PanelWidth = editViewModel.MaximumTime
             .CombineLatest(
                 Scene.GetObservable(Scene.DurationProperty),
@@ -166,6 +169,14 @@ public abstract class GraphEditorViewModel : IDisposable
         CalculateMaxHeight();
 
         editViewModel.Offset.Subscribe(v => ScrollOffset.Value = ScrollOffset.Value.WithX(v.X))
+            .DisposeWith(_disposables);
+
+        CopyAllKeyFramesCommand = new AsyncReactiveCommand()
+            .WithSubscribe(CopyAllKeyFramesAsync)
+            .DisposeWith(_disposables);
+
+        PasteKeyFrameAtCurrentPositionCommand = new AsyncReactiveCommand()
+            .WithSubscribe(async () => await PasteKeyFrameAtPositionAsync(_pointerPosition))
             .DisposeWith(_disposables);
     }
 
@@ -219,6 +230,16 @@ public abstract class GraphEditorViewModel : IDisposable
     public ReactiveProperty<bool> Asymmetry { get; } = new(false);
 
     public ReactiveProperty<bool> Separately { get; } = new(false);
+
+    public AsyncReactiveCommand CopyAllKeyFramesCommand { get; }
+
+    public AsyncReactiveCommand PasteKeyFrameAtCurrentPositionCommand { get; }
+
+    public void UpdatePointerPosition(double positionX)
+    {
+        float scale = Options.Value.Scale;
+        _pointerPosition = positionX.ToTimeSpan(scale);
+    }
 
     public void BeginEditing()
     {
@@ -288,19 +309,15 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public abstract void InsertKeyFrame(Easing easing, TimeSpan keyTime);
 
-    public void RemoveKeyFrame(TimeSpan keyTime)
+    public void RemoveKeyFrame(GraphEditorKeyFrameViewModel keyFrame)
     {
-        _logger.LogInformation("Removing key frame at {KeyTime}", keyTime);
-        keyTime = ConvertKeyTime(keyTime);
-        IKeyFrame? keyframe = Animation.KeyFrames.FirstOrDefault(x => x.KeyTime == keyTime);
-        if (keyframe != null)
-        {
-            CommandRecorder recorder = EditorContext.CommandRecorder;
-            Animation.KeyFrames.BeginRecord<IKeyFrame>()
-                .Remove(keyframe)
-                .ToCommand(GetStorables())
-                .DoAndRecord(recorder);
-        }
+        _logger.LogInformation("Removing key frame at {KeyTime}", keyFrame.Model.KeyTime);
+
+        CommandRecorder recorder = EditorContext.CommandRecorder;
+        Animation.KeyFrames.BeginRecord<IKeyFrame>()
+            .Remove(keyFrame.Model)
+            .ToCommand(GetStorables())
+            .DoAndRecord(recorder);
     }
 
     public void Paste(string json)
@@ -365,5 +382,122 @@ public abstract class GraphEditorViewModel : IDisposable
     protected ImmutableArray<IStorable?> GetStorables()
     {
         return [Element];
+    }
+
+    private async Task CopyAllKeyFramesAsync()
+    {
+        IClipboard? clipboard = App.GetClipboard();
+        if (clipboard == null) return;
+
+        try
+        {
+            string json = CoreSerializerHelper.SerializeToJsonString(Animation, typeof(IKeyFrameAnimation));
+
+            var data = new DataObject();
+            data.Set(DataFormats.Text, json);
+            data.Set(nameof(IKeyFrameAnimation), json);
+
+            await clipboard.SetDataObjectAsync(data);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to copy all keyframes");
+            NotificationService.ShowError("Copy", "Failed to copy animation");
+        }
+    }
+
+    private async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition)
+    {
+        IClipboard? clipboard = App.GetClipboard();
+        if (clipboard == null) return;
+
+        try
+        {
+            string[] formats = await clipboard.GetFormatsAsync();
+
+            if (formats.Contains(nameof(IKeyFrame)))
+            {
+                byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrame)) as byte[];
+                JsonNode? jsonNode = JsonNode.Parse(json!);
+                if (jsonNode is not JsonObject jsonObj)
+                {
+                    NotificationService.ShowWarning("", "Invalid keyframe data format.");
+                    return;
+                }
+
+                if (jsonObj.TryGetDiscriminator(out Type? type)
+                    && Activator.CreateInstance(type) is IKeyFrame keyframe)
+                {
+                    CoreSerializerHelper.PopulateFromJsonObject(keyframe, type, jsonObj);
+                    keyframe.KeyTime = pointerPosition;
+
+                    CommandRecorder recorder = EditorContext.CommandRecorder;
+                    RecordableCommands.Create(GetStorables())
+                        .OnDo(() => Animation.KeyFrames.Add(keyframe, out _))
+                        .OnUndo(() => Animation.KeyFrames.Remove(keyframe))
+                        .ToCommand()
+                        .DoAndRecord(recorder);
+                    return;
+                }
+            }
+            else if (formats.Contains(nameof(IKeyFrameAnimation)))
+            {
+                byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrameAnimation)) as byte[];
+                PasteAnimation(System.Text.Encoding.UTF8.GetString(json!));
+                return;
+            }
+
+            NotificationService.ShowWarning("", "Invalid keyframe data format.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to paste keyframe at position");
+            NotificationService.ShowError("Paste", "Failed to paste keyframe");
+        }
+    }
+
+    private void PasteAnimation(string json)
+    {
+        _logger.LogInformation("Pasting JSON");
+        if (JsonNode.Parse(json) is not JsonObject newJson)
+        {
+            _logger.LogError("Invalid JSON");
+            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON");
+            return;
+        }
+
+        try
+        {
+            CommandRecorder recorder = EditorContext.CommandRecorder;
+            KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
+            JsonObject oldJson = CoreSerializerHelper.SerializeToJsonObject(animation);
+            Guid id = animation.Id;
+            CoreProperty property = animation.Property;
+
+            RecordableCommands.Create(
+                    () =>
+                    {
+                        CoreSerializerHelper.PopulateFromJsonObject(animation, newJson);
+                        animation.Property = property;
+                        animation.Id = id;
+                        foreach (IKeyFrame item in animation.KeyFrames)
+                        {
+                            item.Id = Guid.NewGuid();
+                        }
+                    },
+                    () =>
+                    {
+                        CoreSerializerHelper.PopulateFromJsonObject(animation, oldJson);
+                        animation.Property = property;
+                        animation.Id = id;
+                    },
+                    GetStorables())
+                .DoAndRecord(recorder);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception occurred while pasting JSON.");
+            NotificationService.ShowError(Strings.GraphEditor, ex.Message);
+        }
     }
 }
