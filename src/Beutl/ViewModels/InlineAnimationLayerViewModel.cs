@@ -1,9 +1,11 @@
 ﻿using Avalonia;
-
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Helpers;
+using Beutl.Logging;
 using Beutl.Reactive;
-
+using Beutl.Services;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -167,6 +169,20 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     public abstract void DropEasing(Easing easing, TimeSpan keyTime);
 
     public abstract void InsertKeyFrame(Easing easing, TimeSpan keyTime);
+
+    public void ReplaceKeyFrame(IKeyFrame oldItem, IKeyFrame newItem)
+    {
+        if (Property.Animation is IKeyFrameAnimation kfAnimation)
+        {
+            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+            int index = kfAnimation.KeyFrames.IndexOf(oldItem);
+            kfAnimation.KeyFrames.BeginRecord<IKeyFrame>()
+                .Remove(oldItem)
+                .Insert(index, newItem)
+                .ToCommand([Element.Model])
+                .DoAndRecord(recorder);
+        }
+    }
 
     public TimeSpan ConvertKeyTime(TimeSpan globalkeyTime, IAnimation animation)
     {

@@ -2,13 +2,17 @@
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Helpers;
 using Beutl.Services;
 using Beutl.ViewModels;
+using KeyFrame = Avalonia.Animation.KeyFrame;
 
 namespace Beutl.Views;
 
@@ -105,6 +109,56 @@ public partial class InlineAnimationLayer : UserControl
                 await Task.WhenAll(task1, task2);
             });
         };
+    }
+
+    private async void CopyKeyframeClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: InlineKeyFrameViewModel itemViewModel }) return;
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard == null) return;
+        var dataObject = new DataObject();
+        ObjectRegenerator.Regenerate(itemViewModel.Model, out string json);
+        dataObject.Set(DataFormats.Text, json);
+        dataObject.Set(nameof(IKeyFrame), json);
+
+        await topLevel.Clipboard.SetDataObjectAsync(dataObject);
+    }
+
+    private async void PasteKeyframeClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
+        if (sender is not MenuItem { DataContext: InlineKeyFrameViewModel itemViewModel }) return;
+
+        IClipboard? clipboard = App.GetClipboard();
+        if (clipboard == null) return;
+
+        string[] formats = await clipboard.GetFormatsAsync();
+
+        if (formats.Contains(nameof(IKeyFrame)))
+        {
+            var json = await clipboard.GetDataAsync(nameof(IKeyFrame)) as byte[];
+            var jsonNode = JsonNode.Parse(json!);
+            if (jsonNode is not JsonObject jsonObj)
+            {
+                NotificationService.ShowWarning("", "Invalid keyframe data format.");
+                return;
+            }
+
+            if (jsonObj.TryGetDiscriminator(out Type? type)
+                && Activator.CreateInstance(type) is IKeyFrame keyframe)
+            {
+                CoreSerializerHelper.PopulateFromJsonObject(keyframe, type, jsonObj);
+                keyframe.KeyTime = itemViewModel.Model.KeyTime;
+                // 現在のキーフレームを新しいものに置き換える
+
+                viewModel.ReplaceKeyFrame(itemViewModel.Model, keyframe);
+            }
+        }
+        else
+        {
+            NotificationService.ShowWarning("", "Invalid keyframe data format.");
+        }
     }
 
     private void DeleteClick(object? sender, RoutedEventArgs e)
