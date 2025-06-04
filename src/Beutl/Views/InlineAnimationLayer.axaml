@@ -16,13 +16,35 @@
              x:DataType="vm:InlineAnimationLayerViewModel"
              Background="Transparent"
              mc:Ignorable="d">
+    <UserControl.ContextMenu>
+        <ContextMenu>
+            <MenuItem Click="CopyAllKeyframeClick" Header="{x:Static lang:Strings.CopyAll}">
+                <MenuItem.Icon>
+                    <icons:SymbolIcon Symbol="Copy" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Click="PasteClick" Header="{x:Static lang:Strings.Paste}">
+                <MenuItem.Icon>
+                    <icons:SymbolIcon Symbol="ClipboardPaste" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Click="DeleteAnimationClick" Header="{x:Static lang:Strings.Delete}">
+                <MenuItem.Icon>
+                    <icons:SymbolIcon Symbol="Delete" />
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+    </UserControl.ContextMenu>
     <Panel>
         <Border x:Name="border"
-                Width="{CompiledBinding Element.Width.Value, Mode=OneWay}"
-                Margin="{CompiledBinding Element.BorderMargin.Value, Mode=OneWay}"
+                Width="{CompiledBinding Element.Width.Value,
+                                        Mode=OneWay}"
+                Margin="{CompiledBinding Element.BorderMargin.Value,
+                                         Mode=OneWay}"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Stretch"
-                BorderBrush="{CompiledBinding Element.Color.Value, Converter={StaticResource ColorToBrushConverter}}"
+                BorderBrush="{CompiledBinding Element.Color.Value,
+                                              Converter={StaticResource ColorToBrushConverter}}"
                 BorderThickness="1,0" />
 
         <ItemsControl x:Name="items"
