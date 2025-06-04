@@ -109,24 +109,12 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             .WithSubscribe(() => Timeline.DetachInline(this))
             .DisposeWith(_disposables);
 
-        CopyKeyFrameCommand = new ReactiveCommand<InlineKeyFrameViewModel>()
-            .WithSubscribe(async keyFrame => await CopyKeyFrameAsync(keyFrame, App.GetClipboard()))
-            .DisposeWith(_disposables);
-
-        PasteKeyFrameCommand = new ReactiveCommand<InlineKeyFrameViewModel>()
-            .WithSubscribe(async keyFrame => await PasteKeyFrameAsync(keyFrame, App.GetClipboard()))
-            .DisposeWith(_disposables);
-
-        DeleteKeyFrameCommand = new ReactiveCommand<InlineKeyFrameViewModel>()
-            .WithSubscribe(keyFrame => RemoveKeyFrame(keyFrame.Model))
-            .DisposeWith(_disposables);
-
         CopyAllKeyFramesCommand = new ReactiveCommand()
-            .WithSubscribe(async () => await CopyAllKeyFramesAsync(App.GetClipboard()))
+            .WithSubscribe(async () => await CopyAllKeyFramesAsync())
             .DisposeWith(_disposables);
 
         PasteKeyFrameAtCurrentPositionCommand = new ReactiveCommand()
-            .WithSubscribe(async () => await PasteKeyFrameAtPositionAsync(_pointerPosition, App.GetClipboard()))
+            .WithSubscribe(async () => await PasteKeyFrameAtPositionAsync(_pointerPosition))
             .DisposeWith(_disposables);
 
         DeleteCurrentAnimationCommand = new ReactiveCommand()
@@ -200,12 +188,6 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public ReactiveCommand Close { get; }
 
-    public ReactiveCommand<InlineKeyFrameViewModel> CopyKeyFrameCommand { get; }
-
-    public ReactiveCommand<InlineKeyFrameViewModel> PasteKeyFrameCommand { get; }
-
-    public ReactiveCommand<InlineKeyFrameViewModel> DeleteKeyFrameCommand { get; }
-
     public ReactiveCommand CopyAllKeyFramesCommand { get; }
 
     public ReactiveCommand PasteKeyFrameAtCurrentPositionCommand { get; }
@@ -218,33 +200,6 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public abstract void InsertKeyFrame(Easing easing, TimeSpan keyTime);
 
-    public void InsertKeyFrame(IKeyFrame keyFrame)
-    {
-        if (Property.Animation is IKeyFrameAnimation kfAnimation)
-        {
-            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-            RecordableCommands.Create([Element.Model])
-                .OnDo(() => kfAnimation.KeyFrames.Add(keyFrame, out _))
-                .OnUndo(() => kfAnimation.KeyFrames.Remove(keyFrame))
-                .ToCommand()
-                .DoAndRecord(recorder);
-        }
-    }
-
-    public void ReplaceKeyFrame(IKeyFrame oldItem, IKeyFrame newItem)
-    {
-        if (Property.Animation is IKeyFrameAnimation kfAnimation)
-        {
-            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-            int index = kfAnimation.KeyFrames.IndexOf(oldItem);
-            kfAnimation.KeyFrames.BeginRecord<IKeyFrame>()
-                .Remove(oldItem)
-                .Insert(index, newItem)
-                .ToCommand([Element.Model])
-                .DoAndRecord(recorder);
-        }
-    }
-
     public TimeSpan ConvertKeyTime(TimeSpan globalkeyTime, IAnimation animation)
     {
         TimeSpan localKeyTime = globalkeyTime - Element.Model.Start;
@@ -255,19 +210,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         return keyTime.RoundToRate(rate);
     }
 
-    public void RemoveKeyFrame(IKeyFrame keyFrame)
-    {
-        if (Property.Animation is IKeyFrameAnimation kfAnimation)
-        {
-            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-            kfAnimation.KeyFrames.BeginRecord<IKeyFrame>()
-                .Remove(keyFrame)
-                .ToCommand([Element.Model])
-                .DoAndRecord(recorder);
-        }
-    }
-
-    public void PasteAnimation(string json)
+    private void PasteAnimation(string json)
     {
         _logger.LogInformation("Pasting JSON");
         if (JsonNode.Parse(json) is not JsonObject newJson)
@@ -324,70 +267,10 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             .DoAndRecord(recorder);
     }
 
-    public async Task<bool> CopyKeyFrameAsync(InlineKeyFrameViewModel keyFrameViewModel, IClipboard? clipboard)
+    private async Task CopyAllKeyFramesAsync()
     {
-        if (clipboard == null) return false;
-
-        try
-        {
-            var dataObject = new DataObject();
-            ObjectRegenerator.Regenerate(keyFrameViewModel.Model, out string json);
-            dataObject.Set(DataFormats.Text, json);
-            dataObject.Set(nameof(IKeyFrame), json);
-
-            await clipboard.SetDataObjectAsync(dataObject);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to copy keyframe");
-            NotificationService.ShowError("Copy", "Failed to copy keyframe");
-            return false;
-        }
-    }
-
-    public async Task<bool> PasteKeyFrameAsync(InlineKeyFrameViewModel targetKeyFrame, IClipboard? clipboard)
-    {
-        if (clipboard == null) return false;
-
-        try
-        {
-            string[] formats = await clipboard.GetFormatsAsync();
-
-            if (formats.Contains(nameof(IKeyFrame)))
-            {
-                byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrame)) as byte[];
-                JsonNode? jsonNode = JsonNode.Parse(json!);
-                if (jsonNode is not JsonObject jsonObj)
-                {
-                    NotificationService.ShowWarning("", "Invalid keyframe data format.");
-                    return false;
-                }
-
-                if (jsonObj.TryGetDiscriminator(out Type? type)
-                    && Activator.CreateInstance(type) is IKeyFrame keyframe)
-                {
-                    CoreSerializerHelper.PopulateFromJsonObject(keyframe, type, jsonObj);
-                    keyframe.KeyTime = targetKeyFrame.Model.KeyTime;
-                    ReplaceKeyFrame(targetKeyFrame.Model, keyframe);
-                    return true;
-                }
-            }
-
-            NotificationService.ShowWarning("", "Invalid keyframe data format.");
-            return false;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to paste keyframe");
-            NotificationService.ShowError("Paste", "Failed to paste keyframe");
-            return false;
-        }
-    }
-
-    public async Task<bool> CopyAllKeyFramesAsync(IClipboard? clipboard)
-    {
-        if (clipboard == null) return false;
+        IClipboard? clipboard = App.GetClipboard();
+        if (clipboard == null) return;
 
         try
         {
@@ -398,19 +281,19 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             data.Set(nameof(IKeyFrameAnimation), json);
 
             await clipboard.SetDataObjectAsync(data);
-            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to copy all keyframes");
             NotificationService.ShowError("Copy", "Failed to copy animation");
-            return false;
         }
     }
 
-    public async Task<bool> PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition, IClipboard? clipboard)
+    private async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition)
     {
-        if (clipboard == null) return false;
+        IClipboard? clipboard = App.GetClipboard();
+        if (clipboard == null) return;
+        if (Property.Animation is not IKeyFrameAnimation kfAnimation) return;
 
         try
         {
@@ -423,7 +306,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                 if (jsonNode is not JsonObject jsonObj)
                 {
                     NotificationService.ShowWarning("", "Invalid keyframe data format.");
-                    return false;
+                    return;
                 }
 
                 if (jsonObj.TryGetDiscriminator(out Type? type)
@@ -431,25 +314,29 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                 {
                     CoreSerializerHelper.PopulateFromJsonObject(keyframe, type, jsonObj);
                     keyframe.KeyTime = pointerPosition;
-                    InsertKeyFrame(keyframe);
-                    return true;
+
+                    CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+                    RecordableCommands.Create([Element.Model])
+                        .OnDo(() => kfAnimation.KeyFrames.Add(keyframe, out _))
+                        .OnUndo(() => kfAnimation.KeyFrames.Remove(keyframe))
+                        .ToCommand()
+                        .DoAndRecord(recorder);
+                    return;
                 }
             }
             else if (formats.Contains(nameof(IKeyFrameAnimation)))
             {
                 byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrameAnimation)) as byte[];
                 PasteAnimation(System.Text.Encoding.UTF8.GetString(json!));
-                return true;
+                return;
             }
 
             NotificationService.ShowWarning("", "Invalid keyframe data format.");
-            return false;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to paste keyframe at position");
             NotificationService.ShowError("Paste", "Failed to paste keyframe");
-            return false;
         }
     }
 
@@ -472,15 +359,10 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         return true;
     }
 
-    public TimeSpan ConvertPointerPositionToTimeSpan(double positionX)
-    {
-        float scale = Timeline.Options.Value.Scale;
-        return positionX.ToTimeSpan(scale);
-    }
-
     public void UpdatePointerPosition(double positionX)
     {
-        _pointerPosition = ConvertPointerPositionToTimeSpan(positionX);
+        float scale = Timeline.Options.Value.Scale;
+        _pointerPosition = positionX.ToTimeSpan(scale);
     }
 
     private void OnLayerHeaderChanged(LayerHeaderViewModel? obj)
