@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Text.Json.Nodes;
+using Avalonia;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Helpers;
@@ -67,6 +68,7 @@ public sealed class InlineAnimationLayerViewModel<T>(
 
 public abstract class InlineAnimationLayerViewModel : IDisposable
 {
+    private readonly ILogger _logger = Log.CreateLogger<InlineAnimationLayerViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly CompositeDisposable _innerDisposables = [];
     private readonly ReactivePropertySlim<bool> _useGlobalClock = new(true);
@@ -170,6 +172,19 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public abstract void InsertKeyFrame(Easing easing, TimeSpan keyTime);
 
+    public void InsertKeyFrame(IKeyFrame keyFrame)
+    {
+        if (Property.Animation is IKeyFrameAnimation kfAnimation)
+        {
+            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+            RecordableCommands.Create([Element.Model])
+                .OnDo(() => kfAnimation.KeyFrames.Add(keyFrame, out _))
+                .OnUndo(() => kfAnimation.KeyFrames.Remove(keyFrame))
+                .ToCommand()
+                .DoAndRecord(recorder);
+        }
+    }
+
     public void ReplaceKeyFrame(IKeyFrame oldItem, IKeyFrame newItem)
     {
         if (Property.Animation is IKeyFrameAnimation kfAnimation)
@@ -204,6 +219,63 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                 .ToCommand([Element.Model])
                 .DoAndRecord(recorder);
         }
+    }
+
+    public void PasteAnimation(string json)
+    {
+        _logger.LogInformation("Pasting JSON");
+        if (JsonNode.Parse(json) is not JsonObject newJson)
+        {
+            _logger.LogError("Invalid JSON");
+            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON");
+            return;
+        }
+
+        try
+        {
+            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+            KeyFrameAnimation animation = (KeyFrameAnimation)Property.Animation!;
+            JsonObject oldJson = CoreSerializerHelper.SerializeToJsonObject(animation, typeof(IKeyFrameAnimation));
+            Guid id = animation.Id;
+            CoreProperty property = animation.Property;
+
+            RecordableCommands.Create(
+                    () =>
+                    {
+                        CoreSerializerHelper.PopulateFromJsonObject(animation, typeof(IKeyFrameAnimation), newJson);
+                        animation.Property = property;
+                        animation.Id = id;
+                        foreach (IKeyFrame item in animation.KeyFrames)
+                        {
+                            item.Id = Guid.NewGuid();
+                        }
+                    },
+                    () =>
+                    {
+                        CoreSerializerHelper.PopulateFromJsonObject(animation, typeof(IKeyFrameAnimation), oldJson);
+                        animation.Property = property;
+                        animation.Id = id;
+                    },
+                    [Element.Model])
+                .DoAndRecord(recorder);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception occurred while pasting JSON.");
+            NotificationService.ShowError(Strings.GraphEditor, ex.Message);
+        }
+    }
+
+    public void DeleteAnimation()
+    {
+        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+        IAnimation? oldAnimation = Property.Animation;
+
+        RecordableCommands.Create([Element.Model])
+            .OnDo(() => Property.Animation = null)
+            .OnUndo(() => Property.Animation = oldAnimation)
+            .ToCommand()
+            .DoAndRecord(recorder);
     }
 
     private void OnLayerHeaderChanged(LayerHeaderViewModel? obj)
