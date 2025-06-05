@@ -11,18 +11,13 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
 
-public class UpdateDialogViewModel
+public class UpdateDialogViewModel(AppUpdateResponse update)
 {
     private readonly CancellationTokenSource _cts = new();
     private readonly ILogger _logger = Log.CreateLogger<UpdateDialogViewModel>();
     private string? _downloadFile;
 
-    public UpdateDialogViewModel(AppUpdateResponse update)
-    {
-        Update = update;
-    }
-
-    public AppUpdateResponse Update { get; set; }
+    public AppUpdateResponse Update { get; set; } = update;
 
     public ReactiveProperty<string> ProgressText { get; } = new();
 
@@ -38,7 +33,7 @@ public class UpdateDialogViewModel
     {
         try
         {
-            var metadata = await BeutlApiApplication.LoadMetadata();
+            AssetMetadataJson? metadata = await BeutlApiApplication.LoadMetadata();
             if (metadata == null)
             {
                 ProgressText.Value = Message.Failed_to_load_metadata;
@@ -82,7 +77,7 @@ public class UpdateDialogViewModel
         else if (metadata.Type == "zip")
         {
             string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.sh");
-            await using (var fs = File.Create(scriptPath))
+            await using (FileStream fs = File.Create(scriptPath))
             {
                 // UTF-8 BOMを書き込む
                 await fs.WriteAsync(new byte[] { 0xEF, 0xBB, 0xBF });
@@ -93,9 +88,9 @@ public class UpdateDialogViewModel
                 }
             }
 
-            var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update",
+            string directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update",
                 new DirectoryInfo(AppContext.BaseDirectory).Name);
-            var target = AppContext.BaseDirectory;
+            string target = AppContext.BaseDirectory;
 
             var psi = new ProcessStartInfo(@"C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.EXE")
             {
@@ -154,9 +149,9 @@ public class UpdateDialogViewModel
                 }
             }
 
-            var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update",
+            string directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update",
                 new DirectoryInfo(AppContext.BaseDirectory).Name);
-            var target = AppContext.BaseDirectory;
+            string target = AppContext.BaseDirectory;
 
             var psi = new ProcessStartInfo("gnome-terminal")
             {
@@ -186,7 +181,7 @@ public class UpdateDialogViewModel
             }
         }
 
-        var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update");
+        string directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update");
         if (metadata.Type == "zip")
         {
             directory = Path.Combine(directory, new DirectoryInfo(AppContext.BaseDirectory).Name);
@@ -196,7 +191,7 @@ public class UpdateDialogViewModel
             directory = Path.Combine(directory, "Beutl.app");
         }
 
-        var target = AppContext.BaseDirectory;
+        string target = AppContext.BaseDirectory;
         if (metadata.Type == "app")
         {
             target = Path.GetFullPath("../../", AppContext.BaseDirectory);
@@ -288,7 +283,7 @@ public class UpdateDialogViewModel
 
             _logger.LogInformation("Guessed file name: {FileName}", file);
 
-            var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp");
+            string directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp");
             if (!Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);

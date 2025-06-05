@@ -16,7 +16,7 @@ public abstract class CoreProperty : ICoreProperty
     private readonly ICorePropertyMetadata _defaultMetadata;
     private readonly Dictionary<Type, ICorePropertyMetadata> _metadata = [];
     private readonly Dictionary<Type, ICorePropertyMetadata> _metadataCache = [];
-    private readonly object _metadataLock = new();
+    private readonly Lock _metadataLock = new();
     private bool _hasMetadataOverrides;
     private bool _isTryedToGetPropertyInfo;
 
