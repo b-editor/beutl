@@ -8,11 +8,12 @@
              xmlns:viewModel="using:Beutl.ViewModels.Tools"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
              x:DataType="viewModel:SourceOperatorsTabViewModel"
              DragDrop.AllowDrop="True"
              mc:Ignorable="d">
     <ScrollViewer x:Name="scrollViewer">
-        <ItemsControl x:Name="itemsControl" ItemsSource="{CompiledBinding Items}">
+        <ItemsControl x:Name="itemsControl" ItemsSource="{Binding Items}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <local:SourceOperatorView />

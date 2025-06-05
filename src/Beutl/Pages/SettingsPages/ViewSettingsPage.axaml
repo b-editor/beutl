@@ -11,6 +11,7 @@
              x:Name="root"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
              x:DataType="vm:ViewSettingsPageViewModel"
              mc:Ignorable="d">
     <Grid Margin="18" RowDefinitions="Auto,*">
@@ -29,7 +30,7 @@
                                           Icon="DarkTheme">
 
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding SelectedTheme.Value}">
+                        <ComboBox MinWidth="250" SelectedIndex="{Binding SelectedTheme.Value}">
                             <ComboBoxItem Content="{x:Static lang:Strings.Light}" />
                             <ComboBoxItem Content="{x:Static lang:Strings.Dark}" />
                             <ComboBoxItem Content="{x:Static lang:Strings.HighContrast}" />
@@ -45,8 +46,8 @@
 
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ComboBox MinWidth="250"
-                                  ItemsSource="{CompiledBinding Cultures}"
-                                  SelectedItem="{CompiledBinding SelectedLanguage.Value}">
+                                  ItemsSource="{Binding Cultures}"
+                                  SelectedItem="{Binding SelectedLanguage.Value}">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding DisplayName}" />

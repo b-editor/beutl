@@ -9,6 +9,7 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              d:DesignHeight="720"
              d:DesignWidth="1280"
+             x:CompileBindings="True"
              mc:Ignorable="d">
     <Grid Margin="32">
         <Grid.ColumnDefinitions>
@@ -102,9 +103,9 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="sysIO:FileInfo">
                         <StackPanel Margin="0,4">
-                            <TextBlock Text="{CompiledBinding Name}" />
+                            <TextBlock Text="{Binding Name}" />
                             <TextBlock FontSize="12"
-                                       Text="{CompiledBinding DirectoryName}"
+                                       Text="{Binding DirectoryName}"
                                        Theme="{StaticResource LabelTextBlockStyle}" />
                         </StackPanel>
                     </DataTemplate>

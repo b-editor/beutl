@@ -7,10 +7,11 @@
              xmlns:viewModel="using:Beutl.ViewModels.NodeTree"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
              x:DataType="viewModel:NodeTreeInputTabViewModel"
              mc:Ignorable="d">
     <ScrollViewer x:Name="scrollViewer">
-        <ItemsControl x:Name="itemsControl" ItemsSource="{CompiledBinding InnerViewModel.Value.Items}">
+        <ItemsControl x:Name="itemsControl" ItemsSource="{Binding InnerViewModel.Value.Items}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <local:NodeInputView />

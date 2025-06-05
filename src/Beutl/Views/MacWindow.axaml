@@ -12,6 +12,7 @@
         Title="{Binding WindowTitle.Value}"
         d:DesignHeight="720"
         d:DesignWidth="1280"
+        x:CompileBindings="True"
         x:DataType="vm:MainViewModel"
         Icon="avares://Beutl.Controls/Assets/logo.png"
         mc:Ignorable="d">
@@ -24,12 +25,12 @@
                     <NativeMenuItem Header="{x:Static lang:Strings.CreateNew}">
                         <NativeMenu>
                             <!--  プロジェクト  -->
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
+                            <NativeMenuItem Command="{Binding MenuBar.CreateNewProject}"
                                             Gesture="{h:GetCommandGesture CreateNewProject,
                                                                           ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.CreateNewProject}" />
                             <!--  ファイル  -->
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.CreateNew}"
+                            <NativeMenuItem Command="{Binding MenuBar.CreateNew}"
                                             Gesture="{h:GetCommandGesture CreateNewFile,
                                                                           ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.CreateNewScene}" />
@@ -40,12 +41,12 @@
                     <NativeMenuItem Header="{x:Static lang:Strings.Open}">
                         <NativeMenu>
                             <!--  プロジェクト  -->
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.OpenProject}"
+                            <NativeMenuItem Command="{Binding MenuBar.OpenProject}"
                                             Gesture="{h:GetCommandGesture OpenProject,
                                                                           ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.Project}" />
                             <!--  ファイル  -->
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.OpenFile}"
+                            <NativeMenuItem Command="{Binding MenuBar.OpenFile}"
                                             Gesture="{h:GetCommandGesture OpenFile,
                                                                           ExtensionType={x:Type p:MainViewExtension}}"
                                             Header="{x:Static lang:Strings.File}" />
@@ -53,24 +54,24 @@
                     </NativeMenuItem>
                     <NativeMenuItemSeparator />
                     <!--  閉じる  -->
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.CloseFile}" Header="{x:Static lang:Strings.Close}" />
+                    <NativeMenuItem Command="{Binding MenuBar.CloseFile}" Header="{x:Static lang:Strings.Close}" />
                     <!--  プロジェクトを閉じる  -->
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.CloseProject}"
+                    <NativeMenuItem Command="{Binding MenuBar.CloseProject}"
                                     Header="{x:Static lang:Strings.CloseProject}"
-                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                                    IsEnabled="{Binding IsProjectOpened.Value}" />
                     <NativeMenuItemSeparator />
                     <!--  上書き保存  -->
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.Save}"
+                    <NativeMenuItem Command="{Binding MenuBar.Save}"
                                     Gesture="{h:GetCommandGesture Save,
                                                                   ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Save}"
-                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                                    IsEnabled="{Binding IsProjectOpened.Value}" />
                     <!--  すべて保存  -->
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.SaveAll}"
+                    <NativeMenuItem Command="{Binding MenuBar.SaveAll}"
                                     Gesture="{h:GetCommandGesture SaveAll,
                                                                   ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.SaveAll}"
-                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                                    IsEnabled="{Binding IsProjectOpened.Value}" />
                     <NativeMenuItemSeparator />
                     <!--  最近使ったプロジェクト  -->
                     <NativeMenuItem Header="{x:Static lang:Strings.RecentFiles}">
@@ -82,7 +83,7 @@
 
                     <NativeMenuItemSeparator />
                     <!--  終了  -->
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.Exit}"
+                    <NativeMenuItem Command="{Binding MenuBar.Exit}"
                                     Gesture="{h:GetCommandGesture Exit,
                                                                   ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Exit}" />
@@ -92,17 +93,17 @@
             <NativeMenuItem Header="{x:Static lang:Strings.Edit}">
                 <NativeMenu>
                     <!--  元に戻す  -->
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.Undo}"
+                    <NativeMenuItem Command="{Binding MenuBar.Undo}"
                                     Gesture="{h:GetCommandGesture Undo,
                                                                   ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Undo}"
-                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                                    IsEnabled="{Binding IsProjectOpened.Value}" />
                     <!--  やり直し  -->
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.Redo}"
+                    <NativeMenuItem Command="{Binding MenuBar.Redo}"
                                     Gesture="{h:GetCommandGesture Redo,
                                                                   ExtensionType={x:Type p:MainViewExtension}}"
                                     Header="{x:Static lang:Strings.Redo}"
-                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                                    IsEnabled="{Binding IsProjectOpened.Value}" />
                 </NativeMenu>
             </NativeMenuItem>
             <!--  表示  -->
@@ -122,18 +123,18 @@
             <!--  シーン  -->
             <NativeMenuItem Header="{x:Static lang:Strings.Scene}">
                 <NativeMenu>
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
-                    <NativeMenuItem Command="{CompiledBinding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
+                    <NativeMenuItem Command="{Binding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
+                    <NativeMenuItem Command="{Binding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
+                    <NativeMenuItem Command="{Binding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
                     <!--  要素  -->
                     <NativeMenuItem Header="{x:Static lang:Strings.Element}">
                         <NativeMenu>
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.AddLayer}" Header="{x:Static lang:Strings.Add}" />
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.ExcludeLayer}" Header="{x:Static lang:Strings.Exclude}" />
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.CutLayer}" Header="{x:Static lang:Strings.Cut}" />
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.CopyLayer}" Header="{x:Static lang:Strings.Copy}" />
-                            <NativeMenuItem Command="{CompiledBinding MenuBar.PasteLayer}" Header="{x:Static lang:Strings.Paste}" />
+                            <NativeMenuItem Command="{Binding MenuBar.AddLayer}" Header="{x:Static lang:Strings.Add}" />
+                            <NativeMenuItem Command="{Binding MenuBar.DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />
+                            <NativeMenuItem Command="{Binding MenuBar.ExcludeLayer}" Header="{x:Static lang:Strings.Exclude}" />
+                            <NativeMenuItem Command="{Binding MenuBar.CutLayer}" Header="{x:Static lang:Strings.Cut}" />
+                            <NativeMenuItem Command="{Binding MenuBar.CopyLayer}" Header="{x:Static lang:Strings.Copy}" />
+                            <NativeMenuItem Command="{Binding MenuBar.PasteLayer}" Header="{x:Static lang:Strings.Paste}" />
                         </NativeMenu>
                     </NativeMenuItem>
                 </NativeMenu>
