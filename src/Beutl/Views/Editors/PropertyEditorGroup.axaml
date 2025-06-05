@@ -5,8 +5,11 @@
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels.Editors"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="vm:PropertyEditorGroupContext"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <Border x:Name="separator"

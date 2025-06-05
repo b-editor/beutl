@@ -11,7 +11,7 @@
              xmlns:vm="using:Beutl.ViewModels"
              x:Name="root"
              Height="{DynamicResource LayerHeight}"
-             Margin="{CompiledBinding Margin.Value}"
+             Margin="{Binding Margin.Value}"
              Padding="0,1"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Top"

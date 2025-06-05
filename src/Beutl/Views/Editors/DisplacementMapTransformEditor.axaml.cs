@@ -13,9 +13,6 @@ public partial class DisplacementMapTransformEditor : UserControl
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
     private CancellationTokenSource? _lastTransitionCts;
 
-    private static FAMenuFlyout? s_flyout;
-    private static EventHandler<RoutedEventArgs>? s_handler;
-
     public DisplacementMapTransformEditor()
     {
         InitializeComponent();

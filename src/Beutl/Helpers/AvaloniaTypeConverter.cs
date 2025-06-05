@@ -327,7 +327,6 @@ public static class AvaloniaTypeConverter
                         .ToReadOnlyReactivePropertySlim();
                     return (imageBrush, prop, () => prop.Value?.Update());
                 }
-                break;
         }
 
         return default;

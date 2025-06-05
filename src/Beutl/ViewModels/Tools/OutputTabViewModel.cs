@@ -58,7 +58,7 @@ public class OutputTabViewModel : IToolContext
         catch (Exception e)
         {
             _logger.LogError(e, "An exception occurred while adding an item.");
-            e.Handle();
+            _ = e.Handle();
         }
     }
 

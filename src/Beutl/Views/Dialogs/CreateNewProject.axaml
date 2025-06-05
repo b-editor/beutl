@@ -11,6 +11,7 @@
                   Title="{x:Static lang:Strings.CreateNewProject}"
                   d:DesignHeight="450"
                   d:DesignWidth="800"
+                  x:CompileBindings="True"
                   x:DataType="vm:CreateNewProjectViewModel"
                   CloseButtonText="{x:Static lang:Strings.Close}"
                   DefaultButton="Secondary"
@@ -25,11 +26,11 @@
         <Carousel.Items>
             <StackPanel Spacing="8">
                 <TextBlock Text="{x:Static lang:Strings.Name}" />
-                <TextBox Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
+                <TextBox Text="{Binding Name.Value, Mode=TwoWay}" />
 
                 <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.Location}" />
 
-                <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}">
+                <TextBox Text="{Binding Location.Value, Mode=TwoWay}">
                     <TextBox.InnerRightContent>
                         <Button Click="PickLocation" Theme="{StaticResource TransparentButton}">
                             <icons:SymbolIcon Symbol="OpenFolder" />
@@ -39,13 +40,13 @@
             </StackPanel>
             <StackPanel Spacing="8">
                 <TextBlock Text="{x:Static lang:Strings.Size}" />
-                <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={x:Static converters:AvaloniaPixelSizeConverter.Instance}}" />
+                <TextBox Text="{Binding Size.Value, Mode=TwoWay, Converter={x:Static converters:AvaloniaPixelSizeConverter.Instance}}" />
 
                 <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.FrameRate}" />
-                <TextBox Text="{CompiledBinding FrameRate.Value, Mode=TwoWay}" />
+                <TextBox Text="{Binding FrameRate.Value, Mode=TwoWay}" />
 
                 <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.SampleRate}" />
-                <TextBox Text="{CompiledBinding SampleRate.Value, Mode=TwoWay}" />
+                <TextBox Text="{Binding SampleRate.Value, Mode=TwoWay}" />
             </StackPanel>
         </Carousel.Items>
     </Carousel>

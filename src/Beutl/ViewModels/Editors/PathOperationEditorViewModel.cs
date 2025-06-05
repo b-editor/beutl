@@ -72,7 +72,7 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
         Value.CombineWithPrevious()
             .Select(v => v.OldValue)
             .Where(v => v != null)
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v))
+            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
     }
 

@@ -126,6 +126,9 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 }
             })
             .DisposeWith(_disposables);
+
+        More = new AsyncReactiveCommand()
+            .DisposeWith(_disposables);
     }
 
     public AvaloniaList<object> Packages { get; } = [];
