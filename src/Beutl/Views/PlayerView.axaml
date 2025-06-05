@@ -10,6 +10,7 @@
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
              x:DataType="vm:PlayerViewModel"
              mc:Ignorable="d">
     <Player x:Name="Player"

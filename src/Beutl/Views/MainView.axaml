@@ -14,6 +14,7 @@
              Padding="0"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
              x:DataType="vm:MainViewModel"
              Focusable="True"
              mc:Ignorable="d">
@@ -59,12 +60,12 @@
                             <icons:SymbolIcon Symbol="New" />
                         </MenuItem.Icon>
                         <!--  プロジェクト  -->
-                        <MenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
+                        <MenuItem Command="{Binding MenuBar.CreateNewProject}"
                                   Header="{x:Static lang:Strings.CreateNewProject}"
                                   InputGesture="{h:GetCommandGesture CreateNewProject,
                                                                      ExtensionType={x:Type p:MainViewExtension}}" />
                         <!--  ファイル  -->
-                        <MenuItem Command="{CompiledBinding MenuBar.CreateNew}"
+                        <MenuItem Command="{Binding MenuBar.CreateNew}"
                                   Header="{x:Static lang:Strings.CreateNewScene}"
                                   InputGesture="{h:GetCommandGesture CreateNewFile,
                                                                      ExtensionType={x:Type p:MainViewExtension}}" />
@@ -76,40 +77,40 @@
                             <icons:SymbolIcon Symbol="Open" />
                         </MenuItem.Icon>
                         <!--  プロジェクト  -->
-                        <MenuItem Command="{CompiledBinding MenuBar.OpenProject}"
+                        <MenuItem Command="{Binding MenuBar.OpenProject}"
                                   Header="{x:Static lang:Strings.Project}"
                                   InputGesture="{h:GetCommandGesture OpenProject,
                                                                      ExtensionType={x:Type p:MainViewExtension}}" />
                         <!--  ファイル  -->
-                        <MenuItem Command="{CompiledBinding MenuBar.OpenFile}"
+                        <MenuItem Command="{Binding MenuBar.OpenFile}"
                                   Header="{x:Static lang:Strings.File}"
                                   InputGesture="{h:GetCommandGesture OpenFile,
                                                                      ExtensionType={x:Type p:MainViewExtension}}" />
                     </MenuItem>
                     <Separator />
                     <!--  閉じる  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.CloseFile}" Header="{x:Static lang:Strings.Close}" />
+                    <MenuItem Command="{Binding MenuBar.CloseFile}" Header="{x:Static lang:Strings.Close}" />
                     <!--  プロジェクトを閉じる  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.CloseProject}"
+                    <MenuItem Command="{Binding MenuBar.CloseProject}"
                               Header="{x:Static lang:Strings.CloseProject}"
-                              IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                              IsEnabled="{Binding IsProjectOpened.Value}" />
                     <Separator />
                     <!--  上書き保存  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.Save}"
+                    <MenuItem Command="{Binding MenuBar.Save}"
                               Header="{x:Static lang:Strings.Save}"
                               InputGesture="{h:GetCommandGesture Save,
                                                                  ExtensionType={x:Type p:MainViewExtension}}"
-                              IsEnabled="{CompiledBinding IsProjectOpened.Value}">
+                              IsEnabled="{Binding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="Save" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <!--  すべて保存  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.SaveAll}"
+                    <MenuItem Command="{Binding MenuBar.SaveAll}"
                               Header="{x:Static lang:Strings.SaveAll}"
                               InputGesture="{h:GetCommandGesture SaveAll,
                                                                  ExtensionType={x:Type p:MainViewExtension}}"
-                              IsEnabled="{CompiledBinding IsProjectOpened.Value}">
+                              IsEnabled="{Binding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="SaveMultiple" />
                         </MenuItem.Icon>
@@ -123,7 +124,7 @@
                     <MenuItem Click="OpenSettingsDialog" Header="{x:Static lang:Strings.Settings}" />
                     <Separator />
                     <!--  終了  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.Exit}"
+                    <MenuItem Command="{Binding MenuBar.Exit}"
                               Header="{x:Static lang:Strings.Exit}"
                               InputGesture="{h:GetCommandGesture Exit,
                                                                  ExtensionType={x:Type p:MainViewExtension}}" />
@@ -131,21 +132,21 @@
                 <!--  編集  -->
                 <MenuItem Header="{x:Static lang:Strings.Edit}">
                     <!--  元に戻す  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.Undo}"
+                    <MenuItem Command="{Binding MenuBar.Undo}"
                               Header="{x:Static lang:Strings.Undo}"
                               InputGesture="{h:GetCommandGesture Undo,
                                                                  ExtensionType={x:Type p:MainViewExtension}}"
-                              IsEnabled="{CompiledBinding IsProjectOpened.Value}">
+                              IsEnabled="{Binding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="ArrowUndo" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <!--  やり直し  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.Redo}"
+                    <MenuItem Command="{Binding MenuBar.Redo}"
                               Header="{x:Static lang:Strings.Redo}"
                               InputGesture="{h:GetCommandGesture Redo,
                                                                  ExtensionType={x:Type p:MainViewExtension}}"
-                              IsEnabled="{CompiledBinding IsProjectOpened.Value}">
+                              IsEnabled="{Binding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="ArrowRedo" />
                         </MenuItem.Icon>
@@ -159,17 +160,17 @@
                 <MenuItem x:Name="toolWindowMenuItem" Header="{x:Static lang:Strings.Tools}" />
                 <!--  シーン  -->
                 <MenuItem Header="{x:Static lang:Strings.Scene}">
-                    <MenuItem Command="{CompiledBinding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
-                    <MenuItem Command="{CompiledBinding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
-                    <MenuItem Command="{CompiledBinding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
+                    <MenuItem Command="{Binding MenuBar.NewScene}" Header="{x:Static lang:Strings.CreateNew}" />
+                    <MenuItem Command="{Binding MenuBar.RemoveFromProject}" Header="{x:Static lang:Strings.Remove}" />
+                    <MenuItem Command="{Binding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
                     <!--  要素  -->
                     <MenuItem Header="{x:Static lang:Strings.Element}">
-                        <MenuItem Command="{CompiledBinding MenuBar.AddLayer}" Header="{x:Static lang:Strings.Add}" />
-                        <MenuItem Command="{CompiledBinding MenuBar.DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />
-                        <MenuItem Command="{CompiledBinding MenuBar.ExcludeLayer}" Header="{x:Static lang:Strings.Exclude}" />
-                        <MenuItem Command="{CompiledBinding MenuBar.CutLayer}" Header="{x:Static lang:Strings.Cut}" />
-                        <MenuItem Command="{CompiledBinding MenuBar.CopyLayer}" Header="{x:Static lang:Strings.Copy}" />
-                        <MenuItem Command="{CompiledBinding MenuBar.PasteLayer}" Header="{x:Static lang:Strings.Paste}" />
+                        <MenuItem Command="{Binding MenuBar.AddLayer}" Header="{x:Static lang:Strings.Add}" />
+                        <MenuItem Command="{Binding MenuBar.DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />
+                        <MenuItem Command="{Binding MenuBar.ExcludeLayer}" Header="{x:Static lang:Strings.Exclude}" />
+                        <MenuItem Command="{Binding MenuBar.CutLayer}" Header="{x:Static lang:Strings.Cut}" />
+                        <MenuItem Command="{Binding MenuBar.CopyLayer}" Header="{x:Static lang:Strings.Copy}" />
+                        <MenuItem Command="{Binding MenuBar.PasteLayer}" Header="{x:Static lang:Strings.Paste}" />
                     </MenuItem>
                 </MenuItem>
                 <!--  オブジェクト  -->
@@ -202,7 +203,7 @@
 
                 <TextBlock VerticalAlignment="Center"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           IsVisible="{CompiledBinding IsDebuggerAttached}"
+                           IsVisible="{Binding IsDebuggerAttached}"
                            Text="Debug" />
 
                 <Border Margin="4,0,0,0"

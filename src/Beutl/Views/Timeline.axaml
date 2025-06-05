@@ -11,6 +11,7 @@
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
              x:DataType="vm:TimelineViewModel"
              mc:Ignorable="d">
     <Grid x:Name="grid" RowDefinitions="Auto,*">
@@ -34,7 +35,7 @@
                              CacheBlockBrush="{DynamicResource SystemFillColorSuccessBrush}"
                              CacheBlocks="{Binding EditorContext.BufferStatus.CacheBlocks.Value}"
                              EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                             EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                             EndingBarMargin="{Binding EndingBarMargin.Value}"
                              HoveredCacheBlock="{Binding HoveredCacheBlock.Value}"
                              LockedCacheBlockBrush="{DynamicResource AccentFillColorTertiaryBrush}"
                              PointerExited="TimelinePanel_PointerExited"
@@ -44,9 +45,9 @@
                              Scale="{Binding Options.Value.Scale}"
                              ScaleBrush="{DynamicResource TextControlForeground}"
                              SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
-                             SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
+                             SeekBarMargin="{Binding SeekBarMargin.Value}"
                              StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                             StartingBarMargin="{CompiledBinding StartingBarMargin.Value}"
+                             StartingBarMargin="{Binding StartingBarMargin.Value}"
                              Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
             <local:TimelineScale.ContextFlyout>
                 <ui:FAMenuFlyout>
@@ -89,7 +90,7 @@
             <ItemsControl x:Name="LeftPanel"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
-                          ItemsSource="{CompiledBinding LayerHeaders}">
+                          ItemsSource="{Binding LayerHeaders}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <VirtualizingStackPanel />
@@ -110,7 +111,7 @@
                       BringIntoViewOnFocusChange="False"
                       HorizontalScrollBarVisibility="Visible">
             <Panel x:Name="TimelinePanel"
-                   Width="{CompiledBinding PanelWidth.Value}"
+                   Width="{Binding PanelWidth.Value}"
                    MinWidth="{Binding #ContentScroll.Bounds.Width}"
                    MinHeight="{Binding #LeftPanel.Bounds.Height}"
                    HorizontalAlignment="Left"
@@ -131,7 +132,7 @@
                         <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsPage.AutoAdjustSceneDuration}" />
                         <ui:MenuFlyoutSeparator />
                         <ui:MenuFlyoutItem Click="AddElementClick" Text="{x:Static lang:Strings.AddElement}" />
-                        <ui:MenuFlyoutItem Command="{CompiledBinding Paste}"
+                        <ui:MenuFlyoutItem Command="{Binding Paste}"
                                            InputGesture="{h:GetCommandGestureExtension Paste}"
                                            Text="{x:Static lang:Strings.Paste}">
                             <ui:MenuFlyoutItem.IconSource>
@@ -180,11 +181,11 @@
                 <local:TimelineOverlay x:Name="overlay"
                                        VerticalAlignment="Stretch"
                                        EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                                       EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                                       EndingBarMargin="{Binding EndingBarMargin.Value}"
                                        SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
-                                       SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
+                                       SeekBarMargin="{Binding SeekBarMargin.Value}"
                                        StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                                       StartingBarMargin="{CompiledBinding StartingBarMargin.Value}"
+                                       StartingBarMargin="{Binding StartingBarMargin.Value}"
                                        Viewport="{Binding #ContentScroll.Viewport, Mode=OneWay}"
                                        ZIndex="6"
                                        Offset="{Binding #ContentScroll.Offset, Mode=OneWay}" />

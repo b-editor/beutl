@@ -13,16 +13,17 @@
              VerticalAlignment="Top"
              d:DesignHeight="450"
              d:DesignWidth="800"
+             x:CompileBindings="True"
              x:DataType="vm:InlineAnimationLayerViewModel"
              Background="Transparent"
              mc:Ignorable="d">
     <Panel>
         <Border x:Name="border"
-                Width="{CompiledBinding Element.Width.Value, Mode=OneWay}"
-                Margin="{CompiledBinding Element.BorderMargin.Value, Mode=OneWay}"
+                Width="{Binding Element.Width.Value, Mode=OneWay}"
+                Margin="{Binding Element.BorderMargin.Value, Mode=OneWay}"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Stretch"
-                BorderBrush="{CompiledBinding Element.Color.Value, Converter={StaticResource ColorToBrushConverter}}"
+                BorderBrush="{Binding Element.Color.Value, Converter={StaticResource ColorToBrushConverter}}"
                 BorderThickness="1,0" />
 
         <ItemsControl x:Name="items"
@@ -30,7 +31,7 @@
                       HorizontalAlignment="Left"
                       VerticalAlignment="Stretch"
                       ClipToBounds="False"
-                      ItemsSource="{CompiledBinding Items}">
+                      ItemsSource="{Binding Items}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <Panel />

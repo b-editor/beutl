@@ -4,11 +4,13 @@
                xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                xmlns:local="using:Beutl.Views"
                xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-               xmlns:ui="using:FluentAvalonia.UI.Controls"
+               xmlns:vm="using:Beutl.ViewModels"
                xmlns:wnd="using:FluentAvalonia.UI.Windowing"
                Title="{Binding WindowTitle.Value}"
                d:DesignHeight="720"
                d:DesignWidth="1280"
+               x:CompileBindings="True"
+               x:DataType="vm:MainViewModel"
                Icon="avares://Beutl.Controls/Assets/logo.png"
                mc:Ignorable="d">
     <local:MainView x:Name="mainView" />
