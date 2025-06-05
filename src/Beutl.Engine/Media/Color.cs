@@ -100,10 +100,7 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
     /// <returns>The <see cref="Color"/>.</returns>
     public static Color Parse(string s)
     {
-        if (s is null)
-        {
-            throw new ArgumentNullException(nameof(s));
-        }
+        ArgumentNullException.ThrowIfNull(s);
 
         if (TryParse(s, out Color color))
         {

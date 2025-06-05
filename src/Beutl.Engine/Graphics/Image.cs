@@ -36,8 +36,8 @@ public static unsafe partial class Image
 
     public static void AlphaSubtract(this Bitmap<Bgra8888> image, Bitmap<Bgra8888> mask)
     {
-        if (image is null) throw new ArgumentNullException(nameof(image));
-        if (mask is null) throw new ArgumentNullException(nameof(mask));
+        ArgumentNullException.ThrowIfNull(image);
+        ArgumentNullException.ThrowIfNull(mask);
         image.ThrowIfDisposed();
         mask.ThrowIfDisposed();
 

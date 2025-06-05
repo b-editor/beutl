@@ -264,7 +264,7 @@ public class CoreList<T> : ICoreList<T>
 
     public virtual void InsertRange(int index, IEnumerable<T> items)
     {
-        _ = items ?? throw new ArgumentNullException(nameof(items));
+        ArgumentNullException.ThrowIfNull(items);
 
         bool willRaiseCollectionChanged = CollectionChanged != null;
         if (items.TryGetNonEnumeratedCount(out int count))
@@ -428,7 +428,7 @@ public class CoreList<T> : ICoreList<T>
 
     public virtual void RemoveAll(IEnumerable<T> items)
     {
-        _ = items ?? throw new ArgumentNullException(nameof(items));
+        ArgumentNullException.ThrowIfNull(items);
 
         var hItems = new HashSet<T>(items);
 

@@ -9,7 +9,7 @@ public abstract class LightweightObservableBase<T> : IObservable<T>
 
     public IDisposable Subscribe(IObserver<T> observer)
     {
-        _ = observer ?? throw new ArgumentNullException(nameof(observer));
+        ArgumentNullException.ThrowIfNull(observer);
 
         bool first = false;
 

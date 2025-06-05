@@ -10,7 +10,7 @@ public static class NotifyCollectionChangedExtensions
     public static IObservable<NotifyCollectionChangedEventArgs> GetWeakCollectionChangedObservable(
         this INotifyCollectionChanged collection)
     {
-        _ = collection ?? throw new ArgumentNullException(nameof(collection));
+        ArgumentNullException.ThrowIfNull(collection);
 
         return new WeakCollectionChangedObservable(new WeakReference<INotifyCollectionChanged>(collection));
     }
@@ -19,8 +19,8 @@ public static class NotifyCollectionChangedExtensions
         this INotifyCollectionChanged collection,
         NotifyCollectionChangedEventHandler handler)
     {
-        _ = collection ?? throw new ArgumentNullException(nameof(collection));
-        _ = handler ?? throw new ArgumentNullException(nameof(handler));
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(handler);
 
         return collection.GetWeakCollectionChangedObservable()
             .Subscribe(e => handler(collection, e));
@@ -30,8 +30,8 @@ public static class NotifyCollectionChangedExtensions
         this INotifyCollectionChanged collection,
         Action<NotifyCollectionChangedEventArgs> handler)
     {
-        _ = collection ?? throw new ArgumentNullException(nameof(collection));
-        _ = handler ?? throw new ArgumentNullException(nameof(handler));
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(handler);
 
         return collection.GetWeakCollectionChangedObservable().Subscribe(handler);
     }

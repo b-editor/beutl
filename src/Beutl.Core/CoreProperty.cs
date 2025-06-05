@@ -26,7 +26,10 @@ public abstract class CoreProperty : ICoreProperty
         Type ownerType,
         CorePropertyMetadata metadata)
     {
-        _ = name ?? throw new ArgumentNullException(nameof(name));
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(propertyType);
+        ArgumentNullException.ThrowIfNull(ownerType);
+        ArgumentNullException.ThrowIfNull(metadata);
 
         if (name.Contains('.'))
         {
@@ -34,11 +37,11 @@ public abstract class CoreProperty : ICoreProperty
         }
 
         Name = name;
-        PropertyType = propertyType ?? throw new ArgumentNullException(nameof(propertyType));
-        OwnerType = ownerType ?? throw new ArgumentNullException(nameof(ownerType));
+        PropertyType = propertyType;
+        OwnerType = ownerType;
         Id = s_nextId++;
 
-        _metadata.Add(ownerType, metadata ?? throw new ArgumentNullException(nameof(metadata)));
+        _metadata.Add(ownerType, metadata);
         _defaultMetadata = metadata;
     }
 
@@ -136,8 +139,8 @@ public abstract class CoreProperty : ICoreProperty
     {
         lock (_metadataLock)
         {
-            _ = type ?? throw new ArgumentNullException(nameof(type));
-            _ = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            ArgumentNullException.ThrowIfNull(type);
+            ArgumentNullException.ThrowIfNull(metadata);
 
             if (metadata.PropertyType != PropertyType)
                 throw new InvalidOperationException("Property type mismatch.");

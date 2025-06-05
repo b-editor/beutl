@@ -6,15 +6,8 @@ public static class ListExtensions
 {
     public static void OrderedAdd<T, TKey>(this IList<T> list, T value, Func<T, TKey> keySelector, IComparer<TKey>? comparer = null)
     {
-        if (list is null)
-        {
-            throw new ArgumentNullException(nameof(list));
-        }
-
-        if (keySelector is null)
-        {
-            throw new ArgumentNullException(nameof(keySelector));
-        }
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(keySelector);
 
         comparer ??= Comparer<TKey>.Default;
 
@@ -35,15 +28,8 @@ public static class ListExtensions
 
     public static void OrderedAddDescending<T, TKey>(this IList<T> list, T value, Func<T, TKey> keySelector, IComparer<TKey>? comparer = null)
     {
-        if (list is null)
-        {
-            throw new ArgumentNullException(nameof(list));
-        }
-
-        if (keySelector is null)
-        {
-            throw new ArgumentNullException(nameof(keySelector));
-        }
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(keySelector);
 
         comparer ??= Comparer<TKey>.Default;
 
@@ -64,15 +50,8 @@ public static class ListExtensions
 
     public static void OrderedAddOnScheduler<T, TKey>(this ReactiveCollection<T> list, T value, Func<T, TKey> keySelector, IComparer<TKey>? comparer = null)
     {
-        if (list is null)
-        {
-            throw new ArgumentNullException(nameof(list));
-        }
-
-        if (keySelector is null)
-        {
-            throw new ArgumentNullException(nameof(keySelector));
-        }
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(keySelector);
 
         comparer ??= Comparer<TKey>.Default;
 
@@ -93,15 +72,8 @@ public static class ListExtensions
 
     public static void OrderedAddDescendingOnScheduler<T, TKey>(this ReactiveCollection<T> list, T value, Func<T, TKey> keySelector, IComparer<TKey>? comparer = null)
     {
-        if (list is null)
-        {
-            throw new ArgumentNullException(nameof(list));
-        }
-
-        if (keySelector is null)
-        {
-            throw new ArgumentNullException(nameof(keySelector));
-        }
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(keySelector);
 
         comparer ??= Comparer<TKey>.Default;
 
