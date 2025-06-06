@@ -17,7 +17,7 @@ namespace Beutl.Graphics;
 /// </remarks>
 /// <param name="x">The X component.</param>
 /// <param name="y">The Y component.</param>
-[JsonConverter(typeof(VectorJsonConverter))]
+[JsonConverter(typeof(ParseableJsonConverter<Vector>))]
 [TypeConverter(typeof(VectorConverter))]
 public readonly struct Vector(float x, float y)
     : IEquatable<Vector>,

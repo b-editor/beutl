@@ -19,7 +19,7 @@ namespace Beutl.Media;
 /// </remarks>
 /// <param name="x">The X co-ordinate.</param>
 /// <param name="y">The Y co-ordinate.</param>
-[JsonConverter(typeof(PixelPointJsonConverter))]
+[JsonConverter(typeof(ParseableJsonConverter<PixelPoint>))]
 [TypeConverter(typeof(PixelPointConverter))]
 public readonly struct PixelPoint(int x, int y)
     : IEquatable<PixelPoint>,

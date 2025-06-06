@@ -19,7 +19,7 @@ namespace Beutl.Graphics;
 /// </remarks>
 /// <param name="width">The width.</param>
 /// <param name="height">The height.</param>
-[JsonConverter(typeof(SizeJsonConverter))]
+[JsonConverter(typeof(ParseableJsonConverter<Size>))]
 [TypeConverter(typeof(SizeConverter))]
 public readonly struct Size(float width, float height)
     : IEquatable<Size>,

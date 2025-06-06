@@ -11,7 +11,7 @@ namespace Beutl.Graphics;
 /// <summary>
 /// Defines a rectangle that may be defined relative to a containing element.
 /// </summary>
-[JsonConverter(typeof(RelativeRectJsonConverter))]
+[JsonConverter(typeof(ParseableJsonConverter<RelativePoint>))]
 [TypeConverter(typeof(RelativeRectConverter))]
 public readonly struct RelativeRect
     : IEquatable<RelativeRect>,

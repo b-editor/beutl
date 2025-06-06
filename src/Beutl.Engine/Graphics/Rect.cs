@@ -13,7 +13,7 @@ namespace Beutl.Graphics;
 /// <summary>
 /// Defines a rectangle.
 /// </summary>
-[JsonConverter(typeof(RectJsonConverter))]
+[JsonConverter(typeof(ParseableJsonConverter<Point>))]
 [TypeConverter(typeof(RectConverter))]
 public readonly struct Rect
     : IEquatable<Rect>,

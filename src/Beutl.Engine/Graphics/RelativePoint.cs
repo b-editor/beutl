@@ -18,7 +18,7 @@ namespace Beutl.Graphics;
 /// </remarks>
 /// <param name="point">The point.</param>
 /// <param name="unit">The unit.</param>
-[JsonConverter(typeof(RelativePointJsonConverter))]
+[JsonConverter(typeof(ParseableJsonConverter<Point>))]
 [TypeConverter(typeof(RelativePointConverter))]
 public readonly struct RelativePoint(Point point, RelativeUnit unit)
     : IEquatable<RelativePoint>,

@@ -13,7 +13,7 @@ namespace Beutl.Graphics;
 /// <summary>
 /// Describes the thickness of a frame around a rectangle.
 /// </summary>
-[JsonConverter(typeof(ThicknessJsonConverter))]
+[JsonConverter(typeof(ParseableJsonConverter<Thickness>))]
 [TypeConverter(typeof(ThicknessConverter))]
 public readonly struct Thickness
     : IEquatable<Thickness>,

@@ -10,7 +10,7 @@ namespace Beutl.Media;
 /// <summary>
 /// An ARGB color.
 /// </summary>
-[JsonConverter(typeof(ColorJsonConverter))]
+[JsonConverter(typeof(ParseableJsonConverter<Color>))]
 [TypeConverter(typeof(ColorConverter))]
 public readonly struct Color(byte a, byte r, byte g, byte b)
     : IEquatable<Color>,

@@ -18,7 +18,7 @@ namespace Beutl.Graphics;
 /// </remarks>
 /// <param name="x">The X position.</param>
 /// <param name="y">The Y position.</param>
-[JsonConverter(typeof(PointJsonConverter))]
+[JsonConverter(typeof(ParseableJsonConverter<Point>))]
 [TypeConverter(typeof(PointConverter))]
 public readonly struct Point(float x, float y)
     : IEquatable<Point>,

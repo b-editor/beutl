@@ -19,7 +19,7 @@ namespace Beutl.Media;
 /// </remarks>
 /// <param name="width">The width.</param>
 /// <param name="height">The height.</param>
-[JsonConverter(typeof(PixelSizeJsonConverter))]
+[JsonConverter(typeof(ParseableJsonConverter<PixelSize>))]
 [TypeConverter(typeof(PixelSizeConverter))]
 public readonly struct PixelSize(int width, int height)
     : IEquatable<PixelSize>,
