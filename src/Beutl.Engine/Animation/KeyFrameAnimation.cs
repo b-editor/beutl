@@ -17,19 +17,16 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
             .Register();
     }
 
-    public KeyFrameAnimation(CoreProperty property)
+    public KeyFrameAnimation(CoreProperty? property)
     {
         _property = property;
-        KeyFrames = new KeyFrames(this);
+        KeyFrames = new(this);
         KeyFrames.Attached += OnKeyFrameAttached;
         KeyFrames.Detached += OnKeyFrameDetached;
     }
 
-    public KeyFrameAnimation()
+    public KeyFrameAnimation() : this(null)
     {
-        KeyFrames = new KeyFrames(this);
-        KeyFrames.Attached += OnKeyFrameAttached;
-        KeyFrames.Detached += OnKeyFrameDetached;
     }
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;

@@ -19,7 +19,7 @@ public abstract class Animatable : Hierarchical, IAnimatable
 
     protected Animatable()
     {
-        Animations = new Animations(this);
+        Animations = new(this);
     }
 
     [NotAutoSerialized]
