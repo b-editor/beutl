@@ -5,6 +5,11 @@ namespace Beutl.Media.Decoding;
 
 public abstract class MediaReader : IDisposable
 {
+    protected MediaReader()
+    {
+        MemoryManagement.TrackDisposable(this, DisposableCategory.IO);
+    }
+
     ~MediaReader()
     {
         Dispose(disposing: false);
@@ -46,6 +51,7 @@ public abstract class MediaReader : IDisposable
         if (!IsDisposed)
         {
             Dispose(disposing: true);
+            MemoryManagement.MarkDisposed(this);
             GC.SuppressFinalize(this);
 
             IsDisposed = true;

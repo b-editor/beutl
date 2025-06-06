@@ -78,8 +78,8 @@ public static unsafe partial class Image
         }
         else
         {
-            using var bmp = new SKBitmap(new SKImageInfo(self.Width, self.Height, SKColorType.Bgra8888));
-            using var canvas = new SKCanvas(bmp);
+            using var bmp = MemoryManagement.CreateTrackedSkiaObject(() => new SKBitmap(new SKImageInfo(self.Width, self.Height, SKColorType.Bgra8888)));
+            using var canvas = MemoryManagement.CreateTrackedSkiaObject(() => new SKCanvas(bmp));
             canvas.DrawBitmap(self, SKPoint.Empty);
 
             var result = new Bitmap<Bgra8888>(self.Width, self.Height);
@@ -99,7 +99,7 @@ public static unsafe partial class Image
 
     public static SKBitmap ToSKBitmap(this Bitmap<Bgra8888> self)
     {
-        var result = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
+        var result = MemoryManagement.CreateTrackedSkiaObject(() => new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888)));
 
         result.SetPixels(self.Data);
 
@@ -110,7 +110,7 @@ public static unsafe partial class Image
     {
         if (self is Bitmap<Bgra8888> bgra8888)
         {
-            var result = new SKBitmap(new(bgra8888.Width, bgra8888.Height, SKColorType.Bgra8888));
+            var result = MemoryManagement.CreateTrackedSkiaObject(() => new SKBitmap(new(bgra8888.Width, bgra8888.Height, SKColorType.Bgra8888)));
 
             result.SetPixels(bgra8888.Data);
 
@@ -118,7 +118,7 @@ public static unsafe partial class Image
         }
         else if (self is Bitmap<Bgra4444> bgra4444)
         {
-            var result = new SKBitmap(new(bgra4444.Width, bgra4444.Height, SKColorType.Argb4444));
+            var result = MemoryManagement.CreateTrackedSkiaObject(() => new SKBitmap(new(bgra4444.Width, bgra4444.Height, SKColorType.Argb4444)));
 
             result.SetPixels(bgra4444.Data);
 
@@ -126,7 +126,7 @@ public static unsafe partial class Image
         }
         else if (self is Bitmap<Grayscale8> grayscale8)
         {
-            var result = new SKBitmap(new(grayscale8.Width, grayscale8.Height, SKColorType.Alpha8));
+            var result = MemoryManagement.CreateTrackedSkiaObject(() => new SKBitmap(new(grayscale8.Width, grayscale8.Height, SKColorType.Alpha8)));
 
             result.SetPixels(grayscale8.Data);
 
@@ -135,7 +135,7 @@ public static unsafe partial class Image
         else
         {
             using Bitmap<Bgra8888> typed = self.Convert<Bgra8888>();
-            var result = new SKBitmap(new(typed.Width, typed.Height, SKColorType.Bgra8888));
+            var result = MemoryManagement.CreateTrackedSkiaObject(() => new SKBitmap(new(typed.Width, typed.Height, SKColorType.Bgra8888)));
 
             result.SetPixels(typed.Data);
 
@@ -147,32 +147,32 @@ public static unsafe partial class Image
     {
         if (self is Bitmap<Bgra8888> bgra8888)
         {
-            var result = SKImage.FromPixelCopy(
+            var result = MemoryManagement.CreateTrackedSkiaObject(() => SKImage.FromPixelCopy(
                 new(bgra8888.Width, bgra8888.Height, SKColorType.Bgra8888),
-                bgra8888.Data);
+                bgra8888.Data));
 
             return result;
         }
         else if (self is Bitmap<Bgra4444> bgra4444)
         {
-            var result = SKImage.FromPixelCopy(
+            var result = MemoryManagement.CreateTrackedSkiaObject(() => SKImage.FromPixelCopy(
                 new(bgra4444.Width, bgra4444.Height, SKColorType.Argb4444),
-                bgra4444.Data);
+                bgra4444.Data));
 
             return result;
         }
         else if (self is Bitmap<Grayscale8> grayscale8)
         {
-            var result = SKImage.FromPixelCopy(
+            var result = MemoryManagement.CreateTrackedSkiaObject(() => SKImage.FromPixelCopy(
                 new(grayscale8.Width, grayscale8.Height, SKColorType.Alpha8),
-                grayscale8.Data);
+                grayscale8.Data));
 
             return result;
         }
         else
         {
             using Bitmap<Bgra8888> typed = self.Convert<Bgra8888>();
-            var result = SKImage.FromPixelCopy(new(typed.Width, typed.Height, SKColorType.Bgra8888), typed.Data);
+            var result = MemoryManagement.CreateTrackedSkiaObject(() => SKImage.FromPixelCopy(new(typed.Width, typed.Height, SKColorType.Bgra8888), typed.Data));
 
             return result;
         }
@@ -180,7 +180,7 @@ public static unsafe partial class Image
 
     public static SKBitmap ToSKBitmap(this Mat self)
     {
-        var result = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
+        var result = MemoryManagement.CreateTrackedSkiaObject(() => new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888)));
 
         result.SetPixels(self.Data);
 

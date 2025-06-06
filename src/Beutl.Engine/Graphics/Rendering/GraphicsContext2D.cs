@@ -12,6 +12,11 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
     private readonly Stack<(ContainerRenderNode, int)> _nodes = [];
     private int _drawOperationindex;
     private ContainerRenderNode _container = container;
+    
+    public GraphicsContext2D(ContainerRenderNode container, PixelSize canvasSize = default) : this()
+    {
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Graphics);
+    }
 
     public PixelSize Size => canvasSize;
 
@@ -67,6 +72,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
     public void Dispose()
     {
         _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
+        MemoryManagement.MarkDisposed(this);
     }
 
     public void Reset()

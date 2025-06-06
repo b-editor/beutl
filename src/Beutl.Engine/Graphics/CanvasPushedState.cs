@@ -1,4 +1,5 @@
-﻿using SkiaSharp;
+﻿using Beutl.Media;
+using SkiaSharp;
 
 namespace Beutl.Graphics;
 
@@ -31,6 +32,7 @@ public partial class ImmediateCanvas
                 canvas.Canvas.Restore();
 
                 canvas.Canvas.RestoreToCount(Count);
+                MemoryManagement.MarkDisposed(Paint);
             }
         }
 
@@ -40,6 +42,7 @@ public partial class ImmediateCanvas
             {
                 canvas.Canvas.RestoreToCount(Count);
                 canvas.BlendMode = BlendMode;
+                MemoryManagement.MarkDisposed(Paint);
                 Paint.Dispose();
             }
         }
@@ -61,6 +64,7 @@ public partial class ImmediateCanvas
 
                 canvas.Canvas.RestoreToCount(Count);
                 canvas.Opacity = Opacity;
+                MemoryManagement.MarkDisposed(Paint);
             }
         }
 

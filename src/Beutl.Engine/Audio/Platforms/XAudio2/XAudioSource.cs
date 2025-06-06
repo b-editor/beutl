@@ -5,6 +5,11 @@ namespace Beutl.Audio.Platforms.XAudio2;
 public sealed class XAudioSource(XAudioContext context) : IDisposable
 {
     private IXAudio2SourceVoice? _sourceVoice;
+    
+    public XAudioSource(XAudioContext context) : this()
+    {
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Audio);
+    }
 
     public int BuffersQueued => (int?)_sourceVoice?.State.BuffersQueued ?? -1;
 
@@ -12,6 +17,7 @@ public sealed class XAudioSource(XAudioContext context) : IDisposable
     {
         _sourceVoice?.DestroyVoice();
         _sourceVoice?.Dispose();
+        MemoryManagement.MarkDisposed(this);
     }
 
     public bool IsPlaying()

@@ -57,6 +57,7 @@ public sealed class FilterEffectContext : IDisposable
         Bounds = OriginalBounds = bounds;
         _renderTimeItems = [];
         _items = [];
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Graphics);
     }
 
     private FilterEffectContext(FilterEffectContext obj)
@@ -65,6 +66,7 @@ public sealed class FilterEffectContext : IDisposable
         Bounds = obj.Bounds;
         _renderTimeItems = new PooledList<FilterEffectOrFEItemWrapper>(obj._renderTimeItems);
         _items = new PooledList<FEItemWrapper>(obj._items);
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Graphics);
     }
 
     public Rect Bounds { get; internal set; }
@@ -610,5 +612,6 @@ public sealed class FilterEffectContext : IDisposable
     {
         _items.Dispose();
         _renderTimeItems.Dispose();
+        MemoryManagement.MarkDisposed(this);
     }
 }

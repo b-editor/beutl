@@ -10,6 +10,7 @@ public sealed class Ref<T> : IDisposable
     {
         Value = value;
         _counter = counter;
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Memory);
     }
 
     public static Ref<T> Create(T value, Action? onRelease = null)
@@ -49,6 +50,7 @@ public sealed class Ref<T> : IDisposable
             {
                 _counter.Release();
                 Value = null!;
+                MemoryManagement.MarkDisposed(this);
             }
             GC.SuppressFinalize(this);
         }

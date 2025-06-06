@@ -33,6 +33,8 @@ public unsafe class Bitmap<T> : IBitmap
         Width = width;
         Height = height;
         _pointer = (T*)NativeMemory.AllocZeroed((nuint)ByteCount);
+        
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Graphics, ByteCount);
     }
 
     public Bitmap(int width, int height, T* data)
@@ -44,6 +46,8 @@ public unsafe class Bitmap<T> : IBitmap
         Width = width;
         Height = height;
         _pointer = data;
+        
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Graphics, ByteCount);
     }
 
     public Bitmap(int width, int height, IntPtr data)
@@ -55,6 +59,8 @@ public unsafe class Bitmap<T> : IBitmap
         Width = width;
         Height = height;
         _pointer = (T*)data;
+        
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Graphics, ByteCount);
     }
 
     ~Bitmap()
@@ -220,15 +226,18 @@ public unsafe class Bitmap<T> : IBitmap
 
     public void Dispose()
     {
-        if (!IsDisposed && _requireDispose)
+        if (!IsDisposed)
         {
-            if (_pointer != null) NativeMemory.Free(_pointer);
-
-            _pointer = null;
+            if (_requireDispose && _pointer != null)
+            {
+                NativeMemory.Free(_pointer);
+                _pointer = null;
+            }
+            
+            MemoryManagement.MarkDisposed(this);
+            IsDisposed = true;
+            GC.SuppressFinalize(this);
         }
-
-        IsDisposed = true;
-        GC.SuppressFinalize(this);
     }
 
     public Bitmap<T2> Convert<T2>()

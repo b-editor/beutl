@@ -28,6 +28,7 @@ public sealed partial class XAudioContext : IDisposable
     {
         Device = Vortice.XAudio2.XAudio2.XAudio2Create();
         MasteringVoice = Device.CreateMasteringVoice(2, 44100, AudioStreamCategory.Other);
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Audio);
     }
 
     ~XAudioContext()
@@ -45,6 +46,7 @@ public sealed partial class XAudioContext : IDisposable
         {
             MasteringVoice.Dispose();
             Device.Dispose();
+            MemoryManagement.MarkDisposed(this);
             _isDisposed = true;
             GC.SuppressFinalize(this);
         }

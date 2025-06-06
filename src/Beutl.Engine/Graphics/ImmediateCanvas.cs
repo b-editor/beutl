@@ -15,7 +15,7 @@ public partial class ImmediateCanvas : ICanvas
     private readonly Dispatcher? _dispatcher;
     private readonly SKPaint _sharedFillPaint = new();
     private readonly SKPaint _sharedStrokePaint = new();
-    private readonly Stack<CanvasPushedState> _states = new();
+    private readonly Stack<CanvasPushedState> _states = [];
     private Matrix _currentTransform;
 
     public ImmediateCanvas(RenderTarget renderTarget)
@@ -25,6 +25,11 @@ public partial class ImmediateCanvas : ICanvas
         _renderTarget = renderTarget;
         Canvas = _renderTarget.Value.Canvas;
         _currentTransform = Canvas.TotalMatrix.ToMatrix();
+        
+        // Track the canvas and shared paint objects
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Graphics);
+        MemoryManagement.TrackSkiaObject(_sharedFillPaint);
+        MemoryManagement.TrackSkiaObject(_sharedStrokePaint);
     }
 
     ~ImmediateCanvas()
@@ -81,24 +86,39 @@ public partial class ImmediateCanvas : ICanvas
 
     public void Dispose()
     {
+        if (IsDisposed) return;
+
         void DisposeCore()
         {
-            _sharedFillPaint.Dispose();
-            _sharedStrokePaint.Dispose();
-            GC.SuppressFinalize(this);
-            IsDisposed = true;
+            try
+            {
+                MemoryManagement.MarkDisposed(_sharedFillPaint);
+                MemoryManagement.MarkDisposed(_sharedStrokePaint);
+                _sharedFillPaint.Dispose();
+                _sharedStrokePaint.Dispose();
+                
+                // Clean up any remaining states
+                while (_states.TryPop(out var state))
+                {
+                    // States should clean themselves up, but ensure they're properly disposed
+                }
+                
+                MemoryManagement.MarkDisposed(this);
+            }
+            finally
+            {
+                IsDisposed = true;
+                GC.SuppressFinalize(this);
+            }
         }
 
-        if (!IsDisposed)
+        if (_dispatcher is null)
         {
-            if (_dispatcher == null)
-            {
-                DisposeCore();
-            }
-            else
-            {
-                _dispatcher?.Invoke(DisposeCore);
-            }
+            DisposeCore();
+        }
+        else
+        {
+            _dispatcher.Invoke(DisposeCore);
         }
     }
 
@@ -156,17 +176,13 @@ public partial class ImmediateCanvas : ICanvas
         ConfigureFillPaint(new(size), fill);
         ConfigureStrokePaint(new Rect(size), pen);
 
-        if (bmp is Bitmap<Bgra8888>)
+        using var img = bmp switch
         {
-            using var img = SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data);
+            Bitmap<Bgra8888> => SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data),
+            _ => bmp.ToSKImage()
+        };
 
-            Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
-        }
-        else
-        {
-            using var img = bmp.ToSKImage();
-            Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
-        }
+        Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
     }
 
     public void DrawImageSource(IImageSource source, IBrush? fill, IPen? pen)
@@ -347,10 +363,8 @@ public partial class ImmediateCanvas : ICanvas
         }
         else
         {
-            using (var paint = new SKPaint())
-            {
-                count = Canvas.SaveLayer(limit.ToSKRect(), paint);
-            }
+            using var paint = MemoryManagement.CreateTrackedSkiaObject(() => new SKPaint());
+            count = Canvas.SaveLayer(limit.ToSKRect(), paint);
         }
 
         _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
@@ -395,7 +409,7 @@ public partial class ImmediateCanvas : ICanvas
         VerifyAccess();
         float oldOpacity = Opacity;
         Opacity *= opacity;
-        var paint = new SKPaint();
+        var paint = MemoryManagement.CreateTrackedSkiaObject(() => new SKPaint());
 
         int count = Canvas.SaveLayer(paint);
         paint.Color = new SKColor(0, 0, 0, (byte)(Opacity * 255));
@@ -406,7 +420,7 @@ public partial class ImmediateCanvas : ICanvas
     public PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false)
     {
         VerifyAccess();
-        var paint = new SKPaint();
+        var paint = MemoryManagement.CreateTrackedSkiaObject(() => new SKPaint());
 
         int count = Canvas.SaveLayer(paint);
         new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode).ConfigurePaint(paint);
@@ -441,7 +455,7 @@ public partial class ImmediateCanvas : ICanvas
         VerifyAccess();
         BlendMode tmp = BlendMode;
         BlendMode = blendMode;
-        var paint = new SKPaint();
+        var paint = MemoryManagement.CreateTrackedSkiaObject(() => new SKPaint());
         paint.BlendMode = (SKBlendMode)blendMode;
 
         int count = Canvas.SaveLayer(paint);
@@ -512,7 +526,7 @@ public partial class ImmediateCanvas : ICanvas
                 float offset = (float)(pen.DashOffset * thickness);
 
                 var pe = SKPathEffect.CreateDash(dashesArray, offset);
-
+                MemoryManagement.TrackSkiaObject(pe);
                 _sharedStrokePaint.PathEffect = pe;
             }
 

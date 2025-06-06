@@ -48,8 +48,10 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
         float opacity = (Brush?.Opacity ?? 0) / 100f;
         if (Brush is ISolidColorBrush solid)
         {
-            return SKShader.CreateColor(new SKColor(solid.Color.R, solid.Color.G, solid.Color.B,
+            var shader = SKShader.CreateColor(new SKColor(solid.Color.R, solid.Color.G, solid.Color.B,
                 (byte)(solid.Color.A * opacity)));
+            MemoryManagement.TrackSkiaObject(shader);
+            return shader;
         }
         else if (Brush is IGradientBrush gradient)
         {
@@ -84,7 +86,9 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
 
                     if (linearGradient.Transform is null)
                     {
-                        return SKShader.CreateLinearGradient(start, end, stopColors, stopOffsets, tileMode);
+                        var shader = SKShader.CreateLinearGradient(start, end, stopColors, stopOffsets, tileMode);
+                        MemoryManagement.TrackSkiaObject(shader);
+                        return shader;
                     }
                     else
                     {
@@ -92,8 +96,10 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                         var offset = Matrix.CreateTranslation(transformOrigin + Bounds.Position);
                         Matrix transform = (-offset) * linearGradient.Transform.Value * offset;
 
-                        return SKShader.CreateLinearGradient(
+                        var shader = SKShader.CreateLinearGradient(
                             start, end, stopColors, stopOffsets, tileMode, transform.ToSKMatrix());
+                        MemoryManagement.TrackSkiaObject(shader);
+                        return shader;
                     }
                 }
             case IRadialGradientBrush radialGradient:
@@ -109,7 +115,9 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                         // when the origin is the same as the center the Skia RadialGradient acts the same as D2D
                         if (radialGradient.Transform is null)
                         {
-                            return SKShader.CreateRadialGradient(center, radius, stopColors, stopOffsets, tileMode);
+                            var shader = SKShader.CreateRadialGradient(center, radius, stopColors, stopOffsets, tileMode);
+                            MemoryManagement.TrackSkiaObject(shader);
+                            return shader;
                         }
                         else
                         {
@@ -117,8 +125,10 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                             var offset = Matrix.CreateTranslation(transformOrigin + Bounds.Position);
                             Matrix transform = (-offset) * radialGradient.Transform.Value * (offset);
 
-                            return SKShader.CreateRadialGradient(
+                            var shader = SKShader.CreateRadialGradient(
                                 center, radius, stopColors, stopOffsets, tileMode, transform.ToSKMatrix());
+                            MemoryManagement.TrackSkiaObject(shader);
+                            return shader;
                         }
                     }
                     else
@@ -182,7 +192,9 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
                         rotation = rotation.PreConcat(transform.ToSKMatrix());
                     }
 
-                    return SKShader.CreateSweepGradient(center, stopColors, stopOffsets, rotation);
+                    var shader = SKShader.CreateSweepGradient(center, stopColors, stopOffsets, rotation);
+                    MemoryManagement.TrackSkiaObject(shader);
+                    return shader;
                 }
         }
 

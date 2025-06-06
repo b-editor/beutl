@@ -9,6 +9,7 @@ public abstract class MediaWriter : IDisposable
     {
         VideoConfig = videoConfig;
         AudioConfig = audioConfig;
+        MemoryManagement.TrackDisposable(this, DisposableCategory.IO);
     }
 
     ~MediaWriter()
@@ -52,6 +53,7 @@ public abstract class MediaWriter : IDisposable
         if (!IsDisposed)
         {
             Dispose(disposing: true);
+            MemoryManagement.MarkDisposed(this);
             GC.SuppressFinalize(this);
 
             IsDisposed = true;

@@ -22,6 +22,7 @@ internal sealed class SKPathGeometry : Geometry
     {
         if (_clone && _path != null)
         {
+            MemoryManagement.MarkDisposed(_path);
             _path.Dispose();
             _path = null;
         }
@@ -30,6 +31,14 @@ internal sealed class SKPathGeometry : Geometry
         {
             _clone = clone;
             _path = clone ? new SKPath(path) : path;
+            if (clone)
+            {
+                MemoryManagement.TrackSkiaObject(_path);
+            }
+            else
+            {
+                MemoryManagement.TrackSkiaObject(path);
+            }
         }
 
         RaiseInvalidated(new RenderInvalidatedEventArgs(this));
@@ -81,4 +90,7 @@ internal sealed class SKPathGeometry : Geometry
 
         }
     }
+
+    // Note: Geometry does not implement IDisposable, but we still need to clean up SKPath
+    // This will be handled by the finalizer of SKPath itself
 }

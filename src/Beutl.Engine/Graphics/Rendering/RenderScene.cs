@@ -12,6 +12,7 @@ public sealed class RenderScene : IDisposable
     {
         Size = size;
         _cacheContext = new RenderNodeCacheContext(this);
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Graphics);
     }
 
     public RenderLayer this[int index]
@@ -45,6 +46,7 @@ public sealed class RenderScene : IDisposable
             item.Dispose();
         }
         _layer.Clear();
+        MemoryManagement.MarkDisposed(this);
     }
 
     public void Render(ImmediateCanvas canvas)

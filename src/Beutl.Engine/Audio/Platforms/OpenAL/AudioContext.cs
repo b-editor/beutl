@@ -20,6 +20,7 @@ public sealed unsafe class AudioContext : IDisposable
         }
 
         MakeCurrent();
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Audio);
     }
 
     public bool IsDisposed { get; private set; }
@@ -89,6 +90,7 @@ public sealed unsafe class AudioContext : IDisposable
         ALC.MakeContextCurrent(ALContext.Null);
         ALC.DestroyContext(_context);
         ALC.CloseDevice(_device);
+        MemoryManagement.MarkDisposed(this);
         GC.SuppressFinalize(this);
 
         IsDisposed = true;

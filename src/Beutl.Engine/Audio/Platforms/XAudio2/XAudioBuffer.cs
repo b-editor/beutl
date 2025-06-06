@@ -12,6 +12,7 @@ public sealed unsafe class XAudioBuffer : IDisposable
     public XAudioBuffer()
     {
         Buffer = new AudioBuffer();
+        MemoryManagement.TrackDisposable(this, DisposableCategory.Audio);
     }
 
     public AudioBuffer Buffer { get; }
@@ -55,5 +56,6 @@ public sealed unsafe class XAudioBuffer : IDisposable
         {
             NativeMemory.Free(_stream);
         }
+        MemoryManagement.MarkDisposed(this);
     }
 }

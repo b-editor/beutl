@@ -107,16 +107,23 @@ public class RenderTarget : IDisposable
         if (IsDisposed) return;
 
         _surface.Release();
+        MemoryManagement.MarkDisposed(this);
         IsDisposed = true;
         GC.SuppressFinalize(this);
     }
 
-    private sealed class SKSurfaceCounter(SKSurface value)
+    private sealed class SKSurfaceCounter(SKSurface value) : IDisposable
     {
         private readonly Dispatcher? _dispatcher = Dispatcher.Current;
         private volatile int _refs = 1;
 
         public SKSurface? Value { get; private set; } = value;
+        
+        public SKSurfaceCounter()
+        {
+            MemoryManagement.TrackSkiaObject(value);
+            MemoryManagement.TrackDisposable(this, DisposableCategory.Graphics);
+        }
 
         public int RefCount => _refs;
 
@@ -155,18 +162,24 @@ public class RenderTarget : IDisposable
                             {
                                 if (_dispatcher.CheckAccess())
                                 {
+                                    MemoryManagement.MarkDisposed(value);
                                     value.Dispose();
                                 }
                                 else
                                 {
-                                    _dispatcher.Dispatch(value.Dispose);
+                                    _dispatcher.Dispatch(() => {
+                                        MemoryManagement.MarkDisposed(value);
+                                        value.Dispose();
+                                    });
                                 }
                             }
                             else
                             {
+                                MemoryManagement.MarkDisposed(value);
                                 value.Dispose();
                             }
                         }
+                        MemoryManagement.MarkDisposed(this);
                     }
 
                     break;
@@ -174,6 +187,11 @@ public class RenderTarget : IDisposable
 
                 old = current;
             }
+        }
+        
+        public void Dispose()
+        {
+            Release();
         }
     }
 }

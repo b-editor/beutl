@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__ide__getDiagnostics",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(dotnet --info)",
+      "Bash(grep:*)",
+      "Bash(dotnet build:*)",
+      "Bash(rm:*)",
+      "Bash(rg:*)"
+    ],
+    "deny": []
+  }
+}
