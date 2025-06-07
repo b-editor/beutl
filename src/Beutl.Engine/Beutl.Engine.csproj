@@ -25,6 +25,7 @@
     <PackageReference Include="OpenCvSharp4.runtime.osx.10.15-x64" />
     <PackageReference Include="OpenCvSharp4.runtime.osx_arm64" />
     <PackageReference Include="OpenCvSharp4.runtime.win" />
+    <PackageReference Include="OpenTK.Graphics" />
     <PackageReference Include="OpenTK.OpenAL" />
     <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" />
     <PackageReference Include="SkiaSharp.HarfBuzz" />

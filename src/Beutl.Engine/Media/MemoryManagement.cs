@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Beutl.Audio;
 using SkiaSharp;
 
 namespace Beutl.Media;
@@ -21,20 +22,20 @@ public static class MemoryManagement
     /// Only active in DEBUG builds to avoid performance impact in release.
     /// </summary>
     [Conditional("DEBUG")]
-    public static void TrackDisposable<T>(T disposable, DisposableCategory? category = null, [CallerMemberName] string? memberName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0) 
+    public static void TrackDisposable<T>(T disposable, DisposableCategory? category = null, [CallerMemberName] string? memberName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0)
         where T : class, IDisposable
     {
         var detectedCategory = category ?? DetectCategory(disposable);
         var info = new DisposableInfo(typeof(T).Name, detectedCategory, memberName, filePath, lineNumber);
         s_disposableTracker.AddOrUpdate(disposable, info);
-        
+
         // Track allocation statistics
         string typeName = typeof(T).Name;
         s_allocationStats.AddOrUpdate(typeName, 1, (_, count) => count + 1);
-        
+
         // Track category statistics
-        s_categoryStats.AddOrUpdate(detectedCategory, 
-            new CategoryStats(1, 0), 
+        s_categoryStats.AddOrUpdate(detectedCategory,
+            new CategoryStats(1, 0),
             (_, stats) => new CategoryStats(stats.Count + 1, stats.EstimatedBytes));
     }
 
@@ -42,19 +43,19 @@ public static class MemoryManagement
     /// Tracks a disposable object with explicit category and estimated memory usage.
     /// </summary>
     [Conditional("DEBUG")]
-    public static void TrackDisposable<T>(T disposable, DisposableCategory category, long estimatedBytes, [CallerMemberName] string? memberName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0) 
+    public static void TrackDisposable<T>(T disposable, DisposableCategory category, long estimatedBytes, [CallerMemberName] string? memberName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0)
         where T : class, IDisposable
     {
         var info = new DisposableInfo(typeof(T).Name, category, memberName, filePath, lineNumber, estimatedBytes);
         s_disposableTracker.AddOrUpdate(disposable, info);
-        
+
         // Track allocation statistics
         string typeName = typeof(T).Name;
         s_allocationStats.AddOrUpdate(typeName, 1, (_, count) => count + 1);
-        
+
         // Track category statistics
-        s_categoryStats.AddOrUpdate(category, 
-            new CategoryStats(1, estimatedBytes), 
+        s_categoryStats.AddOrUpdate(category,
+            new CategoryStats(1, estimatedBytes),
             (_, stats) => new CategoryStats(stats.Count + 1, stats.EstimatedBytes + estimatedBytes));
     }
 
@@ -62,7 +63,7 @@ public static class MemoryManagement
     /// Convenience method for tracking SkiaSharp objects with automatic size estimation.
     /// </summary>
     [Conditional("DEBUG")]
-    public static void TrackSkiaObject<T>(T skiaObject, [CallerMemberName] string? memberName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0) 
+    public static void TrackSkiaObject<T>(T skiaObject, [CallerMemberName] string? memberName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0)
         where T : class, IDisposable
     {
         long estimatedBytes = EstimateSkiaObjectSize(skiaObject);
@@ -73,19 +74,19 @@ public static class MemoryManagement
     /// Tracks an object that implements a custom disposable pattern.
     /// </summary>
     [Conditional("DEBUG")]
-    public static void TrackCustomDisposable<T>(T disposable, DisposableCategory category, [CallerMemberName] string? memberName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0) 
+    public static void TrackCustomDisposable<T>(T disposable, DisposableCategory category, [CallerMemberName] string? memberName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0)
         where T : class
     {
         var info = new DisposableInfo(typeof(T).Name, category, memberName, filePath, lineNumber);
         s_disposableTracker.AddOrUpdate(disposable, info);
-        
+
         // Track allocation statistics
         string typeName = typeof(T).Name;
         s_allocationStats.AddOrUpdate(typeName, 1, (_, count) => count + 1);
-        
+
         // Track category statistics
-        s_categoryStats.AddOrUpdate(category, 
-            new CategoryStats(1, 0), 
+        s_categoryStats.AddOrUpdate(category,
+            new CategoryStats(1, 0),
             (_, stats) => new CategoryStats(stats.Count + 1, stats.EstimatedBytes));
     }
 
@@ -93,13 +94,13 @@ public static class MemoryManagement
     /// Marks a disposable object as disposed.
     /// </summary>
     [Conditional("DEBUG")]
-    public static void MarkDisposed<T>(T disposable) 
+    public static void MarkDisposed<T>(T disposable)
         where T : class, IDisposable
     {
         if (s_disposableTracker.TryGetValue(disposable, out DisposableInfo? info))
         {
             info.IsDisposed = true;
-            
+
             // Update category statistics
             if (s_categoryStats.TryGetValue(info.Category, out CategoryStats stats))
             {
@@ -113,13 +114,13 @@ public static class MemoryManagement
     /// Marks a custom disposable object as disposed.
     /// </summary>
     [Conditional("DEBUG")]
-    public static void MarkCustomDisposableDisposed<T>(T disposable) 
+    public static void MarkCustomDisposableDisposed<T>(T disposable)
         where T : class
     {
         if (s_disposableTracker.TryGetValue(disposable, out DisposableInfo? info))
         {
             info.IsDisposed = true;
-            
+
             // Update category statistics
             if (s_categoryStats.TryGetValue(info.Category, out CategoryStats stats))
             {
@@ -136,7 +137,7 @@ public static class MemoryManagement
     {
         var undisposedObjects = new List<DisposableInfo>();
         var categoryBreakdown = new Dictionary<DisposableCategory, List<DisposableInfo>>();
-        
+
         // Note: This is a debugging feature and may have performance implications
 #if DEBUG
         foreach (var (obj, info) in s_disposableTracker)
@@ -144,7 +145,7 @@ public static class MemoryManagement
             if (!info.IsDisposed)
             {
                 undisposedObjects.Add(info);
-                
+
                 if (!categoryBreakdown.TryGetValue(info.Category, out var list))
                 {
                     list = [];
@@ -156,7 +157,7 @@ public static class MemoryManagement
 #endif
 
         return new ResourceStatistics(
-            undisposedObjects, 
+            undisposedObjects,
             s_allocationStats.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
             s_categoryStats.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
             categoryBreakdown.ToDictionary(kvp => kvp.Key, kvp => (IReadOnlyList<DisposableInfo>)kvp.Value));
@@ -167,8 +168,8 @@ public static class MemoryManagement
     /// </summary>
     public static CategoryStats GetCategoryStatistics(DisposableCategory category)
     {
-        return s_categoryStats.TryGetValue(category, out var stats) 
-            ? stats 
+        return s_categoryStats.TryGetValue(category, out var stats)
+            ? stats
             : new CategoryStats(0, 0);
     }
 
@@ -217,7 +218,7 @@ public static class MemoryManagement
         return skiaObject switch
         {
             SKImage image => image.Width * image.Height * 4L, // Assume RGBA
-            SKSurface surface => surface.Canvas.LocalClipBounds.Width * surface.Canvas.LocalClipBounds.Height * 4L,
+            SKSurface surface => (long)(surface.Canvas.LocalClipBounds.Width * surface.Canvas.LocalClipBounds.Height * 4L),
             SKBitmap bitmap => bitmap.Width * bitmap.Height * bitmap.BytesPerPixel,
             SKPaint => 64, // Small object
             SKPath => 128, // Variable size, use conservative estimate
@@ -243,7 +244,7 @@ public static class MemoryManagement
     public static MemoryUsage GetMemoryUsage()
     {
         long estimatedTrackedBytes = s_categoryStats.Values.Sum(stats => stats.EstimatedBytes);
-        
+
         return new MemoryUsage(
             AllocatedBytes: GC.GetTotalMemory(false),
             EstimatedTrackedBytes: estimatedTrackedBytes,
@@ -256,7 +257,7 @@ public static class MemoryManagement
     /// <summary>
     /// Creates a tracked SkiaSharp object with automatic disposal tracking.
     /// </summary>
-    public static T CreateTrackedSkiaObject<T>(Func<T> factory, [CallerMemberName] string? memberName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0) 
+    public static T CreateTrackedSkiaObject<T>(Func<T> factory, [CallerMemberName] string? memberName = null, [CallerFilePath] string? filePath = null, [CallerLineNumber] int lineNumber = 0)
         where T : class, IDisposable
     {
         var obj = factory();
@@ -267,7 +268,7 @@ public static class MemoryManagement
     /// <summary>
     /// Creates a disposable wrapper for tracking custom objects.
     /// </summary>
-    public static DisposableWrapper<T> CreateTrackedWrapper<T>(T value, Action<T>? disposeAction = null, DisposableCategory category = DisposableCategory.General) 
+    public static DisposableWrapper<T> CreateTrackedWrapper<T>(T value, Action<T>? disposeAction = null, DisposableCategory category = DisposableCategory.General)
         where T : class
     {
         return new DisposableWrapper<T>(value, disposeAction, category);
@@ -302,8 +303,8 @@ public sealed class DisposableInfo
 
     public override string ToString()
     {
-        string location = FilePath is not null 
-            ? $"{Path.GetFileName(FilePath)}:{LineNumber}" 
+        string location = FilePath is not null
+            ? $"{Path.GetFileName(FilePath)}:{LineNumber}"
             : "Unknown";
         string size = EstimatedBytes > 0 ? $" ({EstimatedBytes:N0} bytes)" : "";
         return $"{TypeName} [{Category}] created in {MemberName} at {location} ({CreatedAt:HH:mm:ss}){size} - {(IsDisposed ? "Disposed" : "LEAKED")}";

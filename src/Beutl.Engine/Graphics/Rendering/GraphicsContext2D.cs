@@ -6,19 +6,21 @@ using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize canvasSize = default)
+public sealed class GraphicsContext2D
     : IDisposable, IPopable
 {
     private readonly Stack<(ContainerRenderNode, int)> _nodes = [];
     private int _drawOperationindex;
-    private ContainerRenderNode _container = container;
-    
-    public GraphicsContext2D(ContainerRenderNode container, PixelSize canvasSize = default) : this()
+    private ContainerRenderNode _container;
+
+    public GraphicsContext2D(ContainerRenderNode container, PixelSize canvasSize = default)
     {
+        _container = container;
+        Size = canvasSize;
         MemoryManagement.TrackDisposable(this, DisposableCategory.Graphics);
     }
 
-    public PixelSize Size => canvasSize;
+    public PixelSize Size { get; }
 
     internal Action<RenderNode>? OnUntracked { get; set; }
 
@@ -224,7 +226,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
     {
         DrawBackdropRenderNode? next = Next<DrawBackdropRenderNode>();
 
-        var b = new Rect(canvasSize.ToSize(1));
+        var b = new Rect(Size.ToSize(1));
         if (next == null || !next.Equals(backdrop, b))
         {
             Add(new DrawBackdropRenderNode(backdrop, b));

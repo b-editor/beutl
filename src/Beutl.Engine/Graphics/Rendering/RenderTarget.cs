@@ -112,18 +112,19 @@ public class RenderTarget : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private sealed class SKSurfaceCounter(SKSurface value) : IDisposable
+    private sealed class SKSurfaceCounter : IDisposable
     {
         private readonly Dispatcher? _dispatcher = Dispatcher.Current;
         private volatile int _refs = 1;
 
-        public SKSurface? Value { get; private set; } = value;
-        
-        public SKSurfaceCounter()
+        public SKSurfaceCounter(SKSurface value)
         {
+            Value = value;
             MemoryManagement.TrackSkiaObject(value);
             MemoryManagement.TrackDisposable(this, DisposableCategory.Graphics);
         }
+
+        public SKSurface? Value { get; private set; }
 
         public int RefCount => _refs;
 
@@ -188,7 +189,7 @@ public class RenderTarget : IDisposable
                 old = current;
             }
         }
-        
+
         public void Dispose()
         {
             Release();

@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Beutl3DTest.MainWindow"
+        Width="1024"
+        Height="768"
+        Title="Beutl 3D Rendering Test"
+        Icon="/Assets/avalonia-logo.ico">
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        
+        <!-- Control Panel -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10" Spacing="10">
+            <Button Name="InitializeButton" Content="Initialize 3D" Click="InitializeButton_Click" />
+            <Button Name="RenderSceneButton" Content="Render Scene" Click="RenderSceneButton_Click" IsEnabled="False" />
+            <ComboBox Name="BackendComboBox" PlaceholderText="Select Backend" Width="150" />
+            <TextBlock Name="StatusText" Text="Not Initialized" VerticalAlignment="Center" />
+        </StackPanel>
+        
+        <!-- 3D Viewport -->
+        <Border Grid.Row="1" Background="Black" Margin="10">
+            <Canvas Name="RenderCanvas" Background="DarkGray" />
+        </Border>
+        
+        <!-- Info Panel -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10" Spacing="10">
+            <TextBlock Name="RendererInfo" Text="Renderer: None" />
+            <TextBlock Name="FrameInfo" Text="FPS: 0" />
+            <TextBlock Name="StatsInfo" Text="Triangles: 0" />
+        </StackPanel>
+    </Grid>
+</Window>

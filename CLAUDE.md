@@ -34,7 +34,7 @@ dotnet run --project src/Beutl/Beutl.csproj
 
 ### Core Libraries (Foundation)
 - **Beutl.Core**: Reactive object model, serialization, command/undo system, property framework
-- **Beutl.Engine**: Graphics rendering pipeline, animation system, media processing
+- **Beutl.Engine**: Graphics rendering pipeline, animation system, media processing, **3D rendering system**
 - **Beutl.ProjectSystem**: Project management, node-based operations, scene composition
 
 ### Extension System
