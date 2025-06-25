@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Beutl.Audio.Graph.Exceptions;
 
 namespace Beutl.Audio.Graph;
 
@@ -15,10 +16,10 @@ public sealed class AudioGraphBuilder
         ArgumentNullException.ThrowIfNull(node);
         
         if (_built)
-            throw new InvalidOperationException("Cannot add nodes after the graph has been built.");
+            throw new AudioGraphBuildException("Cannot add nodes after the graph has been built.");
         
         if (_nodes.Contains(node))
-            throw new InvalidOperationException("Node has already been added to this builder.");
+            throw new AudioGraphBuildException("Node has already been added to this builder.");
         
         _nodes.Add(node);
         return node;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Beutl.Audio.Graph.Exceptions;
 
 namespace Beutl.Audio.Graph;
 
@@ -36,7 +37,7 @@ public sealed class AudioGraph : IDisposable
         {
             // Clear caches on error to prevent inconsistent state
             ClearCaches();
-            throw new AudioProcessingException("Error processing audio graph.", ex);
+            throw new AudioGraphException("Error processing audio graph.", ex);
         }
     }
 
@@ -72,13 +73,3 @@ public sealed class AudioGraph : IDisposable
     }
 }
 
-public class AudioProcessingException : Exception
-{
-    public AudioProcessingException(string message) : base(message)
-    {
-    }
-
-    public AudioProcessingException(string message, Exception innerException) : base(message, innerException)
-    {
-    }
-}
