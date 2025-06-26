@@ -1,28 +1,29 @@
-﻿using Beutl.Animation;
+﻿using System;
+using Beutl.Animation;
 using Beutl.Audio.Effects;
+using Beutl.Audio.Graph;
+using Beutl.Audio.Graph.Animation;
+using Beutl.Audio.Graph.Exceptions;
+using Beutl.Audio.Graph.Nodes;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
+using Beutl.Media.Source;
 
 namespace Beutl.Audio;
-
-// Animationに対応させる (手動)
 
 public abstract class Sound : Renderable
 {
     public static readonly CoreProperty<float> GainProperty;
     public static readonly CoreProperty<float> SpeedProperty;
     public static readonly CoreProperty<ISoundEffect?> EffectProperty;
+    
     private float _gain = 100;
     private float _speed = 100;
-    // 現在の再生位置が前の再生位置よりも戻った場合、エフェクトプロセッサを無効にするために使用
-    private TimeRange _prevRange;
-    private TimeRange _range;
-    private TimeSpan _offset;
     private ISoundEffect? _effect;
-    private ISoundProcessor? _effectProcessor;
-    private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
+    private AudioGraph? _cachedGraph;
+    private int _cacheVersion = -1;
 
     static Sound()
     {
@@ -51,16 +52,8 @@ public abstract class Sound : Renderable
 
     private void OnInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        if (e.PropertyName is nameof(Effect))
-        {
-            InvalidateEffectProcessor();
-        }
-    }
-
-    private void InvalidateEffectProcessor()
-    {
-        _effectProcessor?.Dispose();
-        _effectProcessor = null;
+        // Invalidate cached graph when properties change
+        _cacheVersion = -1;
     }
 
     public float Gain
@@ -83,48 +76,140 @@ public abstract class Sound : Renderable
         set => SetAndRaise(EffectProperty, ref _effect, value);
     }
 
+    protected abstract ISoundSource? GetSoundSource();
+
+    protected virtual void BuildAudioGraph(AudioGraphBuilder builder, AudioNode currentNode)
+    {
+        // Default implementation - derived classes can override to customize
+    }
+
+    public AudioGraph GetOrBuildGraph()
+    {
+        var currentVersion = GetHashCode();
+        
+        if (_cachedGraph != null && _cacheVersion == currentVersion)
+            return _cachedGraph;
+
+        var builder = new AudioGraphBuilder();
+
+        try
+        {
+            var soundSource = GetSoundSource();
+            if (soundSource == null)
+                throw new AudioGraphBuildException("Sound source is not available");
+
+            // Create source node
+            var sourceNode = builder.AddNode(new SourceNode
+            {
+                Source = soundSource,
+                SourceName = GetType().Name
+            });
+
+            // Create gain node with animation support
+            var gainNode = builder.AddNode(new GainNode
+            {
+                Target = this,
+                GainProperty = GainProperty
+            });
+
+            // Connect source to gain
+            builder.Connect(sourceNode, gainNode);
+
+            AudioNode currentNode = gainNode;
+
+            // Add effect if present
+            if (_effect != null && _effect.IsEnabled)
+            {
+                var effectNode = builder.AddNode(new EffectNode
+                {
+                    Effect = _effect
+                });
+
+                builder.Connect(currentNode, effectNode);
+                currentNode = effectNode;
+            }
+
+            // Allow derived classes to add custom processing
+            BuildAudioGraph(builder, currentNode);
+
+            // Set the final output
+            builder.SetOutput(currentNode);
+
+            // Build and cache the graph
+            _cachedGraph?.Dispose();
+            _cachedGraph = builder.Build();
+            _cacheVersion = currentVersion;
+
+            return _cachedGraph;
+        }
+        catch (Exception ex)
+        {
+            throw new AudioGraphBuildException($"Failed to build audio graph for {GetType().Name}", ex);
+        }
+    }
+
     public Pcm<Stereo32BitFloat> ToPcm(int sampleRate)
     {
-        using (var audio = new Audio(sampleRate))
-        using (audio.PushGain(_gain / 100f))
-        using (audio.PushOffset(_offset))
-        {
-            OnRecord(audio, _range);
+        return Render(new TimeRange(TimeSpan.Zero, Duration), sampleRate);
+    }
 
-            return audio.GetPcm();
+    public Pcm<Stereo32BitFloat> Render(TimeRange range, int sampleRate)
+    {
+        var graph = GetOrBuildGraph();
+        var animationSampler = new AnimationSampler();
+
+        // Prepare animations
+        animationSampler.PrepareAnimations(this, range, sampleRate);
+
+        // Create processing context
+        var context = new AudioProcessContext(range, sampleRate, animationSampler);
+
+        try
+        {
+            using var buffer = graph.Process(context);
+            return ConvertToStereo32BitFloat(buffer);
+        }
+        catch (Exception ex)
+        {
+            throw new AudioGraphException($"Failed to render audio for {GetType().Name}", ex);
         }
     }
 
     public void Render(IAudio audio)
     {
-        if (_prevRange.Start > _range.Start)
-        {
-            InvalidateEffectProcessor();
-        }
+        // For compatibility with existing code
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        using var pcm = Render(range, audio.SampleRate);
+        audio.Write(pcm);
+    }
 
-        if (_effect is { IsEnabled: true } effect)
-        {
-            _effectProcessor ??= effect.CreateProcessor();
+    private static unsafe Pcm<Stereo32BitFloat> ConvertToStereo32BitFloat(AudioBuffer buffer)
+    {
+        var pcm = new Pcm<Stereo32BitFloat>(buffer.SampleRate, buffer.SampleCount);
+        var pcmPtr = (Stereo32BitFloat*)pcm.Data;
 
-            Pcm<Stereo32BitFloat> pcm = ToPcm(audio.SampleRate);
-            _effectProcessor.Process(in pcm, out Pcm<Stereo32BitFloat>? outPcm);
-            if (pcm != outPcm)
+        if (buffer.ChannelCount == 1)
+        {
+            // Mono to stereo
+            var monoChannel = buffer.GetChannelData(0);
+            for (int i = 0; i < buffer.SampleCount; i++)
             {
-                pcm.Dispose();
-            }
-
-            audio.RecordPcm(outPcm);
-
-            outPcm.Dispose();
-        }
-        else
-        {
-            using (audio.PushGain(_gain / 100f))
-            using (audio.PushOffset(_offset))
-            {
-                OnRecord(audio, _range);
+                float sample = monoChannel[i];
+                pcmPtr[i] = new Stereo32BitFloat(sample, sample);
             }
         }
+        else if (buffer.ChannelCount >= 2)
+        {
+            // Stereo or multi-channel (take first two channels)
+            var leftChannel = buffer.GetChannelData(0);
+            var rightChannel = buffer.GetChannelData(1);
+            for (int i = 0; i < buffer.SampleCount; i++)
+            {
+                pcmPtr[i] = new Stereo32BitFloat(leftChannel[i], rightChannel[i]);
+            }
+        }
+
+        return pcm;
     }
 
     protected abstract void OnRecord(IAudio audio, TimeRange range);
@@ -136,34 +221,38 @@ public abstract class Sound : Renderable
 
     protected abstract TimeSpan TimeCore(TimeSpan available);
 
-    private void UpdateTime(IClock clock)
-    {
-        TimeSpan start = clock.AudioStartTime;
-        TimeSpan length;
-
-        if (start < TimeSpan.Zero)
-        {
-            _offset = start.Negate();
-            length = s_second + start;
-            start = TimeSpan.Zero;
-        }
-        else
-        {
-            _offset = TimeSpan.Zero;
-            length = clock.DurationTime - start;
-            if (length > s_second)
-            {
-                length = s_second;
-            }
-        }
-
-        _prevRange = _range;
-        _range = new TimeRange(start, length);
-    }
-
     public override void ApplyAnimations(IClock clock)
     {
         base.ApplyAnimations(clock);
-        UpdateTime(clock);
+        // No need for UpdateTime - the graph system handles time management
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _cachedGraph?.Dispose();
+            _cachedGraph = null;
+            _effect?.Dispose();
+        }
+        
+        base.Dispose(disposing);
+    }
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(_gain);
+        hash.Add(_speed);
+        hash.Add(_effect?.GetHashCode() ?? 0);
+        hash.Add(GetSoundSource()?.GetHashCode() ?? 0);
+        
+        // Include animation state
+        foreach (var animation in Animations)
+        {
+            hash.Add(animation.GetHashCode());
+        }
+        
+        return hash.ToHashCode();
     }
 }
