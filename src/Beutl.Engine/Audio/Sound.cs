@@ -83,6 +83,32 @@ public abstract class Sound : Renderable
         // Default implementation - derived classes can override to customize
     }
 
+    public virtual AudioNode Compose(AudioContext context)
+    {
+        var soundSource = GetSoundSource();
+        if (soundSource == null)
+            throw new AudioGraphBuildException("Sound source is not available");
+
+        // Create source node
+        var sourceNode = context.CreateSourceNode(soundSource);
+
+        // Create gain node with animation support
+        var gainNode = context.CreateGainNode(Gain / 100f);
+        context.Connect(sourceNode, gainNode);
+
+        AudioNode currentNode = gainNode;
+
+        // Add effect if present
+        if (_effect != null && _effect.IsEnabled)
+        {
+            var effectNode = context.CreateEffectNode(_effect);
+            context.Connect(currentNode, effectNode);
+            currentNode = effectNode;
+        }
+
+        return currentNode;
+    }
+
     public AudioGraph GetOrBuildGraph()
     {
         var currentVersion = GetHashCode();

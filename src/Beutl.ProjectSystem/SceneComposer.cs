@@ -3,6 +3,7 @@
 using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
+using Beutl.Audio.Graph;
 using Beutl.Collections.Pooled;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -18,11 +19,8 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
     private readonly List<Element> _current = [];
     private TimeRange _lastTime = new(TimeSpan.MinValue, default);
 
-    protected override void ComposeCore(Audio.Audio audio)
+    protected override void ComposeCore(AudioContext context)
     {
-        base.ComposeCore(audio);
-        audio.Clear();
-
         IClock clock = Clock;
         var timeSpan = new TimeRange(clock.AudioStartTime, TimeSpan.FromSeconds(1));
         SortLayers(timeSpan, out _);
@@ -40,18 +38,42 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
             EnterSourceOperators(item);
         }
 
+        // Create a mixer node if we have multiple sounds
+        MixerNode? mixer = null;
+        var soundNodes = new List<AudioNode>();
+
         foreach (Element element in elements)
         {
             using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Audio, clock, renderer))
             {
                 foreach (Renderable item in list.Span)
                 {
-                    if (item is Sound sound)
+                    if (item is Sound sound && sound.IsEnabled)
                     {
-                        sound.Render(audio);
+                        // Apply animations
+                        sound.ApplyAnimations(clock);
+                        
+                        // Compose the sound into the context
+                        var soundNode = sound.Compose(context);
+                        soundNodes.Add(soundNode);
                     }
                 }
             }
+        }
+
+        // Connect all sound nodes to mixer or mark as output
+        if (soundNodes.Count > 1)
+        {
+            mixer = context.CreateMixerNode();
+            foreach (var node in soundNodes)
+            {
+                context.Connect(node, mixer);
+            }
+            context.MarkAsOutput(mixer);
+        }
+        else if (soundNodes.Count == 1)
+        {
+            context.MarkAsOutput(soundNodes[0]);
         }
 
         _lastTime = timeSpan;

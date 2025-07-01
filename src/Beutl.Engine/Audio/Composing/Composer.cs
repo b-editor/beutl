@@ -16,6 +16,7 @@ namespace Beutl.Audio.Composing;
 public class Composer : IComposer
 {
     private readonly List<Sound> _sounds = new();
+    private readonly List<AudioNode> _nodes = new();
     private readonly AnimationSampler _animationSampler = new();
     private readonly InstanceClock _instanceClock = new();
     private bool _disposed;
@@ -64,6 +65,28 @@ public class Composer : IComposer
         _sounds.Clear();
     }
 
+    public void AddNode(AudioNode node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        
+        _nodes.Add(node);
+    }
+
+    public void RemoveNode(AudioNode node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        
+        _nodes.Remove(node);
+    }
+
+    public void ClearNodes()
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        _nodes.Clear();
+    }
+
     public void Dispose()
     {
         if (!IsDisposed)
@@ -75,10 +98,50 @@ public class Composer : IComposer
         }
     }
 
-    protected virtual void ComposeCore(Beutl.Audio.Audio audio)
+    protected virtual void ComposeCore(AudioContext context)
     {
-        // Legacy method kept for compatibility
-        // New implementation uses graph-based processing
+        // Default implementation: build nodes from sounds
+        // Subclasses should override this to build custom audio graphs
+        
+        if (_sounds.Count == 0)
+            return;
+            
+        // Create a mixer node if we have multiple sounds
+        MixerNode? mixer = _sounds.Count > 1 ? context.CreateMixerNode() : null;
+        
+        foreach (var sound in _sounds.Where(s => s.IsEnabled))
+        {
+            // Apply animations
+            sound.ApplyAnimations(_instanceClock);
+            
+            // Get the sound's graph
+            var soundGraph = sound.GetOrBuildGraph();
+            if (soundGraph == null)
+                continue;
+                
+            // Add the graph's output to context
+            var outputNode = soundGraph.OutputNode;
+            context.AddNode(outputNode);
+            
+            // Apply gain
+            var gainNode = context.CreateGainNode(sound.Gain / 100f);
+            context.Connect(outputNode, gainNode);
+            
+            if (mixer != null)
+            {
+                context.Connect(gainNode, mixer);
+            }
+            else
+            {
+                // Single sound, mark gain node as output
+                context.MarkAsOutput(gainNode);
+            }
+        }
+        
+        if (mixer != null)
+        {
+            context.MarkAsOutput(mixer);
+        }
     }
 
     public Pcm<Stereo32BitFloat>? Compose(TimeSpan timeSpan)
@@ -90,9 +153,15 @@ public class Composer : IComposer
                 IsAudioRendering = true;
                 _instanceClock.AudioStartTime = timeSpan;
                 
-                // Use new graph-based composition
+                // Create audio context
+                using var context = new AudioContext(SampleRate, 2);
+                
+                // Let subclass build the audio graph
+                ComposeCore(context);
+                
+                // Build and process the graph
                 var range = new TimeRange(timeSpan, TimeSpan.FromSeconds(1));
-                return ComposeInternal(range, SampleRate);
+                return ComposeWithContext(context, range);
             }
             finally
             {
@@ -105,49 +174,31 @@ public class Composer : IComposer
         }
     }
 
-    private Pcm<Stereo32BitFloat> ComposeInternal(TimeRange range, int sampleRate)
+    private Pcm<Stereo32BitFloat> ComposeWithContext(AudioContext context, TimeRange range)
     {
-        if (_sounds.Count == 0)
-        {
-            // Return silence
-            var sampleCount = (int)(range.Duration.TotalSeconds * sampleRate);
-            return new Pcm<Stereo32BitFloat>(sampleRate, sampleCount);
-        }
-
         try
         {
-            var sampleCount = (int)(range.Duration.TotalSeconds * sampleRate);
+            // Build the audio graph from context
+            var graph = context.BuildGraph();
             
-            // Create master output buffer
-            using var masterBuffer = new AudioBuffer(sampleRate, 2, sampleCount);
-            masterBuffer.Clear();
-
-            // Process each sound
-            foreach (var sound in _sounds.Where(s => s.IsEnabled))
+            // Create process context
+            var sampleCount = (int)(range.Duration.TotalSeconds * context.SampleRate);
+            var processContext = new AudioProcessContext
             {
-                try
-                {
-                    // Apply animations
-                    sound.ApplyAnimations(_instanceClock);
-                    
-                    // Render sound using graph system
-                    using var soundPcm = sound.Render(range, sampleRate);
-                    
-                    // Mix into master buffer
-                    MixPcmIntoBuffer(soundPcm, masterBuffer, sound.Gain / 100f);
-                }
-                catch (Exception ex)
-                {
-                    // Log error but continue with other sounds
-                    Console.WriteLine($"Warning: Failed to render sound {sound.GetType().Name}: {ex.Message}");
-                }
-            }
-
-            // Apply master effects if any
-            ApplyMasterEffects(masterBuffer);
-
+                SampleRate = context.SampleRate,
+                SampleCount = sampleCount,
+                StartTime = range.Start,
+                EndTime = range.End
+            };
+            
+            // Process the graph
+            using var outputBuffer = graph.Process(processContext);
+            
+            // Apply master effects
+            ApplyMasterEffects(outputBuffer);
+            
             // Convert to output format
-            return ConvertToStereo32BitFloat(masterBuffer);
+            return ConvertToStereo32BitFloat(outputBuffer);
         }
         catch (Exception ex)
         {
@@ -218,6 +269,12 @@ public class Composer : IComposer
                 sound.Dispose();
             }
             _sounds.Clear();
+            
+            foreach (var node in _nodes)
+            {
+                node.Dispose();
+            }
+            _nodes.Clear();
         }
     }
 }
