@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Beutl.Audio.Graph.Effects;
+using Beutl.Audio.Graph.Nodes;
+using Beutl.Media.Source;
 
 namespace Beutl.Audio.Graph;
 

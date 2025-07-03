@@ -13,7 +13,7 @@ using Beutl.Media.Source;
 
 namespace Beutl.Audio;
 
-public abstract class Sound : Renderable
+public abstract class Sound : Renderable, IDisposable
 {
     public static readonly CoreProperty<float> GainProperty;
     public static readonly CoreProperty<float> SpeedProperty;
@@ -24,6 +24,7 @@ public abstract class Sound : Renderable
     private ISoundEffect? _effect;
     private AudioGraph? _cachedGraph;
     private int _cacheVersion = -1;
+    private bool _isDisposed;
 
     static Sound()
     {
@@ -48,6 +49,15 @@ public abstract class Sound : Renderable
     public Sound()
     {
         Invalidated += OnInvalidated;
+    }
+
+    ~Sound()
+    {
+        if (!_isDisposed)
+        {
+            OnDispose(false);
+            _isDisposed = true;
+        }
     }
 
     private void OnInvalidated(object? sender, RenderInvalidatedEventArgs e)
@@ -75,6 +85,8 @@ public abstract class Sound : Renderable
         get => _effect;
         set => SetAndRaise(EffectProperty, ref _effect, value);
     }
+
+    public bool IsDisposed => _isDisposed;
 
     protected abstract ISoundSource? GetSoundSource();
 
@@ -253,16 +265,25 @@ public abstract class Sound : Renderable
         // No need for UpdateTime - the graph system handles time management
     }
 
-    protected override void Dispose(bool disposing)
+    public void Dispose()
+    {
+        if (!_isDisposed)
+        {
+            OnDispose(true);
+            _isDisposed = true;
+            GC.SuppressFinalize(this);
+        }
+    }
+
+    protected virtual void OnDispose(bool disposing)
     {
         if (disposing)
         {
             _cachedGraph?.Dispose();
             _cachedGraph = null;
             _effect?.Dispose();
+            Invalidated = null;
         }
-        
-        base.Dispose(disposing);
     }
 
     public override int GetHashCode()

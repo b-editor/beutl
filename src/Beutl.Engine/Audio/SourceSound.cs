@@ -97,7 +97,7 @@ public sealed class SourceSound : Sound
         return hash.ToHashCode();
     }
 
-    protected override void Dispose(bool disposing)
+    protected override void OnDispose(bool disposing)
     {
         if (disposing)
         {
@@ -105,6 +105,6 @@ public sealed class SourceSound : Sound
             _source = null;
         }
         
-        base.Dispose(disposing);
+        base.OnDispose(disposing);
     }
 }
