@@ -13,18 +13,15 @@ using Beutl.Media.Source;
 
 namespace Beutl.Audio;
 
-public abstract class Sound : Renderable, IDisposable
+public abstract class Sound : Renderable
 {
     public static readonly CoreProperty<float> GainProperty;
     public static readonly CoreProperty<float> SpeedProperty;
     public static readonly CoreProperty<IAudioEffect?> EffectProperty;
-    
+
     private float _gain = 100;
     private float _speed = 100;
     private IAudioEffect? _effect;
-    private AudioGraph? _cachedGraph;
-    private int _cacheVersion = -1;
-    private bool _isDisposed;
 
     static Sound()
     {
@@ -51,19 +48,11 @@ public abstract class Sound : Renderable, IDisposable
         Invalidated += OnInvalidated;
     }
 
-    ~Sound()
-    {
-        if (!_isDisposed)
-        {
-            OnDispose(false);
-            _isDisposed = true;
-        }
-    }
 
     private void OnInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        // Invalidate cached graph when properties change
-        _cacheVersion = -1;
+        // Notify any external cache that this sound has changed
+        // The Composer will handle cache invalidation
     }
 
     public float Gain
@@ -86,7 +75,6 @@ public abstract class Sound : Renderable, IDisposable
         set => SetAndRaise(EffectProperty, ref _effect, value);
     }
 
-    public bool IsDisposed => _isDisposed;
 
     protected abstract ISoundSource? GetSoundSource();
 
@@ -121,13 +109,8 @@ public abstract class Sound : Renderable, IDisposable
         return currentNode;
     }
 
-    public AudioGraph GetOrBuildGraph()
+    public AudioGraph BuildGraph()
     {
-        var currentVersion = GetHashCode();
-        
-        if (_cachedGraph != null && _cacheVersion == currentVersion)
-            return _cachedGraph;
-
         var builder = new AudioGraphBuilder();
 
         try
@@ -173,12 +156,8 @@ public abstract class Sound : Renderable, IDisposable
             // Set the final output
             builder.SetOutput(currentNode);
 
-            // Build and cache the graph
-            _cachedGraph?.Dispose();
-            _cachedGraph = builder.Build();
-            _cacheVersion = currentVersion;
-
-            return _cachedGraph;
+            // Build the graph
+            return builder.Build();
         }
         catch (Exception ex)
         {
@@ -193,7 +172,9 @@ public abstract class Sound : Renderable, IDisposable
 
     public Pcm<Stereo32BitFloat> Render(TimeRange range, int sampleRate)
     {
-        var graph = GetOrBuildGraph();
+        // Build a new graph for standalone rendering
+        // For composed audio, the Composer will handle graph management
+        using var graph = BuildGraph();
         var animationSampler = new AnimationSampler();
 
         // Prepare animations
@@ -265,24 +246,9 @@ public abstract class Sound : Renderable, IDisposable
         // No need for UpdateTime - the graph system handles time management
     }
 
-    public void Dispose()
+    internal int GetCacheKey()
     {
-        if (!_isDisposed)
-        {
-            OnDispose(true);
-            _isDisposed = true;
-            GC.SuppressFinalize(this);
-        }
-    }
-
-    protected virtual void OnDispose(bool disposing)
-    {
-        if (disposing)
-        {
-            _cachedGraph?.Dispose();
-            _cachedGraph = null;
-            // Event handlers are automatically cleaned up
-        }
+        return GetHashCode();
     }
 
     public override int GetHashCode()
@@ -292,13 +258,13 @@ public abstract class Sound : Renderable, IDisposable
         hash.Add(_speed);
         hash.Add(_effect?.GetHashCode() ?? 0);
         hash.Add(GetSoundSource()?.GetHashCode() ?? 0);
-        
+
         // Include animation state
         foreach (var animation in Animations)
         {
             hash.Add(animation.GetHashCode());
         }
-        
+
         return hash.ToHashCode();
     }
 }

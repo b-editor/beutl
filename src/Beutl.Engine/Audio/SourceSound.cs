@@ -97,14 +97,9 @@ public sealed class SourceSound : Sound
         return hash.ToHashCode();
     }
 
-    protected override void OnDispose(bool disposing)
+    internal void DisposeSource()
     {
-        if (disposing)
-        {
-            _source?.Dispose();
-            _source = null;
-        }
-        
-        base.OnDispose(disposing);
+        _source?.Dispose();
+        _source = null;
     }
 }
