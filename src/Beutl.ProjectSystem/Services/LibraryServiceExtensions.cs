@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Effects;
+using Beutl.Audio.Graph.Effects;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
@@ -58,6 +59,12 @@ public static class LibraryServiceExtensions
         where T : SoundEffect
     {
         return self.Bind<T>(KnownLibraryItemFormats.SoundEffect);
+    }
+
+    public static MultipleTypeLibraryItem BindAudioEffect<T>(this MultipleTypeLibraryItem self)
+        where T : IAudioEffect
+    {
+        return self.Bind<T>(KnownLibraryItemFormats.AudioEffect);
     }
 
     public static MultipleTypeLibraryItem BindBrush<T>(this MultipleTypeLibraryItem self)
@@ -118,6 +125,12 @@ public static class LibraryServiceExtensions
         where T : SoundEffect
     {
         return self.Add<T>(KnownLibraryItemFormats.SoundEffect, displayName, description);
+    }
+
+    public static GroupLibraryItem AddAudioEffect<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : IAudioEffect
+    {
+        return self.Add<T>(KnownLibraryItemFormats.AudioEffect, displayName, description);
     }
 
     public static GroupLibraryItem AddBrush<T>(this GroupLibraryItem self, string displayName, string? description = null)

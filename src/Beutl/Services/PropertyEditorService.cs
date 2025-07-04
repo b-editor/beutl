@@ -8,6 +8,7 @@ using Avalonia.Styling;
 
 using Beutl.Api.Services;
 using Beutl.Audio.Effects;
+using Beutl.Audio.Graph.Effects;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -143,6 +144,7 @@ public static class PropertyEditorService
             { typeof(PathSegment), new(_ => new PathOperationListItemEditor(), s => new PathOperationEditorViewModel(s.ToTyped<PathSegment?>())) },
             { typeof(PathFigure), new(_ => new PathFigureListItemEditor(), s => new PathFigureEditorViewModel(s.ToTyped<PathFigure>())) },
             { typeof(ISoundEffect), new(_ => new SoundEffectListItemEditor(), s => new SoundEffectEditorViewModel(s.ToTyped<ISoundEffect?>())) },
+            { typeof(IAudioEffect), new(_ => new AudioEffectListItemEditor(), s => new AudioEffectViewModelAdapter(s.ToTyped<IAudioEffect?>())) },
             { typeof(ITransform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) },
             { typeof(ICoreObject), new(CreateCoreObjectListItemEditor, CreateCoreObjectEditorViewModel) }
         };
@@ -206,6 +208,7 @@ public static class PropertyEditorService
             new(typeof(FilterEffect), new(_ => new FilterEffectEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>()))),
             new(typeof(Geometry), new(_ => new GeometryEditor(), s => new GeometryEditorViewModel(s.ToTyped<Geometry?>()))),
             new(typeof(ISoundEffect), new(_ => new SoundEffectEditor(), s => new SoundEffectEditorViewModel(s.ToTyped<ISoundEffect?>()))),
+            new(typeof(IAudioEffect), new(_ => new AudioEffectEditor(), s => new AudioEffectViewModelAdapter(s.ToTyped<IAudioEffect?>()))),
             new(typeof(ITransform), new(_ => new TransformEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>()))),
             new(typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>()))),
             new(typeof(DisplacementMapTransform), new(_ => new DisplacementMapTransformEditor(), s => new DisplacementMapTransformEditorViewModel(s.ToTyped<DisplacementMapTransform?>()))),

@@ -178,6 +178,7 @@ public static class KnownLibraryItemFormats
     public const string Transform = "Beutl.Graphics.Transformation.Transform";
     public const string FilterEffect = "Beutl.Graphics.Effects.FilterEffect";
     public const string SoundEffect = "Beutl.Audio.Effects.SoundEffect";
+    public const string AudioEffect = "Beutl.Audio.Graph.Effects.AudioEffect";
     public const string Brush = "Beutl.Media.Brush";
     public const string Easing = "Beutl.Animation.Easings.Easing";
     public const string Geometry = "Beutl.Media.Geometry";
