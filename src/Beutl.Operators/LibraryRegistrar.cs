@@ -155,13 +155,13 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
-            .RegisterGroup("SoundEffect", g => g
-                .AddSoundEffect<Delay>("Delay")
+            .RegisterGroup("Audio Effect", g => g
+                .AddAudioEffect<AudioDelayEffect>("Delay")
             );
 
         LibraryService.Current
-            .RegisterGroup("Audio Effect (New)", g => g
-                .AddAudioEffect<AudioDelayEffect>("Delay (New)")
+            .RegisterGroup("SoundEffect (Legacy)", g => g
+                .AddSoundEffect<Delay>("Delay (Legacy)")
             );
     }
 }

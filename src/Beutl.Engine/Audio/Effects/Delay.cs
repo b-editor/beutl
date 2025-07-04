@@ -76,6 +76,7 @@ internal sealed unsafe class SimpleCircularBuffer<T> : IDisposable
     }
 }
 
+[Obsolete("DelayエフェクトはAudioDelayEffectに移行されました。新しいIAudioEffectベースのAPIを使用してください。", false)]
 public sealed class Delay : SoundEffect
 {
     public static readonly CoreProperty<float> DelayTimeProperty;

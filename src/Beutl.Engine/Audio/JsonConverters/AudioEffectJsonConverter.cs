@@ -14,7 +14,7 @@ public sealed class AudioEffectJsonConverter : JsonConverter<IAudioEffect>
 {
     private static readonly Dictionary<string, string> s_typeMapping = new()
     {
-        // Map old types to new types when possible
+        // Map old ISoundEffect types to new IAudioEffect types
         ["Beutl.Audio.Effects.Delay"] = "Beutl.Audio.Graph.Effects.AudioDelayEffect",
         // Add more mappings as needed for other effect types
     };
