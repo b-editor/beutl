@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Beutl.Animation;
 using Beutl.Audio.Graph.Effects;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Media.Source;
@@ -84,11 +85,17 @@ public sealed class AudioContext : IDisposable
     /// </summary>
     /// <param name="gain">The gain value.</param>
     /// <returns>The created gain node.</returns>
-    public GainNode CreateGainNode(float gain = 1.0f)
+    public GainNode CreateGainNode(float gain = 1.0f, IAnimatable? target = null, CoreProperty<float>? gainProperty = null)
     {
         ThrowIfDisposed();
+        ArgumentOutOfRangeException.ThrowIfNegative(gain, nameof(gain));
 
-        var node = new GainNode { StaticGain = gain };
+        var node = new GainNode
+        {
+            StaticGain = gain,
+            Target = target,
+            GainProperty = gainProperty
+        };
         return AddNode(node);
     }
 
@@ -203,8 +210,8 @@ public sealed class AudioContext : IDisposable
         ThrowIfDisposed();
 
         // Determine output nodes
-        var outputs = _outputNodes.Count > 0 
-            ? _outputNodes.ToList() 
+        var outputs = _outputNodes.Count > 0
+            ? _outputNodes.ToList()
             : _nodes.Where(node => !_connections.Values.Any(list => list.Contains(node))).ToList();
 
         if (outputs.Count == 0)
@@ -228,13 +235,13 @@ public sealed class AudioContext : IDisposable
 
         // Build the graph
         var builder = new AudioGraphBuilder();
-        
+
         // Add all nodes to the builder
         foreach (var node in _nodes)
         {
             builder.AddNode(node);
         }
-        
+
         // Add all connections
         foreach (var (source, destinations) in _connections)
         {
@@ -243,7 +250,7 @@ public sealed class AudioContext : IDisposable
                 builder.Connect(source, destination);
             }
         }
-        
+
         // Set the output node
         builder.SetOutput(finalOutput);
 

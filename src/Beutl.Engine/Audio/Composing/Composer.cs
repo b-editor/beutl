@@ -15,11 +15,8 @@ namespace Beutl.Audio.Composing;
 
 public class Composer : IComposer
 {
-    private readonly List<Sound> _sounds = new();
-    private readonly List<AudioNode> _nodes = new();
     private readonly AnimationSampler _animationSampler = new();
     private readonly InstanceClock _instanceClock = new();
-    private readonly Dictionary<Sound, (AudioGraph Graph, int CacheKey)> _graphCache = new();
 
     public Composer()
     {
@@ -43,81 +40,6 @@ public class Composer : IComposer
 
     public bool IsAudioRendering { get; private set; }
 
-    public void AddSound(Sound sound)
-    {
-        ArgumentNullException.ThrowIfNull(sound);
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-
-        _sounds.Add(sound);
-        // Cache will be populated on-demand during composition
-    }
-
-    public void RemoveSound(Sound sound)
-    {
-        ArgumentNullException.ThrowIfNull(sound);
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-
-        // Clean up cached graph for this sound
-        if (_graphCache.TryGetValue(sound, out var cached))
-        {
-            cached.Graph.Dispose();
-            _graphCache.Remove(sound);
-        }
-
-        // Dispose source if it's a SourceSound
-        if (sound is SourceSound sourceSound)
-        {
-            sourceSound.DisposeSource();
-        }
-
-        _sounds.Remove(sound);
-    }
-
-    public void ClearSounds()
-    {
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-
-        // Clean up all cached graphs
-        foreach (var (graph, _) in _graphCache.Values)
-        {
-            graph.Dispose();
-        }
-        _graphCache.Clear();
-
-        // Dispose sources for SourceSounds
-        foreach (var sound in _sounds)
-        {
-            if (sound is SourceSound sourceSound)
-            {
-                sourceSound.DisposeSource();
-            }
-        }
-
-        _sounds.Clear();
-    }
-
-    public void AddNode(AudioNode node)
-    {
-        ArgumentNullException.ThrowIfNull(node);
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-
-        _nodes.Add(node);
-    }
-
-    public void RemoveNode(AudioNode node)
-    {
-        ArgumentNullException.ThrowIfNull(node);
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-
-        _nodes.Remove(node);
-    }
-
-    public void ClearNodes()
-    {
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-        _nodes.Clear();
-    }
-
     public void Dispose()
     {
         if (!IsDisposed)
@@ -131,48 +53,6 @@ public class Composer : IComposer
 
     protected virtual void ComposeCore(AudioContext context)
     {
-        // Default implementation: build nodes from sounds
-        // Subclasses should override this to build custom audio graphs
-
-        if (_sounds.Count == 0)
-            return;
-
-        // Create a mixer node if we have multiple sounds
-        MixerNode? mixer = _sounds.Count > 1 ? context.CreateMixerNode() : null;
-
-        foreach (var sound in _sounds.Where(s => s.IsVisible))
-        {
-            // Apply animations
-            sound.ApplyAnimations(_instanceClock);
-
-            // Get or build the sound's graph with caching
-            var soundGraph = GetOrBuildSoundGraph(sound);
-            if (soundGraph == null)
-                continue;
-
-            // Add the graph's output to context
-            var outputNode = soundGraph.OutputNode;
-            context.AddNode(outputNode);
-
-            // Apply gain
-            var gainNode = context.CreateGainNode(sound.Gain / 100f);
-            context.Connect(outputNode, gainNode);
-
-            if (mixer != null)
-            {
-                context.Connect(gainNode, mixer);
-            }
-            else
-            {
-                // Single sound, mark gain node as output
-                context.MarkAsOutput(gainNode);
-            }
-        }
-
-        if (mixer != null)
-        {
-            context.MarkAsOutput(mixer);
-        }
     }
 
     public Pcm<Stereo32BitFloat>? Compose(TimeSpan timeSpan)
@@ -231,21 +111,6 @@ public class Composer : IComposer
         }
     }
 
-    private static unsafe void MixPcmIntoBuffer(Pcm<Stereo32BitFloat> pcm, AudioBuffer buffer, float gain)
-    {
-        var pcmPtr = (Stereo32BitFloat*)pcm.Data;
-        var leftChannel = buffer.GetChannelData(0);
-        var rightChannel = buffer.GetChannelData(1);
-
-        var mixLength = Math.Min(pcm.NumSamples, buffer.SampleCount);
-
-        for (int i = 0; i < mixLength; i++)
-        {
-            leftChannel[i] += pcmPtr[i].Left * gain;
-            rightChannel[i] += pcmPtr[i].Right * gain;
-        }
-    }
-
     private static void ApplyMasterEffects(AudioBuffer buffer)
     {
         // Apply master limiter to prevent clipping
@@ -285,63 +150,10 @@ public class Composer : IComposer
         return pcm;
     }
 
-    private AudioGraph? GetOrBuildSoundGraph(Sound sound)
-    {
-        var currentCacheKey = sound.GetCacheKey();
-
-        // Check if we have a valid cached graph
-        if (_graphCache.TryGetValue(sound, out var cached) && cached.CacheKey == currentCacheKey)
-        {
-            return cached.Graph;
-        }
-
-        // Dispose old graph if it exists
-        if (_graphCache.TryGetValue(sound, out var oldCached))
-        {
-            oldCached.Graph.Dispose();
-        }
-
-        // Build new graph
-        try
-        {
-            var newGraph = sound.BuildGraph();
-            _graphCache[sound] = (newGraph, currentCacheKey);
-            return newGraph;
-        }
-        catch
-        {
-            // Remove from cache if build failed
-            _graphCache.Remove(sound);
-            return null;
-        }
-    }
-
     protected virtual void OnDispose(bool disposing)
     {
         if (disposing)
         {
-            // Clean up all cached audio graphs
-            foreach (var (graph, _) in _graphCache.Values)
-            {
-                graph.Dispose();
-            }
-            _graphCache.Clear();
-
-            // Dispose sources for SourceSounds
-            foreach (var sound in _sounds)
-            {
-                if (sound is SourceSound sourceSound)
-                {
-                    sourceSound.DisposeSource();
-                }
-            }
-            _sounds.Clear();
-
-            foreach (var node in _nodes)
-            {
-                node.Dispose();
-            }
-            _nodes.Clear();
         }
     }
 }

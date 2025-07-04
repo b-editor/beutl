@@ -44,38 +44,6 @@ public sealed class SourceSound : Sound
         return _source;
     }
 
-    protected override void OnRecord(IAudio audio, TimeRange range)
-    {
-        // This method is kept for compatibility but the new graph system handles everything
-        // through GetSoundSource() and the graph processing
-        if (Source?.IsDisposed != false)
-            return;
-
-        // The graph system will handle offset position automatically
-        // This is only called for legacy compatibility
-        TimeSpan start = range.Start + OffsetPosition;
-        if (start >= TimeSpan.Zero)
-        {
-            if (Source.Read(start, range.Duration, out IPcm? pcm))
-            {
-                audio.Write(pcm);
-                pcm.Dispose();
-            }
-        }
-        else
-        {
-            TimeRange range2 = range.WithStart(start);
-            if (range2.End > TimeSpan.Zero)
-            {
-                if (Source.Read(TimeSpan.Zero, range2.End, out IPcm? pcm))
-                {
-                    audio.Write(pcm);
-                    pcm.Dispose();
-                }
-            }
-        }
-    }
-
     protected override TimeSpan TimeCore(TimeSpan available)
     {
         if (Source != null)
