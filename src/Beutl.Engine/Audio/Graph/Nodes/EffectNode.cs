@@ -1,5 +1,5 @@
 using System;
-using Beutl.Audio.Effects;
+using Beutl.Audio.Graph.Effects;
 using Beutl.Audio.Graph.Exceptions;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
@@ -8,11 +8,11 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class EffectNode : AudioNode
 {
-    private ISoundEffect? _effect;
-    private ISoundProcessor? _processor;
+    private IAudioEffect? _effect;
+    private IAudioEffectProcessor? _processor;
     private bool _needsReset = true;
 
-    public ISoundEffect? Effect
+    public IAudioEffect? Effect
     {
         get => _effect;
         set
@@ -46,61 +46,34 @@ public sealed class EffectNode : AudioNode
             _processor = _effect.CreateProcessor();
             _needsReset = true;
         }
+        
+        // Check if we need to prepare the processor
+        if (_needsReset)
+        {
+            _processor.Prepare(context.TimeRange, context.SampleRate);
+            _needsReset = false;
+        }
 
-        // Convert AudioBuffer to Pcm<Stereo32BitFloat> for existing processor
-        using var inputPcm = ConvertToPcm(input);
+        // Create output buffer
+        var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
         
         try
         {
-            // Process with existing ISoundProcessor interface
-            _processor.Process(in inputPcm, out var outputPcm);
-            
-            using (outputPcm)
-            {
-                // Convert back to AudioBuffer
-                return ConvertFromPcm(outputPcm, context.SampleRate);
-            }
+            // Process with the new graph-based effect processor
+            _processor.Process(input, output, context);
+            return output;
         }
         catch (Exception ex)
         {
+            output.Dispose();
             throw new AudioEffectException($"Error processing effect: {_effect.GetType().Name}", _effect.GetType().Name, this, ex);
         }
     }
 
-    private unsafe Pcm<Stereo32BitFloat> ConvertToPcm(AudioBuffer buffer)
+    public void ResetProcessor()
     {
-        if (buffer.ChannelCount != 2)
-            throw new NotSupportedException("Effect processing currently only supports stereo audio.");
-
-        var pcm = new Pcm<Stereo32BitFloat>(buffer.SampleRate, buffer.SampleCount);
-        var pcmPtr = (Stereo32BitFloat*)pcm.Data;
-        
-        var leftChannel = buffer.GetChannelData(0);
-        var rightChannel = buffer.GetChannelData(1);
-        
-        for (int i = 0; i < buffer.SampleCount; i++)
-        {
-            pcmPtr[i] = new Stereo32BitFloat(leftChannel[i], rightChannel[i]);
-        }
-        
-        return pcm;
-    }
-
-    private unsafe AudioBuffer ConvertFromPcm(Pcm<Stereo32BitFloat> pcm, int sampleRate)
-    {
-        var buffer = new AudioBuffer(sampleRate, 2, pcm.NumSamples);
-        var pcmPtr = (Stereo32BitFloat*)pcm.Data;
-        
-        var leftChannel = buffer.GetChannelData(0);
-        var rightChannel = buffer.GetChannelData(1);
-        
-        for (int i = 0; i < pcm.NumSamples; i++)
-        {
-            leftChannel[i] = pcmPtr[i].Left;
-            rightChannel[i] = pcmPtr[i].Right;
-        }
-        
-        return buffer;
+        _processor?.Reset();
+        _needsReset = true;
     }
 
     protected override void Dispose(bool disposing)

@@ -39,11 +39,16 @@ public sealed class AudioGraphBuilder
         if (!_nodes.Contains(to))
             throw new InvalidOperationException("Destination node must be added to the builder first.");
         
-        // Check for cycles
-        if (WouldCreateCycle(from, to))
-            throw new InvalidOperationException("Connection would create a cycle in the graph.");
-        
+        // First add the connection
         to.AddInput(from);
+        
+        // Then check for cycles after the connection is made
+        if (HasCycle())
+        {
+            // Remove the connection if it creates a cycle
+            to.RemoveInput(from);
+            throw new InvalidOperationException("Connection would create a cycle in the graph.");
+        }
     }
 
     public void SetOutput(AudioNode node)
@@ -74,32 +79,43 @@ public sealed class AudioGraphBuilder
         return new AudioGraph(_outputNode, sorted);
     }
 
-    private bool WouldCreateCycle(AudioNode from, AudioNode to)
+    private bool HasCycle()
     {
-        // Use DFS to check if 'from' is reachable from 'to'
+        // Use DFS with recursion stack to detect cycles
         var visited = new HashSet<AudioNode>();
-        var stack = new Stack<AudioNode>();
+        var recursionStack = new HashSet<AudioNode>();
         
-        stack.Push(to);
-        
-        while (stack.Count > 0)
+        foreach (var node in _nodes)
         {
-            var current = stack.Pop();
-            
-            if (current == from)
+            if (HasCycleDFS(node, visited, recursionStack))
                 return true;
-            
-            if (visited.Contains(current))
-                continue;
-            
-            visited.Add(current);
-            
-            foreach (var input in current.Inputs)
+        }
+        
+        return false;
+    }
+    
+    private bool HasCycleDFS(AudioNode node, HashSet<AudioNode> visited, HashSet<AudioNode> recursionStack)
+    {
+        if (recursionStack.Contains(node))
+            return true;
+        
+        if (visited.Contains(node))
+            return false;
+        
+        visited.Add(node);
+        recursionStack.Add(node);
+        
+        // Check all nodes that this node outputs to
+        foreach (var otherNode in _nodes)
+        {
+            if (otherNode.Inputs.Contains(node))
             {
-                stack.Push(input);
+                if (HasCycleDFS(otherNode, visited, recursionStack))
+                    return true;
             }
         }
         
+        recursionStack.Remove(node);
         return false;
     }
 

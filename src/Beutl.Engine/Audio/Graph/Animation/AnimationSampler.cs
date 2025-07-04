@@ -44,7 +44,12 @@ public sealed class AnimationSampler : IAnimationSampler
         }
         
         // No animation found, return current value
-        return target.GetValue(property);
+        if (target is ICoreObject coreObject)
+        {
+            return coreObject.GetValue(property);
+        }
+        
+        throw new InvalidOperationException($"Target must implement ICoreObject to get property values. Type: {target.GetType()}");
     }
 
     public void SampleBuffer<T>(
@@ -67,8 +72,15 @@ public sealed class AnimationSampler : IAnimationSampler
         else
         {
             // No animation found, fill with current value
-            var currentValue = target.GetValue(property);
-            output.Fill(currentValue);
+            if (target is ICoreObject coreObject)
+            {
+                var currentValue = coreObject.GetValue(property);
+                output.Fill(currentValue);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Target must implement ICoreObject to get property values. Type: {target.GetType()}");
+            }
         }
     }
 
@@ -100,15 +112,24 @@ public sealed class AnimationSampler : IAnimationSampler
             // Use the animation's interpolation method
             if (_animation is IAnimation<float> floatAnimation)
             {
-                return floatAnimation.Interpolate(relativeTime) ?? 0f;
+                var result = floatAnimation.Interpolate(relativeTime);
+                if (result is float floatValue)
+                    return floatValue;
+                return 0f;
             }
             else if (_animation is IAnimation<double> doubleAnimation)
             {
-                return doubleAnimation.Interpolate(relativeTime) ?? 0.0;
+                var result = doubleAnimation.Interpolate(relativeTime);
+                if (result is double doubleValue)
+                    return doubleValue;
+                return 0.0;
             }
             else if (_animation is IAnimation<int> intAnimation)
             {
-                return intAnimation.Interpolate(relativeTime) ?? 0;
+                var result = intAnimation.Interpolate(relativeTime);
+                if (result is int intValue)
+                    return intValue;
+                return 0;
             }
             
             throw new NotSupportedException($"Animation type {_animation.GetType()} is not supported by AnimationSampler.");

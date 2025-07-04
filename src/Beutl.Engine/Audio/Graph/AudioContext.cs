@@ -75,7 +75,7 @@ public sealed class AudioContext : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(source, nameof(source));
 
-        var node = new SourceNode(source);
+        var node = new SourceNode { Source = source };
         return AddNode(node);
     }
 
@@ -88,7 +88,7 @@ public sealed class AudioContext : IDisposable
     {
         ThrowIfDisposed();
 
-        var node = new GainNode(gain);
+        var node = new GainNode { StaticGain = gain };
         return AddNode(node);
     }
 
@@ -100,7 +100,7 @@ public sealed class AudioContext : IDisposable
     {
         ThrowIfDisposed();
 
-        var node = new MixerNode(ChannelCount);
+        var node = new MixerNode();
         return AddNode(node);
     }
 
@@ -114,7 +114,7 @@ public sealed class AudioContext : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(effect, nameof(effect));
 
-        var node = new EffectNode(effect);
+        var node = new EffectNode { Effect = effect };
         return AddNode(node);
     }
 
@@ -218,7 +218,7 @@ public sealed class AudioContext : IDisposable
         }
         else
         {
-            var mixer = new MixerNode(ChannelCount);
+            var mixer = new MixerNode();
             foreach (var output in outputs)
             {
                 mixer.AddInput(output);
@@ -229,6 +229,12 @@ public sealed class AudioContext : IDisposable
         // Build the graph
         var builder = new AudioGraphBuilder();
         
+        // Add all nodes to the builder
+        foreach (var node in _nodes)
+        {
+            builder.AddNode(node);
+        }
+        
         // Add all connections
         foreach (var (source, destinations) in _connections)
         {
@@ -237,8 +243,11 @@ public sealed class AudioContext : IDisposable
                 builder.Connect(source, destination);
             }
         }
+        
+        // Set the output node
+        builder.SetOutput(finalOutput);
 
-        return builder.Build(finalOutput);
+        return builder.Build();
     }
 
     /// <summary>

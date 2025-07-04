@@ -42,19 +42,19 @@ public sealed class GraphDelayEffect : Animatable, IAudioEffect
     public float DelayTime
     {
         get => _delayTime;
-        set => SetAndRaise(DelayTimeProperty, ref _delayTime, Math.Clamp(value, 0f, 5000f));
+        set => SetAndRaise(DelayTimeProperty, ref _delayTime, System.Math.Clamp(value, 0f, 5000f));
     }
 
     public float Feedback
     {
         get => _feedback;
-        set => SetAndRaise(FeedbackProperty, ref _feedback, Math.Clamp(value, 0f, 100f));
+        set => SetAndRaise(FeedbackProperty, ref _feedback, System.Math.Clamp(value, 0f, 100f));
     }
 
     public float Mix
     {
         get => _mix;
-        set => SetAndRaise(MixProperty, ref _mix, Math.Clamp(value, 0f, 100f));
+        set => SetAndRaise(MixProperty, ref _mix, System.Math.Clamp(value, 0f, 100f));
     }
 
     public bool IsEnabled
@@ -124,26 +124,26 @@ public sealed class GraphDelayEffect : Animatable, IAudioEffect
             }
 
             // Sample animation values
-            Span<float> delayTimes = stackalloc float[Math.Min(input.SampleCount, 1024)];
-            Span<float> feedbacks = stackalloc float[Math.Min(input.SampleCount, 1024)];
-            Span<float> mixes = stackalloc float[Math.Min(input.SampleCount, 1024)];
+            Span<float> delayTimes = stackalloc float[System.Math.Min(input.SampleCount, 1024)];
+            Span<float> feedbacks = stackalloc float[System.Math.Min(input.SampleCount, 1024)];
+            Span<float> mixes = stackalloc float[System.Math.Min(input.SampleCount, 1024)];
 
             int processed = 0;
             while (processed < input.SampleCount)
             {
-                int chunkSize = Math.Min(delayTimes.Length, input.SampleCount - processed);
+                int chunkSize = System.Math.Min(delayTimes.Length, input.SampleCount - processed);
                 
                 var chunkStart = context.GetTimeForSample(processed);
                 var chunkEnd = context.GetTimeForSample(processed + chunkSize);
                 var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
 
                 // Sample animation values for this chunk
-                context.AnimationSampler.SampleBuffer(_effect, _effect.DelayTimeProperty, chunkRange, chunkSize, delayTimes.Slice(0, chunkSize));
-                context.AnimationSampler.SampleBuffer(_effect, _effect.FeedbackProperty, chunkRange, chunkSize, feedbacks.Slice(0, chunkSize));
-                context.AnimationSampler.SampleBuffer(_effect, _effect.MixProperty, chunkRange, chunkSize, mixes.Slice(0, chunkSize));
+                context.AnimationSampler.SampleBuffer(_effect, GraphDelayEffect.DelayTimeProperty, chunkRange, chunkSize, delayTimes.Slice(0, chunkSize));
+                context.AnimationSampler.SampleBuffer(_effect, GraphDelayEffect.FeedbackProperty, chunkRange, chunkSize, feedbacks.Slice(0, chunkSize));
+                context.AnimationSampler.SampleBuffer(_effect, GraphDelayEffect.MixProperty, chunkRange, chunkSize, mixes.Slice(0, chunkSize));
 
                 // Process each channel
-                for (int ch = 0; ch < Math.Min(input.ChannelCount, _delayLines!.Length); ch++)
+                for (int ch = 0; ch < System.Math.Min(input.ChannelCount, _delayLines!.Length); ch++)
                 {
                     var inData = input.GetChannelData(ch).Slice(processed, chunkSize);
                     var outData = output.GetChannelData(ch).Slice(processed, chunkSize);
@@ -153,7 +153,7 @@ public sealed class GraphDelayEffect : Animatable, IAudioEffect
                     {
                         // Convert delay time from milliseconds to samples
                         var delaySamples = (int)(delayTimes[i] * context.SampleRate / 1000f);
-                        delaySamples = Math.Clamp(delaySamples, 0, _maxDelaySamples - 1);
+                        delaySamples = System.Math.Clamp(delaySamples, 0, _maxDelaySamples - 1);
 
                         // Read delayed sample
                         var delayedSample = delayLine.Read(delaySamples);

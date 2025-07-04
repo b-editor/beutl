@@ -1,5 +1,6 @@
 using System;
 using Beutl.Audio.Graph.Effects;
+using Beutl.Audio.Graph.Exceptions;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -58,7 +59,7 @@ public sealed class GraphEffectNode : AudioNode
             }
             catch (Exception ex)
             {
-                throw new AudioProcessingException($"Failed to prepare effect processor: {_effect.GetType().Name}", ex);
+                throw new AudioEffectException($"Failed to prepare effect processor: {_effect.GetType().Name}", _effect.GetType().Name, this, ex);
             }
         }
 
@@ -74,7 +75,7 @@ public sealed class GraphEffectNode : AudioNode
         catch (Exception ex)
         {
             output.Dispose();
-            throw new AudioProcessingException($"Error processing graph effect: {_effect.GetType().Name}", ex);
+            throw new AudioEffectException($"Error processing graph effect: {_effect.GetType().Name}", _effect.GetType().Name, this, ex);
         }
     }
 

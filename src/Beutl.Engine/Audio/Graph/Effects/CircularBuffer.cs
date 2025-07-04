@@ -18,7 +18,7 @@ public sealed unsafe class CircularBuffer<T> : IDisposable
             throw new ArgumentOutOfRangeException(nameof(length), "Length must be positive.");
 
         // Round up to next power of 2 for efficient wrapping
-        _length = (int)Math.Pow(2, Math.Ceiling(Math.Log(length) / Math.Log(2)));
+        _length = (int)System.Math.Pow(2, System.Math.Ceiling(System.Math.Log(length) / System.Math.Log(2)));
         _wrapMask = _length - 1;
         _writeIndex = 0;
 

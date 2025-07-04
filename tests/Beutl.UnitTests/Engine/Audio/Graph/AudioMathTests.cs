@@ -14,7 +14,7 @@ public class AudioMathTests
         float[] output = [0.1f, 0.2f, 0.3f, 0.4f];
         float gain = 2.0f;
         
-        var expectedOutput = new float[] { 1.1f, 0.4f, 1.9f, 0.2f }; // output + input * gain
+        var expectedOutput = new float[] { 1.1f, -0.4f, 1.9f, 0.2f }; // output + input * gain
         
         // Act
         AudioMath.AddWithGain(input, output, gain);

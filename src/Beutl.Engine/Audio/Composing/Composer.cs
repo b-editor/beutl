@@ -109,7 +109,7 @@ public class Composer : IComposer
         // Create a mixer node if we have multiple sounds
         MixerNode? mixer = _sounds.Count > 1 ? context.CreateMixerNode() : null;
         
-        foreach (var sound in _sounds.Where(s => s.IsEnabled))
+        foreach (var sound in _sounds.Where(s => s.IsVisible))
         {
             // Apply animations
             sound.ApplyAnimations(_instanceClock);
@@ -183,13 +183,7 @@ public class Composer : IComposer
             
             // Create process context
             var sampleCount = (int)(range.Duration.TotalSeconds * context.SampleRate);
-            var processContext = new AudioProcessContext
-            {
-                SampleRate = context.SampleRate,
-                SampleCount = sampleCount,
-                StartTime = range.Start,
-                EndTime = range.End
-            };
+            var processContext = new AudioProcessContext(range, context.SampleRate, _animationSampler);
             
             // Process the graph
             using var outputBuffer = graph.Process(processContext);

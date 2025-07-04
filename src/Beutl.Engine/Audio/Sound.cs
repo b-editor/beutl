@@ -1,6 +1,6 @@
 ﻿using System;
 using Beutl.Animation;
-using Beutl.Audio.Effects;
+using Beutl.Audio.Graph.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Animation;
 using Beutl.Audio.Graph.Exceptions;
@@ -17,11 +17,11 @@ public abstract class Sound : Renderable, IDisposable
 {
     public static readonly CoreProperty<float> GainProperty;
     public static readonly CoreProperty<float> SpeedProperty;
-    public static readonly CoreProperty<ISoundEffect?> EffectProperty;
+    public static readonly CoreProperty<IAudioEffect?> EffectProperty;
     
     private float _gain = 100;
     private float _speed = 100;
-    private ISoundEffect? _effect;
+    private IAudioEffect? _effect;
     private AudioGraph? _cachedGraph;
     private int _cacheVersion = -1;
     private bool _isDisposed;
@@ -38,7 +38,7 @@ public abstract class Sound : Renderable, IDisposable
             .DefaultValue(100)
             .Register();
 
-        EffectProperty = ConfigureProperty<ISoundEffect?, Sound>(nameof(Effect))
+        EffectProperty = ConfigureProperty<IAudioEffect?, Sound>(nameof(Effect))
             .Accessor(o => o.Effect, (o, v) => o.Effect = v)
             .DefaultValue(null)
             .Register();
@@ -80,7 +80,7 @@ public abstract class Sound : Renderable, IDisposable
 
     public TimeSpan Duration { get; private set; }
 
-    public ISoundEffect? Effect
+    public IAudioEffect? Effect
     {
         get => _effect;
         set => SetAndRaise(EffectProperty, ref _effect, value);
@@ -281,8 +281,7 @@ public abstract class Sound : Renderable, IDisposable
         {
             _cachedGraph?.Dispose();
             _cachedGraph = null;
-            _effect?.Dispose();
-            Invalidated = null;
+            // Event handlers are automatically cleaned up
         }
     }
 

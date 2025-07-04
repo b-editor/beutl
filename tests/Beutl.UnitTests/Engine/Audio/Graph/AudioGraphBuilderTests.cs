@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Exceptions;
 using Beutl.Audio.Graph.Nodes;
@@ -107,7 +108,8 @@ public class AudioGraphBuilderTests
         builder.Connect(node2, node3);
         
         // Act & Assert
-        Assert.Throws<InvalidOperationException>(() => builder.Connect(node3, node1));
+        var exception = Assert.Throws<InvalidOperationException>(() => builder.Connect(node3, node1));
+        Assert.That(exception?.Message, Does.Contain("cycle"));
     }
 
     [Test]
@@ -252,7 +254,7 @@ public class AudioGraphBuilderTests
         using var graph = builder.Build();
         
         // Assert
-        var nodes = graph.Nodes;
+        var nodes = graph.Nodes.ToList();
         var outputIndex = nodes.IndexOf(output);
         var effectIndex = nodes.IndexOf(effect);
         var mixerIndex = nodes.IndexOf(mixer);

@@ -44,13 +44,13 @@ public sealed class GainNode : AudioNode
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
         
         // Sample gain values for each sample
-        Span<float> gains = stackalloc float[Math.Min(input.SampleCount, 8192)];
+        Span<float> gains = stackalloc float[System.Math.Min(input.SampleCount, 8192)];
         
         // Process in chunks to avoid stack overflow for large buffers
         int processed = 0;
         while (processed < input.SampleCount)
         {
-            int chunkSize = Math.Min(gains.Length, input.SampleCount - processed);
+            int chunkSize = System.Math.Min(gains.Length, input.SampleCount - processed);
             var chunkGains = gains.Slice(0, chunkSize);
             
             // Calculate time range for this chunk
@@ -93,7 +93,7 @@ public sealed class GainNode : AudioNode
     private static AudioBuffer ProcessStaticGain(AudioBuffer input, float gain)
     {
         // If gain is 1.0, return input as-is
-        if (Math.Abs(gain - 1.0f) < float.Epsilon)
+        if (System.Math.Abs(gain - 1.0f) < float.Epsilon)
             return input;
             
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);

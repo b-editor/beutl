@@ -4,6 +4,7 @@ using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
+using Beutl.Audio.Graph.Nodes;
 using Beutl.Collections.Pooled;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -48,14 +49,17 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
             {
                 foreach (Renderable item in list.Span)
                 {
-                    if (item is Sound sound && sound.IsEnabled)
+                    if (item is Sound sound)
                     {
                         // Apply animations
                         sound.ApplyAnimations(clock);
                         
                         // Compose the sound into the context
                         var soundNode = sound.Compose(context);
-                        soundNodes.Add(soundNode);
+                        if (soundNode != null)
+                        {
+                            soundNodes.Add(soundNode);
+                        }
                     }
                 }
             }

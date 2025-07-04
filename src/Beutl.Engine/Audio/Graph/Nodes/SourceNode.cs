@@ -73,7 +73,7 @@ public sealed class SourceNode : AudioNode
         var leftChannel = buffer.GetChannelData(0);
         var rightChannel = buffer.GetChannelData(1);
         
-        var copyLength = Math.Min(pcm.NumSamples, buffer.SampleCount);
+        var copyLength = System.Math.Min(pcm.NumSamples, buffer.SampleCount);
         
         for (int i = 0; i < copyLength; i++)
         {
@@ -87,7 +87,7 @@ public sealed class SourceNode : AudioNode
         var srcPtr = (Monaural32BitFloat*)pcm.Data;
         var leftChannel = buffer.GetChannelData(0);
         
-        var copyLength = Math.Min(pcm.NumSamples, buffer.SampleCount);
+        var copyLength = System.Math.Min(pcm.NumSamples, buffer.SampleCount);
         
         // Copy mono to left channel
         for (int i = 0; i < copyLength; i++)
