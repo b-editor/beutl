@@ -110,26 +110,4 @@ public abstract class Sound : Renderable
     }
 
     protected abstract TimeSpan TimeCore(TimeSpan available);
-
-    internal int GetCacheKey()
-    {
-        return GetHashCode();
-    }
-
-    public override int GetHashCode()
-    {
-        var hash = new HashCode();
-        hash.Add(_gain);
-        hash.Add(_speed);
-        hash.Add(_effect?.GetHashCode() ?? 0);
-        hash.Add(GetSoundSource()?.GetHashCode() ?? 0);
-
-        // Include animation state
-        foreach (var animation in Animations)
-        {
-            hash.Add(animation.GetHashCode());
-        }
-
-        return hash.ToHashCode();
-    }
 }

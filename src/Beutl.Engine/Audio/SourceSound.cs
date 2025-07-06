@@ -55,19 +55,4 @@ public sealed class SourceSound : Sound
             return available;
         }
     }
-
-    public override int GetHashCode()
-    {
-        var hash = new HashCode();
-        hash.Add(base.GetHashCode());
-        hash.Add(_source?.GetHashCode() ?? 0);
-        hash.Add(_offsetPosition);
-        return hash.ToHashCode();
-    }
-
-    internal void DisposeSource()
-    {
-        _source?.Dispose();
-        _source = null;
-    }
 }
