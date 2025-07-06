@@ -17,6 +17,7 @@ public sealed class AudioContext : IDisposable
     private readonly List<AudioNode> _nodes = new();
     private readonly Dictionary<AudioNode, List<AudioNode>> _connections = new();
     private readonly HashSet<AudioNode> _outputNodes = new();
+    private List<AudioNode>? _previousNodes;
     private AudioNode? _currentNode;
     private bool _disposed;
 
@@ -47,6 +48,15 @@ public sealed class AudioContext : IDisposable
     }
 
     /// <summary>
+    /// Initializes a new instance with previous nodes for differential update.
+    /// </summary>
+    public AudioContext(int sampleRate, int channelCount, IEnumerable<AudioNode> previousNodes)
+        : this(sampleRate, channelCount)
+    {
+        _previousNodes = previousNodes.ToList();
+    }
+
+    /// <summary>
     /// Adds a node to the context.
     /// </summary>
     /// <param name="node">The node to add.</param>
@@ -60,6 +70,12 @@ public sealed class AudioContext : IDisposable
         {
             _nodes.Add(node);
             _connections[node] = new List<AudioNode>();
+        }
+        else
+        {
+            // If reusing a node, ensure its connections list exists
+            if (!_connections.ContainsKey(node))
+                _connections[node] = new List<AudioNode>();
         }
 
         _currentNode = node;
@@ -76,6 +92,18 @@ public sealed class AudioContext : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(source, nameof(source));
 
+        // Try to reuse from previous nodes
+        if (_previousNodes != null)
+        {
+            var existing = _previousNodes.OfType<SourceNode>()
+                .FirstOrDefault(n => n.Source == source);
+            if (existing != null)
+            {
+                _previousNodes.Remove(existing);
+                return AddNode(existing);
+            }
+        }
+
         var node = new SourceNode { Source = source };
         return AddNode(node);
     }
@@ -84,11 +112,26 @@ public sealed class AudioContext : IDisposable
     /// Creates and adds a gain node to the context.
     /// </summary>
     /// <param name="gain">The gain value.</param>
+    /// <param name="target">The target object for animation binding (optional).</param>
+    /// <param name="gainProperty">The property to bind for animated gain (optional).</param>
     /// <returns>The created gain node.</returns>
     public GainNode CreateGainNode(float gain = 1.0f, IAnimatable? target = null, CoreProperty<float>? gainProperty = null)
     {
         ThrowIfDisposed();
         ArgumentOutOfRangeException.ThrowIfNegative(gain, nameof(gain));
+
+        // Try to reuse from previous nodes
+        if (_previousNodes != null)
+        {
+            var existing = _previousNodes.OfType<GainNode>()
+                .FirstOrDefault(n => n.Target == target && n.GainProperty == gainProperty);
+            if (existing != null)
+            {
+                _previousNodes.Remove(existing);
+                existing.StaticGain = gain;
+                return AddNode(existing);
+            }
+        }
 
         var node = new GainNode
         {
@@ -107,6 +150,18 @@ public sealed class AudioContext : IDisposable
     {
         ThrowIfDisposed();
 
+        // Try to reuse from previous nodes
+        if (_previousNodes != null)
+        {
+            var existing = _previousNodes.OfType<MixerNode>().FirstOrDefault();
+            if (existing != null)
+            {
+                _previousNodes.Remove(existing);
+                existing.ClearInputs();
+                return AddNode(existing);
+            }
+        }
+
         var node = new MixerNode();
         return AddNode(node);
     }
@@ -120,6 +175,18 @@ public sealed class AudioContext : IDisposable
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(effect, nameof(effect));
+
+        // Try to reuse from previous nodes
+        if (_previousNodes != null)
+        {
+            var existing = _previousNodes.OfType<EffectNode>()
+                .FirstOrDefault(n => n.Effect == effect);
+            if (existing != null)
+            {
+                _previousNodes.Remove(existing);
+                return AddNode(existing);
+            }
+        }
 
         var node = new EffectNode { Effect = effect };
         return AddNode(node);
@@ -275,6 +342,110 @@ public sealed class AudioContext : IDisposable
         _currentNode = null;
     }
 
+    /// <summary>
+    /// Gets whether this context has been disposed.
+    /// </summary>
+    public bool IsDisposed => _disposed;
+
+    /// <summary>
+    /// Gets the list of nodes in this context.
+    /// </summary>
+    public IReadOnlyList<AudioNode> Nodes => _nodes;
+
+    /// <summary>
+    /// Clears all connections while keeping nodes.
+    /// </summary>
+    public void ClearConnections()
+    {
+        ThrowIfDisposed();
+
+        // Clear connections only
+        foreach (var list in _connections.Values)
+        {
+            list.Clear();
+        }
+
+        foreach (var node in _nodes)
+        {
+            node.ClearInputs();
+        }
+
+        _outputNodes.Clear();
+        _currentNode = null;
+    }
+
+    /// <summary>
+    /// Removes a specific node from the context.
+    /// </summary>
+    /// <param name="node">The node to remove.</param>
+    public void RemoveNode(AudioNode node)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(node, nameof(node));
+
+        if (!_nodes.Contains(node))
+            return;
+
+        // Remove from all connections
+        _connections.Remove(node);
+        foreach (var list in _connections.Values)
+        {
+            list.Remove(node);
+        }
+
+        // Remove from other tracking
+        _outputNodes.Remove(node);
+        if (_currentNode == node)
+            _currentNode = null;
+
+        // Clear inputs of other nodes that reference this one
+        foreach (var otherNode in _nodes)
+        {
+            otherNode.RemoveInput(node);
+        }
+
+        // Finally remove from nodes list
+        _nodes.Remove(node);
+    }
+
+    /// <summary>
+    /// Begins a differential update session.
+    /// </summary>
+    public void BeginUpdate(IEnumerable<AudioNode> previousNodes)
+    {
+        ThrowIfDisposed();
+
+        // Save previous nodes for reuse
+        _previousNodes = previousNodes.ToList();
+
+        // Clear current state
+        _nodes.Clear();
+        _connections.Clear();
+        _outputNodes.Clear();
+        _currentNode = null;
+    }
+
+    /// <summary>
+    /// Completes a differential update session.
+    /// </summary>
+    public void EndUpdate()
+    {
+        ThrowIfDisposed();
+
+        // Dispose unused nodes from previous state
+        if (_previousNodes != null)
+        {
+            foreach (var prevNode in _previousNodes)
+            {
+                if (!_nodes.Contains(prevNode))
+                {
+                    prevNode.Dispose();
+                }
+            }
+            _previousNodes = null;
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -289,4 +460,5 @@ public sealed class AudioContext : IDisposable
         if (_disposed)
             throw new ObjectDisposedException(nameof(AudioContext));
     }
+
 }
