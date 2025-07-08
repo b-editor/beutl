@@ -3,7 +3,7 @@ using Beutl.Media;
 
 namespace Beutl.Animation;
 
-public sealed class AnimationSampler : IAnimationSampler
+public sealed class AnimationSampler
 {
     private readonly Dictionary<(IAnimatable, CoreProperty), CompiledAnimation> _compiledAnimations = new();
     private TimeRange? _currentRange;
