@@ -78,14 +78,15 @@ public class Composer : IComposer
         _currentSounds.Clear();
     }
 
-    public Pcm<Stereo32BitFloat>? Compose(TimeSpan timeSpan)
+    public Pcm<Stereo32BitFloat>? Compose(TimeRange timeRange)
     {
         if (!IsAudioRendering)
         {
             try
             {
                 IsAudioRendering = true;
-                _instanceClock.AudioStartTime = timeSpan;
+                _instanceClock.AudioStartTime = timeRange.Start;
+                _instanceClock.AudioDurationTime = timeRange.Duration;
 
                 // Clear previous sounds list
                 _currentSounds.Clear();
@@ -94,7 +95,7 @@ public class Composer : IComposer
                 ComposeCore();
 
                 // Build final audio graph
-                return BuildFinalOutput(timeSpan);
+                return BuildFinalOutput(timeRange);
             }
             finally
             {
@@ -107,9 +108,8 @@ public class Composer : IComposer
         }
     }
 
-    private Pcm<Stereo32BitFloat>? BuildFinalOutput(TimeSpan timeSpan)
+    private Pcm<Stereo32BitFloat>? BuildFinalOutput(TimeRange range)
     {
-        var range = new TimeRange(timeSpan, TimeSpan.FromSeconds(1));
 
         try
         {

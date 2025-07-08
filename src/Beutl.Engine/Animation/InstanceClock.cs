@@ -11,6 +11,8 @@ public sealed class InstanceClock : IClock
 
     public TimeSpan AudioStartTime { get; set; }
 
+    public TimeSpan AudioDurationTime { get; set; }
+
     public TimeSpan BeginTime { get; set; }
 
     public TimeSpan DurationTime { get; set; }

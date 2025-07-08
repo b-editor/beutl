@@ -8,6 +8,8 @@ internal sealed class ZeroClock : IClock
 
     public TimeSpan AudioStartTime => TimeSpan.Zero;
 
+    public TimeSpan AudioDurationTime => TimeSpan.Zero;
+
     public TimeSpan BeginTime => TimeSpan.Zero;
 
     public TimeSpan DurationTime => TimeSpan.Zero;

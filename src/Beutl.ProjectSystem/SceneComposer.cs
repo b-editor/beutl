@@ -23,8 +23,8 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
     protected override void ComposeCore()
     {
         IClock clock = Clock;
-        var timeSpan = new TimeRange(clock.AudioStartTime, TimeSpan.FromSeconds(1));
-        SortLayers(timeSpan, out _);
+        var timeRange = new TimeRange(clock.AudioStartTime, clock.AudioStartTime);
+        SortLayers(timeRange, out _);
         Span<Element> elements = CollectionsMarshal.AsSpan(_current);
         Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
         Span<Element> exited = CollectionsMarshal.AsSpan(_exited);
@@ -51,7 +51,7 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
             }
         }
 
-        _lastTime = timeSpan;
+        _lastTime = timeRange;
     }
 
     private static void EnterSourceOperators(Element element)
