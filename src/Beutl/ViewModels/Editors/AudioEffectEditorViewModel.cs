@@ -10,9 +10,9 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<IAudioEffect?>
+public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<IAudioEffect?>
 {
-    public SoundEffectEditorViewModel(IPropertyAdapter<IAudioEffect?> property)
+    public AudioEffectEditorViewModel(IPropertyAdapter<IAudioEffect?> property)
         : base(property)
     {
         FilterName = Value.Select(v =>
@@ -194,7 +194,7 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<IAudioEffe
         }
     }
 
-    private sealed record Visitor(SoundEffectEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(AudioEffectEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {

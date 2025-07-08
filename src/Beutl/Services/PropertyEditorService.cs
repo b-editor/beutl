@@ -142,7 +142,7 @@ public static class PropertyEditorService
             { typeof(FilterEffect), new(_ => new FilterEffectListItemEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>())) },
             { typeof(PathSegment), new(_ => new PathOperationListItemEditor(), s => new PathOperationEditorViewModel(s.ToTyped<PathSegment?>())) },
             { typeof(PathFigure), new(_ => new PathFigureListItemEditor(), s => new PathFigureEditorViewModel(s.ToTyped<PathFigure>())) },
-            { typeof(IAudioEffect), new(_ => new SoundEffectListItemEditor(), s => new SoundEffectEditorViewModel(s.ToTyped<IAudioEffect?>())) },
+            { typeof(IAudioEffect), new(_ => new AudioEffectListItemEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<IAudioEffect?>())) },
             { typeof(ITransform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) },
             { typeof(ICoreObject), new(CreateCoreObjectListItemEditor, CreateCoreObjectEditorViewModel) }
         };
@@ -205,7 +205,7 @@ public static class PropertyEditorService
             new(typeof(IPen), new(_ => new PenEditor(), s => new PenEditorViewModel(s))),
             new(typeof(FilterEffect), new(_ => new FilterEffectEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>()))),
             new(typeof(Geometry), new(_ => new GeometryEditor(), s => new GeometryEditorViewModel(s.ToTyped<Geometry?>()))),
-            new(typeof(IAudioEffect), new(_ => new SoundEffectEditor(), s => new SoundEffectEditorViewModel(s.ToTyped<IAudioEffect?>()))),
+            new(typeof(IAudioEffect), new(_ => new AudioEffectEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<IAudioEffect?>()))),
             new(typeof(ITransform), new(_ => new TransformEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>()))),
             new(typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>()))),
             new(typeof(DisplacementMapTransform), new(_ => new DisplacementMapTransformEditor(), s => new DisplacementMapTransformEditorViewModel(s.ToTyped<DisplacementMapTransform?>()))),

@@ -10,14 +10,14 @@ using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;
 
-public partial class SoundEffectEditor : UserControl
+public partial class AudioEffectEditor : UserControl
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
 
     private CancellationTokenSource? _lastTransitionCts;
     private bool _flyoutOpen;
 
-    public SoundEffectEditor()
+    public AudioEffectEditor()
     {
         InitializeComponent();
         expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
@@ -46,7 +46,7 @@ public partial class SoundEffectEditor : UserControl
     {
         if (e.Data.Contains(KnownLibraryItemFormats.AudioEffect)
             && e.Data.Get(KnownLibraryItemFormats.AudioEffect) is Type type
-            && DataContext is SoundEffectEditorViewModel { IsDisposed: false } viewModel)
+            && DataContext is AudioEffectEditorViewModel { IsDisposed: false } viewModel)
         {
             if (viewModel.IsGroup.Value)
             {
@@ -73,7 +73,7 @@ public partial class SoundEffectEditor : UserControl
 
     private async void Tag_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not SoundEffectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
         if (viewModel.IsGroup.Value)
         {
@@ -103,7 +103,7 @@ public partial class SoundEffectEditor : UserControl
         try
         {
             _flyoutOpen = true;
-            var viewModel = new SelectSoundEffectTypeViewModel();
+            var viewModel = new SelectAudioEffectTypeViewModel();
             var dialog = new LibraryItemPickerFlyout(viewModel);
             dialog.ShowAt(this);
             var tcs = new TaskCompletionSource<Type?>();
@@ -136,7 +136,7 @@ public partial class SoundEffectEditor : UserControl
 
     private async void ChangeEffectTypeClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not SoundEffectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
         Type? type = await SelectType();
         if (type != null)
@@ -154,7 +154,7 @@ public partial class SoundEffectEditor : UserControl
 
     private void SetNullClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is SoundEffectEditorViewModel { IsDisposed: false } viewModel)
+        if (DataContext is AudioEffectEditorViewModel { IsDisposed: false } viewModel)
         {
             viewModel.SetNull();
         }

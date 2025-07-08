@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Views.Editors.SoundEffectEditor"
+<UserControl x:Class="Beutl.Views.Editors.AudioEffectEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -10,7 +10,7 @@
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
              d:DesignHeight="450"
              d:DesignWidth="800"
-             x:DataType="viewModel:SoundEffectEditorViewModel"
+             x:DataType="viewModel:AudioEffectEditorViewModel"
              Background="Transparent"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
@@ -72,8 +72,7 @@
             <local:PropertiesEditor Margin="16,0,0,0"
                                     Padding="0"
                                     DataContext="{Binding Properties.Value}"
-                                    IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
-                                                                  Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                    IsVisible="{ReflectionBinding #root.DataContext.Properties.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
             <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
