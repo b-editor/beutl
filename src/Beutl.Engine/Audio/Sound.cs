@@ -1,14 +1,8 @@
-﻿using System;
-using Beutl.Animation;
-using Beutl.Audio.Graph.Effects;
+﻿using Beutl.Audio.Graph.Effects;
 using Beutl.Audio.Graph;
-using Beutl.Audio.Graph.Animation;
 using Beutl.Audio.Graph.Exceptions;
-using Beutl.Audio.Graph.Nodes;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 
 namespace Beutl.Audio;
@@ -40,7 +34,7 @@ public abstract class Sound : Renderable
             .DefaultValue(null)
             .Register();
 
-        AffectsRender<Sound>(GainProperty, EffectProperty);
+        AffectsRender<Sound>(GainProperty, EffectProperty, TimeRangeProperty, SpeedProperty);
     }
 
     public Sound()
@@ -101,7 +95,9 @@ public abstract class Sound : Renderable
             currentNode = effectNode;
         }
 
-        return currentNode;
+        var clipNode = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        context.Connect(currentNode, clipNode);
+        return clipNode;
     }
 
     public void Time(TimeSpan available)

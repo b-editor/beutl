@@ -143,6 +143,67 @@ public sealed class AudioContext : IDisposable
     }
 
     /// <summary>
+    /// Creates and adds a shift node to the context.
+    /// </summary>
+    /// <param name="shift">The time shift duration.</param>
+    /// <returns>The created shift node.</returns>
+    public ShiftNode CreateShiftNode(TimeSpan shift)
+    {
+        ThrowIfDisposed();
+        if(shift < TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(shift), "Shift must be non-negative.");
+
+        // Try to reuse from previous nodes
+        if (_previousNodes != null)
+        {
+            var existing = _previousNodes.OfType<ShiftNode>()
+                .FirstOrDefault(n => n.Shift==shift);
+            if (existing != null)
+            {
+                _previousNodes.Remove(existing);
+                return AddNode(existing);
+            }
+        }
+
+        var node = new ShiftNode
+        {
+            Shift = shift
+        };
+        return AddNode(node);
+    }
+
+    /// <summary>
+    /// Creates and adds a clip node to the context.
+    /// </summary>
+    /// <param name="start">The start time of the clip.</param>
+    /// <param name="duration">The duration of the clip.</param>
+    public ClipNode CreateClipNode(TimeSpan start, TimeSpan duration)
+    {
+        ThrowIfDisposed();
+        if (duration <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be positive.");
+
+        // Try to reuse from previous nodes
+        if (_previousNodes != null)
+        {
+            var existing = _previousNodes.OfType<ClipNode>()
+                .FirstOrDefault(n => n.Duration == duration && n.Start == start);
+            if (existing != null)
+            {
+                _previousNodes.Remove(existing);
+                return AddNode(existing);
+            }
+        }
+
+        var node = new ClipNode
+        {
+            Start = start,
+            Duration = duration
+        };
+        return AddNode(node);
+    }
+
+    /// <summary>
     /// Creates and adds a mixer node to the context.
     /// </summary>
     /// <returns>The created mixer node.</returns>

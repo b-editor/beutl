@@ -28,7 +28,7 @@ public sealed class AudioBuffer : IDisposable
         var totalSamples = channelCount * sampleCount;
         _memoryOwner = MemoryPool<float>.Shared.Rent(totalSamples);
         _memory = _memoryOwner.Memory.Slice(0, totalSamples);
-        
+
         // Clear the buffer
         _memory.Span.Clear();
     }
@@ -40,7 +40,7 @@ public sealed class AudioBuffer : IDisposable
     public Span<float> GetChannelData(int channel)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        
+
         if (channel < 0 || channel >= ChannelCount)
             throw new ArgumentOutOfRangeException(nameof(channel), $"Channel must be between 0 and {ChannelCount - 1}.");
 
@@ -51,7 +51,7 @@ public sealed class AudioBuffer : IDisposable
     public Memory<float> GetChannelMemory(int channel)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        
+
         if (channel < 0 || channel >= ChannelCount)
             throw new ArgumentOutOfRangeException(nameof(channel), $"Channel must be between 0 and {ChannelCount - 1}.");
 
@@ -79,6 +79,27 @@ public sealed class AudioBuffer : IDisposable
             throw new ArgumentException("Sample counts must match.", nameof(destination));
 
         _memory.CopyTo(destination._memory);
+    }
+
+    public void CopyTo(AudioBuffer destination, int offset)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(destination._disposed, destination);
+
+        if (destination.SampleRate != SampleRate)
+            throw new ArgumentException("Sample rates must match.", nameof(destination));
+        if (destination.ChannelCount != ChannelCount)
+            throw new ArgumentException("Channel counts must match.", nameof(destination));
+        if (offset < 0 || offset + SampleCount > destination.SampleCount)
+            throw new ArgumentOutOfRangeException(nameof(offset), "Offset is out of range for the destination buffer.");
+
+        for (int ch = 0; ch < ChannelCount; ch++)
+        {
+            var src = GetChannelData(ch);
+            var dest = destination.GetChannelData(ch).Slice(offset, SampleCount);
+            src.CopyTo(dest);
+        }
     }
 
     public void Dispose()
