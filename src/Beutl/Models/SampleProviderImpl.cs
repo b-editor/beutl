@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Subjects;
+using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.ProjectSystem;
@@ -8,54 +9,19 @@ namespace Beutl.Models;
 public class SampleProviderImpl(Scene scene, SceneComposer composer, long sampleRate, Subject<TimeSpan> progress)
     : ISampleProvider
 {
-    private Pcm<Stereo32BitFloat>? _lastPcm;
-    private long _lastOffset;
-
     public long SampleCount => (long)(scene.Duration.TotalSeconds * sampleRate);
 
     public long SampleRate => sampleRate;
 
-    private Pcm<Stereo32BitFloat> ComposeCore(long offset)
-    {
-        _lastPcm?.Dispose();
-        _lastPcm = null;
-        var pcm = composer.Compose(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * offset / sampleRate) + scene.Start)
-                  ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
-        _lastPcm = pcm;
-        _lastOffset = offset;
-
-        return pcm;
-    }
-
     public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
     {
-        int lengthInt = (int)length;
-        var pcm = new Pcm<Stereo32BitFloat>((int)sampleRate, lengthInt);
-        int written = 0;
-        while (written < lengthInt)
-        {
-            if (_lastPcm != null)
-            {
-                if (offset + written < _lastOffset + _lastPcm.NumSamples)
-                {
-                    var srcSpan2 = _lastPcm.DataSpan[(int)(offset - _lastOffset)..];
-                    var dstSpan2 = pcm.DataSpan[written..];
-                    var lengthToCopy2 = Math.Min(lengthInt - written, srcSpan2.Length);
-                    srcSpan2[..lengthToCopy2].CopyTo(dstSpan2);
-                    written += lengthToCopy2;
-                    continue;
-                }
-            }
-
-            var tmp = ComposeCore(offset + written);
-            var srcSpan = tmp.DataSpan;
-            var dstSpan = pcm.DataSpan;
-            var lengthToCopy = Math.Min(lengthInt - written, srcSpan.Length);
-            srcSpan[..Math.Min(lengthInt - written, srcSpan.Length)].CopyTo(dstSpan[written..]);
-            written += lengthToCopy;
-        }
+        var range = new TimeRange(
+            TimeSpan.FromTicks(TimeSpan.TicksPerSecond * offset / sampleRate) + scene.Start,
+            TimeSpan.FromTicks(TimeSpan.TicksPerSecond * length / sampleRate));
+        using var audioBuffer = composer.Compose(range)
+                          ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
 
         progress.OnNext(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * (offset + length) / sampleRate));
-        return ValueTask.FromResult(pcm);
+        return ValueTask.FromResult(audioBuffer.ToPcm());
     }
 }

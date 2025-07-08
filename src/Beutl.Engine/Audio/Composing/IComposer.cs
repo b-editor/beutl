@@ -15,5 +15,5 @@ public interface IComposer : IDisposable
 
     int SampleRate { get; }
 
-    Pcm<Stereo32BitFloat>? Compose(TimeRange range);
+    AudioBuffer? Compose(TimeRange range);
 }

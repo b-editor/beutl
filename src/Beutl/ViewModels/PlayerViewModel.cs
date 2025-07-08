@@ -375,8 +375,10 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
     private static Pcm<Stereo32BitFloat>? FillAudioData(TimeSpan f, IComposer composer)
     {
-        if (composer.Compose(f) is { } pcm)
+        if (composer.Compose(new TimeRange(f, TimeSpan.FromSeconds(1))) is { } audio)
         {
+            var pcm = audio.ToPcm();
+            audio.Dispose();
             return pcm;
         }
         else

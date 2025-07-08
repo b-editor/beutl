@@ -76,7 +76,7 @@ public class Composer : IComposer
         _currentSounds.Clear();
     }
 
-    public Pcm<Stereo32BitFloat>? Compose(TimeRange timeRange)
+    public AudioBuffer? Compose(TimeRange timeRange)
     {
         if (!IsAudioRendering)
         {
@@ -106,7 +106,7 @@ public class Composer : IComposer
         }
     }
 
-    private Pcm<Stereo32BitFloat>? BuildFinalOutput(TimeRange range)
+    private AudioBuffer? BuildFinalOutput(TimeRange range)
     {
         // Multiple contexts - need to mix
         var buffers = new List<AudioBuffer>();
@@ -120,7 +120,7 @@ public class Composer : IComposer
         }
 
         // Mix all buffers
-        using var mixedBuffer = MixBuffers(buffers);
+        var mixedBuffer = MixBuffers(buffers);
 
         // Dispose individual buffers
         foreach (var buffer in buffers)
@@ -132,7 +132,7 @@ public class Composer : IComposer
         ApplyMasterEffects(mixedBuffer);
 
         // Convert to output format
-        return ConvertToStereo32BitFloat(mixedBuffer);
+        return mixedBuffer;
     }
 
     private AudioBuffer MixBuffers(List<AudioBuffer> buffers)
@@ -175,36 +175,6 @@ public class Composer : IComposer
             AudioMath.ApplyLimiter(channelData, 1.0f, 10.0f);
         }
     }
-
-    private static unsafe Pcm<Stereo32BitFloat> ConvertToStereo32BitFloat(AudioBuffer buffer)
-    {
-        var pcm = new Pcm<Stereo32BitFloat>(buffer.SampleRate, buffer.SampleCount);
-        var pcmPtr = (Stereo32BitFloat*)pcm.Data;
-
-        if (buffer.ChannelCount == 1)
-        {
-            // Mono to stereo
-            var monoChannel = buffer.GetChannelData(0);
-            for (int i = 0; i < buffer.SampleCount; i++)
-            {
-                float sample = monoChannel[i];
-                pcmPtr[i] = new Stereo32BitFloat(sample, sample);
-            }
-        }
-        else if (buffer.ChannelCount >= 2)
-        {
-            // Stereo or multi-channel (take first two channels)
-            var leftChannel = buffer.GetChannelData(0);
-            var rightChannel = buffer.GetChannelData(1);
-            for (int i = 0; i < buffer.SampleCount; i++)
-            {
-                pcmPtr[i] = new Stereo32BitFloat(leftChannel[i], rightChannel[i]);
-            }
-        }
-
-        return pcm;
-    }
-
 
     /// <summary>
     /// Invalidates the cache, forcing recreation on next use.
