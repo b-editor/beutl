@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using Beutl.Audio.Graph.Exceptions;
-
 namespace Beutl.Audio.Graph;
 
 public sealed class AudioGraph : IDisposable
@@ -17,7 +13,7 @@ public sealed class AudioGraph : IDisposable
     }
 
     public AudioNode OutputNode => _outputNode;
-    
+
     public IReadOnlyList<AudioNode> Nodes => _sortedNodes;
 
     public AudioBuffer Process(AudioProcessContext context)
@@ -29,7 +25,7 @@ public sealed class AudioGraph : IDisposable
         {
             // Clear all cached outputs
             ClearCaches();
-            
+
             // Process the output node (which will recursively process its inputs)
             return _outputNode.Process(context);
         }
@@ -37,14 +33,14 @@ public sealed class AudioGraph : IDisposable
         {
             // Clear caches on error to prevent inconsistent state
             ClearCaches();
-            throw new AudioGraphException("Error processing audio graph.", ex);
+            throw;
         }
     }
 
     public void ClearCaches()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        
+
         foreach (var node in _sortedNodes)
         {
             node.ClearCache();
@@ -66,7 +62,7 @@ public sealed class AudioGraph : IDisposable
                     // Ignore disposal errors to prevent cascading failures
                 }
             }
-            
+
             _sortedNodes.Clear();
             _disposed = true;
         }

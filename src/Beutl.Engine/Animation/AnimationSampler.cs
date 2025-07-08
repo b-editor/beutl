@@ -1,9 +1,7 @@
-using System;
-using System.Collections.Generic;
-using Beutl.Animation;
+using Beutl.Audio.Graph;
 using Beutl.Media;
 
-namespace Beutl.Audio.Graph.Animation;
+namespace Beutl.Animation;
 
 public sealed class AnimationSampler : IAnimationSampler
 {
@@ -14,13 +12,13 @@ public sealed class AnimationSampler : IAnimationSampler
     public void PrepareAnimations(IAnimatable target, TimeRange range, int sampleRate)
     {
         ArgumentNullException.ThrowIfNull(target);
-        
+
         _currentRange = range;
         _currentSampleRate = sampleRate;
-        
+
         // Clear previously compiled animations
         _compiledAnimations.Clear();
-        
+
         // Compile animations for this target
         foreach (var animation in target.Animations)
         {
@@ -37,25 +35,25 @@ public sealed class AnimationSampler : IAnimationSampler
         ArgumentNullException.ThrowIfNull(property);
 
         var key = (target, (CoreProperty)property);
-        
+
         if (_compiledAnimations.TryGetValue(key, out var compiled))
         {
             return (T)compiled.Sample(time);
         }
-        
+
         // No animation found, return current value
         if (target is ICoreObject coreObject)
         {
             return coreObject.GetValue(property);
         }
-        
+
         throw new InvalidOperationException($"Target must implement ICoreObject to get property values. Type: {target.GetType()}");
     }
 
     public void SampleBuffer<T>(
-        IAnimatable target, 
-        CoreProperty<T> property, 
-        TimeRange range, 
+        IAnimatable target,
+        CoreProperty<T> property,
+        TimeRange range,
         int sampleCount,
         Span<T> output)
         where T : struct
@@ -64,7 +62,7 @@ public sealed class AnimationSampler : IAnimationSampler
         ArgumentNullException.ThrowIfNull(property);
 
         var key = (target, (CoreProperty)property);
-        
+
         if (_compiledAnimations.TryGetValue(key, out var compiled))
         {
             compiled.SampleBuffer(range, sampleCount, output);
@@ -102,7 +100,7 @@ public sealed class AnimationSampler : IAnimationSampler
         {
             // Convert time to relative time within the range
             var relativeTime = time - _range.Start;
-            
+
             // Clamp to valid range
             if (relativeTime < TimeSpan.Zero)
                 relativeTime = TimeSpan.Zero;
@@ -131,7 +129,7 @@ public sealed class AnimationSampler : IAnimationSampler
                     return intValue;
                 return 0;
             }
-            
+
             throw new NotSupportedException($"Animation type {_animation.GetType()} is not supported by AnimationSampler.");
         }
 
@@ -142,11 +140,11 @@ public sealed class AnimationSampler : IAnimationSampler
                 return;
 
             var timeStep = range.Duration.TotalSeconds / sampleCount;
-            
+
             for (int i = 0; i < sampleCount; i++)
             {
                 var sampleTime = range.Start + TimeSpan.FromSeconds(i * timeStep);
-                
+
                 // Check cache first
                 if (_sampleCache.TryGetValue(i, out var cachedValue))
                 {

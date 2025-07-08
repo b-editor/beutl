@@ -1,8 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using Beutl.Animation;
 using Beutl.Audio.Graph;
-using Beutl.Audio.Graph.Animation;
-using Beutl.Audio.Graph.Exceptions;
 using Beutl.Audio.Graph.Math;
 using Beutl.Media;
 using Beutl.Media.Music;
@@ -110,39 +108,31 @@ public class Composer : IComposer
 
     private Pcm<Stereo32BitFloat>? BuildFinalOutput(TimeRange range)
     {
+        // Multiple contexts - need to mix
+        var buffers = new List<AudioBuffer>();
 
-        try
+        // Process each context
+        foreach (var kvp in _audioCache)
         {
-            // Multiple contexts - need to mix
-            var buffers = new List<AudioBuffer>();
-
-            // Process each context
-            foreach (var kvp in _audioCache)
-            {
-                if (kvp.Value.Graph is not { } graph) continue;
-                var processContext = new AudioProcessContext(range, SampleRate, _animationSampler);
-                buffers.Add(graph.Process(processContext));
-            }
-
-            // Mix all buffers
-            using var mixedBuffer = MixBuffers(buffers);
-
-            // Dispose individual buffers
-            foreach (var buffer in buffers)
-            {
-                buffer.Dispose();
-            }
-
-            // Apply master effects
-            ApplyMasterEffects(mixedBuffer);
-
-            // Convert to output format
-            return ConvertToStereo32BitFloat(mixedBuffer);
+            if (kvp.Value.Graph is not { } graph) continue;
+            var processContext = new AudioProcessContext(range, SampleRate, _animationSampler);
+            buffers.Add(graph.Process(processContext));
         }
-        catch (Exception ex)
+
+        // Mix all buffers
+        using var mixedBuffer = MixBuffers(buffers);
+
+        // Dispose individual buffers
+        foreach (var buffer in buffers)
         {
-            throw new AudioGraphException("Failed to compose audio", ex);
+            buffer.Dispose();
         }
+
+        // Apply master effects
+        ApplyMasterEffects(mixedBuffer);
+
+        // Convert to output format
+        return ConvertToStereo32BitFloat(mixedBuffer);
     }
 
     private AudioBuffer MixBuffers(List<AudioBuffer> buffers)

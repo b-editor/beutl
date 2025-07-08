@@ -1,20 +1,12 @@
-using System;
-using Beutl.Animation;
+﻿using Beutl.Audio.Graph;
 
-namespace Beutl.Audio.Graph.Effects;
-
-public interface IAudioEffect : IAnimatable
-{
-    bool IsEnabled { get; }
-    
-    IAudioEffectProcessor CreateProcessor();
-}
+namespace Beutl.Audio.Effects;
 
 public interface IAudioEffectProcessor : IDisposable
 {
     void Process(AudioBuffer input, AudioBuffer output, AudioProcessContext context);
-    
+
     void Reset();
-    
+
     void Prepare(Media.TimeRange range, int sampleRate);
 }

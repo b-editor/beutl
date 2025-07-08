@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Beutl.Animation;
-using Beutl.Audio.Graph.Effects;
+using Beutl.Audio.Effects;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Media.Source;
 

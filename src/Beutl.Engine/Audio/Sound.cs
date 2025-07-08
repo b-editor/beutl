@@ -1,6 +1,5 @@
-﻿using Beutl.Audio.Graph.Effects;
+﻿using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
-using Beutl.Audio.Graph.Exceptions;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -75,8 +74,7 @@ public abstract class Sound : Renderable
     public virtual AudioNode Compose(AudioContext context)
     {
         var soundSource = GetSoundSource();
-        if (soundSource == null)
-            throw new AudioGraphBuildException("Sound source is not available");
+        if (soundSource == null) throw new Exception("Sound source is not available");
 
         // Create source node
         var sourceNode = context.CreateSourceNode(soundSource);

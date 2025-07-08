@@ -9,7 +9,7 @@ public sealed class SourceSoundOperator() : PublishOperator<SourceSound>(
     SourceSound.SourceProperty,
     (SourceSound.OffsetPositionProperty, TimeSpan.Zero),
     (Sound.GainProperty, 100f),
-    (Sound.EffectProperty, () => new SoundEffectGroup())
+    (Sound.EffectProperty, () => new AudioEffectGroup())
 ])
 {
     public override bool HasOriginalLength()

@@ -1,8 +1,4 @@
-using System;
-using Beutl.Audio.Graph.Effects;
-using Beutl.Audio.Graph.Exceptions;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
+using Beutl.Audio.Effects;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -39,14 +35,14 @@ public sealed class EffectNode : AudioNode
         }
 
         var input = Inputs[0].Process(context);
-        
+
         // Ensure processor is created
         if (_processor == null)
         {
             _processor = _effect.CreateProcessor();
             _needsReset = true;
         }
-        
+
         // Check if we need to prepare the processor
         if (_needsReset)
         {
@@ -56,7 +52,7 @@ public sealed class EffectNode : AudioNode
 
         // Create output buffer
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-        
+
         try
         {
             // Process with the new graph-based effect processor
@@ -66,7 +62,7 @@ public sealed class EffectNode : AudioNode
         catch (Exception ex)
         {
             output.Dispose();
-            throw new AudioEffectException($"Error processing effect: {_effect.GetType().Name}", _effect.GetType().Name, this, ex);
+            throw;
         }
     }
 
@@ -84,7 +80,7 @@ public sealed class EffectNode : AudioNode
             _processor = null;
             _effect = null;
         }
-        
+
         base.Dispose(disposing);
     }
 }

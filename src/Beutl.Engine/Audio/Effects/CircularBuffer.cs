@@ -1,7 +1,6 @@
-using System;
 using System.Runtime.InteropServices;
 
-namespace Beutl.Audio.Graph.Effects;
+namespace Beutl.Audio.Effects;
 
 public sealed unsafe class CircularBuffer<T> : IDisposable
     where T : unmanaged
@@ -31,16 +30,16 @@ public sealed unsafe class CircularBuffer<T> : IDisposable
     }
 
     public int Length => _length;
-    
+
     public int WriteIndex => _writeIndex;
 
     public T Read(int samplesBack)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        
+
         if (samplesBack < 0)
             throw new ArgumentOutOfRangeException(nameof(samplesBack), "Samples back must be non-negative.");
-        
+
         if (samplesBack >= _length)
             return default(T); // Return silence for out-of-range reads
 
@@ -59,7 +58,7 @@ public sealed unsafe class CircularBuffer<T> : IDisposable
     public void Clear()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        
+
         for (int i = 0; i < _length; i++)
         {
             _buffer[i] = default(T);
@@ -70,7 +69,7 @@ public sealed unsafe class CircularBuffer<T> : IDisposable
     public void FillWithValue(T value)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        
+
         for (int i = 0; i < _length; i++)
         {
             _buffer[i] = value;

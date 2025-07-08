@@ -2,27 +2,27 @@
 
 namespace Beutl.Audio.Effects;
 
-public sealed class SoundEffectGroup : SoundEffect
+public sealed class AudioEffectGroup : AudioEffect
 {
-    public static readonly CoreProperty<SoundEffects> ChildrenProperty;
-    private readonly SoundEffects _children;
+    public static readonly CoreProperty<AudioEffects> ChildrenProperty;
+    private readonly AudioEffects _children;
 
-    static SoundEffectGroup()
+    static AudioEffectGroup()
     {
-        ChildrenProperty = ConfigureProperty<SoundEffects, SoundEffectGroup>(nameof(Children))
+        ChildrenProperty = ConfigureProperty<AudioEffects, AudioEffectGroup>(nameof(Children))
             .Accessor(o => o.Children, (o, v) => o.Children = v)
             .Register();
-        AffectsRender<SoundEffectGroup>(ChildrenProperty);
+        AffectsRender<AudioEffectGroup>(ChildrenProperty);
     }
 
-    public SoundEffectGroup()
+    public AudioEffectGroup()
     {
         _children = [];
         _children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
     [NotAutoSerialized]
-    public SoundEffects Children
+    public AudioEffects Children
     {
         get => _children;
         set => _children.Replace(value);
@@ -31,7 +31,7 @@ public sealed class SoundEffectGroup : SoundEffect
     private int ValidEffectCount()
     {
         int count = 0;
-        foreach (ISoundEffect item in _children.GetMarshal().Value)
+        foreach (IAudioEffect item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
             {
@@ -44,7 +44,7 @@ public sealed class SoundEffectGroup : SoundEffect
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        if (context.GetValue<SoundEffects>(nameof(Children)) is { } children)
+        if (context.GetValue<AudioEffects>(nameof(Children)) is { } children)
         {
             Children = children;
         }
@@ -56,11 +56,11 @@ public sealed class SoundEffectGroup : SoundEffect
         context.SetValue(nameof(Children), Children);
     }
 
-    public override ISoundProcessor CreateProcessor()
+    public override IAudioEffectProcessor CreateProcessor()
     {
-        ISoundProcessor[] array = new ISoundProcessor[ValidEffectCount()];
+        IAudioEffectProcessor[] array = new IAudioEffectProcessor[ValidEffectCount()];
         int index = 0;
-        foreach (ISoundEffect item in _children.GetMarshal().Value)
+        foreach (IAudioEffect item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
             {
@@ -69,7 +69,7 @@ public sealed class SoundEffectGroup : SoundEffect
             }
         }
 
-        return new SoundProcessorGroup
+        return new AudioEffectProcessorGroup
         {
             Processors = array
         };

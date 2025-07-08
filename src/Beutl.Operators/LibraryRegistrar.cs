@@ -1,6 +1,5 @@
 ﻿using Beutl.Audio;
 using Beutl.Audio.Effects;
-using Beutl.Audio.Graph.Effects;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
@@ -156,12 +155,7 @@ public static class LibraryRegistrar
 
         LibraryService.Current
             .RegisterGroup("Audio Effect", g => g
-                .AddAudioEffect<AudioDelayEffect>("Delay")
-            );
-
-        LibraryService.Current
-            .RegisterGroup("SoundEffect (Legacy)", g => g
-                .AddSoundEffect<Delay>("Delay (Legacy)")
+                .AddAudioEffect<DelayEffect>("Delay")
             );
     }
 }
