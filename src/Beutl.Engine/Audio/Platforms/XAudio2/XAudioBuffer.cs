@@ -11,10 +11,10 @@ public sealed unsafe class XAudioBuffer : IDisposable
 
     public XAudioBuffer()
     {
-        Buffer = new AudioBuffer();
+        Buffer = new Vortice.XAudio2.AudioBuffer();
     }
 
-    public AudioBuffer Buffer { get; }
+    public Vortice.XAudio2.AudioBuffer Buffer { get; }
 
     public int SizeInBytes { get; private set; }
 
