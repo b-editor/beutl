@@ -44,8 +44,8 @@ public partial class SoundEffectEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.SoundEffect)
-            && e.Data.Get(KnownLibraryItemFormats.SoundEffect) is Type type
+        if (e.Data.Contains(KnownLibraryItemFormats.AudioEffect)
+            && e.Data.Get(KnownLibraryItemFormats.AudioEffect) is Type type
             && DataContext is SoundEffectEditorViewModel { IsDisposed: false } viewModel)
         {
             if (viewModel.IsGroup.Value)
@@ -64,7 +64,7 @@ public partial class SoundEffectEditor : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.SoundEffect))
+        if (e.Data.Contains(KnownLibraryItemFormats.AudioEffect))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
             e.Handled = true;
@@ -118,7 +118,7 @@ public partial class SoundEffectEditor : UserControl
                         tcs.SetResult(single.ImplementationType);
                         break;
                     case MultipleTypeLibraryItem multi:
-                        tcs.SetResult(multi.Types.GetValueOrDefault(KnownLibraryItemFormats.SoundEffect));
+                        tcs.SetResult(multi.Types.GetValueOrDefault(KnownLibraryItemFormats.AudioEffect));
                         break;
                     default:
                         tcs.SetResult(null);
