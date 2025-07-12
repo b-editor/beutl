@@ -3,8 +3,6 @@
 using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
-using Beutl.Audio.Graph;
-using Beutl.Audio.Graph.Nodes;
 using Beutl.Collections.Pooled;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -52,6 +50,7 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
         }
 
         _lastTime = timeRange;
+        base.ComposeCore();
     }
 
     private static void EnterSourceOperators(Element element)
