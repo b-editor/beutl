@@ -10,7 +10,7 @@ public sealed class SourceNode : AudioNode
     private ISoundSource? _source;
 
     public string SourceName { get; set; } = string.Empty;
-    
+
     public ISoundSource? Source
     {
         get => _source;
@@ -28,14 +28,6 @@ public sealed class SourceNode : AudioNode
     {
         if (_source == null)
             throw new InvalidOperationException("Source is not set.");
-
-        // Check if we have a cached output
-        if (CachedOutput != null && 
-            CachedOutput.SampleRate == context.SampleRate &&
-            CachedOutput.SampleCount == context.GetSampleCount())
-        {
-            return CachedOutput;
-        }
 
         var sampleCount = context.GetSampleCount();
         var buffer = new AudioBuffer(context.SampleRate, _source.NumChannels, sampleCount);
@@ -63,7 +55,6 @@ public sealed class SourceNode : AudioNode
             }
         }
 
-        CachedOutput = buffer;
         return buffer;
     }
 
@@ -72,9 +63,9 @@ public sealed class SourceNode : AudioNode
         var srcPtr = (Stereo32BitFloat*)pcm.Data;
         var leftChannel = buffer.GetChannelData(0);
         var rightChannel = buffer.GetChannelData(1);
-        
+
         var copyLength = System.Math.Min(pcm.NumSamples, buffer.SampleCount);
-        
+
         for (int i = 0; i < copyLength; i++)
         {
             leftChannel[i] = srcPtr[i].Left;
@@ -86,15 +77,15 @@ public sealed class SourceNode : AudioNode
     {
         var srcPtr = (Monaural32BitFloat*)pcm.Data;
         var leftChannel = buffer.GetChannelData(0);
-        
+
         var copyLength = System.Math.Min(pcm.NumSamples, buffer.SampleCount);
-        
+
         // Copy mono to left channel
         for (int i = 0; i < copyLength; i++)
         {
             leftChannel[i] = srcPtr[i].Value;
         }
-        
+
         // Copy to right channel if stereo
         if (buffer.ChannelCount > 1)
         {
@@ -110,7 +101,7 @@ public sealed class SourceNode : AudioNode
             _source?.Dispose();
             _source = null;
         }
-        
+
         base.Dispose(disposing);
     }
 }

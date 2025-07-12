@@ -21,7 +21,6 @@ public sealed class ResampleNode : AudioNode
                 _targetSampleRate = value;
                 _resampleProvider?.Dispose();
                 _resampleProvider = null;
-                ClearCache();
             }
         }
     }
@@ -32,19 +31,10 @@ public sealed class ResampleNode : AudioNode
             throw new InvalidOperationException("Resample node requires exactly one input.");
 
         var input = Inputs[0].Process(context);
-        
+
         // If the input sample rate is already the target, return as-is
         if (input.SampleRate == _targetSampleRate)
             return input;
-
-        // Check if we have a cached output with the same input and target rate
-        if (CachedOutput != null && 
-            _lastInput == input && 
-            _lastInputSampleRate == input.SampleRate &&
-            CachedOutput.SampleRate == _targetSampleRate)
-        {
-            return CachedOutput;
-        }
 
         // Create or recreate the resample provider if needed
         if (_resampleProvider == null || _lastInputSampleRate != input.SampleRate)
@@ -56,11 +46,10 @@ public sealed class ResampleNode : AudioNode
 
         // Convert input to the resampler and process
         var output = _resampleProvider.Process(input);
-        
+
         // Cache the result
         _lastInput = input;
-        CachedOutput = output;
-        
+
         return output;
     }
 
@@ -71,7 +60,7 @@ public sealed class ResampleNode : AudioNode
             _resampleProvider?.Dispose();
             _resampleProvider = null;
         }
-        
+
         base.Dispose(disposing);
     }
 

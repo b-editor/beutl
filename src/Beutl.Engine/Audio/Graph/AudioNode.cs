@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace Beutl.Audio.Graph;
 
 public abstract class AudioNode : IDisposable
@@ -9,16 +6,14 @@ public abstract class AudioNode : IDisposable
     private bool _disposed;
 
     public IReadOnlyList<AudioNode> Inputs => _inputs;
-    
-    protected AudioBuffer? CachedOutput { get; set; }
 
     public void AddInput(AudioNode input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        
+
         if (_inputs.Contains(input))
-            throw new InvalidOperationException("Input node already connected.");
-        
+            return;
+
         _inputs.Add(input);
     }
 
@@ -33,11 +28,6 @@ public abstract class AudioNode : IDisposable
         _inputs.Clear();
     }
 
-    internal void ClearCache()
-    {
-        CachedOutput = null;
-    }
-
     public abstract AudioBuffer Process(AudioProcessContext context);
 
     protected virtual void Dispose(bool disposing)
@@ -46,11 +36,9 @@ public abstract class AudioNode : IDisposable
         {
             if (disposing)
             {
-                CachedOutput?.Dispose();
-                CachedOutput = null;
                 _inputs.Clear();
             }
-            
+
             _disposed = true;
         }
     }
