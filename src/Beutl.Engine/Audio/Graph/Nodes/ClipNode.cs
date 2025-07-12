@@ -12,17 +12,20 @@ public class ClipNode : AudioNode
     public override AudioBuffer Process(AudioProcessContext context)
     {
         var range = new TimeRange(Start, Duration);
-        TimeSpan padBefore = TimeSpan.Zero;
-        // TimeSpan padAfter = TimeSpan.Zero;
-        if (context.TimeRange.Intersects(range) || context.TimeRange.Contains(range))
+        TimeRange newRange;
+        if (context.TimeRange.Intersects(range))
         {
-            var intersect = context.TimeRange.Intersect(range);
-            padBefore = intersect.Start - context.TimeRange.Start;
-            // padAfter = context.TimeRange.End - intersect.End;
+            newRange = context.TimeRange.Intersect(range);
+        }
+        else
+        {
+            throw new Exception("Unknown time range.");
         }
 
+        TimeSpan padBefore = newRange.Start - context.TimeRange.Start;
+
         var clippedContext = new AudioProcessContext(
-            range.SubtractStart(Start),
+            newRange.SubtractStart(Start),
             context.SampleRate,
             context.AnimationSampler);
         using var buffer = Inputs[0].Process(clippedContext);
