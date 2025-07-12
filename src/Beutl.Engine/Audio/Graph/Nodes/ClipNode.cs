@@ -27,7 +27,8 @@ public class ClipNode : AudioNode
         var clippedContext = new AudioProcessContext(
             newRange.SubtractStart(Start),
             context.SampleRate,
-            context.AnimationSampler);
+            context.AnimationSampler,
+            context.OriginalTimeRange);
         using var buffer = Inputs[0].Process(clippedContext);
         var newBuffer = new AudioBuffer(
             context.SampleRate,

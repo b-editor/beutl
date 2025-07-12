@@ -123,7 +123,7 @@ public class Composer : IComposer
         foreach (var kvp in _audioCache)
         {
             if (kvp.Value.OutputNodes is not { } outputNodes) continue;
-            var processContext = new AudioProcessContext(range, SampleRate, _animationSampler);
+            var processContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
             foreach (var outputNode in outputNodes)
             {
                 buffers.Add(outputNode.Process(processContext));
