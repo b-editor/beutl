@@ -254,6 +254,32 @@ public sealed class AudioContext : IDisposable
     }
 
     /// <summary>
+    /// Creates and adds a resample node to the context.
+    /// </summary>
+    /// <param name="targetSampleRate">The target sample rate for resampling.</param>
+    /// <returns>The created resample node.</returns>
+    public ResampleNode CreateResampleNode(int targetSampleRate)
+    {
+        ThrowIfDisposed();
+        if (targetSampleRate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(targetSampleRate), "Target sample rate must be positive.");
+
+        if (_previousNodes != null)
+        {
+            var existing = _previousNodes.OfType<ResampleNode>()
+                .FirstOrDefault(n => n.TargetSampleRate == targetSampleRate);
+            if (existing != null)
+            {
+                _previousNodes.Remove(existing);
+                return AddNode(existing);
+            }
+        }
+
+        var node = new ResampleNode { TargetSampleRate = targetSampleRate };
+        return AddNode(node);
+    }
+
+    /// <summary>
     /// Connects the current node to another node.
     /// </summary>
     /// <param name="destination">The destination node.</param>
