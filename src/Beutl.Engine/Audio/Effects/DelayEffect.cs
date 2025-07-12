@@ -128,10 +128,10 @@ public sealed class DelayEffect : AudioEffect
                 var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
 
                 // Sample animation values for this chunk
-                context.AnimationSampler.SampleBuffer(_effect, DelayEffect.DelayTimeProperty, chunkRange, chunkSize, delayTimes.Slice(0, chunkSize));
-                context.AnimationSampler.SampleBuffer(_effect, DelayEffect.FeedbackProperty, chunkRange, chunkSize, feedbacks.Slice(0, chunkSize));
-                context.AnimationSampler.SampleBuffer(_effect, DelayEffect.DryMixProperty, chunkRange, chunkSize, dryMixes.Slice(0, chunkSize));
-                context.AnimationSampler.SampleBuffer(_effect, DelayEffect.WetMixProperty, chunkRange, chunkSize, wetMixes.Slice(0, chunkSize));
+                context.AnimationSampler.SampleBuffer(_effect, DelayEffect.DelayTimeProperty, chunkRange, context.SampleRate, delayTimes.Slice(0, chunkSize));
+                context.AnimationSampler.SampleBuffer(_effect, DelayEffect.FeedbackProperty, chunkRange, context.SampleRate, feedbacks.Slice(0, chunkSize));
+                context.AnimationSampler.SampleBuffer(_effect, DelayEffect.DryMixProperty, chunkRange, context.SampleRate, dryMixes.Slice(0, chunkSize));
+                context.AnimationSampler.SampleBuffer(_effect, DelayEffect.WetMixProperty, chunkRange, context.SampleRate, wetMixes.Slice(0, chunkSize));
 
                 // Process each channel
                 for (int ch = 0; ch < System.Math.Min(input.ChannelCount, _delayLines!.Length); ch++)
