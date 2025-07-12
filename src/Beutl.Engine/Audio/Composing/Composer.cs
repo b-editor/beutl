@@ -1,7 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using Beutl.Animation;
 using Beutl.Audio.Graph;
-using Beutl.Audio.Graph.Math;
 using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;

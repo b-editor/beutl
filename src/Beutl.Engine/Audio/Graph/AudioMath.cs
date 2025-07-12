@@ -3,7 +3,7 @@ using System.Numerics;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 
-namespace Beutl.Audio.Graph.Math;
+namespace Beutl.Audio.Graph;
 
 public static class AudioMath
 {
@@ -94,7 +94,7 @@ public static class AudioMath
             return 0f;
 
         double sum = 0.0;
-        
+
         if (Vector.IsHardwareAccelerated && samples.Length >= Vector<float>.Count)
         {
             sum = CalculateRmsVectorized(samples);
@@ -141,7 +141,7 @@ public static class AudioMath
         {
             float sample = buffer[i];
             float abs = MathF.Abs(sample);
-            
+
             if (abs > threshold)
             {
                 float excess = abs - threshold;
@@ -158,7 +158,7 @@ public static class AudioMath
         {
             float sample = buffer[i];
             float abs = MathF.Abs(sample);
-            
+
             if (abs > threshold)
             {
                 // Soft clipping using tanh function
@@ -182,7 +182,7 @@ public static class AudioMath
     public static void FadeIn(Span<float> buffer, int fadeLength)
     {
         int actualFadeLength = System.Math.Min(fadeLength, buffer.Length);
-        
+
         for (int i = 0; i < actualFadeLength; i++)
         {
             float gain = (float)i / actualFadeLength;
@@ -194,7 +194,7 @@ public static class AudioMath
     {
         int actualFadeLength = System.Math.Min(fadeLength, buffer.Length);
         int startIndex = buffer.Length - actualFadeLength;
-        
+
         for (int i = 0; i < actualFadeLength; i++)
         {
             float gain = 1f - (float)i / actualFadeLength;
@@ -310,7 +310,7 @@ public static class AudioMath
             int offset = i * vectorSize;
             var vector = new Vector<float>(samples.Slice(offset, vectorSize));
             var squared = vector * vector;
-            
+
             for (int j = 0; j < vectorSize; j++)
             {
                 sum += squared[j];
@@ -343,7 +343,7 @@ public static class AudioMath
             int offset = i * vectorSize;
             var vector = new Vector<float>(samples.Slice(offset, vectorSize));
             var abs = Vector.Abs(vector);
-            
+
             for (int j = 0; j < vectorSize; j++)
             {
                 if (abs[j] > peak)
