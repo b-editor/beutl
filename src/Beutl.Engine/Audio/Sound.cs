@@ -79,9 +79,12 @@ public abstract class Sound : Renderable
         // Create source node
         var sourceNode = context.CreateSourceNode(soundSource);
 
+        var speedNode = context.CreateSpeedNode(Speed / 100f, this, SpeedProperty);
+        context.Connect(sourceNode, speedNode);
+
         // Create gain node with animation support
         var gainNode = context.CreateGainNode(Gain / 100f, this, GainProperty);
-        context.Connect(sourceNode, gainNode);
+        context.Connect(speedNode, gainNode);
 
         AudioNode currentNode = gainNode;
 

@@ -280,6 +280,42 @@ public sealed class AudioContext : IDisposable
     }
 
     /// <summary>
+    /// Creates and adds a speed node to the context.
+    /// </summary>
+    /// <param name="speed">The playback speed multiplier (1.0 = normal speed).</param>
+    /// <param name="target">The target object for animation binding (optional).</param>
+    /// <param name="speedProperty">The property to bind for animated speed (optional).</param>
+    /// <returns>The created speed node.</returns>
+    public SpeedNode CreateSpeedNode(float speed = 1.0f, IAnimatable? target = null,
+        CoreProperty<float>? speedProperty = null)
+    {
+        ThrowIfDisposed();
+        if (speed <= 0)
+            throw new ArgumentOutOfRangeException(nameof(speed), "Speed must be positive.");
+
+        // Try to reuse from previous nodes
+        if (_previousNodes != null)
+        {
+            var existing = _previousNodes.OfType<SpeedNode>()
+                .FirstOrDefault(n => n.Target == target && n.SpeedProperty == speedProperty);
+            if (existing != null)
+            {
+                _previousNodes.Remove(existing);
+                existing.StaticSpeed = speed;
+                return AddNode(existing);
+            }
+        }
+
+        var node = new SpeedNode
+        {
+            StaticSpeed = speed,
+            Target = target,
+            SpeedProperty = speedProperty
+        };
+        return AddNode(node);
+    }
+
+    /// <summary>
     /// Connects the current node to another node.
     /// </summary>
     /// <param name="destination">The destination node.</param>
@@ -358,8 +394,6 @@ public sealed class AudioContext : IDisposable
     /// <summary>
     /// Gets the output nodes in the context.
     /// </summary>
-    /// <returns>The built audio graph.</returns>
-    public AudioGraph BuildGraph()
     /// <returns>The output nodes.</returns>
     public IEnumerable<AudioNode> GetOutputNodes()
     {
@@ -485,6 +519,7 @@ public sealed class AudioContext : IDisposable
                     prevNode.Dispose();
                 }
             }
+
             _previousNodes = null;
         }
     }
@@ -503,5 +538,4 @@ public sealed class AudioContext : IDisposable
         if (_disposed)
             throw new ObjectDisposedException(nameof(AudioContext));
     }
-
 }
