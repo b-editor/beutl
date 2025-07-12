@@ -15,13 +15,21 @@ public class Composer : IComposer
     private readonly ConditionalWeakTable<Sound, AudioNodeEntry> _audioCache = [];
     private readonly List<Sound> _currentSounds = new();
 
-    private sealed class AudioNodeEntry
+    private sealed class AudioNodeEntry : IDisposable
     {
-        public AudioGraph? Graph { get; set; }
         public List<AudioNode> Nodes { get; set; } = new();
-        public AudioNode? OutputNode { get; set; }
+        public AudioNode[]? OutputNodes { get; set; }
         public bool IsDirty { get; set; } = true;
         public EventHandler<RenderInvalidatedEventArgs>? InvalidatedHandler { get; set; }
+
+        public void Dispose()
+        {
+            foreach (var node in Nodes)
+            {
+                node.Dispose();
+            }
+            Nodes.Clear();
+        }
     }
 
     public Composer()
@@ -114,9 +122,12 @@ public class Composer : IComposer
         // Process each context
         foreach (var kvp in _audioCache)
         {
-            if (kvp.Value.Graph is not { } graph) continue;
+            if (kvp.Value.OutputNodes is not { } outputNodes) continue;
             var processContext = new AudioProcessContext(range, SampleRate, _animationSampler);
-            buffers.Add(graph.Process(processContext));
+            foreach (var outputNode in outputNodes)
+            {
+                buffers.Add(outputNode.Process(processContext));
+            }
         }
 
         // Mix all buffers
@@ -183,7 +194,7 @@ public class Composer : IComposer
     {
         foreach (var kvp in _audioCache)
         {
-            kvp.Value.Graph?.Dispose();
+            kvp.Value.Dispose();
         }
 
         _audioCache.Clear();
@@ -194,9 +205,6 @@ public class Composer : IComposer
     /// </summary>
     protected void ComposeSound(Sound sound, IClock clock)
     {
-        // Apply animations first
-        sound.ApplyAnimations(clock);
-
         // Get or create cache entry
         if (!_audioCache.TryGetValue(sound, out var entry))
         {
@@ -211,14 +219,15 @@ public class Composer : IComposer
 
         if (entry.IsDirty)
         {
-            using var context = new AudioContext(SampleRate, 2);
+            // AudioContextはDisposeしない。AudioNodeが解放されてしまうので
+            var context = new AudioContext(SampleRate, 2);
 
             // Begin differential update with previous nodes
             context.BeginUpdate(entry.Nodes);
 
             // Compose the sound
-            var outputNode = sound.Compose(context);
-            entry.OutputNode = outputNode;
+            sound.Compose(context);
+            entry.OutputNodes = context.GetOutputNodes().ToArray();
 
             // Complete differential update
             context.EndUpdate();
@@ -228,7 +237,6 @@ public class Composer : IComposer
             entry.Nodes.AddRange(context.Nodes);
 
             entry.IsDirty = false;
-            entry.Graph = context.BuildGraph();
         }
     }
 
@@ -271,7 +279,7 @@ public class Composer : IComposer
                     kvp.Key.Invalidated -= kvp.Value.InvalidatedHandler;
                 }
 
-                kvp.Value.Graph?.Dispose();
+                kvp.Value.Dispose();
             }
 
             _audioCache.Clear();

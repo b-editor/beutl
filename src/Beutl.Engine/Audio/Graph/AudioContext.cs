@@ -356,59 +356,15 @@ public sealed class AudioContext : IDisposable
     }
 
     /// <summary>
-    /// Builds an audio graph from the current context.
+    /// Gets the output nodes in the context.
     /// </summary>
     /// <returns>The built audio graph.</returns>
     public AudioGraph BuildGraph()
+    /// <returns>The output nodes.</returns>
+    public IEnumerable<AudioNode> GetOutputNodes()
     {
         ThrowIfDisposed();
-
-        // Determine output nodes
-        var outputs = _outputNodes.Count > 0
-            ? _outputNodes.ToList()
-            : _nodes.Where(node => !_connections.Values.Any(list => list.Contains(node))).ToList();
-
-        if (outputs.Count == 0)
-            throw new InvalidOperationException("No output nodes found in the graph.");
-
-        // If multiple outputs, create a mixer
-        AudioNode finalOutput;
-        if (outputs.Count == 1)
-        {
-            finalOutput = outputs[0];
-        }
-        else
-        {
-            var mixer = new MixerNode();
-            foreach (var output in outputs)
-            {
-                mixer.AddInput(output);
-            }
-            finalOutput = mixer;
-        }
-
-        // Build the graph
-        var builder = new AudioGraphBuilder();
-
-        // Add all nodes to the builder
-        foreach (var node in _nodes)
-        {
-            builder.AddNode(node);
-        }
-
-        // Add all connections
-        foreach (var (source, destinations) in _connections)
-        {
-            foreach (var destination in destinations)
-            {
-                builder.Connect(source, destination);
-            }
-        }
-
-        // Set the output node
-        builder.SetOutput(finalOutput);
-
-        return builder.Build();
+        return _outputNodes;
     }
 
     /// <summary>

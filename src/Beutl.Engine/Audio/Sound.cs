@@ -71,7 +71,7 @@ public abstract class Sound : Renderable
 
     protected abstract ISoundSource? GetSoundSource();
 
-    public virtual AudioNode Compose(AudioContext context)
+    public virtual void Compose(AudioContext context)
     {
         var soundSource = GetSoundSource();
         if (soundSource == null) throw new Exception("Sound source is not available");
@@ -95,7 +95,7 @@ public abstract class Sound : Renderable
 
         var clipNode = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
         context.Connect(currentNode, clipNode);
-        return clipNode;
+        context.MarkAsOutput(clipNode);
     }
 
     public void Time(TimeSpan available)
