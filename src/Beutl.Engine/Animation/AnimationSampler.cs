@@ -49,4 +49,14 @@ public sealed class AnimationSampler
             output.Fill(coreObject.GetValue(property));
         }
     }
+
+    public bool IsAnimated(IAnimatable? target, CoreProperty? property)
+    {
+        if(target is null || property is null)
+        {
+            return false;
+        }
+
+        return target.Animations.Any(i => i.Property.Id == property.Id);
+    }
 }

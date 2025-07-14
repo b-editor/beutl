@@ -35,7 +35,7 @@ public sealed class GainNode : AudioNode
         var input = Inputs[0].Process(context);
 
         // If no animation, use static gain
-        if (_target == null || _gainProperty == null)
+        if (!context.AnimationSampler.IsAnimated(Target, GainProperty))
         {
             return ProcessStaticGain(input, _staticGain);
         }
