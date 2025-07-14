@@ -21,7 +21,7 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
     protected override void ComposeCore()
     {
         IClock clock = Clock;
-        var timeRange = new TimeRange(clock.AudioStartTime, clock.AudioStartTime);
+        var timeRange = new TimeRange(clock.AudioStartTime, clock.AudioDurationTime);
         SortLayers(timeRange, out _);
         Span<Element> elements = CollectionsMarshal.AsSpan(_current);
         Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
