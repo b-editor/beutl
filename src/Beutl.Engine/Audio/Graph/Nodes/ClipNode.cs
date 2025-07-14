@@ -19,7 +19,12 @@ public class ClipNode : AudioNode
         }
         else
         {
-            throw new Exception("Unknown time range.");
+            // throw new Exception("Unknown time range.");
+            // 本来なら時間範囲外のノードは処理されないはずだが...
+            return new AudioBuffer(
+                context.SampleRate,
+                2,
+                (int)(context.TimeRange.Duration.TotalSeconds * context.SampleRate));
         }
 
         TimeSpan padBefore = newRange.Start - context.TimeRange.Start;

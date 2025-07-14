@@ -138,6 +138,7 @@ public class Composer : IComposer
             buffer.Dispose();
         }
 
+        if (mixedBuffer == null) return null;
         // Apply master effects
         ApplyMasterEffects(mixedBuffer);
 
@@ -145,10 +146,10 @@ public class Composer : IComposer
         return mixedBuffer;
     }
 
-    private AudioBuffer MixBuffers(List<AudioBuffer> buffers)
+    private AudioBuffer? MixBuffers(List<AudioBuffer> buffers)
     {
         if (buffers.Count == 0)
-            throw new ArgumentException("No buffers to mix");
+            return null;
 
         var firstBuffer = buffers[0];
         var mixedBuffer = new AudioBuffer(firstBuffer.SampleRate, firstBuffer.ChannelCount, firstBuffer.SampleCount);
