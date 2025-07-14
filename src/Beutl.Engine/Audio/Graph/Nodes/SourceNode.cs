@@ -30,7 +30,7 @@ public sealed class SourceNode : AudioNode
             throw new InvalidOperationException("Source is not set.");
 
         var sampleCount = context.GetSampleCount();
-        var buffer = new AudioBuffer(context.SampleRate, _source.NumChannels, sampleCount);
+        var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
 
         // Read PCM data from source
         if (_source.Read(context.TimeRange.Start, context.TimeRange.Duration, out var pcm))
