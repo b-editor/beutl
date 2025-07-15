@@ -2,6 +2,7 @@ using Beutl.Animation;
 using Beutl.Media;
 using NAudio.Dsp;
 using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -39,12 +40,12 @@ public sealed class SpeedNode : AudioNode
         if (_processor == null || _lastSampleRate != context.SampleRate)
         {
             _processor?.Dispose();
-            _processor = new SpeedProcessor(context.SampleRate);
+            _processor = new SpeedProcessor(context.SampleRate, 2, this);
             _lastSampleRate = context.SampleRate;
         }
 
         // If no animation, use static speed processing
-        if (Target == null || SpeedProperty == null)
+        if (!context.AnimationSampler.IsAnimated(Target, SpeedProperty))
         {
             return ProcessStaticSpeed(context, expectedOutputSampleCount);
         }
@@ -70,11 +71,8 @@ public sealed class SpeedNode : AudioNode
             context.AnimationSampler,
             context.OriginalTimeRange);
 
-        // Process input from calculated source range
-        var input = Inputs[0].Process(inputContext);
-
         // Process with constant speed to get the expected output length
-        return _processor!.ProcessBuffer(input, ClampSpeed(_staticSpeed), expectedOutputSampleCount);
+        return _processor!.ProcessBuffer(inputContext, ClampSpeed(_staticSpeed), expectedOutputSampleCount);
     }
 
     private AudioBuffer ProcessAnimatedSpeed(AudioProcessContext context, int expectedOutputSampleCount)
@@ -105,11 +103,8 @@ public sealed class SpeedNode : AudioNode
             context.AnimationSampler,
             context.OriginalTimeRange);
 
-        // Process input from calculated source range
-        var input = Inputs[0].Process(inputContext);
-
         // Process with variable speed to get the expected output length
-        return _processor!.ProcessBufferWithVariableSpeed(input, speeds, expectedOutputSampleCount);
+        return _processor!.ProcessBufferWithVariableSpeed(inputContext, speeds, expectedOutputSampleCount);
     }
 
     /// <summary>
@@ -269,16 +264,16 @@ public sealed class SpeedNode : AudioNode
     {
         private readonly int _sampleRate;
         private readonly int _channels;
+        private readonly SpeedNode _speedNode;
         private readonly WdlResampler _rs;
-        private readonly StreamingSampleProvider _stream;
         private float _currentSpeed = 1.0f;
         private bool _disposed;
 
-        public SpeedProcessor(int sampleRate, int channels = 2)
+        public SpeedProcessor(int sampleRate, int channels, SpeedNode speedNode)
         {
             _sampleRate = sampleRate;
             _channels = channels;
-            _stream = new StreamingSampleProvider(sampleRate, channels);
+            _speedNode = speedNode;
 
             _rs = new WdlResampler();
             _rs.SetMode(interp: true, filtercnt: 0, sinc: true, sinc_size: 64);
@@ -287,113 +282,212 @@ public sealed class SpeedNode : AudioNode
             _rs.SetRates(sampleRate, sampleRate);
         }
 
-        public AudioBuffer ProcessBuffer(AudioBuffer input,
-            float speed, int expectedOut)
+        private TimeSpan lastSrcOffset;
+
+        private int Read(int srcOffset, float[] buffer, int offset, int count, AudioProcessContext context)
+        {
+            var newRange = new TimeRange(TimeSpan.FromSeconds(srcOffset / (float)_sampleRate) + context.TimeRange.Start,
+                TimeSpan.FromSeconds(count / (float)_sampleRate));
+            if (newRange.End > context.TimeRange.End)
+            {
+                // Console.WriteLine($"{newRange.End} > {context.TimeRange.End}");
+                newRange = newRange.WithDuration(TimeSpan.FromTicks(Math.Max((context.TimeRange.End - newRange.Start).Ticks, 0)));
+            }
+            var newContext = new AudioProcessContext(
+                newRange,
+                _sampleRate,
+                context.AnimationSampler,
+                context.OriginalTimeRange);
+            var result = _speedNode.Inputs[0].Process(newContext);
+            var leftData = result.GetChannelData(0);
+            var rightData = result.GetChannelData(1);
+            int samplesToRead = Math.Min(buffer.Length / _channels, Math.Min(count, result.SampleCount));
+            for (int i = 0; i < samplesToRead; i++)
+            {
+                buffer[offset + i * _channels] = leftData[i];
+                buffer[offset + i * _channels + 1] = rightData[i];
+            }
+
+            return result.SampleCount;
+        }
+
+        public AudioBuffer ProcessBuffer(AudioProcessContext context, float speed, int expectedOut)
         {
             if (_disposed) throw new ObjectDisposedException(nameof(SpeedProcessor));
 
-            _stream.AddSamples(input);
-
+            // 速度変更があればレートだけ更新（Reset は行わない）
             if (Math.Abs(_currentSpeed - speed) > 1e-4f)
             {
                 _currentSpeed = speed;
                 _rs.SetRates(_sampleRate, _sampleRate / speed);
+                // _rs.Reset();  ← ここを呼ぶとフィルタがゼロで埋まり無音になる
             }
 
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
-            int framesNeeded = expectedOut;
+            float[] dst = new float[expectedOut * _channels];
 
-            float[] dst = new float[framesNeeded * _channels];
-            int framesDone = 0;
+            int framesNeeded = expectedOut; // まだ欲しい出力フレーム数
+            int framesDone = 0; // すでに生成したフレーム数
+            int srcFramesRead = 0;
 
             while (framesDone < framesNeeded)
             {
                 float[] inBuf;
                 int inOff;
+
                 int want = _rs.ResamplePrepare(framesNeeded - framesDone,
                     _channels, out inBuf, out inOff);
 
-                // キューから必要分だけ取り出してinBufへ
-                int got = _stream.Read(inBuf, inOff * _channels,
-                    want * _channels) / _channels;
+                int got = Read(
+                    srcFramesRead,
+                    inBuf,
+                    inOff / _channels,
+                    want,
+                    context);
+                srcFramesRead += got;
 
+                // --- リサンプル ----------------------------------------------------
                 int made = _rs.ResampleOut(dst,
                     framesDone * _channels,
-                    got, framesNeeded - framesDone,
+                    got, // 供給した入力フレーム数
+                    framesNeeded - framesDone, // 欲しい出力数
                     _channels);
 
+                if (made == 0)
+                {
+                    made = _rs.ResampleOut(dst,
+                        framesDone * _channels,
+                        0, // 追加入力なし
+                        framesNeeded - framesDone,
+                        _channels);
+
+                    if (made == 0) break;
+                }
+
                 framesDone += made;
-                if (got == 0) break;
             }
 
-            // ---- de-interleave ----
             for (int ch = 0; ch < _channels; ch++)
             {
                 var chData = output.GetChannelData(ch);
                 for (int n = 0; n < framesDone; n++)
                     chData[n] = dst[n * _channels + ch];
 
-                // 取り切れなかったら無音パディング
+                // 生成しきれなかった分は最後の値で埋める
+                float tail = framesDone > 0 ? chData[framesDone - 1] : 0f;
                 for (int n = framesDone; n < expectedOut; n++)
-                    chData[n] = 0f;
+                    chData[n] = tail;
             }
 
             return output;
         }
 
+        private const int BLOCK = 256;
+
         public AudioBuffer ProcessBufferWithVariableSpeed(
-            AudioBuffer input, ReadOnlySpan<float> speedCurve,
-            int expectedOut)
+            AudioProcessContext context, ReadOnlySpan<float> speedCurve, int expectedOut)
         {
-            const int BLOCK = 2048;
-            int outDone = 0, inDone = 0;
-            var outBuf = new AudioBuffer(_sampleRate, _channels, expectedOut);
+            // TimeRangeは変換前での時間、つまりInputに渡される範囲
+            Console.WriteLine($"Start: {context.TimeRange.Start}, End: {context.TimeRange.End}");
+            int framesNeeded = expectedOut;
+            int framesDone = 0;
+            int srcIndexFloor = 0;
+            double srcPos = 0.0;
 
-            while (outDone < expectedOut && inDone < input.SampleCount)
+            var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
+            float[] dst = new float[expectedOut * _channels];
+            // 変換前のサンプル数 (context.TimeRange.Duration.TotalSeconds * _sampleRate) と同じになる
+            // ならなかった...
+
+            // Sum: 42291.688
+            Console.WriteLine($"Sum: {speedCurve.ToArray().Sum()}");
+            var durationSamples = context.TimeRange.Duration.TotalSeconds * _sampleRate;
+            // Last: 22050
+            Console.WriteLine($"DurationSamples: {durationSamples}");
+
+            // while (srcIndexFloor < last)
+            while (framesDone < framesNeeded)
             {
-                int wantOut = Math.Min(BLOCK, expectedOut - outDone);
-                float v = Average(speedCurve.Slice(outDone, wantOut));
-                int needIn = (int)Math.Round(wantOut * v);
+                // 変換後のサンプルレートで計算される
+                int framesThis = Math.Min(BLOCK, framesNeeded - framesDone);
 
-                var inChunk = ExtractChunk(input, inDone, needIn);
-                var outChunk = ProcessBuffer(inChunk, v, wantOut);
+                // --- 1. このブロックの速度を全部合計して必要入力フレーム数を計算 ---
+                double sumSpeed = 0.0;
+                for (int i = 0; i < framesThis; i++)
+                    sumSpeed += speedCurve[framesDone + i];
 
-                MergeChunk(outBuf, outChunk, outDone);
+                double needInF    = srcPos + sumSpeed;          // double 精度で次位置
+                int    needInInt  = (int)Math.Floor(needInF);   // 整数ぶんを今回読む
+                // 変換前
+                int    wantFrames = needInInt - srcIndexFloor;  // 追加で必要なフレーム数
 
-                outDone += wantOut;
-                inDone += needIn;
+                double vAvg = sumSpeed / framesThis;
+                Console.WriteLine(vAvg);
+                double outRate = _sampleRate / vAvg; // ratio = vAvg
+                _rs.SetRates(_sampleRate, outRate);
+
+                float[] inBuf;
+                int inOff;
+                int willNeed = _rs.ResamplePrepare(framesThis, _channels, out inBuf, out inOff);
+
+                if (wantFrames > willNeed) wantFrames = willNeed;
+
+                // 本当に読む
+                int got = Read(srcIndexFloor, inBuf, inOff, wantFrames, context);
+                // srcIndexFloor += got;
+                if (got < wantFrames)
+                {
+                    Array.Clear(inBuf, inOff + got * _channels,
+                        (wantFrames - got) * _channels);
+                }
+
+                int made = _rs.ResampleOut(dst,
+                    framesDone * _channels,
+                    wantFrames, // 供給した入力フレーム数
+                    framesThis, // 欲しい出力数
+                    _channels);
+
+                framesDone += made;
+                srcIndexFloor += wantFrames;
+                srcPos = needInF;
+                // このメソッド呼び出しでの最後の出力がcontext.TimeRange.Endと同じになる必要があるが、この出力の方が大きくなってしまっている
+                // フレームが過剰に供給されていることが考えられたが
+                Console.WriteLine(TimeSpan.FromSeconds(srcIndexFloor / (double)_sampleRate)+ context.TimeRange.Start);
+
+                // if (made == 0)
+                // {
+                //     made = _rs.ResampleOut(dst,
+                //         framesDone * _channels,
+                //         0, // 追加入力なし
+                //         framesThis,
+                //         _channels);
+                //
+                //     if (made == 0) break;
+                // }
             }
 
-            return outBuf;
+            // srcPos: 42291.687
+            // srcIndexFloor: 42291
+            Console.WriteLine($"srcPos: {srcPos:F}");
+            Console.WriteLine($"srcIndexFloor: {srcIndexFloor}");
+
+            for (int ch = 0; ch < _channels; ch++)
+            {
+                var chData = output.GetChannelData(ch);
+                for (int n = 0; n < framesDone; n++)
+                    chData[n] = dst[n * _channels + ch];
+
+                // 生成しきれなかった分は最後の値で埋める
+                float tail = framesDone > 0 ? chData[framesDone - 1] : 0f;
+                for (int n = framesDone; n < expectedOut; n++)
+                    chData[n] = tail;
+            }
+
+            return output;
         }
 
         private static float Average(ReadOnlySpan<float> s)
             => s.IsEmpty ? 1f : (float)(s.ToArray().Average());
-
-        private AudioBuffer ExtractChunk(AudioBuffer input, int startSample, int chunkSize)
-        {
-            var chunk = new AudioBuffer(input.SampleRate, input.ChannelCount, chunkSize);
-
-            for (int ch = 0; ch < input.ChannelCount; ch++)
-            {
-                var inputChannel = input.GetChannelData(ch);
-                var chunkChannel = chunk.GetChannelData(ch);
-
-                for (int i = 0; i < chunkSize; i++)
-                {
-                    if (startSample + i < input.SampleCount)
-                    {
-                        chunkChannel[i] = inputChannel[startSample + i];
-                    }
-                    else
-                    {
-                        chunkChannel[i] = 0.0f; // Pad with silence
-                    }
-                }
-            }
-
-            return chunk;
-        }
 
         private void MergeChunk(AudioBuffer output, AudioBuffer chunk, int startSample)
         {
@@ -415,79 +509,6 @@ public sealed class SpeedNode : AudioNode
         {
             if (!_disposed)
             {
-                _stream.Dispose();
-                _disposed = true;
-            }
-        }
-    }
-
-    private sealed class StreamingSampleProvider : ISampleProvider, IDisposable
-    {
-        private readonly WaveFormat _waveFormat;
-        private readonly Queue<float> _sampleQueue = new();
-        private bool _disposed;
-
-        public StreamingSampleProvider(int sampleRate, int channelCount)
-        {
-            _waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, channelCount);
-        }
-
-        public WaveFormat WaveFormat => _waveFormat;
-
-        public void AddSamples(AudioBuffer buffer)
-        {
-            if (_disposed) return;
-
-            // Interleave samples and add to queue
-            for (int i = 0; i < buffer.SampleCount; i++)
-            {
-                for (int ch = 0; ch < buffer.ChannelCount; ch++)
-                {
-                    var channelData = buffer.GetChannelData(ch);
-                    _sampleQueue.Enqueue(channelData[i]);
-                }
-            }
-        }
-
-        public void Clear()
-        {
-            if (!_disposed)
-            {
-                _sampleQueue.Clear();
-            }
-        }
-
-        public int Read(float[] buffer, int offset, int count)
-        {
-            if (_disposed)
-                return 0;
-
-            int samplesRead = 0;
-            int maxSamples = System.Math.Min(count, _sampleQueue.Count);
-
-            for (int i = 0; i < maxSamples; i++)
-            {
-                if (_sampleQueue.Count > 0)
-                {
-                    buffer[offset + i] = _sampleQueue.Dequeue();
-                    samplesRead++;
-                }
-                else
-                {
-                    // Pad with silence if no more samples
-                    buffer[offset + i] = 0.0f;
-                    samplesRead++;
-                }
-            }
-
-            return samplesRead;
-        }
-
-        public void Dispose()
-        {
-            if (!_disposed)
-            {
-                _sampleQueue.Clear();
                 _disposed = true;
             }
         }
