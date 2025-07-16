@@ -31,9 +31,11 @@ public sealed class SourceNode : AudioNode
 
         var sampleCount = context.GetSampleCount();
         var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
+        var start = (int)(context.TimeRange.Start.TotalSeconds * _source.SampleRate);
+        var length = (int)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * _source.SampleRate);
 
         // Read PCM data from source
-        if (_source.Read(context.TimeRange.Start, context.TimeRange.Duration, out var pcm))
+        if (_source.Read(start, length, out var pcm))
         {
             using (pcm)
             {
