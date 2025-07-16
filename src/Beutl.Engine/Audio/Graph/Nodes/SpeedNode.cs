@@ -78,12 +78,13 @@ public sealed class SpeedNode : AudioNode
     private AudioBuffer ProcessAnimatedSpeed(AudioProcessContext context, int expectedOutputSampleCount)
     {
         // Sample speed values for the entire output buffer
-        Span<float> speeds = stackalloc float[expectedOutputSampleCount];
+        // Span<float> speeds = stackalloc float[expectedOutputSampleCount];
+        Span<float> speeds = new float[(int)(context.TimeRange.End.TotalSeconds * context.SampleRate)];
 
         context.AnimationSampler.SampleBuffer(
             Target!,
             SpeedProperty!,
-            context.TimeRange,
+            new TimeRange(TimeSpan.Zero, context.TimeRange.End),
             context.SampleRate,
             speeds);
 
@@ -94,7 +95,12 @@ public sealed class SpeedNode : AudioNode
         }
 
         // Calculate source time range from output time range using keyframe animation
-        var sourceTimeRange = CalculateSourceTimeRangeAnimated(context.TimeRange);
+        var start = speeds.Slice(0, (int)(context.TimeRange.Start.TotalSeconds * context.SampleRate)).ToArray().Sum();
+        var actualSpeeds = speeds.Slice((int)(context.TimeRange.Start.TotalSeconds * context.SampleRate));
+        var duration = actualSpeeds.ToArray().Sum();
+        var sourceTimeRange = new TimeRange(TimeSpan.FromSeconds(start / context.SampleRate), TimeSpan.FromSeconds(duration / context.SampleRate));
+        // var sourceTimeRange = CalculateSourceTimeRangeAnimated(context.TimeRange);
+        Console.WriteLine($"Original TimeRange: {context.TimeRange}");
 
         // Create input context with calculated source time range
         var inputContext = new AudioProcessContext(
@@ -104,7 +110,7 @@ public sealed class SpeedNode : AudioNode
             context.OriginalTimeRange);
 
         // Process with variable speed to get the expected output length
-        return _processor!.ProcessBufferWithVariableSpeed(inputContext, speeds, expectedOutputSampleCount);
+        return _processor!.ProcessBufferWithVariableSpeed(inputContext, actualSpeeds, expectedOutputSampleCount);
     }
 
     /// <summary>
@@ -185,38 +191,39 @@ public sealed class SpeedNode : AudioNode
     /// </summary>
     private TimeSpan CalculateVideoTimeFromKeyframes(TimeSpan outputTime, IAnimation animation)
     {
-        if (animation is not KeyFrameAnimation<float> keyFrameAnimation)
-            return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, ClampSpeed(_staticSpeed)));
-
-        // If no keyframes, use static speed
-        if (keyFrameAnimation.KeyFrames.Count == 0)
-        {
-            return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, ClampSpeed(_staticSpeed)));
-        }
-
-        int kfi = keyFrameAnimation.KeyFrames.IndexAt(outputTime);
-        if (kfi < 0 || kfi >= keyFrameAnimation.KeyFrames.Count)
-        {
-            // Fallback to static speed if index is invalid
-            return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, ClampSpeed(_staticSpeed)));
-        }
-
-        var kf = (KeyFrame<float>)keyFrameAnimation.KeyFrames[kfi];
-        float clampedSpeed = ClampSpeed(kf.Value / 100f);
-
-        // If there's a previous keyframe, recursively calculate base time
-        if (kfi > 0 &&
-            keyFrameAnimation.KeyFrames[kfi - 1] is KeyFrame<float> prevKf)
-        {
-            var baseSourceTime = CalculateVideoTimeFromKeyframes(prevKf.KeyTime, animation);
-            var deltaTicks = (outputTime - prevKf.KeyTime).Ticks;
-            // Apply current keyframe's speed to the delta (with overflow protection)
-            long sourceTicks = SafeMultiplyTicks(deltaTicks, clampedSpeed);
-            return baseSourceTime + TimeSpan.FromTicks(sourceTicks);
-        }
-
-        // First keyframe case (with overflow protection)
-        return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, clampedSpeed));
+        // if (animation is not KeyFrameAnimation<float> keyFrameAnimation)
+        //     return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, ClampSpeed(_staticSpeed)));
+        //
+        // // If no keyframes, use static speed
+        // if (keyFrameAnimation.KeyFrames.Count == 0)
+        // {
+        //     return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, ClampSpeed(_staticSpeed)));
+        // }
+        //
+        // int kfi = keyFrameAnimation.KeyFrames.IndexAt(outputTime);
+        // if (kfi < 0 || kfi >= keyFrameAnimation.KeyFrames.Count)
+        // {
+        //     // Fallback to static speed if index is invalid
+        //     return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, ClampSpeed(_staticSpeed)));
+        // }
+        //
+        // var kf = (KeyFrame<float>)keyFrameAnimation.KeyFrames[kfi];
+        // float clampedSpeed = ClampSpeed(kf.Value / 100f);
+        //
+        // // If there's a previous keyframe, recursively calculate base time
+        // if (kfi > 0 &&
+        //     keyFrameAnimation.KeyFrames[kfi - 1] is KeyFrame<float> prevKf)
+        // {
+        //     var baseSourceTime = CalculateVideoTimeFromKeyframes(prevKf.KeyTime, animation);
+        //     var deltaTicks = (outputTime - prevKf.KeyTime).Ticks;
+        //     // Apply current keyframe's speed to the delta (with overflow protection)
+        //     long sourceTicks = SafeMultiplyTicks(deltaTicks, clampedSpeed);
+        //     return baseSourceTime + TimeSpan.FromTicks(sourceTicks);
+        // }
+        //
+        // // First keyframe case (with overflow protection)
+        // return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, clampedSpeed));
+        return TimeRemapper.ToOriginalTime3((KeyFrameAnimation<float>)animation, outputTime, 44100);
     }
 
     /// <summary>
@@ -276,7 +283,8 @@ public sealed class SpeedNode : AudioNode
             _speedNode = speedNode;
 
             _rs = new WdlResampler();
-            _rs.SetMode(interp: true, filtercnt: 0, sinc: true, sinc_size: 64);
+            _rs.SetMode(interp: true, filtercnt: 0, sinc: true, sinc_size: 128, sinc_interpsize: 64);
+            // _rs.SetMode(interp: true, filtercnt: 0, sinc: true, sinc_size: 64);
             _rs.SetFilterParms();
             _rs.SetFeedMode(false);
             _rs.SetRates(sampleRate, sampleRate);
@@ -286,8 +294,8 @@ public sealed class SpeedNode : AudioNode
 
         private int Read(int srcOffset, float[] buffer, int offset, int count, AudioProcessContext context)
         {
-            var newRange = new TimeRange(TimeSpan.FromSeconds(srcOffset / (float)_sampleRate) + context.TimeRange.Start,
-                TimeSpan.FromSeconds(count / (float)_sampleRate));
+            var newRange = new TimeRange(TimeSpan.FromSeconds(srcOffset / (double)_sampleRate) + context.TimeRange.Start,
+                TimeSpan.FromSeconds(count / (double)_sampleRate));
             if (newRange.End > context.TimeRange.End)
             {
                 // Console.WriteLine($"{newRange.End} > {context.TimeRange.End}");
@@ -399,10 +407,14 @@ public sealed class SpeedNode : AudioNode
             // 変換前のサンプル数 (context.TimeRange.Duration.TotalSeconds * _sampleRate) と同じになる
             // ならなかった...
 
+            // speedCurve.Length: 44100
             // Sum: 42291.688
             Console.WriteLine($"Sum: {speedCurve.ToArray().Sum()}");
             var durationSamples = context.TimeRange.Duration.TotalSeconds * _sampleRate;
             // Last: 22050
+            // 逆にcontext.TimeRangeの計算が間違っている気がする。
+            // 早く減り過ぎ
+            // 44100のサンプルを生み出すのに22050で生み出せるのはおかしい
             Console.WriteLine($"DurationSamples: {durationSamples}");
 
             // while (srcIndexFloor < last)
@@ -422,9 +434,11 @@ public sealed class SpeedNode : AudioNode
                 int    wantFrames = needInInt - srcIndexFloor;  // 追加で必要なフレーム数
 
                 double vAvg = sumSpeed / framesThis;
-                Console.WriteLine(vAvg);
+                // Console.WriteLine(vAvg);
                 double outRate = _sampleRate / vAvg; // ratio = vAvg
                 _rs.SetRates(_sampleRate, outRate);
+                float cutoff = 0.97f / (float)vAvg;   // vAvg>1 なら Nyquist を下げる
+                _rs.SetFilterParms(cutoff, 0.707f);   // Q はそのまま
 
                 float[] inBuf;
                 int inOff;
@@ -437,13 +451,14 @@ public sealed class SpeedNode : AudioNode
                 // srcIndexFloor += got;
                 if (got < wantFrames)
                 {
+                    Console.WriteLine($"Clear: {got} < {wantFrames}");
                     Array.Clear(inBuf, inOff + got * _channels,
                         (wantFrames - got) * _channels);
                 }
 
                 int made = _rs.ResampleOut(dst,
                     framesDone * _channels,
-                    wantFrames, // 供給した入力フレーム数
+                    willNeed, // 供給した入力フレーム数
                     framesThis, // 欲しい出力数
                     _channels);
 
@@ -452,7 +467,7 @@ public sealed class SpeedNode : AudioNode
                 srcPos = needInF;
                 // このメソッド呼び出しでの最後の出力がcontext.TimeRange.Endと同じになる必要があるが、この出力の方が大きくなってしまっている
                 // フレームが過剰に供給されていることが考えられたが
-                Console.WriteLine(TimeSpan.FromSeconds(srcIndexFloor / (double)_sampleRate)+ context.TimeRange.Start);
+                // Console.WriteLine(TimeSpan.FromSeconds(srcIndexFloor / (double)_sampleRate)+ context.TimeRange.Start);
 
                 // if (made == 0)
                 // {
