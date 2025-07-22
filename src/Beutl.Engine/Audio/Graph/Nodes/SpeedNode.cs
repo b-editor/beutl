@@ -1,8 +1,6 @@
 using Beutl.Animation;
 using Beutl.Media;
 using NAudio.Dsp;
-using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -75,32 +73,73 @@ public sealed class SpeedNode : AudioNode
         return _processor!.ProcessBuffer(inputContext, ClampSpeed(_staticSpeed), expectedOutputSampleCount);
     }
 
+    // 秒数 -> サンプルオフセット
+    private Dictionary<int, double> _cache = new();
+
+    private (int Key, double Value) TryGetCache(int sec)
+    {
+        // キャッシュヒット確認
+        do
+        {
+            if (_cache.TryGetValue(sec--, out double result))
+            {
+                return (sec + 1, result);
+            }
+        } while (sec >= 0);
+
+        return (-1, 0);
+    }
+
     private AudioBuffer ProcessAnimatedSpeed(AudioProcessContext context, int expectedOutputSampleCount)
     {
-        // Sample speed values for the entire output buffer
-        // Span<float> speeds = stackalloc float[expectedOutputSampleCount];
-        Span<float> speeds = new float[(int)(context.TimeRange.End.TotalSeconds * context.SampleRate)];
+        var origStartSec = (int)context.TimeRange.Start.TotalSeconds;
 
-        context.AnimationSampler.SampleBuffer(
-            Target!,
-            SpeedProperty!,
-            new TimeRange(TimeSpan.Zero, context.TimeRange.End),
-            context.SampleRate,
-            speeds);
+        (int startSec, double startConvTime) = TryGetCache(origStartSec);
 
-        // Clamp all speed values to safe ranges
-        for (int i = 0; i < speeds.Length; i++)
+        // 見つからなかった場合、-1が帰ってくるので0にする
+        if (startSec < 0) startSec++;
+        // 元々の開始秒数と見つかった秒数が違う場合その間の値を計算する
+        double sum = startConvTime;
+
+        // startSecが-1の時は[-1,0]をsumが0になるようにサンプリング
+        var animation = GetSpeedAnimation()!;
+        for (; startSec < origStartSec;)
         {
-            speeds[i] = ClampSpeed(speeds[i] / 100f);
+            // ここで計算してキャッシュに保存する
+            if (startSec >= 0)
+            {
+                for (int i = 0; i < context.SampleRate; i++)
+                {
+                    sum += animation.Interpolate(TimeSpan.FromSeconds((i / (double)context.SampleRate) + startSec)) /
+                           100.0;
+                }
+            }
+
+            _cache[++startSec] = sum;
         }
 
-        // Calculate source time range from output time range using keyframe animation
-        var start = speeds.Slice(0, (int)(context.TimeRange.Start.TotalSeconds * context.SampleRate)).ToArray().Sum();
-        var actualSpeeds = speeds.Slice((int)(context.TimeRange.Start.TotalSeconds * context.SampleRate));
-        var duration = actualSpeeds.ToArray().Sum();
-        var sourceTimeRange = new TimeRange(TimeSpan.FromSeconds(start / context.SampleRate), TimeSpan.FromSeconds(duration / context.SampleRate));
-        // var sourceTimeRange = CalculateSourceTimeRangeAnimated(context.TimeRange);
-        Console.WriteLine($"Original TimeRange: {context.TimeRange}");
+        var startInSamples = (int)(context.TimeRange.Start.TotalSeconds * context.SampleRate);
+        for (int i = origStartSec * context.SampleRate; i < startInSamples; i++)
+        {
+            sum += animation.Interpolate(TimeSpan.FromSeconds(i / (double)context.SampleRate)) / 100.0;
+        }
+
+        // ここでsumはcontext.TimeRange.Startの変換後の時間を表す。つまりsourceTimeRangeの開始時間
+        var sourceStartTime = TimeSpan.FromSeconds(sum / context.SampleRate);
+        // Durationが1秒を超えると、その分のキャッシュが作成されないため非効率
+        var durationInSamples = expectedOutputSampleCount;
+        Span<double> speeds = new double[durationInSamples];
+        for (int i = 0; i < durationInSamples; i++)
+        {
+            var value = animation.Interpolate(TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) /
+                        100.0;
+            speeds[i] = value;
+            sum += value;
+        }
+
+        var sourceEndTime = TimeSpan.FromSeconds(sum / context.SampleRate);
+        var actualSpeeds = speeds;
+        var sourceTimeRange = TimeRange.FromRange(sourceStartTime, sourceEndTime);
 
         // Create input context with calculated source time range
         var inputContext = new AudioProcessContext(
@@ -120,110 +159,21 @@ public sealed class SpeedNode : AudioNode
     private TimeRange CalculateSourceTimeRange(TimeRange outputTimeRange, float speed)
     {
         // For static speed: sourceTime = outputTime * speed
-        var sourceStart = CalculateSourceTime(outputTimeRange.Start, speed);
+        var sourceStart = TimeSpan.FromTicks(SafeMultiplyTicks(outputTimeRange.Start.Ticks, ClampSpeed(speed)));
         var sourceDuration = TimeSpan.FromTicks((long)(outputTimeRange.Duration.Ticks * speed));
 
         return new TimeRange(sourceStart, sourceDuration);
     }
 
     /// <summary>
-    /// Calculate source time range from output time range using animated speed curve.
-    /// Uses keyframe-based calculation similar to SourceVideo's approach.
-    /// </summary>
-    private TimeRange CalculateSourceTimeRangeAnimated(TimeRange outputTimeRange)
-    {
-        // For animated speed, calculate both start and end times using keyframe integration
-        var sourceStart = CalculateSourceTime(outputTimeRange.Start);
-        var sourceEnd = CalculateSourceTime(outputTimeRange.End);
-
-        // Calculate duration from the difference
-        var sourceDuration = sourceEnd - sourceStart;
-
-        // Ensure duration is positive
-        if (sourceDuration < TimeSpan.Zero)
-            sourceDuration = TimeSpan.FromTicks(-sourceDuration.Ticks);
-
-        return new TimeRange(sourceStart, sourceDuration);
-    }
-
-    /// <summary>
-    /// Calculate source time from output time using speed integration.
-    /// This maps any output time to corresponding source time.
-    /// Similar to SourceVideo.CalculateVideoTime() approach.
-    /// </summary>
-    private TimeSpan CalculateSourceTime(TimeSpan outputTime, float? staticSpeed = null)
-    {
-        // If we have a static speed, use simple calculation
-        if (staticSpeed.HasValue)
-        {
-            return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, ClampSpeed(staticSpeed.Value)));
-        }
-
-        // For animated speed, we need to check if we have animation
-        if (Target == null || SpeedProperty == null)
-        {
-            return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, ClampSpeed(_staticSpeed)));
-        }
-
-        // Get the speed animation if it exists
-        var speedAnimation = GetSpeedAnimation();
-        if (speedAnimation == null)
-        {
-            return TimeSpan.FromTicks((long)(outputTime.Ticks * _staticSpeed));
-        }
-
-        return CalculateVideoTimeFromKeyframes(outputTime, speedAnimation);
-    }
-
-    /// <summary>
     /// Get the speed animation from the target object.
     /// </summary>
-    private IAnimation? GetSpeedAnimation()
+    private KeyFrameAnimation<float>? GetSpeedAnimation()
     {
         if (Target?.Animations == null || SpeedProperty == null)
             return null;
 
-        return Target.Animations.FirstOrDefault(i => i.Property.Id == SpeedProperty.Id);
-    }
-
-    /// <summary>
-    /// Calculate source time using keyframe animation, similar to SourceVideo.CalculateVideoTime().
-    /// </summary>
-    private TimeSpan CalculateVideoTimeFromKeyframes(TimeSpan outputTime, IAnimation animation)
-    {
-        // if (animation is not KeyFrameAnimation<float> keyFrameAnimation)
-        //     return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, ClampSpeed(_staticSpeed)));
-        //
-        // // If no keyframes, use static speed
-        // if (keyFrameAnimation.KeyFrames.Count == 0)
-        // {
-        //     return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, ClampSpeed(_staticSpeed)));
-        // }
-        //
-        // int kfi = keyFrameAnimation.KeyFrames.IndexAt(outputTime);
-        // if (kfi < 0 || kfi >= keyFrameAnimation.KeyFrames.Count)
-        // {
-        //     // Fallback to static speed if index is invalid
-        //     return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, ClampSpeed(_staticSpeed)));
-        // }
-        //
-        // var kf = (KeyFrame<float>)keyFrameAnimation.KeyFrames[kfi];
-        // float clampedSpeed = ClampSpeed(kf.Value / 100f);
-        //
-        // // If there's a previous keyframe, recursively calculate base time
-        // if (kfi > 0 &&
-        //     keyFrameAnimation.KeyFrames[kfi - 1] is KeyFrame<float> prevKf)
-        // {
-        //     var baseSourceTime = CalculateVideoTimeFromKeyframes(prevKf.KeyTime, animation);
-        //     var deltaTicks = (outputTime - prevKf.KeyTime).Ticks;
-        //     // Apply current keyframe's speed to the delta (with overflow protection)
-        //     long sourceTicks = SafeMultiplyTicks(deltaTicks, clampedSpeed);
-        //     return baseSourceTime + TimeSpan.FromTicks(sourceTicks);
-        // }
-        //
-        // // First keyframe case (with overflow protection)
-        // return TimeSpan.FromTicks(SafeMultiplyTicks(outputTime.Ticks, clampedSpeed));
-        return TimeRemapper.ToOriginalTime3((KeyFrameAnimation<float>)animation, outputTime, 44100);
+        return Target.Animations.FirstOrDefault(i => i.Property.Id == SpeedProperty.Id) as KeyFrameAnimation<float>;
     }
 
     /// <summary>
@@ -294,13 +244,16 @@ public sealed class SpeedNode : AudioNode
 
         private int Read(int srcOffset, float[] buffer, int offset, int count, AudioProcessContext context)
         {
-            var newRange = new TimeRange(TimeSpan.FromSeconds(srcOffset / (double)_sampleRate) + context.TimeRange.Start,
+            var newRange = new TimeRange(
+                TimeSpan.FromSeconds(srcOffset / (double)_sampleRate) + context.TimeRange.Start,
                 TimeSpan.FromSeconds(count / (double)_sampleRate));
             if (newRange.End > context.TimeRange.End)
             {
                 // Console.WriteLine($"{newRange.End} > {context.TimeRange.End}");
-                newRange = newRange.WithDuration(TimeSpan.FromTicks(Math.Max((context.TimeRange.End - newRange.Start).Ticks, 0)));
+                newRange = newRange.WithDuration(
+                    TimeSpan.FromTicks(Math.Max((context.TimeRange.End - newRange.Start).Ticks, 0)));
             }
+
             var newContext = new AudioProcessContext(
                 newRange,
                 _sampleRate,
@@ -393,7 +346,7 @@ public sealed class SpeedNode : AudioNode
         private const int BLOCK = 256;
 
         public AudioBuffer ProcessBufferWithVariableSpeed(
-            AudioProcessContext context, ReadOnlySpan<float> speedCurve, int expectedOut)
+            AudioProcessContext context, ReadOnlySpan<double> speedCurve, int expectedOut)
         {
             // TimeRangeは変換前での時間、つまりInputに渡される範囲
             Console.WriteLine($"Start: {context.TimeRange.Start}, End: {context.TimeRange.End}");
@@ -428,17 +381,17 @@ public sealed class SpeedNode : AudioNode
                 for (int i = 0; i < framesThis; i++)
                     sumSpeed += speedCurve[framesDone + i];
 
-                double needInF    = srcPos + sumSpeed;          // double 精度で次位置
-                int    needInInt  = (int)Math.Floor(needInF);   // 整数ぶんを今回読む
+                double needInF = srcPos + sumSpeed; // double 精度で次位置
+                int needInInt = (int)Math.Floor(needInF); // 整数ぶんを今回読む
                 // 変換前
-                int    wantFrames = needInInt - srcIndexFloor;  // 追加で必要なフレーム数
+                int wantFrames = needInInt - srcIndexFloor; // 追加で必要なフレーム数
 
                 double vAvg = sumSpeed / framesThis;
                 // Console.WriteLine(vAvg);
                 double outRate = _sampleRate / vAvg; // ratio = vAvg
                 _rs.SetRates(_sampleRate, outRate);
-                float cutoff = 0.97f / (float)vAvg;   // vAvg>1 なら Nyquist を下げる
-                _rs.SetFilterParms(cutoff, 0.707f);   // Q はそのまま
+                float cutoff = 0.97f / (float)vAvg; // vAvg>1 なら Nyquist を下げる
+                _rs.SetFilterParms(cutoff, 0.707f); // Q はそのまま
 
                 float[] inBuf;
                 int inOff;
