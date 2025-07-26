@@ -133,10 +133,24 @@
                                     Height="120"
                                     Margin="4">
                                 <StackPanel>
-                                    <icons:SymbolIcon Symbol="{Binding Converter={x:Static viewModel:FileIconConverter.Instance}}"
-                                                      FontSize="48"
-                                                      HorizontalAlignment="Center"
-                                                      Margin="0,8" />
+                                    <Panel Width="96" Height="96" HorizontalAlignment="Center">
+                                        <!-- サムネイル表示 -->
+                                        <Border IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                Background="Gray"
+                                                CornerRadius="4"
+                                                ClipToBounds="True">
+                                            <Image Source="{Binding Thumbnail}"
+                                                   Stretch="UniformToFill"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                        </Border>
+                                        <!-- アイコン表示（サムネイルがない場合） -->
+                                        <icons:SymbolIcon IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}"
+                                                          Symbol="{Binding Converter={x:Static viewModel:FileIconConverter.Instance}}"
+                                                          FontSize="48"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center" />
+                                    </Panel>
                                     <TextBlock Text="{Binding Name}"
                                                TextAlignment="Center"
                                                TextWrapping="Wrap"

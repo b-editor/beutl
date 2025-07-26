@@ -2,6 +2,12 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Avalonia.Threading;
+using Beutl.Media;
+using Beutl.Media.Decoding;
+using Beutl.Media.Pixel;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Reactive.Bindings;
@@ -22,6 +28,8 @@ public class FileSystemItemViewModel : INotifyPropertyChanged
 {
     private bool _isExpanded;
     private bool _isSelected;
+    private Bitmap? _thumbnail;
+    private bool _thumbnailLoaded;
     
     public required string Name { get; init; }
     
@@ -36,6 +44,32 @@ public class FileSystemItemViewModel : INotifyPropertyChanged
     public string? Extension { get; init; }
     
     public ObservableCollection<FileSystemItemViewModel>? Children { get; init; }
+    
+    public Bitmap? Thumbnail
+    {
+        get => _thumbnail;
+        set
+        {
+            if (_thumbnail != value)
+            {
+                _thumbnail = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Thumbnail)));
+            }
+        }
+    }
+    
+    public bool ThumbnailLoaded
+    {
+        get => _thumbnailLoaded;
+        set
+        {
+            if (_thumbnailLoaded != value)
+            {
+                _thumbnailLoaded = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ThumbnailLoaded)));
+            }
+        }
+    }
     
     public bool IsExpanded
     {
@@ -70,6 +104,8 @@ public sealed class FileExplorerViewModel : IDisposable, IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly DirectoryInfo _rootDirectory;
+    private readonly Dictionary<string, Bitmap> _thumbnailCache = new();
+    private readonly SemaphoreSlim _thumbnailSemaphore = new(3); // 同時に3つまでサムネイル生成
     
     public FileExplorerViewModel(EditViewModel editViewModel)
     {
@@ -107,8 +143,15 @@ public sealed class FileExplorerViewModel : IDisposable, IToolContext
         CurrentPath.Subscribe(_ => RefreshItems())
             .DisposeWith(_disposables);
         
-        DisplayMode.Subscribe(_ => RefreshItems())
-            .DisposeWith(_disposables);
+        DisplayMode.Subscribe(mode =>
+        {
+            RefreshItems();
+            if (mode == FileExplorerDisplayMode.Icons)
+            {
+                _ = LoadThumbnailsAsync();
+            }
+        })
+        .DisposeWith(_disposables);
         
         RefreshItems();
     }
@@ -181,6 +224,12 @@ public sealed class FileExplorerViewModel : IDisposable, IToolContext
                         LastModified = file.LastWriteTime,
                         Extension = file.Extension
                     });
+                }
+                
+                // アイコン表示モードの場合はサムネイルを読み込む
+                if (DisplayMode.Value == FileExplorerDisplayMode.Icons)
+                {
+                    _ = LoadThumbnailsAsync();
                 }
             }
         }
@@ -382,12 +431,188 @@ public sealed class FileExplorerViewModel : IDisposable, IToolContext
         }
     }
     
+    private async Task LoadThumbnailsAsync()
+    {
+        var imageTasks = new List<Task>();
+        var imageExtensions = new[] { ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp" };
+        var videoExtensions = new[] { ".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv" };
+        
+        foreach (var item in Items.Where(i => !i.IsDirectory && !i.ThumbnailLoaded))
+        {
+            var ext = item.Extension?.ToLowerInvariant();
+            if (ext != null && (imageExtensions.Contains(ext) || videoExtensions.Contains(ext)))
+            {
+                imageTasks.Add(LoadThumbnailForItemAsync(item, videoExtensions.Contains(ext)));
+            }
+        }
+        
+        await Task.WhenAll(imageTasks);
+    }
+    
+    private async Task LoadThumbnailForItemAsync(FileSystemItemViewModel item, bool isVideo)
+    {
+        try
+        {
+            // キャッシュチェック
+            if (_thumbnailCache.TryGetValue(item.FullPath, out var cached))
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    item.Thumbnail = cached;
+                    item.ThumbnailLoaded = true;
+                });
+                return;
+            }
+            
+            await _thumbnailSemaphore.WaitAsync();
+            try
+            {
+                Bitmap? thumbnail = null;
+                
+                if (isVideo)
+                {
+                    thumbnail = await LoadVideoThumbnailAsync(item.FullPath);
+                }
+                else
+                {
+                    thumbnail = await LoadImageThumbnailAsync(item.FullPath);
+                }
+                
+                if (thumbnail != null)
+                {
+                    _thumbnailCache[item.FullPath] = thumbnail;
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        item.Thumbnail = thumbnail;
+                        item.ThumbnailLoaded = true;
+                    });
+                }
+            }
+            finally
+            {
+                _thumbnailSemaphore.Release();
+            }
+        }
+        catch
+        {
+            // サムネイル生成エラーは無視
+            item.ThumbnailLoaded = true;
+        }
+    }
+    
+    private async Task<Bitmap?> LoadImageThumbnailAsync(string path)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var stream = File.OpenRead(path);
+                var bitmap = new Bitmap(stream);
+                
+                // 96x96のサムネイルを作成
+                const int thumbnailSize = 96;
+                var aspect = (double)bitmap.PixelSize.Width / bitmap.PixelSize.Height;
+                int width, height;
+                
+                if (aspect > 1)
+                {
+                    width = thumbnailSize;
+                    height = (int)(thumbnailSize / aspect);
+                }
+                else
+                {
+                    height = thumbnailSize;
+                    width = (int)(thumbnailSize * aspect);
+                }
+                
+                return bitmap.CreateScaledBitmap(new Avalonia.PixelSize(width, height));
+            }
+            catch
+            {
+                return null;
+            }
+        });
+    }
+    
+    private async Task<Bitmap?> LoadVideoThumbnailAsync(string path)
+    {
+        return await Task.Run(() =>
+        {
+            try
+            {
+                using var reader = MediaReader.Open(path);
+                if (reader?.VideoInfo != null)
+                {
+                    // 最初のフレームを取得
+                    if (reader.ReadVideo(0, out var frame) && frame != null)
+                    {
+                        using (frame)
+                        {
+                            // サムネイルサイズを計算
+                            const int thumbnailSize = 96;
+                            var frameSize = frame.Size;
+                            var aspect = (double)frameSize.Width / frameSize.Height;
+                            int width, height;
+                            
+                            if (aspect > 1)
+                            {
+                                width = thumbnailSize;
+                                height = (int)(thumbnailSize / aspect);
+                            }
+                            else
+                            {
+                                height = thumbnailSize;
+                                width = (int)(thumbnailSize * aspect);
+                            }
+                            
+                            // フレームをリサイズ
+                            using var resized = frame.Resize(width, height);
+                            if (resized is Bitmap<Bgra8888> bgraFrame)
+                            {
+                                // Beutl BitmapからAvalonia WriteableBitmapに変換
+                                var writeableBitmap = new WriteableBitmap(
+                                    new Avalonia.PixelSize(bgraFrame.Width, bgraFrame.Height),
+                                    new Avalonia.Vector(96, 96),
+                                    Avalonia.Platform.PixelFormat.Bgra8888,
+                                    Avalonia.Platform.AlphaFormat.Premul);
+                                
+                                using (var buf = writeableBitmap.Lock())
+                                {
+                                    unsafe
+                                    {
+                                        int size = bgraFrame.ByteCount;
+                                        Buffer.MemoryCopy((void*)bgraFrame.Data, (void*)buf.Address, size, size);
+                                    }
+                                }
+                                
+                                return writeableBitmap;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // 動画デコードエラーは無視
+            }
+            return null;
+        });
+    }
+    
     public void Dispose()
     {
         _disposables.Dispose();
         Items.Clear();
         TreeItems.Clear();
         SearchResults.Clear();
+        
+        // サムネイルキャッシュをクリア
+        foreach (var bitmap in _thumbnailCache.Values)
+        {
+            bitmap?.Dispose();
+        }
+        _thumbnailCache.Clear();
+        _thumbnailSemaphore.Dispose();
     }
     
     public void WriteToJson(JsonObject json)
