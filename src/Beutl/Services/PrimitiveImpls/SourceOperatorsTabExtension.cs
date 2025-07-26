@@ -14,7 +14,7 @@ public sealed class SourceOperatorsTabExtension : ToolTabExtension
 {
     public static readonly SourceOperatorsTabExtension Instance = new();
 
-    public override bool CanMultiple => false;
+    public override bool CanMultiple => true;
 
     public override string Name => "Operators editor";
 

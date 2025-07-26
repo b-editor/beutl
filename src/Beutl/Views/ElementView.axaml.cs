@@ -12,6 +12,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.NodeTree;
+using Beutl.ViewModels.Tools;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings.Extensions;
 using Setter = Avalonia.Styling.Setter;
@@ -211,11 +212,11 @@ public sealed partial class ElementView : UserControl
         Element model = ViewModel.Model;
         EditViewModel context = ViewModel.Timeline.EditorContext;
         
-        // 新しい固定タブでプロパティエディタを開く
-        var propertyEditor = new ObjectPropertyEditorViewModel(context);
-        propertyEditor.DisplayMode.Value = ToolTabExtension.TabDisplayMode.Fixed;
+        // 新しい固定タブでSourceOperatorsTabを開く
+        var sourceOperatorsTab = new SourceOperatorsTabViewModel(context);
+        sourceOperatorsTab.DisplayMode.Value = ToolTabExtension.TabDisplayMode.Fixed;
         
-        context.OpenToolTab(propertyEditor);
+        context.OpenToolTab(sourceOperatorsTab);
         
         // 対象オブジェクトを設定
         context.SelectedObject.Value = model;
