@@ -1,5 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
+# 
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "_build", "nukebuild\_build.csproj", "{640D93F9-5ADA-DCBD-2B86-D9F218D71845}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.Api", "src\Beutl.Api\Beutl.Api.csproj", "{A06295F9-2418-2E48-8A9A-E9C29CEBCD54}"
@@ -96,6 +97,12 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextFormattingPlayground", "tests\TextFormattingPlayground\TextFormattingPlayground.csproj", "{50FC549B-0FB5-B5B1-E724-C98793240D69}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XamlPreview", "tests\XamlPreview\XamlPreview.csproj", "{0B4A81D6-DB99-1BDD-150F-E99015CBF9DB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{D972F3FC-BE32-4EC4-8D44-78E3AC484A3B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.Synchronization", "src\Beutl.Synchronization\Beutl.Synchronization.csproj", "{79AED886-B8D0-4211-B7B3-6EA690E983B4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.Synchronization.Tests", "tests\Beutl.Synchronization.Tests\Beutl.Synchronization.Tests.csproj", "{E0748199-AE43-41CB-861D-EBA60024E276}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -215,6 +222,14 @@ Global
 		{0B4A81D6-DB99-1BDD-150F-E99015CBF9DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0B4A81D6-DB99-1BDD-150F-E99015CBF9DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0B4A81D6-DB99-1BDD-150F-E99015CBF9DB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{79AED886-B8D0-4211-B7B3-6EA690E983B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{79AED886-B8D0-4211-B7B3-6EA690E983B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{79AED886-B8D0-4211-B7B3-6EA690E983B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{79AED886-B8D0-4211-B7B3-6EA690E983B4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E0748199-AE43-41CB-861D-EBA60024E276}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E0748199-AE43-41CB-861D-EBA60024E276}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E0748199-AE43-41CB-861D-EBA60024E276}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E0748199-AE43-41CB-861D-EBA60024E276}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{5DE17B5D-9CA0-A77B-9917-05CF9A0AA19E} = {DEE5DD87-39C1-BF34-B639-A387DCCF972B}
@@ -228,5 +243,7 @@ Global
 		{7D30D0AB-EA3F-0D76-F2B8-2132A98CFAAC} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{50FC549B-0FB5-B5B1-E724-C98793240D69} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{0B4A81D6-DB99-1BDD-150F-E99015CBF9DB} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{79AED886-B8D0-4211-B7B3-6EA690E983B4} = {D972F3FC-BE32-4EC4-8D44-78E3AC484A3B}
+		{E0748199-AE43-41CB-861D-EBA60024E276} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
