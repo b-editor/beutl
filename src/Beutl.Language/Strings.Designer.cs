@@ -1065,6 +1065,12 @@ namespace Beutl.Language {
             }
         }
         
+        public static string FileExplorer {
+            get {
+                return ResourceManager.GetString("FileExplorer", resourceCulture);
+            }
+        }
+        
         public static string Clipping {
             get {
                 return ResourceManager.GetString("Clipping", resourceCulture);

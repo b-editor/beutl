@@ -1,0 +1,187 @@
+<UserControl x:Class="Beutl.Views.FileExplorer"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels"
+             d:DesignHeight="600"
+             d:DesignWidth="400"
+             x:DataType="viewModel:FileExplorerViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,Auto,*">
+        <!-- Navigation Bar -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Margin="8">
+            <Button Grid.Column="0"
+                    Command="{Binding NavigateToParentCommand}"
+                    Theme="{StaticResource TransparentButton}"
+                    ToolTip.Tip="Navigate to parent directory">
+                <icons:SymbolIcon Symbol="ArrowUp" FontSize="16" />
+            </Button>
+            
+            <TextBox Grid.Column="1"
+                     Margin="8,0"
+                     Text="{Binding CurrentPath.Value}"
+                     IsReadOnly="True" />
+            
+            <Button Grid.Column="2"
+                    Command="{Binding RefreshCommand}"
+                    Theme="{StaticResource TransparentButton}"
+                    ToolTip.Tip="Refresh">
+                <icons:SymbolIcon Symbol="ArrowSync" FontSize="16" />
+            </Button>
+            
+            <!-- Display Mode Selector -->
+            <ComboBox Grid.Column="3"
+                      Margin="8,0,0,0"
+                      SelectedItem="{Binding DisplayMode.Value}"
+                      Width="100">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <icons:SymbolIcon Symbol="{Binding Converter={x:Static viewModel:DisplayModeIconConverter.Instance}}"
+                                              FontSize="16" />
+                            <TextBlock Text="{Binding}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+                <viewModel:FileExplorerDisplayMode>List</viewModel:FileExplorerDisplayMode>
+                <viewModel:FileExplorerDisplayMode>Icons</viewModel:FileExplorerDisplayMode>
+                <viewModel:FileExplorerDisplayMode>Tree</viewModel:FileExplorerDisplayMode>
+            </ComboBox>
+        </Grid>
+        
+        <!-- Search Box -->
+        <TextBox Grid.Row="1"
+                 Margin="8,0,8,8"
+                 Text="{Binding SearchText.Value}"
+                 Watermark="Search files..."
+                 Theme="{StaticResource FilledTextBox}">
+            <TextBox.InnerLeftContent>
+                <icons:SymbolIcon Symbol="Search" FontSize="16" Margin="8,0,0,0" />
+            </TextBox.InnerLeftContent>
+        </TextBox>
+        
+        <!-- Content Area -->
+        <Panel Grid.Row="2">
+            <!-- List View -->
+            <DataGrid IsVisible="{Binding DisplayMode.Value, Converter={x:Static viewModel:DisplayModeConverter.Instance}, ConverterParameter=List}"
+                      Items="{Binding Items}"
+                      SelectedItem="{Binding SelectedItem.Value}"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="True"
+                      GridLinesVisibility="Horizontal"
+                      BorderThickness="0">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="Name" Width="*" CanUserSort="True">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="viewModel:FileSystemItemViewModel">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <icons:SymbolIcon Grid.Column="0"
+                                                      Symbol="{Binding Converter={x:Static viewModel:FileIconConverter.Instance}}"
+                                                      FontSize="16"
+                                                      Margin="4,0,8,0" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Name}"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    
+                    <DataGridTextColumn Header="Size"
+                                        Binding="{Binding Size, Converter={x:Static viewModel:FileSizeConverter.Instance}}"
+                                        Width="100"
+                                        CanUserSort="True" />
+                    
+                    <DataGridTextColumn Header="Modified"
+                                        Binding="{Binding LastModified, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
+                                        Width="150"
+                                        CanUserSort="True" />
+                    
+                    <DataGridTextColumn Header="Type"
+                                        Binding="{Binding Extension}"
+                                        Width="80"
+                                        CanUserSort="True" />
+                </DataGrid.Columns>
+                
+                <DataGrid.Styles>
+                    <Style Selector="DataGridRow">
+                        <Setter Property="DoubleTapped" Value="{Binding $parent[DataGrid].DataContext.NavigateToDirectoryCommand}" />
+                    </Style>
+                </DataGrid.Styles>
+            </DataGrid>
+            
+            <!-- Icon View -->
+            <ScrollViewer IsVisible="{Binding DisplayMode.Value, Converter={x:Static viewModel:DisplayModeConverter.Instance}, ConverterParameter=Icons}"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <ItemsControl Items="{Binding Items}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="viewModel:FileSystemItemViewModel">
+                            <Button Command="{Binding $parent[ItemsControl].DataContext.NavigateToDirectoryCommand}"
+                                    CommandParameter="{Binding}"
+                                    Theme="{StaticResource TransparentButton}"
+                                    Width="100"
+                                    Height="120"
+                                    Margin="4">
+                                <StackPanel>
+                                    <icons:SymbolIcon Symbol="{Binding Converter={x:Static viewModel:FileIconConverter.Instance}}"
+                                                      FontSize="48"
+                                                      HorizontalAlignment="Center"
+                                                      Margin="0,8" />
+                                    <TextBlock Text="{Binding Name}"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap"
+                                               MaxLines="2"
+                                               TextTrimming="CharacterEllipsis"
+                                               Margin="4" />
+                                </StackPanel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            
+            <!-- Tree View -->
+            <TreeView IsVisible="{Binding DisplayMode.Value, Converter={x:Static viewModel:DisplayModeConverter.Instance}, ConverterParameter=Tree}"
+                      Items="{Binding TreeItems}"
+                      SelectedItem="{Binding SelectedItem.Value}">
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate ItemsSource="{Binding Children}">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                            <icons:SymbolIcon Grid.Column="0"
+                                              Symbol="{Binding Converter={x:Static viewModel:FileIconConverter.Instance}}"
+                                              FontSize="16"
+                                              Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Name}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding Size, Converter={x:Static viewModel:FileSizeConverter.Instance}}"
+                                       Margin="16,0,8,0"
+                                       VerticalAlignment="Center"
+                                       Opacity="0.7" />
+                            <TextBlock Grid.Column="3"
+                                       Text="{Binding LastModified, StringFormat='{}{0:yyyy-MM-dd}'}"
+                                       VerticalAlignment="Center"
+                                       Opacity="0.7" />
+                        </Grid>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+                <TreeView.Styles>
+                    <Style Selector="TreeViewItem">
+                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                    </Style>
+                </TreeView.Styles>
+            </TreeView>
+        </Panel>
+    </Grid>
+</UserControl>
