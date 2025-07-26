@@ -81,7 +81,7 @@ syncManager.LocalChanges.Subscribe(change =>
 The library uses an abstract transport layer that can be implemented for different communication methods:
 
 - **MemoryTransport**: In-memory transport for testing and local sync
-- **SignalRTransport**: (Planned) Real-time web communication
+- **SignalRTransport**: Real-time web communication with ASP.NET Core SignalR
 - **WebSocketTransport**: (Planned) Direct WebSocket communication
 
 ### Data Flow
@@ -108,15 +108,23 @@ Remote Clients (receive and apply)
 var syncManager = SyncFactory.CreateMemorySyncManager();
 ```
 
-### SignalR Transport (Planned)
+### SignalR Transport
 
 ```csharp
 var config = new SyncTransportConfig
 {
     ServerUrl = "https://your-server.com/synchub",
-    AuthToken = "your-auth-token"
+    ConnectionTimeoutMs = 10000,
+    MaxReconnectAttempts = 5,
+    ReconnectDelayMs = 2000
 };
-var syncManager = SyncFactory.CreateSignalRSyncManager(config);
+
+var (syncManager, orchestrator, sourceId) = SyncConfigurationExtensions
+    .ConfigureSync()
+    .UseSignalRTransport(config)
+    .WithLogging(loggerFactory)
+    .WithSourceId("Client1")
+    .Build();
 ```
 
 ### Builder Pattern
@@ -208,11 +216,40 @@ var (syncManager, orchestrator, sourceId) = SyncConfigurationExtensions
 - Complex object references may require manual handling
 - Network partitions require application-level recovery logic
 
+## SignalR Server Setup
+
+To use SignalR transport, you need to run the SignalR server:
+
+```bash
+# Start the SignalR server
+dotnet run --project src/Beutl.Synchronization.Server
+
+# Server will be available at:
+# - SignalR Hub: http://localhost:5234/synchub
+# - Health Check: http://localhost:5234/health
+# - Server Info: http://localhost:5234/api/info
+```
+
+### Testing and Examples
+
+Several examples and tests are available:
+
+```bash
+# Interactive multi-client demo
+dotnet run --project examples/MultiClientSyncDemo
+
+# SignalR-specific tests
+dotnet run --project tests/Beutl.Synchronization.SignalR.Tests
+
+# Unit tests
+dotnet test tests/Beutl.Synchronization.Tests
+```
+
 ## Future Enhancements
 
-- SignalR transport implementation
 - WebSocket transport implementation
-- Conflict resolution strategies
+- Advanced conflict resolution strategies
 - Offline synchronization support
 - Authentication and authorization
 - Performance optimizations
+- Delta synchronization for large objects

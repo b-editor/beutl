@@ -53,7 +53,7 @@ public static class SyncFactory
     }
 
     /// <summary>
-    /// Create a SignalR-based sync manager (placeholder for future implementation)
+    /// Create a SignalR-based sync manager
     /// </summary>
     /// <param name="config">Transport configuration</param>
     /// <param name="logger">Optional logger</param>
@@ -62,8 +62,9 @@ public static class SyncFactory
         SyncTransportConfig config, 
         ILogger<SyncManager>? logger = null)
     {
-        // TODO: Implement SignalR transport
-        throw new NotImplementedException("SignalR transport not yet implemented. Use CreateMemorySyncManager for local testing.");
+        var transportLogger = logger?.LoggerFactory?.CreateLogger<SignalRTransport>();
+        var transport = new SignalRTransport(config, transportLogger);
+        return new SyncManager(transport, logger);
     }
 }
 
@@ -87,14 +88,15 @@ public class SyncConfigurationBuilder
     }
 
     /// <summary>
-    /// Use SignalR transport (placeholder)
+    /// Use SignalR transport
     /// </summary>
     /// <param name="config">Transport configuration</param>
     /// <returns>Builder for chaining</returns>
     public SyncConfigurationBuilder UseSignalRTransport(SyncTransportConfig config)
     {
-        // TODO: Implement SignalR transport
-        throw new NotImplementedException("SignalR transport not yet implemented");
+        var transportLogger = _loggerFactory?.CreateLogger<SignalRTransport>();
+        _transport = new SignalRTransport(config, transportLogger);
+        return this;
     }
 
     /// <summary>
