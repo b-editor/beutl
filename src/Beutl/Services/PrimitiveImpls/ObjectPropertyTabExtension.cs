@@ -16,7 +16,7 @@ public sealed class ObjectPropertyTabExtension : ToolTabExtension
 {
     public static readonly ObjectPropertyTabExtension Instance = new();
 
-    public override bool CanMultiple => false;
+    public override bool CanMultiple => true;
 
     public override string Name => "Property editor";
 

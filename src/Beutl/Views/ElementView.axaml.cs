@@ -206,6 +206,21 @@ public sealed partial class ElementView : UserControl
         context.OpenToolTab(nodeTree);
     }
 
+    private void OpenPropertyInNewTab_Click(object? sender, RoutedEventArgs e)
+    {
+        Element model = ViewModel.Model;
+        EditViewModel context = ViewModel.Timeline.EditorContext;
+        
+        // 新しい固定タブでプロパティエディタを開く
+        var propertyEditor = new ObjectPropertyEditorViewModel(context);
+        propertyEditor.DisplayMode.Value = ToolTabExtension.TabDisplayMode.Fixed;
+        
+        context.OpenToolTab(propertyEditor);
+        
+        // 対象オブジェクトを設定
+        context.SelectedObject.Value = model;
+    }
+
     private TimeSpan RoundStartTime(TimeSpan time, float scale, bool flag)
     {
         Element model = ViewModel.Model;

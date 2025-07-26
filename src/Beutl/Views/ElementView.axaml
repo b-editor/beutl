@@ -132,6 +132,12 @@
                         <icons:SymbolIconSource Symbol="Open" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
+                <ui:MenuFlyoutSeparator />
+                <ui:MenuFlyoutItem Click="OpenPropertyInNewTab_Click" Text="{x:Static lang:Strings.OpenInNewTab}">
+                    <ui:MenuFlyoutItem.IconSource>
+                        <icons:SymbolIconSource Symbol="Tab" />
+                    </ui:MenuFlyoutItem.IconSource>
+                </ui:MenuFlyoutItem>
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>
         <Panel>

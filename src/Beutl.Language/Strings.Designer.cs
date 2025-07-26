@@ -1065,6 +1065,12 @@ namespace Beutl.Language {
             }
         }
         
+        public static string OpenInNewTab {
+            get {
+                return ResourceManager.GetString("OpenInNewTab", resourceCulture);
+            }
+        }
+        
         public static string Clipping {
             get {
                 return ResourceManager.GetString("Clipping", resourceCulture);
