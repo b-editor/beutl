@@ -338,7 +338,7 @@ public sealed class SpeedNode : AudioNode
             AudioProcessContext context, ReadOnlySpan<double> speedCurve, int expectedOut)
         {
             // TimeRangeは変換前での時間、つまりInputに渡される範囲
-            Console.WriteLine($"Start: {context.TimeRange.Start}, End: {context.TimeRange.End}");
+            // Console.WriteLine($"Start: {context.TimeRange.Start}, End: {context.TimeRange.End}");
             int framesNeeded = expectedOut;
             int framesDone = 0;
             int srcIndexFloor = 0;
@@ -351,13 +351,13 @@ public sealed class SpeedNode : AudioNode
 
             // speedCurve.Length: 44100
             // Sum: 42291.688
-            Console.WriteLine($"Sum: {speedCurve.ToArray().Sum()}");
-            var durationSamples = context.TimeRange.Duration.TotalSeconds * _sampleRate;
+            // Console.WriteLine($"Sum: {speedCurve.ToArray().Sum()}");
+            // var durationSamples = context.TimeRange.Duration.TotalSeconds * _sampleRate;
             // Last: 22050
             // 逆にcontext.TimeRangeの計算が間違っている気がする。
             // 早く減り過ぎ
             // 44100のサンプルを生み出すのに22050で生み出せるのはおかしい
-            Console.WriteLine($"DurationSamples: {durationSamples}");
+            // Console.WriteLine($"DurationSamples: {durationSamples}");
 
             // while (srcIndexFloor < last)
             while (framesDone < framesNeeded)
@@ -393,7 +393,7 @@ public sealed class SpeedNode : AudioNode
                 // srcIndexFloor += got;
                 if (got < wantFrames)
                 {
-                    Console.WriteLine($"Clear: {got} < {wantFrames}");
+                    // Console.WriteLine($"Clear: {got} < {wantFrames}");
                     Array.Clear(inBuf, inOff + got * _channels,
                         (wantFrames - got) * _channels);
                 }
@@ -425,8 +425,8 @@ public sealed class SpeedNode : AudioNode
 
             // srcPos: 42291.687
             // srcIndexFloor: 42291
-            Console.WriteLine($"srcPos: {srcPos:F}");
-            Console.WriteLine($"srcIndexFloor: {srcIndexFloor}");
+            // Console.WriteLine($"srcPos: {srcPos:F}");
+            // Console.WriteLine($"srcIndexFloor: {srcIndexFloor}");
 
             for (int ch = 0; ch < _channels; ch++)
             {
