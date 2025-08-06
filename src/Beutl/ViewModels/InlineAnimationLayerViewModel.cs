@@ -1,9 +1,14 @@
-﻿using Avalonia;
-
+﻿using System.Text.Json.Nodes;
+using Avalonia;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Helpers;
+using Beutl.Logging;
 using Beutl.Reactive;
-
+using Beutl.Services;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -65,10 +70,12 @@ public sealed class InlineAnimationLayerViewModel<T>(
 
 public abstract class InlineAnimationLayerViewModel : IDisposable
 {
+    private readonly ILogger _logger = Log.CreateLogger<InlineAnimationLayerViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly CompositeDisposable _innerDisposables = [];
     private readonly ReactivePropertySlim<bool> _useGlobalClock = new(true);
     private LayerHeaderViewModel? _lastLayerHeader;
+    private TimeSpan _pointerPosition;
 
     protected InlineAnimationLayerViewModel(
         IAnimatablePropertyAdapter property,
@@ -100,6 +107,25 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
         Close = new ReactiveCommand()
             .WithSubscribe(() => Timeline.DetachInline(this))
+            .DisposeWith(_disposables);
+
+        CopyAllKeyFramesCommand = new ReactiveCommand()
+            .WithSubscribe(async () => await CopyAllKeyFramesAsync())
+            .DisposeWith(_disposables);
+
+        PasteKeyFrameAtCurrentPositionCommand = new ReactiveCommand()
+            .WithSubscribe(async () => await PasteKeyFrameAtPositionAsync(_pointerPosition))
+            .DisposeWith(_disposables);
+
+        DeleteCurrentAnimationCommand = new ReactiveCommand()
+            .WithSubscribe(() =>
+            {
+                if (Property.Animation is {} animation)
+                {
+                    (Timeline.EditorContext as ISupportCloseAnimation)?.Close(animation);
+                    DeleteAnimation();
+                }
+            })
             .DisposeWith(_disposables);
 
         Property.ObserveAnimation.CombineWithPrevious()
@@ -162,6 +188,12 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public ReactiveCommand Close { get; }
 
+    public ReactiveCommand CopyAllKeyFramesCommand { get; }
+
+    public ReactiveCommand PasteKeyFrameAtCurrentPositionCommand { get; }
+
+    public ReactiveCommand DeleteCurrentAnimationCommand { get; }
+
     public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader => Element.LayerHeader;
 
     public abstract void DropEasing(Easing easing, TimeSpan keyTime);
@@ -178,16 +210,159 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         return keyTime.RoundToRate(rate);
     }
 
-    public void RemoveKeyFrame(IKeyFrame keyFrame)
+    private void PasteAnimation(string json)
     {
-        if (Property.Animation is IKeyFrameAnimation kfAnimation)
+        _logger.LogInformation("Pasting JSON");
+        if (JsonNode.Parse(json) is not JsonObject newJson)
+        {
+            _logger.LogError("Invalid JSON");
+            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON");
+            return;
+        }
+
+        try
         {
             CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-            kfAnimation.KeyFrames.BeginRecord<IKeyFrame>()
-                .Remove(keyFrame)
-                .ToCommand([Element.Model])
+            KeyFrameAnimation animation = (KeyFrameAnimation)Property.Animation!;
+            JsonObject oldJson = CoreSerializerHelper.SerializeToJsonObject<IKeyFrameAnimation>(animation);
+            Guid id = animation.Id;
+            CoreProperty property = animation.Property;
+
+            RecordableCommands.Create(
+                    () =>
+                    {
+                        CoreSerializerHelper.PopulateFromJsonObject(animation, newJson);
+                        animation.Property = property;
+                        animation.Id = id;
+                        foreach (IKeyFrame item in animation.KeyFrames)
+                        {
+                            item.Id = Guid.NewGuid();
+                        }
+                    },
+                    () =>
+                    {
+                        CoreSerializerHelper.PopulateFromJsonObject(animation, oldJson);
+                        animation.Property = property;
+                        animation.Id = id;
+                    },
+                    [Element.Model])
                 .DoAndRecord(recorder);
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception occurred while pasting JSON.");
+            NotificationService.ShowError(Strings.GraphEditor, ex.Message);
+        }
+    }
+
+    public void DeleteAnimation()
+    {
+        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+        IAnimation? oldAnimation = Property.Animation;
+
+        RecordableCommands.Create([Element.Model])
+            .OnDo(() => Property.Animation = null)
+            .OnUndo(() => Property.Animation = oldAnimation)
+            .ToCommand()
+            .DoAndRecord(recorder);
+    }
+
+    private async Task CopyAllKeyFramesAsync()
+    {
+        IClipboard? clipboard = App.GetClipboard();
+        if (clipboard == null) return;
+
+        try
+        {
+            string json = CoreSerializerHelper.SerializeToJsonString((IKeyFrameAnimation)Property.Animation!, typeof(IKeyFrameAnimation));
+
+            var data = new DataObject();
+            data.Set(DataFormats.Text, json);
+            data.Set(nameof(IKeyFrameAnimation), json);
+
+            await clipboard.SetDataObjectAsync(data);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to copy all keyframes");
+            NotificationService.ShowError("Copy", "Failed to copy animation");
+        }
+    }
+
+    private async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition)
+    {
+        IClipboard? clipboard = App.GetClipboard();
+        if (clipboard == null) return;
+        if (Property.Animation is not IKeyFrameAnimation kfAnimation) return;
+
+        try
+        {
+            string[] formats = await clipboard.GetFormatsAsync();
+
+            if (formats.Contains(nameof(IKeyFrame)))
+            {
+                byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrame)) as byte[];
+                JsonNode? jsonNode = JsonNode.Parse(json!);
+                if (jsonNode is not JsonObject jsonObj)
+                {
+                    NotificationService.ShowWarning("", "Invalid keyframe data format.");
+                    return;
+                }
+
+                if (jsonObj.TryGetDiscriminator(out Type? type)
+                    && Activator.CreateInstance(type) is IKeyFrame keyframe)
+                {
+                    CoreSerializerHelper.PopulateFromJsonObject(keyframe, type, jsonObj);
+                    keyframe.KeyTime = pointerPosition;
+
+                    CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+                    RecordableCommands.Create([Element.Model])
+                        .OnDo(() => kfAnimation.KeyFrames.Add(keyframe, out _))
+                        .OnUndo(() => kfAnimation.KeyFrames.Remove(keyframe))
+                        .ToCommand()
+                        .DoAndRecord(recorder);
+                    return;
+                }
+            }
+            else if (formats.Contains(nameof(IKeyFrameAnimation)))
+            {
+                byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrameAnimation)) as byte[];
+                PasteAnimation(System.Text.Encoding.UTF8.GetString(json!));
+                return;
+            }
+
+            NotificationService.ShowWarning("", "Invalid keyframe data format.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to paste keyframe at position");
+            NotificationService.ShowError("Paste", "Failed to paste keyframe");
+        }
+    }
+
+    public bool HandleDragOver(DragEventArgs e)
+    {
+        if (!e.Data.Contains(KnownLibraryItemFormats.Easing)) return false;
+
+        e.DragEffects = DragDropEffects.Copy;
+        return true;
+    }
+
+    public bool HandleDrop(DragEventArgs e, double positionX)
+    {
+        if (!e.Data.Contains(KnownLibraryItemFormats.Easing)) return false;
+        if (e.Data.Get(KnownLibraryItemFormats.Easing) is not Easing easing) return false;
+
+        float scale = Timeline.Options.Value.Scale;
+        TimeSpan time = positionX.ToTimeSpan(scale);
+        DropEasing(easing, time);
+        return true;
+    }
+
+    public void UpdatePointerPosition(double positionX)
+    {
+        float scale = Timeline.Options.Value.Scale;
+        _pointerPosition = positionX.ToTimeSpan(scale);
     }
 
     private void OnLayerHeaderChanged(LayerHeaderViewModel? obj)

@@ -67,20 +67,12 @@
                    Background="Transparent">
                 <Panel.ContextMenu>
                     <ContextMenu>
-                        <MenuItem x:Name="deleteMenuItem"
-                                  Click="DeleteClick"
-                                  Header="{x:Static lang:Strings.Remove}"
-                                  IsEnabled="False">
-                            <MenuItem.Icon>
-                                <icons:SymbolIcon Symbol="Delete" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Click="CopyAllClick" Header="{x:Static lang:Strings.CopyAll}">
+                        <MenuItem Command="{Binding CopyAllKeyFramesCommand}" Header="{x:Static lang:Strings.CopyAll}">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="DocumentCopy" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Click="PasteClick" Header="{x:Static lang:Strings.Paste}">
+                        <MenuItem Command="{Binding PasteKeyFrameAtCurrentPositionCommand}" Header="{x:Static lang:Strings.Paste}">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="ClipboardPaste" />
                             </MenuItem.Icon>
@@ -247,6 +239,25 @@
                                                             <Path.RenderTransform>
                                                                 <TranslateTransform X="{Binding RightTop.Value.X}" Y="{Binding RightTop.Value.Y}" />
                                                             </Path.RenderTransform>
+                                                            <Path.ContextMenu>
+                                                                <ContextMenu>
+                                                                    <MenuItem Command="{Binding CopyCommand}" Header="{x:Static lang:Strings.Copy}">
+                                                                        <MenuItem.Icon>
+                                                                            <icons:SymbolIcon Symbol="Copy" />
+                                                                        </MenuItem.Icon>
+                                                                    </MenuItem>
+                                                                    <MenuItem Command="{Binding PasteCommand}" Header="{x:Static lang:Strings.Paste}">
+                                                                        <MenuItem.Icon>
+                                                                            <icons:SymbolIcon Symbol="ClipboardPaste" />
+                                                                        </MenuItem.Icon>
+                                                                    </MenuItem>
+                                                                    <MenuItem Command="{Binding RemoveCommand}" Header="{x:Static lang:Strings.Delete}">
+                                                                        <MenuItem.Icon>
+                                                                            <icons:SymbolIcon Symbol="Delete" />
+                                                                        </MenuItem.Icon>
+                                                                    </MenuItem>
+                                                                </ContextMenu>
+                                                            </Path.ContextMenu>
                                                             <Path.Data>
                                                                 <PathGeometry>
                                                                     <PathFigure StartPoint="0,-6">
