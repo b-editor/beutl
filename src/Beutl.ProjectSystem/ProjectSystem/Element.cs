@@ -159,6 +159,7 @@ public class Element : ProjectItem, IAffectsRender
             _instanceClock.DurationTime = Length;
             _instanceClock.CurrentTime = clock.CurrentTime - Start;
             _instanceClock.AudioStartTime = clock.AudioStartTime - Start;
+            _instanceClock.AudioDurationTime = clock.AudioDurationTime;
             if (UseNode)
             {
                 return NodeTree.Evaluate(target, renderer, this);

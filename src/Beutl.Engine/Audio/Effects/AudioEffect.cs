@@ -3,22 +3,22 @@ using Beutl.Media;
 
 namespace Beutl.Audio.Effects;
 
-public abstract class SoundEffect : Animatable, IMutableSoundEffect
+public abstract class AudioEffect : Animatable, IMutableAudioEffect
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     private bool _isEnabled = true;
 
-    static SoundEffect()
+    static AudioEffect()
     {
-        IsEnabledProperty = ConfigureProperty<bool, SoundEffect>(nameof(IsEnabled))
+        IsEnabledProperty = ConfigureProperty<bool, AudioEffect>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
             .Register();
 
-        AffectsRender<SoundEffect>(IsEnabledProperty);
+        AffectsRender<AudioEffect>(IsEnabledProperty);
     }
 
-    protected SoundEffect()
+    protected AudioEffect()
     {
         AnimationInvalidated += (_, e) => RaiseInvalidated(e);
     }
@@ -31,10 +31,10 @@ public abstract class SoundEffect : Animatable, IMutableSoundEffect
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
-    public abstract ISoundProcessor CreateProcessor();
+    public abstract IAudioEffectProcessor CreateProcessor();
 
     protected static void AffectsRender<T>(params CoreProperty[] properties)
-        where T : SoundEffect
+        where T : AudioEffect
     {
         foreach (CoreProperty? item in properties)
         {

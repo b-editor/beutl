@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using System;
+using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Source;
 
@@ -38,48 +39,9 @@ public sealed class SourceSound : Sound
         set => SetAndRaise(OffsetPositionProperty, ref _offsetPosition, value);
     }
 
-    protected override void OnRecord(IAudio audio, TimeRange range)
+    protected override ISoundSource? GetSoundSource()
     {
-        if (Source?.IsDisposed != false)
-            return;
-
-        TimeSpan start = range.Start + OffsetPosition;
-        if (start >= TimeSpan.Zero)
-        {
-            if (Source.Read(start, range.Duration, out IPcm? pcm))
-            {
-                audio.RecordPcm(pcm);
-                pcm.Dispose();
-            }
-        }
-        else
-        {
-            TimeRange range2 = range.WithStart(start);
-            if (range2.End <= TimeSpan.Zero)
-            {
-                return;
-            }
-            else
-            {
-                if (Source.Read(0, range2.End, out IPcm? pcm))
-                {
-                    TimeSpan offset = -start;
-                    if (offset < TimeSpan.Zero || offset > TimeSpan.FromSeconds(1))
-                    {
-                        audio.RecordPcm(pcm);
-                        pcm.Dispose();
-                    }
-                    else
-                    {
-                        using (audio.PushOffset(offset))
-                        {
-                            audio.RecordPcm(pcm);
-                            pcm.Dispose();
-                        }
-                    }
-                }
-            }
-        }
+        return _source;
     }
 
     protected override TimeSpan TimeCore(TimeSpan available)

@@ -63,7 +63,7 @@ public readonly struct TimeRange : IEquatable<TimeRange>
     public TimeRange Intersect(TimeRange time)
     {
         TimeSpan newStart = time.Start > Start ? time.Start : Start;
-        TimeSpan newEnd = time.Duration > Duration ? time.End : End;
+        TimeSpan newEnd = time.Duration < Duration ? time.End : End;
 
         if (newStart < newEnd)
         {

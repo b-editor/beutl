@@ -10,5 +10,7 @@ public interface IClock
 
     TimeSpan AudioStartTime { get; }
 
+    TimeSpan AudioDurationTime { get; }
+
     IClock GlobalClock { get; }
 }

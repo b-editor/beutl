@@ -177,7 +177,7 @@ public class LibraryItemViewModel
                 KnownLibraryItemFormats.Easing => Strings.Easing,
                 KnownLibraryItemFormats.FilterEffect => "FilterEffect",
                 KnownLibraryItemFormats.Node => "Node",
-                KnownLibraryItemFormats.SoundEffect => "Node",
+                KnownLibraryItemFormats.AudioEffect => "Node",
                 KnownLibraryItemFormats.SourceOperator => Strings.SourceOperators,
                 _ => string.Empty,
             };

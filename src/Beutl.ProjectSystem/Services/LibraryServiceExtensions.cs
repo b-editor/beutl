@@ -54,10 +54,10 @@ public static class LibraryServiceExtensions
         return self.Bind<T>(KnownLibraryItemFormats.Sound);
     }
 
-    public static MultipleTypeLibraryItem BindSoundEffect<T>(this MultipleTypeLibraryItem self)
-        where T : SoundEffect
+    public static MultipleTypeLibraryItem BindAudioEffect<T>(this MultipleTypeLibraryItem self)
+        where T : IAudioEffect
     {
-        return self.Bind<T>(KnownLibraryItemFormats.SoundEffect);
+        return self.Bind<T>(KnownLibraryItemFormats.AudioEffect);
     }
 
     public static MultipleTypeLibraryItem BindBrush<T>(this MultipleTypeLibraryItem self)
@@ -114,10 +114,10 @@ public static class LibraryServiceExtensions
         return self.Add<T>(KnownLibraryItemFormats.Sound, displayName, description);
     }
 
-    public static GroupLibraryItem AddSoundEffect<T>(this GroupLibraryItem self, string displayName, string? description = null)
-        where T : SoundEffect
+    public static GroupLibraryItem AddAudioEffect<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : IAudioEffect
     {
-        return self.Add<T>(KnownLibraryItemFormats.SoundEffect, displayName, description);
+        return self.Add<T>(KnownLibraryItemFormats.AudioEffect, displayName, description);
     }
 
     public static GroupLibraryItem AddBrush<T>(this GroupLibraryItem self, string displayName, string? description = null)

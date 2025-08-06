@@ -10,9 +10,9 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffect?>
+public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<IAudioEffect?>
 {
-    public SoundEffectEditorViewModel(IPropertyAdapter<ISoundEffect?> property)
+    public AudioEffectEditorViewModel(IPropertyAdapter<IAudioEffect?> property)
         : base(property)
     {
         FilterName = Value.Select(v =>
@@ -30,11 +30,11 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffe
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsGroup = Value.Select(v => v is SoundEffectGroup)
+        IsGroup = Value.Select(v => v is AudioEffectGroup)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsGroupOrNull = Value.Select(v => v is SoundEffectGroup || v == null)
+        IsGroupOrNull = Value.Select(v => v is AudioEffectGroup || v == null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -48,17 +48,17 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffe
                     Group.Value?.Dispose();
                     Group.Value = null;
 
-                    if (v is SoundEffectGroup group)
+                    if (v is AudioEffectGroup group)
                     {
-                        var prop = new CorePropertyAdapter<SoundEffects>(SoundEffectGroup.ChildrenProperty, group);
-                        Group.Value = new ListEditorViewModel<ISoundEffect>(prop)
+                        var prop = new CorePropertyAdapter<AudioEffects>(AudioEffectGroup.ChildrenProperty, group);
+                        Group.Value = new ListEditorViewModel<IAudioEffect>(prop)
                         {
                             IsExpanded = { Value = true }
                         };
                     }
-                    else if (v is SoundEffect effect)
+                    else if (v is AudioEffect effect)
                     {
-                        Properties.Value = new PropertiesEditorViewModel(effect, (p, m) => m.Browsable && p != SoundEffect.IsEnabledProperty);
+                        Properties.Value = new PropertiesEditorViewModel(effect, (p, m) => m.Browsable && p != AudioEffect.IsEnabledProperty);
                     }
 
                     AcceptChild();
@@ -66,7 +66,7 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffe
                 .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        IsEnabled = Value.Select(x => (x as CoreObject)?.GetObservable(SoundEffect.IsEnabledProperty) ?? Observable.Return(x?.IsEnabled ?? false))
+        IsEnabled = Value.Select(x => (x as CoreObject)?.GetObservable(AudioEffect.IsEnabledProperty) ?? Observable.Return(x?.IsEnabled ?? false))
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(Disposables);
@@ -74,10 +74,10 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffe
         IsEnabled.Skip(1)
             .Subscribe(v =>
             {
-                if (Value.Value is SoundEffect effect)
+                if (Value.Value is AudioEffect effect)
                 {
                     CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-                    RecordableCommands.Edit(effect, SoundEffect.IsEnabledProperty, v, !v)
+                    RecordableCommands.Edit(effect, AudioEffect.IsEnabledProperty, v, !v)
                         .WithStoables(GetStorables())
                         .DoAndRecord(recorder);
                 }
@@ -103,7 +103,7 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffe
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
-    public ReactivePropertySlim<ListEditorViewModel<ISoundEffect>?> Group { get; } = new();
+    public ReactivePropertySlim<ListEditorViewModel<IAudioEffect>?> Group { get; } = new();
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -127,7 +127,7 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffe
 
     public void ChangeFilterType(Type type)
     {
-        if (Activator.CreateInstance(type) is ISoundEffect instance)
+        if (Activator.CreateInstance(type) is IAudioEffect instance)
         {
             SetValue(Value.Value, instance);
         }
@@ -135,11 +135,11 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffe
 
     public void AddItem(Type type)
     {
-        if (Value.Value is SoundEffectGroup group
-            && Activator.CreateInstance(type) is ISoundEffect instance)
+        if (Value.Value is AudioEffectGroup group
+            && Activator.CreateInstance(type) is IAudioEffect instance)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            group.Children.BeginRecord<ISoundEffect>()
+            group.Children.BeginRecord<IAudioEffect>()
                 .Add(instance)
                 .ToCommand(GetStorables())
                 .DoAndRecord(recorder);
@@ -194,7 +194,7 @@ public sealed class SoundEffectEditorViewModel : ValueEditorViewModel<ISoundEffe
         }
     }
 
-    private sealed record Visitor(SoundEffectEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(AudioEffectEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {

@@ -18,14 +18,11 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
     private readonly List<Element> _current = [];
     private TimeRange _lastTime = new(TimeSpan.MinValue, default);
 
-    protected override void ComposeCore(Audio.Audio audio)
+    protected override void ComposeCore()
     {
-        base.ComposeCore(audio);
-        audio.Clear();
-
         IClock clock = Clock;
-        var timeSpan = new TimeRange(clock.AudioStartTime, TimeSpan.FromSeconds(1));
-        SortLayers(timeSpan, out _);
+        var timeRange = new TimeRange(clock.AudioStartTime, clock.AudioDurationTime);
+        SortLayers(timeRange, out _);
         Span<Element> elements = CollectionsMarshal.AsSpan(_current);
         Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
         Span<Element> exited = CollectionsMarshal.AsSpan(_exited);
@@ -42,19 +39,18 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
 
         foreach (Element element in elements)
         {
-            using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Audio, clock, renderer))
+            using PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Audio, clock, renderer);
+            foreach (Renderable item in list.Span)
             {
-                foreach (Renderable item in list.Span)
+                if (item is Sound sound)
                 {
-                    if (item is Sound sound)
-                    {
-                        sound.Render(audio);
-                    }
+                    AddSound(sound);
                 }
             }
         }
 
-        _lastTime = timeSpan;
+        _lastTime = timeRange;
+        base.ComposeCore();
     }
 
     private static void EnterSourceOperators(Element element)

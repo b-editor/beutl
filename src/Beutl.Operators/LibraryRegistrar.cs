@@ -154,8 +154,8 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
-            .RegisterGroup("SoundEffect", g => g
-                .AddSoundEffect<Delay>("Delay")
+            .RegisterGroup("Audio Effect", g => g
+                .AddAudioEffect<DelayEffect>("Delay")
             );
     }
 }

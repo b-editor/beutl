@@ -6,12 +6,12 @@ using Avalonia.Interactivity;
 
 namespace Beutl.Views.Editors;
 
-public partial class SoundEffectListItemEditor : UserControl, IListItemEditor
+public partial class AudioEffectListItemEditor : UserControl, IListItemEditor
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(167));
     private CancellationTokenSource? _lastTransitionCts;
 
-    public SoundEffectListItemEditor()
+    public AudioEffectListItemEditor()
     {
         InitializeComponent();
         reorderHandle.GetObservable(ToggleButton.IsCheckedProperty)

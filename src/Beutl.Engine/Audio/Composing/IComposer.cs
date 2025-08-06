@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 
@@ -14,5 +15,5 @@ public interface IComposer : IDisposable
 
     int SampleRate { get; }
 
-    Pcm<Stereo32BitFloat>? Compose(TimeSpan timeSpan);
+    AudioBuffer? Compose(TimeRange range);
 }

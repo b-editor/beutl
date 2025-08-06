@@ -1,28 +1,20 @@
-﻿using Beutl.Animation;
-using Beutl.Audio.Effects;
+﻿using Beutl.Audio.Effects;
+using Beutl.Audio.Graph;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
+using Beutl.Media.Source;
 
 namespace Beutl.Audio;
-
-// Animationに対応させる (手動)
 
 public abstract class Sound : Renderable
 {
     public static readonly CoreProperty<float> GainProperty;
     public static readonly CoreProperty<float> SpeedProperty;
-    public static readonly CoreProperty<ISoundEffect?> EffectProperty;
+    public static readonly CoreProperty<IAudioEffect?> EffectProperty;
+
     private float _gain = 100;
     private float _speed = 100;
-    // 現在の再生位置が前の再生位置よりも戻った場合、エフェクトプロセッサを無効にするために使用
-    private TimeRange _prevRange;
-    private TimeRange _range;
-    private TimeSpan _offset;
-    private ISoundEffect? _effect;
-    private ISoundProcessor? _effectProcessor;
-    private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
+    private IAudioEffect? _effect;
 
     static Sound()
     {
@@ -36,12 +28,12 @@ public abstract class Sound : Renderable
             .DefaultValue(100)
             .Register();
 
-        EffectProperty = ConfigureProperty<ISoundEffect?, Sound>(nameof(Effect))
+        EffectProperty = ConfigureProperty<IAudioEffect?, Sound>(nameof(Effect))
             .Accessor(o => o.Effect, (o, v) => o.Effect = v)
             .DefaultValue(null)
             .Register();
 
-        AffectsRender<Sound>(GainProperty, EffectProperty);
+        AffectsRender<Sound>(GainProperty, EffectProperty, TimeRangeProperty, SpeedProperty);
     }
 
     public Sound()
@@ -49,18 +41,11 @@ public abstract class Sound : Renderable
         Invalidated += OnInvalidated;
     }
 
+
     private void OnInvalidated(object? sender, RenderInvalidatedEventArgs e)
     {
-        if (e.PropertyName is nameof(Effect))
-        {
-            InvalidateEffectProcessor();
-        }
-    }
-
-    private void InvalidateEffectProcessor()
-    {
-        _effectProcessor?.Dispose();
-        _effectProcessor = null;
+        // Notify any external cache that this sound has changed
+        // The Composer will handle cache invalidation
     }
 
     public float Gain
@@ -77,57 +62,44 @@ public abstract class Sound : Renderable
 
     public TimeSpan Duration { get; private set; }
 
-    public ISoundEffect? Effect
+    public IAudioEffect? Effect
     {
         get => _effect;
         set => SetAndRaise(EffectProperty, ref _effect, value);
     }
 
-    public Pcm<Stereo32BitFloat> ToPcm(int sampleRate)
+
+    protected abstract ISoundSource? GetSoundSource();
+
+    public virtual void Compose(AudioContext context)
     {
-        using (var audio = new Audio(sampleRate))
-        using (audio.PushGain(_gain / 100f))
-        using (audio.PushOffset(_offset))
-        {
-            OnRecord(audio, _range);
+        var soundSource = GetSoundSource();
+        if (soundSource == null) throw new Exception("Sound source is not available");
 
-            return audio.GetPcm();
+        // Create source node
+        var sourceNode = context.CreateSourceNode(soundSource);
+
+        var speedNode = context.CreateSpeedNode(Speed / 100f, this, SpeedProperty);
+        context.Connect(sourceNode, speedNode);
+
+        // Create gain node with animation support
+        var gainNode = context.CreateGainNode(Gain / 100f, this, GainProperty);
+        context.Connect(speedNode, gainNode);
+
+        AudioNode currentNode = gainNode;
+
+        // Add effect if present
+        if (_effect != null && _effect.IsEnabled)
+        {
+            var effectNode = context.CreateEffectNode(_effect);
+            context.Connect(currentNode, effectNode);
+            currentNode = effectNode;
         }
+
+        var clipNode = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        context.Connect(currentNode, clipNode);
+        context.MarkAsOutput(clipNode);
     }
-
-    public void Render(IAudio audio)
-    {
-        if (_prevRange.Start > _range.Start)
-        {
-            InvalidateEffectProcessor();
-        }
-
-        if (_effect is { IsEnabled: true } effect)
-        {
-            _effectProcessor ??= effect.CreateProcessor();
-
-            Pcm<Stereo32BitFloat> pcm = ToPcm(audio.SampleRate);
-            _effectProcessor.Process(in pcm, out Pcm<Stereo32BitFloat>? outPcm);
-            if (pcm != outPcm)
-            {
-                pcm.Dispose();
-            }
-
-            audio.RecordPcm(outPcm);
-
-            outPcm.Dispose();
-        }
-        else
-        {
-            using (audio.PushGain(_gain / 100f))
-            using (audio.PushOffset(_offset))
-            {
-                OnRecord(audio, _range);
-            }
-        }
-    }
-
-    protected abstract void OnRecord(IAudio audio, TimeRange range);
 
     public void Time(TimeSpan available)
     {
@@ -135,35 +107,4 @@ public abstract class Sound : Renderable
     }
 
     protected abstract TimeSpan TimeCore(TimeSpan available);
-
-    private void UpdateTime(IClock clock)
-    {
-        TimeSpan start = clock.AudioStartTime;
-        TimeSpan length;
-
-        if (start < TimeSpan.Zero)
-        {
-            _offset = start.Negate();
-            length = s_second + start;
-            start = TimeSpan.Zero;
-        }
-        else
-        {
-            _offset = TimeSpan.Zero;
-            length = clock.DurationTime - start;
-            if (length > s_second)
-            {
-                length = s_second;
-            }
-        }
-
-        _prevRange = _range;
-        _range = new TimeRange(start, length);
-    }
-
-    public override void ApplyAnimations(IClock clock)
-    {
-        base.ApplyAnimations(clock);
-        UpdateTime(clock);
-    }
 }

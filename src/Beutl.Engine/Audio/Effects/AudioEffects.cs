@@ -6,9 +6,9 @@ using Beutl.Media;
 
 namespace Beutl.Audio.Effects;
 
-public sealed class SoundEffects : CoreList<ISoundEffect>, IAffectsRender
+public sealed class AudioEffects : CoreList<IAudioEffect>, IAffectsRender
 {
-    public SoundEffects()
+    public AudioEffects()
     {
         ResetBehavior = ResetBehavior.Remove;
         CollectionChanged += OnCollectionChanged;
