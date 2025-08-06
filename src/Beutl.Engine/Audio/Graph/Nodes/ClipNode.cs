@@ -24,7 +24,7 @@ public class ClipNode : AudioNode
             return new AudioBuffer(
                 context.SampleRate,
                 2,
-                (int)(context.TimeRange.Duration.TotalSeconds * context.SampleRate));
+                context.GetSampleCount());
         }
 
         TimeSpan padBefore = newRange.Start - context.TimeRange.Start;
@@ -38,7 +38,7 @@ public class ClipNode : AudioNode
         var newBuffer = new AudioBuffer(
             context.SampleRate,
             buffer.ChannelCount,
-            (int)(context.TimeRange.Duration.TotalSeconds * context.SampleRate));
+            context.GetSampleCount());
         buffer.CopyTo(newBuffer, (int)(padBefore.TotalSeconds * context.SampleRate));
         return newBuffer;
     }
