@@ -6,24 +6,53 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class SpeedNode : AudioNode
 {
-    private float _staticSpeed = 1.0f;
-
     // Processor for audio speed processing
     private SpeedProcessor? _processor;
     private int _lastSampleRate;
 
-    public IAnimatable? Target { get; set; }
+    // 秒数 -> サンプルオフセット
+    private Dictionary<int, double> _cache = new();
+    private IAnimatable? _target;
+    private CoreProperty<float>? _speedProperty;
+    private KeyFrameAnimation<float>? _animation;
 
-    public CoreProperty<float>? SpeedProperty { get; set; }
-
-    public float StaticSpeed
+    public IAnimatable? Target
     {
-        get => _staticSpeed;
+        get => _target;
         set
         {
-            var clampedValue = ClampSpeed(value);
-            _staticSpeed = clampedValue;
+            _target = value;
+            if (!ReferenceEquals(_target, value))
+            {
+                InvalidateCache();
+            }
         }
+    }
+
+    public CoreProperty<float>? SpeedProperty
+    {
+        get => _speedProperty;
+        set
+        {
+            _speedProperty = value;
+            if (!ReferenceEquals(_speedProperty, value))
+            {
+                InvalidateCache();
+            }
+        }
+    }
+
+    public float StaticSpeed { get; set; } = 1.0f;
+
+    private void InvalidateCache()
+    {
+        _cache.Clear();
+        _processor = null;
+    }
+
+    private void OnAnimationInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    {
+        InvalidateCache();
     }
 
     public override AudioBuffer Process(AudioProcessContext context)
@@ -34,16 +63,27 @@ public sealed class SpeedNode : AudioNode
         // Calculate the expected output sample count based on the context's time range
         var expectedOutputSampleCount = context.GetSampleCount();
 
+        var animation = GetSpeedAnimation();
+        if (!ReferenceEquals(animation, _animation))
+        {
+            InvalidateCache();
+            if (_animation != null)
+                _animation.Invalidated -= OnAnimationInvalidated;
+
+            if (animation != null)
+                animation.Invalidated += OnAnimationInvalidated;
+
+            _animation = animation;
+        }
+
         // Initialize processor if needed
         if (_processor == null || _lastSampleRate != context.SampleRate)
         {
-            _processor?.Dispose();
             _processor = new SpeedProcessor(context.SampleRate, 2, this);
             _lastSampleRate = context.SampleRate;
         }
 
-        // If no animation, use static speed processing
-        if (!context.AnimationSampler.IsAnimated(Target, SpeedProperty))
+        if (animation == null)
         {
             return ProcessStaticSpeed(context, expectedOutputSampleCount);
         }
@@ -54,13 +94,13 @@ public sealed class SpeedNode : AudioNode
     private AudioBuffer ProcessStaticSpeed(AudioProcessContext context, int expectedOutputSampleCount)
     {
         // If speed is 1.0, use normal processing
-        if (System.Math.Abs(_staticSpeed - 1.0f) < float.Epsilon)
+        if (Math.Abs(StaticSpeed - 1.0f) < float.Epsilon)
         {
             return Inputs[0].Process(context);
         }
 
         // Calculate source time range from output time range
-        var sourceTimeRange = CalculateSourceTimeRange(context.TimeRange, _staticSpeed);
+        var sourceTimeRange = CalculateSourceTimeRange(context.TimeRange, StaticSpeed);
 
         // Create input context with calculated source time range
         var inputContext = new AudioProcessContext(
@@ -70,11 +110,8 @@ public sealed class SpeedNode : AudioNode
             context.OriginalTimeRange);
 
         // Process with constant speed to get the expected output length
-        return _processor!.ProcessBuffer(inputContext, ClampSpeed(_staticSpeed), expectedOutputSampleCount);
+        return _processor!.ProcessBuffer(inputContext, StaticSpeed, expectedOutputSampleCount);
     }
-
-    // 秒数 -> サンプルオフセット
-    private Dictionary<int, double> _cache = new();
 
     private (int Key, double Value) TryGetCache(int sec)
     {
@@ -152,22 +189,14 @@ public sealed class SpeedNode : AudioNode
         return _processor!.ProcessBufferWithVariableSpeed(inputContext, actualSpeeds, expectedOutputSampleCount);
     }
 
-    /// <summary>
-    /// Calculate source time range from output time range using static speed.
-    /// Similar to SourceVideo.CalculateVideoTime() approach.
-    /// </summary>
     private TimeRange CalculateSourceTimeRange(TimeRange outputTimeRange, float speed)
     {
-        // For static speed: sourceTime = outputTime * speed
-        var sourceStart = TimeSpan.FromTicks(SafeMultiplyTicks(outputTimeRange.Start.Ticks, ClampSpeed(speed)));
-        var sourceDuration = TimeSpan.FromTicks((long)(outputTimeRange.Duration.Ticks * speed));
+        var sourceStart = outputTimeRange.Start * speed;
+        var sourceDuration = outputTimeRange.Duration * speed;
 
         return new TimeRange(sourceStart, sourceDuration);
     }
 
-    /// <summary>
-    /// Get the speed animation from the target object.
-    /// </summary>
     private KeyFrameAnimation<float>? GetSpeedAnimation()
     {
         if (Target?.Animations == null || SpeedProperty == null)
@@ -176,55 +205,21 @@ public sealed class SpeedNode : AudioNode
         return Target.Animations.FirstOrDefault(i => i.Property.Id == SpeedProperty.Id) as KeyFrameAnimation<float>;
     }
 
-    /// <summary>
-    /// Clamp speed value to prevent extreme values that could cause issues.
-    /// </summary>
-    private static float ClampSpeed(float speed)
-    {
-        // Clamp speed to reasonable bounds (0.01x to 100x)
-        // Prevents division by zero and extreme resampling rates
-        return System.Math.Max(0.01f, System.Math.Min(100.0f, System.Math.Abs(speed)));
-    }
-
-    /// <summary>
-    /// Safely multiply ticks by speed factor with overflow protection.
-    /// </summary>
-    private static long SafeMultiplyTicks(long ticks, float speed)
-    {
-        try
-        {
-            // Use checked arithmetic to detect overflow
-            checked
-            {
-                return (long)(ticks * speed);
-            }
-        }
-        catch (OverflowException)
-        {
-            // Return max/min value based on sign to prevent overflow
-            return speed >= 0 ? long.MaxValue : long.MinValue;
-        }
-    }
-
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
-        {
-            _processor?.Dispose();
-            _processor = null;
-        }
-
+        _processor = null;
         base.Dispose(disposing);
     }
 
-    private sealed class SpeedProcessor : IDisposable
+    private sealed class SpeedProcessor
     {
         private readonly int _sampleRate;
         private readonly int _channels;
         private readonly SpeedNode _speedNode;
         private readonly WdlResampler _rs;
         private float _currentSpeed = 1.0f;
-        private bool _disposed;
+        private TimeSpan lastSrcOffset;
+        private const int BLOCK = 256;
 
         public SpeedProcessor(int sampleRate, int channels, SpeedNode speedNode)
         {
@@ -239,8 +234,6 @@ public sealed class SpeedNode : AudioNode
             _rs.SetFeedMode(false);
             _rs.SetRates(sampleRate, sampleRate);
         }
-
-        private TimeSpan lastSrcOffset;
 
         private int Read(int srcOffset, float[] buffer, int offset, int count, AudioProcessContext context)
         {
@@ -274,8 +267,6 @@ public sealed class SpeedNode : AudioNode
 
         public AudioBuffer ProcessBuffer(AudioProcessContext context, float speed, int expectedOut)
         {
-            if (_disposed) throw new ObjectDisposedException(nameof(SpeedProcessor));
-
             // 速度変更があればレートだけ更新（Reset は行わない）
             if (Math.Abs(_currentSpeed - speed) > 1e-4f)
             {
@@ -342,8 +333,6 @@ public sealed class SpeedNode : AudioNode
 
             return output;
         }
-
-        private const int BLOCK = 256;
 
         public AudioBuffer ProcessBufferWithVariableSpeed(
             AudioProcessContext context, ReadOnlySpan<double> speedCurve, int expectedOut)
@@ -452,33 +441,6 @@ public sealed class SpeedNode : AudioNode
             }
 
             return output;
-        }
-
-        private static float Average(ReadOnlySpan<float> s)
-            => s.IsEmpty ? 1f : (float)(s.ToArray().Average());
-
-        private void MergeChunk(AudioBuffer output, AudioBuffer chunk, int startSample)
-        {
-            for (int ch = 0; ch < output.ChannelCount; ch++)
-            {
-                var outputChannel = output.GetChannelData(ch);
-                var chunkChannel = chunk.GetChannelData(ch);
-
-                int samplesToCopy = System.Math.Min(chunk.SampleCount, output.SampleCount - startSample);
-
-                for (int i = 0; i < samplesToCopy; i++)
-                {
-                    outputChannel[startSample + i] = chunkChannel[i];
-                }
-            }
-        }
-
-        public void Dispose()
-        {
-            if (!_disposed)
-            {
-                _disposed = true;
-            }
         }
     }
 }
