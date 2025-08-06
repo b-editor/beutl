@@ -13,6 +13,7 @@ public class Composer : IComposer
     private readonly InstanceClock _instanceClock = new();
     private readonly ConditionalWeakTable<Sound, AudioNodeEntry> _audioCache = [];
     private readonly List<Sound> _currentSounds = new();
+    private readonly List<AudioNodeEntry> _currentEntry = new();
 
     private sealed class AudioNodeEntry : IDisposable
     {
@@ -67,6 +68,7 @@ public class Composer : IComposer
     protected virtual void ComposeCore()
     {
         // Default implementation: compose all sounds
+        _currentEntry.Clear();
         foreach (var sound in _currentSounds)
         {
             ComposeSound(sound, Clock);
@@ -119,9 +121,9 @@ public class Composer : IComposer
         var buffers = new List<AudioBuffer>();
 
         // Process each context
-        foreach (var kvp in _audioCache)
+        foreach (var item in _currentEntry)
         {
-            if (kvp.Value.OutputNodes is not { } outputNodes) continue;
+            if (item.OutputNodes is not { } outputNodes) continue;
             var processContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
             foreach (var outputNode in outputNodes)
             {
@@ -138,7 +140,10 @@ public class Composer : IComposer
             buffer.Dispose();
         }
 
-        if (mixedBuffer == null) return null;
+        if (mixedBuffer == null)
+        {
+            return new AudioBuffer(SampleRate, 2, (int)(range.Duration.TotalSeconds * SampleRate));
+        }
         // Apply master effects
         ApplyMasterEffects(mixedBuffer);
 
@@ -238,6 +243,8 @@ public class Composer : IComposer
 
             entry.IsDirty = false;
         }
+
+        _currentEntry.Add(entry);
     }
 
     private void OnSoundInvalidated(Sound sound, RenderInvalidatedEventArgs e)
