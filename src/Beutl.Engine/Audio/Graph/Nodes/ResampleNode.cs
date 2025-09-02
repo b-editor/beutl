@@ -6,19 +6,18 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class ResampleNode : AudioNode
 {
-    private int _targetSampleRate = 44100;
+    private int _sourceSampleRate = 44100;
     private ResampleSampleProvider? _resampleProvider;
-    private AudioBuffer? _lastInput;
-    private int _lastInputSampleRate;
+    private int _lastSampleRate;
 
-    public int TargetSampleRate
+    public int SourceSampleRate
     {
-        get => _targetSampleRate;
+        get => _sourceSampleRate;
         set
         {
-            if (_targetSampleRate != value)
+            if (_sourceSampleRate != value)
             {
-                _targetSampleRate = value;
+                _sourceSampleRate = value;
                 _resampleProvider?.Dispose();
                 _resampleProvider = null;
             }
@@ -30,25 +29,21 @@ public sealed class ResampleNode : AudioNode
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Resample node requires exactly one input.");
 
-        var input = Inputs[0].Process(context);
+        var newContext = new AudioProcessContext(context.TimeRange, SourceSampleRate, context.AnimationSampler, context.OriginalTimeRange);
+        var input = Inputs[0].Process(newContext);
 
-        // If the input sample rate is already the target, return as-is
-        if (input.SampleRate == _targetSampleRate)
+        if (input.SampleRate == context.SampleRate)
             return input;
 
-        // Create or recreate the resample provider if needed
-        if (_resampleProvider == null || _lastInputSampleRate != input.SampleRate)
+        if (_resampleProvider == null || _lastSampleRate != context.SampleRate)
         {
             _resampleProvider?.Dispose();
-            _resampleProvider = new ResampleSampleProvider(input, _targetSampleRate);
-            _lastInputSampleRate = input.SampleRate;
+            _resampleProvider = new ResampleSampleProvider(input, context.SampleRate);
+            _lastSampleRate = context.SampleRate;
         }
 
         // Convert input to the resampler and process
         var output = _resampleProvider.Process(input);
-
-        // Cache the result
-        _lastInput = input;
 
         return output;
     }
