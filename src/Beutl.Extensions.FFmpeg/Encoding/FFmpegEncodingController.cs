@@ -130,7 +130,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         audioFrame.ChLayout = encoder.ChLayout;
         audioFrame.NbSamples = nbsamples;
         audioFrame.Format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLT;
-        audioFrame.SampleRate = 44100;
+        audioFrame.SampleRate = encoder.SampleRate;
         audioFrame.AllocateBuffer();
     }
 

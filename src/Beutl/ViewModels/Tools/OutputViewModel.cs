@@ -218,6 +218,9 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     // キャッシュ無効化
                     DisableAllCache();
 
+                    // Rendererを新しく作成しない理由:
+                    // エンコード時のRenderInvalidatedがプレビューを更新しようとしてしまうため
+
                     // フレームプロバイダー作成
                     // using var renderer = new SceneRenderer(scene);
                     var renderer = _editViewModel.Renderer.Value;
