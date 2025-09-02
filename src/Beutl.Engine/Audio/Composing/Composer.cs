@@ -48,7 +48,7 @@ public class Composer : IComposer
 
     public IClock Clock => _instanceClock;
 
-    public int SampleRate { get; }
+    public int SampleRate { get; init; }
 
     public bool IsDisposed { get; private set; }
 

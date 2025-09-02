@@ -224,8 +224,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     var frameProgress = new Subject<TimeSpan>();
                     var frameProvider = new FrameProviderImpl(scene, videoSettings.FrameRate, renderer, frameProgress);
                     // サンプルプロバイダー作成
-                    // using var composer = new SceneComposer(scene, renderer);
-                    var composer = _editViewModel.Composer.Value;
+                    using var composer = new SceneComposer(scene, renderer) { SampleRate = audioSettings.SampleRate };
+                    // var composer = _editViewModel.Composer.Value;
                     var sampleProgress = new Subject<TimeSpan>();
                     var sampleProvider = new SampleProviderImpl(
                         scene, composer, audioSettings.SampleRate, sampleProgress);
