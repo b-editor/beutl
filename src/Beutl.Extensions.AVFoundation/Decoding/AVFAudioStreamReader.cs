@@ -48,7 +48,7 @@ public class AVFAudioStreamReader : IDisposable
                 LinearPcmBitDepth = 32,
                 LinearPcmBigEndian = false,
                 LinearPcmFloat = true,
-                SampleRate = options.SampleRate,
+                SampleRate = _audioTrack.NaturalTimeScale,
                 NumberChannels = 2,
             }.Dictionary);
         _assetAudioReader.AddOutput(_audioReaderOutput);
@@ -96,7 +96,7 @@ public class AVFAudioStreamReader : IDisposable
                 LinearPcmBitDepth = 32,
                 LinearPcmBigEndian = false,
                 LinearPcmFloat = true,
-                SampleRate = _options.SampleRate,
+                SampleRate = AudioInfo.SampleRate,
                 NumberChannels = 2,
             }.Dictionary);
         _audioReaderOutput.AlwaysCopiesSampleData = false;
@@ -107,9 +107,9 @@ public class AVFAudioStreamReader : IDisposable
 
     public bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
     {
-        start = (int)((long)_options.SampleRate * start / AudioInfo.SampleRate);
-        length = (int)((long)_options.SampleRate * length / AudioInfo.SampleRate);
-        var buffer = new Pcm<Stereo32BitFloat>(_options.SampleRate, length);
+        start = (int)((long)AudioInfo.SampleRate * start / AudioInfo.SampleRate);
+        length = (int)((long)AudioInfo.SampleRate * length / AudioInfo.SampleRate);
+        var buffer = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
         bool hitCache = _sampleCache.SearchAudioSampleAndCopyBuffer(start, length, buffer.Data);
         if (hitCache)
         {
@@ -125,7 +125,7 @@ public class AVFAudioStreamReader : IDisposable
 
         if (start < currentSample || (currentSample + _thresholdSampleCount) < start)
         {
-            var destTimePosition = new CMTime(start, _options.SampleRate);
+            var destTimePosition = new CMTime(start, AudioInfo.SampleRate);
             SeekAudio(destTimePosition);
         }
 
