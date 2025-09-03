@@ -6,27 +6,20 @@ using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 
 using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
 
 namespace Beutl.Media.Wave;
 
 public sealed class WaveReader : MediaReader
 {
-    private readonly string _file;
-    private readonly MediaOptions _options;
     private readonly WaveFileReader _reader;
+    private readonly ISampleProvider _provider;
     private readonly WaveFormat _waveFormat;
-    private readonly WdlResamplingSampleProvider _resampler;
 
-    public WaveReader(string file, MediaOptions options)
+    public WaveReader(string file)
     {
-        _file = file;
-        _options = options;
-
-        _reader = new WaveFileReader(_file);
+        _reader = new WaveFileReader(file);
+        _provider = _reader.ToSampleProvider().ToStereo();
         _waveFormat = _reader.WaveFormat;
-
-        _resampler = new WdlResamplingSampleProvider(_reader.ToSampleProvider().ToStereo(), options.SampleRate);
 
         AudioInfo = new AudioStreamInfo(
             CodecName: $"Wave ({_waveFormat.Encoding})",
@@ -51,10 +44,10 @@ public sealed class WaveReader : MediaReader
 
         _reader.CurrentTime = TimeSpan.FromSeconds(start / (double)_waveFormat.SampleRate);
 
-        var tmp = new Pcm<Stereo32BitFloat>(_options.SampleRate, (int)(length / (double)_waveFormat.SampleRate * _options.SampleRate));
+        var tmp = new Pcm<Stereo32BitFloat>(_waveFormat.SampleRate, (int)(length / (double)_waveFormat.SampleRate * _waveFormat.SampleRate));
 
         float[] buffer = new float[tmp.NumSamples * 2];
-        int count = _resampler.Read(buffer, 0, tmp.NumSamples * 2);
+        int count = _provider.Read(buffer, 0, tmp.NumSamples * 2);
         if (count >= 0)
         {
             buffer.CopyTo(MemoryMarshal.Cast<Stereo32BitFloat, float>(tmp.DataSpan));
