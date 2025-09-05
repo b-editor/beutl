@@ -218,14 +218,17 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     // キャッシュ無効化
                     DisableAllCache();
 
+                    // Rendererを新しく作成しない理由:
+                    // エンコード時のRenderInvalidatedがプレビューを更新しようとしてしまうため
+
                     // フレームプロバイダー作成
                     // using var renderer = new SceneRenderer(scene);
                     var renderer = _editViewModel.Renderer.Value;
                     var frameProgress = new Subject<TimeSpan>();
                     var frameProvider = new FrameProviderImpl(scene, videoSettings.FrameRate, renderer, frameProgress);
                     // サンプルプロバイダー作成
-                    // using var composer = new SceneComposer(scene, renderer);
-                    var composer = _editViewModel.Composer.Value;
+                    using var composer = new SceneComposer(scene, renderer) { SampleRate = audioSettings.SampleRate };
+                    // var composer = _editViewModel.Composer.Value;
                     var sampleProgress = new Subject<TimeSpan>();
                     var sampleProvider = new SampleProviderImpl(
                         scene, composer, audioSettings.SampleRate, sampleProgress);

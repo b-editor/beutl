@@ -30,7 +30,7 @@ public class MFReader : MediaReader
     private readonly AudioStreamInfo? _audioInfo;
     private readonly MediaFoundationReader? _audioReader;
     private readonly WaveFormat? _waveFormat;
-    private readonly MediaFoundationResampler? _resampler;
+    private readonly ISampleProvider? _provider;
 
     public MFReader(string file, MediaOptions options, MFDecodingExtension extension)
     {
@@ -58,7 +58,7 @@ public class MFReader : MediaReader
                 });
                 _waveFormat = _audioReader.WaveFormat;
 
-                _resampler = new MediaFoundationResampler(_audioReader, WaveFormat.CreateIeeeFloatWaveFormat(options.SampleRate, 2));
+                _provider = _audioReader.ToSampleProvider().ToStereo();
 
                 _audioInfo = new AudioStreamInfo(
                     CodecName: _waveFormat.Encoding.ToString(),
@@ -138,7 +138,7 @@ public class MFReader : MediaReader
         else
         {
             sound = null;
-            if (IsDisposed || _audioReader == null || _waveFormat == null || _resampler == null)
+            if (IsDisposed || _audioReader == null || _waveFormat == null || _provider == null)
                 return false;
 
             (bool result, IPcm? sound1) = MFThread.Dispatcher.Invoke(() =>
@@ -154,17 +154,17 @@ public class MFReader : MediaReader
     private bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out IPcm? sound)
     {
         sound = null;
-        if (IsDisposed || _audioReader == null || _waveFormat == null || _resampler == null)
+        if (IsDisposed || _audioReader == null || _waveFormat == null || _provider == null)
             return false;
 
         _audioReader.CurrentTime = TimeSpan.FromSeconds(start / (double)_waveFormat.SampleRate);
-        var tmp = new Pcm<Stereo32BitFloat>(_options.SampleRate, (int)(length / (double)_waveFormat.SampleRate * _options.SampleRate));
+        var tmp = new Pcm<Stereo32BitFloat>(_waveFormat.SampleRate, (int)(length / (double)_waveFormat.SampleRate * _waveFormat.SampleRate));
 
-        byte[] buffer = new byte[tmp.NumSamples * 2 * sizeof(float)];
-        int count = _resampler.Read(buffer, 0, buffer.Length);
+        float[] buffer = new float[tmp.NumSamples * 2];
+        int count = _provider.Read(buffer, 0, buffer.Length);
         if (count >= 0)
         {
-            buffer.CopyTo(MemoryMarshal.Cast<Stereo32BitFloat, byte>(tmp.DataSpan));
+            buffer.CopyTo(MemoryMarshal.Cast<Stereo32BitFloat, float>(tmp.DataSpan));
 
             sound = tmp;
             return true;
@@ -181,6 +181,5 @@ public class MFReader : MediaReader
         base.Dispose(disposing);
         _decoder?.Dispose();
         _audioReader?.Dispose();
-        _resampler?.Dispose();
     }
 }

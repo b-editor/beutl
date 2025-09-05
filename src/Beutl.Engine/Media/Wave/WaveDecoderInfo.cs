@@ -16,7 +16,7 @@ public sealed class WaveDecoderInfo : IDecoderInfo
     {
         try
         {
-            return new WaveReader(file, options);
+            return new WaveReader(file);
         }
         catch
         {
