@@ -96,7 +96,7 @@ public sealed class AudioContext : IDisposable
         if (_previousNodes != null)
         {
             var existing = _previousNodes.OfType<SourceNode>()
-                .FirstOrDefault(n => n.Source == source);
+                .FirstOrDefault(n => n.Source?.Name == source.Name);
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
@@ -104,7 +104,7 @@ public sealed class AudioContext : IDisposable
             }
         }
 
-        var node = new SourceNode { Source = source };
+        var node = new SourceNode { Source = source.Clone() };
         return AddNode(node);
     }
 
