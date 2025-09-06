@@ -16,13 +16,35 @@
              x:DataType="vm:InlineAnimationLayerViewModel"
              Background="Transparent"
              mc:Ignorable="d">
+    <UserControl.ContextMenu>
+        <ContextMenu>
+            <MenuItem Command="{Binding CopyAllKeyFramesCommand}" Header="{x:Static lang:Strings.CopyAll}">
+                <MenuItem.Icon>
+                    <icons:SymbolIcon Symbol="Copy" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding PasteKeyFrameAtCurrentPositionCommand}" Header="{x:Static lang:Strings.Paste}">
+                <MenuItem.Icon>
+                    <icons:SymbolIcon Symbol="ClipboardPaste" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Command="{Binding DeleteCurrentAnimationCommand}" Header="{x:Static lang:Strings.Delete}">
+                <MenuItem.Icon>
+                    <icons:SymbolIcon Symbol="Delete" />
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+    </UserControl.ContextMenu>
     <Panel>
         <Border x:Name="border"
-                Width="{CompiledBinding Element.Width.Value, Mode=OneWay}"
-                Margin="{CompiledBinding Element.BorderMargin.Value, Mode=OneWay}"
+                Width="{CompiledBinding Element.Width.Value,
+                                        Mode=OneWay}"
+                Margin="{CompiledBinding Element.BorderMargin.Value,
+                                         Mode=OneWay}"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Stretch"
-                BorderBrush="{CompiledBinding Element.Color.Value, Converter={StaticResource ColorToBrushConverter}}"
+                BorderBrush="{CompiledBinding Element.Color.Value,
+                                              Converter={StaticResource ColorToBrushConverter}}"
                 BorderThickness="1,0" />
 
         <ItemsControl x:Name="items"
@@ -44,7 +66,17 @@
                           Fill="{DynamicResource SystemFillColorCaution}">
                         <Path.ContextMenu>
                             <ContextMenu>
-                                <MenuItem Click="DeleteClick" Header="{x:Static lang:Strings.Delete}">
+                                <MenuItem Command="{Binding CopyCommand}" Header="{x:Static lang:Strings.Copy}">
+                                    <MenuItem.Icon>
+                                        <icons:SymbolIcon Symbol="Copy" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Command="{Binding PasteCommand}" Header="{x:Static lang:Strings.Paste}">
+                                    <MenuItem.Icon>
+                                        <icons:SymbolIcon Symbol="ClipboardPaste" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Command="{Binding RemoveCommand}" Header="{x:Static lang:Strings.Delete}">
                                     <MenuItem.Icon>
                                         <icons:SymbolIcon Symbol="Delete" />
                                     </MenuItem.Icon>
