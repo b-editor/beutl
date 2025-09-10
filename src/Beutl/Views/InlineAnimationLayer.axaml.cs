@@ -2,13 +2,11 @@
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
-using Beutl.Animation.Easings;
-using Beutl.Services;
 using Beutl.ViewModels;
+using KeyFrame = Avalonia.Animation.KeyFrame;
 
 namespace Beutl.Views;
 
@@ -32,22 +30,22 @@ public partial class InlineAnimationLayer : UserControl
 
     private void OnDrap(object? sender, DragEventArgs e)
     {
-        if (!e.Data.Contains(KnownLibraryItemFormats.Easing)) return;
-        if (e.Data.Get(KnownLibraryItemFormats.Easing) is not Easing easing) return;
         if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
 
-        float scale = viewModel.Timeline.Options.Value.Scale;
-        TimeSpan time = e.GetPosition(this).X.ToTimeSpan(scale);
-        viewModel.DropEasing(easing, time);
-        e.Handled = true;
+        if (viewModel.HandleDrop(e, e.GetPosition(this).X))
+        {
+            e.Handled = true;
+        }
     }
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        if (!e.Data.Contains(KnownLibraryItemFormats.Easing)) return;
+        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
 
-        e.DragEffects = DragDropEffects.Copy;
-        e.Handled = true;
+        if (viewModel.HandleDragOver(e))
+        {
+            e.Handled = true;
+        }
     }
 
     private void OnMaterialized(object? sender, ContainerPreparedEventArgs e)
@@ -107,13 +105,12 @@ public partial class InlineAnimationLayer : UserControl
         };
     }
 
-    private void DeleteClick(object? sender, RoutedEventArgs e)
+    protected override void OnPointerMoved(PointerEventArgs e)
     {
-        if (DataContext is InlineAnimationLayerViewModel viewModel
-            && sender is MenuItem { DataContext: InlineKeyFrameViewModel itemViewModel })
-        {
-            viewModel.RemoveKeyFrame(itemViewModel.Model);
-        }
+        base.OnPointerMoved(e);
+        if(DataContext is not InlineAnimationLayerViewModel viewModel) return;
+        Point point = e.GetPosition(this);
+        viewModel.UpdatePointerPosition(point.X);
     }
 
     private sealed class _DragBehavior : Behavior<Control>

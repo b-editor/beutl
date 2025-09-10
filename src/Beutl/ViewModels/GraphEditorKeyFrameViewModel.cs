@@ -1,18 +1,24 @@
 ﻿using System.Collections.Immutable;
-
+using System.Text.Json.Nodes;
 using Avalonia;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Media;
-
 using Beutl.Animation;
+using Beutl.Helpers;
+using Beutl.Logging;
+using Beutl.Services;
+using Beutl.Views;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-
 using SplineEasing = Beutl.Animation.Easings.SplineEasing;
 
 namespace Beutl.ViewModels;
 
 public sealed class GraphEditorKeyFrameViewModel : IDisposable
 {
+    private readonly ILogger _logger = Log.CreateLogger<GraphEditorKeyFrameViewModel>();
     private readonly CompositeDisposable _disposables = [];
     internal readonly ReactivePropertySlim<GraphEditorKeyFrameViewModel?> _previous = new();
     internal GraphEditorKeyFrameViewModel? _next;
@@ -89,7 +95,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 {
                     (Vector, Vector) ToVector()
                     {
-                        return (new Vector(splineEasing.X1, splineEasing.Y1), new Vector(splineEasing.X2, splineEasing.Y2));
+                        return (new Vector(splineEasing.X1, splineEasing.Y1),
+                            new Vector(splineEasing.X2, splineEasing.Y2));
                     }
 
                     return Observable.FromEventPattern(splineEasing, nameof(SplineEasing.Changed))
@@ -131,6 +138,18 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .Select(v => v.Third ? new Point(v.First, v.Second) : new Point(v.First, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+
+        CopyCommand = new AsyncReactiveCommand()
+            .WithSubscribe(CopyAsync)
+            .DisposeWith(_disposables);
+
+        PasteCommand = new AsyncReactiveCommand()
+            .WithSubscribe(PasteAsync)
+            .DisposeWith(_disposables);
+
+        RemoveCommand = new ReactiveCommand()
+            .WithSubscribe(Remove)
+            .DisposeWith(_disposables);
     }
 
     public GraphEditorViewViewModel Parent { get; }
@@ -168,6 +187,12 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<Point> LeftBottom { get; }
 
     public ReadOnlyReactivePropertySlim<Point> RightTop { get; }
+
+    public AsyncReactiveCommand CopyCommand { get; set; }
+
+    public AsyncReactiveCommand PasteCommand { get; set; }
+
+    public ReactiveCommand RemoveCommand { get; }
 
     public void SetPrevious(GraphEditorKeyFrameViewModel? previous)
     {
@@ -212,6 +237,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             {
                 splineEasing.X1 = (float)x;
             }
+
             if (double.IsFinite(y))
             {
                 splineEasing.Y1 = (float)y;
@@ -229,6 +255,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             {
                 splineEasing.X2 = (float)x;
             }
+
             if (double.IsFinite(y))
             {
                 splineEasing.Y2 = (float)y;
@@ -287,7 +314,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         float scale = parent2.Options.Value.Scale;
         int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
 
-        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.Property.PropertyType, out object? obj))
+        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.Property.PropertyType,
+                out object? obj))
         {
             var keyframe = Model;
             var (oldTime, oldValue) = (oldKeyTime, Model.Value);
@@ -304,10 +332,10 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         else
         {
             RecordableCommands.Edit(
-                target: Model,
-                property: KeyFrame.KeyTimeProperty,
-                value: Right.Value.ToTimeSpan(scale).RoundToRate(rate),
-                oldValue: oldKeyTime)
+                    target: Model,
+                    property: KeyFrame.KeyTimeProperty,
+                    value: Right.Value.ToTimeSpan(scale).RoundToRate(rate),
+                    oldValue: oldKeyTime)
                 .WithStoables(GetStorables())
                 .DoAndRecord(recorder);
         }
@@ -355,5 +383,100 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     private ImmutableArray<IStorable?> GetStorables()
     {
         return [Parent.Parent.Element];
+    }
+
+    private async Task CopyAsync()
+    {
+        IClipboard? clipboard = App.GetClipboard();
+        if (clipboard == null) return;
+
+        try
+        {
+            var dataObject = new DataObject();
+            ObjectRegenerator.Regenerate(Model, out string json);
+            dataObject.Set(DataFormats.Text, json);
+            dataObject.Set(nameof(IKeyFrame), json);
+
+            await clipboard.SetDataObjectAsync(dataObject);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to copy keyframe");
+            NotificationService.ShowError("Copy", "Failed to copy keyframe");
+        }
+    }
+
+    private async Task PasteAsync()
+    {
+        IClipboard? clipboard = App.GetClipboard();
+        if (clipboard == null) return;
+
+        try
+        {
+            string[] formats = await clipboard.GetFormatsAsync();
+
+            if (formats.Contains(nameof(IKeyFrame)))
+            {
+                byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrame)) as byte[];
+                JsonNode? jsonNode = JsonNode.Parse(json!);
+                if (jsonNode is not JsonObject jsonObj)
+                {
+                    NotificationService.ShowWarning("", "Invalid keyframe data format.");
+                    return;
+                }
+
+                if (!jsonObj.TryGetDiscriminator(out Type? type))
+                {
+                    NotificationService.ShowWarning("", "Invalid keyframe data format. missing $type.");
+                    return;
+                }
+
+                if (!type.IsAssignableTo(typeof(KeyFrame)))
+                {
+                    NotificationService.ShowWarning("", "Invalid keyframe data format. $type is not KeyFrame.");
+                    return;
+                }
+
+                KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(type)!;
+                CoreSerializerHelper.PopulateFromJsonObject(newKeyFrame, jsonObj);
+                CommandRecorder recorder = Parent.Parent.EditorContext.CommandRecorder;
+
+                if (type.GenericTypeArguments[0] != Parent.Parent.Animation.Property.PropertyType)
+                {
+                    // イージングのみ変更
+                    RecordableCommands.Edit(Model, KeyFrame.EasingProperty, newKeyFrame.Easing, Model.Easing)
+                        .WithStoables([Parent.Parent.Element])
+                        .DoAndRecord(recorder);
+                    NotificationService.ShowWarning(Strings.GraphEditor, "The property type of the pasted keyframe does not match. Only the easing is applied.");
+                }
+                else
+                {
+                    newKeyFrame.KeyTime = Model.KeyTime;
+                    int index = Parent.Parent.Animation.KeyFrames.IndexOf(Model);
+                    Parent.Parent.Animation.KeyFrames.BeginRecord<IKeyFrame>()
+                        .Remove(Model)
+                        .Insert(index, (IKeyFrame)newKeyFrame)
+                        .ToCommand([Parent.Parent.Element])
+                        .DoAndRecord(recorder);
+                }
+                return;
+            }
+
+            NotificationService.ShowWarning("", "Invalid keyframe data format.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to paste keyframe");
+            NotificationService.ShowError("Paste", "Failed to paste keyframe");
+        }
+    }
+
+    private void Remove()
+    {
+        CommandRecorder recorder = Parent.Parent.EditorContext.CommandRecorder;
+        Parent.Parent.Animation.KeyFrames.BeginRecord<IKeyFrame>()
+            .Remove(Model)
+            .ToCommand(GetStorables())
+            .DoAndRecord(recorder);
     }
 }

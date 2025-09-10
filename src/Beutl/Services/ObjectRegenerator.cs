@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-
+using Beutl.Helpers;
 using Beutl.Serialization;
 using Beutl.Utilities;
 
@@ -12,9 +12,9 @@ public static class ObjectRegenerator
     private const int DefaultGuidStringSize = 36;
     private const int BufferSizeDefault = 16 * 1024;
 
-    private static void RegenerateCore<T>(T obj, PooledArrayBufferWriter<byte> output)
-        where T : class, ICoreObject, new()
+    private static void RegenerateCore(ICoreSerializable obj, PooledArrayBufferWriter<byte> output)
     {
+        var type = obj.GetType();
         var searcher = new ObjectSearcher(obj, v => v is ICoreObject);
 
         Guid[] ids = searcher.SearchAll()
@@ -25,11 +25,13 @@ public static class ObjectRegenerator
 
         // JsonObjectに変換
         var jsonObject = new JsonObject();
-        var context = new JsonSerializationContext(obj.GetType(), NullSerializationErrorNotifier.Instance, json: jsonObject);
+        var context = new JsonSerializationContext(type, NullSerializationErrorNotifier.Instance, json: jsonObject);
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Serialize(context);
         }
+
+        jsonObject.WriteDiscriminator(type);
 
         // UTF-8に書き込む
         JsonSerializerOptions options = JsonHelper.SerializerOptions;
@@ -86,8 +88,7 @@ public static class ObjectRegenerator
         newInstance = instance;
     }
 
-    public static void Regenerate<T>(T obj, out string json)
-        where T : class, ICoreObject, new()
+    public static void Regenerate(ICoreSerializable obj, out string json)
     {
         using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
         RegenerateCore(obj, output);

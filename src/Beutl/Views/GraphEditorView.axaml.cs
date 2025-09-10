@@ -26,7 +26,6 @@ public partial class GraphEditorView : UserControl
     internal Timeline.MouseFlags _mouseFlag = Timeline.MouseFlags.Free;
     private TimeSpan _initialStart;
     private TimeSpan _initialDuration;
-    private TimeSpan _lastRightClickPoint;
     private TimeSpan _pointerFrame;
 
     public GraphEditorView()
@@ -42,8 +41,6 @@ public partial class GraphEditorView : UserControl
         background.PointerPressed += OnContentPointerPressed;
         graphPanel.PointerMoved += OnGraphPanelPointerMoved;
         graphPanel.PointerReleased += OnGraphPanelPointerReleased;
-
-        scroll.PointerPressed += OnScrollPointerPressed;
 
         scale.AddHandler(PointerWheelChangedEvent, OnContentPointerWheelChanged, RoutingStrategies.Tunnel);
         graphPanel.AddHandler(PointerWheelChangedEvent, OnContentPointerWheelChanged, RoutingStrategies.Tunnel);
@@ -293,7 +290,7 @@ public partial class GraphEditorView : UserControl
         if (DataContext is GraphEditorViewModel viewModel)
         {
             PointerPoint pointerPt = e.GetCurrentPoint(graphPanel);
-
+            viewModel.UpdatePointerPosition(pointerPt.Position.X);
             int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
             _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
 
@@ -398,7 +395,8 @@ public partial class GraphEditorView : UserControl
                     _mouseFlag = Timeline.MouseFlags.EndingBarMarkerPressed;
                     _initialDuration = viewModel.Scene.Duration; // 初期値を保存
                 }
-                else if (Timeline.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
+                else if (Timeline.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y,
+                             startingBarX))
                 {
                     _mouseFlag = Timeline.MouseFlags.StartingBarMarkerPressed;
                     _initialStart = viewModel.Scene.Start; // 初期値を保存
@@ -768,25 +766,6 @@ public partial class GraphEditorView : UserControl
         }
     }
 
-    private void OnScrollPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (DataContext is GraphEditorViewModel viewModel)
-        {
-            PointerPoint pointerPt = e.GetCurrentPoint(graphPanel);
-
-            if (pointerPt.Properties.IsRightButtonPressed)
-            {
-                _lastRightClickPoint = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
-                    .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
-                        ? proj.GetFrameRate()
-                        : 30);
-                TimeSpan localTime = viewModel.ConvertKeyTime(_lastRightClickPoint);
-
-                deleteMenuItem.IsEnabled = viewModel.Animation.KeyFrames.Any(x => x.KeyTime == localTime);
-            }
-        }
-    }
-
     private void OnKeyTimePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is GraphEditorViewModel viewModel
@@ -826,49 +805,6 @@ public partial class GraphEditorView : UserControl
         if (DataContext is GraphEditorViewModel viewModel)
         {
             viewModel.UpdateUseGlobalClock(!viewModel.UseGlobalClock.Value);
-        }
-    }
-
-    private void DeleteClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is GraphEditorViewModel viewModel)
-        {
-            viewModel.RemoveKeyFrame(_lastRightClickPoint);
-        }
-    }
-
-    private async void CopyAllClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not GraphEditorViewModel viewModel) return;
-
-        IClipboard? clipboard = App.GetClipboard();
-        if (clipboard == null) return;
-
-        string json = CoreSerializerHelper.SerializeToJsonString(viewModel.Animation, typeof(IKeyFrameAnimation));
-
-        var data = new DataObject();
-        data.Set(DataFormats.Text, json);
-        data.Set(nameof(IKeyFrameAnimation), json);
-
-        await clipboard.SetDataObjectAsync(data);
-    }
-
-    private async void PasteClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not GraphEditorViewModel viewModel) return;
-
-        IClipboard? clipboard = App.GetClipboard();
-        if (clipboard == null) return;
-
-        string[] formats = await clipboard.GetFormatsAsync();
-        if (formats.Contains(nameof(IKeyFrameAnimation)))
-        {
-            string? json = await clipboard.GetTextAsync();
-
-            if (json != null)
-            {
-                viewModel.Paste(json);
-            }
         }
     }
 }
