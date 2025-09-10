@@ -309,62 +309,6 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public abstract void InsertKeyFrame(Easing easing, TimeSpan keyTime);
 
-    public void RemoveKeyFrame(GraphEditorKeyFrameViewModel keyFrame)
-    {
-        _logger.LogInformation("Removing key frame at {KeyTime}", keyFrame.Model.KeyTime);
-
-        CommandRecorder recorder = EditorContext.CommandRecorder;
-        Animation.KeyFrames.BeginRecord<IKeyFrame>()
-            .Remove(keyFrame.Model)
-            .ToCommand(GetStorables())
-            .DoAndRecord(recorder);
-    }
-
-    public void Paste(string json)
-    {
-        _logger.LogInformation("Pasting JSON");
-        if (JsonNode.Parse(json) is not JsonObject newJson)
-        {
-            _logger.LogError("Invalid JSON");
-            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON");
-            return;
-        }
-
-        try
-        {
-            CommandRecorder recorder = EditorContext.CommandRecorder;
-            JsonObject oldJson = CoreSerializerHelper.SerializeToJsonObject(Animation, typeof(IKeyFrameAnimation));
-            KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
-            Guid id = animation.Id;
-            CoreProperty property = animation.Property;
-
-            RecordableCommands.Create(
-                    () =>
-                    {
-                        CoreSerializerHelper.PopulateFromJsonObject(animation, typeof(IKeyFrameAnimation), newJson);
-                        animation.Property = property;
-                        animation.Id = id;
-                        foreach (IKeyFrame item in animation.KeyFrames)
-                        {
-                            item.Id = Guid.NewGuid();
-                        }
-                    },
-                    () =>
-                    {
-                        CoreSerializerHelper.PopulateFromJsonObject(Animation, typeof(IKeyFrameAnimation), oldJson);
-                        animation.Property = property;
-                        animation.Id = id;
-                    },
-                    GetStorables())
-                .DoAndRecord(recorder);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An exception occurred while pasting JSON.");
-            NotificationService.ShowError(Strings.GraphEditor, ex.Message);
-        }
-    }
-
     public void Dispose()
     {
         _logger.LogInformation("Disposing GraphEditorViewModel");
@@ -391,7 +335,7 @@ public abstract class GraphEditorViewModel : IDisposable
 
         try
         {
-            string json = CoreSerializerHelper.SerializeToJsonString(Animation, typeof(IKeyFrameAnimation));
+            ObjectRegenerator.Regenerate(Animation, out string json);
 
             var data = new DataObject();
             data.Set(DataFormats.Text, json);
@@ -418,27 +362,8 @@ public abstract class GraphEditorViewModel : IDisposable
             if (formats.Contains(nameof(IKeyFrame)))
             {
                 byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrame)) as byte[];
-                JsonNode? jsonNode = JsonNode.Parse(json!);
-                if (jsonNode is not JsonObject jsonObj)
-                {
-                    NotificationService.ShowWarning("", "Invalid keyframe data format.");
-                    return;
-                }
-
-                if (jsonObj.TryGetDiscriminator(out Type? type)
-                    && Activator.CreateInstance(type) is IKeyFrame keyframe)
-                {
-                    CoreSerializerHelper.PopulateFromJsonObject(keyframe, type, jsonObj);
-                    keyframe.KeyTime = pointerPosition;
-
-                    CommandRecorder recorder = EditorContext.CommandRecorder;
-                    RecordableCommands.Create(GetStorables())
-                        .OnDo(() => Animation.KeyFrames.Add(keyframe, out _))
-                        .OnUndo(() => Animation.KeyFrames.Remove(keyframe))
-                        .ToCommand()
-                        .DoAndRecord(recorder);
-                    return;
-                }
+                PasteKeyFrame(System.Text.Encoding.UTF8.GetString(json!), pointerPosition);
+                return;
             }
             else if (formats.Contains(nameof(IKeyFrameAnimation)))
             {
@@ -466,10 +391,32 @@ public abstract class GraphEditorViewModel : IDisposable
             return;
         }
 
+        if (!newJson.TryGetDiscriminator(out Type? discriminator))
+        {
+            _logger.LogError("Invalid JSON: missing $type");
+            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON: missing $type");
+            return;
+        }
+
+        if (!discriminator.IsAssignableTo(typeof(IKeyFrameAnimation)))
+        {
+            _logger.LogError("Invalid JSON: $type is not a KeyFrameAnimation");
+            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON: $type is not a KeyFrameAnimation");
+            return;
+        }
+
         try
         {
             CommandRecorder recorder = EditorContext.CommandRecorder;
             KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
+
+            if (discriminator.GenericTypeArguments[0] != animation.Property.PropertyType)
+            {
+                _logger.LogError("The property type of the pasted animation does not match.");
+                NotificationService.ShowError(Strings.GraphEditor, $"The property type of the pasted animation does not match. (Expected: {animation.Property.PropertyType.Name}, Actual: {discriminator.GenericTypeArguments[0].Name})");
+                return;
+            }
+
             JsonObject oldJson = CoreSerializerHelper.SerializeToJsonObject(animation);
             Guid id = animation.Id;
             CoreProperty property = animation.Property;
@@ -493,6 +440,76 @@ public abstract class GraphEditorViewModel : IDisposable
                     },
                     GetStorables())
                 .DoAndRecord(recorder);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception occurred while pasting JSON.");
+            NotificationService.ShowError(Strings.GraphEditor, ex.Message);
+        }
+    }
+
+    private void PasteKeyFrame(string json, TimeSpan pointerPosition)
+    {
+        _logger.LogInformation("Pasting JSON");
+        if (JsonNode.Parse(json) is not JsonObject newJson)
+        {
+            _logger.LogError("Invalid JSON");
+            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON");
+            return;
+        }
+
+        if (!newJson.TryGetDiscriminator(out Type? discriminator))
+        {
+            _logger.LogError("Invalid JSON: missing $type");
+            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON: missing $type");
+            return;
+        }
+
+        if (!discriminator.IsAssignableTo(typeof(KeyFrame)))
+        {
+            _logger.LogError("Invalid JSON: $type is not a KeyFrame");
+            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON: $type is not a KeyFrame");
+            return;
+        }
+
+        try
+        {
+            CommandRecorder recorder = EditorContext.CommandRecorder;
+            KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
+
+            KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(discriminator)!;
+            CoreSerializerHelper.PopulateFromJsonObject(newKeyFrame, newJson);
+
+            if (discriminator.GenericTypeArguments[0] != animation.Property.PropertyType)
+            {
+                InsertKeyFrame(newKeyFrame.Easing, pointerPosition);
+                NotificationService.ShowWarning(Strings.GraphEditor, "The property type of the pasted keyframe does not match. Only the easing is applied.");
+                return;
+            }
+
+            var keyTime = ConvertKeyTime(pointerPosition);
+            if (animation.KeyFrames.FirstOrDefault(k=>k.KeyTime == keyTime) is { } existingKeyFrame)
+            {
+                // イージングと値を変更
+                object? oldValue = existingKeyFrame.Value;
+                var command1 = RecordableCommands.Edit(existingKeyFrame, KeyFrame.EasingProperty, newKeyFrame.Easing);
+                var command2 = RecordableCommands.Create(
+                    () => existingKeyFrame.Value = ((IKeyFrame)newKeyFrame).Value,
+                    () => existingKeyFrame.Value = oldValue, []);
+                command1.Append(command2)
+                    .WithStoables([Element])
+                    .DoAndRecord(recorder);
+                NotificationService.ShowWarning(Strings.GraphEditor, "A keyframe already exists at the paste position. The easing and value have been updated.");
+            }
+            else
+            {
+                newKeyFrame.KeyTime = keyTime;
+                RecordableCommands.Create(
+                        () => animation.KeyFrames.Add((IKeyFrame)newKeyFrame, out _),
+                        () => animation.KeyFrames.Remove((IKeyFrame)newKeyFrame),
+                        [Element])
+                    .DoAndRecord(recorder);
+            }
         }
         catch (Exception ex)
         {

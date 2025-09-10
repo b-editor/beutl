@@ -425,21 +425,41 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                     return;
                 }
 
-                if (jsonObj.TryGetDiscriminator(out Type? type)
-                    && Activator.CreateInstance(type) is IKeyFrame keyframe)
+                if (!jsonObj.TryGetDiscriminator(out Type? type))
                 {
-                    CoreSerializerHelper.PopulateFromJsonObject(keyframe, type, jsonObj);
-                    keyframe.KeyTime = Model.KeyTime;
+                    NotificationService.ShowWarning("", "Invalid keyframe data format. missing $type.");
+                    return;
+                }
 
-                    CommandRecorder recorder = Parent.Parent.EditorContext.CommandRecorder;
+                if (!type.IsAssignableTo(typeof(KeyFrame)))
+                {
+                    NotificationService.ShowWarning("", "Invalid keyframe data format. $type is not KeyFrame.");
+                    return;
+                }
+
+                KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(type)!;
+                CoreSerializerHelper.PopulateFromJsonObject(newKeyFrame, jsonObj);
+                CommandRecorder recorder = Parent.Parent.EditorContext.CommandRecorder;
+
+                if (type.GenericTypeArguments[0] != Parent.Parent.Animation.Property.PropertyType)
+                {
+                    // イージングのみ変更
+                    RecordableCommands.Edit(Model, KeyFrame.EasingProperty, newKeyFrame.Easing, Model.Easing)
+                        .WithStoables([Parent.Parent.Element])
+                        .DoAndRecord(recorder);
+                    NotificationService.ShowWarning(Strings.GraphEditor, "The property type of the pasted keyframe does not match. Only the easing is applied.");
+                }
+                else
+                {
+                    newKeyFrame.KeyTime = Model.KeyTime;
                     int index = Parent.Parent.Animation.KeyFrames.IndexOf(Model);
                     Parent.Parent.Animation.KeyFrames.BeginRecord<IKeyFrame>()
                         .Remove(Model)
-                        .Insert(index, keyframe)
-                        .ToCommand(GetStorables())
+                        .Insert(index, (IKeyFrame)newKeyFrame)
+                        .ToCommand([Parent.Parent.Element])
                         .DoAndRecord(recorder);
-                    return;
                 }
+                return;
             }
 
             NotificationService.ShowWarning("", "Invalid keyframe data format.");
