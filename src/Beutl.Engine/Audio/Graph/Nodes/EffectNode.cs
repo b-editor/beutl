@@ -7,6 +7,7 @@ public sealed class EffectNode : AudioNode
     private IAudioEffect? _effect;
     private IAudioEffectProcessor? _processor;
     private bool _needsReset = true;
+    private TimeSpan? _lastTimeRangeStart;
 
     public IAudioEffect? Effect
     {
@@ -50,6 +51,13 @@ public sealed class EffectNode : AudioNode
             _needsReset = false;
         }
 
+        if (!_lastTimeRangeStart.HasValue || _lastTimeRangeStart.Value > context.TimeRange.Start)
+        {
+            // If the time range has moved backwards, reset the processor
+            _processor.Reset();
+            _lastTimeRangeStart = context.TimeRange.Start;
+        }
+
         // Create output buffer
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
 
@@ -64,12 +72,6 @@ public sealed class EffectNode : AudioNode
             output.Dispose();
             throw;
         }
-    }
-
-    public void ResetProcessor()
-    {
-        _processor?.Reset();
-        _needsReset = true;
     }
 
     protected override void Dispose(bool disposing)
