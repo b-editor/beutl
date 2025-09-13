@@ -363,7 +363,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private async Task OnCut()
     {
-        // 本当はCount == 1だけで良い、Cutの呼び出し元でSelectedElements[0]のインスタンスを呼び出しているので
+        // Actually, Count == 1 is sufficient, because the caller of Cut invokes the instance of SelectedElements[0].
         if (Timeline.SelectedElements.Count == 1 && Timeline.SelectedElements.Contains(this))
         {
             if (await SetClipboard([this]))
