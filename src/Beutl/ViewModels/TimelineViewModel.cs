@@ -537,12 +537,12 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     private async Task PasteElement(IClipboard clipboard)
     {
-        string? json = await clipboard.GetTextAsync();
-        if (json == null) return;
+        if (await clipboard.GetDataAsync(Constants.Element) is not byte[] json) return;
+        if (JsonNode.Parse(json) is not JsonObject jsonObject) return;
 
         var oldElement = new Element();
 
-        CoreSerializerHelper.PopulateFromJsonObject(oldElement, JsonNode.Parse(json)!.AsObject());
+        CoreSerializerHelper.PopulateFromJsonObject(oldElement, jsonObject);
 
         ObjectRegenerator.Regenerate(oldElement, out Element newElement);
 
