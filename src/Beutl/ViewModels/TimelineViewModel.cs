@@ -113,6 +113,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 {
                     ElementViewModel element = Elements[idx];
                     _logger.LogDebug("Element removed {Id}.", element.Model.Id);
+                    SelectedElements.Remove(element);
                     this.GetService<ISupportCloseAnimation>()?.Close(element.Model);
                     Elements.RemoveAt(idx);
                     element.Dispose();
@@ -122,6 +123,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                     _logger.LogDebug("All elements cleared.");
                     ElementViewModel[] tmp = [.. Elements];
                     Elements.Clear();
+                    SelectedElements.Clear();
                     foreach (ElementViewModel? item in tmp)
                     {
                         item.Dispose();

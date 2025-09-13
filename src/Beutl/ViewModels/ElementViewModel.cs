@@ -317,7 +317,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .ToArray()
             .ToCommand()
             .DoAndRecord(recorder);
-        timeline.SelectedElements.Clear();
     }
 
     private void OnDelete()
@@ -331,7 +330,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .ToArray()
             .ToCommand()
             .DoAndRecord(recorder);
-        timeline.SelectedElements.Clear();
     }
 
     private void OnBringAnimationToTop()
