@@ -3,7 +3,9 @@ using System.Numerics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
+using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Avalonia.Platform.Storage;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Helpers;
@@ -601,6 +603,22 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         ScrollTo.Execute((newElement.Range, newElement.ZIndex));
     }
 
+    private async Task PasteFiles(IClipboard clipboard)
+    {
+        if (await clipboard.GetDataAsync(DataFormats.Files) is not IEnumerable<IStorageItem> files) return;
+
+        var frame = ClickedFrame;
+        int layer = CalculateClickedLayer();
+        foreach (IStorageItem item in files)
+        {
+            if (item.TryGetLocalPath() is not { } fileName) continue;
+
+            AddElement.Execute(new ElementDescription(
+                frame, TimeSpan.FromSeconds(5), layer,
+                FileName: fileName));
+        }
+    }
+
     private async void PasteCore()
     {
         try
@@ -617,6 +635,10 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             else if (formats.Contains(Constants.Element))
             {
                 await PasteElement(clipboard);
+            }
+            else if (formats.Contains(DataFormats.Files))
+            {
+                await PasteFiles(clipboard);
             }
             else
             {
@@ -972,6 +994,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         {
             item.IsSelected.Value = false;
         }
+
         SelectedElements.Clear();
     }
 
