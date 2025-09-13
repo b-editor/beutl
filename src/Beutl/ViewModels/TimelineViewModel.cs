@@ -366,6 +366,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public Point ClickedPosition { get; set; }
 
+    public HashSet<ElementViewModel> SelectedElements { get; } = [];
+
     public IReactiveProperty<TimelineOptions> Options => EditorContext.Options;
 
     public ToolTabExtension Extension => TimelineTabExtension.Instance;
@@ -1026,6 +1028,22 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 execution.KeyEventArgs.Handled = true;
                 _logger.LogDebug("Paste command executed and KeyEventArgs handled.");
             }
+        }
+        else if (execution.CommandName == "Copy")
+        {
+            SelectedElements.FirstOrDefault()?.Copy.Execute();
+        }
+        else if (execution.CommandName == "Cut")
+        {
+            SelectedElements.FirstOrDefault()?.Cut.Execute();
+        }
+        else if (execution.CommandName == "Delete")
+        {
+            SelectedElements.FirstOrDefault()?.Delete.Execute();
+        }
+        else if (execution.CommandName == "Exclude")
+        {
+            SelectedElements.FirstOrDefault()?.Exclude.Execute();
         }
         else if (execution.CommandName == "SetStartTime")
         {

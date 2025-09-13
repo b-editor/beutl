@@ -79,7 +79,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Cut.Subscribe(OnCut)
             .AddTo(_disposables);
 
-        Copy.Subscribe(async () => await SetClipboard(Timeline.Elements.Where(i => i.IsSelected.Value).ToArray()))
+        Copy.Subscribe(async () => await SetClipboard(Timeline.SelectedElements))
             .AddTo(_disposables);
 
         Exclude.Subscribe(OnExclude)
@@ -267,12 +267,12 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         await AnimationRequest(context);
     }
 
-    private async ValueTask<bool> SetClipboard(ElementViewModel[] selected)
+    private async ValueTask<bool> SetClipboard(HashSet<ElementViewModel> selected)
     {
         IClipboard? clipboard = App.GetClipboard();
         if (clipboard == null) return false;
 
-        var skipMulti = selected.Length == 1 && selected[0] == this;
+        var skipMulti = selected.Count == 1 && selected.First() == this;
 
         string singleJson = CoreSerializerHelper.SerializeToJsonString(Model);
         string? multiJson = !skipMulti
@@ -309,29 +309,29 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private void OnExclude()
     {
         CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-        // 一応、自分自身も選択状態にする。
-        IsSelected.Value = true;
+        // 要素が削除された後、Timelineを参照できないため
+        var timeline = Timeline;
 
         // IsSelectedがtrueのものをまとめて削除する。
-        var selected = Timeline.Elements.Where(i => i.IsSelected.Value);
-        selected.Select(i => Scene.RemoveChild(i.Model))
+        timeline.SelectedElements.Select(i => Scene.RemoveChild(i.Model))
             .ToArray()
             .ToCommand()
             .DoAndRecord(recorder);
+        timeline.SelectedElements.Clear();
     }
 
     private void OnDelete()
     {
         CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-        // 一応、自分自身も選択状態にする。
-        IsSelected.Value = true;
+        // 要素が削除された後、Timelineを参照できないため
+        var timeline = Timeline;
 
         // IsSelectedがtrueのものをまとめて削除する。
-        var selected = Timeline.Elements.Where(i => i.IsSelected.Value);
-        selected.Select(i => Scene.DeleteChild(i.Model))
+        timeline.SelectedElements.Select(i => Scene.DeleteChild(i.Model))
             .ToArray()
             .ToCommand()
             .DoAndRecord(recorder);
+        timeline.SelectedElements.Clear();
     }
 
     private void OnBringAnimationToTop()
@@ -363,8 +363,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private async Task OnCut()
     {
-        var selected = Timeline.Elements.Where(i => i.IsSelected.Value).ToArray();
-        if (selected.Length == 0)
+        // 本当はCount == 1だけで良い、Cutの呼び出し元でSelectedElements[0]のインスタンスを呼び出しているので
+        if (Timeline.SelectedElements.Count == 1 && Timeline.SelectedElements.Contains(this))
         {
             if (await SetClipboard([this]))
             {
@@ -373,10 +373,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
         else
         {
-            if (await SetClipboard(selected))
+            if (await SetClipboard(Timeline.SelectedElements))
             {
                 CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-                selected.Select(i => Scene.RemoveChild(i.Model))
+                Timeline.SelectedElements
+                    .Select(i => Scene.RemoveChild(i.Model))
                     .ToArray()
                     .ToCommand()
                     .DoAndRecord(recorder);
@@ -465,18 +466,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         {
             case "Rename":
                 RenameRequested();
-                break;
-            case "Copy":
-                Copy.Execute();
-                break;
-            case "Cut":
-                Cut.Execute();
-                break;
-            case "Delete":
-                Delete.Execute();
-                break;
-            case "Exclude":
-                Exclude.Execute();
                 break;
             case "Split":
                 SplitByCurrentFrame.Execute();

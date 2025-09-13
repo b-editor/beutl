@@ -578,7 +578,15 @@ public sealed partial class ElementView : UserControl
                         {
                             EditViewModel editorContext = obj._timeline.ViewModel.EditorContext;
                             editorContext.SelectedObject.Value = obj.ViewModel.Model;
+
+                            foreach (ElementViewModel item in obj._timeline.ViewModel.SelectedElements)
+                            {
+                                item.IsSelected.Value = false;
+                            }
+                            obj._timeline.ViewModel.SelectedElements.Clear();
+
                             obj.ViewModel.IsSelected.Value = true;
+                            obj._timeline.ViewModel.SelectedElements.Add(obj.ViewModel);
                         }
                         else
                         {
@@ -594,7 +602,7 @@ public sealed partial class ElementView : UserControl
 
         private void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            if (AssociatedObject is { _timeline: not null } obj)
+            if (AssociatedObject is { _timeline.ViewModel: not null } obj)
             {
                 if (_pressedWithModifier)
                 {
@@ -605,6 +613,14 @@ public sealed partial class ElementView : UserControl
                         && margin.Top == _snapshot.Top)
                     {
                         obj.ViewModel.IsSelected.Value = !obj.ViewModel.IsSelected.Value;
+                        if (obj.ViewModel.IsSelected.Value)
+                        {
+                            obj._timeline.ViewModel.SelectedElements.Add(obj.ViewModel);
+                        }
+                        else
+                        {
+                            obj._timeline.ViewModel.SelectedElements.Remove(obj.ViewModel);
+                        }
                     }
                     // ReSharper restore CompareOfFloatsByEqualityOperator
 

@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Controls.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -47,7 +48,6 @@ public sealed partial class Timeline : UserControl
     private readonly ILogger _logger = Log.CreateLogger<Timeline>();
     private readonly CompositeDisposable _disposables = [];
     private ElementView? _selectedElement;
-    private readonly List<(ElementViewModel Element, bool IsSelectedOriginal)> _rangeSelection = [];
     private CancellationTokenSource? _scrollCts;
 
     // 長方形マーカーのサイズを定義
@@ -76,7 +76,6 @@ public sealed partial class Timeline : UserControl
 
         TimelinePanel.Children.RemoveRange(2, TimelinePanel.Children.Count - 2);
         _selectedElement = null;
-        _rangeSelection.Clear();
 
         _disposables.Clear();
     }
@@ -114,10 +113,11 @@ public sealed partial class Timeline : UserControl
             {
                 if (_selectedElement != null)
                 {
-                    foreach (ElementViewModel item in ViewModel.Elements.GetMarshal().Value)
+                    foreach (ElementViewModel item in ViewModel.SelectedElements)
                     {
                         item.IsSelected.Value = false;
                     }
+                    ViewModel.SelectedElements.Clear();
 
                     _selectedElement = null;
                 }
@@ -127,6 +127,7 @@ public sealed partial class Timeline : UserControl
                 {
                     viewModel.IsSelected.Value = true;
                     _selectedElement = newView;
+                    ViewModel.SelectedElements.Add(viewModel);
                 }
             })
             .DisposeWith(_disposables);
@@ -217,7 +218,7 @@ public sealed partial class Timeline : UserControl
         float scale = viewModel.Options.Value.Scale;
         var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
 
-        if (e.KeyModifiers == KeyModifiers.Control)
+        if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier())
         {
             // 目盛りのスケールを変更
             UpdateZoom(e, ref scale, ref offset);
@@ -344,7 +345,6 @@ public sealed partial class Timeline : UserControl
             if (_mouseFlag == MouseFlags.RangeSelectionPressed)
             {
                 overlay.SelectionRange = default;
-                _rangeSelection.Clear();
             }
             else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
             {
@@ -386,12 +386,12 @@ public sealed partial class Timeline : UserControl
     {
         if (ViewModel == null) return;
         TimelineViewModel viewModel = ViewModel;
-        foreach ((ElementViewModel element, bool isSelectedOriginal) in _rangeSelection)
+        foreach (ElementViewModel element in viewModel.SelectedElements)
         {
-            element.IsSelected.Value = isSelectedOriginal;
+            element.IsSelected.Value = false;
         }
 
-        _rangeSelection.Clear();
+        viewModel.SelectedElements.Clear();
         Rect rect = overlay.SelectionRange.Normalize();
         var startTime = rect.Left.ToTimeSpan(viewModel.Options.Value.Scale);
         var endTime = rect.Right.ToTimeSpan(viewModel.Options.Value.Scale);
@@ -405,7 +405,7 @@ public sealed partial class Timeline : UserControl
             if (timeRange.Intersects(item.Model.Range)
                 && startLayer <= item.Model.ZIndex && item.Model.ZIndex <= endLayer)
             {
-                _rangeSelection.Add((item, item.IsSelected.Value));
+                viewModel.SelectedElements.Add(item);
                 item.IsSelected.Value = true;
             }
         }
@@ -452,9 +452,16 @@ public sealed partial class Timeline : UserControl
 
         if (pointerPt.Properties.IsLeftButtonPressed)
         {
-            if (e.KeyModifiers == KeyModifiers.Control)
+            if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier())
             {
                 _mouseFlag = MouseFlags.RangeSelectionPressed;
+                // すでに選択されているものはリセット
+                foreach (ElementViewModel element in viewModel.SelectedElements)
+                {
+                    element.IsSelected.Value = false;
+                }
+                viewModel.SelectedElements.Clear();
+
                 overlay.SelectionRange = new(pointerPt.Position, default(Size));
             }
             else
