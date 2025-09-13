@@ -455,7 +455,7 @@ public sealed partial class ElementView : UserControl
                 viewModel.Margin.Value = new(0, newTop, 0, 0);
                 viewModel.BorderMargin.Value = new Thickness(newLeft, 0, 0, 0);
 
-                foreach (ElementViewModel item in viewModel.Timeline.GetSelected(viewModel))
+                foreach (ElementViewModel item in viewModel.Timeline.SelectedElements.Where(i => i != viewModel))
                 {
                     item.Margin.Value = new(0, item.Margin.Value.Top + deltaTop, 0, 0);
                     item.BorderMargin.Value = new(item.BorderMargin.Value.Left + deltaLeft, 0, 0, 0);
@@ -490,16 +490,15 @@ public sealed partial class ElementView : UserControl
                 {
                     CommandRecorder recorder = viewModel.Timeline.EditorContext.CommandRecorder;
                     e.Handled = true;
-                    var elems = new List<Element>() { viewModel.Model };
-                    elems.AddRange(viewModel.Timeline.GetSelected(viewModel).Select(x => x.Model));
+                    var elems = viewModel.Timeline.SelectedElements.Select(x => x.Model).ToArray();
 
-                    if (elems.Count == 1)
+                    if (elems.Length == 1)
                     {
                         await viewModel.SubmitViewModelChanges();
                     }
                     else
                     {
-                        var animations = viewModel.Timeline.GetSelected(viewModel).Append(viewModel)
+                        var animations = viewModel.Timeline.SelectedElements
                             .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                             .ToArray();
 
@@ -510,7 +509,7 @@ public sealed partial class ElementView : UserControl
                         int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
                         int deltaIndex = newIndex - viewModel.Model.ZIndex;
 
-                        viewModel.Scene.MoveChildren(deltaIndex, deltaStart, [.. elems])
+                        viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems)
                             .DoAndRecord(recorder);
 
                         foreach (var (item, context) in animations)
@@ -558,6 +557,15 @@ public sealed partial class ElementView : UserControl
             }
         }
 
+        private void Select(ElementView obj, TimelineViewModel timeline)
+        {
+            EditViewModel editorContext = timeline.EditorContext;
+            editorContext.SelectedObject.Value = obj.ViewModel.Model;
+
+            timeline.ClearSelected();
+            timeline.SelectElement(obj.ViewModel);
+        }
+
         private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (AssociatedObject is { _timeline.ViewModel: not null } obj)
@@ -576,17 +584,7 @@ public sealed partial class ElementView : UserControl
                     {
                         if (e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt)
                         {
-                            EditViewModel editorContext = obj._timeline.ViewModel.EditorContext;
-                            editorContext.SelectedObject.Value = obj.ViewModel.Model;
-
-                            foreach (ElementViewModel item in obj._timeline.ViewModel.SelectedElements)
-                            {
-                                item.IsSelected.Value = false;
-                            }
-                            obj._timeline.ViewModel.SelectedElements.Clear();
-
-                            obj.ViewModel.IsSelected.Value = true;
-                            obj._timeline.ViewModel.SelectedElements.Add(obj.ViewModel);
+                            Select(obj, obj._timeline.ViewModel);
                         }
                         else
                         {
@@ -596,6 +594,10 @@ public sealed partial class ElementView : UserControl
                             _pressedWithModifier = true;
                         }
                     }
+                }
+                else if (point.Properties.IsRightButtonPressed)
+                {
+                    Select(obj, obj._timeline.ViewModel);
                 }
             }
         }
@@ -612,15 +614,7 @@ public sealed partial class ElementView : UserControl
                     if (borderMargin.Left == _snapshot.Left
                         && margin.Top == _snapshot.Top)
                     {
-                        obj.ViewModel.IsSelected.Value = !obj.ViewModel.IsSelected.Value;
-                        if (obj.ViewModel.IsSelected.Value)
-                        {
-                            obj._timeline.ViewModel.SelectedElements.Add(obj.ViewModel);
-                        }
-                        else
-                        {
-                            obj._timeline.ViewModel.SelectedElements.Remove(obj.ViewModel);
-                        }
+                        obj.ViewModel.Timeline.SwitchSelectedElement(obj.ViewModel);
                     }
                     // ReSharper restore CompareOfFloatsByEqualityOperator
 

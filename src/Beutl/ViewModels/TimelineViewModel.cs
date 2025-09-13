@@ -978,27 +978,31 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         return zIndex;
     }
 
-    public bool AnySelected(ElementViewModel? exclude = null)
+    public void ClearSelected()
     {
-        foreach (ElementViewModel item in Elements)
+        foreach (ElementViewModel item in SelectedElements)
         {
-            if ((exclude == null || exclude != item) && item.IsSelected.Value)
-            {
-                return true;
-            }
+            item.IsSelected.Value = false;
         }
-
-        return false;
+        SelectedElements.Clear();
     }
 
-    public IEnumerable<ElementViewModel> GetSelected(ElementViewModel? exclude = null)
+    public void SelectElement(ElementViewModel item)
     {
-        foreach (ElementViewModel item in Elements)
+        SelectedElements.Add(item);
+        item.IsSelected.Value = true;
+    }
+
+    public void SwitchSelectedElement(ElementViewModel item)
+    {
+        item.IsSelected.Value = !item.IsSelected.Value;
+        if (item.IsSelected.Value)
         {
-            if ((exclude == null || exclude != item) && item.IsSelected.Value)
-            {
-                yield return item;
-            }
+            SelectedElements.Add(item);
+        }
+        else
+        {
+            SelectedElements.Remove(item);
         }
     }
 
@@ -1020,46 +1024,45 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
     public void Execute(ContextCommandExecution execution)
     {
         _logger.LogDebug("Executing context command {CommandName}.", execution.CommandName);
-        if (execution.CommandName == "Paste")
+        switch (execution.CommandName)
         {
-            Paste.Execute();
-            if (execution.KeyEventArgs != null)
-            {
-                execution.KeyEventArgs.Handled = true;
-                _logger.LogDebug("Paste command executed and KeyEventArgs handled.");
-            }
-        }
-        else if (execution.CommandName == "Copy")
-        {
-            SelectedElements.FirstOrDefault()?.Copy.Execute();
-        }
-        else if (execution.CommandName == "Cut")
-        {
-            SelectedElements.FirstOrDefault()?.Cut.Execute();
-        }
-        else if (execution.CommandName == "Delete")
-        {
-            SelectedElements.FirstOrDefault()?.Delete.Execute();
-        }
-        else if (execution.CommandName == "Exclude")
-        {
-            SelectedElements.FirstOrDefault()?.Exclude.Execute();
-        }
-        else if (execution.CommandName == "SetStartTime")
-        {
-            SetStartTimeToCurrentTime.Execute();
-            if (execution.KeyEventArgs != null)
-            {
-                execution.KeyEventArgs.Handled = true;
-            }
-        }
-        else if (execution.CommandName == "SetEndTime")
-        {
-            SetEndTimeToCurrentTime.Execute();
-            if (execution.KeyEventArgs != null)
-            {
-                execution.KeyEventArgs.Handled = true;
-            }
+            case "Paste":
+                Paste.Execute();
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                    _logger.LogDebug("Paste command executed and KeyEventArgs handled.");
+                }
+
+                break;
+            case "Copy":
+                SelectedElements.FirstOrDefault()?.Copy.Execute();
+                break;
+            case "Cut":
+                SelectedElements.FirstOrDefault()?.Cut.Execute();
+                break;
+            case "Delete":
+                SelectedElements.FirstOrDefault()?.Delete.Execute();
+                break;
+            case "Exclude":
+                SelectedElements.FirstOrDefault()?.Exclude.Execute();
+                break;
+            case "SetStartTime":
+                SetStartTimeToCurrentTime.Execute();
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "SetEndTime":
+                SetEndTimeToCurrentTime.Execute();
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
         }
     }
 

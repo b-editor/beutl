@@ -113,11 +113,7 @@ public sealed partial class Timeline : UserControl
             {
                 if (_selectedElement != null)
                 {
-                    foreach (ElementViewModel item in ViewModel.SelectedElements)
-                    {
-                        item.IsSelected.Value = false;
-                    }
-                    ViewModel.SelectedElements.Clear();
+                    ViewModel.ClearSelected();
 
                     _selectedElement = null;
                 }
@@ -125,9 +121,8 @@ public sealed partial class Timeline : UserControl
                 if (e is Element element && FindElementView(element) is
                         { DataContext: ElementViewModel viewModel } newView)
                 {
-                    viewModel.IsSelected.Value = true;
                     _selectedElement = newView;
-                    ViewModel.SelectedElements.Add(viewModel);
+                    ViewModel.SelectElement(viewModel);
                 }
             })
             .DisposeWith(_disposables);
@@ -386,12 +381,8 @@ public sealed partial class Timeline : UserControl
     {
         if (ViewModel == null) return;
         TimelineViewModel viewModel = ViewModel;
-        foreach (ElementViewModel element in viewModel.SelectedElements)
-        {
-            element.IsSelected.Value = false;
-        }
+        viewModel.ClearSelected();
 
-        viewModel.SelectedElements.Clear();
         Rect rect = overlay.SelectionRange.Normalize();
         var startTime = rect.Left.ToTimeSpan(viewModel.Options.Value.Scale);
         var endTime = rect.Right.ToTimeSpan(viewModel.Options.Value.Scale);
@@ -405,8 +396,7 @@ public sealed partial class Timeline : UserControl
             if (timeRange.Intersects(item.Model.Range)
                 && startLayer <= item.Model.ZIndex && item.Model.ZIndex <= endLayer)
             {
-                viewModel.SelectedElements.Add(item);
-                item.IsSelected.Value = true;
+                viewModel.SelectElement(item);
             }
         }
     }
@@ -456,11 +446,7 @@ public sealed partial class Timeline : UserControl
             {
                 _mouseFlag = MouseFlags.RangeSelectionPressed;
                 // すでに選択されているものはリセット
-                foreach (ElementViewModel element in viewModel.SelectedElements)
-                {
-                    element.IsSelected.Value = false;
-                }
-                viewModel.SelectedElements.Clear();
+                ViewModel.ClearSelected();
 
                 overlay.SelectionRange = new(pointerPt.Position, default(Size));
             }
