@@ -97,6 +97,29 @@ public static class ObjectRegenerator
         json = Encoding.UTF8.GetString(buffer);
     }
 
+    public static void Regenerate<T>(T[] obj, out T[] newInstance)
+        where T : class, ICoreObject, new()
+    {
+        using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
+        var wrapper = new ListWrapper<T>();
+        wrapper.Items.AddRange(obj);
+        RegenerateCore(wrapper, output);
+
+        Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+
+        JsonObject jsonObj = JsonNode.Parse(buffer)!.AsObject();
+        var instance = new ListWrapper<T>();
+
+        var context = new JsonSerializationContext(
+            typeof(ListWrapper<T>), NullSerializationErrorNotifier.Instance, json: jsonObj);
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            instance.Deserialize(context);
+        }
+
+        newInstance = instance.Items.ToArray();
+    }
+
     private static void GuidToUtf8(Guid id, Span<byte> utf8)
     {
         Span<char> utf16 = stackalloc char[DefaultGuidStringSize];
@@ -105,5 +128,24 @@ public static class ObjectRegenerator
             throw new Exception("Failed to 'Guid.TryFormat'.");
 
         Encoding.UTF8.GetBytes(utf16, utf8);
+    }
+
+    public sealed class ListWrapper<T> : CoreObject
+    {
+        public static readonly CoreProperty<CoreList<T>> ItemsProperty;
+        private readonly CoreList<T> _items = new();
+
+        static ListWrapper()
+        {
+            ItemsProperty = ConfigureProperty<CoreList<T>, ListWrapper<T>>(nameof(Items))
+                .Accessor(o => o.Items, (o, v) => o.Items = v)
+                .Register();
+        }
+
+        public CoreList<T> Items
+        {
+            get => _items;
+            set => _items.Replace(value);
+        }
     }
 }
