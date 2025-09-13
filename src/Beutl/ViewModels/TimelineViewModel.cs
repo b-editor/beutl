@@ -560,59 +560,45 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     private async Task PasteImageElement(string[] formats, IClipboard clipboard)
     {
-        string[] imageFormats = ["image/png", "PNG", "image/jpeg", "image/jpg"];
+        string[] imageFormats = ["image/png", "PNG", "public.png", "image/jpeg", "image/jpg"];
 
-        if (Array.Find(imageFormats, formats.Contains) is { } matchFormat)
+        if (Array.Find(imageFormats, formats.Contains) is not { } matchFormat) return;
+
+        object? imageData = await clipboard.GetDataAsync(matchFormat);
+        if (imageData is not byte[] byteArray) return;
+
+        await using var stream = new MemoryStream(byteArray);
+
+        string dir = Path.GetDirectoryName(Scene.FileName)!;
+        // 画像を保存
+        string resDir = Path.Combine(dir, "resources");
+        if (!Directory.Exists(resDir))
         {
-            object? imageData = await clipboard.GetDataAsync(matchFormat);
-            Stream? stream = null;
-            if (imageData is byte[] byteArray)
-                stream = new MemoryStream(byteArray);
-            else if (imageData is Stream st)
-                stream = st;
-
-            if (stream?.CanRead != true)
-            {
-                NotificationService.ShowWarning(
-                    "タイムライン",
-                    $"この画像データはペーストできません\nFormats: [{string.Join(", ", formats)}]");
-            }
-            else
-            {
-                string dir = Path.GetDirectoryName(Scene.FileName)!;
-                // 画像を保存
-                string resDir = Path.Combine(dir, "resources");
-                if (!Directory.Exists(resDir))
-                {
-                    Directory.CreateDirectory(resDir);
-                }
-
-                string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
-                using (var bmp = Bitmap<Bgra8888>.FromStream(stream))
-                {
-                    bmp.Save(imageFile, Graphics.EncodedImageFormat.Png);
-                }
-
-                var sp = new SourceImageOperator();
-                sp.Value.Source = BitmapSource.Open(imageFile);
-                var newElement = new Element
-                {
-                    Start = ClickedFrame,
-                    Length = TimeSpan.FromSeconds(5),
-                    ZIndex = CalculateClickedLayer(),
-                    Operation = { Children = { sp } },
-                    AccentColor = ColorGenerator.GenerateColor(typeof(SourceImageOperator).FullName!),
-                    Name = Path.GetFileName(imageFile)
-                };
-
-                newElement.Save(RandomFileNameGenerator.Generate(dir, Constants.ElementFileExtension));
-
-                CommandRecorder recorder = EditorContext.CommandRecorder;
-                Scene.AddChild(newElement).DoAndRecord(recorder);
-
-                ScrollTo.Execute((newElement.Range, newElement.ZIndex));
-            }
+            Directory.CreateDirectory(resDir);
         }
+
+        string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
+        using var bmp = Bitmap<Bgra8888>.FromStream(stream);
+        bmp.Save(imageFile, Graphics.EncodedImageFormat.Png);
+
+        var sp = new SourceImageOperator();
+        sp.Value.Source = BitmapSource.Open(imageFile);
+        var newElement = new Element
+        {
+            Start = ClickedFrame,
+            Length = TimeSpan.FromSeconds(5),
+            ZIndex = CalculateClickedLayer(),
+            Operation = { Children = { sp } },
+            AccentColor = ColorGenerator.GenerateColor(typeof(SourceImageOperator).FullName!),
+            Name = Path.GetFileName(imageFile)
+        };
+
+        newElement.Save(RandomFileNameGenerator.Generate(dir, Constants.ElementFileExtension));
+
+        CommandRecorder recorder = EditorContext.CommandRecorder;
+        Scene.AddChild(newElement).DoAndRecord(recorder);
+
+        ScrollTo.Execute((newElement.Range, newElement.ZIndex));
     }
 
     private async void PasteCore()
