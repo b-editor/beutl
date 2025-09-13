@@ -326,7 +326,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         // 要素が削除された後、Timelineを参照できないため
         var timeline = Timeline;
 
-        // IsSelectedがtrueのものをまとめて削除する。
+        // Delete all items for which IsSelected is true together.
         timeline.SelectedElements.Select(i => Scene.DeleteChild(i.Model))
             .ToArray()
             .ToCommand()
