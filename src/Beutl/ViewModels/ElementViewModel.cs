@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Text.Json.Nodes;
+using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Beutl.Animation;
@@ -78,14 +79,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Cut.Subscribe(OnCut)
             .AddTo(_disposables);
 
-        Copy.Subscribe(async () => await SetClipboard())
+        Copy.Subscribe(async () => await SetClipboard(Timeline.Elements.Where(i => i.IsSelected.Value).ToArray()))
             .AddTo(_disposables);
 
-        Exclude.Subscribe(() =>
-            {
-                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-                Scene.RemoveChild(Model).DoAndRecord(recorder);
-            })
+        Exclude.Subscribe(OnExclude)
             .AddTo(_disposables);
 
         Delete.Subscribe(OnDelete)
@@ -270,15 +267,27 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         await AnimationRequest(context);
     }
 
-    private async ValueTask<bool> SetClipboard()
+    private async ValueTask<bool> SetClipboard(ElementViewModel[] selected)
     {
         IClipboard? clipboard = App.GetClipboard();
         if (clipboard == null) return false;
 
-        string json = CoreSerializerHelper.SerializeToJsonString(Model);
+        var skipMulti = selected.Length == 1 && selected[0] == this;
+
+        string singleJson = CoreSerializerHelper.SerializeToJsonString(Model);
+        string? multiJson = !skipMulti
+            ? new JsonArray(selected
+                    .Select(JsonNode (i) => CoreSerializerHelper.SerializeToJsonObject(i.Model))
+                    .ToArray())
+                .ToJsonString()
+            : null;
         var data = new DataObject();
-        data.Set(DataFormats.Text, json);
-        data.Set(Constants.Element, json);
+        data.Set(DataFormats.Text, singleJson);
+        data.Set(Constants.Element, singleJson);
+        if (!skipMulti)
+        {
+            data.Set(Constants.Elements, multiJson);
+        }
 
         await clipboard.SetDataObjectAsync(data);
         return true;
@@ -297,10 +306,32 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             Scope: Scope.PrepareAnimation());
     }
 
+    private void OnExclude()
+    {
+        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+        // 一応、自分自身も選択状態にする。
+        IsSelected.Value = true;
+
+        // IsSelectedがtrueのものをまとめて削除する。
+        var selected = Timeline.Elements.Where(i => i.IsSelected.Value);
+        selected.Select(i => Scene.RemoveChild(i.Model))
+            .ToArray()
+            .ToCommand()
+            .DoAndRecord(recorder);
+    }
+
     private void OnDelete()
     {
         CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-        Scene.DeleteChild(Model).DoAndRecord(recorder);
+        // 一応、自分自身も選択状態にする。
+        IsSelected.Value = true;
+
+        // IsSelectedがtrueのものをまとめて削除する。
+        var selected = Timeline.Elements.Where(i => i.IsSelected.Value);
+        selected.Select(i => Scene.DeleteChild(i.Model))
+            .ToArray()
+            .ToCommand()
+            .DoAndRecord(recorder);
     }
 
     private void OnBringAnimationToTop()
@@ -332,9 +363,24 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private async Task OnCut()
     {
-        if (await SetClipboard())
+        var selected = Timeline.Elements.Where(i => i.IsSelected.Value).ToArray();
+        if (selected.Length == 0)
         {
-            Exclude.Execute();
+            if (await SetClipboard([this]))
+            {
+                Exclude.Execute();
+            }
+        }
+        else
+        {
+            if (await SetClipboard(selected))
+            {
+                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+                selected.Select(i => Scene.RemoveChild(i.Model))
+                    .ToArray()
+                    .ToCommand()
+                    .DoAndRecord(recorder);
+            }
         }
     }
 

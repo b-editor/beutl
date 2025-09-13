@@ -107,9 +107,6 @@ public sealed partial class Timeline : UserControl
                 () => { })
             .DisposeWith(_disposables);
 
-        ViewModel.Paste.Subscribe(PasteCore)
-            .DisposeWith(_disposables);
-
         ViewModel.ScrollTo.Subscribe(v => ScrollTimelinePosition(v.Range, v.ZIndex))
             .DisposeWith(_disposables);
 
@@ -133,101 +130,6 @@ public sealed partial class Timeline : UserControl
                 }
             })
             .DisposeWith(_disposables);
-    }
-
-    private async void PasteCore()
-    {
-        try
-        {
-            if (TopLevel.GetTopLevel(this) is not { Clipboard: { } clipboard }) return;
-            if (ViewModel == null) return;
-
-            string[] formats = await clipboard.GetFormatsAsync();
-
-            if (formats.Contains(Constants.Element))
-            {
-                string? json = await clipboard.GetTextAsync();
-                if (json == null) return;
-
-                var oldElement = new Element();
-
-                CoreSerializerHelper.PopulateFromJsonObject(oldElement, JsonNode.Parse(json)!.AsObject());
-
-                ObjectRegenerator.Regenerate(oldElement, out Element newElement);
-
-                newElement.Start = ViewModel.ClickedFrame;
-                newElement.ZIndex = ViewModel.CalculateClickedLayer();
-
-                newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(ViewModel.Scene.FileName)!,
-                    Constants.ElementFileExtension));
-
-                CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
-                ViewModel.Scene.AddChild(newElement).DoAndRecord(recorder);
-
-                ScrollTimelinePosition(newElement.Range, newElement.ZIndex);
-            }
-            else
-            {
-                string[] imageFormats = ["image/png", "PNG", "image/jpeg", "image/jpg"];
-
-                if (Array.Find(imageFormats, i => formats.Contains(i)) is { } matchFormat)
-                {
-                    object? imageData = await clipboard.GetDataAsync(matchFormat);
-                    Stream? stream = null;
-                    if (imageData is byte[] byteArray)
-                        stream = new MemoryStream(byteArray);
-                    else if (imageData is Stream st)
-                        stream = st;
-
-                    if (stream?.CanRead != true)
-                    {
-                        NotificationService.ShowWarning(
-                            "タイムライン",
-                            $"この画像データはペーストできません\nFormats: [{string.Join(", ", formats)}]");
-                    }
-                    else
-                    {
-                        string dir = Path.GetDirectoryName(ViewModel.Scene.FileName)!;
-                        // 画像を保存
-                        string resDir = Path.Combine(dir, "resources");
-                        if (!Directory.Exists(resDir))
-                        {
-                            Directory.CreateDirectory(resDir);
-                        }
-
-                        string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
-                        using (var bmp = Bitmap<Bgra8888>.FromStream(stream))
-                        {
-                            bmp.Save(imageFile, Graphics.EncodedImageFormat.Png);
-                        }
-
-                        var sp = new SourceImageOperator();
-                        sp.Value.Source = BitmapSource.Open(imageFile);
-                        var newElement = new Element
-                        {
-                            Start = ViewModel.ClickedFrame,
-                            Length = TimeSpan.FromSeconds(5),
-                            ZIndex = ViewModel.CalculateClickedLayer(),
-                            Operation = { Children = { sp } },
-                            AccentColor = ColorGenerator.GenerateColor(typeof(SourceImageOperator).FullName!),
-                            Name = Path.GetFileName(imageFile)
-                        };
-
-                        newElement.Save(RandomFileNameGenerator.Generate(dir, Constants.ElementFileExtension));
-
-                        CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
-                        ViewModel.Scene.AddChild(newElement).DoAndRecord(recorder);
-
-                        ScrollTimelinePosition(newElement.Range, newElement.ZIndex);
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An exception has occurred.");
-            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, ex.Message);
-        }
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
@@ -385,7 +287,7 @@ public sealed partial class Timeline : UserControl
         {
             // Calculate the new starting point for the scene based on the pointer frame
             TimeSpan clampedStart = _pointerFrame;
-            
+
             // Ensure the new start time is not negative
             if (clampedStart < TimeSpan.Zero)
             {

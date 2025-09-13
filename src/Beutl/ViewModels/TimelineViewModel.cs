@@ -3,12 +3,17 @@ using System.Numerics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
+using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Configuration;
+using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Pixel;
+using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.Operation;
+using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Reactive;
 using Beutl.Services;
@@ -83,6 +88,9 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             .AddTo(_disposables);
 
         AddElement.Subscribe(editViewModel.AddElement).AddTo(_disposables);
+
+        Paste.Subscribe(PasteCore)
+            .AddTo(_disposables);
 
         TimelineOptions options = editViewModel.Options.Value;
         LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount)
@@ -412,6 +420,224 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         Player = null!;
         EditorContext = null!;
         _logger.LogInformation("TimelineViewModel disposed successfully.");
+    }
+
+    private (TimeSpan, int) CorrectPosition(TimeRange range, int minZIndex, int maxZIndex)
+    {
+        // クリック位置の近傍を「時計回りの渦巻き」で探索し、重ならない最初の位置に移動
+        var fps = Scene.FindHierarchicalParent<Project>()!.GetFrameRate();
+        var length = range.Duration;
+        var layerCount = maxZIndex - minZIndex + 1;
+        var step = TimeSpan.FromSeconds(1d / fps);
+
+        TimeSpan newStart = ClickedFrame;
+        int newZIndex = CalculateClickedLayer();
+
+        // 時計回り: 右->下->左->上
+        int[] dx = [1, 0, -1, 0]; // 時間方向
+        int[] dz = [0, 1, 0, -1]; // レイヤー方向
+
+        // まずはクリック位置を試す
+        if (!IsOverlapping(new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1))
+        {
+            return (newStart, newZIndex);
+        }
+
+        int dir = 0; // 進行方向のインデックス
+        int stepLen = 1; // 現在の方向に進む歩数
+        int stepped = 0; // その方向で進んだ歩数
+        int turnCount = 0; // 方向転換回数（2回ごとに stepLen を+1）
+
+        while (true)
+        {
+            // 1歩進ませる
+            long dtTicks = step.Ticks * dx[dir];
+            newStart += TimeSpan.FromTicks(dtTicks);
+            newZIndex += dz[dir];
+
+            // 必要なら境界処理（例：負の時間を禁止）
+            if (newStart < TimeSpan.Zero) newStart = TimeSpan.Zero;
+            if (newZIndex < 0) newZIndex = 0;
+
+            // 空きが見つかったら終了
+            if (!IsOverlapping(new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1))
+                break;
+
+            // 歩数管理：指定歩数進んだら時計回りに方向転換
+            stepped++;
+            if (stepped == stepLen)
+            {
+                stepped = 0;
+                dir = (dir + 1) & 3; // 0..3 の循環
+                turnCount++;
+                if ((turnCount & 1) == 0)
+                    stepLen++; // 2回方向転換するごとに 1,1,2,2,3,3,… と広がる
+            }
+        }
+
+        return (newStart, newZIndex);
+
+        // TimeRangeとレイヤーの範囲(max, min)を与えると、重なるかどうかを調べる関数
+        bool IsOverlapping(TimeRange range, int minZIndex, int maxZIndex)
+        {
+            return Elements.Any(e =>
+                (e.Model.Range == range || e.Model.Range.Intersects(range) ||
+                 e.Model.Range.Contains(range) || range.Contains(e.Model.Range))
+                && e.Model.ZIndex >= minZIndex && e.Model.ZIndex <= maxZIndex);
+        }
+    }
+
+    private async Task PasteElementList(IClipboard clipboard)
+    {
+        byte[]? json = await clipboard.GetDataAsync(Constants.Elements) as byte[];
+        if (JsonNode.Parse(json) is not JsonArray jsonArray) return;
+
+        var oldElements = jsonArray
+            .Select(node => (node, element: new Element()))
+            .Do(t => CoreSerializerHelper.PopulateFromJsonObject(t.element, t.node!.AsObject()))
+            .Select(t => t.element)
+            .ToArray();
+
+        ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
+
+        // 時間の範囲、レイヤーの範囲を計算
+        TimeSpan minStart = newElements.Min(e => e.Start);
+        int minZIndex = newElements.Min(e => e.ZIndex);
+        TimeSpan maxStart = newElements.Max(e => e.Start);
+        int maxZIndex = newElements.Max(e => e.ZIndex);
+        TimeSpan length = maxStart - minStart;
+
+        var (newStart, newZIndex) = CorrectPosition(
+            new TimeRange(minStart, length),
+            minZIndex,
+            maxZIndex);
+
+        // 新しい位置に移動して保存、シーンに追加
+        foreach (Element newElement in newElements)
+        {
+            newElement.Start = newElement.Start - minStart + newStart;
+            newElement.ZIndex = newElement.ZIndex - minZIndex + newZIndex;
+
+            newElement.Save(RandomFileNameGenerator.Generate(
+                Path.GetDirectoryName(Scene.FileName)!,
+                Constants.ElementFileExtension));
+        }
+
+        CommandRecorder recorder = EditorContext.CommandRecorder;
+        newElements.Select(i => Scene.AddChild(i))
+            .ToArray()
+            .ToCommand()
+            .DoAndRecord(recorder);
+        ScrollTo.Execute((new TimeRange(newStart, maxStart - minStart), newZIndex));
+    }
+
+    private async Task PasteElement(IClipboard clipboard)
+    {
+        string? json = await clipboard.GetTextAsync();
+        if (json == null) return;
+
+        var oldElement = new Element();
+
+        CoreSerializerHelper.PopulateFromJsonObject(oldElement, JsonNode.Parse(json)!.AsObject());
+
+        ObjectRegenerator.Regenerate(oldElement, out Element newElement);
+
+        newElement.Start = ClickedFrame;
+        newElement.ZIndex = CalculateClickedLayer();
+
+        newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!,
+            Constants.ElementFileExtension));
+
+        CommandRecorder recorder = EditorContext.CommandRecorder;
+        Scene.AddChild(newElement).DoAndRecord(recorder);
+
+        ScrollTo.Execute((newElement.Range, newElement.ZIndex));
+    }
+
+    private async Task PasteImageElement(string[] formats, IClipboard clipboard)
+    {
+        string[] imageFormats = ["image/png", "PNG", "image/jpeg", "image/jpg"];
+
+        if (Array.Find(imageFormats, formats.Contains) is { } matchFormat)
+        {
+            object? imageData = await clipboard.GetDataAsync(matchFormat);
+            Stream? stream = null;
+            if (imageData is byte[] byteArray)
+                stream = new MemoryStream(byteArray);
+            else if (imageData is Stream st)
+                stream = st;
+
+            if (stream?.CanRead != true)
+            {
+                NotificationService.ShowWarning(
+                    "タイムライン",
+                    $"この画像データはペーストできません\nFormats: [{string.Join(", ", formats)}]");
+            }
+            else
+            {
+                string dir = Path.GetDirectoryName(Scene.FileName)!;
+                // 画像を保存
+                string resDir = Path.Combine(dir, "resources");
+                if (!Directory.Exists(resDir))
+                {
+                    Directory.CreateDirectory(resDir);
+                }
+
+                string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
+                using (var bmp = Bitmap<Bgra8888>.FromStream(stream))
+                {
+                    bmp.Save(imageFile, Graphics.EncodedImageFormat.Png);
+                }
+
+                var sp = new SourceImageOperator();
+                sp.Value.Source = BitmapSource.Open(imageFile);
+                var newElement = new Element
+                {
+                    Start = ClickedFrame,
+                    Length = TimeSpan.FromSeconds(5),
+                    ZIndex = CalculateClickedLayer(),
+                    Operation = { Children = { sp } },
+                    AccentColor = ColorGenerator.GenerateColor(typeof(SourceImageOperator).FullName!),
+                    Name = Path.GetFileName(imageFile)
+                };
+
+                newElement.Save(RandomFileNameGenerator.Generate(dir, Constants.ElementFileExtension));
+
+                CommandRecorder recorder = EditorContext.CommandRecorder;
+                Scene.AddChild(newElement).DoAndRecord(recorder);
+
+                ScrollTo.Execute((newElement.Range, newElement.ZIndex));
+            }
+        }
+    }
+
+    private async void PasteCore()
+    {
+        try
+        {
+            IClipboard? clipboard = App.GetClipboard();
+            if (clipboard == null) return;
+
+            string[] formats = await clipboard.GetFormatsAsync();
+
+            if (formats.Contains(Constants.Elements))
+            {
+                await PasteElementList(clipboard);
+            }
+            else if (formats.Contains(Constants.Element))
+            {
+                await PasteElement(clipboard);
+            }
+            else
+            {
+                await PasteImageElement(formats, clipboard);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception has occurred.");
+            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, ex.Message);
+        }
     }
 
     // ClickedPositionから最後にクリックしたレイヤーを計算します。
