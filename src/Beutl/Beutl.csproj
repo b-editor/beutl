@@ -55,7 +55,6 @@
     <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
     <PackageReference Include="Dotnet.Bundle" />
     <PackageReference Include="DynamicData" />
-    <PackageReference Include="FluentAvalonia.BreadcrumbBar" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.FluentAvalonia" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />

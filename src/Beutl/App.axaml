@@ -24,7 +24,6 @@
     <Application.Styles>
         <sty:FluentAvaloniaTheme PreferUserAccentColor="True" TextVerticalAlignmentOverrideBehavior="Disabled" />
         <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
-        <StyleInclude Source="avares://FluentAvalonia.BreadcrumbBar/Styling/Styles.axaml" />
         <StyleInclude Source="avares://AsyncImageLoader.Avalonia/AdvancedImage.axaml" />
         <StyleInclude Source="avares://ReDocking/Styles.axaml" />
 
