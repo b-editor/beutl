@@ -1,0 +1,49 @@
+﻿<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:media="clr-namespace:FluentAvalonia.UI.Media;assembly=FluentAvalonia"
+                    xmlns:sys="clr-namespace:System;assembly=netstandard"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls"
+                    x:CompileBindings="True">
+
+    <Design.PreviewWith>
+        <Border Padding="50">
+            <ui:ColorPickerButton />
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type ui:ColorPickerButton}" TargetType="ui:ColorPickerButton">
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="MinWidth" Value="50" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Button Name="ShowFlyoutButton"
+                        Padding="0"
+                        HorizontalContentAlignment="Stretch"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Border MinWidth="23"
+                                MinHeight="23"
+                                Margin="8,6,4,6"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                Background="{TemplateBinding Color,
+                                                             Converter={StaticResource ColorBrushConv}}"
+                                BorderBrush="{DynamicResource ColorPickerButtonOutline}"
+                                BorderThickness="1"
+                                CornerRadius="{TemplateBinding CornerRadius}" />
+
+                        <ui:SymbolIcon Grid.Column="1"
+                                       Margin="4,6,8,6"
+                                       HorizontalAlignment="Right"
+                                       FontSize="18"
+                                       Symbol="ChevronDown" />
+                    </Grid>
+                </Button>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+</ResourceDictionary>
