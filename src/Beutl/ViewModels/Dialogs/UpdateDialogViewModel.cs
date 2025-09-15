@@ -81,7 +81,7 @@ public class UpdateDialogViewModel
         }
         else if (metadata.Type == "zip")
         {
-            string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.sh");
+            string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.ps1");
             await using (var fs = File.Create(scriptPath))
             {
                 // UTF-8 BOMを書き込む
