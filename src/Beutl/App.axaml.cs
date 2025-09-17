@@ -81,6 +81,11 @@ public sealed class App : Application
         {
             _theme.RemoveRange(1, 3);
         }
+
+        if (view.UICulture.Name == "ja-JP")
+        {
+            Resources["ContentControlThemeFontFamily"] = Resources["NotoSansJP"] as FontFamily;
+        }
     }
 
     public override void RegisterServices()

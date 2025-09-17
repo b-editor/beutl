@@ -144,6 +144,9 @@
     <EmbeddedResource Include="Resources\linux-update.sh" />
     <EmbeddedResource Include="Resources\win-update.ps1" />
   </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Resources\Fonts\**" />
+  </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />
 </Project>
