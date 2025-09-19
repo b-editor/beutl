@@ -55,7 +55,6 @@
     <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
     <PackageReference Include="Dotnet.Bundle" />
     <PackageReference Include="DynamicData" />
-    <PackageReference Include="FluentAvalonia.BreadcrumbBar" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.FluentAvalonia" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
@@ -144,6 +143,9 @@
     <EmbeddedResource Include="Resources\osx-update.sh" />
     <EmbeddedResource Include="Resources\linux-update.sh" />
     <EmbeddedResource Include="Resources\win-update.ps1" />
+  </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Resources\Fonts\**" />
   </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />

@@ -50,6 +50,8 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/GradientStopsSlider.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/LibraryItemPickerFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyPickerFlyoutPresenter.axaml" />
+                <ResourceInclude Source="/ColorPicker/ColorPickerStyles.axaml" />
+                <ResourceInclude Source="/ColorPicker/ColorPickerButtonStyles.axaml" />
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
@@ -141,13 +143,13 @@
         <Setter Property="Orientation" Value="Horizontal" />
         <Setter Property="Spacing" Value="16" />
 
-        <Style Selector="^ > Separator">
+        <Style Selector="^ &gt; Separator">
             <Setter Property="Theme" Value="{StaticResource SimpleLargeBreadcrumbBarSeparator}" />
         </Style>
-        <Style Selector="^ > Button">
+        <Style Selector="^ &gt; Button">
             <Setter Property="Theme" Value="{StaticResource SimpleLargeBreadcrumbBarButton}" />
         </Style>
-        <Style Selector="^ > TextBlock">
+        <Style Selector="^ &gt; TextBlock">
             <Setter Property="Theme" Value="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
         </Style>
     </Style>

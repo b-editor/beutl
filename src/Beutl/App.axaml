@@ -19,12 +19,12 @@
             <KeyGesture x:Key="ExitKeyGesture">Alt+F4</KeyGesture>
             <KeyGesture x:Key="UndoKeyGesture">Ctrl+Z</KeyGesture>
             <KeyGesture x:Key="RedoKeyGesture">Ctrl+Y</KeyGesture>
+            <FontFamily x:Key="NotoSansJP">avares://Beutl/Resources/Fonts#Noto Sans JP</FontFamily>
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>
         <sty:FluentAvaloniaTheme PreferUserAccentColor="True" TextVerticalAlignmentOverrideBehavior="Disabled" />
         <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
-        <StyleInclude Source="avares://FluentAvalonia.BreadcrumbBar/Styling/Styles.axaml" />
         <StyleInclude Source="avares://AsyncImageLoader.Avalonia/AdvancedImage.axaml" />
         <StyleInclude Source="avares://ReDocking/Styles.axaml" />
 

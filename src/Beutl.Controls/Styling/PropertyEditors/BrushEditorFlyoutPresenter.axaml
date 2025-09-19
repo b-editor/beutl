@@ -3,7 +3,7 @@
                     xmlns:behaviors="using:Beutl.Controls.Behaviors"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
-                    xmlns:ui="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls"
                     x:CompileBindings="True">
     <Design.PreviewWith>
         <Border Height="600" Padding="50">

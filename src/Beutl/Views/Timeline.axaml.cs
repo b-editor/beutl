@@ -484,7 +484,6 @@ public sealed partial class Timeline : UserControl
     private void TimelinePanel_PointerExited(object? sender, PointerEventArgs e)
     {
         if (ViewModel == null) return;
-        _mouseFlag = MouseFlags.Free;
 
         if (!_rightButtonPressed)
         {
