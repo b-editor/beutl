@@ -31,11 +31,9 @@ public partial class GraphEditorView : UserControl
     public GraphEditorView()
     {
         InitializeComponent();
-        scale.PointerExited += OnContentPointerExited;
         scale.PointerMoved += OnContentPointerMoved;
         scale.PointerReleased += OnContentPointerReleased;
         scale.PointerPressed += OnContentPointerPressed;
-        background.PointerExited += OnContentPointerExited;
         background.PointerMoved += OnContentPointerMoved;
         background.PointerReleased += OnContentPointerReleased;
         background.PointerPressed += OnContentPointerPressed;
@@ -172,12 +170,13 @@ public partial class GraphEditorView : UserControl
                 edelta = edelta.SwapAxis();
             }
 
-            if (e.KeyModifiers == KeyModifiers.Control)
+            var zoomModifier = KeyGestureHelper.GetCommandModifier();
+            if (e.KeyModifiers == zoomModifier)
             {
                 // 目盛りのスケールを変更
                 UpdateHorizontalZoom(e, ref scale, ref offset);
             }
-            else if (e.KeyModifiers.HasAllFlags(KeyModifiers.Control | KeyModifiers.Shift))
+            else if (e.KeyModifiers.HasAllFlags(zoomModifier | KeyModifiers.Shift))
             {
                 double oldScale = viewModel.ScaleY.Value;
                 double scaleY = Zoom(edelta.X, oldScale);
@@ -233,7 +232,8 @@ public partial class GraphEditorView : UserControl
             float scale = viewModel.Options.Value.Scale;
             var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
 
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+            var zoomModifier = KeyGestureHelper.GetCommandModifier();
+            if (e.KeyModifiers.HasFlag(zoomModifier))
             {
                 double oldScale = viewModel.ScaleY.Value;
                 double scaleY = Zoom(edelta.Y, oldScale);
@@ -278,11 +278,6 @@ public partial class GraphEditorView : UserControl
 
             e.Handled = true;
         }
-    }
-
-    private void OnContentPointerExited(object? sender, PointerEventArgs e)
-    {
-        _mouseFlag = Timeline.MouseFlags.Free;
     }
 
     private void OnContentPointerMoved(object? sender, PointerEventArgs e)
