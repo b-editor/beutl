@@ -42,6 +42,7 @@ public class KeyFrame : Hierarchical
         set => SetAndRaise(KeyTimeProperty, ref _keyTime, value);
     }
 
+    [Obsolete]
     internal virtual CoreProperty? Property { get; set; }
 
     public override void Deserialize(ICoreSerializationContext context)

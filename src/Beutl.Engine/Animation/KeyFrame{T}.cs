@@ -55,6 +55,7 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
         }
     }
 
+    [Obsolete]
     internal override CoreProperty? Property
     {
         get => base.Property;
@@ -80,6 +81,8 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
             }
         }
     }
+
+    public IValidator<T>? Validator { get; set; }
 
     public event EventHandler? KeyTimeChanged;
 

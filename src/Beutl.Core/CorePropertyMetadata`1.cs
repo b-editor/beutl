@@ -50,7 +50,7 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
         return _serializerOptions;
     }
 
-    private static IValidator<T> ConvertValidator(ValidationAttribute att)
+    internal static IValidator<T> ConvertValidator(ValidationAttribute att)
     {
         switch (att)
         {

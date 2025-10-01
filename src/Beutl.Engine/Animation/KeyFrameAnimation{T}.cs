@@ -1,9 +1,13 @@
-﻿using Beutl.Serialization;
+﻿using Beutl.Engine;
+using Beutl.Serialization;
+using Beutl.Validation;
 
 namespace Beutl.Animation;
 
 public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 {
+    private IValidator<T>? _validator;
+
     public KeyFrameAnimation(CoreProperty<T> property)
         : base(property)
     {
@@ -13,10 +17,27 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
     {
     }
 
+    [Obsolete]
     public new CoreProperty<T> Property
     {
         get => (CoreProperty<T>)base.Property;
         set => base.Property = value;
+    }
+
+    public IValidator<T>? Validator
+    {
+        get => _validator;
+        set
+        {
+            _validator = value;
+            foreach (IKeyFrame item in KeyFrames)
+            {
+                if (item is KeyFrame<T> keyFrame)
+                {
+                    keyFrame.Validator = _validator;
+                }
+            }
+        }
     }
 
     public override void ApplyAnimation(Animatable target, IClock clock)

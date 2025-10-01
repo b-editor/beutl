@@ -115,6 +115,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
 
     public KeyFrames KeyFrames { get; }
 
+    [Obsolete]
     public CoreProperty Property
     {
         get => _property!;
