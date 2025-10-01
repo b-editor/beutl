@@ -1,5 +1,7 @@
-﻿using Beutl.Media;
+﻿using Beutl.Engine;
+using Beutl.Media;
 using Beutl.Serialization;
+using Beutl.Validation;
 
 namespace Beutl.Animation;
 
@@ -19,6 +21,8 @@ public interface IAnimation<T> : IAnimation
     new CoreProperty<T> Property { get; }
 
     CoreProperty IAnimation.Property => Property;
+
+    IValidator<T>? Validator { get; set; }
 
     T? GetAnimatedValue(IClock clock);
 
