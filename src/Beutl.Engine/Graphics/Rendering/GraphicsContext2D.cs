@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics.Effects;
+﻿using Beutl.Animation;
+using Beutl.Engine;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -6,16 +8,23 @@ using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize canvasSize = default)
+public sealed class GraphicsContext2D(ContainerRenderNode container, IClock clock, PixelSize canvasSize = default)
     : IDisposable, IPopable
 {
     private readonly Stack<(ContainerRenderNode, int)> _nodes = [];
     private int _drawOperationindex;
     private ContainerRenderNode _container = container;
 
+    public IClock Clock { get; } = clock;
+
     public PixelSize Size => canvasSize;
 
     internal Action<RenderNode>? OnUntracked { get; set; }
+
+    public T Get<T>(IProperty<T> property)
+    {
+        return property.GetValue(Clock);
+    }
 
     private void Untracked(RenderNode? node)
     {
