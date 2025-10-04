@@ -129,7 +129,6 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
 
         INamedTypeSymbol? baseResourceOwner = null;
         if (symbol.BaseType is INamedTypeSymbol baseType
-            && !SymbolEqualityComparer.Default.Equals(baseType, engineObjectSymbol)
             && InheritsFrom(baseType, engineObjectSymbol))
         {
             baseResourceOwner = baseType;
@@ -264,25 +263,29 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
 
     private static void AppendToResourceMethod(StringBuilder sb, string indent, string currentTypeDisplay, ClassInfo info)
     {
-        string methodModifier = info.BaseResourceOwner is null ? "public" : "public new";
+        string methodModifier = "public override";
         string renderContextType = "global::Beutl.Graphics.Rendering.RenderContext";
+        string engineObjectType = "global::Beutl.Engine.EngineObject";
+        string baseResourceType = $"{engineObjectType}.Resource";
 
-        sb.Append(indent).Append(methodModifier).Append(" Resource ToResource(")
+        sb.Append(indent).Append(methodModifier).Append($" {baseResourceType} ToResource(")
             .Append(renderContextType).AppendLine(" context)");
         sb.Append(indent).AppendLine("{");
         sb.Append(indent).Append("    var resource = new ").Append(currentTypeDisplay).AppendLine(".Resource();");
         sb.Append(indent).AppendLine("    bool updateOnly = true;");
         sb.Append(indent).AppendLine("    resource.Update(this, context, ref updateOnly);");
-        sb.Append(indent).AppendLine("    return resource;");
+        sb.Append(indent).AppendLine($"    return resource;");
         sb.Append(indent).AppendLine("}");
     }
 
     private static void AppendResourceClass(StringBuilder sb, string indent, string currentTypeDisplay, ClassInfo info)
     {
-        string resourceModifier = info.BaseResourceOwner is null ? "public" : "public new";
-        string resourceGenericModifier = info.BaseResourceOwner is null ? "public" : "public new";
+        string resourceModifier = "public new";
+        string resourceGenericModifier = "public new";
         string renderContextType = "global::Beutl.Graphics.Rendering.RenderContext";
+        string engineObjectType = "global::Beutl.Engine.EngineObject";
         string propertyInterface = "global::Beutl.Engine.IProperty";
+        string editorBrowsableAttribute = "[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]";
 
         sb.Append(indent).Append(resourceModifier).Append(" class Resource : ")
             .Append(currentTypeDisplay).Append(".Resource<").Append(currentTypeDisplay).AppendLine(">");
@@ -295,18 +298,16 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         {
             sb.Append(" : ").Append(baseOwner.ToDisplayString(s_typeDisplayFormat)).Append(".Resource<T>");
         }
+        else
+        {
+            sb.Append($" : {engineObjectType}.Resource<T>");
+        }
 
         sb.AppendLine();
         sb.Append(indent).Append("    where T : ").AppendLine(currentTypeDisplay);
         sb.Append(indent).AppendLine("{");
 
         string innerIndent = indent + "    ";
-
-        if (info.BaseResourceOwner is null)
-        {
-            sb.Append(innerIndent).AppendLine("private T _original = null!;");
-            sb.AppendLine();
-        }
 
         foreach (ValuePropertyInfo property in info.ValueProperties)
         {
@@ -330,12 +331,6 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
             string resourceType = GetResourceTypeName(property.ElementType);
             sb.Append(innerIndent).Append("private global::System.Collections.Generic.List<").Append(resourceType)
                 .Append("> ").Append(fieldName).AppendLine(" = [];");
-            sb.AppendLine();
-        }
-
-        if (info.BaseResourceOwner is null)
-        {
-            sb.Append(innerIndent).AppendLine("public int Version { get; protected set; }");
             sb.AppendLine();
         }
 
@@ -366,31 +361,18 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
             sb.AppendLine();
         }
 
-        if (info.BaseResourceOwner is null)
-        {
-            sb.Append(innerIndent).AppendLine("public T GetOriginal() => _original;");
-            sb.AppendLine();
-        }
-
         bool hasAdditionalMembers = info.ValueProperties.Length > 0
             || info.ObjectProperties.Length > 0
             || info.ListProperties.Length > 0;
 
-        if (info.BaseResourceOwner is null || hasAdditionalMembers)
+        if (hasAdditionalMembers)
         {
-            string methodModifier = info.BaseResourceOwner is null ? "public virtual" : "public override";
+            string methodModifier = "public override";
             sb.Append(innerIndent).Append(methodModifier).Append(" void Update(T obj, ").Append(renderContextType)
                 .Append(" context, ref bool updateOnly)").AppendLine();
             sb.Append(innerIndent).AppendLine("{");
 
-            if (info.BaseResourceOwner is null)
-            {
-                sb.Append(innerIndent).Append("    _original = obj;").AppendLine();
-            }
-            else
-            {
-                sb.Append(innerIndent).Append("    base.Update(obj, context, ref updateOnly);").AppendLine();
-            }
+            sb.Append(innerIndent).Append("    base.Update(obj, context, ref updateOnly);").AppendLine();
 
             bool wroteSection = false;
 
@@ -426,48 +408,8 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
                         }
 
                         string fieldName = ToFieldName(property.Name);
-                        string listVar = $"list{listIndex++}";
-
-                        sb.Append(innerIndent).AppendLine($"    var {listVar} = obj.{property.Name};");
-                        sb.Append(innerIndent).AppendLine($"    for (int i = 0; i < {listVar}.Count; i++)");
-                        sb.Append(innerIndent).AppendLine("    {");
-                        sb.Append(innerIndent).AppendLine($"        var child = {listVar}[i];");
-                        sb.Append(innerIndent).AppendLine($"        if (i < {fieldName}.Count)");
-                        sb.Append(innerIndent).AppendLine("        {");
-                        sb.Append(innerIndent).AppendLine($"            var item = {fieldName}[i];");
-                        sb.Append(innerIndent).AppendLine("            if (item.GetOriginal() != child)");
-                        sb.Append(innerIndent).AppendLine("            {");
-                        sb.Append(innerIndent).AppendLine("                item = child.ToResource(context);");
-                        sb.Append(innerIndent).AppendLine($"                {fieldName}[i] = item;");
-                        sb.Append(innerIndent).AppendLine("                Version++;");
-                        sb.Append(innerIndent).AppendLine("                updateOnly = true;");
-                        sb.Append(innerIndent).AppendLine("            }");
-                        sb.Append(innerIndent).AppendLine("            else");
-                        sb.Append(innerIndent).AppendLine("            {");
-                        sb.Append(innerIndent).AppendLine("                var oldVersion = item.Version;");
-                        sb.Append(innerIndent).AppendLine("                item.Update(child, context, ref updateOnly);");
-                        sb.Append(innerIndent).AppendLine("                if (!updateOnly && oldVersion != item.Version)");
-                        sb.Append(innerIndent).AppendLine("                {");
-                        sb.Append(innerIndent).AppendLine("                    Version++;");
-                        sb.Append(innerIndent).AppendLine("                    updateOnly = true;");
-                        sb.Append(innerIndent).AppendLine("                }");
-                        sb.Append(innerIndent).AppendLine("            }");
-                        sb.Append(innerIndent).AppendLine("        }");
-                        sb.Append(innerIndent).AppendLine("        else");
-                        sb.Append(innerIndent).AppendLine("        {");
-                        sb.Append(innerIndent).AppendLine("            var item = child.ToResource(context);");
-                        sb.Append(innerIndent).AppendLine($"            {fieldName}.Add(item);");
-                        sb.Append(innerIndent).AppendLine("            if (!updateOnly)");
-                        sb.Append(innerIndent).AppendLine("            {");
-                        sb.Append(innerIndent).AppendLine("                Version++;");
-                        sb.Append(innerIndent).AppendLine("                updateOnly = true;");
-                        sb.Append(innerIndent).AppendLine("            }");
-                        sb.Append(innerIndent).AppendLine("        }");
-                        sb.Append(innerIndent).AppendLine("    }");
-                        sb.Append(innerIndent).AppendLine($"    while ({fieldName}.Count > {listVar}.Count)");
-                        sb.Append(innerIndent).AppendLine("    {");
-                        sb.Append(innerIndent).AppendLine($"        {fieldName}.RemoveAt({fieldName}.Count - 1);");
-                        sb.Append(innerIndent).AppendLine("    }");
+                        sb.Append(innerIndent).Append("    CompareAndUpdateList(context, obj.").Append(property.Name)
+                            .Append(", ref ").Append(fieldName).Append(", ref updateOnly);").AppendLine();
                     }
 
                     wroteSection = true;
@@ -489,79 +431,14 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
                         }
 
                         string fieldName = ToFieldName(property.Name);
-                        string valueVar = $"value{objectIndex++}";
-
-                        sb.Append(innerIndent).AppendLine($"    var {valueVar} = context.Get(obj.{property.Name});");
-                        sb.Append(innerIndent).AppendLine($"    if ({valueVar} is null)");
-                        sb.Append(innerIndent).AppendLine("    {");
-                        sb.Append(innerIndent).AppendLine($"        if ({fieldName} is not null)");
-                        sb.Append(innerIndent).AppendLine("        {");
-                        sb.Append(innerIndent).AppendLine($"            {fieldName} = null;");
-                        sb.Append(innerIndent).AppendLine("            if (!updateOnly)");
-                        sb.Append(innerIndent).AppendLine("            {");
-                        sb.Append(innerIndent).AppendLine("                Version++;");
-                        sb.Append(innerIndent).AppendLine("                updateOnly = true;");
-                        sb.Append(innerIndent).AppendLine("            }");
-                        sb.Append(innerIndent).AppendLine("        }");
-                        sb.Append(innerIndent).AppendLine("    }");
-                        sb.Append(innerIndent).AppendLine("    else");
-                        sb.Append(innerIndent).AppendLine("    {");
-                        sb.Append(innerIndent).AppendLine($"        if ({fieldName} is null)");
-                        sb.Append(innerIndent).AppendLine("        {");
-                        sb.Append(innerIndent).AppendLine($"            {fieldName} = {valueVar}.ToResource(context);");
-                        sb.Append(innerIndent).AppendLine("            if (!updateOnly)");
-                        sb.Append(innerIndent).AppendLine("            {");
-                        sb.Append(innerIndent).AppendLine("                Version++;");
-                        sb.Append(innerIndent).AppendLine("                updateOnly = true;");
-                        sb.Append(innerIndent).AppendLine("            }");
-                        sb.Append(innerIndent).AppendLine("        }");
-                        sb.Append(innerIndent).AppendLine("        else");
-                        sb.Append(innerIndent).AppendLine("        {");
-                        sb.Append(innerIndent).AppendLine($"            if ({fieldName}.GetOriginal() != {valueVar})");
-                        sb.Append(innerIndent).AppendLine("            {");
-                        sb.Append(innerIndent).AppendLine($"                {fieldName} = {valueVar}.ToResource(context);");
-                        sb.Append(innerIndent).AppendLine("                Version++;");
-                        sb.Append(innerIndent).AppendLine("                updateOnly = true;");
-                        sb.Append(innerIndent).AppendLine("            }");
-                        sb.Append(innerIndent).AppendLine("            else");
-                        sb.Append(innerIndent).AppendLine("            {");
-                        sb.Append(innerIndent).AppendLine($"                var oldVersion = {fieldName}.Version;");
-                        sb.Append(innerIndent).AppendLine($"                {fieldName}.Update({valueVar}, context, ref updateOnly);");
-                        sb.Append(innerIndent).AppendLine($"                if (!updateOnly && oldVersion != {fieldName}.Version)");
-                        sb.Append(innerIndent).AppendLine("                {");
-                        sb.Append(innerIndent).AppendLine("                    Version++;");
-                        sb.Append(innerIndent).AppendLine("                    updateOnly = true;");
-                        sb.Append(innerIndent).AppendLine("                }");
-                        sb.Append(innerIndent).AppendLine("            }");
-                        sb.Append(innerIndent).AppendLine("        }");
-                        sb.Append(innerIndent).AppendLine("    }");
+                        sb.Append(innerIndent).Append("    CompareAndUpdateObject(context, obj.").Append(property.Name)
+                            .Append(", ref ").Append(fieldName).Append(", ref updateOnly);").AppendLine();
                     }
                 }
             }
 
             sb.Append(innerIndent).AppendLine("}");
             sb.AppendLine();
-        }
-
-        if (info.BaseResourceOwner is null)
-        {
-            sb.Append(innerIndent).Append("protected void CompareAndUpdate<TValue>(").Append(renderContextType)
-                .Append(" context, ").Append(propertyInterface).Append("<TValue> prop, ref TValue field, ref bool updateOnly)")
-                .AppendLine();
-            sb.Append(innerIndent).AppendLine("{");
-            sb.Append(innerIndent).AppendLine("    TValue newValue = context.Get(prop);");
-            sb.Append(innerIndent).AppendLine("    TValue oldValue = field;");
-            sb.Append(innerIndent).AppendLine("    field = newValue;");
-            sb.Append(innerIndent).AppendLine("    if (updateOnly)");
-            sb.Append(innerIndent).AppendLine("    {");
-            sb.Append(innerIndent).AppendLine("        return;");
-            sb.Append(innerIndent).AppendLine("    }");
-            sb.Append(innerIndent).AppendLine("    if (!global::System.Collections.Generic.EqualityComparer<TValue>.Default.Equals(newValue, oldValue))");
-            sb.Append(innerIndent).AppendLine("    {");
-            sb.Append(innerIndent).AppendLine("        Version++;");
-            sb.Append(innerIndent).AppendLine("        updateOnly = true;");
-            sb.Append(innerIndent).AppendLine("    }");
-            sb.Append(innerIndent).AppendLine("}");
         }
 
         sb.Append(indent).AppendLine("}");
