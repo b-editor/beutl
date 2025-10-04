@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Beutl.Animation;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 
@@ -44,7 +45,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         _currentFrame?.Clear();
     }
 
-    public void Add(Drawable drawable)
+    public void Add(Drawable drawable, IClock clock)
     {
         if (!_cache.TryGetValue(drawable, out Entry? entry))
         {
@@ -70,7 +71,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         if (entry.IsDirty)
         {
             // DeferredCanvasを作成し、記録
-            using var canvas = new GraphicsContext2D(entry.Node, renderScene.Size);
+            using var canvas = new GraphicsContext2D(entry.Node, clock, renderScene.Size);
             drawable.Render(canvas);
             entry.IsDirty = false;
         }
@@ -78,7 +79,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         CurrentFrame.Add(entry);
     }
 
-    public void UpdateAll(IReadOnlyList<Drawable> elements)
+    public void UpdateAll(IReadOnlyList<Drawable> elements, IClock clock)
     {
         _currentFrame?.Clear();
         if (elements.Count == 0)
@@ -90,7 +91,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
 
         foreach (Drawable element in elements)
         {
-            Add(element);
+            Add(element, clock);
         }
     }
 
@@ -106,7 +107,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         _cache.Clear();
     }
 
-    public void Render(ImmediateCanvas canvas)
+    public void Render(ImmediateCanvas canvas, IClock clock)
     {
         foreach (Entry? entry in CollectionsMarshal.AsSpan(_currentFrame))
         {
@@ -114,7 +115,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
             Drawable drawable = node.Drawable;
             if (entry.IsDirty)
             {
-                using var context = new GraphicsContext2D(node, renderScene.Size);
+                using var context = new GraphicsContext2D(node, clock, renderScene.Size);
                 drawable.Render(context);
                 entry.IsDirty = false;
             }

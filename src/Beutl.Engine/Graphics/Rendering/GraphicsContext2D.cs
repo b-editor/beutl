@@ -8,7 +8,7 @@ using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class GraphicsContext2D(ContainerRenderNode container, IClock clock, PixelSize canvasSize = default)
+public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClock clock, PixelSize canvasSize = default)
     : IDisposable, IPopable
 {
     private readonly Stack<(ContainerRenderNode, int)> _nodes = [];
@@ -24,6 +24,21 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, IClock cloc
     public T Get<T>(IProperty<T> property)
     {
         return property.GetValue(Clock);
+    }
+
+    public (T1, T2) Get<T1, T2>(IProperty<T1> property1, IProperty<T2> property2)
+    {
+        return (property1.GetValue(Clock), property2.GetValue(Clock));
+    }
+
+    public (T1, T2, T3) Get<T1, T2, T3>(IProperty<T1> property1, IProperty<T2> property2, IProperty<T3> property3)
+    {
+        return (property1.GetValue(Clock), property2.GetValue(Clock), property3.GetValue(Clock));
+    }
+
+    public (T1, T2, T3, T4) Get<T1, T2, T3, T4>(IProperty<T1> property1, IProperty<T2> property2, IProperty<T3> property3, IProperty<T4> property4)
+    {
+        return (property1.GetValue(Clock), property2.GetValue(Clock), property3.GetValue(Clock), property4.GetValue(Clock));
     }
 
     private void Untracked(RenderNode? node)
@@ -200,13 +215,21 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, IClock cloc
             Push(next);
         }
 
+        var timeRange = new TimeRange(clock.BeginTime, clock.DurationTime);
+        var currentTime = clock.CurrentTime;
         int count = _nodes.Count;
         try
         {
+            clock.BeginTime = drawable.TimeRange.Start;
+            clock.DurationTime = drawable.TimeRange.Duration;
+            clock.CurrentTime = clock.GlobalClock.CurrentTime - clock.BeginTime;
             drawable.Render(this);
         }
         finally
         {
+            clock.BeginTime = timeRange.Start;
+            clock.DurationTime = timeRange.Duration;
+            clock.CurrentTime = currentTime;
             Pop(count);
         }
     }
@@ -431,22 +454,6 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, IClock cloc
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false)
-    {
-        OpacityMaskRenderNode? next = Next<OpacityMaskRenderNode>();
-
-        if (next == null || !next.Equals(mask, bounds, invert))
-        {
-            AddAndPush(new OpacityMaskRenderNode(mask, bounds, invert), next);
-        }
-        else
-        {
-            Push(next);
-        }
-
-        return new(this, _nodes.Count);
-    }
-
     public PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend)
     {
         TransformRenderNode? next = Next<TransformRenderNode>();
@@ -511,19 +518,19 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, IClock cloc
         return new(this, _nodes.Count);
     }
 
-    private static IBrush? ConvertBrush(IBrush? brush)
+    private IBrush? ConvertBrush(IBrush? brush)
     {
         if (brush is IDrawableBrush drawableBrush)
         {
             RenderScene? scene = null;
             Rect bounds = default;
-            if (drawableBrush is { Drawable: { IsVisible: true } drawable })
+            if (drawableBrush is { Drawable: { IsEnabled: true } drawable })
             {
                 drawable.Measure(Graphics.Size.Infinity);
 
                 bounds = drawable.Bounds;
                 scene = new RenderScene(bounds.Size.Ceiling());
-                scene[0].UpdateAll([drawable]);
+                scene[0].UpdateAll([drawable], Clock);
             }
 
             return new RenderSceneBrush(drawableBrush, scene, bounds);

@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering.Cache;
+﻿using Beutl.Animation;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
@@ -47,7 +48,7 @@ public sealed class RenderScene : IDisposable
         _layer.Clear();
     }
 
-    public void Render(ImmediateCanvas canvas)
+    public void Render(ImmediateCanvas canvas, IClock clock)
     {
         using (canvas.Push())
         {
@@ -55,7 +56,7 @@ public sealed class RenderScene : IDisposable
 
             foreach (RenderLayer item in _layer.Values)
             {
-                item.Render(canvas);
+                item.Render(canvas, clock);
             }
         }
     }
