@@ -158,8 +158,10 @@ public class Element : ProjectItem, IAffectsRender
             _instanceClock.BeginTime = Start;
             _instanceClock.DurationTime = Length;
             _instanceClock.CurrentTime = clock.CurrentTime - Start;
+#pragma warning disable CS0618 // 型またはメンバーが旧型式です
             _instanceClock.AudioStartTime = clock.AudioStartTime - Start;
             _instanceClock.AudioDurationTime = clock.AudioDurationTime;
+#pragma warning restore CS0618 // 型またはメンバーが旧型式です
             if (UseNode)
             {
                 return NodeTree.Evaluate(target, renderer, this);

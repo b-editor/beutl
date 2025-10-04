@@ -9,8 +9,10 @@ public sealed class InstanceClock : IClock
 
     public TimeSpan CurrentTime { get; set; }
 
+    [Obsolete("Do not use this property.")]
     public TimeSpan AudioStartTime { get; set; }
 
+    [Obsolete("Do not use this property.")]
     public TimeSpan AudioDurationTime { get; set; }
 
     public TimeSpan BeginTime { get; set; }
