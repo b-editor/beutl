@@ -7,7 +7,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with an <see cref="Drawable"/>.
 /// </summary>
-public class DrawableBrush : TileBrush, IDrawableBrush
+public class DrawableBrush : TileBrush
 {
     public static readonly CoreProperty<Drawable?> DrawableProperty;
     private Drawable? _drawable;
@@ -45,8 +45,6 @@ public class DrawableBrush : TileBrush, IDrawableBrush
         get => _drawable;
         set => SetAndRaise(DrawableProperty, ref _drawable, value);
     }
-
-    int? IDrawableBrush.Version => Drawable?.Version;
 
     /// <inheritdoc/>
     public override IBrush ToImmutable()

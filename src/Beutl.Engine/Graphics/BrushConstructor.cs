@@ -1,11 +1,12 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Animation;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 using SkiaSharp;
 
 namespace Beutl.Graphics;
 
-public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode blendMode)
+public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode blendMode, IClock clock)
 {
     public Rect Bounds { get; } = bounds;
 
@@ -243,7 +244,7 @@ public readonly struct BrushConstructor(Rect bounds, IBrush? brush, BlendMode bl
 
             using (var icanvas = new ImmediateCanvas(renderTarget))
             {
-                icanvas.DrawDrawable(drawableBrush.Drawable);
+                icanvas.DrawDrawable(drawableBrush.Drawable, clock);
             }
 
             pixelSize = new PixelSize(renderTarget.Width, renderTarget.Height);

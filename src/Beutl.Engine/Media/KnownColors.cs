@@ -1,6 +1,5 @@
 ﻿using System.Collections.Frozen;
 using System.Reflection;
-
 using Beutl.Media.Immutable;
 
 namespace Beutl.Media;
@@ -59,17 +58,11 @@ internal static class KnownColors
         return Color.FromUInt32((uint)color);
     }
 
-    public static ISolidColorBrush ToBrush(this KnownColor color)
+    public static SolidColorBrush ToBrush(this KnownColor color)
     {
         lock (s_knownBrushes)
         {
-            if (!s_knownBrushes.TryGetValue(color, out ISolidColorBrush? brush))
-            {
-                brush = new ImmutableSolidColorBrush(color.ToColor(), 100);
-                s_knownBrushes.Add(color, brush);
-            }
-
-            return brush;
+            return new SolidColorBrush(color.ToColor(), 100);
         }
     }
 }

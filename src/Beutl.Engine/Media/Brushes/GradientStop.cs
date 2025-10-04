@@ -1,11 +1,12 @@
 ﻿using Beutl.Animation;
+using Beutl.Engine;
 
 namespace Beutl.Media;
 
 /// <summary>
 /// Describes the location and color of a transition point in a gradient.
 /// </summary>
-public sealed class GradientStop : Animatable, IGradientStop, IAffectsRender, IEquatable<IGradientStop?>
+public sealed class GradientStop : EngineObject, IGradientStop, IAffectsRender, IEquatable<IGradientStop?>
 {
     public static readonly CoreProperty<float> OffsetProperty;
     public static readonly CoreProperty<Color> ColorProperty;
