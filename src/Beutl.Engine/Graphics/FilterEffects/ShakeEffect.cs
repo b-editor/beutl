@@ -1,6 +1,7 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -8,64 +9,30 @@ namespace Beutl.Graphics.Effects;
 
 public class ShakeEffect : FilterEffect
 {
-    public static readonly CoreProperty<float> StrengthXProperty;
-    public static readonly CoreProperty<float> StrengthYProperty;
-    public static readonly CoreProperty<float> SpeedProperty;
-
     private readonly RenderInvalidatedEventArgs _invalidatedEventArgs;
-
     private readonly PerlinNoise _random = new();
     private float _time;
-    private float _strengthX = 50;
-    private float _strengthY = 50;
-    private float _speed = 100;
     private float _offset;
 
     static ShakeEffect()
     {
-        StrengthXProperty = ConfigureProperty<float, ShakeEffect>(nameof(StrengthX))
-            .Accessor(o => o.StrengthX, (o, v) => o.StrengthX = v)
-            .DefaultValue(50)
-            .Register();
-
-        StrengthYProperty = ConfigureProperty<float, ShakeEffect>(nameof(StrengthY))
-            .Accessor(o => o.StrengthY, (o, v) => o.StrengthY = v)
-            .DefaultValue(50)
-            .Register();
-
-        SpeedProperty = ConfigureProperty<float, ShakeEffect>(nameof(Speed))
-            .Accessor(o => o.Speed, (o, v) => o.Speed = v)
-            .DefaultValue(100)
-            .Register();
-
-        AffectsRender<ShakeEffect>(StrengthXProperty, StrengthYProperty, SpeedProperty, IdProperty);
+        AffectsRender<ShakeEffect>(IdProperty);
     }
 
     public ShakeEffect()
     {
+        ScanProperties<ShakeEffect>();
         _invalidatedEventArgs = new RenderInvalidatedEventArgs(this);
     }
 
     [Display(Name = nameof(Strings.StrengthX), ResourceType = typeof(Strings))]
-    public float StrengthX
-    {
-        get => _strengthX;
-        set => SetAndRaise(StrengthXProperty, ref _strengthX, value);
-    }
+    public IProperty<float> StrengthX { get; } = Property.CreateAnimatable(50f);
 
     [Display(Name = nameof(Strings.StrengthY), ResourceType = typeof(Strings))]
-    public float StrengthY
-    {
-        get => _strengthY;
-        set => SetAndRaise(StrengthYProperty, ref _strengthY, value);
-    }
+    public IProperty<float> StrengthY { get; } = Property.CreateAnimatable(50f);
 
     [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
-    public float Speed
-    {
-        get => _speed;
-        set => SetAndRaise(SpeedProperty, ref _speed, value);
-    }
+    public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     public override void ApplyAnimations(IClock clock)
     {
@@ -95,18 +62,20 @@ public class ShakeEffect : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.CustomEffect((_time, _speed, _strengthX, _strengthY, _random, _offset), (data, effectContext) =>
-        {
-            effectContext.ForEach((i, t) =>
+        context.CustomEffect(
+            (time: _time, speed: Speed.CurrentValue, strengthX: StrengthX.CurrentValue, strengthY: StrengthY.CurrentValue, random: _random, offset: _offset),
+            static (data, effectContext) =>
             {
-                float a = data._time * data._speed / 100 + data._offset;
-                float b = i + data._offset;
-                float randomX = data._random.Perlin(a, b);
-                float randomY = data._random.Perlin(b, a);
-                randomX = (randomX - 0.5F) * 2F * data._strengthX;
-                randomY = (randomY - 0.5F) * 2F * data._strengthY;
-                t.Bounds = t.Bounds.Translate(new Vector(randomX, randomY));
+                effectContext.ForEach((i, target) =>
+                {
+                    float a = data.time * data.speed / 100 + data.offset;
+                    float b = i + data.offset;
+                    float randomX = data.random.Perlin(a, b);
+                    float randomY = data.random.Perlin(b, a);
+                    randomX = (randomX - 0.5F) * 2F * data.strengthX;
+                    randomY = (randomY - 0.5F) * 2F * data.strengthY;
+                    target.Bounds = target.Bounds.Translate(new Vector(randomX, randomY));
+                });
             });
-        });
     }
 }

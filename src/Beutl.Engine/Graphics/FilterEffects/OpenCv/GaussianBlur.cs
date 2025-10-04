@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -8,58 +9,24 @@ namespace Beutl.Graphics.Effects.OpenCv;
 
 public class GaussianBlur : FilterEffect
 {
-    public static readonly CoreProperty<PixelSize> KernelSizeProperty;
-    public static readonly CoreProperty<Size> SigmaProperty;
-    public static readonly CoreProperty<bool> FixImageSizeProperty;
-    private PixelSize _kernelSize;
-    private Size _sigma;
-    private bool _fixImageSize;
-
-    static GaussianBlur()
+    public GaussianBlur()
     {
-        KernelSizeProperty = ConfigureProperty<PixelSize, GaussianBlur>(nameof(KernelSize))
-            .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
-            .DefaultValue(PixelSize.Empty)
-            .Register();
-
-        SigmaProperty = ConfigureProperty<Size, GaussianBlur>(nameof(Sigma))
-            .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
-            .DefaultValue(Size.Empty)
-            .Register();
-
-        FixImageSizeProperty = ConfigureProperty<bool, GaussianBlur>(nameof(FixImageSize))
-            .Accessor(o => o.FixImageSize, (o, v) => o.FixImageSize = v)
-            .DefaultValue(false)
-            .Register();
-
-        AffectsRender<GaussianBlur>(KernelSizeProperty, SigmaProperty, FixImageSizeProperty);
+        ScanProperties<GaussianBlur>();
     }
 
     [Display(Name = nameof(Strings.KernelSize), ResourceType = typeof(Strings))]
     [Range(typeof(PixelSize), "0,0", "max,max")]
-    public PixelSize KernelSize
-    {
-        get => _kernelSize;
-        set => SetAndRaise(KernelSizeProperty, ref _kernelSize, value);
-    }
+    public IProperty<PixelSize> KernelSize { get; } = Property.CreateAnimatable(PixelSize.Empty);
 
     [Display(Name = nameof(Strings.Sigma), ResourceType = typeof(Strings))]
-    public Size Sigma
-    {
-        get => _sigma;
-        set => SetAndRaise(SigmaProperty, ref _sigma, value);
-    }
+    public IProperty<Size> Sigma { get; } = Property.CreateAnimatable(Size.Empty);
 
     [Display(Name = nameof(Strings.FixImageSize), ResourceType = typeof(Strings))]
-    public bool FixImageSize
-    {
-        get => _fixImageSize;
-        set => SetAndRaise(FixImageSizeProperty, ref _fixImageSize, value);
-    }
+    public IProperty<bool> FixImageSize { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.CustomEffect((KernelSize, Sigma, FixImageSize), Apply, TransformBounds);
+        context.CustomEffect((KernelSize.CurrentValue, Sigma.CurrentValue, FixImageSize.CurrentValue), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((PixelSize KernelSize, Size Sigma, bool FixImageSize) data, Rect rect)
@@ -127,10 +94,5 @@ public class GaussianBlur : FilterEffect
                 dst?.Dispose();
             }
         }
-    }
-
-    public override Rect TransformBounds(Rect rect)
-    {
-        return TransformBounds((KernelSize, Sigma, FixImageSize), rect);
     }
 }

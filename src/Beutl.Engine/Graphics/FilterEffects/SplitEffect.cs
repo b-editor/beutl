@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
@@ -6,123 +7,82 @@ namespace Beutl.Graphics.Effects;
 
 public class SplitEffect : FilterEffect
 {
-    public static readonly CoreProperty<int> HorizontalDivisionsProperty;
-    public static readonly CoreProperty<int> VerticalDivisionsProperty;
-    public static readonly CoreProperty<float> HorizontalSpacingProperty;
-    public static readonly CoreProperty<float> VerticalSpacingProperty;
-
-    static SplitEffect()
+    public SplitEffect()
     {
-        HorizontalDivisionsProperty = ConfigureProperty<int, SplitEffect>(nameof(HorizontalDivisions))
-            .DefaultValue(2)
-            .Register();
-
-        VerticalDivisionsProperty = ConfigureProperty<int, SplitEffect>(nameof(VerticalDivisions))
-            .DefaultValue(2)
-            .Register();
-
-        HorizontalSpacingProperty = ConfigureProperty<float, SplitEffect>(nameof(HorizontalSpacing))
-            .DefaultValue(0)
-            .Register();
-
-        VerticalSpacingProperty = ConfigureProperty<float, SplitEffect>(nameof(VerticalSpacing))
-            .DefaultValue(0)
-            .Register();
-
-        AffectsRender<SplitEffect>(
-            HorizontalDivisionsProperty,
-            VerticalDivisionsProperty,
-            HorizontalSpacingProperty,
-            VerticalSpacingProperty);
+        ScanProperties<SplitEffect>();
     }
 
     [Range(1, int.MaxValue)]
     [Display(Name = nameof(Strings.HorizontalDivisions), ResourceType = typeof(Strings))]
-    public int HorizontalDivisions
-    {
-        get => GetValue(HorizontalDivisionsProperty);
-        set => SetValue(HorizontalDivisionsProperty, value);
-    }
+    public IProperty<int> HorizontalDivisions { get; } = Property.CreateAnimatable(2);
 
     [Range(1, int.MaxValue)]
     [Display(Name = nameof(Strings.VerticalDivisions), ResourceType = typeof(Strings))]
-    public int VerticalDivisions
-    {
-        get => GetValue(VerticalDivisionsProperty);
-        set => SetValue(VerticalDivisionsProperty, value);
-    }
+    public IProperty<int> VerticalDivisions { get; } = Property.CreateAnimatable(2);
 
     [Display(Name = nameof(Strings.HorizontalSpacing), ResourceType = typeof(Strings))]
-    public float HorizontalSpacing
-    {
-        get => GetValue(HorizontalSpacingProperty);
-        set => SetValue(HorizontalSpacingProperty, value);
-    }
+    public IProperty<float> HorizontalSpacing { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(Strings.VerticalSpacing), ResourceType = typeof(Strings))]
-    public float VerticalSpacing
-    {
-        get => GetValue(VerticalSpacingProperty);
-        set => SetValue(VerticalSpacingProperty, value);
-    }
+    public IProperty<float> VerticalSpacing { get; } = Property.CreateAnimatable(0f);
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.CustomEffect((HorizontalDivisions, VerticalDivisions, HorizontalSpacing, VerticalSpacing), (d, context) =>
-        {
-            for (int i = 0; i < context.Targets.Count; i++)
+        context.CustomEffect(
+            (HorizontalDivisions.CurrentValue, VerticalDivisions.CurrentValue, HorizontalSpacing.CurrentValue, VerticalSpacing.CurrentValue),
+            static (d, effectContext) =>
             {
-                EffectTarget t = context.Targets[i];
-                RenderTarget renderTarget = t.RenderTarget!;
-
-                float divWidth = t.Bounds.Width / d.HorizontalDivisions;
-                float divHeight = t.Bounds.Height / d.VerticalDivisions;
-
-                if ((int)divWidth <= 0 || (int)divHeight <= 0)
+                for (int i = 0; i < effectContext.Targets.Count; i++)
                 {
-                    t.Dispose();
-                    context.Targets.RemoveAt(i);
-                    i--;
-                }
-                else
-                {
-                    var newBounds = new Rect(
-                        0,
-                        0,
-                        t.Bounds.Width + (d.HorizontalSpacing * (d.HorizontalDivisions - 1)),
-                        t.Bounds.Height + (d.VerticalSpacing * (d.VerticalDivisions - 1)));
-                    newBounds = t.Bounds.CenterRect(newBounds);
+                    EffectTarget t = effectContext.Targets[i];
+                    RenderTarget renderTarget = t.RenderTarget!;
 
-                    var newTargets = new EffectTarget[d.HorizontalDivisions * d.VerticalDivisions];
+                    float divWidth = t.Bounds.Width / d.HorizontalDivisions;
+                    float divHeight = t.Bounds.Height / d.VerticalDivisions;
 
-                    for (int v = 0; v < d.VerticalDivisions; v++)
+                    if ((int)divWidth <= 0 || (int)divHeight <= 0)
                     {
-                        for (int h = 0; h < d.HorizontalDivisions; h++)
-                        {
-                            float hh = t.Bounds.Width / -d.VerticalDivisions;
-                            float vv = t.Bounds.Height / -d.HorizontalDivisions;
-                            EffectTarget newTarget = context.CreateTarget(
-                                new Rect(
-                                    newBounds.X + (divWidth + d.HorizontalSpacing) * h,
-                                    newBounds.Y + (divHeight + d.VerticalSpacing) * v,
-                                    divWidth,
-                                    divHeight));
-
-                            using (ImmediateCanvas canvas = context.Open(newTarget))
-                            {
-                                canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h, -divHeight * v));
-                            }
-
-                            newTargets[v * d.HorizontalDivisions + h] = newTarget;
-                        }
+                        t.Dispose();
+                        effectContext.Targets.RemoveAt(i);
+                        i--;
                     }
+                    else
+                    {
+                        var newBounds = new Rect(
+                            0,
+                            0,
+                            t.Bounds.Width + (d.HorizontalSpacing * (d.HorizontalDivisions - 1)),
+                            t.Bounds.Height + (d.VerticalSpacing * (d.VerticalDivisions - 1)));
+                        newBounds = t.Bounds.CenterRect(newBounds);
 
-                    t.Dispose();
-                    context.Targets.RemoveAt(i);
-                    context.Targets.InsertRange(i, newTargets);
-                    i += newTargets.Length - 1;
+                        var newTargets = new EffectTarget[d.HorizontalDivisions * d.VerticalDivisions];
+
+                        for (int v = 0; v < d.VerticalDivisions; v++)
+                        {
+                            for (int h = 0; h < d.HorizontalDivisions; h++)
+                            {
+                                EffectTarget newTarget = effectContext.CreateTarget(
+                                    new Rect(
+                                        newBounds.X + (divWidth + d.HorizontalSpacing) * h,
+                                        newBounds.Y + (divHeight + d.VerticalSpacing) * v,
+                                        divWidth,
+                                        divHeight));
+
+                                using (ImmediateCanvas canvas = effectContext.Open(newTarget))
+                                {
+                                    canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h, -divHeight * v));
+                                }
+
+                                newTargets[v * d.HorizontalDivisions + h] = newTarget;
+                            }
+                        }
+
+                        t.Dispose();
+                        effectContext.Targets.RemoveAt(i);
+                        effectContext.Targets.InsertRange(i, newTargets);
+                        i += newTargets.Length - 1;
+                    }
                 }
-            }
-        });
+            });
     }
 }

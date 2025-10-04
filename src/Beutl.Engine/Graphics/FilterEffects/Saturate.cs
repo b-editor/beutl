@@ -1,33 +1,22 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
+using Beutl.Engine;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
 public sealed class Saturate : FilterEffect
 {
-    public static readonly CoreProperty<float> AmountProperty;
-    private float _amount = 100F;
-
-    static Saturate()
+    public Saturate()
     {
-        AmountProperty = ConfigureProperty<float, Saturate>(nameof(Amount))
-            .Accessor(o => o.Amount, (o, v) => o.Amount = v)
-            .DefaultValue(100F)
-            .Register();
-
-        AffectsRender<Saturate>(AmountProperty);
+        ScanProperties<Saturate>();
     }
 
     [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
-    public float Amount
-    {
-        get => _amount;
-        set => SetAndRaise(AmountProperty, ref _amount, value);
-    }
+    public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.Saturate(Amount / 100F);
+        context.Saturate(Amount.CurrentValue / 100f);
     }
 }

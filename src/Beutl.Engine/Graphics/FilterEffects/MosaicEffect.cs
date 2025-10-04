@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -8,26 +9,11 @@ namespace Beutl.Graphics.Effects;
 
 public class MosaicEffect : FilterEffect
 {
-    public static readonly CoreProperty<Size> TileSizeProperty;
-    public static readonly CoreProperty<RelativePoint> OriginProperty;
     private static readonly ILogger s_logger = Log.CreateLogger<MosaicEffect>();
     private static readonly SKRuntimeEffect? s_runtimeEffect;
-    private Size _tileSize = new(10, 10);
-    private RelativePoint _origin = RelativePoint.Center;
 
     static MosaicEffect()
     {
-        TileSizeProperty = ConfigureProperty<Size, MosaicEffect>(nameof(TileSize))
-            .Accessor(o => o.TileSize, (o, v) => o.TileSize = v)
-            .DefaultValue(new Size(10, 10))
-            .Register();
-
-        OriginProperty = ConfigureProperty<RelativePoint, MosaicEffect>(nameof(Origin))
-            .Accessor(o => o.Origin, (o, v) => o.Origin = v)
-            .DefaultValue(RelativePoint.Center)
-            .Register();
-
-        AffectsRender<MosaicEffect>(TileSizeProperty);
         string sksl =
             """
             uniform shader src;
@@ -53,24 +39,24 @@ public class MosaicEffect : FilterEffect
         }
     }
 
-    [Range(typeof(Size), "0.0001, 0.0001", "max,max")]
-    [Display(Name = nameof(Strings.TileSize), ResourceType = typeof(Strings))]
-    public Size TileSize
+    public MosaicEffect()
     {
-        get => _tileSize;
-        set => SetAndRaise(TileSizeProperty, ref _tileSize, value);
+        ScanProperties<MosaicEffect>();
     }
 
+    [Range(typeof(Size), "0.0001, 0.0001", "max,max")]
+    [Display(Name = nameof(Strings.TileSize), ResourceType = typeof(Strings))]
+    public IProperty<Size> TileSize { get; } = Property.CreateAnimatable(new Size(10, 10));
+
     [Display(Name = nameof(Strings.Origin), ResourceType = typeof(Strings))]
-    public RelativePoint Origin
-    {
-        get => _origin;
-        set => SetAndRaise(OriginProperty, ref _origin, value);
-    }
+    public IProperty<RelativePoint> Origin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.CustomEffect((TileSize, Origin), OnApplyTo, (_, r) => r);
+        context.CustomEffect(
+            (TileSize.CurrentValue, Origin.CurrentValue),
+            OnApplyTo,
+            static (_, r) => r);
     }
 
     private static void OnApplyTo((Size tileSize, RelativePoint origin) data, CustomFilterEffectContext c)

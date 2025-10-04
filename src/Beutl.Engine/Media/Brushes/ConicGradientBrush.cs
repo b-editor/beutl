@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
-
+using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media.Immutable;
 
@@ -9,7 +10,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with a swept circular gradient.
 /// </summary>
-public sealed class ConicGradientBrush : GradientBrush, IConicGradientBrush
+public sealed class ConicGradientBrush : GradientBrush
 {
     public static readonly CoreProperty<RelativePoint> CenterProperty;
     public static readonly CoreProperty<float> AngleProperty;
@@ -35,25 +36,22 @@ public sealed class ConicGradientBrush : GradientBrush, IConicGradientBrush
     /// Gets or sets the center point of the gradient.
     /// </summary>
     [Display(Name = nameof(Strings.Center), ResourceType = typeof(Strings))]
-    public RelativePoint Center
-    {
-        get => _center;
-        set => SetAndRaise(CenterProperty, ref _center, value);
-    }
+    public IProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     /// <summary>
     /// Gets or sets the angle of the start and end of the sweep, measured from above the center point.
     /// </summary>
     [Display(Name = nameof(Strings.Angle), ResourceType = typeof(Strings))]
-    public float Angle
-    {
-        get => _angle;
-        set => SetAndRaise(AngleProperty, ref _angle, value);
-    }
+    public IProperty<float> Angle { get; } = Property.CreateAnimatable(0f);
 
     /// <inheritdoc/>
-    public override IBrush ToImmutable()
+    public override BrushResource ToResource(RenderContext context)
     {
-        return new ImmutableConicGradientBrush(this);
+        return new ConicGradientBrushResource(
+            context.Get(Center),
+            context.Get(Angle),
+            GetGradientStopsResource(context),
+        );
+
     }
 }

@@ -1,11 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
-
+using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Immutable;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
-
 using OpenCvSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -13,127 +12,43 @@ namespace Beutl.Graphics.Effects;
 [Obsolete("Use StrokeEffect instead.")]
 public class Border : FilterEffect
 {
-    public static readonly CoreProperty<Point> OffsetProperty;
-    public static readonly CoreProperty<int> ThicknessProperty;
-    public static readonly CoreProperty<Color> ColorProperty;
-    public static readonly CoreProperty<MaskTypes> MaskTypeProperty;
-    public static readonly CoreProperty<BorderStyles> StyleProperty;
-    private Point _offset;
-    private int _thickness;
-    private Color _color;
-    private MaskTypes _maskType;
-    private BorderStyles _style;
-
     public enum MaskTypes
     {
-        /// <summary>
-        /// マスク処理をしない。
-        /// </summary>
         None,
-
-        /// <summary>
-        /// マスク処理をする。
-        /// </summary>
         Standard,
-
-        /// <summary>
-        /// マスク処理をする。(反転)
-        /// </summary>
         Invert
     }
 
     public enum BorderStyles
     {
-        /// <summary>
-        /// ソースの後ろに縁取りを描画します。
-        /// </summary>
         Background,
-
-        /// <summary>
-        /// ソースの表に縁取りを描画します。
-        /// </summary>
         Foreground,
     }
 
-    static Border()
+    public Border()
     {
-        OffsetProperty = ConfigureProperty<Point, Border>(nameof(Offset))
-            .Accessor(o => o.Offset, (o, v) => o.Offset = v)
-            .DefaultValue(default)
-            .Register();
-
-        ThicknessProperty = ConfigureProperty<int, Border>(nameof(Thickness))
-            .Accessor(o => o.Thickness, (o, v) => o.Thickness = v)
-            .DefaultValue(0)
-            .Register();
-
-        ColorProperty = ConfigureProperty<Color, Border>(nameof(Color))
-            .Accessor(o => o.Color, (o, v) => o.Color = v)
-            .DefaultValue(Colors.White)
-            .Register();
-
-        MaskTypeProperty = ConfigureProperty<MaskTypes, Border>(nameof(MaskType))
-            .Accessor(o => o.MaskType, (o, v) => o.MaskType = v)
-            .DefaultValue(MaskTypes.None)
-            .Register();
-
-        StyleProperty = ConfigureProperty<BorderStyles, Border>(nameof(Style))
-            .Accessor(o => o.Style, (o, v) => o.Style = v)
-            .DefaultValue(BorderStyles.Background)
-            .Register();
-
-        AffectsRender<Border>(
-            OffsetProperty,
-            ThicknessProperty,
-            ColorProperty,
-            MaskTypeProperty,
-            StyleProperty);
+        ScanProperties<Border>();
     }
 
     [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
-    public Point Offset
-    {
-        get => _offset;
-        set => SetAndRaise(OffsetProperty, ref _offset, value);
-    }
+    public IProperty<Point> Offset { get; } = Property.CreateAnimatable(default(Point));
 
     [Display(Name = nameof(Strings.Thickness), ResourceType = typeof(Strings))]
     [Range(0, int.MaxValue)]
-    public int Thickness
-    {
-        get => _thickness;
-        set => SetAndRaise(ThicknessProperty, ref _thickness, value);
-    }
+    public IProperty<int> Thickness { get; } = Property.CreateAnimatable(0);
 
     [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
-    public Color Color
-    {
-        get => _color;
-        set => SetAndRaise(ColorProperty, ref _color, value);
-    }
+    public IProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.White);
 
     [Display(Name = nameof(Strings.MaskType), ResourceType = typeof(Strings))]
-    public MaskTypes MaskType
-    {
-        get => _maskType;
-        set => SetAndRaise(MaskTypeProperty, ref _maskType, value);
-    }
+    public IProperty<MaskTypes> MaskType { get; } = Property.CreateAnimatable(MaskTypes.None);
 
     [Display(Name = nameof(Strings.BorderStyle), ResourceType = typeof(Strings))]
-    public BorderStyles Style
-    {
-        get => _style;
-        set => SetAndRaise(StyleProperty, ref _style, value);
-    }
-
-    public override Rect TransformBounds(Rect rect)
-    {
-        return rect.Union(rect.Translate(new Vector(_offset.X, _offset.Y)).Inflate(_thickness / 2)).Inflate(8);
-    }
+    public IProperty<BorderStyles> Style { get; } = Property.CreateAnimatable(BorderStyles.Background);
 
     public override void ApplyTo(FilterEffectContext context)
     {
-        context.CustomEffect((Offset, Thickness, Color, MaskType, Style), Apply, TransformBounds);
+        context.CustomEffect((Offset.CurrentValue, Thickness.CurrentValue, Color.CurrentValue, MaskType.CurrentValue, Style.CurrentValue), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((Point Offset, int Thickness, Color Color, MaskTypes MaskType, BorderStyles Style) data, Rect rect)
@@ -163,14 +78,12 @@ public class Border : FilterEffect
             var border = new Bitmap<Bgra8888>(newWidth, newHeight);
             using Mat borderMat = border.ToMat();
 
-            // 輪郭検出
             alphaMat.FindContours(
                 out OpenCvSharp.Point[][] points,
                 out HierarchyIndex[] h,
                 RetrievalModes.List,
                 ContourApproximationModes.ApproxSimple);
 
-            // 検出した輪郭を描画
             borderMat.DrawContours(points, -1, new(color.B, color.G, color.R, color.A), thickness, LineTypes.AntiAlias, h);
 
             return border;
@@ -183,9 +96,8 @@ public class Border : FilterEffect
             using var srcRef = Ref<IBitmap>.Create(src);
             using var srcBitmapSource = new BitmapSource(srcRef, "Temp");
 
-            // 縁取りの画像を生成
             using Bitmap<Bgra8888> border = RenderBorderBitmap(src);
-            var rect = target.Bounds;
+            Rect rect = target.Bounds;
             Rect borderBounds = rect.Translate(offset).Inflate(thicknessHalf);
             Rect canvasRect = rect.Union(borderBounds).Inflate(8);
             var borderRect = new Rect(0, 0, border.Width, border.Height);
@@ -206,11 +118,35 @@ public class Border : FilterEffect
                 if (style == BorderStyles.Foreground)
                 {
                     using (canvas.PushTransform(srcTranslate))
+                    {
                         canvas.DrawBitmap(src, Brushes.White, null);
+                    }
                 }
 
                 float xx = -(offset.X - Math.Max(offset.X, thicknessHalf)) - thicknessHalf;
                 float yy = -(offset.Y - Math.Max(offset.Y, thicknessHalf)) - thicknessHalf;
+
+                /* PushOpacityMask
+                   PUSH:
+                   var paint = new SKPaint();
+
+                   int count = Canvas.SaveLayer(paint);
+                   new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode).ConfigurePaint(paint);
+
+                   POP:
+                   canvas._sharedFillPaint.Reset();
+                   canvas._sharedFillPaint.BlendMode = Invert ? SKBlendMode.DstOut : SKBlendMode.DstIn;
+
+                   canvas.Canvas.SaveLayer(canvas._sharedFillPaint);
+                   using (SKPaint maskPaint = Paint)
+                   {
+                       canvas.Canvas.DrawPaint(maskPaint);
+                   }
+
+                   canvas.Canvas.Restore();
+
+                   canvas.Canvas.RestoreToCount(Count);
+                 */
 
                 using (canvas.PushTransform(Matrix.CreateTranslation(offset.X + xx, offset.Y + yy)))
                 using (maskBrush != null ? canvas.PushOpacityMask(maskBrush, borderRect, maskType == MaskTypes.Invert) : new())
@@ -221,7 +157,9 @@ public class Border : FilterEffect
                 if (style == BorderStyles.Background)
                 {
                     using (canvas.PushTransform(srcTranslate))
+                    {
                         canvas.DrawBitmap(src, Brushes.White, null);
+                    }
                 }
             }
 
@@ -229,24 +167,4 @@ public class Border : FilterEffect
             context.Targets[i] = newTarget;
         }
     }
-    /* Contours to SKPath
-foreach (var inner in points)
-{
-    bool first = true;
-    foreach (var item in inner)
-    {
-        if (first)
-        {
-            path.MoveTo(item.X, item.Y);
-            first = false;
-        }
-        else
-        {
-            path.LineTo(item.X, item.Y);
-        }
-    }
-
-    path.Close();
-}
-     */
 }
