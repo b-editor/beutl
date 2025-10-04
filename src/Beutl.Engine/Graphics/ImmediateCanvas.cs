@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Effects;
+﻿using Beutl.Animation;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -119,10 +120,17 @@ public partial class ImmediateCanvas : ICanvas
         Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, _sharedFillPaint);
     }
 
-    public void DrawDrawable(Drawable drawable)
+    public void DrawDrawable(Drawable drawable, IClock clock)
     {
+        var instanceClock = new InstanceClock
+        {
+            CurrentTime = clock.CurrentTime,
+            BeginTime = clock.BeginTime,
+            DurationTime = clock.DurationTime,
+            GlobalClock = clock.GlobalClock
+        };
         using var node = new DrawableRenderNode(drawable);
-        using var context = new GraphicsContext2D(node, Size);
+        using var context = new GraphicsContext2D(node, instanceClock, Size);
         drawable.Render(context);
         var processor = new RenderNodeProcessor(node, true);
         processor.Render(this);
@@ -400,17 +408,6 @@ public partial class ImmediateCanvas : ICanvas
         int count = Canvas.SaveLayer(paint);
         paint.Color = new SKColor(0, 0, 0, (byte)(Opacity * 255));
         _states.Push(new CanvasPushedState.OpacityPushedState(oldOpacity, count, paint));
-        return new PushedState(this, _states.Count);
-    }
-
-    public PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false)
-    {
-        VerifyAccess();
-        var paint = new SKPaint();
-
-        int count = Canvas.SaveLayer(paint);
-        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode).ConfigurePaint(paint);
-        _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
 

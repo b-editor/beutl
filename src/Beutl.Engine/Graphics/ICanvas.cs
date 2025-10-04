@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Effects;
+﻿using Beutl.Animation;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -31,7 +32,7 @@ public interface ICanvas : IDisposable, IPopable
 
     void DrawText(FormattedText text, IBrush? fill, IPen? pen);
 
-    void DrawDrawable(Drawable drawable);
+    void DrawDrawable(Drawable drawable, IClock clock);
 
     void DrawNode(RenderNode node);
 
