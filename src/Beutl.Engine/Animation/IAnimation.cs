@@ -13,8 +13,6 @@ public interface IAnimation : IAffectsRender, ICoreSerializable, IHierarchical
     TimeSpan Duration { get; }
 
     bool UseGlobalClock { get; }
-
-    void ApplyAnimation(Animatable target, IClock clock);
 }
 
 public interface IAnimation<T> : IAnimation
