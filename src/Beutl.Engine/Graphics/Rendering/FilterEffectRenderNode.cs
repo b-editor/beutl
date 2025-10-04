@@ -3,6 +3,19 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
+public abstract class FilterEffectRenderNode<TOptions> : ContainerRenderNode
+    where TOptions : struct, IEquatable<TOptions>
+{
+    public FilterEffectRenderNode(TOptions options)
+    {
+        Options = options;
+    }
+
+    public TOptions Options { get; }
+
+    public abstract void ApplyTo(FilterEffectContext context);
+}
+
 public sealed class FilterEffectRenderNode(FilterEffect filterEffect) : ContainerRenderNode
 {
     private readonly int _version = filterEffect.Version;
