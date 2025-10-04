@@ -11,13 +11,10 @@ public class AnimatableProperty<T> : IProperty<T>
     private IAnimation<T>? _animation;
     private readonly IValidator<T>? _validator;
     private PropertyInfo? _propertyInfo;
+    private string _name;
 
-    public AnimatableProperty(string name, T defaultValue, IValidator<T>? validator = null)
+    public AnimatableProperty(T defaultValue, IValidator<T>? validator = null)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Property name cannot be null or empty", nameof(name));
-
-        Name = name;
         DefaultValue = defaultValue;
         _currentValue = defaultValue;
         _validator = validator;
@@ -25,7 +22,7 @@ public class AnimatableProperty<T> : IProperty<T>
         IsAnimatable = true;
     }
 
-    public string Name { get; }
+    public string Name => _name ?? throw new InvalidOperationException("Property is not initialized.");
 
     public Type ValueType { get; }
 
@@ -140,6 +137,7 @@ public class AnimatableProperty<T> : IProperty<T>
     public void SetPropertyInfo(PropertyInfo propertyInfo)
     {
         _propertyInfo = propertyInfo;
+        _name = propertyInfo.Name;
     }
 
     private T ValidateAndCoerce(T value)

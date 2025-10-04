@@ -9,13 +9,10 @@ public class SimpleProperty<T> : IProperty<T>
     private T _currentValue;
     private readonly IValidator<T>? _validator;
     private PropertyInfo? _propertyInfo;
+    private string _name;
 
-    public SimpleProperty(string name, T defaultValue, IValidator<T>? validator = null)
+    public SimpleProperty(T defaultValue, IValidator<T>? validator = null)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Property name cannot be null or empty", nameof(name));
-
-        Name = name;
         DefaultValue = defaultValue;
         _currentValue = defaultValue;
         _validator = validator;
@@ -23,7 +20,7 @@ public class SimpleProperty<T> : IProperty<T>
         IsAnimatable = false;
     }
 
-    public string Name { get; }
+    public string Name => _name ?? throw new InvalidOperationException("Property is not initialized.");
 
     public Type ValueType { get; }
 
@@ -108,6 +105,7 @@ public class SimpleProperty<T> : IProperty<T>
     public void SetPropertyInfo(PropertyInfo propertyInfo)
     {
         _propertyInfo = propertyInfo;
+        _name = propertyInfo.Name;
     }
 
     private T ValidateAndCoerce(T value)
@@ -140,7 +138,6 @@ public static class SimplePropertyExtensions
     public static IProperty<T> ToAnimatable<T>(this SimpleProperty<T> simpleProperty)
     {
         var animatableProperty = Property.CreateAnimatable<T>(
-            simpleProperty.Name + "_Animatable",
             simpleProperty.DefaultValue);
 
         // 現在値を引き継ぎ
