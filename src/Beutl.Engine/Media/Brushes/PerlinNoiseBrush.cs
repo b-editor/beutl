@@ -4,7 +4,7 @@ using Beutl.Media.Immutable;
 
 namespace Beutl.Media;
 
-public sealed class PerlinNoiseBrush : Brush, IPerlinNoiseBrush
+public sealed partial class PerlinNoiseBrush : Brush, IPerlinNoiseBrush
 {
     public static readonly CoreProperty<float> BaseFrequencyXProperty;
     public static readonly CoreProperty<float> BaseFrequencyYProperty;

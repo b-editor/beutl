@@ -11,7 +11,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Fills an area with a solid color.
 /// </summary>
-public class SolidColorBrush : Brush, ISolidColorBrush
+public partial class SolidColorBrush : Brush, ISolidColorBrush
 {
     public static readonly CoreProperty<Color> ColorProperty;
     private Color _color;

@@ -7,7 +7,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Base class for brushes that draw with a gradient.
 /// </summary>
-public abstract class GradientBrush : Brush, IGradientBrush
+public abstract partial class GradientBrush : Brush, IGradientBrush
 {
     public static readonly CoreProperty<GradientSpreadMethod> SpreadMethodProperty;
     public static readonly CoreProperty<GradientStops> GradientStopsProperty;

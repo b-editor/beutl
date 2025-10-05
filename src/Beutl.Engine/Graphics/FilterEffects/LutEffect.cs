@@ -7,7 +7,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class LutEffect : FilterEffect
+public sealed partial class LutEffect : FilterEffect
 {
     private static readonly ILogger<LutEffect> s_logger =
         BeutlApplication.Current.LoggerFactory.CreateLogger<LutEffect>();

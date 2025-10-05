@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Gamma : FilterEffect
+public sealed partial class Gamma : FilterEffect
 {
     public Gamma()
     {

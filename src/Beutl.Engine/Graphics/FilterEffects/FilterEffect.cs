@@ -5,7 +5,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Graphics.Effects;
 
-public abstract class FilterEffect<TNode, TOptions> : FilterEffect
+public abstract partial class FilterEffect<TNode, TOptions> : FilterEffect
     where TNode : FilterEffectRenderNode<TOptions>
     where TOptions : struct, IEquatable<TOptions>
 {
@@ -15,6 +15,6 @@ public abstract class FilterEffect<TNode, TOptions> : FilterEffect
 }
 
 [DummyType(typeof(DummyFilterEffect))]
-public abstract class FilterEffect : EngineObject, IAffectsRender
+public abstract partial class FilterEffect : EngineObject, IAffectsRender
 {
 }

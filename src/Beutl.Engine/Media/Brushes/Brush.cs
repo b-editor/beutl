@@ -12,7 +12,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Describes how an area is painted.
 /// </summary>
-public abstract class Brush : EngineObject
+public abstract partial class Brush : EngineObject
 {
     public Brush()
     {
@@ -37,6 +37,4 @@ public abstract class Brush : EngineObject
     /// </summary>
     [Display(Name = nameof(Strings.TransformOrigin), ResourceType = typeof(Strings))]
     public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
-
-    public abstract BrushResource ToResource(RenderContext context);
 }

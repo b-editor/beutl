@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public class SplitEffect : FilterEffect
+public partial class SplitEffect : FilterEffect
 {
     public SplitEffect()
     {

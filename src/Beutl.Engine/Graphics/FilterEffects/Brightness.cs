@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Brightness : FilterEffect
+public sealed partial class Brightness : FilterEffect
 {
     public Brightness()
     {

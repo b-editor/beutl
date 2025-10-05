@@ -8,7 +8,7 @@ using Beutl.Media;
 namespace Beutl.Graphics.Effects;
 
 // TODO: EffectTargetが複数の場合に対応する
-public sealed class TransformEffect : FilterEffect
+public sealed partial class TransformEffect : FilterEffect
 {
     public TransformEffect()
     {

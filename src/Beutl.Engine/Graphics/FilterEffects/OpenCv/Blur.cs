@@ -8,7 +8,7 @@ using OpenCvSharp;
 
 namespace Beutl.Graphics.Effects.OpenCv;
 
-public class Blur : FilterEffect<Blur.Node, Blur.Options>
+public partial class Blur : FilterEffect<Blur.Node, Blur.Options>
 {
     public Blur()
     {

@@ -3,7 +3,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class FilterEffectGroup : FilterEffect
+public sealed partial class FilterEffectGroup : FilterEffect
 {
     public static readonly CoreProperty<FilterEffects> ChildrenProperty;
     private readonly FilterEffects _children;

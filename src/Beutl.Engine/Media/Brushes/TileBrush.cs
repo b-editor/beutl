@@ -8,7 +8,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Base class for brushes which display repeating images.
 /// </summary>
-public abstract class TileBrush : Brush, ITileBrush
+public abstract partial class TileBrush : Brush, ITileBrush
 {
     public static readonly CoreProperty<AlignmentX> AlignmentXProperty;
     public static readonly CoreProperty<AlignmentY> AlignmentYProperty;

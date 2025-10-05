@@ -4,7 +4,7 @@ using Beutl.Engine;
 namespace Beutl.Graphics.Effects;
 
 [Obsolete("Use FilterEffectGroup instead.")]
-public sealed class CombinedFilterEffect : FilterEffect
+public sealed partial class CombinedFilterEffect : FilterEffect
 {
     public CombinedFilterEffect()
     {

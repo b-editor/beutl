@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Clipping : FilterEffect
+public sealed partial class Clipping : FilterEffect
 {
     public Clipping()
     {

@@ -6,7 +6,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public class ColorShift : FilterEffect
+public partial class ColorShift : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ColorShift>();
     private static readonly SKRuntimeEffect? s_runtimeEffect;

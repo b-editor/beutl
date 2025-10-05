@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Saturate : FilterEffect
+public sealed partial class Saturate : FilterEffect
 {
     public Saturate()
     {

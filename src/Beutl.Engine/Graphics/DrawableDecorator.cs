@@ -6,7 +6,7 @@ namespace Beutl.Graphics;
 
 // Drawable継承しているが、Drawableのメソッドは使っていない
 [Display(Name = "Decorator")]
-public sealed class DrawableDecorator : Drawable
+public sealed partial class DrawableDecorator : Drawable
 {
     public static readonly CoreProperty<Drawable?> ChildProperty;
     private Drawable? _child;

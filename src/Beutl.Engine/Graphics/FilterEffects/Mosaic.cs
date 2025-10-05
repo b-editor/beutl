@@ -5,7 +5,7 @@ using OpenCvSharp;
 namespace Beutl.Graphics.Effects;
 
 [Obsolete("Use MosaicEffect instead.")]
-public class Mosaic : FilterEffect
+public partial class Mosaic : FilterEffect
 {
     public Mosaic()
     {

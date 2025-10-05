@@ -7,7 +7,7 @@ using Beutl.Media.Source;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(Strings.Image), ResourceType = typeof(Strings))]
-public class SourceImage : Drawable
+public partial class SourceImage : Drawable
 {
     public static readonly CoreProperty<IImageSource?> SourceProperty;
     private IImageSource? _source;

@@ -9,7 +9,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with a radial gradient.
 /// </summary>
-public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
+public sealed partial class RadialGradientBrush : GradientBrush, IRadialGradientBrush
 {
     public static readonly CoreProperty<RelativePoint> CenterProperty;
     public static readonly CoreProperty<RelativePoint> GradientOriginProperty;

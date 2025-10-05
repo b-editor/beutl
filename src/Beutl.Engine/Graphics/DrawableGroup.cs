@@ -5,7 +5,7 @@ using Beutl.Serialization;
 namespace Beutl.Graphics;
 
 [Display(Name = "Group")]
-public sealed class DrawableGroup : Drawable
+public sealed partial class DrawableGroup : Drawable
 {
     public static readonly CoreProperty<Drawables> ChildrenProperty;
     private readonly Drawables _children = [];

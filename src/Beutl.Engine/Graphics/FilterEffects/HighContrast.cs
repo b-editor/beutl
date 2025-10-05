@@ -4,7 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class HighContrast : FilterEffect
+public sealed partial class HighContrast : FilterEffect
 {
     public HighContrast()
     {

@@ -5,7 +5,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class BlendEffect : FilterEffect
+public sealed partial class BlendEffect : FilterEffect
 {
     public BlendEffect()
     {

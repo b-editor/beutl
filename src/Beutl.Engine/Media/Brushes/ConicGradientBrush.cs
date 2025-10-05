@@ -10,26 +10,11 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with a swept circular gradient.
 /// </summary>
-public sealed class ConicGradientBrush : GradientBrush
+public sealed partial class ConicGradientBrush : GradientBrush
 {
-    public static readonly CoreProperty<RelativePoint> CenterProperty;
-    public static readonly CoreProperty<float> AngleProperty;
-    private RelativePoint _center = RelativePoint.Center;
-    private float _angle;
-
-    static ConicGradientBrush()
+    public ConicGradientBrush()
     {
-        CenterProperty = ConfigureProperty<RelativePoint, ConicGradientBrush>(nameof(Center))
-            .Accessor(o => o.Center, (o, v) => o.Center = v)
-            .DefaultValue(RelativePoint.Center)
-            .Register();
-
-        AngleProperty = ConfigureProperty<float, ConicGradientBrush>(nameof(Angle))
-            .Accessor(o => o.Angle, (o, v) => o.Angle = v)
-            .DefaultValue(0)
-            .Register();
-
-        AffectsRender<ConicGradientBrush>(CenterProperty, AngleProperty);
+        ScanProperties<ConicGradientBrush>();
     }
 
     /// <summary>
@@ -43,15 +28,4 @@ public sealed class ConicGradientBrush : GradientBrush
     /// </summary>
     [Display(Name = nameof(Strings.Angle), ResourceType = typeof(Strings))]
     public IProperty<float> Angle { get; } = Property.CreateAnimatable(0f);
-
-    /// <inheritdoc/>
-    public override BrushResource ToResource(RenderContext context)
-    {
-        return new ConicGradientBrushResource(
-            context.Get(Center),
-            context.Get(Angle),
-            GetGradientStopsResource(context),
-        );
-
-    }
 }

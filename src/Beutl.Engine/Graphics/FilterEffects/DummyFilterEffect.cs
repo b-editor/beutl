@@ -5,7 +5,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class DummyFilterEffect : FilterEffect, IDummy
+public sealed partial class DummyFilterEffect : FilterEffect, IDummy
 {
     internal JsonObject? Json { get; set; }
 

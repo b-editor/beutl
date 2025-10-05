@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class HueRotate : FilterEffect
+public sealed partial class HueRotate : FilterEffect
 {
     public HueRotate()
     {

@@ -5,7 +5,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Media;
 
-public sealed class DummyBrush : Brush, IDummy
+public sealed partial class DummyBrush : Brush, IDummy
 {
     internal JsonObject? Json { get; set; }
 

@@ -11,7 +11,7 @@ using SkiaSharp;
 namespace Beutl.Graphics.Shapes;
 
 [Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
-public class TextBlock : Drawable
+public partial class TextBlock : Drawable
 {
     public static readonly CoreProperty<FontFamily?> FontFamilyProperty;
     public static readonly CoreProperty<FontWeight> FontWeightProperty;

@@ -4,7 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Blur : FilterEffect
+public sealed partial class Blur : FilterEffect
 {
     public Blur()
     {

@@ -7,7 +7,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
-public class ShakeEffect : FilterEffect
+public partial class ShakeEffect : FilterEffect
 {
     private readonly RenderInvalidatedEventArgs _invalidatedEventArgs;
     private readonly PerlinNoise _random = new();

@@ -6,7 +6,7 @@ using Beutl.Media;
 namespace Beutl.Graphics.Shapes;
 
 [Display(Name = nameof(Strings.GeometryShape), ResourceType = typeof(Strings))]
-public sealed class GeometryShape : Shape
+public sealed partial class GeometryShape : Shape
 {
     public static readonly CoreProperty<Geometry?> DataProperty;
     private Geometry? _data;

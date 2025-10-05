@@ -10,7 +10,7 @@ using Beutl.Serialization;
 namespace Beutl.Graphics;
 
 [DummyType(typeof(DummyDrawable))]
-public abstract class Drawable : EngineObject
+public abstract partial class Drawable : EngineObject
 {
     [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings),
         GroupName = nameof(Strings.ImageFilter))]

@@ -6,7 +6,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with an <see cref="IBitmap"/>.
 /// </summary>
-public class ImageBrush : TileBrush, IImageBrush
+public partial class ImageBrush : TileBrush, IImageBrush
 {
     public static readonly CoreProperty<IImageSource?> SourceProperty;
     private IImageSource? _source;

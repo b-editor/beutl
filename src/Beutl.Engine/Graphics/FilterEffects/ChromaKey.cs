@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public class ChromaKey : FilterEffect
+public partial class ChromaKey : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ChromaKey>();
     private static readonly SKRuntimeEffect? s_runtimeEffect;

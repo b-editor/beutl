@@ -10,7 +10,7 @@ using Cv = OpenCvSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public class StrokeEffect : FilterEffect
+public partial class StrokeEffect : FilterEffect
 {
     public enum StrokeStyles
     {

@@ -8,7 +8,7 @@ using Beutl.Media.Source;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(Strings.Video), ResourceType = typeof(Strings))]
-public class SourceVideo : Drawable
+public partial class SourceVideo : Drawable
 {
     public static readonly CoreProperty<TimeSpan> OffsetPositionProperty;
     public static readonly CoreProperty<float> SpeedProperty;

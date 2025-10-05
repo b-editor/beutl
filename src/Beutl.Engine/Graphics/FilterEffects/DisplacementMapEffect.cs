@@ -7,7 +7,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public class DisplacementMapEffect : FilterEffect
+public partial class DisplacementMapEffect : FilterEffect
 {
     public DisplacementMapEffect()
     {

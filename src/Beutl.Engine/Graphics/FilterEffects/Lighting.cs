@@ -5,7 +5,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Lighting : FilterEffect
+public sealed partial class Lighting : FilterEffect
 {
     public Lighting()
     {

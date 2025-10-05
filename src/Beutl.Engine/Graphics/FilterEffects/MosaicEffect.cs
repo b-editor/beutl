@@ -7,7 +7,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public class MosaicEffect : FilterEffect
+public partial class MosaicEffect : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<MosaicEffect>();
     private static readonly SKRuntimeEffect? s_runtimeEffect;

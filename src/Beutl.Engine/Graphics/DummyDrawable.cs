@@ -5,7 +5,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Graphics;
 
-public sealed class DummyDrawable : Drawable, IDummy
+public sealed partial class DummyDrawable : Drawable, IDummy
 {
     internal JsonObject? Json { get; set; }
 

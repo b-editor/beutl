@@ -12,7 +12,7 @@ using Cv = OpenCvSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public class FlatShadow : FilterEffect
+public partial class FlatShadow : FilterEffect
 {
     public static readonly CoreProperty<float> AngleProperty;
     public static readonly CoreProperty<float> LengthProperty;

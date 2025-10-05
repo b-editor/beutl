@@ -9,7 +9,7 @@ namespace Beutl.Media;
 /// <summary>
 /// A brush that draws with a linear gradient.
 /// </summary>
-public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
+public sealed partial class LinearGradientBrush : GradientBrush, ILinearGradientBrush
 {
     public static readonly CoreProperty<RelativePoint> StartPointProperty;
     public static readonly CoreProperty<RelativePoint> EndPointProperty;

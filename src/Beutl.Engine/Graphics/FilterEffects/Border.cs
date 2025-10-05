@@ -10,7 +10,7 @@ using OpenCvSharp;
 namespace Beutl.Graphics.Effects;
 
 [Obsolete("Use StrokeEffect instead.")]
-public class Border : FilterEffect
+public partial class Border : FilterEffect
 {
     public enum MaskTypes
     {

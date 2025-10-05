@@ -6,7 +6,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
-public abstract class Shape : Drawable
+public abstract partial class Shape : Drawable
 {
     public static readonly CoreProperty<float> WidthProperty;
     public static readonly CoreProperty<float> HeightProperty;

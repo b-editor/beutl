@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Invert : FilterEffect
+public sealed partial class Invert : FilterEffect
 {
     public Invert()
     {

@@ -4,7 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Threshold : FilterEffect
+public sealed partial class Threshold : FilterEffect
 {
     public Threshold()
     {

@@ -5,7 +5,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class DropShadow : FilterEffect
+public sealed partial class DropShadow : FilterEffect
 {
     public DropShadow()
     {

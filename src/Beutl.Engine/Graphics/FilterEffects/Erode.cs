@@ -4,7 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Erode : FilterEffect
+public sealed partial class Erode : FilterEffect
 {
     public Erode()
     {

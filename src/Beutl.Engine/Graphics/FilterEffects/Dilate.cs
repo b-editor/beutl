@@ -4,7 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Dilate : FilterEffect
+public sealed partial class Dilate : FilterEffect
 {
     public Dilate()
     {

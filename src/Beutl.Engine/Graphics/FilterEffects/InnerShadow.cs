@@ -5,7 +5,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
-public class InnerShadow : FilterEffect
+public partial class InnerShadow : FilterEffect
 {
     public InnerShadow()
     {

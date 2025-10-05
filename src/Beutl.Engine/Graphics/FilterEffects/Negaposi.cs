@@ -4,7 +4,7 @@ using Beutl.Engine;
 
 namespace Beutl.Graphics.Effects;
 
-public class Negaposi : FilterEffect
+public partial class Negaposi : FilterEffect
 {
     public Negaposi()
     {
