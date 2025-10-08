@@ -7,7 +7,7 @@ namespace Beutl.Graphics.Transformation;
 
 // IAffectsRender, IHierarchical cannot be implemented in ITransform,
 // so the contents of the AffectsRenders, HierarchicalList are implemented manually
-public sealed class Transforms : CoreList<ITransform>, IAffectsRender
+public sealed class Transforms : CoreList<Transform>, IAffectsRender
 {
     public Transforms()
     {

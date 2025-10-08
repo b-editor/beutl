@@ -1,60 +1,41 @@
-﻿namespace Beutl.Graphics.Transformation;
+﻿using Beutl.Engine;
+using Beutl.Graphics.Rendering;
+
+namespace Beutl.Graphics.Transformation;
 
 public sealed class TranslateTransform : Transform
 {
-    public static readonly CoreProperty<float> XProperty;
-    public static readonly CoreProperty<float> YProperty;
-    private float _y;
-    private float _x;
-
-    static TranslateTransform()
-    {
-        XProperty = ConfigureProperty<float, TranslateTransform>(nameof(X))
-            .Accessor(o => o.X, (o, v) => o.X = v)
-            .DefaultValue(0)
-            .Register();
-
-        YProperty = ConfigureProperty<float, TranslateTransform>(nameof(Y))
-            .Accessor(o => o.Y, (o, v) => o.Y = v)
-            .DefaultValue(0)
-            .Register();
-
-        AffectsRender<TranslateTransform>(XProperty, YProperty);
-    }
-
     public TranslateTransform()
     {
+        ScanProperties<TranslateTransform>();
     }
 
-    public TranslateTransform(float x, float y)
+    public TranslateTransform(float x, float y) : this()
     {
-        X = x;
-        Y = y;
+        X.CurrentValue = x;
+        Y.CurrentValue = y;
     }
 
-    public TranslateTransform(Vector vector)
+    public TranslateTransform(Vector vector) : this()
     {
-        X = vector.X;
-        Y = vector.Y;
+        X.CurrentValue = vector.X;
+        Y.CurrentValue = vector.Y;
     }
 
-    public TranslateTransform(Point point)
+    public TranslateTransform(Point point) : this()
     {
-        X = point.X;
-        Y = point.Y;
+        X.CurrentValue = point.X;
+        Y.CurrentValue = point.Y;
     }
 
-    public float X
+    public IProperty<float> X { get; } = Property.CreateAnimatable(0f);
+
+    public IProperty<float> Y { get; } = Property.CreateAnimatable(0f);
+
+    public override Matrix CreateMatrix(RenderContext context)
     {
-        get => _x;
-        set => SetAndRaise(XProperty, ref _x, value);
+        float x = context.Get(X);
+        float y = context.Get(Y);
+        return Matrix.CreateTranslation(x, y);
     }
-
-    public float Y
-    {
-        get => _y;
-        set => SetAndRaise(YProperty, ref _y, value);
-    }
-
-    public override Matrix Value => Matrix.CreateTranslation(X, Y);
 }

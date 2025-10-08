@@ -1,52 +1,32 @@
-﻿using Beutl.Utilities;
+﻿using Beutl.Engine;
+using Beutl.Graphics.Rendering;
+using Beutl.Utilities;
 
 namespace Beutl.Graphics.Transformation;
 
 public sealed class SkewTransform : Transform
 {
-    public static readonly CoreProperty<float> SkewXProperty;
-    public static readonly CoreProperty<float> SkewYProperty;
-    private float _skewY;
-    private float _skewX;
-
-    static SkewTransform()
+    public SkewTransform(float skewX, float skewY) : this()
     {
-        SkewXProperty = ConfigureProperty<float, SkewTransform>(nameof(SkewX))
-            .Accessor(o => o.SkewX, (o, v) => o.SkewX = v)
-            .DefaultValue(0)
-            .Register();
-
-        SkewYProperty = ConfigureProperty<float, SkewTransform>(nameof(SkewY))
-            .Accessor(o => o.SkewY, (o, v) => o.SkewY = v)
-            .DefaultValue(0)
-            .Register();
-
-        AffectsRender<SkewTransform>(SkewXProperty, SkewYProperty);
+        SkewX.CurrentValue = skewX;
+        SkewY.CurrentValue = skewY;
     }
 
     public SkewTransform()
     {
+        ScanProperties<SkewTransform>();
     }
 
-    public SkewTransform(float skewX, float skewY)
+    public IProperty<float> SkewX { get; } = Property.CreateAnimatable<float>();
+
+    public IProperty<float> SkewY { get; } = Property.CreateAnimatable<float>();
+
+    public override Matrix CreateMatrix(RenderContext context)
     {
-        SkewX = skewX;
-        SkewY = skewY;
+        float skewX = context.Get(SkewX);
+        float skewY = context.Get(SkewY);
+        return Matrix.CreateSkew(MathUtilities.ToRadians(skewX), MathUtilities.ToRadians(skewY));
     }
-
-    public float SkewX
-    {
-        get => _skewX;
-        set => SetAndRaise(SkewXProperty, ref _skewX, value);
-    }
-
-    public float SkewY
-    {
-        get => _skewY;
-        set => SetAndRaise(SkewYProperty, ref _skewY, value);
-    }
-
-    public override Matrix Value => Matrix.CreateSkew(MathUtilities.ToRadians(_skewX), MathUtilities.ToRadians(_skewY));
 
     public static SkewTransform FromRadians(float skewX, float skewY)
     {

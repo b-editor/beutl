@@ -1,38 +1,28 @@
-﻿using Beutl.Utilities;
+﻿using Beutl.Engine;
+using Beutl.Graphics.Rendering;
+using Beutl.Utilities;
 
 namespace Beutl.Graphics.Transformation;
 
 public sealed class RotationTransform : Transform
 {
-    public static readonly CoreProperty<float> RotationProperty;
-    private float _rotation;
-
-    static RotationTransform()
-    {
-        RotationProperty = ConfigureProperty<float, RotationTransform>(nameof(Rotation))
-            .Accessor(o => o.Rotation, (o, v) => o.Rotation = v)
-            .DefaultValue(0)
-            .Register();
-
-        AffectsRender<RotationTransform>(RotationProperty);
-    }
-
     public RotationTransform()
     {
+        ScanProperties<RotationTransform>();
     }
 
-    public RotationTransform(float rotation)
+    public RotationTransform(float rotation) : this()
     {
-        Rotation = rotation;
+        Rotation.CurrentValue = rotation;
     }
 
-    public float Rotation
+    public IProperty<float> Rotation { get; } = Property.CreateAnimatable<float>();
+
+    public override Matrix CreateMatrix(RenderContext context)
     {
-        get => _rotation;
-        set => SetAndRaise(RotationProperty, ref _rotation, value);
+        float rot = context.Get(Rotation);
+        return Matrix.CreateRotation(MathUtilities.ToRadians(rot));
     }
-
-    public override Matrix Value => Matrix.CreateRotation(MathUtilities.ToRadians(_rotation));
 
     public static RotationTransform FromRadians(float radians)
     {

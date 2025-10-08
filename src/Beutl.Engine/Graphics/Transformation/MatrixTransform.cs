@@ -1,35 +1,24 @@
-﻿namespace Beutl.Graphics.Transformation;
+﻿using Beutl.Engine;
+using Beutl.Graphics.Rendering;
+
+namespace Beutl.Graphics.Transformation;
 
 public sealed class MatrixTransform : Transform
 {
-    public static readonly CoreProperty<Matrix> MatrixProperty;
-    private Matrix _matrix;
-
-    static MatrixTransform()
-    {
-        MatrixProperty = ConfigureProperty<Matrix, MatrixTransform>(nameof(Matrix))
-            .Accessor(o => o.Matrix, (o, v) => o.Matrix = v)
-            .DefaultValue(Matrix.Identity)
-            .Register();
-
-        AffectsRender<MatrixTransform>(MatrixProperty);
-    }
-
     public MatrixTransform()
     {
-        _matrix = Matrix.Identity;
+        ScanProperties<MatrixTransform>();
     }
 
-    public MatrixTransform(Matrix matrix)
+    public MatrixTransform(Matrix matrix) : this()
     {
-        Matrix = matrix;
+        Matrix.CurrentValue = matrix;
     }
 
-    public Matrix Matrix
+    public IProperty<Matrix> Matrix { get; } = Property.CreateAnimatable(Graphics.Matrix.Identity);
+
+    public override Matrix CreateMatrix(RenderContext context)
     {
-        get => _matrix;
-        set => SetAndRaise(MatrixProperty, ref _matrix, value);
+        return context.Get(Matrix);
     }
-
-    public override Matrix Value => Matrix;
 }

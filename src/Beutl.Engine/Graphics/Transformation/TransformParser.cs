@@ -33,7 +33,7 @@ internal static class TransformParser
         ("%", Unit.Relative)
     ];
 
-    public static ITransform Parse(ReadOnlySpan<char> s)
+    public static Transform Parse(ReadOnlySpan<char> s)
     {
         static void ThrowInvalidFormat(ReadOnlySpan<char> s)
         {
@@ -49,7 +49,7 @@ internal static class TransformParser
 
         if (span.Equals("none".AsSpan(), StringComparison.OrdinalIgnoreCase))
         {
-            return Transform.Identity;
+            return new MatrixTransform(Matrix.Identity);
         }
 
         var builder = new Builder(0);
@@ -589,7 +589,7 @@ internal static class TransformParser
             return result;
         }
 
-        public ITransform BuildTransform()
+        public Transform BuildTransform()
         {
             Span<DataLayout> span = CollectionsMarshal.AsSpan(_data);
             if (span.Length == 1)
@@ -647,7 +647,7 @@ internal static class TransformParser
             };
         }
 
-        public readonly ITransform ToTransform()
+        public readonly Transform ToTransform()
         {
             return Type switch
             {
@@ -656,7 +656,7 @@ internal static class TransformParser
                 DataType.Scale => new ScaleTransform(Scale.X * 100f, Scale.Y * 100f),
                 DataType.Skew => new SkewTransform(MathUtilities.Rad2Deg(Skew.X), MathUtilities.Rad2Deg(Skew.Y)),
                 DataType.Matrix => new MatrixTransform(Matrix.Value),
-                DataType.Identity => Transform.Identity,
+                DataType.Identity => new MatrixTransform(Graphics.Matrix.Identity),
                 _ => throw new InvalidOperationException(),
             };
         }
