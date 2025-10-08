@@ -12,6 +12,9 @@
     <ProjectReference Include="..\Beutl.Threading\Beutl.Threading.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
   <ItemGroup>
