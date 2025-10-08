@@ -16,7 +16,7 @@ public class EngineObject : Hierarchical
 
     public virtual Resource ToResource(RenderContext context)
     {
-        var resource = new EngineObject.Resource<EngineObject>();
+        var resource = new EngineObject.Resource();
         bool updateOnly = true;
         resource.Update(this, context, ref updateOnly);
         return resource;
@@ -24,19 +24,13 @@ public class EngineObject : Hierarchical
 
     public class Resource
     {
-        int Version { get; }
-    }
-
-    public class Resource<T> : Resource
-        where T : EngineObject
-    {
-        private T _original = null!;
+        private EngineObject _original = null!;
 
         public int Version { get; protected set; }
 
-        public T GetOriginal() => _original;
+        public EngineObject GetOriginal() => _original;
 
-        public virtual void Update(T obj, RenderContext context, ref bool updateOnly)
+        public virtual void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
         {
             _original = obj;
         }
@@ -57,7 +51,7 @@ public class EngineObject : Hierarchical
             }
         }
 
-        protected void CompareAndUpdateList<TItem, TResource>(RenderContext context, IList<TItem> prop, ref List<TResource> field, ref bool updateOnly) where TItem : EngineObject where TResource : Resource<TItem>
+        protected void CompareAndUpdateList<TItem, TResource>(RenderContext context, IList<TItem> prop, ref List<TResource> field, ref bool updateOnly) where TItem : EngineObject where TResource : Resource
         {
             for (int i = 0; i < prop.Count; i++)
             {
@@ -67,7 +61,7 @@ public class EngineObject : Hierarchical
                     var item = field[i];
                     if (item.GetOriginal() != child)
                     {
-                        item = (TResource)(object)child.ToResource(context);
+                        item = (TResource)child.ToResource(context);
                         field[i] = item;
                         Version++;
                         updateOnly = true;
@@ -85,7 +79,7 @@ public class EngineObject : Hierarchical
                 }
                 else
                 {
-                    var item = (TResource)(object)child.ToResource(context);
+                    var item = (TResource)child.ToResource(context);
                     field.Add(item);
                     if (!updateOnly)
                     {
@@ -99,7 +93,7 @@ public class EngineObject : Hierarchical
                 field.RemoveAt(field.Count - 1);
             }
         }
-        protected void CompareAndUpdateObject<TObject, TResource>(RenderContext context, IProperty<TObject> prop, ref TResource field, ref bool updateOnly) where TObject : EngineObject where TResource : Resource<TObject>
+        protected void CompareAndUpdateObject<TObject, TResource>(RenderContext context, IProperty<TObject> prop, ref TResource field, ref bool updateOnly) where TObject : EngineObject where TResource : Resource
         {
             var value = context.Get(prop);
             if (value is null)
@@ -118,7 +112,7 @@ public class EngineObject : Hierarchical
             {
                 if (field is null)
                 {
-                    field = (TResource)(object)value.ToResource(context);
+                    field = (TResource)value.ToResource(context);
                     if (!updateOnly)
                     {
                         Version++;
@@ -129,7 +123,7 @@ public class EngineObject : Hierarchical
                 {
                     if (field.GetOriginal() != value)
                     {
-                        field = (TResource)(object)value.ToResource(context);
+                        field = (TResource)value.ToResource(context);
                         Version++;
                         updateOnly = true;
                     }

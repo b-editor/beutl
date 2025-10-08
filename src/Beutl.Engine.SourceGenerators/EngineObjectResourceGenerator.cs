@@ -263,15 +263,14 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
 
     private static void AppendToResourceMethod(StringBuilder sb, string indent, string currentTypeDisplay, ClassInfo info)
     {
-        string methodModifier = "public override";
         string renderContextType = "global::Beutl.Graphics.Rendering.RenderContext";
         string engineObjectType = "global::Beutl.Engine.EngineObject";
         string baseResourceType = $"{engineObjectType}.Resource";
 
-        sb.Append(indent).Append(methodModifier).Append($" {baseResourceType} ToResource(")
-            .Append(renderContextType).AppendLine(" context)");
+        sb.Append(indent)
+            .AppendLine($"public override {currentTypeDisplay}.Resource ToResource({renderContextType} context)");
         sb.Append(indent).AppendLine("{");
-        sb.Append(indent).Append("    var resource = new ").Append(currentTypeDisplay).AppendLine(".Resource();");
+        sb.Append(indent).AppendLine($"    var resource = new {currentTypeDisplay}.Resource();");
         sb.Append(indent).AppendLine("    bool updateOnly = true;");
         sb.Append(indent).AppendLine("    resource.Update(this, context, ref updateOnly);");
         sb.Append(indent).AppendLine($"    return resource;");
@@ -280,31 +279,20 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
 
     private static void AppendResourceClass(StringBuilder sb, string indent, string currentTypeDisplay, ClassInfo info)
     {
-        string resourceModifier = "public new";
-        string resourceGenericModifier = "public new";
         string renderContextType = "global::Beutl.Graphics.Rendering.RenderContext";
         string engineObjectType = "global::Beutl.Engine.EngineObject";
-        string propertyInterface = "global::Beutl.Engine.IProperty";
-        string editorBrowsableAttribute = "[global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]";
 
-        sb.Append(indent).Append(resourceModifier).Append(" class Resource : ")
-            .Append(currentTypeDisplay).Append(".Resource<").Append(currentTypeDisplay).AppendLine(">");
-        sb.Append(indent).AppendLine("{");
-        sb.Append(indent).AppendLine("}");
-        sb.AppendLine();
-
-        sb.Append(indent).Append(resourceGenericModifier).Append(" class Resource<T>");
+        sb.Append(indent).Append("public new class Resource");
         if (info.BaseResourceOwner is INamedTypeSymbol baseOwner)
         {
-            sb.Append(" : ").Append(baseOwner.ToDisplayString(s_typeDisplayFormat)).Append(".Resource<T>");
+            sb.Append($" : {baseOwner.ToDisplayString(s_typeDisplayFormat)}.Resource");
         }
         else
         {
-            sb.Append($" : {engineObjectType}.Resource<T>");
+            sb.Append($" : {engineObjectType}.Resource");
         }
 
         sb.AppendLine();
-        sb.Append(indent).Append("    where T : ").AppendLine(currentTypeDisplay);
         sb.Append(indent).AppendLine("{");
 
         string innerIndent = indent + "    ";
@@ -313,7 +301,7 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         {
             string fieldName = ToFieldName(property.Name);
             string valueTypeDisplay = property.ValueType.ToDisplayString(s_typeDisplayFormat);
-            sb.Append(innerIndent).Append("private ").Append(valueTypeDisplay).Append(' ').Append(fieldName).AppendLine(";");
+            sb.Append(innerIndent).AppendLine($"private {valueTypeDisplay} {fieldName};");
             sb.AppendLine();
         }
 
@@ -321,7 +309,7 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         {
             string fieldName = ToFieldName(property.Name);
             string resourceType = GetResourceTypeName(property.ValueType);
-            sb.Append(innerIndent).Append("private ").Append(resourceType).Append("? ").Append(fieldName).AppendLine(";");
+            sb.Append(innerIndent).AppendLine($"private {resourceType}? {fieldName};");
             sb.AppendLine();
         }
 
@@ -329,8 +317,8 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         {
             string fieldName = ToFieldName(property.Name);
             string resourceType = GetResourceTypeName(property.ElementType);
-            sb.Append(innerIndent).Append("private global::System.Collections.Generic.List<").Append(resourceType)
-                .Append("> ").Append(fieldName).AppendLine(" = [];");
+            sb.Append(innerIndent)
+                .AppendLine($"private global::System.Collections.Generic.List<{resourceType}> {fieldName} = [];");
             sb.AppendLine();
         }
 
@@ -338,8 +326,7 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         {
             string fieldName = ToFieldName(property.Name);
             string valueTypeDisplay = property.ValueType.ToDisplayString(s_typeDisplayFormat);
-            sb.Append(innerIndent).Append("public ").Append(valueTypeDisplay).Append(' ').Append(property.Name)
-                .Append(" => ").Append(fieldName).AppendLine(";");
+            sb.Append(innerIndent).AppendLine($"public {valueTypeDisplay} {property.Name} => {fieldName};");
             sb.AppendLine();
         }
 
@@ -347,8 +334,7 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         {
             string fieldName = ToFieldName(property.Name);
             string resourceType = GetResourceTypeName(property.ValueType);
-            sb.Append(innerIndent).Append("public ").Append(resourceType).Append("? ").Append(property.Name)
-                .Append(" => ").Append(fieldName).AppendLine(";");
+            sb.Append(innerIndent).AppendLine($"public {resourceType} {property.Name} => {fieldName};");
             sb.AppendLine();
         }
 
@@ -356,8 +342,7 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         {
             string fieldName = ToFieldName(property.Name);
             string resourceType = GetResourceTypeName(property.ElementType);
-            sb.Append(innerIndent).Append("public global::System.Collections.Generic.List<").Append(resourceType)
-                .Append("> ").Append(property.Name).Append(" => ").Append(fieldName).AppendLine(";");
+            sb.Append(innerIndent).AppendLine($"public global::System.Collections.Generic.List<{resourceType}> {property.Name} => {fieldName};");
             sb.AppendLine();
         }
 
@@ -367,12 +352,12 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
 
         if (hasAdditionalMembers)
         {
-            string methodModifier = "public override";
-            sb.Append(innerIndent).Append(methodModifier).Append(" void Update(T obj, ").Append(renderContextType)
-                .Append(" context, ref bool updateOnly)").AppendLine();
+            sb.Append(innerIndent)
+                .AppendLine(
+                    $"public override void Update({engineObjectType} obj, {renderContextType} context, ref bool updateOnly)");
             sb.Append(innerIndent).AppendLine("{");
 
-            sb.Append(innerIndent).Append("    base.Update(obj, context, ref updateOnly);").AppendLine();
+            sb.Append(innerIndent).AppendLine("    base.Update(obj, context, ref updateOnly);");
 
             bool wroteSection = false;
 
@@ -385,8 +370,9 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
                     foreach (ValuePropertyInfo property in info.ValueProperties)
                     {
                         string fieldName = ToFieldName(property.Name);
-                        sb.Append(innerIndent).Append("    CompareAndUpdate(context, obj.").Append(property.Name)
-                            .Append(", ref ").Append(fieldName).Append(", ref updateOnly);").AppendLine();
+                        sb.Append(innerIndent)
+                            .AppendLine(
+                                $"    CompareAndUpdate(context, (({currentTypeDisplay})obj).{property.Name}, ref {fieldName}, ref updateOnly);");
                     }
 
                     wroteSection = true;
@@ -408,8 +394,9 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
                         }
 
                         string fieldName = ToFieldName(property.Name);
-                        sb.Append(innerIndent).Append("    CompareAndUpdateList(context, obj.").Append(property.Name)
-                            .Append(", ref ").Append(fieldName).Append(", ref updateOnly);").AppendLine();
+                        sb.Append(innerIndent)
+                            .AppendLine(
+                                $"    CompareAndUpdateList(context, (({currentTypeDisplay})obj).{property.Name}, ref {fieldName}, ref updateOnly);");
                     }
 
                     wroteSection = true;
@@ -431,8 +418,9 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
                         }
 
                         string fieldName = ToFieldName(property.Name);
-                        sb.Append(innerIndent).Append("    CompareAndUpdateObject(context, obj.").Append(property.Name)
-                            .Append(", ref ").Append(fieldName).Append(", ref updateOnly);").AppendLine();
+                        sb.Append(innerIndent)
+                            .AppendLine(
+                                $"    CompareAndUpdateObject(context, (({currentTypeDisplay})obj).{property.Name}, ref {fieldName}, ref updateOnly);");
                     }
                 }
             }
