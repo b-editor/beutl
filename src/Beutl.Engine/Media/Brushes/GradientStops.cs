@@ -1,14 +1,17 @@
-﻿using Beutl.Media.Immutable;
+﻿using Beutl.Collections;
 
 namespace Beutl.Media;
 
 /// <summary>
 /// A collection of <see cref="GradientStop"/>s.
 /// </summary>
-public sealed class GradientStops : AffectsRenders<GradientStop>
+public sealed class GradientStops : HierarchicalList<GradientStop>
 {
-    public IReadOnlyList<ImmutableGradientStop> ToImmutable()
+    public GradientStops(IModifiableHierarchical parent) : base(parent)
     {
-        return this.Select(x => new ImmutableGradientStop(x.Offset, x.Color)).ToArray();
+    }
+
+    public GradientStops()
+    {
     }
 }

@@ -24,11 +24,6 @@ public sealed partial class DummyBrush : Brush, IDummy
         Json = (context as IJsonSerializationContext)?.GetJsonObject();
     }
 
-    public override IBrush ToImmutable()
-    {
-        return Brushes.Transparent;
-    }
-
     public bool TryGetTypeName([NotNullWhen(true)] out string? result)
     {
         result = null;

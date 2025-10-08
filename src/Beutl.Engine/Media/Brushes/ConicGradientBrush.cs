@@ -1,9 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
-using Beutl.Media.Immutable;
 
 namespace Beutl.Media;
 

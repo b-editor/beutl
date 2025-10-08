@@ -1,78 +1,37 @@
 ﻿using System.ComponentModel.DataAnnotations;
-
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Language;
-using Beutl.Media.Immutable;
 
 namespace Beutl.Media;
 
 /// <summary>
 /// Paints an area with a radial gradient.
 /// </summary>
-public sealed partial class RadialGradientBrush : GradientBrush, IRadialGradientBrush
+public sealed partial class RadialGradientBrush : GradientBrush
 {
-    public static readonly CoreProperty<RelativePoint> CenterProperty;
-    public static readonly CoreProperty<RelativePoint> GradientOriginProperty;
-    public static readonly CoreProperty<float> RadiusProperty;
-    private RelativePoint _center = RelativePoint.Center;
-    private RelativePoint _gradientOrigin = RelativePoint.Center;
-    private float _radius = 50;
-
-    static RadialGradientBrush()
+    public RadialGradientBrush()
     {
-        CenterProperty = ConfigureProperty<RelativePoint, RadialGradientBrush>(nameof(Center))
-            .Accessor(o => o.Center, (o, v) => o.Center = v)
-            .DefaultValue(RelativePoint.Center)
-            .Register();
-
-        GradientOriginProperty = ConfigureProperty<RelativePoint, RadialGradientBrush>(nameof(GradientOrigin))
-            .Accessor(o => o.GradientOrigin, (o, v) => o.GradientOrigin = v)
-            .DefaultValue(RelativePoint.Center)
-            .Register();
-
-        RadiusProperty = ConfigureProperty<float, RadialGradientBrush>(nameof(Radius))
-            .Accessor(o => o.Radius, (o, v) => o.Radius = v)
-            .DefaultValue(50)
-            .Register();
-
-        AffectsRender<RadialGradientBrush>(CenterProperty, GradientOriginProperty, RadiusProperty);
+        ScanProperties<RadialGradientBrush>();
     }
 
     /// <summary>
     /// Gets or sets the start point for the gradient.
     /// </summary>
     [Display(Name = nameof(Strings.Center), ResourceType = typeof(Strings))]
-    public RelativePoint Center
-    {
-        get => _center;
-        set => SetAndRaise(CenterProperty, ref _center, value);
-    }
+    public IProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     /// <summary>
     /// Gets or sets the location of the two-dimensional focal point that defines the beginning
     /// of the gradient.
     /// </summary>
     [Display(Name = nameof(Strings.GradientOrigin), ResourceType = typeof(Strings))]
-    public RelativePoint GradientOrigin
-    {
-        get => _gradientOrigin;
-        set => SetAndRaise(GradientOriginProperty, ref _gradientOrigin, value);
-    }
+    public IProperty<RelativePoint> GradientOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     /// <summary>
     /// Gets or sets the horizontal and vertical radius of the outermost circle of the radial
     /// gradient.
     /// </summary>
     [Display(Name = nameof(Strings.Radius), ResourceType = typeof(Strings))]
-    public float Radius
-    {
-        get => _radius;
-        set => SetAndRaise(RadiusProperty, ref _radius, value);
-    }
-
-    /// <inheritdoc/>
-    public override IBrush ToImmutable()
-    {
-        return new ImmutableRadialGradientBrush(this);
-    }
+    public IProperty<float> Radius { get; } = Property.CreateAnimatable(50f);
 }

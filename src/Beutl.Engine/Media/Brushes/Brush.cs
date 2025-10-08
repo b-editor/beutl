@@ -2,10 +2,8 @@
 
 using Beutl.Engine;
 using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
-using Beutl.Media.Immutable;
 
 namespace Beutl.Media;
 
