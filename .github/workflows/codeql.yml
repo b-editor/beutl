@@ -71,7 +71,7 @@ jobs:
       run: dotnet restore Beutl.slnx
 
     - name: Build
-      run: dotnet build Beutl.slnx --no-restore -f net9.0
+      run: dotnet build Beutl.slnx --no-restore -f net10.0
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
