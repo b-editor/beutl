@@ -60,7 +60,8 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         Compilation compilation = context.SemanticModel.Compilation;
         INamedTypeSymbol? engineObjectSymbol = compilation.GetTypeByMetadataName("Beutl.Engine.EngineObject");
         INamedTypeSymbol? iPropertySymbol = compilation.GetTypeByMetadataName("Beutl.Engine.IProperty`1");
-        if (engineObjectSymbol is null || iPropertySymbol is null)
+        INamedTypeSymbol? suppressAttribute = compilation.GetTypeByMetadataName("Beutl.Engine.SuppressResourceClassGenerationAttribute");
+        if (engineObjectSymbol is null || iPropertySymbol is null || suppressAttribute is null)
         {
             return null;
         }
@@ -71,6 +72,11 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         }
 
         if (!InheritsFrom(symbol, engineObjectSymbol))
+        {
+            return null;
+        }
+
+        if (HasSuppressResourceClassGenerationAttribute(symbol, suppressAttribute))
         {
             return null;
         }
@@ -118,12 +124,9 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
                 continue;
             }
 
-            if (IsListLike(namedType)
-                && namedType.TypeArguments.Length == 1
-                && namedType.TypeArguments[0] is INamedTypeSymbol elementType
-                && IsEngineObjectType(elementType, engineObjectSymbol))
+            if (TryGetListElementType(namedType, engineObjectSymbol, out INamedTypeSymbol? elementType))
             {
-                listProperties.Add(new ListPropertyInfo(propertySymbol.Name, elementType));
+                listProperties.Add(new ListPropertyInfo(propertySymbol.Name, elementType!));
             }
         }
 
@@ -181,6 +184,69 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         foreach (INamedTypeSymbol interfaceType in type.AllInterfaces)
         {
             if (interfaceType.Name.EndsWith("List", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryGetListElementType(INamedTypeSymbol type, INamedTypeSymbol engineObjectSymbol, out INamedTypeSymbol? elementType)
+    {
+        elementType = null;
+
+        // Check if the type directly has a generic argument
+        if (IsListLike(type) && type.TypeArguments.Length == 1 && type.TypeArguments[0] is INamedTypeSymbol directElementType)
+        {
+            if (IsEngineObjectType(directElementType, engineObjectSymbol))
+            {
+                elementType = directElementType;
+                return true;
+            }
+        }
+
+        // Search in base classes
+        for (INamedTypeSymbol? current = type.BaseType; current is not null; current = current.BaseType)
+        {
+            if (IsListLike(current) && current.TypeArguments.Length == 1 && current.TypeArguments[0] is INamedTypeSymbol baseElementType)
+            {
+                if (IsEngineObjectType(baseElementType, engineObjectSymbol))
+                {
+                    elementType = baseElementType;
+                    return true;
+                }
+            }
+        }
+
+        // Search in interfaces
+        foreach (INamedTypeSymbol interfaceType in type.AllInterfaces)
+        {
+            if (IsListLike(interfaceType) && interfaceType.TypeArguments.Length == 1 && interfaceType.TypeArguments[0] is INamedTypeSymbol interfaceElementType)
+            {
+                if (IsEngineObjectType(interfaceElementType, engineObjectSymbol))
+                {
+                    elementType = interfaceElementType;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasSuppressResourceClassGenerationAttribute(INamedTypeSymbol symbol, INamedTypeSymbol suppressAttribute)
+    {
+        // Check current class
+        if (symbol.GetAttributes().Any(attr => SymbolEqualityComparer.Default.Equals(attr.AttributeClass, suppressAttribute)))
+        {
+            return true;
+        }
+
+        // Check base classes
+        for (INamedTypeSymbol? current = symbol.BaseType; current is not null; current = current.BaseType)
+        {
+            if (current.GetAttributes().Any(attr => SymbolEqualityComparer.Default.Equals(attr.AttributeClass, suppressAttribute)))
             {
                 return true;
             }
@@ -345,6 +411,11 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
             sb.Append(innerIndent).AppendLine($"public global::System.Collections.Generic.List<{resourceType}> {property.Name} => {fieldName};");
             sb.AppendLine();
         }
+
+        sb.Append(innerIndent).AppendLine($"public new {currentTypeDisplay} GetOriginal()");
+        sb.Append(innerIndent).AppendLine("{");
+        sb.Append(innerIndent).AppendLine($"    return ({currentTypeDisplay})base.GetOriginal();");
+        sb.Append(innerIndent).AppendLine("}");
 
         bool hasAdditionalMembers = info.ValueProperties.Length > 0
             || info.ObjectProperties.Length > 0
@@ -547,7 +618,7 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
 
     private static string GetResourceTypeName(INamedTypeSymbol symbol)
     {
-        return symbol.ToDisplayString(s_typeDisplayFormat) + ".Resource";
+        return symbol.ToDisplayString(s_typeDisplayFormat).Replace("?", "") + ".Resource";
     }
 
     private static string GetHintName(INamedTypeSymbol symbol)
