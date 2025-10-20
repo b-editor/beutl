@@ -2,6 +2,7 @@
 
 using Beutl.Animation;
 using Beutl.Collections.Pooled;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -45,7 +46,7 @@ public class ElementNodeTreeModel : NodeTreeModel
         obj.Invalidated -= OnNodeInvalidated;
     }
 
-    public PooledList<Renderable> Evaluate(EvaluationTarget target, IRenderer renderer, Element element)
+    public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer, Element element)
     {
         _ = target;
         Build(renderer, element.Clock);
@@ -130,7 +131,7 @@ public class ElementNodeTreeModel : NodeTreeModel
     {
         if (stack.FirstOrDefault(x => x.Node == node) is { } context)
         {
-            // 
+            //
             stack.Remove(context);
             stack.Add(context);
         }

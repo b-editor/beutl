@@ -50,7 +50,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<IAudioEffe
 
                     if (v is AudioEffectGroup group)
                     {
-                        var prop = new CorePropertyAdapter<AudioEffects>(AudioEffectGroup.ChildrenProperty, group);
+                        var prop = new EnginePropertyAdapter<AudioEffects>(AudioEffectGroup.ChildrenProperty, group);
                         Group.Value = new ListEditorViewModel<IAudioEffect>(prop)
                         {
                             IsExpanded = { Value = true }

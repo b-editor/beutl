@@ -31,7 +31,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 
                     if (v is PathFigure group)
                     {
-                        var prop = new CorePropertyAdapter<PathSegments>(PathFigure.SegmentsProperty, group);
+                        var prop = new EnginePropertyAdapter<PathSegments>(PathFigure.SegmentsProperty, group);
                         Group.Value = new ListEditorViewModel<PathSegment>(prop)
                         {
                             IsExpanded = { Value = true }

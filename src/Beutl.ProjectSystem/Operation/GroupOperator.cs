@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Engine;
+using Beutl.Extensibility;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -7,14 +9,17 @@ using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
-public sealed class GroupOperator() : PublishOperator<DrawableGroup>([
-    (Drawable.TransformProperty, () => new TransformGroup()),
-    (Drawable.TransformOriginProperty, RelativePoint.Center),
-    (Drawable.FilterEffectProperty, () => new FilterEffectGroup()),
-    (Drawable.BlendModeProperty, BlendMode.SrcOver)
-])
+public sealed class GroupOperator : PublishOperator<DrawableGroup>
 {
     private Element? _element;
+
+    protected override void FillProperties()
+    {
+        AddProperty(Value.Transform, new TransformGroup());
+        AddProperty(Value.TransformOrigin, RelativePoint.Center);
+        AddProperty(Value.FilterEffect, new FilterEffectGroup());
+        AddProperty(Value.BlendMode, BlendMode.SrcOver);
+    }
 
     public override void Evaluate(OperatorEvaluationContext context)
     {
@@ -27,10 +32,10 @@ public sealed class GroupOperator() : PublishOperator<DrawableGroup>([
         context.AddFlowRenderable(value);
 
         if (_element == null) return;
+        // TODO: IsTimeAnchor
         Value.ZIndex = _element.ZIndex;
         Value.TimeRange = new TimeRange(_element.Start, _element.Length);
-        Value.ApplyAnimations(_element.Clock);
-        Value.IsVisible = _element.IsEnabled;
+        Value.IsEnabled = _element.IsEnabled;
     }
 
     public override void Enter()

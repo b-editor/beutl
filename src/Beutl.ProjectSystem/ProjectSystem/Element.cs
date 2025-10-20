@@ -2,10 +2,11 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
 using Beutl.Collections.Pooled;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.NodeTree;
+// using Beutl.NodeTree;
 using Beutl.Operation;
 using Beutl.Serialization;
 
@@ -19,9 +20,8 @@ public class Element : ProjectItem, IAffectsRender
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<SourceOperation> OperationProperty;
-    public static readonly CoreProperty<ElementNodeTreeModel> NodeTreeProperty;
+    // public static readonly CoreProperty<ElementNodeTreeModel> NodeTreeProperty;
     public static readonly CoreProperty<bool> UseNodeProperty;
-    private readonly InstanceClock _instanceClock = new();
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -55,9 +55,9 @@ public class Element : ProjectItem, IAffectsRender
             .Accessor(o => o.Operation, null)
             .Register();
 
-        NodeTreeProperty = ConfigureProperty<ElementNodeTreeModel, Element>(nameof(NodeTree))
-            .Accessor(o => o.NodeTree, null)
-            .Register();
+        // NodeTreeProperty = ConfigureProperty<ElementNodeTreeModel, Element>(nameof(NodeTree))
+            // .Accessor(o => o.NodeTree, null)
+            // .Register();
 
         UseNodeProperty = ConfigureProperty<bool, Element>(nameof(UseNode))
             .Accessor(o => o.UseNode, (o, v) => o.UseNode = v)
@@ -70,11 +70,11 @@ public class Element : ProjectItem, IAffectsRender
         Operation = new SourceOperation();
         Operation.Invalidated += (_, e) => Invalidated?.Invoke(this, e);
 
-        NodeTree = new ElementNodeTreeModel();
-        NodeTree.Invalidated += (_, e) => Invalidated?.Invoke(this, e);
+        // NodeTree = new ElementNodeTreeModel();
+        // NodeTree.Invalidated += (_, e) => Invalidated?.Invoke(this, e);
 
         HierarchicalChildren.Add(Operation);
-        HierarchicalChildren.Add(NodeTree);
+        // HierarchicalChildren.Add(NodeTree);
     }
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
@@ -116,15 +116,13 @@ public class Element : ProjectItem, IAffectsRender
 
     public SourceOperation Operation { get; }
 
-    public ElementNodeTreeModel NodeTree { get; }
+    // public ElementNodeTreeModel NodeTree { get; }
 
     public bool UseNode
     {
         get => _useNode;
         set => SetAndRaise(UseNodeProperty, ref _useNode, value);
     }
-
-    public IClock Clock => _instanceClock;
 
     protected override void SaveCore(string filename)
     {
@@ -140,33 +138,25 @@ public class Element : ProjectItem, IAffectsRender
     {
         base.Serialize(context);
         context.SetValue(nameof(Operation), Operation);
-        context.SetValue(nameof(NodeTree), NodeTree);
+        // context.SetValue(nameof(NodeTree), NodeTree);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
         context.Populate(nameof(Operation), Operation);
-        context.Populate(nameof(NodeTree), NodeTree);
+        // context.Populate(nameof(NodeTree), NodeTree);
     }
 
-    public PooledList<Renderable> Evaluate(EvaluationTarget target, IClock clock, IRenderer renderer)
+    public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer)
     {
         lock (this)
         {
-            _instanceClock.GlobalClock = clock;
-            _instanceClock.BeginTime = Start;
-            _instanceClock.DurationTime = Length;
-            _instanceClock.CurrentTime = clock.CurrentTime - Start;
-#pragma warning disable CS0618 // 型またはメンバーが旧型式です
-            _instanceClock.AudioStartTime = clock.AudioStartTime - Start;
-            _instanceClock.AudioDurationTime = clock.AudioDurationTime;
-#pragma warning restore CS0618 // 型またはメンバーが旧型式です
-            if (UseNode)
-            {
-                return NodeTree.Evaluate(target, renderer, this);
-            }
-            else
+            // if (UseNode)
+            // {
+                // return NodeTree.Evaluate(target, renderer, this);
+            // }
+            // else
             {
                 return Operation.Evaluate(target, renderer, this);
             }

@@ -57,7 +57,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
                         if (v is FilterEffectGroup group)
                         {
-                            var prop = new CorePropertyAdapter<FilterEffects>(FilterEffectGroup.ChildrenProperty, group);
+                            var prop = new EnginePropertyAdapter<FilterEffects>(FilterEffectGroup.ChildrenProperty, group);
                             Group.Value = new ListEditorViewModel<FilterEffect>(prop) { IsExpanded = { Value = true } };
                         }
                         else if (v is FilterEffect filter)

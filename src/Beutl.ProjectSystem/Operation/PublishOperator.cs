@@ -1,43 +1,16 @@
 ﻿using System.ComponentModel;
-using System.Diagnostics;
-using System.Text.Json.Nodes;
-using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
-public record struct PropertyWithDefaultValue(CoreProperty Property, Func<Optional<object?>> Factory)
-{
-    public static implicit operator PropertyWithDefaultValue(
-        (CoreProperty Property, Optional<object?> DefaultValue) tuple)
-    {
-        return new PropertyWithDefaultValue(tuple.Property, () => tuple.DefaultValue);
-    }
-
-    public static implicit operator PropertyWithDefaultValue(
-        (CoreProperty Property, Func<Optional<object?>> Factory) tuple)
-    {
-        return new PropertyWithDefaultValue(tuple.Property, tuple.Factory);
-    }
-
-    public static implicit operator PropertyWithDefaultValue(CoreProperty property)
-    {
-        return (property, () => Optional<object?>.Empty);
-    }
-}
-
 public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
-    where T : Renderable, new()
+    where T : EngineObject, new()
 {
     public static readonly CoreProperty<T> ValueProperty;
-    private T _value = null!;
-    private readonly PropertyWithDefaultValue[] _properties;
-    private bool _deserializing;
     private Element? _element;
 
     private readonly EvaluationTarget _evaluationTarget =
@@ -53,19 +26,18 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
         Hierarchy<PublishOperator<T>>(ValueProperty);
     }
 
-    protected PublishOperator(PropertyWithDefaultValue[] properties)
+    protected PublishOperator()
     {
-        _properties = properties;
         Value = new T();
     }
 
     public T Value
     {
-        get => _value;
-        set => SetAndRaise(ValueProperty, ref _value, value);
+        get;
+        set => SetAndRaise(ValueProperty, ref field, value);
     }
 
-    Renderable IPublishOperator.Value => Value;
+    EngineObject IPublishOperator.Value => Value;
 
     public override EvaluationTarget GetEvaluationTarget() => _evaluationTarget;
 
@@ -74,51 +46,35 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
         context.AddFlowRenderable(Value);
         if (_element == null) return;
 
+        // TODO: IsTimeAnchorをtrueにする
         Value.ZIndex = _element.ZIndex;
         Value.TimeRange = new TimeRange(_element.Start, _element.Length);
-        Value.ApplyAnimations(_element.Clock);
-        Value.IsVisible = _element.IsEnabled;
+        Value.IsEnabled = _element.IsEnabled;
     }
 
-    public override void Deserialize(ICoreSerializationContext context)
+    protected void AddProperty<TProperty>(IProperty<TProperty> property, Optional<TProperty> defaultValue = default)
     {
-        _deserializing = true;
-        try
+        if (defaultValue.HasValue)
         {
-            base.Deserialize(context);
-            Debug.Assert(Value != null);
-            // ReSharper disable once NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract
-            Value ??= new T();
-            // 互換性処理
-            if (!context.Contains(nameof(Value)))
-            {
-                foreach (var prop in _properties)
-                {
-                    string name = prop.Property.Name;
-                    if (!context.Contains(name)) continue;
-
-                    JsonNode? propNode = context.GetValue<JsonNode?>(name);
-                    (CoreProperty? _, Optional<object?> value, IAnimation? animation) =
-                        PropertyEntrySerializer.ToTuple(propNode, name, typeof(T), context);
-
-                    if (value.HasValue)
-                    {
-                        Value.SetValue(prop.Property, value.Value);
-                    }
-
-                    if (animation == null) continue;
-
-                    var oldAnm = Value.Animations.FirstOrDefault(i => i.Property.Id == prop.Property.Id);
-                    if (oldAnm == null) continue;
-
-                    Value.Animations.Remove(oldAnm);
-                    Value.Animations.Add(animation);
-                }
-            }
+            property.CurrentValue = defaultValue.Value;
         }
-        finally
+
+        var adapter = property.IsAnimatable
+            ? (IPropertyAdapter)new AnimatablePropertyAdapter<TProperty>((AnimatableProperty<TProperty>)property, Value)
+            : new EnginePropertyAdapter<TProperty>(property, Value);
+        Properties.Add(adapter);
+    }
+
+    protected virtual void FillProperties()
+    {
+        foreach (var property in Value.Properties)
         {
-            _deserializing = false;
+            var adapterType = property.IsAnimatable
+                ? typeof(AnimatablePropertyAdapter<>).MakeGenericType(property.ValueType)
+                : typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType);
+
+            var adapter = (IPropertyAdapter)Activator.CreateInstance(adapterType, property, Value)!;
+            Properties.Add(adapter);
         }
     }
 
@@ -140,51 +96,7 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
             }
 
             Properties.Clear();
-            if (e.NewValue == null)
-            {
-                return;
-            }
-
-            foreach (var property in _properties)
-            {
-                var propertyType = property.Property.PropertyType;
-                var adapterType = typeof(AnimatablePropertyAdapter<>).MakeGenericType(propertyType);
-                var adapter = (IPropertyAdapter)Activator.CreateInstance(adapterType, property.Property, Value)!;
-                Properties.Add(adapter);
-                if (!_deserializing)
-                {
-                    var obj = property.Factory();
-                    if (obj.HasValue)
-                    {
-                        object? value = obj.Value;
-                        if (!propertyType.IsValueType && value == null)
-                        {
-                            Value.SetValue(property.Property, null);
-                        }
-                        else
-                        {
-                            if (value == null)
-                            {
-                                value = property.Property.GetMetadata<T, CorePropertyMetadata>().GetDefaultValue();
-                            }
-                            else if (!propertyType.IsInstanceOfType(value))
-                            {
-                                try
-                                {
-                                    value = TypeDescriptor.GetConverter(propertyType).ConvertFrom(value);
-                                }
-                                catch
-                                {
-                                    value = TypeDescriptor.GetConverter(value!.GetType())
-                                        .ConvertTo(value, propertyType);
-                                }
-                            }
-
-                            Value.SetValue(property.Property, value);
-                        }
-                    }
-                }
-            }
+            FillProperties();
         }
     }
 

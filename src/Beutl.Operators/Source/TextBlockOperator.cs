@@ -1,5 +1,4 @@
-﻿using Beutl.Graphics;
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -7,22 +6,25 @@ using Beutl.Operation;
 
 namespace Beutl.Operators.Source;
 
-public sealed class TextBlockOperator() : PublishOperator<TextBlock>(
-[
-    (TextBlock.SizeProperty, 24f),
-    (TextBlock.FontFamilyProperty, Media.FontFamily.Default),
-    (TextBlock.FontStyleProperty, Media.FontStyle.Normal),
-    (TextBlock.FontWeightProperty, Media.FontWeight.Regular),
-    (TextBlock.SpacingProperty, 0f),
-    (TextBlock.SplitByCharactersProperty),
-    (TextBlock.TextProperty, string.Empty),
-    (Drawable.TransformProperty, () => new TransformGroup()),
-    Drawable.AlignmentXProperty,
-    Drawable.AlignmentYProperty,
-    Drawable.TransformOriginProperty,
-    TextBlock.PenProperty,
-    (Drawable.FillProperty, () => new SolidColorBrush(Colors.White)),
-    (Drawable.FilterEffectProperty, () => new FilterEffectGroup()),
-    Drawable.BlendModeProperty,
-    Drawable.OpacityProperty
-]);
+public sealed class TextBlockOperator : PublishOperator<TextBlock>
+{
+    protected override void FillProperties()
+    {
+        AddProperty(Value.Size, 24f);
+        AddProperty(Value.FontFamily, Media.FontFamily.Default);
+        AddProperty(Value.FontStyle, Media.FontStyle.Normal);
+        AddProperty(Value.FontWeight, Media.FontWeight.Regular);
+        AddProperty(Value.Spacing, 0f);
+        AddProperty(Value.SplitByCharacters);
+        AddProperty(Value.Text, string.Empty);
+        AddProperty(Value.Transform, new TransformGroup());
+        AddProperty(Value.AlignmentX);
+        AddProperty(Value.AlignmentY);
+        AddProperty(Value.TransformOrigin);
+        AddProperty(Value.Pen);
+        AddProperty(Value.Fill, new SolidColorBrush(Colors.White));
+        AddProperty(Value.FilterEffect, new FilterEffectGroup());
+        AddProperty(Value.BlendMode);
+        AddProperty(Value.Opacity);
+    }
+}

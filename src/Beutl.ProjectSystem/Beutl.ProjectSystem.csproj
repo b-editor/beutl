@@ -10,4 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="NodeTree\**\*.cs" />
+  </ItemGroup>
 </Project>

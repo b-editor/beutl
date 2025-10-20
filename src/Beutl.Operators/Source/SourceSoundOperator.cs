@@ -4,25 +4,27 @@ using Beutl.Operation;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceSoundOperator() : PublishOperator<SourceSound>(
-[
-    SourceSound.SourceProperty,
-    (SourceSound.OffsetPositionProperty, TimeSpan.Zero),
-    (Sound.GainProperty, 100f),
-    (Sound.SpeedProperty, 100f),
-    (Sound.EffectProperty, () => new AudioEffectGroup())
-])
+public sealed class SourceSoundOperator : PublishOperator<SourceSound>
 {
     public override bool HasOriginalLength()
     {
-        return Value?.Source?.IsDisposed == false;
+        return Value?.Source.CurrentValue?.IsDisposed == false;
+    }
+
+    protected override void FillProperties()
+    {
+        AddProperty(Value.Source);
+        AddProperty(Value.OffsetPosition, TimeSpan.Zero);
+        AddProperty(Value.Gain, 100f);
+        AddProperty(Value.Speed, 100f);
+        AddProperty(Value.Effect, new AudioEffectGroup());
     }
 
     public override bool TryGetOriginalLength(out TimeSpan timeSpan)
     {
-        if (Value?.Source?.IsDisposed == false)
+        if (Value?.Source.CurrentValue?.IsDisposed == false)
         {
-            timeSpan = Value.Source.Duration;
+            timeSpan = Value.Source.CurrentValue.Duration;
             return true;
         }
         else
@@ -39,12 +41,12 @@ public sealed class SourceSoundOperator() : PublishOperator<SourceSound>(
         if (backward)
         {
             IStorable? storable = this.FindHierarchicalParent<IStorable>();
-            TimeSpan newValue = Value.OffsetPosition + startDelta;
-            TimeSpan oldValue = Value.OffsetPosition;
+            TimeSpan newValue = Value.OffsetPosition.CurrentValue + startDelta;
+            TimeSpan oldValue = Value.OffsetPosition.CurrentValue;
 
             return RecordableCommands.Create([storable])
-                .OnDo(() => Value.OffsetPosition = newValue)
-                .OnUndo(() => Value.OffsetPosition = oldValue)
+                .OnDo(() => Value.OffsetPosition.CurrentValue = newValue)
+                .OnUndo(() => Value.OffsetPosition.CurrentValue = oldValue)
                 .ToCommand();
         }
         else

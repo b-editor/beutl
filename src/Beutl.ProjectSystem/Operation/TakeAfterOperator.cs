@@ -1,5 +1,5 @@
 ﻿using Beutl.Collections.Pooled;
-using Beutl.Graphics.Rendering;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Operation;
@@ -41,8 +41,7 @@ public sealed class TakeAfterOperator : SourceOperator
         if (_element != null
             && context.Renderer is SceneRenderer renderer)
         {
-            // 野暮ったい、
-            using var flow = new PooledList<Renderable>();
+            using var flow = new PooledList<EngineObject>();
 
             int start = _element.ZIndex + 1;
             int end = _element.ZIndex + _count;
@@ -57,7 +56,7 @@ public sealed class TakeAfterOperator : SourceOperator
                     elements.RemoveAt(i);
                     i--;
 
-                    using (PooledList<Renderable> result = item.Evaluate(context.Target, context.Clock.GlobalClock, context.Renderer))
+                    using (PooledList<EngineObject> result = item.Evaluate(context.Target, context.Renderer))
                     {
                         flow.AddRange(result.Span);
                     }
@@ -68,7 +67,7 @@ public sealed class TakeAfterOperator : SourceOperator
                 }
             }
 
-            foreach (Renderable item in flow.Span)
+            foreach (EngineObject item in flow.Span)
             {
                 context.AddFlowRenderable(item);
             }

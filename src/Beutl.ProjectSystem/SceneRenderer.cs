@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using Beutl.Collections.Pooled;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -36,14 +37,14 @@ public sealed class SceneRenderer(Scene scene) : Renderer(scene.FrameSize.Width,
         for (int i = 0; i < CurrentElements.Count; i++)
         {
             Element element = CurrentElements[i];
-            using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Graphics, Clock, this))
+            using (PooledList<EngineObject> list = element.Evaluate(EvaluationTarget.Graphics, this))
             {
-                foreach (Renderable item in list.Span)
+                foreach (EngineObject item in list.Span)
                 {
                     if (item is Drawable drawable)
                     {
                         int actualIndex = (drawable as DrawableDecorator)?.OriginalZIndex ?? item.ZIndex;
-                        RenderScene[actualIndex].Add(drawable);
+                        RenderScene[actualIndex].Add(drawable, Clock);
                     }
                 }
             }

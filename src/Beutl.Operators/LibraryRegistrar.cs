@@ -5,7 +5,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.NodeTree.Nodes.Transform;
+// using Beutl.NodeTree.Nodes.Transform;
 using Beutl.Operation;
 using Beutl.Services;
 
@@ -19,7 +19,7 @@ public static class LibraryRegistrar
             .AddMultiple(Strings.Ellipse, m => m
                 .BindSourceOperator<Source.EllipseOperator>()
                 .BindDrawable<Graphics.Shapes.EllipseShape>()
-                .BindNode<NodeTree.Nodes.Geometry.EllipseGeometryNode>()
+                // .BindNode<NodeTree.Nodes.Geometry.EllipseGeometryNode>()
                 .BindGeometry<EllipseGeometry>()
             );
 
@@ -27,7 +27,7 @@ public static class LibraryRegistrar
             .AddMultiple(Strings.Rectangle, m => m
                 .BindSourceOperator<Source.RectOperator>()
                 .BindDrawable<Graphics.Shapes.RectShape>()
-                .BindNode<NodeTree.Nodes.Geometry.RectGeometryNode>()
+                // .BindNode<NodeTree.Nodes.Geometry.RectGeometryNode>()
                 .BindGeometry<RectGeometry>()
             );
 
@@ -35,7 +35,7 @@ public static class LibraryRegistrar
             .AddMultiple(Strings.RoundedRect, m => m
                 .BindSourceOperator<Source.RoundedRectOperator>()
                 .BindDrawable<Graphics.Shapes.RoundedRectShape>()
-                .BindNode<NodeTree.Nodes.Geometry.RoundedRectGeometryNode>()
+                // .BindNode<NodeTree.Nodes.Geometry.RoundedRectGeometryNode>()
                 .BindGeometry<RoundedRectGeometry>()
             );
 
@@ -94,23 +94,23 @@ public static class LibraryRegistrar
             .RegisterGroup(Strings.Transform, g => g
                 .AddMultiple(Strings.Translate, m => m
                     .BindTransform<TranslateTransform>()
-                    .BindNode<TranslateTransformNode>()
+                    // .BindNode<TranslateTransformNode>()
                 )
                 .AddMultiple(Strings.Skew, m => m
                     .BindTransform<SkewTransform>()
-                    .BindNode<SkewTransformNode>()
+                    // .BindNode<SkewTransformNode>()
                 )
                 .AddMultiple(Strings.Scale, m => m
                     .BindTransform<ScaleTransform>()
-                    .BindNode<ScaleTransformNode>()
+                    // .BindNode<ScaleTransformNode>()
                 )
                 .AddMultiple(Strings.Rotation, m => m
                     .BindTransform<RotationTransform>()
-                    .BindNode<RotationTransformNode>()
+                    // .BindNode<RotationTransformNode>()
                 )
                 .AddMultiple(Strings.Rotation3D, m => m
                     .BindTransform<Rotation3DTransform>()
-                    .BindNode<Rotation3DTransformNode>()
+                    // .BindNode<Rotation3DTransformNode>()
                 )
             );
 

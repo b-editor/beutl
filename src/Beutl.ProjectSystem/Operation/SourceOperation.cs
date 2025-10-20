@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Collections.Pooled;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -64,10 +65,10 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
         }
     }
 
-    public PooledList<Renderable> Evaluate(EvaluationTarget target, IRenderer renderer, Element element)
+    public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer, Element element)
     {
-        Initialize(renderer, element.Clock);
-        var flow = new PooledList<Renderable>();
+        Initialize(renderer);
+        var flow = new PooledList<EngineObject>();
 
         try
         {
@@ -129,7 +130,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
         }
     }
 
-    private void Initialize(IRenderer renderer, IClock clock)
+    private void Initialize(IRenderer renderer)
     {
         if (_lastRenderer != renderer)
         {
@@ -147,7 +148,6 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
             {
                 contexts[index++] = new OperatorEvaluationContext(item)
                 {
-                    Clock = clock,
                     Renderer = renderer,
                     List = _contexts
                 };

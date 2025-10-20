@@ -79,7 +79,7 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable
     private void InitializeCoreObject(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
     {
         Type objType = obj.GetType();
-        Type adapterType = typeof(CorePropertyAdapter<>);
+        Type adapterType = typeof(EnginePropertyAdapter<>);
         Type animatableAdapterType = typeof(AnimatablePropertyAdapter<>);
         bool isAnimatable = obj is IAnimatable;
 

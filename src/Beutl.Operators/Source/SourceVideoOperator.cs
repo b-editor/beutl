@@ -6,30 +6,30 @@ using Beutl.Operation;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceVideoOperator() : PublishOperator<SourceVideo>(
-[
-    (SourceVideo.OffsetPositionProperty, TimeSpan.Zero),
-    (SourceVideo.SpeedProperty, 100f),
-    SourceVideo.SourceProperty,
-    (SourceVideo.IsLoopProperty, false),
-    (Drawable.TransformProperty, () => new TransformGroup()),
-    Drawable.AlignmentXProperty,
-    Drawable.AlignmentYProperty,
-    Drawable.TransformOriginProperty,
-    (Drawable.FilterEffectProperty, () => new FilterEffectGroup()),
-    Drawable.BlendModeProperty,
-    Drawable.OpacityProperty
-])
+public sealed class SourceVideoOperator : PublishOperator<SourceVideo>
 {
     private string? _sourceName;
+
+    protected override void FillProperties()
+    {
+        AddProperty(Value.OffsetPosition, TimeSpan.Zero);
+        AddProperty(Value.Source);
+        AddProperty(Value.Transform, new TransformGroup());
+        AddProperty(Value.AlignmentX);
+        AddProperty(Value.AlignmentY);
+        AddProperty(Value.TransformOrigin);
+        AddProperty(Value.FilterEffect, new FilterEffectGroup());
+        AddProperty(Value.BlendMode);
+        AddProperty(Value.Opacity);
+    }
 
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        if (Value is not { Source: { Name: { } name } source } value) return;
+        if (Value is not { Source.CurrentValue: { Name: { } name } source } value) return;
 
         _sourceName = name;
-        value.Source = null;
+        value.Source.CurrentValue = null;
         source.Dispose();
     }
 
@@ -41,13 +41,13 @@ public sealed class SourceVideoOperator() : PublishOperator<SourceVideo>(
 
         if (VideoSource.TryOpen(_sourceName, out VideoSource? source))
         {
-            value.Source = source;
+            value.Source.CurrentValue = source;
         }
     }
 
     public override bool HasOriginalLength()
     {
-        return Value?.Source?.IsDisposed == false;
+        return Value?.Source.CurrentValue?.IsDisposed == false;
     }
 
     public override bool TryGetOriginalLength(out TimeSpan timeSpan)
@@ -55,7 +55,7 @@ public sealed class SourceVideoOperator() : PublishOperator<SourceVideo>(
         var ts = Value.CalculateOriginalTime();
         if (ts.HasValue)
         {
-            timeSpan = ts.Value - Value.OffsetPosition;
+            timeSpan = ts.Value - Value.OffsetPosition.CurrentValue;
             return true;
         }
         else
@@ -72,12 +72,12 @@ public sealed class SourceVideoOperator() : PublishOperator<SourceVideo>(
         if (backward)
         {
             IStorable? storable = this.FindHierarchicalParent<IStorable>();
-            TimeSpan newValue = Value.OffsetPosition + startDelta;
-            TimeSpan oldValue = Value.OffsetPosition;
+            TimeSpan newValue = Value.OffsetPosition.CurrentValue + startDelta;
+            TimeSpan oldValue = Value.OffsetPosition.CurrentValue;
 
             return RecordableCommands.Create([storable])
-                .OnDo(() => Value.OffsetPosition = newValue)
-                .OnUndo(() => Value.OffsetPosition = oldValue)
+                .OnDo(() => Value.OffsetPosition.CurrentValue = newValue)
+                .OnUndo(() => Value.OffsetPosition.CurrentValue = oldValue)
                 .ToCommand();
         }
         else

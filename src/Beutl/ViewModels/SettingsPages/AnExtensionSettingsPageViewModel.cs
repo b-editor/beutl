@@ -48,7 +48,7 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
     private void InitializeCoreObject(ExtensionSettings obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
     {
         Type objType = obj.GetType();
-        Type adapterType = typeof(CorePropertyAdapter<>);
+        Type adapterType = typeof(EnginePropertyAdapter<>);
 
         List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
         cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
