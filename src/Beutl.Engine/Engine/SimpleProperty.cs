@@ -9,6 +9,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
     private T _currentValue = defaultValue;
     private PropertyInfo? _propertyInfo;
     private string? _name;
+    private EngineObject? _owner;
 
     public string Name => _name ?? throw new InvalidOperationException("Property is not initialized.");
 
@@ -42,7 +43,8 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
         {
             if (value != null)
             {
-                throw new InvalidOperationException($"Property '{Name}' does not support animations. Use Property.CreateAnimatable<T>() to create animatable properties.");
+                throw new InvalidOperationException(
+                    $"Property '{Name}' does not support animations. Use Property.CreateAnimatable<T>() to create animatable properties.");
             }
         }
     }
@@ -104,6 +106,29 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
     }
 
     public PropertyInfo? GetPropertyInfo() => _propertyInfo;
+
+    public void SetOwnerObject(EngineObject? owner)
+    {
+        if (_owner == owner) return;
+
+        if (owner is IModifiableHierarchical ownerHierarchical)
+        {
+            if (CurrentValue is IHierarchical hierarchical)
+                ownerHierarchical.AddChild(hierarchical);
+        }
+        else if (_owner is IModifiableHierarchical oldOwnerHierarchical)
+        {
+            if (CurrentValue is IHierarchical hierarchical)
+                oldOwnerHierarchical.RemoveChild(hierarchical);
+        }
+
+        _owner = owner;
+    }
+
+    public EngineObject? GetOwnerObject()
+    {
+        return _owner;
+    }
 
     private T ValidateAndCoerce(T value)
     {

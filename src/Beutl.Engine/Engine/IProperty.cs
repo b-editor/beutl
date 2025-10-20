@@ -22,6 +22,10 @@ public interface IProperty
     void SetPropertyInfo(PropertyInfo propertyInfo);
 
     PropertyInfo? GetPropertyInfo();
+
+    void SetOwnerObject(EngineObject? owner);
+
+    EngineObject? GetOwnerObject();
 }
 
 public interface IProperty<T> : IProperty

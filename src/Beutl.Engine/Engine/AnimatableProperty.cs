@@ -12,6 +12,7 @@ public class AnimatableProperty<T> : IProperty<T>
     private readonly IValidator<T>? _validator;
     private PropertyInfo? _propertyInfo;
     private string _name;
+    private EngineObject? _owner;
 
     public AnimatableProperty(T defaultValue, IValidator<T>? validator = null)
     {
@@ -43,6 +44,14 @@ public class AnimatableProperty<T> : IProperty<T>
                 HasLocalValue = true;
 
                 ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
+                if (_owner is IModifiableHierarchical ownerHierarchical)
+                {
+                    if (oldValue is IHierarchical oldHierarchical)
+                        ownerHierarchical.RemoveChild(oldHierarchical);
+
+                    if (validatedValue is IHierarchical newHierarchical)
+                        ownerHierarchical.AddChild(newHierarchical);
+                }
             }
         }
     }
@@ -54,6 +63,7 @@ public class AnimatableProperty<T> : IProperty<T>
         {
             if (_animation != value)
             {
+                var oldValue = _animation;
                 _animation = value;
 
                 if (_animation != null && _validator != null)
@@ -62,6 +72,14 @@ public class AnimatableProperty<T> : IProperty<T>
                 }
 
                 AnimationChanged?.Invoke(_animation!);
+                if (_owner is IModifiableHierarchical ownerHierarchical)
+                {
+                    if (oldValue is IHierarchical oldHierarchical)
+                        ownerHierarchical.RemoveChild(oldHierarchical);
+
+                    if (value is IHierarchical newHierarchical)
+                        ownerHierarchical.AddChild(newHierarchical);
+                }
             }
         }
     }
@@ -150,6 +168,35 @@ public class AnimatableProperty<T> : IProperty<T>
     }
 
     public PropertyInfo? GetPropertyInfo() => _propertyInfo;
+
+    public void SetOwnerObject(EngineObject? owner)
+    {
+        if (_owner == owner) return;
+
+        if (owner is IModifiableHierarchical ownerHierarchical)
+        {
+            if (CurrentValue is IHierarchical hierarchical)
+                ownerHierarchical.AddChild(hierarchical);
+
+            if (Animation != null)
+                ownerHierarchical.AddChild(Animation);
+        }
+        else if (_owner is IModifiableHierarchical oldOwnerHierarchical)
+        {
+            if (CurrentValue is IHierarchical hierarchical)
+                oldOwnerHierarchical.RemoveChild(hierarchical);
+
+            if (Animation != null)
+                oldOwnerHierarchical.RemoveChild(Animation);
+        }
+
+        _owner = owner;
+    }
+
+    public EngineObject? GetOwnerObject()
+    {
+        return _owner;
+    }
 
     private T ValidateAndCoerce(T value)
     {
