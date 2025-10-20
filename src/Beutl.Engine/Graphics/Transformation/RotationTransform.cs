@@ -21,11 +21,11 @@ public sealed class RotationTransform : Transform
     public override Matrix CreateMatrix(RenderContext context)
     {
         float rot = context.Get(Rotation);
-        return Matrix.CreateRotation(MathUtilities.ToRadians(rot));
+        return Matrix.CreateRotation(MathUtilities.Deg2Rad(rot));
     }
 
     public static RotationTransform FromRadians(float radians)
     {
-        return new RotationTransform(MathUtilities.ToDegrees(radians));
+        return new RotationTransform(MathUtilities.Rad2Deg(radians));
     }
 }

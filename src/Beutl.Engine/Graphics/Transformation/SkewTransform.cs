@@ -25,11 +25,11 @@ public sealed class SkewTransform : Transform
     {
         float skewX = context.Get(SkewX);
         float skewY = context.Get(SkewY);
-        return Matrix.CreateSkew(MathUtilities.ToRadians(skewX), MathUtilities.ToRadians(skewY));
+        return Matrix.CreateSkew(MathUtilities.Deg2Rad(skewX), MathUtilities.Deg2Rad(skewY));
     }
 
     public static SkewTransform FromRadians(float skewX, float skewY)
     {
-        return new SkewTransform(MathUtilities.ToDegrees(skewX), MathUtilities.ToDegrees(skewY));
+        return new SkewTransform(MathUtilities.Rad2Deg(skewX), MathUtilities.Rad2Deg(skewY));
     }
 }
