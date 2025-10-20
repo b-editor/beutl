@@ -35,7 +35,7 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
             if (_validator != null)
             {
                 T? coerced = value;
-                if (_validator.TryCoerce(new ValidationContext(null, Property), ref coerced))
+                if (_validator.TryCoerce(default, ref coerced))
                 {
                     value = coerced!;
                 }
@@ -55,34 +55,11 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
         }
     }
 
-    [Obsolete]
-    internal override CoreProperty? Property
+    public new IValidator<T>? Validator
     {
-        get => base.Property;
-        set
-        {
-            if (value is CoreProperty<T> t)
-            {
-                _validator = t.GetMetadata<CorePropertyMetadata<T>>(t.OwnerType).Validator;
-                base.Property = t;
-                if (_validator != null)
-                {
-                    T? coerced = Value;
-                    if (_validator.TryCoerce(new ValidationContext(null, Property), ref coerced))
-                    {
-                        Value = coerced!;
-                    }
-                }
-            }
-            else
-            {
-                _validator = null;
-                base.Property = null;
-            }
-        }
+        get => base.Validator as IValidator<T>;
+        set => base.Validator = value;
     }
-
-    public IValidator<T>? Validator { get; set; }
 
     public event EventHandler? KeyTimeChanged;
 

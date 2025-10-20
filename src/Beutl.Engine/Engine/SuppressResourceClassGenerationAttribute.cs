@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Engine;
 
-[AttributeUsage(AttributeTargets.Class, Inherited = false)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Property, Inherited = false)]
 public class SuppressResourceClassGenerationAttribute : Attribute
 {
 

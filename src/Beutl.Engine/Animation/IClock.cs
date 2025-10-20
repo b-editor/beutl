@@ -8,11 +8,5 @@ public interface IClock
 
     TimeSpan CurrentTime { get; }
 
-    [Obsolete("Do not use this property.")]
-    TimeSpan AudioStartTime { get; }
-
-    [Obsolete("Do not use this property.")]
-    TimeSpan AudioDurationTime { get; }
-
     IClock GlobalClock { get; }
 }

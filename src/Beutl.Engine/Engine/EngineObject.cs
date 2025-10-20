@@ -6,7 +6,7 @@ using Beutl.Media;
 
 namespace Beutl.Engine;
 
-public class EngineObject : Hierarchical
+public class EngineObject : Hierarchical, IAffectsRender
 {
     // これらのプロパティはIPropertyにしないが、もし描画に影響する場合は派生クラスのResourceに手動で含める
     public static readonly CoreProperty<bool> IsEnabledProperty;
@@ -64,7 +64,7 @@ public class EngineObject : Hierarchical
         set => SetAndRaise(TimeRangeProperty, ref _timeRange, value);
     }
 
-    internal int Version { get; private set; }
+    // internal int Version { get; private set; }
 
     private void AffectsRender_Invalidated(object? sender, RenderInvalidatedEventArgs e)
     {
@@ -105,10 +105,10 @@ public class EngineObject : Hierarchical
     protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
     {
         Invalidated?.Invoke(this, args);
-        unchecked
-        {
-            Version++;
-        }
+        // unchecked
+        // {
+            // Version++;
+        // }
     }
 
     protected void ScanProperties<T>() where T : EngineObject
@@ -236,7 +236,6 @@ public class EngineObject : Hierarchical
                 updateOnly = true;
             }
         }
-
         protected void CompareAndUpdateList<TItem, TResource>(RenderContext context, IList<TItem> prop, ref List<TResource> field, ref bool updateOnly) where TItem : EngineObject where TResource : Resource
         {
             for (int i = 0; i < prop.Count; i++)
@@ -255,7 +254,8 @@ public class EngineObject : Hierarchical
                     else
                     {
                         var oldVersion = item.Version;
-                        item.Update(child, context, ref updateOnly);
+                        var _ = false;
+                        item.Update(child, context, ref _);
                         if (!updateOnly && oldVersion != item.Version)
                         {
                             Version++;
@@ -274,12 +274,19 @@ public class EngineObject : Hierarchical
                     }
                 }
             }
+
+            if (!updateOnly && field.Count != prop.Count)
+            {
+                Version++;
+                updateOnly = true;
+            }
+
             while (field.Count > prop.Count)
             {
                 field.RemoveAt(field.Count - 1);
             }
         }
-        protected void CompareAndUpdateObject<TObject, TResource>(RenderContext context, IProperty<TObject> prop, ref TResource field, ref bool updateOnly) where TObject : EngineObject where TResource : Resource
+        protected void CompareAndUpdateObject<TObject, TResource>(RenderContext context, IProperty<TObject> prop, ref TResource? field, ref bool updateOnly) where TObject : EngineObject where TResource : Resource
         {
             var value = context.Get(prop);
             if (value is null)
@@ -315,8 +322,9 @@ public class EngineObject : Hierarchical
                     }
                     else
                     {
-                        var oldVersion = value.Version;
-                        field.Update(value, context, ref updateOnly);
+                        var oldVersion = field.Version;
+                        var _ = false;
+                        field.Update(value, context, ref _);
                         if (!updateOnly && oldVersion != field.Version)
                         {
                             Version++;

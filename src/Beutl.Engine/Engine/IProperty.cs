@@ -20,6 +20,8 @@ public interface IProperty
     object? GetDefaultValueAsObject();
 
     void SetPropertyInfo(PropertyInfo propertyInfo);
+
+    PropertyInfo? GetPropertyInfo();
 }
 
 public interface IProperty<T> : IProperty
@@ -33,6 +35,8 @@ public interface IProperty<T> : IProperty
     T GetValue(IClock clock);
 
     event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
+
+    void operator <<=(T value);
 }
 
 public class PropertyValueChangedEventArgs<T>(IProperty<T> property, T oldValue, T newValue) : EventArgs

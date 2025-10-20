@@ -6,51 +6,23 @@ namespace Beutl.Animation;
 
 public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 {
-    private IValidator<T>? _validator;
-
-    public KeyFrameAnimation(CoreProperty<T> property)
-        : base(property)
-    {
-    }
-
-    public KeyFrameAnimation()
-    {
-    }
-
-    [Obsolete]
-    public new CoreProperty<T> Property
-    {
-        get => (CoreProperty<T>)base.Property;
-        set => base.Property = value;
-    }
-
     public IValidator<T>? Validator
     {
-        get => _validator;
-        set
-        {
-            _validator = value;
-            foreach (IKeyFrame item in KeyFrames)
-            {
-                if (item is KeyFrame<T> keyFrame)
-                {
-                    keyFrame.Validator = _validator;
-                }
-            }
-        }
+        get => base.Validator as IValidator<T>;
+        set => base.Validator = value;
     }
-
-    public override void ApplyAnimation(Animatable target, IClock clock)
-    {
-        if (UseGlobalClock)
-        {
-            target.SetValue(Property, Interpolate(clock.GlobalClock.CurrentTime));
-        }
-        else
-        {
-            target.SetValue(Property, Interpolate(clock.CurrentTime));
-        }
-    }
+    //
+    // public override void ApplyAnimation(Animatable target, IClock clock)
+    // {
+    //     if (UseGlobalClock)
+    //     {
+    //         target.SetValue(Property, Interpolate(clock.GlobalClock.CurrentTime));
+    //     }
+    //     else
+    //     {
+    //         target.SetValue(Property, Interpolate(clock.CurrentTime));
+    //     }
+    // }
 
     public T? GetAnimatedValue(IClock clock)
     {

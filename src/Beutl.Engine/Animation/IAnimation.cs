@@ -7,9 +7,6 @@ namespace Beutl.Animation;
 
 public interface IAnimation : IAffectsRender, ICoreSerializable, IHierarchical
 {
-    [Obsolete]
-    CoreProperty Property { get; }
-
     TimeSpan Duration { get; }
 
     bool UseGlobalClock { get; }
@@ -17,12 +14,6 @@ public interface IAnimation : IAffectsRender, ICoreSerializable, IHierarchical
 
 public interface IAnimation<T> : IAnimation
 {
-    [Obsolete]
-    new CoreProperty<T> Property { get; }
-
-    [Obsolete]
-    CoreProperty IAnimation.Property => Property;
-
     IValidator<T>? Validator { get; set; }
 
     T? GetAnimatedValue(IClock clock);

@@ -4,29 +4,19 @@ using Beutl.Validation;
 
 namespace Beutl.Engine;
 
-public class SimpleProperty<T> : IProperty<T>
+public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) : IProperty<T>
 {
-    private T _currentValue;
-    private readonly IValidator<T>? _validator;
+    private T _currentValue = defaultValue;
     private PropertyInfo? _propertyInfo;
-    private string _name;
-
-    public SimpleProperty(T defaultValue, IValidator<T>? validator = null)
-    {
-        DefaultValue = defaultValue;
-        _currentValue = defaultValue;
-        _validator = validator;
-        ValueType = typeof(T);
-        IsAnimatable = false;
-    }
+    private string? _name;
 
     public string Name => _name ?? throw new InvalidOperationException("Property is not initialized.");
 
-    public Type ValueType { get; }
+    public Type ValueType { get; } = typeof(T);
 
-    public bool IsAnimatable { get; }
+    public bool IsAnimatable { get; } = false;
 
-    public T DefaultValue { get; }
+    public T DefaultValue { get; } = defaultValue;
 
     public T CurrentValue
     {
@@ -60,6 +50,11 @@ public class SimpleProperty<T> : IProperty<T>
     public bool HasLocalValue { get; private set; }
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
+
+    public void operator <<= (T value)
+    {
+        CurrentValue = value;
+    }
 
     public T GetValue(IClock clock)
     {
@@ -108,12 +103,14 @@ public class SimpleProperty<T> : IProperty<T>
         _name = propertyInfo.Name;
     }
 
+    public PropertyInfo? GetPropertyInfo() => _propertyInfo;
+
     private T ValidateAndCoerce(T value)
     {
-        if (_validator == null)
+        if (validator == null)
             return value;
 
-        if (_validator.TryCoerce(new(this, null), ref value!))
+        if (validator.TryCoerce(new(this, null), ref value!))
         {
             return value;
         }
@@ -127,7 +124,7 @@ public class SimpleProperty<T> : IProperty<T>
         HasLocalValue = false;
     }
 
-    public bool HasValidator => _validator != null;
+    public bool HasValidator => validator != null;
 
     public override string ToString() =>
         $"{Name}: {_currentValue} (Default: {DefaultValue}, Simple)";
@@ -137,7 +134,7 @@ public static class SimplePropertyExtensions
 {
     public static IProperty<T> ToAnimatable<T>(this SimpleProperty<T> simpleProperty)
     {
-        var animatableProperty = Property.CreateAnimatable<T>(
+        var animatableProperty = Property.CreateAnimatable(
             simpleProperty.DefaultValue);
 
         // 現在値を引き継ぎ

@@ -1,28 +1,22 @@
 ﻿using System.ComponentModel;
+using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Serialization;
+using Beutl.Validation;
 
 namespace Beutl.Animation;
 
 public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
 {
     public static readonly CoreProperty<bool> UseGlobalClockProperty;
-    private CoreProperty? _property;
     private bool _useGlobalClock;
+    private IValidator? _validator;
 
     static KeyFrameAnimation()
     {
         UseGlobalClockProperty = ConfigureProperty<bool, KeyFrameAnimation>(nameof(UseGlobalClock))
             .Accessor(o => o.UseGlobalClock, (o, v) => o.UseGlobalClock = v)
             .Register();
-    }
-
-    public KeyFrameAnimation(CoreProperty property)
-    {
-        _property = property;
-        KeyFrames = new KeyFrames(this);
-        KeyFrames.Attached += OnKeyFrameAttached;
-        KeyFrames.Detached += OnKeyFrameDetached;
     }
 
     public KeyFrameAnimation()
@@ -89,7 +83,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
     {
         if (obj is KeyFrame keyFrame)
         {
-            keyFrame.Property = Property;
+            keyFrame.Validator = Validator;
         }
 
         obj.KeyTimeChanged += OnKeyTimeChanged;
@@ -100,7 +94,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
     {
         if (obj is KeyFrame keyFrame)
         {
-            keyFrame.Property = null;
+            keyFrame.Validator = null;
         }
 
         obj.KeyTimeChanged -= OnKeyTimeChanged;
@@ -115,18 +109,17 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
 
     public KeyFrames KeyFrames { get; }
 
-    [Obsolete]
-    public CoreProperty Property
+    public IValidator? Validator
     {
-        get => _property!;
+        get => _validator;
         set
         {
-            _property = value;
+            _validator = value;
             foreach (IKeyFrame item in KeyFrames)
             {
                 if (item is KeyFrame keyFrame)
                 {
-                    keyFrame.Property = _property;
+                    keyFrame.Validator = value;
                 }
             }
         }
@@ -136,8 +129,6 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         => KeyFrames.Count > 0
             ? KeyFrames[^1].KeyTime
             : TimeSpan.Zero;
-
-    public abstract void ApplyAnimation(Animatable target, IClock clock);
 
     public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(IKeyFrame keyframe)
     {
@@ -155,21 +146,6 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         if (args.PropertyName is nameof(UseGlobalClock))
         {
             Invalidated?.Invoke(this, new(this));
-        }
-    }
-
-    public override void Serialize(ICoreSerializationContext context)
-    {
-        base.Serialize(context);
-        context.SetValue(nameof(Property), Property);
-    }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        base.Deserialize(context);
-        if (context.GetValue<CoreProperty>(nameof(Property)) is { } prop)
-        {
-            Property = prop;
         }
     }
 }

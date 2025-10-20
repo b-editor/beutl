@@ -60,6 +60,8 @@ public class AnimatableProperty<T> : IProperty<T>
                 {
                     _animation.Validator = _validator;
                 }
+
+                AnimationChanged?.Invoke(_animation!);
             }
         }
     }
@@ -67,6 +69,13 @@ public class AnimatableProperty<T> : IProperty<T>
     public bool HasLocalValue { get; private set; }
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
+
+    public event Action<IAnimation<T>?>? AnimationChanged;
+
+    public void operator <<= (T value)
+    {
+        CurrentValue = value;
+    }
 
     public T GetValue(IClock clock)
     {
@@ -139,6 +148,8 @@ public class AnimatableProperty<T> : IProperty<T>
         _propertyInfo = propertyInfo;
         _name = propertyInfo.Name;
     }
+
+    public PropertyInfo? GetPropertyInfo() => _propertyInfo;
 
     private T ValidateAndCoerce(T value)
     {
