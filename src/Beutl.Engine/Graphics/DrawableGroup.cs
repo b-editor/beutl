@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 
 namespace Beutl.Graphics;
@@ -8,12 +9,10 @@ public sealed partial class DrawableGroup : Drawable
 {
     public DrawableGroup()
     {
-        Children = new Drawables(this);
-        Children.Invalidated += (_, e) => RaiseInvalidated(e);
         ScanProperties<DrawableGroup>();
     }
 
-    public Drawables Children { get; }
+    public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {

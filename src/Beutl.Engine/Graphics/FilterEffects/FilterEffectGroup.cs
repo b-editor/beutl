@@ -1,14 +1,15 @@
-﻿namespace Beutl.Graphics.Effects;
+﻿using Beutl.Engine;
+
+namespace Beutl.Graphics.Effects;
 
 public sealed partial class FilterEffectGroup : FilterEffect
 {
     public FilterEffectGroup()
     {
-        Children = new FilterEffects(this);
-        Children.Invalidated += (_, e) => RaiseInvalidated(e);
+        ScanProperties<FilterEffectGroup>();
     }
 
-    public FilterEffects Children { get; }
+    public IListProperty<FilterEffect> Children { get; } = Property.CreateList<FilterEffect>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using SkiaSharp;
 
@@ -9,11 +10,9 @@ public sealed partial class PathGeometry : Geometry
     public PathGeometry()
     {
         ScanProperties<PathGeometry>();
-        Figures = new PathFigures(this);
-        Figures.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
-    public PathFigures Figures { get; }
+    public IListProperty<PathFigure> Figures { get; } = Property.CreateList<PathFigure>();
 
     public static PathGeometry Parse(string svg)
     {

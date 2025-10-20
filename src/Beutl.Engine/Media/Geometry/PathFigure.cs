@@ -10,14 +10,13 @@ public sealed partial class PathFigure : EngineObject, IAffectsRender
     public PathFigure()
     {
         ScanProperties<PathFigure>();
-        Segments = new PathSegments(this);
     }
 
     public IProperty<bool> IsClosed { get; } = Property.CreateAnimatable<bool>();
 
     public IProperty<Point> StartPoint { get; } = Property.CreateAnimatable(new Point(float.NaN, float.NaN));
 
-    public PathSegments Segments { get; }
+    public IListProperty<PathSegment> Segments { get; } = Property.CreateList<PathSegment>();
 
     public void ApplyTo(IGeometryContext context, Resource resource)
     {

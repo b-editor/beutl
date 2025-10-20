@@ -1,4 +1,5 @@
-﻿using Beutl.Serialization;
+﻿using Beutl.Engine;
+using Beutl.Serialization;
 
 namespace Beutl.Audio.Effects;
 
@@ -6,12 +7,10 @@ public sealed partial class AudioEffectGroup : AudioEffect
 {
     public AudioEffectGroup()
     {
-        Children = new AudioEffects(this);
-        Children.Invalidated += (_, e) => RaiseInvalidated(e);
         ScanProperties<AudioEffectGroup>();
     }
 
-    public AudioEffects Children { get; }
+    public IListProperty<AudioEffect> Children { get; } = Property.CreateList<AudioEffect>();
 
     private int ValidEffectCount()
     {
