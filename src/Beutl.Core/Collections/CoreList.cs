@@ -76,6 +76,8 @@ public class CoreList<T> : ICoreList<T>
 
     bool IList.IsFixedSize => false;
 
+    bool ICoreList<T>.IsReadOnly => false;
+
     bool IList.IsReadOnly => false;
 
     int ICollection.Count => Inner.Count;

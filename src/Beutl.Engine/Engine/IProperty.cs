@@ -1,7 +1,18 @@
 using System.Reflection;
 using Beutl.Animation;
+using Beutl.Collections;
 
 namespace Beutl.Engine;
+
+public interface IListProperty : IProperty, ICoreList
+{
+    Type ElementType { get; }
+}
+
+public interface IListProperty<T> : IListProperty, IProperty<ICoreList<T>>, ICoreList<T>
+{
+    new CoreList<T>.Enumerator GetEnumerator();
+}
 
 public interface IProperty
 {
