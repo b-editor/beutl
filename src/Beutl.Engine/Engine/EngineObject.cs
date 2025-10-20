@@ -137,16 +137,8 @@ public class EngineObject : Hierarchical, IAffectsRender
             if (property != null)
             {
                 RegisterProperty(property);
-
-                if (propertyInfo.PropertyType.IsGenericType
-                    && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(IProperty<>))
-                {
-                    Type valueType = propertyInfo.PropertyType.GetGenericArguments()[0];
-                    MethodInfo registerCore = typeof(EngineObject)
-                        .GetMethod(nameof(RegisterPropertyCore), BindingFlags.NonPublic | BindingFlags.Instance)!;
-                    MethodInfo generic = registerCore.MakeGenericMethod(valueType);
-                    generic.Invoke(this, new object[] { property, propertyInfo });
-                }
+                property.SetPropertyInfo(propertyInfo);
+                property.SetOwnerObject(this);
             }
         }
     }
@@ -158,47 +150,6 @@ public class EngineObject : Hierarchical, IAffectsRender
             _properties.Add(property);
         }
     }
-
-    private void RegisterPropertyCore<T>(IProperty<T> property, PropertyInfo propertyInfo)
-    {
-        property.SetPropertyInfo(propertyInfo);
-
-        AttachPropertyValue(property.CurrentValue);
-
-        property.ValueChanged += (sender, args) =>
-        {
-            DetachPropertyValue(args.OldValue);
-            AttachPropertyValue(args.NewValue);
-            RaiseInvalidated(new RenderInvalidatedEventArgs(this, property.Name));
-        };
-    }
-
-    private void AttachPropertyValue(object? value)
-    {
-        if (value is IAffectsRender affectsRender)
-        {
-            affectsRender.Invalidated += AffectsRender_Invalidated;
-        }
-
-        if (value is Hierarchical hierarchical && this is IModifiableHierarchical modifiable)
-        {
-            modifiable.AddChild(hierarchical);
-        }
-    }
-
-    private void DetachPropertyValue(object? value)
-    {
-        if (value is IAffectsRender affectsRender)
-        {
-            affectsRender.Invalidated -= AffectsRender_Invalidated;
-        }
-
-        if (value is Hierarchical hierarchical && this is IModifiableHierarchical modifiable)
-        {
-            modifiable.RemoveChild(hierarchical);
-        }
-    }
-
 
     public virtual Resource ToResource(RenderContext context)
     {
