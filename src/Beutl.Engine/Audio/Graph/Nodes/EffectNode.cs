@@ -4,12 +4,12 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class EffectNode : AudioNode
 {
-    private IAudioEffect? _effect;
+    private AudioEffect? _effect;
     private IAudioEffectProcessor? _processor;
     private bool _needsReset = true;
     private TimeSpan? _lastTimeRangeStart;
 
-    public IAudioEffect? Effect
+    public AudioEffect? Effect
     {
         get => _effect;
         set

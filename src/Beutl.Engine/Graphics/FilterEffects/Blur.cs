@@ -15,8 +15,9 @@ public sealed partial class Blur : FilterEffect
     [Range(typeof(Size), "0,0", "max,max")]
     public IProperty<Size> Sigma { get; } = Property.CreateAnimatable(Size.Empty);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.Blur(Sigma.CurrentValue);
+        var r = (Resource)resource;
+        context.Blur(r.Sigma);
     }
 }

@@ -17,13 +17,9 @@ public sealed partial class Dilate : FilterEffect
     [Display(Name = nameof(Strings.RadiusY), ResourceType = typeof(Strings))]
     public IProperty<float> RadiusY { get; } = Property.CreateAnimatable<float>();
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.Dilate(RadiusX.CurrentValue, RadiusY.CurrentValue);
-    }
-
-    public override Rect TransformBounds(Rect bounds)
-    {
-        return bounds.Inflate(new Thickness(RadiusX.CurrentValue, RadiusY.CurrentValue));
+        var r = (Resource)resource;
+        context.Dilate(r.RadiusX, r.RadiusY);
     }
 }

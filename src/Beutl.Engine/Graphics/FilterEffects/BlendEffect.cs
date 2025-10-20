@@ -1,5 +1,5 @@
-using Beutl.Animation;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Serialization;
 
@@ -17,9 +17,10 @@ public sealed partial class BlendEffect : FilterEffect
 
     public IProperty<BlendMode> BlendMode { get; } = Property.CreateAnimatable(Graphics.BlendMode.SrcIn);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.BlendMode(Brush.CurrentValue, BlendMode.CurrentValue);
+        var r = (Resource)resource;
+        context.BlendMode(r.Brush, r.BlendMode);
     }
 
     public override void Deserialize(ICoreSerializationContext context)

@@ -5,7 +5,7 @@ using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics.Shapes;
 
-public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
+public class TextElements : IReadOnlyList<TextElement>
 {
     private readonly TextElement[] _array;
 
@@ -18,16 +18,6 @@ public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
     {
         _array = array;
         Lines = new LineEnumerable(array);
-
-        foreach (TextElement item in array)
-        {
-            item.Invalidated += OnItemInvalidated;
-        }
-    }
-
-    private void OnItemInvalidated(object? sender, RenderInvalidatedEventArgs e)
-    {
-        Invalidated?.Invoke(sender, e);
     }
 
     public TextElement this[int index] => ((IReadOnlyList<TextElement>)_array)[index];
@@ -35,8 +25,6 @@ public class TextElements : IReadOnlyList<TextElement>, IAffectsRender
     public int Count => ((IReadOnlyCollection<TextElement>)_array).Count;
 
     public LineEnumerable Lines { get; }
-
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     public IEnumerator<TextElement> GetEnumerator()
     {

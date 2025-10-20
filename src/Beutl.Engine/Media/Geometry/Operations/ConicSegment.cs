@@ -1,66 +1,39 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Engine;
+using Beutl.Graphics;
 
 namespace Beutl.Media;
 
-public sealed class ConicSegment : PathSegment
+public sealed partial class ConicSegment : PathSegment
 {
-    public static readonly CoreProperty<Point> ControlPointProperty;
-    public static readonly CoreProperty<Point> EndPointProperty;
-    public static readonly CoreProperty<float> WeightProperty;
-    private Point _controlPoint;
-    private Point _endPoint;
-    private float _weight;
-
-    static ConicSegment()
-    {
-        ControlPointProperty = ConfigureProperty<Point, ConicSegment>(nameof(ControlPoint))
-            .Accessor(o => o.ControlPoint, (o, v) => o.ControlPoint = v)
-            .Register();
-
-        EndPointProperty = ConfigureProperty<Point, ConicSegment>(nameof(EndPoint))
-            .Accessor(o => o.EndPoint, (o, v) => o.EndPoint = v)
-            .Register();
-
-        WeightProperty = ConfigureProperty<float, ConicSegment>(nameof(Weight))
-            .Accessor(o => o.Weight, (o, v) => o.Weight = v)
-            .Register();
-
-        AffectsRender<ConicSegment>(ControlPointProperty, EndPointProperty, WeightProperty);
-    }
-
     public ConicSegment()
     {
+        ScanProperties<ConicSegment>();
     }
 
-    public ConicSegment(Point controlPoint, Point endPoint, float weight)
+    public ConicSegment(Point controlPoint, Point endPoint, float weight) : this()
     {
-        ControlPoint = controlPoint;
-        EndPoint = endPoint;
-        Weight = weight;
+        ControlPoint.CurrentValue = controlPoint;
+        EndPoint.CurrentValue = endPoint;
+        Weight.CurrentValue = weight;
     }
 
-    public Point ControlPoint
+    public IProperty<Point> ControlPoint { get; } = Property.CreateAnimatable<Point>();
+
+    public IProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
+
+    public IProperty<float> Weight { get; } = Property.CreateAnimatable<float>(1);
+
+    public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)
     {
-        get => _controlPoint;
-        set => SetAndRaise(ControlPointProperty, ref _controlPoint, value);
+        var r = (Resource)resource;
+        context.ConicTo(r.ControlPoint, r.EndPoint, r.Weight);
     }
 
-    public Point EndPoint
+    public partial class Resource
     {
-        get => _endPoint;
-        set => SetAndRaise(EndPointProperty, ref _endPoint, value);
+        public override Point? GetEndPoint()
+        {
+            return EndPoint;
+        }
     }
-
-    public float Weight
-    {
-        get => _weight;
-        set => SetAndRaise(WeightProperty, ref _weight, value);
-    }
-
-    public override void ApplyTo(IGeometryContext context)
-    {
-        context.ConicTo(ControlPoint, EndPoint, Weight);
-    }
-
-    public override CoreProperty<Point> GetEndPointProperty() => EndPointProperty;
 }

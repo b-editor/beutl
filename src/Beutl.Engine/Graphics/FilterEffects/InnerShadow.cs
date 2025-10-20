@@ -25,15 +25,16 @@ public partial class InnerShadow : FilterEffect
     [Display(Name = nameof(Strings.ShadowOnly), ResourceType = typeof(Strings))]
     public IProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        if (ShadowOnly.CurrentValue)
+        var r = (Resource)resource;
+        if (r.ShadowOnly)
         {
-            context.InnerShadowOnly(Position.CurrentValue, Sigma.CurrentValue, Color.CurrentValue);
+            context.InnerShadowOnly(r.Position, r.Sigma, r.Color);
         }
         else
         {
-            context.InnerShadow(Position.CurrentValue, Sigma.CurrentValue, Color.CurrentValue);
+            context.InnerShadow(r.Position, r.Sigma, r.Color);
         }
     }
 }

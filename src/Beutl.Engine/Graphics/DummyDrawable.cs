@@ -24,12 +24,12 @@ public sealed partial class DummyDrawable : Drawable, IDummy
         Json = (context as IJsonSerializationContext)?.GetJsonObject();
     }
 
-    protected override Size MeasureCore(Size availableSize)
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
         return Size.Empty;
     }
 
-    protected override void OnDraw(GraphicsContext2D context)
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
     }
 

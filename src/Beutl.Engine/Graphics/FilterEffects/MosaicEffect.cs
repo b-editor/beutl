@@ -51,10 +51,11 @@ public partial class MosaicEffect : FilterEffect
     [Display(Name = nameof(Strings.Origin), ResourceType = typeof(Strings))]
     public IProperty<RelativePoint> Origin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
+        var r = (Resource)resource;
         context.CustomEffect(
-            (TileSize.CurrentValue, Origin.CurrentValue),
+            (r.TileSize, r.Origin),
             OnApplyTo,
             static (_, r) => r);
     }

@@ -40,27 +40,6 @@ internal interface IFEItem_Skia
     void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder);
 }
 
-[Obsolete]
-internal record FEItem_Custom<T>(
-    T Data, Action<T, FilterEffectCustomOperationContext> Action, Func<T, Rect, Rect> TransformBounds)
-    : FEItem<T>(Data, TransformBounds), IFEItem_Custom
-{
-    public void Accepts(CustomFilterEffectContext context)
-    {
-        context.ForEach((_, target) =>
-        {
-            using (target)
-            {
-                var innerContext = new FilterEffectCustomOperationContext(target);
-                Action.Invoke(Data, innerContext);
-
-                innerContext.Target.Bounds = TransformBounds!(Data, innerContext.Target.Bounds);
-                return innerContext.Target;
-            }
-        });
-    }
-}
-
 internal record FEItem_CustomEffect<T>(
     T Data, Action<T, CustomFilterEffectContext> Action, Func<T, Rect, Rect>? TransformBounds)
     : FEItem<T>(Data, TransformBounds), IFEItem_Custom

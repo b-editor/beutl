@@ -18,21 +18,21 @@ public interface ICanvas : IDisposable, IPopable
 
     void Clear(Color color);
 
-    void DrawImageSource(IImageSource source, IBrush? fill, IPen? pen);
+    void DrawImageSource(IImageSource source, Brush.Resource? fill, Pen.Resource? pen);
 
-    void DrawVideoSource(IVideoSource source, TimeSpan frame, IBrush? fill, IPen? pen);
+    void DrawVideoSource(IVideoSource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen);
 
-    void DrawVideoSource(IVideoSource source, int frame, IBrush? fill, IPen? pen);
+    void DrawVideoSource(IVideoSource source, int frame, Brush.Resource? fill, Pen.Resource? pen);
 
-    void DrawEllipse(Rect rect, IBrush? fill, IPen? pen);
+    void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen);
 
-    void DrawRectangle(Rect rect, IBrush? fill, IPen? pen);
+    void DrawRectangle(Rect rect, Brush.Resource? fill, Pen.Resource? pen);
 
-    void DrawGeometry(Geometry geometry, IBrush? fill, IPen? pen);
+    void DrawGeometry(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen);
 
-    void DrawText(FormattedText text, IBrush? fill, IPen? pen);
+    void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen);
 
-    void DrawDrawable(Drawable drawable, IClock clock);
+    void DrawDrawable(Drawable.Resource drawable);
 
     void DrawNode(RenderNode node);
 
@@ -46,13 +46,11 @@ public interface ICanvas : IDisposable, IPopable
 
     PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect);
 
-    PushedState PushClip(Geometry geometry, ClipOperation operation = ClipOperation.Intersect);
+    PushedState PushClip(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect);
 
     PushedState PushOpacity(float opacity);
 
-    PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false);
-
-    PushedState PushFilterEffect(FilterEffect effect);
+    PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false);
 
     PushedState PushBlendMode(BlendMode blendMode);
 
@@ -77,6 +75,6 @@ internal sealed class TmpBackdrop(Bitmap<Bgra8888> bitmap) : IBackdrop
 {
     public void Draw(ImmediateCanvas canvas)
     {
-        canvas.DrawBitmap(bitmap, Brushes.White, null);
+        canvas.DrawBitmap(bitmap, Brushes.Resource.White, null);
     }
 }

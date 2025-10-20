@@ -20,6 +20,8 @@ public abstract class RenderNode : INode
 
     public bool IsDisposed { get; private set; }
 
+    public bool HasChanges { get; set; }
+
     public RenderNodeCache Cache { get; }
 
     public abstract RenderNodeOperation[] Process(RenderNodeContext context);

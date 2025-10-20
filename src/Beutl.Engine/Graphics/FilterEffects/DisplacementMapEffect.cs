@@ -22,15 +22,11 @@ public partial class DisplacementMapEffect : FilterEffect
             }
         };
 
-        Transform.CurrentValue = new DisplacementMapTranslateTransform
-        {
-            X = 0,
-            Y = 0
-        };
+        Transform.CurrentValue = new DisplacementMapTranslateTransform();
     }
 
     [Display(Name = nameof(Strings.DisplacementMap), ResourceType = typeof(Strings))]
-    public IProperty<IBrush?> DisplacementMap { get; } = Property.Create<IBrush?>();
+    public IProperty<Brush?> DisplacementMap { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings))]
     public IProperty<DisplacementMapTransform?> Transform { get; } = Property.Create<DisplacementMapTransform?>();
@@ -41,14 +37,13 @@ public partial class DisplacementMapEffect : FilterEffect
     [Display(Name = nameof(Strings.ShowDisplacementMap), ResourceType = typeof(Strings))]
     public IProperty<bool> ShowDisplacementMap { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        IBrush? displacementMap = DisplacementMap.CurrentValue;
+        var r = (Resource)resource;
+        Brush.Resource? displacementMap = r.DisplacementMap;
         if (displacementMap is null) return;
 
-        displacementMap = (displacementMap as IMutableBrush)?.ToImmutable() ?? displacementMap;
-
-        if (ShowDisplacementMap.CurrentValue)
+        if (r.ShowDisplacementMap)
         {
             context.CustomEffect(displacementMap,
                 static (brush, effectContext) =>
@@ -75,16 +70,9 @@ public partial class DisplacementMapEffect : FilterEffect
                     }
                 });
         }
-        else if (Transform.CurrentValue is { } transform)
+        else if (r.Transform is { } transform)
         {
-            transform.ApplyTo(displacementMap, SpreadMethod.CurrentValue, context);
+            transform.GetOriginal().ApplyTo(displacementMap, transform, r.SpreadMethod, context);
         }
-    }
-
-    public override void ApplyAnimations(IClock clock)
-    {
-        base.ApplyAnimations(clock);
-        (DisplacementMap.CurrentValue as IAnimatable)?.ApplyAnimations(clock);
-        Transform.CurrentValue?.ApplyAnimations(clock);
     }
 }

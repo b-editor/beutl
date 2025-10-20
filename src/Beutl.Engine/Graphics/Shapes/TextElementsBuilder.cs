@@ -15,16 +15,16 @@ public class TextElementsBuilder(FormattedTextInfo initialOptions)
     private readonly Stack<FontWeight> _fontWeight = [];
     private readonly Stack<FontStyle> _fontStyle = [];
     private readonly Stack<float> _size = [];
-    private readonly Stack<IBrush?> _brush = [];
-    private readonly Stack<IPen?> _pen = [];
+    private readonly Stack<Brush.Resource?> _brush = [];
+    private readonly Stack<Pen.Resource?> _pen = [];
     private readonly Stack<float> _spacing = [];
     private readonly Stack<Thickness> _margin = [];
     private FontFamily _curFontFamily = initialOptions.Typeface.FontFamily;
     private FontWeight _curFontWeight = initialOptions.Typeface.Weight;
     private FontStyle _curFontStyle = initialOptions.Typeface.Style;
     private float _curSize = initialOptions.Size;
-    private IBrush? _curBrush = initialOptions.Brush;
-    private IPen? _curPen = initialOptions.Pen;
+    private Brush.Resource? _curBrush = initialOptions.Brush;
+    private Pen.Resource? _curPen = initialOptions.Pen;
     private float _curSpacing = initialOptions.Space;
     private bool _singleLine;
 
@@ -57,13 +57,13 @@ public class TextElementsBuilder(FormattedTextInfo initialOptions)
         _curSize = size;
     }
 
-    public void PushBrush(IBrush brush)
+    public void PushBrush(Brush.Resource brush)
     {
         _brush.Push(_curBrush);
         _curBrush = brush;
     }
 
-    public void PushPen(IPen pen)
+    public void PushPen(Pen.Resource pen)
     {
         _pen.Push(_curPen);
         _curPen = pen;
@@ -144,8 +144,8 @@ public class TextElementsBuilder(FormattedTextInfo initialOptions)
                 else if (tag.TryGetSize(out float size1))
                     PushSize(size1);
                 else if (tag.TryGetColor(out Color color1))
-                    PushBrush(color1.ToImmutableBrush());
-                else if (tag.TryGetStroke(out IPen? pen1))
+                    PushBrush(color1.ToBrushResource());
+                else if (tag.TryGetStroke(out Pen.Resource? pen1))
                     PushPen(pen1);
                 else if (tag.TryGetCharSpace(out float space1))
                     PushSpacing(space1);

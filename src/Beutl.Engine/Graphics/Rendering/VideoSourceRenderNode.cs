@@ -6,22 +6,39 @@ namespace Beutl.Graphics.Rendering;
 public sealed class VideoSourceRenderNode(
     IVideoSource source,
     int frame,
-    IBrush? fill,
-    IPen? pen)
+    Brush.Resource? fill,
+    Pen.Resource? pen)
     : BrushRenderNode(fill, pen)
 {
-    public IVideoSource Source { get; } = source.Clone();
+    public IVideoSource Source { get; private set; } = source.Clone();
 
-    public int Frame { get; } = frame;
+    public int Frame { get; private set; } = frame;
 
-    public Rect Bounds { get; } = PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen);
+    public Rect Bounds { get; private set; } = PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen);
 
-    public bool Equals(IVideoSource source, int frame, IBrush? fill, IPen? pen)
+    public bool Update(IVideoSource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
-        return Frame == frame
-               && EqualityComparer<IVideoSource?>.Default.Equals(Source, source)
-               && EqualityComparer<IBrush?>.Default.Equals(Fill, fill)
-               && EqualityComparer<IPen?>.Default.Equals(Pen, pen);
+        bool changed = Update(fill, pen);
+        if (!Source.Equals(source))
+        {
+            Source.Dispose();
+            Source = source.Clone();
+            changed = true;
+        }
+
+        if (changed)
+        {
+            Bounds = PenHelper.GetBounds(new Rect(default, Source.FrameSize.ToSize(1)), Pen?.Resource);
+        }
+
+        if (Frame != frame)
+        {
+            Frame = frame;
+            changed = true;
+        }
+
+        HasChanges = changed;
+        return changed;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
@@ -36,7 +53,7 @@ public sealed class VideoSourceRenderNode(
                     {
                         using (bitmap)
                         {
-                            canvas.DrawBitmap(bitmap, Fill, Pen);
+                            canvas.DrawBitmap(bitmap, Fill?.Resource, Pen?.Resource);
                         }
                     }
                 },
@@ -53,8 +70,8 @@ public sealed class VideoSourceRenderNode(
 
     private bool HitTest(Point point)
     {
-        StrokeAlignment alignment = Pen?.StrokeAlignment ?? StrokeAlignment.Inside;
-        float thickness = Pen?.Thickness ?? 0;
+        StrokeAlignment alignment = Pen?.Resource.StrokeAlignment ?? StrokeAlignment.Inside;
+        float thickness = Pen?.Resource.Thickness ?? 0;
         thickness = PenHelper.GetRealThickness(alignment, thickness);
 
         if (Fill != null)

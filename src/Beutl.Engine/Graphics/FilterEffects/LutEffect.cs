@@ -132,6 +132,7 @@ public sealed partial class LutEffect : FilterEffect
     [Range(0, 100)]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
+    // TODO: Resource.UpdateでCubeを更新するようにする
     private void UpdateCube(FileInfo? value)
     {
         _cube = null;
@@ -149,11 +150,12 @@ public sealed partial class LutEffect : FilterEffect
         }
     }
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
+        var r = (Resource)resource;
         if (_cube != null)
         {
-            float strength = Strength.CurrentValue / 100f;
+            float strength = r.Strength / 100f;
 
             if (_cube.Dimention == CubeFileDimension.OneDimension)
             {

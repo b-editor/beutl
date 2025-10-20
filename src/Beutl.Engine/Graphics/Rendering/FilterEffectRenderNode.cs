@@ -1,29 +1,35 @@
-﻿using Beutl.Graphics.Effects;
+﻿using Beutl.Engine;
+using Beutl.Graphics.Effects;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
-public abstract class FilterEffectRenderNode<TOptions> : ContainerRenderNode
-    where TOptions : struct, IEquatable<TOptions>
+public sealed class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : ContainerRenderNode
 {
-    public FilterEffectRenderNode(TOptions options)
+    public (FilterEffect.Resource Resource, int Version)? FilterEffect { get; private set; } = filterEffect.Capture();
+
+    public bool Update(FilterEffect.Resource? fe)
     {
-        Options = options;
+        if (FilterEffect?.Resource.GetOriginal() != fe?.GetOriginal()
+            || FilterEffect?.Version != fe?.Version)
+        {
+            FilterEffect = fe.Capture();
+            HasChanges = true;
+            return true;
+        }
+
+        return false;
     }
-
-    public TOptions Options { get; }
-
-    public abstract void ApplyTo(FilterEffectContext context);
-}
-
-public sealed class FilterEffectRenderNode(FilterEffect filterEffect) : ContainerRenderNode
-{
-    private readonly int _version = filterEffect.Version;
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
+        if (FilterEffect == null)
+        {
+            return context.Input;
+        }
+
         using var feContext = new FilterEffectContext(context.CalculateBounds());
-        feContext.Apply(FilterEffect);
+        FilterEffect.Value.Resource.GetOriginal().ApplyTo(feContext, FilterEffect.Value.Resource);
         var effectTargets = new EffectTargets();
         effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));
 
@@ -69,12 +75,5 @@ public sealed class FilterEffectRenderNode(FilterEffect filterEffect) : Containe
                     .ToArray();
             }
         }
-    }
-
-    public FilterEffect FilterEffect { get; } = filterEffect;
-
-    public bool Equals(FilterEffect filterEffect)
-    {
-        return FilterEffect == filterEffect && _version == filterEffect.Version;
     }
 }

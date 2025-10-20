@@ -2,11 +2,18 @@
 
 public sealed class OpacityRenderNode(float opacity) : ContainerRenderNode
 {
-    public float Opacity { get; } = opacity;
+    public float Opacity { get; private set; } = opacity;
 
-    public bool Equals(float opacity)
+    public bool Update(float opacity)
     {
-        return Opacity == opacity;
+        if (Opacity != opacity)
+        {
+            Opacity = opacity;
+            HasChanges = true;
+            return true;
+        }
+
+        return false;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)

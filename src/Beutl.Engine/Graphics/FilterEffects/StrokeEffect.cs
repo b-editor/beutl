@@ -25,7 +25,7 @@ public partial class StrokeEffect : FilterEffect
     }
 
     [Display(Name = nameof(Strings.Stroke), ResourceType = typeof(Strings))]
-    public IProperty<IPen?> Pen { get; } = Property.Create<IPen?>();
+    public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
 
     [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
     public IProperty<Point> Offset { get; } = Property.CreateAnimatable(default(Point));
@@ -33,21 +33,22 @@ public partial class StrokeEffect : FilterEffect
     [Display(Name = nameof(Strings.BorderStyle), ResourceType = typeof(Strings))]
     public IProperty<StrokeStyles> Style { get; } = Property.CreateAnimatable(StrokeStyles.Background);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
+        var r = (Resource)resource;
         context.CustomEffect(
-            (Offset.CurrentValue, (Pen.CurrentValue as IMutablePen)?.ToImmutable(), Style.CurrentValue),
+            (r.Offset, r.Pen, r.Style),
             Apply,
             TransformBounds);
     }
 
-    private static Rect TransformBounds((Point Offset, IPen? Pen, StrokeStyles Style) data, Rect rect)
+    private static Rect TransformBounds((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, Rect rect)
     {
         Rect borderBounds = PenHelper.GetBounds(rect, data.Pen);
         return rect.Union(borderBounds.Translate(new Vector(data.Offset.X, data.Offset.Y)));
     }
 
-    private static void Apply((Point Offset, IPen? Pen, StrokeStyles Style) data, CustomFilterEffectContext context)
+    private static void Apply((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, CustomFilterEffectContext context)
     {
         static SKPath CreateBorderPath(Bitmap<Bgra8888> src)
         {
@@ -83,7 +84,7 @@ public partial class StrokeEffect : FilterEffect
             return skpath;
         }
 
-        if (data.Pen is IPen pen)
+        if (data.Pen is {  } pen)
         {
             for (int i = 0; i < context.Targets.Count; i++)
             {

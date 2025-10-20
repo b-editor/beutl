@@ -18,8 +18,9 @@ public sealed partial class Lighting : FilterEffect
     [Display(Name = nameof(Strings.Addition), ResourceType = typeof(Strings))]
     public IProperty<Color> Add { get; } = Property.CreateAnimatable<Color>();
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.Lighting(Multiply.CurrentValue, Add.CurrentValue);
+        var r = (Resource)resource;
+        context.Lighting(r.Multiply, r.Add);
     }
 }

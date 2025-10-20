@@ -1,28 +1,18 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Engine;
+using Beutl.Graphics;
 
 namespace Beutl.Media;
 
-public sealed class LineSegment : PathSegment
+public sealed partial class LineSegment : PathSegment
 {
-    public static readonly CoreProperty<Point> PointProperty;
-    private Point _point;
-
-    static LineSegment()
-    {
-        PointProperty = ConfigureProperty<Point, LineSegment>(nameof(Point))
-            .Accessor(o => o.Point, (o, v) => o.Point = v)
-            .Register();
-
-        AffectsRender<LineSegment>(PointProperty);
-    }
-
     public LineSegment()
     {
+        ScanProperties<LineSegment>();
     }
 
-    public LineSegment(Point point)
+    public LineSegment(Point point):this()
     {
-        Point = point;
+        Point.CurrentValue = point;
     }
 
     public LineSegment(float x, float y)
@@ -30,16 +20,19 @@ public sealed class LineSegment : PathSegment
     {
     }
 
-    public Point Point
+    public IProperty<Point> Point { get; } = Property.CreateAnimatable<Point>();
+
+    public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)
     {
-        get => _point;
-        set => SetAndRaise(PointProperty, ref _point, value);
+        var r = (Resource)resource;
+        context.LineTo(r.Point);
     }
 
-    public override void ApplyTo(IGeometryContext context)
+    public partial class Resource
     {
-        context.LineTo(Point);
-    }
-
-    public override CoreProperty<Point> GetEndPointProperty() => PointProperty;
+        public override Point? GetEndPoint()
+        {
+            return Point;
+        }
+    };
 }

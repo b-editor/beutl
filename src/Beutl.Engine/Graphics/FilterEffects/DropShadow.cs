@@ -25,25 +25,16 @@ public sealed partial class DropShadow : FilterEffect
     [Display(Name = nameof(Strings.ShadowOnly), ResourceType = typeof(Strings))]
     public IProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        if (ShadowOnly.CurrentValue)
+        var r = (Resource)resource;
+        if (r.ShadowOnly)
         {
-            context.DropShadowOnly(Position.CurrentValue, Sigma.CurrentValue, Color.CurrentValue);
+            context.DropShadowOnly(r.Position, r.Sigma, r.Color);
         }
         else
         {
-            context.DropShadow(Position.CurrentValue, Sigma.CurrentValue, Color.CurrentValue);
+            context.DropShadow(r.Position, r.Sigma, r.Color);
         }
-    }
-
-    public override Rect TransformBounds(Rect bounds)
-    {
-        Size sigma = Sigma.CurrentValue;
-        Rect shadowBounds = bounds
-            .Translate(Position.CurrentValue)
-            .Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3));
-
-        return ShadowOnly.CurrentValue ? shadowBounds : bounds.Union(shadowBounds);
     }
 }

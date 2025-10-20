@@ -1,4 +1,5 @@
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Media;
 using NAudio.Dsp;
 
@@ -12,37 +13,20 @@ public sealed class SpeedNode : AudioNode
 
     // 秒数 -> サンプルオフセット
     private Dictionary<int, double> _cache = new();
-    private IAnimatable? _target;
-    private CoreProperty<float>? _speedProperty;
-    private KeyFrameAnimation<float>? _animation;
+    private IAnimation<float>? _animation;
 
-    public IAnimatable? Target
+    public IProperty<float>? Speed
     {
-        get => _target;
+        get;
         set
         {
-            _target = value;
-            if (!ReferenceEquals(_target, value))
+            field = value;
+            if (!ReferenceEquals(field, value))
             {
                 InvalidateCache();
             }
         }
     }
-
-    public CoreProperty<float>? SpeedProperty
-    {
-        get => _speedProperty;
-        set
-        {
-            _speedProperty = value;
-            if (!ReferenceEquals(_speedProperty, value))
-            {
-                InvalidateCache();
-            }
-        }
-    }
-
-    public float StaticSpeed { get; set; } = 1.0f;
 
     private void InvalidateCache()
     {
@@ -63,7 +47,7 @@ public sealed class SpeedNode : AudioNode
         // Calculate the expected output sample count based on the context's time range
         var expectedOutputSampleCount = context.GetSampleCount();
 
-        var animation = GetSpeedAnimation();
+        var animation = Speed?.Animation;
         if (!ReferenceEquals(animation, _animation))
         {
             InvalidateCache();
@@ -93,14 +77,15 @@ public sealed class SpeedNode : AudioNode
 
     private AudioBuffer ProcessStaticSpeed(AudioProcessContext context, int expectedOutputSampleCount)
     {
+        float speed = (Speed?.CurrentValue ?? 100f) / 100f;
         // If speed is 1.0, use normal processing
-        if (Math.Abs(StaticSpeed - 1.0f) < float.Epsilon)
+        if (Math.Abs(speed - 1.0f) < float.Epsilon)
         {
             return Inputs[0].Process(context);
         }
 
         // Calculate source time range from output time range
-        var sourceTimeRange = CalculateSourceTimeRange(context.TimeRange, StaticSpeed);
+        var sourceTimeRange = CalculateSourceTimeRange(context.TimeRange, speed);
 
         // Create input context with calculated source time range
         var inputContext = new AudioProcessContext(
@@ -110,7 +95,7 @@ public sealed class SpeedNode : AudioNode
             context.OriginalTimeRange);
 
         // Process with constant speed to get the expected output length
-        return _processor!.ProcessBuffer(inputContext, StaticSpeed, expectedOutputSampleCount);
+        return _processor!.ProcessBuffer(inputContext, speed, expectedOutputSampleCount);
     }
 
     private (int Key, double Value) TryGetCache(int sec)
@@ -139,7 +124,7 @@ public sealed class SpeedNode : AudioNode
         double sum = startConvTime;
 
         // startSecが-1の時は[-1,0]をsumが0になるようにサンプリング
-        var animation = GetSpeedAnimation()!;
+        var animation = Speed?.Animation!;
         for (; startSec < origStartSec;)
         {
             // ここで計算してキャッシュに保存する
@@ -195,14 +180,6 @@ public sealed class SpeedNode : AudioNode
         var sourceDuration = outputTimeRange.Duration * speed;
 
         return new TimeRange(sourceStart, sourceDuration);
-    }
-
-    private KeyFrameAnimation<float>? GetSpeedAnimation()
-    {
-        if (Target?.Animations == null || SpeedProperty == null)
-            return null;
-
-        return Target.Animations.FirstOrDefault(i => i.Property.Id == SpeedProperty.Id) as KeyFrameAnimation<float>;
     }
 
     protected override void Dispose(bool disposing)

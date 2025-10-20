@@ -1,22 +1,39 @@
-﻿using Beutl.Media;
+﻿using Beutl.Engine;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
 public abstract class BrushRenderNode : RenderNode
 {
-    protected BrushRenderNode(IBrush? fill, IPen? pen)
+    protected BrushRenderNode(Brush.Resource? fill, Pen.Resource? pen)
     {
-        Fill = (fill as IMutableBrush)?.ToImmutable() ?? fill;
-        Pen = (pen as IMutablePen)?.ToImmutable() ?? pen;
+        Fill = fill.Capture();
+        Pen = pen.Capture();
     }
 
-    public IBrush? Fill { get; }
+    // めも: Drawable.Resourceで一括でVersionを管理するのは危険
+    // Transform (changed) -> Brush (changed) -> Pen (changed) だとすると、Transformのバージョンしか変わらない
+    public (Brush.Resource Resource, int Version)? Fill { get; private set; }
 
-    public IPen? Pen { get; }
+    public (Pen.Resource Resource, int Version)? Pen { get; private set; }
 
-    protected override void OnDispose(bool disposing)
+    protected bool Update(Brush.Resource? fill, Pen.Resource? pen)
     {
-        base.OnDispose(disposing);
-        (Fill as IDisposable)?.Dispose();
+        bool changed = false;
+        if (Fill?.Resource.GetOriginal() != fill?.GetOriginal()
+            || Fill?.Version != fill?.Version)
+        {
+            Fill = fill.Capture();
+            changed = true;
+        }
+
+        if (Pen?.Resource.GetOriginal() != pen?.GetOriginal()
+            || Pen?.Version != pen?.Version)
+        {
+            Pen = pen.Capture();
+            changed = true;
+        }
+
+        return changed;
     }
 }

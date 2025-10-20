@@ -48,7 +48,7 @@ public sealed class RenderScene : IDisposable
         _layer.Clear();
     }
 
-    public void Render(ImmediateCanvas canvas, IClock clock)
+    public void Render(ImmediateCanvas canvas)
     {
         using (canvas.Push())
         {
@@ -56,7 +56,7 @@ public sealed class RenderScene : IDisposable
 
             foreach (RenderLayer item in _layer.Values)
             {
-                item.Render(canvas, clock);
+                item.Render(canvas);
             }
         }
     }

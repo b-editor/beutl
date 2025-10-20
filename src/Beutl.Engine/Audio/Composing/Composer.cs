@@ -2,15 +2,12 @@
 using Beutl.Animation;
 using Beutl.Audio.Graph;
 using Beutl.Media;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 
 namespace Beutl.Audio.Composing;
 
 public class Composer : IComposer
 {
     private readonly AnimationSampler _animationSampler = new();
-    private readonly InstanceClock _instanceClock = new();
     private readonly ConditionalWeakTable<Sound, AudioNodeEntry> _audioCache = [];
     private readonly List<Sound> _currentSounds = new();
     private readonly List<AudioNodeEntry> _currentEntry = new();
@@ -46,8 +43,6 @@ public class Composer : IComposer
         }
     }
 
-    public IClock Clock => _instanceClock;
-
     public int SampleRate { get; init; }
 
     public bool IsDisposed { get; private set; }
@@ -65,13 +60,13 @@ public class Composer : IComposer
         }
     }
 
-    protected virtual void ComposeCore()
+    protected virtual void ComposeCore(TimeRange timeRange)
     {
         // Default implementation: compose all sounds
         _currentEntry.Clear();
         foreach (var sound in _currentSounds)
         {
-            ComposeSound(sound, Clock);
+            ComposeSound(sound, timeRange);
         }
     }
 
@@ -92,14 +87,12 @@ public class Composer : IComposer
             try
             {
                 IsAudioRendering = true;
-                _instanceClock.AudioStartTime = timeRange.Start;
-                _instanceClock.AudioDurationTime = timeRange.Duration;
 
                 // Clear previous sounds list
                 _currentSounds.Clear();
 
                 // Let subclass populate sounds
-                ComposeCore();
+                ComposeCore(timeRange);
 
                 // Build final audio graph
                 return BuildFinalOutput(timeRange);
@@ -208,7 +201,7 @@ public class Composer : IComposer
     /// <summary>
     /// Composes a sound with caching support and differential updates.
     /// </summary>
-    protected void ComposeSound(Sound sound, IClock clock)
+    protected void ComposeSound(Sound sound, TimeRange timeRange)
     {
         // Get or create cache entry
         if (!_audioCache.TryGetValue(sound, out var entry))

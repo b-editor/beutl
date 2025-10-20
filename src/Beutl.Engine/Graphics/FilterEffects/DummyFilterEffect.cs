@@ -9,7 +9,7 @@ public sealed partial class DummyFilterEffect : FilterEffect, IDummy
 {
     internal JsonObject? Json { get; set; }
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
     }
 

@@ -24,9 +24,10 @@ public partial class GaussianBlur : FilterEffect
     [Display(Name = nameof(Strings.FixImageSize), ResourceType = typeof(Strings))]
     public IProperty<bool> FixImageSize { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.CustomEffect((KernelSize.CurrentValue, Sigma.CurrentValue, FixImageSize.CurrentValue), Apply, TransformBounds);
+        var r = (Resource)resource;
+        context.CustomEffect((r.KernelSize, r.Sigma, r.FixImageSize), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((PixelSize KernelSize, Size Sigma, bool FixImageSize) data, Rect rect)

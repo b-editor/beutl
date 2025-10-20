@@ -21,9 +21,10 @@ public partial class MedianBlur : FilterEffect
     [Display(Name = nameof(Strings.FixImageSize), ResourceType = typeof(Strings))]
     public IProperty<bool> FixImageSize { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.CustomEffect((KernelSize.CurrentValue, FixImageSize.CurrentValue), Apply, TransformBounds);
+        var r = (Resource)resource;
+        context.CustomEffect((r.KernelSize, r.FixImageSize), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((int KernelSize, bool FixImageSize) data, Rect rect)
@@ -37,6 +38,7 @@ public partial class MedianBlur : FilterEffect
             int half = ksize / 2;
             rect = rect.Inflate(half);
         }
+
         return rect;
     }
 

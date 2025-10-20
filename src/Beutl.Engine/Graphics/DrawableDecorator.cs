@@ -1,106 +1,60 @@
-﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 
 namespace Beutl.Graphics;
 
+// TODO: トランスフォームの動作が変わるので検証する
+//       Child(エフェクト適用後)のBoundsからトランスフォームしていたのが、
+//       エフェクト適用前のBoundsからトランスフォームするようになる
 // Drawable継承しているが、Drawableのメソッドは使っていない
 [Display(Name = "Decorator")]
 public sealed partial class DrawableDecorator : Drawable
 {
-    public static readonly CoreProperty<Drawable?> ChildProperty;
-    private Drawable? _child;
-
-    static DrawableDecorator()
+    public DrawableDecorator()
     {
-        ChildProperty = ConfigureProperty<Drawable?, DrawableDecorator>(nameof(Child))
-            .Accessor(o => o.Child, (o, v) => o.Child = v)
-            .Register();
-
-        AffectsRender<DrawableDecorator>(ChildProperty);
+        ScanProperties<DrawableDecorator>();
     }
 
-    public Drawable? Child
+    public IProperty<Drawable?> Child { get; } = Property.Create<Drawable?>();
+
+    public int OriginalZIndex => (Child.CurrentValue as DrawableDecorator)?.OriginalZIndex ?? ZIndex;
+
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
-        get => _child;
-        set => SetAndRaise(ChildProperty, ref _child, value);
-    }
-
-    public int OriginalZIndex => (_child as DrawableDecorator)?.OriginalZIndex ?? ZIndex;
-
-    //Childは既にアニメーションを適用されている状態
-    //public override void ApplyAnimations(IClock clock)
-    //{
-    //    base.ApplyAnimations(clock);
-    //}
-
-    public override void Measure(Size availableSize)
-    {
-        Rect rect = PrivateMeasureCore(availableSize);
-        Matrix transform = GetTransformMatrix(availableSize);
-
-        if (FilterEffect != null && !rect.IsInvalid)
+        if (IsEnabled)
         {
-            rect = FilterEffect.TransformBounds(rect);
-        }
-
-        Bounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
-    }
-
-    private Rect PrivateMeasureCore(Size availableSize)
-    {
-        if (Child != null)
-        {
-            Child.Measure(availableSize);
-            return Child.Bounds;
-        }
-        else
-        {
-            return Rect.Empty;
-        }
-    }
-
-    public override void Render(GraphicsContext2D context)
-    {
-        if (IsVisible)
-        {
+            var r = (Resource)resource;
             Size availableSize = context.Size.ToSize(1);
-            Rect rect = PrivateMeasureCore(availableSize);
-            if (FilterEffect != null && !rect.IsInvalid)
-            {
-                rect = FilterEffect.TransformBounds(rect);
-            }
 
-            Matrix transform = GetTransformMatrix(availableSize);
-            Rect transformedBounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
-            using (context.PushBlendMode(BlendMode))
+            Matrix transform = GetTransformMatrix(availableSize, r);
+            using (context.PushBlendMode(r.BlendMode))
             using (context.PushTransform(transform))
-            using (FilterEffect == null ? new() : context.PushFilterEffect(FilterEffect))
-            using (OpacityMask == null ? new() : context.PushOpacityMask(OpacityMask, new Rect(rect.Size)))
+            using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
             {
-                OnDraw(context);
+                OnDraw(context, resource);
             }
-
-            Bounds = transformedBounds;
         }
     }
 
-    protected override void OnDraw(GraphicsContext2D context)
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
-        if (Child != null)
+        var r = (Resource)resource;
+        if (r.Child != null)
         {
-            context.DrawDrawable(Child);
+            context.DrawDrawable(r.Child);
         }
     }
 
-    private Matrix GetTransformMatrix(Size availableSize)
+    private Matrix GetTransformMatrix(Size availableSize, Drawable.Resource resource)
     {
-        Vector origin = TransformOrigin.ToPixels(availableSize);
+        Vector origin = resource.TransformOrigin.ToPixels(availableSize);
         Matrix offset = Matrix.CreateTranslation(origin);
+        var transform = resource.Transform;
 
-        if (Transform is { IsEnabled: true })
+        if (transform != null)
         {
-            return (-offset) * Transform.Value * offset;
+            return (-offset) * transform.Matrix * offset;
         }
         else
         {
@@ -108,22 +62,16 @@ public sealed partial class DrawableDecorator : Drawable
         }
     }
 
-    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
-        base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs<Drawable?> ev
-            && ev.Property == ChildProperty)
+        var r = (Resource)resource;
+        if (r.Child != null)
         {
-            if (ev.OldValue != null)
-                HierarchicalChildren.Remove(ev.OldValue);
-
-            if (ev.NewValue != null)
-                HierarchicalChildren.Add(ev.NewValue);
+            return r.Child.GetOriginal().MeasureInternal(availableSize, r.Child);
         }
-    }
-
-    protected override Size MeasureCore(Size availableSize)
-    {
-        return PrivateMeasureCore(availableSize).Size;
+        else
+        {
+            return Size.Empty;
+        }
     }
 }

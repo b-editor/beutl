@@ -7,8 +7,6 @@ namespace Beutl.Audio.Composing;
 
 public interface IComposer : IDisposable
 {
-    IClock Clock { get; }
-
     bool IsAudioRendering { get; }
 
     bool IsDisposed { get; }

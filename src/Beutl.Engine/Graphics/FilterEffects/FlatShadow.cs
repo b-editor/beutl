@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -14,86 +15,31 @@ namespace Beutl.Graphics.Effects;
 
 public partial class FlatShadow : FilterEffect
 {
-    public static readonly CoreProperty<float> AngleProperty;
-    public static readonly CoreProperty<float> LengthProperty;
-    public static readonly CoreProperty<IBrush?> BrushProperty;
-    public static readonly CoreProperty<bool> ShadowOnlyProperty;
-    private float _angle;
-    private float _length;
-    private IBrush? _brush;
-    private bool _shadowOnly;
-
-    static FlatShadow()
-    {
-        AngleProperty = ConfigureProperty<float, FlatShadow>(nameof(Angle))
-            .Accessor(o => o.Angle, (o, v) => o.Angle = v)
-            .Register();
-
-        LengthProperty = ConfigureProperty<float, FlatShadow>(nameof(Length))
-            .Accessor(o => o.Length, (o, v) => o.Length = v)
-            .Register();
-
-        BrushProperty = ConfigureProperty<IBrush?, FlatShadow>(nameof(Brush))
-            .Accessor(o => o.Brush, (o, v) => o.Brush = v)
-            .Register();
-
-        ShadowOnlyProperty = ConfigureProperty<bool, FlatShadow>(nameof(ShadowOnly))
-            .Accessor(o => o.ShadowOnly, (o, v) => o.ShadowOnly = v)
-            .Register();
-
-        AffectsRender<FlatShadow>(AngleProperty, LengthProperty, BrushProperty, ShadowOnlyProperty);
-    }
-
     public FlatShadow()
     {
-        Brush = new SolidColorBrush(Colors.Gray);
+        ScanProperties<FlatShadow>();
+        Brush.CurrentValue = new SolidColorBrush(Colors.Gray);
     }
 
     [Display(Name = nameof(Strings.Angle), ResourceType = typeof(Strings))]
-    public float Angle
-    {
-        get => _angle;
-        set => SetAndRaise(AngleProperty, ref _angle, value);
-    }
+    public IProperty<float> Angle { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(Strings.Length), ResourceType = typeof(Strings))]
-    public float Length
-    {
-        get => _length;
-        set => SetAndRaise(LengthProperty, ref _length, value);
-    }
+    public IProperty<float> Length { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(Strings.Brush), ResourceType = typeof(Strings))]
-    public IBrush? Brush
-    {
-        get => _brush;
-        set => SetAndRaise(BrushProperty, ref _brush, value);
-    }
+    public IProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(Strings.ShadowOnly), ResourceType = typeof(Strings))]
-    public bool ShadowOnly
+    public IProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
+
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        get => _shadowOnly;
-        set => SetAndRaise(ShadowOnlyProperty, ref _shadowOnly, value);
+        var r = (Resource)resource;
+        context.CustomEffect((r.Angle, r.Length, r.Brush, r.ShadowOnly), Apply, TransformBounds);
     }
 
-    public override void ApplyAnimations(IClock clock)
-    {
-        base.ApplyAnimations(clock);
-        (Brush as IAnimatable)?.ApplyAnimations(clock);
-    }
-
-    public override void ApplyTo(FilterEffectContext context)
-    {
-        context.CustomEffect((Angle, Length, (Brush as IMutableBrush)?.ToImmutable(), ShadowOnly), Apply, TransformBounds);
-    }
-
-    public override Rect TransformBounds(Rect bounds)
-    {
-        return TransformBounds((Angle, Length, Brush, ShadowOnly), bounds);
-    }
-
-    private static Rect TransformBounds((float Angle, float Length, IBrush? Brush, bool ShadowOnly) data, Rect rect)
+    private static Rect TransformBounds((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data, Rect rect)
     {
         float length = data.Length;
         float radian = MathUtilities.Deg2Rad(data.Angle);
@@ -108,7 +54,7 @@ public partial class FlatShadow : FilterEffect
         return new Rect(rect.X - (xAbs - x) / 2, rect.Y - (yAbs - y) / 2, width, height);
     }
 
-    private static void Apply((float Angle, float Length, IBrush? Brush, bool ShadowOnly) data, CustomFilterEffectContext context)
+    private static void Apply((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data, CustomFilterEffectContext context)
     {
         static Cv.Point[][] FindPoints(Bitmap<Bgra8888> src)
         {
@@ -149,7 +95,7 @@ public partial class FlatShadow : FilterEffect
             return skpath;
         }
 
-        IBrush? brush = data.Brush;
+        Brush.Resource? brush = data.Brush;
         float length = data.Length;
         float radian = MathUtilities.Deg2Rad(data.Angle);
 

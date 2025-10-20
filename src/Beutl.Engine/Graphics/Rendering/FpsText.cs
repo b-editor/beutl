@@ -1,27 +1,27 @@
-﻿using Beutl.Graphics.Shapes;
-using Beutl.Media;
-using Beutl.Media.Immutable;
+﻿using Beutl.Media;
+using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics.Rendering;
 
 internal sealed class FpsText
 {
-    private static readonly IBrush s_background = new ImmutableSolidColorBrush(Colors.Black, 50);
+    private static readonly Brush.Resource s_background = new SolidColorBrush(Colors.Black, 50).ToResource(RenderContext.Default);
     private double _maxFps;
     private double _minFps = double.MaxValue;
     private double _avgFps;
     private double _prevFps;
-    private readonly TextBlock _textBlock;
+    private readonly FormattedText[] _texts;
 
     public FpsText()
     {
-        _textBlock = new TextBlock
+        _texts = new FormattedText[4];
+        var white = Brushes.Resource.White;
+        for (int i = 0; i < 4; i++)
         {
-            AlignmentX = AlignmentX.Left,
-            AlignmentY = AlignmentY.Top,
-            Size = 72,
-            Fill = Brushes.White
-        };
+            _texts[i] = new FormattedText();
+            _texts[i].Size = 72;
+            _texts[i].Brush = white;
+        }
     }
 
     public bool DrawFps { get; set; } = false;
@@ -49,21 +49,27 @@ internal sealed class FpsText
                 fpsText._prevFps = fps;
                 fpsText._avgFps = (fpsText._prevFps + fps) / 2;
 
-                fpsText._textBlock.Text = $"""
-                    {fps:N2} FPS
-                    Min: {fpsText._minFps:N2} FPS
-                    Max: {fpsText._maxFps:N2} FPS
-                    Avg: {fpsText._avgFps:N2} FPS
-                    """;
+                fpsText._texts[0].Text = $"{fps:N2} FPS";
+                fpsText._texts[1].Text = $"Min: {fpsText._minFps:N2} FPS";
+                fpsText._texts[2].Text = $"Max: {fpsText._maxFps:N2} FPS";
+                fpsText._texts[3].Text = $"Avg: {fpsText._avgFps:N2} FPS";
 
-                fpsText._textBlock.Measure(canvas.Size.ToSize(1));
-                float width = fpsText._textBlock.Bounds.Size.Width;
-                float height = fpsText._textBlock.Bounds.Size.Height;
-
-                using (canvas.PushTransform(Matrix.CreateTranslation(width / 2, height / 2)))
+                var bounds = Rect.Empty;
+                foreach (var text in fpsText._texts)
                 {
-                    canvas.DrawRectangle(fpsText._textBlock.Bounds, s_background, null);
-                    canvas.DrawDrawable(fpsText._textBlock);
+                    bounds = bounds.Union(text.Bounds);
+                }
+
+                canvas.DrawRectangle(bounds, s_background, null);
+
+                float y = 0f;
+                foreach (var text in fpsText._texts)
+                {
+                    using (canvas.PushTransform(Matrix.CreateTranslation(0, y)))
+                    {
+                        canvas.DrawText(text, text.Brush!, text.Pen);
+                    }
+                    y += text.Bounds.Height;
                 }
             }
         }

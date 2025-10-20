@@ -65,10 +65,11 @@ public partial class ColorKey : FilterEffect
     [Display(Name = nameof(Strings.BoundaryCorrection), ResourceType = typeof(Strings))]
     public IProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
+        var r = (Resource)resource;
         context.CustomEffect(
-            (color: Color.CurrentValue, range: Range.CurrentValue, boundary: Boundary.CurrentValue),
+            (r.Color, r.Range, r.Boundary),
             OnApplyTo,
             static (_, r) => r);
     }

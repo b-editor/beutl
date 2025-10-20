@@ -1,73 +1,21 @@
-﻿using Beutl.Animation;
-using Beutl.Serialization;
-
-namespace Beutl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Effects;
 
 public sealed partial class FilterEffectGroup : FilterEffect
 {
-    public static readonly CoreProperty<FilterEffects> ChildrenProperty;
-    private readonly FilterEffects _children;
-
-    static FilterEffectGroup()
-    {
-        ChildrenProperty = ConfigureProperty<FilterEffects, FilterEffectGroup>(nameof(Children))
-            .Accessor(o => o.Children, (o, v) => o.Children = v)
-            .Register();
-    }
-
     public FilterEffectGroup()
     {
-        _children = new FilterEffects(this);
-        _children.Invalidated += (_, e) => RaiseInvalidated(e);
+        Children = new FilterEffects(this);
+        Children.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
-    [NotAutoSerialized]
-    public FilterEffects Children
-    {
-        get => _children;
-        set => _children.Replace(value);
-    }
+    public FilterEffects Children { get; }
 
-    public override void Serialize(ICoreSerializationContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        base.Serialize(context);
-        context.SetValue(nameof(Children), Children);
-    }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        base.Deserialize(context);
-        if (context.GetValue<FilterEffects>(nameof(Children)) is { } children)
+        var r = (Resource)resource;
+        foreach (FilterEffect.Resource item in r.Children)
         {
-            Children = children;
+            item.GetOriginal().ApplyTo(context, item);
         }
-    }
-
-    public override void ApplyAnimations(IClock clock)
-    {
-        base.ApplyAnimations(clock);
-        foreach (FilterEffect item in Children.GetMarshal().Value)
-        {
-            (item as IAnimatable)?.ApplyAnimations(clock);
-        }
-    }
-
-    public override void ApplyTo(FilterEffectContext context)
-    {
-        foreach (FilterEffect item in _children.GetMarshal().Value)
-        {
-            context.Apply(item);
-        }
-    }
-
-    public override Rect TransformBounds(Rect bounds)
-    {
-        foreach (FilterEffect item in _children.GetMarshal().Value)
-        {
-            if (item.IsEnabled)
-                bounds = item.TransformBounds(bounds);
-        }
-
-        return bounds;
     }
 }

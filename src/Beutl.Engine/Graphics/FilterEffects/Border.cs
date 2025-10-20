@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Media.Immutable;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using OpenCvSharp;
@@ -46,14 +46,15 @@ public partial class Border : FilterEffect
     [Display(Name = nameof(Strings.BorderStyle), ResourceType = typeof(Strings))]
     public IProperty<BorderStyles> Style { get; } = Property.CreateAnimatable(BorderStyles.Background);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.CustomEffect((Offset.CurrentValue, Thickness.CurrentValue, Color.CurrentValue, MaskType.CurrentValue, Style.CurrentValue), Apply, TransformBounds);
+        var r = (Resource)resource;
+        context.CustomEffect((r.Offset, r.Thickness, r.Color, r.MaskType, r.Style), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((Point Offset, int Thickness, Color Color, MaskTypes MaskType, BorderStyles Style) data, Rect rect)
     {
-        return rect.Union(rect.Translate(new Vector(data.Offset.X, data.Offset.Y)).Inflate(data.Thickness / 2)).Inflate(8);
+        return rect.Union(rect.Translate(new Vector(data.Offset.X, data.Offset.Y)).Inflate(data.Thickness / 2f)).Inflate(8);
     }
 
     private static void Apply((Point Offset, int Thickness, Color Color, MaskTypes MaskType, BorderStyles Style) data, CustomFilterEffectContext context)
@@ -102,11 +103,17 @@ public partial class Border : FilterEffect
             Rect canvasRect = rect.Union(borderBounds).Inflate(8);
             var borderRect = new Rect(0, 0, border.Width, border.Height);
 
-            ImmutableImageBrush? maskBrush = null;
+            ImageBrush.Resource? maskBrush = null;
             if (maskType != MaskTypes.None)
             {
-                maskBrush = new ImmutableImageBrush(srcBitmapSource, stretch: Stretch.None);
+                maskBrush = new ImageBrush
+                {
+                    Source = { CurrentValue = srcBitmapSource },
+                    Stretch = { CurrentValue = Stretch.None }
+                }.ToResource(RenderContext.Default);
             }
+
+            var whiteBrush = Brushes.White.ToResource(RenderContext.Default);
 
             EffectTarget newTarget = context.CreateTarget(canvasRect);
             using (ImmediateCanvas canvas = context.Open(newTarget))
@@ -119,46 +126,24 @@ public partial class Border : FilterEffect
                 {
                     using (canvas.PushTransform(srcTranslate))
                     {
-                        canvas.DrawBitmap(src, Brushes.White, null);
+                        canvas.DrawBitmap(src, whiteBrush, null);
                     }
                 }
 
                 float xx = -(offset.X - Math.Max(offset.X, thicknessHalf)) - thicknessHalf;
                 float yy = -(offset.Y - Math.Max(offset.Y, thicknessHalf)) - thicknessHalf;
 
-                /* PushOpacityMask
-                   PUSH:
-                   var paint = new SKPaint();
-
-                   int count = Canvas.SaveLayer(paint);
-                   new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode).ConfigurePaint(paint);
-
-                   POP:
-                   canvas._sharedFillPaint.Reset();
-                   canvas._sharedFillPaint.BlendMode = Invert ? SKBlendMode.DstOut : SKBlendMode.DstIn;
-
-                   canvas.Canvas.SaveLayer(canvas._sharedFillPaint);
-                   using (SKPaint maskPaint = Paint)
-                   {
-                       canvas.Canvas.DrawPaint(maskPaint);
-                   }
-
-                   canvas.Canvas.Restore();
-
-                   canvas.Canvas.RestoreToCount(Count);
-                 */
-
                 using (canvas.PushTransform(Matrix.CreateTranslation(offset.X + xx, offset.Y + yy)))
                 using (maskBrush != null ? canvas.PushOpacityMask(maskBrush, borderRect, maskType == MaskTypes.Invert) : new())
                 {
-                    canvas.DrawBitmap(border, Brushes.White, null);
+                    canvas.DrawBitmap(border, whiteBrush, null);
                 }
 
                 if (style == BorderStyles.Background)
                 {
                     using (canvas.PushTransform(srcTranslate))
                     {
-                        canvas.DrawBitmap(src, Brushes.White, null);
+                        canvas.DrawBitmap(src, whiteBrush, null);
                     }
                 }
             }

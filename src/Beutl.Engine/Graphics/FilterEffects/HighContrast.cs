@@ -15,13 +15,14 @@ public sealed partial class HighContrast : FilterEffect
     public IProperty<bool> Grayscale { get; } = Property.CreateAnimatable(false);
 
     [Display(Name = nameof(Strings.InvertStyle), ResourceType = typeof(Strings))]
-    public IProperty<HighContrastInvertStyle> InvertStyle { get; } = Property.CreateAnimatable(HighContrastInvertStyle.None);
+    public IProperty<HighContrastInvertStyle> InvertStyle { get; } = Property.CreateAnimatable(HighContrastInvertStyle.NoInvert);
 
     [Display(Name = nameof(Strings.Contrast), ResourceType = typeof(Strings))]
     public IProperty<float> Contrast { get; } = Property.CreateAnimatable<float>();
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.HighContrast(Grayscale.CurrentValue, InvertStyle.CurrentValue, Contrast.CurrentValue / 100f);
+        var r = (Resource)resource;
+        context.HighContrast(r.Grayscale, r.InvertStyle, r.Contrast / 100f);
     }
 }

@@ -61,15 +61,16 @@ public partial class ColorShift : FilterEffect
 
     public IProperty<PixelPoint> AlphaOffset { get; } = Property.CreateAnimatable<PixelPoint>();
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
+        var r = (Resource)resource;
         if (s_runtimeEffect is null)
         {
             throw new InvalidOperationException("Failed to compile SKSL.");
         }
 
         context.CustomEffect(
-            (RedOffset.CurrentValue, GreenOffset.CurrentValue, BlueOffset.CurrentValue, AlphaOffset.CurrentValue),
+            (r.RedOffset, r.GreenOffset, r.BlueOffset, r.AlphaOffset),
             OnApply,
             TransformBoundsCore);
     }

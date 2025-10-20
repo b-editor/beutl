@@ -100,10 +100,11 @@ public partial class ChromaKey : FilterEffect
     [Display(Name = nameof(Strings.BoundaryCorrection), ResourceType = typeof(Strings))]
     public IProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
+        var r = (Resource)resource;
         context.CustomEffect(
-            (color: Color.CurrentValue, hueRange: HueRange.CurrentValue, satRange: SaturationRange.CurrentValue, boundary: Boundary.CurrentValue),
+            (color: r.Color, hueRange: r.HueRange, satRange: r.SaturationRange, boundary: r.Boundary),
             OnApplyTo,
             static (_, r) => r);
     }

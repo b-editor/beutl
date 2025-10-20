@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
@@ -10,74 +11,24 @@ namespace Beutl.Graphics;
 [Display(Name = nameof(Strings.Video), ResourceType = typeof(Strings))]
 public partial class SourceVideo : Drawable
 {
-    public static readonly CoreProperty<TimeSpan> OffsetPositionProperty;
-    public static readonly CoreProperty<float> SpeedProperty;
-    public static readonly CoreProperty<IVideoSource?> SourceProperty;
-    public static readonly CoreProperty<bool> IsLoopProperty;
-    private TimeSpan _offsetPosition;
-    private float _speed = 100;
-    private IVideoSource? _source;
-    private bool _isLoop;
-    private TimeSpan _requestedPosition;
-    private TimeSpan? _renderedPosition;
-
-    static SourceVideo()
+    public SourceVideo()
     {
-        OffsetPositionProperty = ConfigureProperty<TimeSpan, SourceVideo>(nameof(OffsetPosition))
-            .Accessor(o => o.OffsetPosition, (o, v) => o.OffsetPosition = v)
-            .DefaultValue(TimeSpan.Zero)
-            .Register();
-
-        SpeedProperty = ConfigureProperty<float, SourceVideo>(nameof(Speed))
-            .Accessor(o => o.Speed, (o, v) => o.Speed = v)
-            .DefaultValue(100)
-            .Register();
-
-        SourceProperty = ConfigureProperty<IVideoSource?, SourceVideo>(nameof(Source))
-            .Accessor(o => o.Source, (o, v) => o.Source = v)
-            .Register();
-
-        IsLoopProperty = ConfigureProperty<bool, SourceVideo>(nameof(IsLoop))
-            .Accessor(o => o.IsLoop, (o, v) => o.IsLoop = v)
-            .DefaultValue(false)
-            .Register();
-
-        AffectsRender<SourceVideo>(
-            OffsetPositionProperty,
-            SpeedProperty,
-            SourceProperty,
-            IsLoopProperty);
+        ScanProperties<SourceVideo>();
     }
 
     [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
-    public TimeSpan OffsetPosition
-    {
-        get => _offsetPosition;
-        set => SetAndRaise(OffsetPositionProperty, ref _offsetPosition, value);
-    }
+    public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
     [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
-    public float Speed
-    {
-        get => _speed;
-        set => SetAndRaise(SpeedProperty, ref _speed, value);
-    }
+    public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
-    public IVideoSource? Source
-    {
-        get => _source;
-        set => SetAndRaise(SourceProperty, ref _source, value);
-    }
+    public IProperty<IVideoSource?> Source { get; } = Property.CreateAnimatable<IVideoSource?>();
 
     [Display(Name = nameof(Strings.IsLoop), ResourceType = typeof(Strings))]
-    public bool IsLoop
-    {
-        get => _isLoop;
-        set => SetAndRaise(IsLoopProperty, ref _isLoop, value);
-    }
+    public IProperty<bool> IsLoop { get; } = Property.CreateAnimatable<bool>();
 
-    private TimeSpan CalculateVideoTime(TimeSpan timeSpan)
+    private TimeSpan CalculateVideoTime(TimeSpan timeSpan, Resource resource)
     {
         // 最初のキーフレームが100, 00:00
         // 2のキーフレームが100, 00:10
@@ -87,14 +38,14 @@ public partial class SourceVideo : Drawable
 
         // 手前（KeyTime <= timeSpan）のキーフレームを取得しその時点での自然な動画時間を取得、(CurrentTime - KeyTime) * Speedを加算したものをRequestedPositionに設定
 
-        var anm = Animations.FirstOrDefault(i => i.Property.Id == SpeedProperty.Id);
+        var anm = Speed.Animation;
         if (anm is not KeyFrameAnimation<float> keyFrameAnimation)
             return timeSpan;
 
         // キーフレームが無い場合は、グローバルな _speed を使って単純変換する
         if (keyFrameAnimation.KeyFrames.Count == 0)
         {
-            return TimeSpan.FromTicks((long)(timeSpan.Ticks * (_speed / 100.0)));
+            return TimeSpan.FromTicks((long)(timeSpan.Ticks * (resource.Speed / 100.0)));
         }
 
         int kfi = keyFrameAnimation.KeyFrames.IndexAt(timeSpan);
@@ -104,7 +55,7 @@ public partial class SourceVideo : Drawable
         if (kfi > 0 &&
             keyFrameAnimation.KeyFrames[kfi - 1] is KeyFrame<float> prevKf)
         {
-            var baseVideoTime = CalculateVideoTime(prevKf.KeyTime);
+            var baseVideoTime = CalculateVideoTime(prevKf.KeyTime, resource);
             var deltaTicks = (timeSpan - prevKf.KeyTime).Ticks;
             // kf.Value がマイナスの場合は、deltaTicks に対して乗算すると符号反転し、逆再生となる
             long videoTicks = (long)(deltaTicks * (kf.Value / 100.0));
@@ -117,16 +68,16 @@ public partial class SourceVideo : Drawable
 
     public TimeSpan? CalculateOriginalTime()
     {
-        if (Source?.IsDisposed != false) return null;
+        if (Source.CurrentValue?.IsDisposed != false) return null;
 
-        var duration = Source.Duration;
+        var duration = Source.CurrentValue.Duration;
 
-        var anm = Animations.FirstOrDefault(i => i.Property.Id == SpeedProperty.Id);
+        var anm = Speed.Animation;
 
         // スピードのアニメーションまたはキーフレームが 1 つもない場合は、単純に逆変換する
         if (anm is not KeyFrameAnimation<float> keyFrameAnimation || keyFrameAnimation.KeyFrames.Count == 0)
         {
-            return TimeSpan.FromTicks((long)(duration.Ticks / (_speed / 100.0)));
+            return TimeSpan.FromTicks((long)(duration.Ticks / (Speed.CurrentValue / 100.0)));
         }
 
         // 0時点を起点とした各セグメントを構築する
@@ -187,53 +138,12 @@ public partial class SourceVideo : Drawable
         return currentOriginal + TimeSpan.FromTicks(offsetTicks);
     }
 
-    public override void ApplyAnimations(IClock clock)
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
-        base.ApplyAnimations(clock);
-        // アニメーションがある場合、前回のキーフレームを引く
-        var anm = Animations.FirstOrDefault(i => i.Property.Id == SpeedProperty.Id);
-        if (anm is KeyFrameAnimation<float> keyFrameAnimation)
+        var r = (Resource)resource;
+        if (r.Source?.IsDisposed == false)
         {
-            _requestedPosition = CalculateVideoTime(keyFrameAnimation.UseGlobalClock
-                ? clock.GlobalClock.CurrentTime
-                : clock.CurrentTime);
-        }
-        else
-        {
-            _requestedPosition = clock.CurrentTime * (_speed / 100);
-        }
-
-        // ループ処理を追加
-        if (IsLoop && Source?.IsDisposed == false && Source.Duration > TimeSpan.Zero)
-        {
-            // 正の値の場合、動画の長さでモジュロ計算
-            if (_requestedPosition >= TimeSpan.Zero)
-            {
-                _requestedPosition = TimeSpan.FromTicks(_requestedPosition.Ticks % Source.Duration.Ticks);
-            }
-            // 負の値の場合、動画の長さを足してからモジュロ計算
-            else
-            {
-                var positiveTicks = Source.Duration.Ticks + (_requestedPosition.Ticks % Source.Duration.Ticks);
-                _requestedPosition = TimeSpan.FromTicks(positiveTicks % Source.Duration.Ticks);
-            }
-        }
-        else if (_requestedPosition < TimeSpan.Zero)
-        {
-            _requestedPosition = (Source?.Duration ?? TimeSpan.Zero) + _requestedPosition;
-        }
-
-        if (_requestedPosition != _renderedPosition)
-        {
-            Invalidate();
-        }
-    }
-
-    protected override Size MeasureCore(Size availableSize)
-    {
-        if (_source?.IsDisposed == false)
-        {
-            return _source.FrameSize.ToSize(1);
+            return r.Source.FrameSize.ToSize(1);
         }
         else
         {
@@ -241,20 +151,72 @@ public partial class SourceVideo : Drawable
         }
     }
 
-    protected override void OnDraw(GraphicsContext2D context)
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
-        if (_source?.IsDisposed == false)
+        var r = (Resource)resource;
+        if (r.Source?.IsDisposed == false)
         {
-            TimeSpan pos = _requestedPosition + _offsetPosition;
-            Rational rate = _source.FrameRate;
+            TimeSpan pos = r.RequestedPosition + r.OffsetPosition;
+            Rational rate = r.Source.FrameRate;
             double frameNum = pos.Ticks * rate.Numerator / (double)(TimeSpan.TicksPerSecond * rate.Denominator);
 
             context.DrawVideoSource(
-                _source,
+                r.Source,
                 (int)Math.Round(frameNum, MidpointRounding.AwayFromZero),
-                Brushes.White,
+                Brushes.Resource.White,
                 null);
-            _renderedPosition = _requestedPosition;
+            r.RenderedPosition = r.RequestedPosition;
+        }
+    }
+
+    public partial class Resource
+    {
+        public TimeSpan RenderedPosition { get; internal set; }
+
+        public TimeSpan RequestedPosition { get; internal set; }
+
+        partial void PostUpdate(SourceVideo obj, RenderContext context)
+        {
+            var clock = context.Clock;
+            // アニメーションがある場合、前回のキーフレームを引く
+            var anm = obj.Speed.Animation;
+            if (anm is KeyFrameAnimation<float> keyFrameAnimation)
+            {
+                RequestedPosition = obj.CalculateVideoTime(
+                    keyFrameAnimation.UseGlobalClock
+                        ? clock.GlobalClock.CurrentTime
+                        : clock.CurrentTime,
+                    this);
+            }
+            else
+            {
+                RequestedPosition = clock.CurrentTime * (_speed / 100);
+            }
+
+            // ループ処理を追加
+            if (IsLoop && Source?.IsDisposed == false && Source.Duration > TimeSpan.Zero)
+            {
+                // 正の値の場合、動画の長さでモジュロ計算
+                if (RequestedPosition >= TimeSpan.Zero)
+                {
+                    RequestedPosition = TimeSpan.FromTicks(RequestedPosition.Ticks % Source.Duration.Ticks);
+                }
+                // 負の値の場合、動画の長さを足してからモジュロ計算
+                else
+                {
+                    var positiveTicks = Source.Duration.Ticks + (RequestedPosition.Ticks % Source.Duration.Ticks);
+                    RequestedPosition = TimeSpan.FromTicks(positiveTicks % Source.Duration.Ticks);
+                }
+            }
+            else if (RequestedPosition < TimeSpan.Zero)
+            {
+                RequestedPosition = (Source?.Duration ?? TimeSpan.Zero) + RequestedPosition;
+            }
+
+            if (RequestedPosition != RenderedPosition)
+            {
+                Version++;
+            }
         }
     }
 }

@@ -6,11 +6,15 @@ using Beutl.Media;
 
 namespace Beutl.Audio.Effects;
 
-public sealed class AudioEffects : CoreList<IAudioEffect>, IAffectsRender
+public sealed class AudioEffects : HierarchicalList<AudioEffect>, IAffectsRender
 {
+    public AudioEffects(IModifiableHierarchical parent) : base(parent)
+    {
+        CollectionChanged += OnCollectionChanged;
+    }
+
     public AudioEffects()
     {
-        ResetBehavior = ResetBehavior.Remove;
         CollectionChanged += OnCollectionChanged;
     }
 

@@ -20,13 +20,14 @@ public partial class Negaposi : FilterEffect
     [Range(0, 100)]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        var color = (Red.CurrentValue, Green.CurrentValue, Blue.CurrentValue);
+        var r = (Resource)resource;
+        var color = (r.Red, r.Green, r.Blue);
 
         context.LookupTable(
             color,
-            Strength.CurrentValue / 100,
+            r.Strength / 100,
             static ((byte r, byte g, byte b) data, (byte[] A, byte[] R, byte[] G, byte[] B) array) =>
             {
                 LookupTable.Linear(array.A);

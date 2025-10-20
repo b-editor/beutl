@@ -2,13 +2,21 @@
 
 public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNode()
 {
-    public IBackdrop Backdrop { get; } = backdrop;
+    public IBackdrop Backdrop { get; private set; } = backdrop;
 
-    public Rect Bounds { get; } = bounds;
+    public Rect Bounds { get; private set; } = bounds;
 
-    public bool Equals(IBackdrop backdrop, Rect bounds)
+    public bool Update(IBackdrop backdrop, Rect bounds)
     {
-        return Backdrop == backdrop && Bounds == bounds;
+        if (Backdrop != backdrop || Bounds != bounds)
+        {
+            Backdrop = backdrop;
+            Bounds = bounds;
+            HasChanges = true;
+            return true;
+        }
+
+        return false;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)

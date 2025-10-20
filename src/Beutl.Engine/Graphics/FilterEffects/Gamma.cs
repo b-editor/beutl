@@ -20,13 +20,14 @@ public sealed partial class Gamma : FilterEffect
     [Range(0, 100)]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        float amount = Amount.CurrentValue / 100f;
+        var r = (Resource)resource;
+        float amount = r.Amount / 100f;
 
         context.LookupTable(
             amount,
-            Strength.CurrentValue / 100,
+            r.Strength / 100,
             static (float data, byte[] array) => LookupTable.Gamma(array, data));
     }
 }

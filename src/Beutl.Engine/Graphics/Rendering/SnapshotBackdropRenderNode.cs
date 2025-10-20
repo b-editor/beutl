@@ -25,7 +25,7 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
     {
         if (_bitmap != null)
         {
-            canvas.DrawBitmap(_bitmap, Brushes.White, null);
+            canvas.DrawBitmap(_bitmap, Brushes.Resource.White, null);
         }
     }
 

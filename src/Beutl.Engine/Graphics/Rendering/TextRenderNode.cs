@@ -4,23 +4,30 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class TextRenderNode(FormattedText text, IBrush? fill, IPen? pen)
+public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
     : BrushRenderNode(fill, pen)
 {
     public FormattedText Text { get; private set; } = text;
 
-    public bool Equals(FormattedText text, IBrush? fill, IPen? pen)
+    public bool Update(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
     {
-        return Text == text
-               && EqualityComparer<IBrush?>.Default.Equals(Fill, fill)
-               && EqualityComparer<IPen?>.Default.Equals(Pen, pen);
+        bool changed = Update(fill, pen);
+        var oldText = Text;
+        Text = text;
+        if (changed || !oldText.Equals(text))
+        {
+            HasChanges = true;
+            return true;
+        }
+
+        return false;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
         return
         [
-            RenderNodeOperation.CreateLambda(Text.ActualBounds, canvas => canvas.DrawText(Text, Fill, Pen), HitTest)
+            RenderNodeOperation.CreateLambda(Text.ActualBounds, canvas => canvas.DrawText(Text, Fill?.Resource, Pen?.Resource), HitTest)
         ];
     }
 

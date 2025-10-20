@@ -1,53 +1,19 @@
-﻿using Beutl.Animation;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
-using Beutl.Serialization;
-
 using SkiaSharp;
 
 namespace Beutl.Media;
 
-public sealed class PathGeometry : Geometry
+public sealed partial class PathGeometry : Geometry
 {
-    public static readonly CoreProperty<PathFigures> FiguresProperty;
-    private readonly PathFigures _figures;
-
-    static PathGeometry()
-    {
-        FiguresProperty = ConfigureProperty<PathFigures, PathGeometry>(nameof(Figures))
-            .Accessor(o => o.Figures, (o, v) => o.Figures = v)
-            .Register();
-
-        AffectsRender<PathGeometry>(FiguresProperty);
-    }
-
     public PathGeometry()
     {
-        _figures = new PathFigures(this);
-        _figures.Invalidated += (_, e) => RaiseInvalidated(e);
+        ScanProperties<PathGeometry>();
+        Figures = new PathFigures(this);
+        Figures.Invalidated += (_, e) => RaiseInvalidated(e);
     }
 
-    [NotAutoSerialized]
-    public PathFigures Figures
-    {
-        get => _figures;
-        set => _figures.Replace(value);
-    }
-
-    public override void Serialize(ICoreSerializationContext context)
-    {
-        base.Serialize(context);
-        context.SetValue(nameof(Figures), Figures);
-    }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        base.Deserialize(context);
-        if (context.GetValue<PathFigures>(nameof(Figures)) is { } figures)
-        {
-            Figures = figures;
-        }
-    }
+    public PathFigures Figures { get; }
 
     public static PathGeometry Parse(string svg)
     {
@@ -66,17 +32,17 @@ public sealed class PathGeometry : Geometry
 
             if (pathVerb == SKPathVerb.Move)
             {
-                if (!currentFigure.StartPoint.IsInvalid || currentFigure.Segments.Count > 0)
+                if (!currentFigure.StartPoint.CurrentValue.IsInvalid || currentFigure.Segments.Count > 0)
                 {
                     result.Figures.Add(currentFigure);
                     currentFigure = new PathFigure();
                 }
 
-                currentFigure.StartPoint = points[0].ToGraphicsPoint();
+                currentFigure.StartPoint.CurrentValue = points[0].ToGraphicsPoint();
             }
             else if (pathVerb == SKPathVerb.Close)
             {
-                currentFigure.IsClosed = true;
+                currentFigure.IsClosed.CurrentValue = true;
                 result.Figures.Add(currentFigure);
                 currentFigure = new PathFigure();
             }
@@ -108,7 +74,7 @@ public sealed class PathGeometry : Geometry
     {
         var figure = new PathFigure
         {
-            StartPoint = point
+            StartPoint = { CurrentValue = point }
         };
         Figures.Add(figure);
     }
@@ -131,11 +97,11 @@ public sealed class PathGeometry : Geometry
     {
         GetLastOrAdd().Segments.Add(new ArcSegment()
         {
-            Radius = radius,
-            RotationAngle = angle,
-            IsLargeArc = isLargeArc,
-            SweepClockwise = sweepClockwise,
-            Point = point
+            Radius = { CurrentValue = radius },
+            RotationAngle = { CurrentValue = angle },
+            IsLargeArc = { CurrentValue = isLargeArc },
+            SweepClockwise = { CurrentValue = sweepClockwise },
+            Point = { CurrentValue = point }
         });
     }
 
@@ -143,9 +109,9 @@ public sealed class PathGeometry : Geometry
     {
         GetLastOrAdd().Segments.Add(new ConicSegment()
         {
-            ControlPoint = controlPoint,
-            EndPoint = endPoint,
-            Weight = weight
+            ControlPoint = { CurrentValue = controlPoint },
+            EndPoint = { CurrentValue = endPoint },
+            Weight = { CurrentValue = weight }
         });
     }
 
@@ -153,9 +119,9 @@ public sealed class PathGeometry : Geometry
     {
         GetLastOrAdd().Segments.Add(new CubicBezierSegment()
         {
-            ControlPoint1 = controlPoint1,
-            ControlPoint2 = controlPoint2,
-            EndPoint = endPoint
+            ControlPoint1 = { CurrentValue = controlPoint1 },
+            ControlPoint2 = { CurrentValue = controlPoint2 },
+            EndPoint = { CurrentValue = endPoint }
         });
     }
 
@@ -168,8 +134,8 @@ public sealed class PathGeometry : Geometry
     {
         GetLastOrAdd().Segments.Add(new QuadraticBezierSegment()
         {
-            ControlPoint = controlPoint,
-            EndPoint = endPoint
+            ControlPoint = { CurrentValue = controlPoint },
+            EndPoint = { CurrentValue = endPoint }
         });
     }
 
@@ -178,42 +144,35 @@ public sealed class PathGeometry : Geometry
     {
         if (Figures.Count > 0)
         {
-            Figures[^1].IsClosed = true;
+            Figures[^1].IsClosed.CurrentValue = true;
         }
     }
 
-    public override void ApplyTo(IGeometryContext context)
+    public override void ApplyTo(IGeometryContext context, Geometry.Resource resource)
     {
-        base.ApplyTo(context);
+        base.ApplyTo(context, resource);
+        var r = (Resource)resource;
 
-        foreach (PathFigure item in Figures)
+        foreach (PathFigure.Resource item in r.Figures)
         {
-            item.ApplyTo(context);
+            item.GetOriginal().ApplyTo(context, item);
         }
     }
 
-    public override void ApplyAnimations(IClock clock)
+    public PathFigure.Resource? HitTestFigure(Point point, Pen.Resource? pen, Geometry.Resource resource)
     {
-        base.ApplyAnimations(clock);
-        foreach (var item in Figures)
-        {
-            item.ApplyAnimations(clock);
-        }
-    }
+        var r = (Resource)resource;
+        Rect bounds = resource.Bounds;
 
-    public PathFigure? HitTestFigure(Point point, IPen? pen)
-    {
-        Rect bounds = Bounds;
-
-        foreach (PathFigure item in Figures)
+        foreach (PathFigure.Resource item in r.Figures)
         {
             using (var context = new GeometryContext())
             {
-                context.FillType = FillType;
-                item.ApplyTo(context);
-                if (Transform?.IsEnabled == true)
+                context.FillType = r.FillType;
+                item.GetOriginal().ApplyTo(context, item);
+                if (r.Transform != null)
                 {
-                    context.Transform(Transform.Value);
+                    context.Transform(r.Transform.Matrix);
                 }
 
                 if (context.NativeObject.Contains(point.X, point.Y))

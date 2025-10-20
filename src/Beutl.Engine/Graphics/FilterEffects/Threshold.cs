@@ -23,13 +23,14 @@ public sealed partial class Threshold : FilterEffect
     [Range(0, 100)]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
+        var r = (Resource)resource;
         context.HighContrast(true, HighContrastInvertStyle.NoInvert, 0);
 
         context.LookupTable(
-            (Value.CurrentValue / 100, Smoothness.CurrentValue / 100),
-            Strength.CurrentValue / 100,
+            (r.Value / 100, r.Smoothness / 100),
+            r.Strength / 100,
             static ((float threshold, float smoothness) data, byte[] array) =>
             {
                 float lower = data.threshold * 255.0f - (data.smoothness * 255.0f) * 0.5f;

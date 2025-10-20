@@ -26,10 +26,11 @@ public partial class SplitEffect : FilterEffect
     [Display(Name = nameof(Strings.VerticalSpacing), ResourceType = typeof(Strings))]
     public IProperty<float> VerticalSpacing { get; } = Property.CreateAnimatable(0f);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
+        var r = (Resource)resource;
         context.CustomEffect(
-            (HorizontalDivisions.CurrentValue, VerticalDivisions.CurrentValue, HorizontalSpacing.CurrentValue, VerticalSpacing.CurrentValue),
+            (r.HorizontalDivisions, r.VerticalDivisions, r.HorizontalSpacing, r.VerticalSpacing),
             static (d, effectContext) =>
             {
                 for (int i = 0; i < effectContext.Targets.Count; i++)

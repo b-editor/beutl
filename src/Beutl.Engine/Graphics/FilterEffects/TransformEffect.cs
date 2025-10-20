@@ -16,29 +16,31 @@ public sealed partial class TransformEffect : FilterEffect
     }
 
     [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings))]
-    public IProperty<ITransform?> Transform { get; } = Property.Create<ITransform?>();
+    public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>();
 
     [Display(Name = nameof(Strings.TransformOrigin), ResourceType = typeof(Strings))]
     public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     [Display(Name = nameof(Strings.BitmapInterpolationMode), ResourceType = typeof(Strings))]
-    public IProperty<BitmapInterpolationMode> BitmapInterpolationMode { get; } = Property.CreateAnimatable(BitmapInterpolationMode.Default);
+    public IProperty<BitmapInterpolationMode> BitmapInterpolationMode { get; } = Property.CreateAnimatable(Media.BitmapInterpolationMode.Default);
 
     public IProperty<bool> ApplyToTarget { get; } = Property.CreateAnimatable(true);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        if (Transform.CurrentValue is { IsEnabled: true, Value: Matrix mat })
+        var r = (Resource)resource;
+        if (r.Transform != null)
         {
-            RelativePoint originPoint = TransformOrigin.CurrentValue;
+            var mat = r.Transform.Matrix;
+            RelativePoint originPoint = r.TransformOrigin;
 
-            if (!ApplyToTarget.CurrentValue)
+            if (!r.ApplyToTarget)
             {
                 Vector origin = originPoint.ToPixels(context.Bounds.Size) + context.Bounds.Position;
                 Matrix offset = Matrix.CreateTranslation(origin);
 
                 Matrix transform = (-offset) * mat * offset;
-                context.Transform(transform, BitmapInterpolationMode.CurrentValue);
+                context.Transform(transform, r.BitmapInterpolationMode);
             }
             else
             {

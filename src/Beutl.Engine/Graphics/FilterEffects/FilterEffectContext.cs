@@ -4,7 +4,7 @@ using Beutl.Collections.Pooled;
 using Beutl.Media;
 using Microsoft.Extensions.ObjectPool;
 using SkiaSharp;
-using FilterEffectOrFEItemWrapper = object;
+using FilterEffectOrFEItem = object;
 
 namespace Beutl.Graphics.Effects;
 
@@ -22,26 +22,10 @@ internal sealed class ArrayPooledObjectPolicy<T>(int length) : IPooledObjectPoli
     }
 }
 
-internal record FEItemWrapper(
-    IFEItem Item,
-    FilterEffect? FilterEffect,
-    int Version,
-    // このIFEItemがTransformBoundsする前のBounds
-    Rect SourceBounds)
-{
-    // Todo: 後で削除
-    public FEItemWrapper Inherit()
-    {
-        return this;
-    }
-}
-
 public sealed class FilterEffectContext : IDisposable
 {
-    internal readonly PooledList<FEItemWrapper> _items;
-    internal readonly PooledList<FilterEffectOrFEItemWrapper> _renderTimeItems;
-
-    internal FilterEffect? _current;
+    internal readonly PooledList<IFEItem> _items;
+    internal readonly PooledList<IFEItem> _renderTimeItems;
 
     internal static readonly ObjectPool<byte[]> s_lutPool;
     internal static readonly ObjectPool<float[]> s_colorMatPool;
@@ -63,8 +47,8 @@ public sealed class FilterEffectContext : IDisposable
     {
         OriginalBounds = obj.OriginalBounds;
         Bounds = obj.Bounds;
-        _renderTimeItems = new PooledList<FilterEffectOrFEItemWrapper>(obj._renderTimeItems);
-        _items = new PooledList<FEItemWrapper>(obj._items);
+        _renderTimeItems = new PooledList<IFEItem>(obj._renderTimeItems);
+        _items = new PooledList<IFEItem>(obj._items);
     }
 
     public Rect Bounds { get; internal set; }
@@ -86,11 +70,11 @@ public sealed class FilterEffectContext : IDisposable
     {
         if (!Bounds.IsInvalid)
         {
-            _items.Add(new FEItemWrapper(item, _current, _current?.Version ?? 0, Bounds));
+            _items.Add(item);
         }
         else
         {
-            _renderTimeItems.Add(new FEItemWrapper(item, _current, _current?.Version ?? 0, Bounds));
+            _renderTimeItems.Add(item);
         }
     }
 
@@ -121,12 +105,6 @@ public sealed class FilterEffectContext : IDisposable
                 .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3)));
     }
 
-    [Obsolete("Use DropShadowOnly(Point, Size, Color)")]
-    public void DropShadowOnly(Point position, Vector sigma, Color color)
-    {
-        DropShadowOnly(position, new Size(sigma.X, sigma.Y), color);
-    }
-
     public void DropShadow(Point position, Size sigma, Color color)
     {
         AppendSkiaFilter(
@@ -136,12 +114,6 @@ public sealed class FilterEffectContext : IDisposable
             transformBounds: static (t, bounds) => bounds.Union(bounds
                 .Translate(t.position)
                 .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))));
-    }
-
-    [Obsolete("Use DropShadow(Point, Size, Color)")]
-    public void DropShadow(Point position, Vector sigma, Color color)
-    {
-        DropShadow(position, new Size(sigma.X, sigma.Y), color);
     }
 
     public void Blur(Size sigma)
@@ -162,12 +134,6 @@ public sealed class FilterEffectContext : IDisposable
             },
             transformBounds: static (sigma, bounds) =>
                 bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
-    }
-
-    [Obsolete("Use Blur(Size)")]
-    public void Blur(Vector sigma)
-    {
-        Blur(new Size(sigma.X, sigma.Y));
     }
 
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
@@ -210,12 +176,6 @@ public sealed class FilterEffectContext : IDisposable
             transformBounds: (_, bounds) => bounds);
     }
 
-    [Obsolete("Use InnerShadow(Point, Size, Color)")]
-    public void InnerShadow(Point position, Vector sigma, Color color)
-    {
-        InnerShadow(position, new Size(sigma.X, sigma.Y), color);
-    }
-
     public void InnerShadowOnly(Point position, Size sigma, Color color)
     {
         CustomEffect(
@@ -253,12 +213,6 @@ public sealed class FilterEffectContext : IDisposable
                 }
             },
             transformBounds: (_, bounds) => bounds);
-    }
-
-    [Obsolete("Use InnerShadowOnly(Point, Size, Color)")]
-    public void InnerShadowOnly(Point position, Vector sigma, Color color)
-    {
-        InnerShadowOnly(position, new Size(sigma.X, sigma.Y), color);
     }
 
     public void Transform(Matrix matrix, BitmapInterpolationMode bitmapInterpolationMode)
@@ -518,9 +472,9 @@ public sealed class FilterEffectContext : IDisposable
             (data, _) => SKColorFilter.CreateBlendMode(data.color.ToSKColor(), (SKBlendMode)data.blendMode));
     }
 
-    public void BlendMode(IBrush? brush, BlendMode blendMode)
+    public void BlendMode(Brush.Resource? brush, BlendMode blendMode)
     {
-        static void ApplyCore((IBrush? Brush, BlendMode BlendMode) data, CustomFilterEffectContext context)
+        static void ApplyCore((Brush.Resource? Brush, BlendMode BlendMode) data, CustomFilterEffectContext context)
         {
             for (int i = 0; i < context.Targets.Count; i++)
             {
@@ -547,15 +501,6 @@ public sealed class FilterEffectContext : IDisposable
         CustomEffect((brush, blendMode), ApplyCore, (_, r) => r);
     }
 
-    [Obsolete("Use CustomEffect")]
-    public void Custom<T>(T data, Action<T, FilterEffectCustomOperationContext> action,
-        Func<T, Rect, Rect> transformBounds)
-        where T : IEquatable<T>
-    {
-        AddItem(new FEItem_Custom<T>(data, action, transformBounds));
-        Bounds = transformBounds.Invoke(data, Bounds);
-    }
-
     public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action,
         Func<T, Rect, Rect> transformBounds)
         where T : IEquatable<T>
@@ -568,37 +513,6 @@ public sealed class FilterEffectContext : IDisposable
     {
         AddItem(new FEItem_CustomEffect<T>(data, action, null));
         Bounds = Rect.Invalid;
-    }
-
-    public void Apply(FilterEffect? filterEffect)
-    {
-        if (filterEffect != null)
-        {
-            if (Bounds.IsInvalid)
-            {
-                if (filterEffect is { IsEnabled: true })
-                {
-                    _renderTimeItems.Add(filterEffect);
-                }
-            }
-            else
-            {
-                var tmp = _current;
-                try
-                {
-                    _current = filterEffect;
-
-                    if (filterEffect is { IsEnabled: true })
-                    {
-                        filterEffect.ApplyTo(this);
-                    }
-                }
-                finally
-                {
-                    _current = tmp;
-                }
-            }
-        }
     }
 
     public int CountItems()

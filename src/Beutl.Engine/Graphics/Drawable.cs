@@ -30,7 +30,7 @@ public abstract partial class Drawable : EngineObject
     public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     [Display(Name = nameof(Strings.Fill), ResourceType = typeof(Strings), GroupName = nameof(Strings.Fill))]
-    public IProperty<IBrush?> Fill { get; } = Property.Create<IBrush?>();
+    public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(Strings.BlendMode), ResourceType = typeof(Strings))]
     public IProperty<BlendMode> BlendMode { get; } = Property.CreateAnimatable(Graphics.BlendMode.SrcOver);
@@ -39,18 +39,20 @@ public abstract partial class Drawable : EngineObject
     [Range(0, 100)]
     public IProperty<float> Opacity { get; } = Property.CreateAnimatable(100f);
 
-    protected abstract Size MeasureCore(Size availableSize);
+    protected abstract Size MeasureCore(Size availableSize, Resource resource);
 
-    internal Matrix GetTransformMatrix(Size availableSize, Size coreBounds, GraphicsContext2D context)
+    internal Size MeasureInternal(Size availableSize, Resource resource) => MeasureCore(availableSize, resource);
+
+    internal Matrix GetTransformMatrix(Size availableSize, Size coreBounds, Resource resource)
     {
-        var (transformOrigin, transform) = (context.Get(TransformOrigin, Transform));
-        Vector pt = CalculateTranslate(coreBounds, availableSize, context);
-        var origin = transformOrigin.ToPixels(coreBounds);
+        Vector pt = CalculateTranslate(coreBounds, availableSize, resource);
+        var origin = resource.TransformOrigin.ToPixels(coreBounds);
         Matrix offset = Matrix.CreateTranslation(origin);
 
-        if (transform is { IsEnabled: true })
+        if (resource.Transform != null)
         {
-            return (-offset) * transform.Value * offset * Matrix.CreateTranslation(pt);
+            Matrix transform = resource.Transform.Matrix;
+            return (-offset) * transform * offset * Matrix.CreateTranslation(pt);
         }
         else
         {
@@ -58,34 +60,34 @@ public abstract partial class Drawable : EngineObject
         }
     }
 
-    public virtual void Render(GraphicsContext2D context)
+    public virtual void Render(GraphicsContext2D context, Resource resource)
     {
         if (IsEnabled)
         {
             Size availableSize = context.Size.ToSize(1);
-            Size size = MeasureCore(availableSize);
+            Size size = MeasureCore(availableSize, resource);
 
-            Matrix transform = GetTransformMatrix(availableSize, size, context);
-            using (context.PushBlendMode(context.Get(BlendMode)))
+            Matrix transform = GetTransformMatrix(availableSize, size, resource);
+            using (context.PushBlendMode(resource.BlendMode))
             using (context.PushTransform(transform))
-            using (context.PushOpacity(context.Get(Opacity) / 100f))
-            using (FilterEffect.CurrentValue == null ? new() : context.PushFilterEffect(FilterEffect.CurrentValue))
+            using (context.PushOpacity(resource.Opacity / 100f))
+            using (resource.FilterEffect == null ? new() : context.PushFilterEffect(resource.FilterEffect))
             {
-                OnDraw(context);
+                OnDraw(context, resource);
             }
         }
     }
 
-    protected abstract void OnDraw(GraphicsContext2D context);
+    protected abstract void OnDraw(GraphicsContext2D context, Resource resource);
 
-    private Point CalculateTranslate(Size bounds, Size canvasSize, GraphicsContext2D context)
+    private Point CalculateTranslate(Size bounds, Size canvasSize, Resource resource)
     {
         float x = 0;
         float y = 0;
 
         if (float.IsFinite(canvasSize.Width))
         {
-            switch (context.Get(AlignmentX))
+            switch (resource.AlignmentX)
             {
                 case Media.AlignmentX.Left:
                     x = 0;
@@ -101,7 +103,7 @@ public abstract partial class Drawable : EngineObject
 
         if (float.IsFinite(canvasSize.Height))
         {
-            switch (context.Get(AlignmentY))
+            switch (resource.AlignmentY)
             {
                 case Media.AlignmentY.Top:
                     y = 0;

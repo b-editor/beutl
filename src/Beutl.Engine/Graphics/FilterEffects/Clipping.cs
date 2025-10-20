@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Language;
@@ -13,22 +12,6 @@ public sealed partial class Clipping : FilterEffect
     public Clipping()
     {
         ScanProperties<Clipping>();
-    }
-
-    [Obsolete("Use separate properties for each side of the thickness.")]
-    [Display(Name = nameof(Strings.Thickness), ResourceType = typeof(Strings))]
-    [NotAutoSerialized]
-    [Browsable(false)]
-    public Thickness Thickness
-    {
-        get => new(Left.CurrentValue, Top.CurrentValue, Right.CurrentValue, Bottom.CurrentValue);
-        set
-        {
-            Left.CurrentValue = value.Left;
-            Top.CurrentValue = value.Top;
-            Right.CurrentValue = value.Right;
-            Bottom.CurrentValue = value.Bottom;
-        }
     }
 
     [Display(Name = nameof(Strings.Left), ResourceType = typeof(Strings))]
@@ -49,9 +32,11 @@ public sealed partial class Clipping : FilterEffect
     [Display(Name = nameof(Strings.ClipTransparentArea), ResourceType = typeof(Strings))]
     public IProperty<bool> AutoClip { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.CustomEffect((Thickness, AutoCenter.CurrentValue, AutoClip.CurrentValue), Apply, TransformBounds);
+        var r = (Resource)resource;
+        var thickness = new Thickness(r.Left, r.Top, r.Right, r.Bottom);
+        context.CustomEffect((thickness, r.AutoCenter, r.AutoClip), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((Thickness thickness, bool autoCenter, bool autoClip) data, Rect rect)

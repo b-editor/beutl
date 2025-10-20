@@ -19,7 +19,7 @@ public sealed partial class LinearGradientBrush : GradientBrush
     /// Gets or sets the start point for the gradient.
     /// </summary>
     [Display(Name = nameof(Strings.StartPoint), ResourceType = typeof(Strings))]
-    public IProperty<RelativePoint> StartPoint = Property.CreateAnimatable(RelativePoint.TopLeft);
+    public IProperty<RelativePoint> StartPoint { get; } = Property.CreateAnimatable(RelativePoint.TopLeft);
 
     /// <summary>
     /// Gets or sets the end point for the gradient.

@@ -15,8 +15,9 @@ public sealed partial class Saturate : FilterEffect
     [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
     public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.Saturate(Amount.CurrentValue / 100f);
+        var r = (Resource)resource;
+        context.Saturate(r.Amount / 100f);
     }
 }

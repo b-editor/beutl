@@ -1,16 +1,14 @@
-﻿using Beutl.Media.Immutable;
-
-namespace Beutl.Media;
+﻿namespace Beutl.Media;
 
 public static class ColorExtensions
 {
-    public static ISolidColorBrush ToBrush(this Color color)
+    public static SolidColorBrush ToBrush(this Color color)
     {
         return new SolidColorBrush(color);
     }
 
-    public static ISolidColorBrush ToImmutableBrush(this Color color)
+    public static SolidColorBrush.Resource ToBrushResource(this Color color)
     {
-        return new ImmutableSolidColorBrush(color, 100);
+        return new SolidColorBrush.Resource { Color = color, Opacity = 100f };
     }
 }

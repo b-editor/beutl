@@ -2,16 +2,16 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
-public partial class ShakeEffect : FilterEffect
+[SuppressResourceClassGeneration]
+public class ShakeEffect : FilterEffect
 {
-    private readonly RenderInvalidatedEventArgs _invalidatedEventArgs;
     private readonly PerlinNoise _random = new();
-    private float _time;
     private float _offset;
 
     static ShakeEffect()
@@ -22,7 +22,6 @@ public partial class ShakeEffect : FilterEffect
     public ShakeEffect()
     {
         ScanProperties<ShakeEffect>();
-        _invalidatedEventArgs = new RenderInvalidatedEventArgs(this);
     }
 
     [Display(Name = nameof(Strings.StrengthX), ResourceType = typeof(Strings))]
@@ -33,14 +32,6 @@ public partial class ShakeEffect : FilterEffect
 
     [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
-
-    public override void ApplyAnimations(IClock clock)
-    {
-        base.ApplyAnimations(clock);
-        _time = (float)clock.CurrentTime.TotalSeconds;
-
-        RaiseInvalidated(_invalidatedEventArgs);
-    }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
@@ -55,15 +46,11 @@ public partial class ShakeEffect : FilterEffect
         }
     }
 
-    public override Rect TransformBounds(Rect bounds)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        return Rect.Invalid;
-    }
-
-    public override void ApplyTo(FilterEffectContext context)
-    {
+        var r = (Resource)resource;
         context.CustomEffect(
-            (time: _time, speed: Speed.CurrentValue, strengthX: StrengthX.CurrentValue, strengthY: StrengthY.CurrentValue, random: _random, offset: _offset),
+            (time: r.Time, speed: r.Speed, strengthX: r.StrengthX, strengthY: r.StrengthY, random: _random, offset: _offset),
             static (data, effectContext) =>
             {
                 effectContext.ForEach((i, target) =>
@@ -77,5 +64,46 @@ public partial class ShakeEffect : FilterEffect
                     target.Bounds = target.Bounds.Translate(new Vector(randomX, randomY));
                 });
             });
+    }
+
+    public override Resource ToResource(RenderContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = true;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new class Resource : FilterEffect.Resource
+    {
+        private float _strengthX;
+        private float _strengthY;
+        private float _speed;
+        private float _time;
+
+        public float StrengthX => _strengthX;
+
+        public float StrengthY => _strengthY;
+
+        public float Speed => _speed;
+
+        public float Time => _time;
+
+        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        {
+            base.Update(obj, context, ref updateOnly);
+
+            CompareAndUpdate(context, ((ShakeEffect)obj).StrengthX, ref _strengthX, ref updateOnly);
+            CompareAndUpdate(context, ((ShakeEffect)obj).StrengthY, ref _strengthY, ref updateOnly);
+            CompareAndUpdate(context, ((ShakeEffect)obj).Speed, ref _speed, ref updateOnly);
+
+            float oldTime = _time;
+            _time = (float)context.Clock.CurrentTime.TotalSeconds;
+            // ReSharper disable once CompareOfFloatsByEqualityOperator
+            if (!updateOnly && oldTime != _time)
+            {
+                Version++;
+            }
+        }
     }
 }

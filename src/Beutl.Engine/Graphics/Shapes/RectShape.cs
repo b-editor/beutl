@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -7,20 +8,41 @@ namespace Beutl.Graphics.Shapes;
 [Display(Name = nameof(Strings.Rectangle), ResourceType = typeof(Strings))]
 public sealed partial class RectShape : Shape
 {
-    private RectGeometry? _geometry;
-
-    static RectShape()
+    public partial class Resource
     {
-        WidthProperty.OverrideDefaultValue<RectShape>(0f);
-        HeightProperty.OverrideDefaultValue<RectShape>(0f);
-        AffectsGeometry<RectShape>(WidthProperty, HeightProperty);
-    }
+        private readonly RectGeometry _geometry = new();
+        private RectGeometry.Resource? _geometryResource;
 
-    protected override Geometry CreateGeometry()
-    {
-        _geometry ??= new RectGeometry();
-        _geometry.Width = Math.Max(Width, 0);
-        _geometry.Height = Math.Max(Height, 0);
-        return _geometry;
+        partial void PostUpdate(RectShape obj, RenderContext context)
+        {
+            _geometry.Width.CurrentValue = Math.Max(Width, 0);
+            _geometry.Height.CurrentValue = Math.Max(Height, 0);
+
+            if (_geometryResource is null)
+            {
+                _geometryResource = _geometry.ToResource(context);
+                Version++;
+            }
+            else
+            {
+                if (_geometryResource.GetOriginal() != _geometry)
+                {
+                    _geometryResource = _geometry.ToResource(context);
+                    Version++;
+                }
+                else
+                {
+                    var oldVersion = _geometryResource.Version;
+                    var _ = false;
+                    _geometryResource.Update(_geometry, context, ref _);
+                    if (oldVersion != _geometryResource.Version)
+                    {
+                        Version++;
+                    }
+                }
+            }
+        }
+
+        public override Geometry.Resource? GetGeometry() => _geometryResource;
     }
 }

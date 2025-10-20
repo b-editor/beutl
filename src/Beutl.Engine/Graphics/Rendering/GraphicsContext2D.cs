@@ -8,38 +8,44 @@ using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClock clock, PixelSize canvasSize = default)
+public sealed class GraphicsContext2D(
+    ContainerRenderNode container,
+    PixelSize canvasSize = default)
     : IDisposable, IPopable
 {
     private readonly Stack<(ContainerRenderNode, int)> _nodes = [];
     private int _drawOperationindex;
+
     private ContainerRenderNode _container = container;
 
-    public IClock Clock { get; } = clock;
+    // 下位のノードで変更があったとき、上位に伝搬するためのフィールド。Pop時に上位ノードのHasChangesを変更する用。
+    private bool _hasChanges;
 
     public PixelSize Size => canvasSize;
 
     internal Action<RenderNode>? OnUntracked { get; set; }
-
-    public T Get<T>(IProperty<T> property)
-    {
-        return property.GetValue(Clock);
-    }
-
-    public (T1, T2) Get<T1, T2>(IProperty<T1> property1, IProperty<T2> property2)
-    {
-        return (property1.GetValue(Clock), property2.GetValue(Clock));
-    }
-
-    public (T1, T2, T3) Get<T1, T2, T3>(IProperty<T1> property1, IProperty<T2> property2, IProperty<T3> property3)
-    {
-        return (property1.GetValue(Clock), property2.GetValue(Clock), property3.GetValue(Clock));
-    }
-
-    public (T1, T2, T3, T4) Get<T1, T2, T3, T4>(IProperty<T1> property1, IProperty<T2> property2, IProperty<T3> property3, IProperty<T4> property4)
-    {
-        return (property1.GetValue(Clock), property2.GetValue(Clock), property3.GetValue(Clock), property4.GetValue(Clock));
-    }
+    //
+    // public T Get<T>(IProperty<T> property)
+    // {
+    //     return property.GetValue(Clock);
+    // }
+    //
+    // public (T1, T2) Get<T1, T2>(IProperty<T1> property1, IProperty<T2> property2)
+    // {
+    //     return (property1.GetValue(Clock), property2.GetValue(Clock));
+    // }
+    //
+    // public (T1, T2, T3) Get<T1, T2, T3>(IProperty<T1> property1, IProperty<T2> property2, IProperty<T3> property3)
+    // {
+    //     return (property1.GetValue(Clock), property2.GetValue(Clock), property3.GetValue(Clock));
+    // }
+    //
+    // public (T1, T2, T3, T4) Get<T1, T2, T3, T4>(IProperty<T1> property1, IProperty<T2> property2,
+    //     IProperty<T3> property3, IProperty<T4> property4)
+    // {
+    //     return (property1.GetValue(Clock), property2.GetValue(Clock), property3.GetValue(Clock),
+    //         property4.GetValue(Clock));
+    // }
 
     private void Untracked(RenderNode? node)
     {
@@ -61,6 +67,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClo
 
     private void AddAndPush(ContainerRenderNode node, ContainerRenderNode? old)
     {
+        // TODO: _hasChangesをtrueにするべきか？
         if (old != null)
         {
             node.BringFrom(old);
@@ -123,113 +130,131 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClo
         ++_drawOperationindex;
     }
 
-    public void DrawImageSource(IImageSource source, IBrush? fill, IPen? pen)
+    public void DrawImageSource(IImageSource source, Brush.Resource? fill, Pen.Resource? pen)
     {
         ImageSourceRenderNode? next = Next<ImageSourceRenderNode>();
 
-        if (next == null || !next.Equals(source, fill, pen))
+        if (next == null)
         {
-            Add(new ImageSourceRenderNode(source, ConvertBrush(fill), pen));
+            Add(new ImageSourceRenderNode(source, fill, pen));
+        }
+        else
+        {
+            _hasChanges = next.Update(source, fill, pen);
         }
 
         ++_drawOperationindex;
     }
 
-    public void DrawVideoSource(IVideoSource source, TimeSpan frame, IBrush? fill, IPen? pen)
+    public void DrawVideoSource(IVideoSource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
     {
         Rational rate = source.FrameRate;
         double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
         DrawVideoSource(source, (int)frameNum, fill, pen);
     }
 
-    public void DrawVideoSource(IVideoSource source, int frame, IBrush? fill, IPen? pen)
+    public void DrawVideoSource(IVideoSource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
         VideoSourceRenderNode? next = Next<VideoSourceRenderNode>();
 
-        if (next == null || !next.Equals(source, frame, fill, pen))
+        if (next == null)
         {
-            Add(new VideoSourceRenderNode(source, frame, ConvertBrush(fill), pen));
+            Add(new VideoSourceRenderNode(source, frame, fill, pen));
+        }
+        else
+        {
+            _hasChanges = next.Update(source, frame, fill, pen);
         }
 
         ++_drawOperationindex;
     }
 
-    public void DrawEllipse(Rect rect, IBrush? fill, IPen? pen)
+    public void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
         EllipseRenderNode? next = Next<EllipseRenderNode>();
 
-        if (next == null || !next.Equals(rect, fill, pen))
+        if (next == null)
         {
-            Add(new EllipseRenderNode(rect, ConvertBrush(fill), pen));
+            Add(new EllipseRenderNode(rect, fill, pen));
+        }
+        else
+        {
+            _hasChanges = next.Update(rect, fill, pen);
         }
 
         ++_drawOperationindex;
     }
 
-    public void DrawGeometry(Geometry geometry, IBrush? fill, IPen? pen)
+    public void DrawGeometry(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
     {
         GeometryRenderNode? next = Next<GeometryRenderNode>();
 
-        if (next == null || !next.Equals(geometry, fill, pen))
+        if (next == null)
         {
-            Add(new GeometryRenderNode(geometry, ConvertBrush(fill), pen));
+            Add(new GeometryRenderNode(geometry, fill, pen));
+        }
+        else
+        {
+            _hasChanges = next.Update(geometry, fill, pen);
         }
 
         ++_drawOperationindex;
     }
 
-    public void DrawRectangle(Rect rect, IBrush? fill, IPen? pen)
+    public void DrawRectangle(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
         RectangleRenderNode? next = Next<RectangleRenderNode>();
 
-        if (next == null || !next.Equals(rect, fill, pen))
+        if (next == null)
         {
-            Add(new RectangleRenderNode(rect, ConvertBrush(fill), pen));
+            Add(new RectangleRenderNode(rect, fill, pen));
+        }
+        else
+        {
+            _hasChanges = next.Update(rect, fill, pen);
         }
 
         ++_drawOperationindex;
     }
 
-    public void DrawText(FormattedText text, IBrush? fill, IPen? pen)
+    public void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
     {
         TextRenderNode? next = Next<TextRenderNode>();
 
-        if (next == null || !next.Equals(text, fill, pen))
+        if (next == null)
         {
-            Add(new TextRenderNode(text, ConvertBrush(fill), pen));
+            Add(new TextRenderNode(text, fill, pen));
+        }
+        else
+        {
+            _hasChanges = next.Update(text, fill, pen);
         }
 
         ++_drawOperationindex;
     }
 
-    public void DrawDrawable(Drawable drawable)
+    public void DrawDrawable(Drawable.Resource drawable)
     {
         DrawableRenderNode? next = Next<DrawableRenderNode>();
 
-        if (next == null || !ReferenceEquals(next.Drawable, drawable))
+        if (next == null)
         {
             AddAndPush(new DrawableRenderNode(drawable), next);
         }
         else
         {
+            _hasChanges = next.Update(drawable);
             Push(next);
         }
 
-        var timeRange = new TimeRange(clock.BeginTime, clock.DurationTime);
-        var currentTime = clock.CurrentTime;
         int count = _nodes.Count;
         try
         {
-            clock.BeginTime = drawable.TimeRange.Start;
-            clock.DurationTime = drawable.TimeRange.Duration;
-            clock.CurrentTime = clock.GlobalClock.CurrentTime - clock.BeginTime;
-            drawable.Render(this);
+            var obj = drawable.GetOriginal();
+            obj.Render(this, drawable);
         }
         finally
         {
-            clock.BeginTime = timeRange.Start;
-            clock.DurationTime = timeRange.Duration;
-            clock.CurrentTime = currentTime;
             Pop(count);
         }
     }
@@ -251,9 +276,13 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClo
         DrawBackdropRenderNode? next = Next<DrawBackdropRenderNode>();
 
         var b = new Rect(canvasSize.ToSize(1));
-        if (next == null || !next.Equals(backdrop, b))
+        if (next == null)
         {
             Add(new DrawBackdropRenderNode(backdrop, b));
+        }
+        else
+        {
+            _hasChanges = next.Update(backdrop, b);
         }
 
         ++_drawOperationindex;
@@ -288,6 +317,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClo
                 _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
 
                 _container = state.Item1;
+                _container.HasChanges = _container.HasChanges || _hasChanges;
                 _drawOperationindex = state.Item2;
 
                 count++;
@@ -307,6 +337,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClo
                 _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
 
                 _container = state.Item1;
+                _container.HasChanges = _container.HasChanges || _hasChanges;
                 _drawOperationindex = state.Item2;
             }
         }
@@ -332,12 +363,13 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClo
     {
         LayerRenderNode? next = Next<LayerRenderNode>();
 
-        if (next == null || next.Limit != limit)
+        if (next == null)
         {
             AddAndPush(new LayerRenderNode(limit), next);
         }
         else
         {
+            _hasChanges = next.Update(limit);
             Push(next);
         }
 
@@ -348,12 +380,13 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClo
     {
         BlendModeRenderNode? next = Next<BlendModeRenderNode>();
 
-        if (next == null || !next.Equals(blendMode))
+        if (next == null)
         {
             AddAndPush(new BlendModeRenderNode(blendMode), next);
         }
         else
         {
+            _hasChanges = next.Update(blendMode);
             Push(next);
         }
 
@@ -364,28 +397,30 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClo
     {
         RectClipRenderNode? next = Next<RectClipRenderNode>();
 
-        if (next == null || !next.Equals(clip, operation))
+        if (next == null)
         {
             AddAndPush(new RectClipRenderNode(clip, operation), next);
         }
         else
         {
+            _hasChanges = next.Update(clip, operation);
             Push(next);
         }
 
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushClip(Geometry geometry, ClipOperation operation = ClipOperation.Intersect)
+    public PushedState PushClip(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect)
     {
         GeometryClipRenderNode? next = Next<GeometryClipRenderNode>();
 
-        if (next == null || !next.Equals(geometry, operation))
+        if (next == null)
         {
             AddAndPush(new GeometryClipRenderNode(geometry, operation), next);
         }
         else
         {
+            _hasChanges = next.Update(geometry, operation);
             Push(next);
         }
 
@@ -396,41 +431,30 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClo
     {
         OpacityRenderNode? next = Next<OpacityRenderNode>();
 
-        if (next == null || !next.Equals(opacity))
+        if (next == null)
         {
             AddAndPush(new OpacityRenderNode(opacity), next);
         }
         else
         {
+            _hasChanges = next.Update(opacity);
             Push(next);
         }
 
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushFilterEffect(FilterEffect effect)
+    public PushedState PushFilterEffect(FilterEffect.Resource effect)
     {
         switch (effect)
         {
-            case FilterEffectGroup group:
+            case FilterEffectGroup.Resource group:
                 {
                     for (int i = group.Children.Count - 1; i >= 0; i--)
                     {
-                        FilterEffect item = group.Children[i];
+                        FilterEffect.Resource item = group.Children[i];
                         PushFilterEffect(item);
                     }
-
-                    break;
-                }
-#pragma warning disable CS0618
-            case CombinedFilterEffect combined:
-#pragma warning restore CS0618
-                {
-                    if (combined.Second != null)
-                        PushFilterEffect(combined.Second);
-
-                    if (combined.First != null)
-                        PushFilterEffect(combined.First);
 
                     break;
                 }
@@ -438,12 +462,13 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClo
                 {
                     FilterEffectRenderNode? next = Next<FilterEffectRenderNode>();
 
-                    if (next == null || !next.Equals(effect))
+                    if (next == null)
                     {
                         AddAndPush(new FilterEffectRenderNode(effect), next);
                     }
                     else
                     {
+                        _hasChanges = next.Update(effect);
                         Push(next);
                     }
 
@@ -458,86 +483,34 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, InstanceClo
     {
         TransformRenderNode? next = Next<TransformRenderNode>();
 
-        if (next == null || !next.Equals(matrix, transformOperator))
+        if (next == null)
         {
             AddAndPush(new TransformRenderNode(matrix, transformOperator), next);
         }
         else
         {
+            next.Update(matrix, transformOperator);
             Push(next);
         }
 
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushTransform(ITransform transform,
+    public PushedState PushTransform(Transform.Resource transform,
         TransformOperator transformOperator = TransformOperator.Prepend)
     {
-        switch (transform)
+        TransformRenderNode? next = Next<TransformRenderNode>();
+        var matrix = transform.Matrix;
+        if (next == null)
         {
-            case TransformGroup group:
-                {
-                    for (int i = group.Children.Count - 1; i >= 0; i--)
-                    {
-                        ITransform item = group.Children[i];
-                        PushTransform(item, transformOperator);
-                    }
-
-                    break;
-                }
-#pragma warning disable CS0618
-            case MultiTransform multi:
-#pragma warning restore CS0618
-                {
-                    if (multi.Left != null)
-                        PushTransform(multi.Left, transformOperator);
-
-                    if (multi.Right != null)
-                        PushTransform(multi.Right, transformOperator);
-
-                    break;
-                }
-
-            default:
-                {
-                    TransformRenderNode? next = Next<TransformRenderNode>();
-                    var matrix = transform.Value;
-                    if (next == null || !next.Equals(matrix, transformOperator))
-                    {
-                        AddAndPush(new TransformRenderNode(matrix, transformOperator), next);
-                    }
-                    else
-                    {
-                        Push(next);
-                    }
-
-                    break;
-                }
-        }
-
-        return new(this, _nodes.Count);
-    }
-
-    private IBrush? ConvertBrush(IBrush? brush)
-    {
-        if (brush is IDrawableBrush drawableBrush)
-        {
-            RenderScene? scene = null;
-            Rect bounds = default;
-            if (drawableBrush is { Drawable: { IsEnabled: true } drawable })
-            {
-                drawable.Measure(Graphics.Size.Infinity);
-
-                bounds = drawable.Bounds;
-                scene = new RenderScene(bounds.Size.Ceiling());
-                scene[0].UpdateAll([drawable], Clock);
-            }
-
-            return new RenderSceneBrush(drawableBrush, scene, bounds);
+            AddAndPush(new TransformRenderNode(matrix, transformOperator), next);
         }
         else
         {
-            return brush;
+            _hasChanges = next.Update(matrix, transformOperator);
+            Push(next);
         }
+
+        return new(this, _nodes.Count);
     }
 }

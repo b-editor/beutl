@@ -3,7 +3,7 @@
 /// <summary>
 /// Predefined brushes.
 /// </summary>
-public static class Brushes
+public static partial class Brushes
 {
     /// <summary>
     /// Gets an <see cref="Colors.AliceBlue"/> colored brush.

@@ -2,6 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
@@ -13,167 +14,56 @@ namespace Beutl.Graphics.Shapes;
 [Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
 public partial class TextBlock : Drawable
 {
-    public static readonly CoreProperty<FontFamily?> FontFamilyProperty;
-    public static readonly CoreProperty<FontWeight> FontWeightProperty;
-    public static readonly CoreProperty<FontStyle> FontStyleProperty;
-    public static readonly CoreProperty<float> SizeProperty;
-    public static readonly CoreProperty<float> SpacingProperty;
-    public static readonly CoreProperty<string?> TextProperty;
-    public static readonly CoreProperty<IPen?> PenProperty;
-    public static readonly CoreProperty<bool> SplitByCharactersProperty;
-    public static readonly CoreProperty<TextElements?> ElementsProperty;
-    private FontFamily? _fontFamily = FontFamily.Default;
-    private FontWeight _fontWeight = FontWeight.Regular;
-    private FontStyle _fontStyle = FontStyle.Normal;
-    private float _size;
-    private float _spacing;
-    private string? _text = string.Empty;
-    private IPen? _pen = null;
-    private bool _splitByCharacters = false;
-    private TextElements? _elements;
-    private bool _isDirty;
-
-    static TextBlock()
-    {
-        FontWeightProperty = ConfigureProperty<FontWeight, TextBlock>(nameof(FontWeight))
-            .Accessor(o => o.FontWeight, (o, v) => o.FontWeight = v)
-            .DefaultValue(FontWeight.Regular)
-            .Register();
-
-        FontStyleProperty = ConfigureProperty<FontStyle, TextBlock>(nameof(FontStyle))
-            .Accessor(o => o.FontStyle, (o, v) => o.FontStyle = v)
-            .DefaultValue(FontStyle.Normal)
-            .Register();
-
-        FontFamilyProperty = ConfigureProperty<FontFamily?, TextBlock>(nameof(FontFamily))
-            .Accessor(o => o.FontFamily, (o, v) => o.FontFamily = v)
-            .DefaultValue(FontFamily.Default)
-            .Register();
-
-        SizeProperty = ConfigureProperty<float, TextBlock>(nameof(Size))
-            .Accessor(o => o.Size, (o, v) => o.Size = v)
-            .DefaultValue(0)
-            .Register();
-
-        SpacingProperty = ConfigureProperty<float, TextBlock>(nameof(Spacing))
-            .Accessor(o => o.Spacing, (o, v) => o.Spacing = v)
-            .DefaultValue(0)
-            .Register();
-
-        TextProperty = ConfigureProperty<string?, TextBlock>(nameof(Text))
-            .Accessor(o => o.Text, (o, v) => o.Text = v)
-            .DefaultValue(string.Empty)
-            .Register();
-
-        PenProperty = ConfigureProperty<IPen?, TextBlock>(nameof(Pen))
-            .Accessor(o => o.Pen, (o, v) => o.Pen = v)
-            .Register();
-
-        SplitByCharactersProperty = ConfigureProperty<bool, TextBlock>(nameof(SplitByCharacters))
-            .Accessor(o => o.SplitByCharacters, (o, v) => o.SplitByCharacters = v)
-            .Register();
-
-        ElementsProperty = ConfigureProperty<TextElements?, TextBlock>(nameof(Elements))
-            .Accessor(o => o.Elements, (o, v) => o.Elements = v)
-            .Register();
-
-        AffectsRender<TextBlock>(
-            FontWeightProperty,
-            FontStyleProperty,
-            FontFamilyProperty,
-            SizeProperty,
-            SpacingProperty,
-            TextProperty,
-            PenProperty,
-            SplitByCharactersProperty,
-            ElementsProperty);
-        Hierarchy<TextBlock>(PenProperty);
-    }
-
     public TextBlock()
     {
-        Invalidated += OnInvalidated;
+        ScanProperties<TextBlock>();
     }
 
+    [SuppressResourceClassGeneration]
     [Display(Name = nameof(Strings.FontWeight), ResourceType = typeof(Strings))]
-    public FontWeight FontWeight
-    {
-        get => _fontWeight;
-        set => SetAndRaise(FontWeightProperty, ref _fontWeight, value);
-    }
+    public IProperty<FontWeight> FontWeight { get; } = Property.Create(Media.FontWeight.Regular);
 
+    [SuppressResourceClassGeneration]
     [Display(Name = nameof(Strings.FontStyle), ResourceType = typeof(Strings))]
-    public FontStyle FontStyle
-    {
-        get => _fontStyle;
-        set => SetAndRaise(FontStyleProperty, ref _fontStyle, value);
-    }
+    public IProperty<FontStyle> FontStyle { get; } = Property.Create(Media.FontStyle.Normal);
 
+    [SuppressResourceClassGeneration]
     [Display(Name = nameof(Strings.FontFamily), ResourceType = typeof(Strings))]
-    public FontFamily? FontFamily
-    {
-        get => _fontFamily;
-        set => SetAndRaise(FontFamilyProperty, ref _fontFamily, value);
-    }
+    public IProperty<FontFamily?> FontFamily { get; } = Property.Create<FontFamily?>(Media.FontFamily.Default);
 
+    [SuppressResourceClassGeneration]
     [Display(Name = nameof(Strings.Size), ResourceType = typeof(Strings))]
     [Range(0, float.MaxValue)]
-    public float Size
-    {
-        get => _size;
-        set => SetAndRaise(SizeProperty, ref _size, value);
-    }
+    public IProperty<float> Size { get; } = Property.Create<float>(12);
 
+    [SuppressResourceClassGeneration]
     [Display(Name = nameof(Strings.CharactorSpacing), ResourceType = typeof(Strings))]
-    public float Spacing
-    {
-        get => _spacing;
-        set => SetAndRaise(SpacingProperty, ref _spacing, value);
-    }
+    public IProperty<float> Spacing { get; } = Property.Create<float>(0);
 
+    [SuppressResourceClassGeneration]
     [Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
     [DataType(DataType.MultilineText)]
-    public string? Text
-    {
-        get => _text;
-        set => SetAndRaise(TextProperty, ref _text, value);
-    }
+    public IProperty<string?> Text { get; } = Property.Create<string?>(string.Empty);
 
+    [SuppressResourceClassGeneration]
     [Display(Name = nameof(Strings.Stroke), GroupName = nameof(Strings.Stroke), ResourceType = typeof(Strings))]
-    public IPen? Pen
-    {
-        get => _pen;
-        set => SetAndRaise(PenProperty, ref _pen, value);
-    }
+    public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
 
     [Display(Name = nameof(Strings.SplitByCharacters), ResourceType = typeof(Strings))]
-    public bool SplitByCharacters
-    {
-        get => _splitByCharacters;
-        set => SetAndRaise(SplitByCharactersProperty, ref _splitByCharacters, value);
-    }
+    public IProperty<bool> SplitByCharacters { get; } = Property.Create<bool>(false);
 
-    [NotAutoSerialized]
-    public TextElements? Elements
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
-        get => _elements;
-        set => SetAndRaise(ElementsProperty, ref _elements, value);
-    }
-
-    protected override Size MeasureCore(Size availableSize)
-    {
-        OnUpdateText();
+        var r = (Resource)resource;
         float width = 0;
         float height = 0;
+        var elements = r.GetTextElements();
 
-        if (_elements != null)
+        foreach (Span<FormattedText> line in elements.Lines)
         {
-            foreach (Span<FormattedText> line in _elements.Lines)
-            {
-                Size bounds = MeasureLine(line);
-                width = MathF.Max(bounds.Width, width);
-                height += bounds.Height;
-            }
+            Size bounds = MeasureLine(line);
+            width = MathF.Max(bounds.Width, width);
+            height += bounds.Height;
         }
 
         return new Size(width, height);
@@ -210,24 +100,23 @@ public partial class TextBlock : Drawable
         return skpath;
     }
 
-    protected override void OnDraw(GraphicsContext2D context)
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
-        OnUpdateText();
-        if (_elements != null)
+        var r= (Resource)resource;
+
+        if (r.SplitByCharacters)
         {
-            if (SplitByCharacters)
-            {
-                DrawSplitted(context, _elements);
-            }
-            else
-            {
-                DrawGrouped(context, _elements);
-            }
+            DrawSplitted(context, r);
+        }
+        else
+        {
+            DrawGrouped(context, r);
         }
     }
 
-    private void DrawGrouped(GraphicsContext2D context, TextElements elements)
+    private void DrawGrouped(GraphicsContext2D context, Resource resource)
     {
+        var elements = resource.GetTextElements();
         using (context.Push())
         {
             float prevBottom = 0;
@@ -247,7 +136,7 @@ public partial class TextBlock : Drawable
 
                             using (context.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, 0)))
                             {
-                                context.DrawText(item, item.Brush ?? Fill, item.Pen ?? Pen);
+                                context.DrawText(item, item.Brush ?? resource.Fill, item.Pen ?? resource.Pen);
 
                                 prevRight += elementBounds.Width + item.Spacing;
                             }
@@ -260,8 +149,9 @@ public partial class TextBlock : Drawable
         }
     }
 
-    private void DrawSplitted(GraphicsContext2D context, TextElements elements)
+    private void DrawSplitted(GraphicsContext2D context, Resource resource)
     {
+        var elements = resource.GetTextElements();
         float prevBottom = 0;
         foreach (Span<FormattedText> line in elements.Lines)
         {
@@ -276,11 +166,11 @@ public partial class TextBlock : Drawable
                 {
                     Rect elementBounds = item.Bounds;
 
-                    foreach (Geometry geometry in item.ToGeometies())
+                    foreach (Geometry.Resource geometry in item.ToGeometies())
                     {
                         using (context.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition)))
                         {
-                            context.DrawGeometry(geometry, item.Brush ?? Fill, item.Pen ?? Pen);
+                            context.DrawGeometry(geometry, item.Brush ?? resource.Fill, item.Pen ?? resource.Pen);
                         }
                     }
 
@@ -289,75 +179,6 @@ public partial class TextBlock : Drawable
             }
 
             prevBottom += lineBounds.Height;
-        }
-    }
-
-    private void OnInvalidated(object? sender, RenderInvalidatedEventArgs e)
-    {
-        if (ReferenceEquals(e.Sender, this)
-            && e.PropertyName is nameof(FontStyle)
-                or nameof(FontFamily)
-                or nameof(FontWeight)
-                or nameof(Text)
-                or nameof(Size)
-                or nameof(Fill)
-                or nameof(Spacing)
-                or nameof(Pen))
-        {
-            _isDirty = true;
-        }
-    }
-
-    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
-    {
-        base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs e)
-        {
-            if (e.Property == FillProperty || e.Property == PenProperty)
-            {
-                void OnBrushOrPenInvalidated(object? sender, RenderInvalidatedEventArgs e)
-                {
-                    _isDirty = true;
-                }
-
-                if (e.OldValue is IAffectsRender oldValue)
-                {
-                    oldValue.Invalidated -= OnBrushOrPenInvalidated;
-                }
-
-                if (e.NewValue is IAffectsRender newValue)
-                {
-                    newValue.Invalidated += OnBrushOrPenInvalidated;
-                }
-            }
-        }
-    }
-
-    private void OnUpdateText()
-    {
-        if (_isDirty)
-        {
-            if (string.IsNullOrEmpty(_text))
-            {
-                Elements = new TextElements([]);
-            }
-            else
-            {
-                var tokenizer = new FormattedTextTokenizer(_text);
-                tokenizer.Tokenize();
-                var options = new FormattedTextInfo(
-                    Typeface: new Typeface(_fontFamily ?? FontFamily.Default, _fontStyle, _fontWeight),
-                    Size: _size,
-                    Brush: (Fill as IMutableBrush)?.ToImmutable(),
-                    Space: _spacing,
-                    Pen: _pen);
-
-                var builder = new TextElementsBuilder(options);
-                builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));
-                Elements = new TextElements(builder.Items.ToArray());
-            }
-
-            _isDirty = false;
         }
     }
 
@@ -403,9 +224,123 @@ public partial class TextBlock : Drawable
         return descent;
     }
 
-    public override void ApplyAnimations(IClock clock)
+    public partial class Resource
     {
-        base.ApplyAnimations(clock);
-        (Pen as Animatable)?.ApplyAnimations(clock);
+        private Pen.Resource? _pen;
+        private (Brush.Resource Resource, int Version)? _fillCache;
+        private TextElements? _elements;
+        private bool _isDirty = true;
+
+        public FontStyle FontStyle { get; private set; }
+
+        public FontFamily? FontFamily { get; private set; }
+
+        public FontWeight FontWeight { get; private set; }
+
+        public string? Text { get; private set; }
+
+        public float Size { get; private set; }
+
+        public float Spacing { get; private set; }
+
+        public Pen.Resource? Pen => _pen;
+
+        public TextElements GetTextElements()
+        {
+            if (_elements == null)
+            {
+                if (string.IsNullOrEmpty(Text))
+                {
+                    _elements = new TextElements([]);
+                }
+                else
+                {
+                    var tokenizer = new FormattedTextTokenizer(Text);
+                    tokenizer.Tokenize();
+                    var options = new FormattedTextInfo(
+                        Typeface: new Typeface(FontFamily ?? FontFamily.Default, FontStyle, FontWeight),
+                        Size: Size,
+                        Brush: Fill,
+                        Space: Spacing,
+                        Pen: Pen);
+
+                    var builder = new TextElementsBuilder(options);
+                    builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));
+                    _elements = new TextElements(builder.Items.ToArray());
+                }
+            }
+
+            return _elements;
+        }
+
+        partial void PreUpdate(TextBlock obj, RenderContext context)
+        {
+            var fontStyle = context.Get(obj.FontStyle);
+            if (FontStyle != fontStyle)
+            {
+                FontStyle = fontStyle;
+                _isDirty = true;
+            }
+
+            var fontFamily = context.Get(obj.FontFamily);
+            if (!Equals(FontFamily, fontFamily))
+            {
+                FontFamily = fontFamily;
+                _isDirty = true;
+            }
+
+            var fontWeight = context.Get(obj.FontWeight);
+            if (FontWeight != fontWeight)
+            {
+                FontWeight = fontWeight;
+                _isDirty = true;
+            }
+
+            var text = context.Get(obj.Text);
+            if (Text != text)
+            {
+                Text = text;
+                _isDirty = true;
+            }
+
+            var size = context.Get(obj.Size);
+            if (Size != size)
+            {
+                Size = size;
+                _isDirty = true;
+            }
+
+            var spacing = context.Get(obj.Spacing);
+            if (Spacing != spacing)
+            {
+                Spacing = spacing;
+                _isDirty = true;
+            }
+
+            var updated = false;
+            CompareAndUpdateObject(context, obj.Pen, ref _pen, ref updated);
+            if (updated)
+            {
+                _isDirty = true;
+            }
+
+            _fillCache = Fill.Capture();
+        }
+
+        partial void PostUpdate(TextBlock obj, RenderContext context)
+        {
+            var fill = Fill.Capture();
+            if (fill != _fillCache)
+            {
+                _fillCache = fill;
+                _isDirty = true;
+            }
+
+            if (_isDirty)
+            {
+                _elements = null;
+                _isDirty = false;
+            }
+        }
     }
 }

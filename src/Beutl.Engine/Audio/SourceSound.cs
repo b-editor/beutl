@@ -1,54 +1,29 @@
-﻿using System;
-using Beutl.Media;
-using Beutl.Media.Music;
+﻿using Beutl.Engine;
 using Beutl.Media.Source;
 
 namespace Beutl.Audio;
 
 public sealed class SourceSound : Sound
 {
-    public static readonly CoreProperty<ISoundSource?> SourceProperty;
-    public static readonly CoreProperty<TimeSpan> OffsetPositionProperty;
-    private ISoundSource? _source;
-    private TimeSpan _offsetPosition;
-
-    static SourceSound()
+    public SourceSound()
     {
-        SourceProperty = ConfigureProperty<ISoundSource?, SourceSound>(nameof(Source))
-            .Accessor(o => o.Source, (o, v) => o.Source = v)
-            .DefaultValue(null)
-            .Register();
-
-        OffsetPositionProperty = ConfigureProperty<TimeSpan, SourceSound>(nameof(OffsetPosition))
-            .Accessor(o => o.OffsetPosition, (o, v) => o.OffsetPosition = v)
-            .DefaultValue(TimeSpan.Zero)
-            .Register();
-
-        AffectsRender<SourceSound>(SourceProperty, OffsetPositionProperty);
+        ScanProperties<SourceSound>();
     }
 
-    public ISoundSource? Source
-    {
-        get => _source;
-        set => SetAndRaise(SourceProperty, ref _source, value);
-    }
+    public IProperty<ISoundSource?> Source { get; } = Property.Create<ISoundSource?>();
 
-    public TimeSpan OffsetPosition
-    {
-        get => _offsetPosition;
-        set => SetAndRaise(OffsetPositionProperty, ref _offsetPosition, value);
-    }
+    public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
     protected override ISoundSource? GetSoundSource()
     {
-        return _source;
+        return Source.CurrentValue;
     }
 
     protected override TimeSpan TimeCore(TimeSpan available)
     {
-        if (Source != null)
+        if (Source.CurrentValue != null)
         {
-            return Source.Duration;
+            return Source.CurrentValue.Duration;
         }
         else
         {

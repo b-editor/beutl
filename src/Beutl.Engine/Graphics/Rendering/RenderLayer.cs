@@ -19,8 +19,6 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
 
         public Rect Bounds { get; set; }
 
-        public bool IsDirty { get; set; } = true;
-
         public bool IsDisposed { get; private set; }
 
         public void Dispose()
@@ -45,35 +43,31 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         _currentFrame?.Clear();
     }
 
+    // Drawable
     public void Add(Drawable drawable, IClock clock)
     {
+        var renderContext = new RenderContext(clock);
+        Drawable.Resource? resource;
+        bool shouldRender;
         if (!_cache.TryGetValue(drawable, out Entry? entry))
         {
-            entry = new Entry(new DrawableRenderNode(drawable));
+            resource = drawable.ToResource(renderContext);
+            entry = new Entry(new DrawableRenderNode(resource));
             _cache.Add(drawable, entry);
-
-            var weakRef = new WeakReference<Entry>(entry);
-            EventHandler<RenderInvalidatedEventArgs>? handler = null;
-            handler = (_, _) =>
-            {
-                if (weakRef.TryGetTarget(out Entry? obj))
-                {
-                    obj.IsDirty = true;
-                }
-                else
-                {
-                    drawable.Invalidated -= handler;
-                }
-            };
-            drawable.Invalidated += handler;
+            shouldRender = true;
+        }
+        else
+        {
+            resource = entry.Node.Drawable!.Value.Resource;
+            bool updated = false;
+            resource.Update(drawable, renderContext, ref updated);
+            shouldRender = entry.Node.Update(resource);
         }
 
-        if (entry.IsDirty)
+        if (shouldRender)
         {
-            // DeferredCanvasを作成し、記録
-            using var canvas = new GraphicsContext2D(entry.Node, clock, renderScene.Size);
-            drawable.Render(canvas);
-            entry.IsDirty = false;
+            using var canvas = new GraphicsContext2D(entry.Node, renderScene.Size);
+            drawable.Render(canvas, resource);
         }
 
         CurrentFrame.Add(entry);
@@ -107,18 +101,11 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         _cache.Clear();
     }
 
-    public void Render(ImmediateCanvas canvas, IClock clock)
+    public void Render(ImmediateCanvas canvas)
     {
         foreach (Entry? entry in CollectionsMarshal.AsSpan(_currentFrame))
         {
             DrawableRenderNode node = entry.Node;
-            Drawable drawable = node.Drawable;
-            if (entry.IsDirty)
-            {
-                using var context = new GraphicsContext2D(node, clock, renderScene.Size);
-                drawable.Render(context);
-                entry.IsDirty = false;
-            }
 
             var cacheContext = renderScene._cacheContext;
 
@@ -195,7 +182,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
             {
                 if (arr.Any(op => op.HitTest(point)))
                 {
-                    return entry.Node.Drawable;
+                    return entry.Node.Drawable?.Resource.GetOriginal();
                 }
             }
             finally

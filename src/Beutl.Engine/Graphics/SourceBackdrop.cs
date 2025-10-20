@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
@@ -7,66 +8,44 @@ namespace Beutl.Graphics;
 [Display(Name = nameof(Strings.Backdrop), ResourceType = typeof(Strings))]
 public partial class SourceBackdrop : Drawable
 {
-    public static readonly CoreProperty<bool> ClearProperty;
-    private bool _clear;
-
-    static SourceBackdrop()
+    public SourceBackdrop()
     {
-        ClearProperty = ConfigureProperty<bool, SourceBackdrop>(nameof(Clear))
-            .Accessor(o => o.Clear, (o, v) => o.Clear = v)
-            .DefaultValue(false)
-            .Register();
-
-        AffectsRender<SourceBackdrop>(ClearProperty);
+        ScanProperties<SourceBackdrop>();
     }
 
     [Display(Name = nameof(Strings.ClearBuffer), ResourceType = typeof(Strings))]
-    public bool Clear
-    {
-        get => _clear;
-        set => SetAndRaise(ClearProperty, ref _clear, value);
-    }
+    public IProperty<bool> Clear { get; } = Property.CreateAnimatable(false);
 
-    protected override Size MeasureCore(Size availableSize)
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
         return availableSize;
     }
 
-    protected override void OnDraw(GraphicsContext2D context)
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
     }
 
-    public override void Render(GraphicsContext2D context)
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
-        base.Render(context);
-
-        if (IsVisible)
+        if (IsEnabled)
         {
+            var r = (Resource)resource;
             var backdrop = context.Snapshot();
-            if (Clear)
+            if (r.Clear)
             {
                 context.Clear();
             }
 
             Size availableSize = context.Size.ToSize(1);
-            Size size = MeasureCore(availableSize);
-            var rect = new Rect(size);
-            if (FilterEffect != null)
-            {
-                rect = FilterEffect.TransformBounds(rect);
-            }
+            Size size = MeasureCore(availableSize, r);
 
-            Matrix transform = GetTransformMatrix(availableSize, size);
-            Rect transformedBounds = rect.TransformToAABB(transform);
-            using (context.PushBlendMode(BlendMode))
+            Matrix transform = GetTransformMatrix(availableSize, size, r);
+            using (context.PushBlendMode(r.BlendMode))
             using (context.PushTransform(transform))
-            using (FilterEffect == null ? new() : context.PushFilterEffect(FilterEffect))
-            using (OpacityMask == null ? new() : context.PushOpacityMask(OpacityMask, new Rect(size)))
+            using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
             {
                 context.DrawBackdrop(backdrop);
             }
-
-            Bounds = transformedBounds;
         }
     }
 }

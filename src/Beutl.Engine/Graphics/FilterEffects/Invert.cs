@@ -19,13 +19,14 @@ public sealed partial class Invert : FilterEffect
     [Display(Name = nameof(Strings.ExcludeAlphaChannel), ResourceType = typeof(Strings))]
     public IProperty<bool> ExcludeAlphaChannel { get; } = Property.CreateAnimatable(true);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        if (ExcludeAlphaChannel.CurrentValue)
+        var r = (Resource)resource;
+        if (r.ExcludeAlphaChannel)
         {
             context.LookupTable(
                 Unit.Default,
-                Amount.CurrentValue / 100,
+                r.Amount / 100,
                 static (Unit _, (byte[] A, byte[] R, byte[] G, byte[] B) array) =>
                 {
                     LookupTable.Linear(array.A);
@@ -38,7 +39,7 @@ public sealed partial class Invert : FilterEffect
         {
             context.LookupTable(
                 Unit.Default,
-                Amount.CurrentValue / 100,
+                r.Amount / 100,
                 static (Unit _, byte[] array) => LookupTable.Invert(array));
         }
     }
