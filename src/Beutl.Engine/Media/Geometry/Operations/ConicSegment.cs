@@ -29,6 +29,11 @@ public sealed partial class ConicSegment : PathSegment
         context.ConicTo(r.ControlPoint, r.EndPoint, r.Weight);
     }
 
+    public override IProperty<Point> GetEndPoint()
+    {
+        return EndPoint;
+    }
+
     public partial class Resource
     {
         public override Point? GetEndPoint()

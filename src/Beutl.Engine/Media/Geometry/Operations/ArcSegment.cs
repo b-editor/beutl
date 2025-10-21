@@ -26,6 +26,11 @@ public sealed partial class ArcSegment : PathSegment
         context.ArcTo(r.Radius, r.RotationAngle, r.IsLargeArc, r.SweepClockwise, r.Point);
     }
 
+    public override IProperty<Point> GetEndPoint()
+    {
+        return Point;
+    }
+
     public partial class Resource
     {
         public override Point? GetEndPoint()

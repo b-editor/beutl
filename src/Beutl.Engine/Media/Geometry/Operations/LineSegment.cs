@@ -28,6 +28,11 @@ public sealed partial class LineSegment : PathSegment
         context.LineTo(r.Point);
     }
 
+    public override IProperty<Point> GetEndPoint()
+    {
+        return Point;
+    }
+
     public partial class Resource
     {
         public override Point? GetEndPoint()

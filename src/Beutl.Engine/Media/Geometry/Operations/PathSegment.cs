@@ -8,6 +8,8 @@ public abstract partial class PathSegment : EngineObject
 {
     public abstract void ApplyTo(IGeometryContext context, Resource resource);
 
+    public abstract IProperty<Point> GetEndPoint();
+
     public partial class Resource
     {
         public virtual Point? GetEndPoint()

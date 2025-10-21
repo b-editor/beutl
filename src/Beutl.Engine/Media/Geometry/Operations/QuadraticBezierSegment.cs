@@ -26,6 +26,11 @@ public sealed partial class QuadraticBezierSegment : PathSegment
         context.QuadraticTo(r.ControlPoint, r.EndPoint);
     }
 
+    public override IProperty<Point> GetEndPoint()
+    {
+        return EndPoint;
+    }
+
     public partial class Resource
     {
         public override Point? GetEndPoint()

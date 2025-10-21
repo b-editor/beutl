@@ -29,6 +29,11 @@ public sealed partial class CubicBezierSegment : PathSegment
         context.CubicTo(r.ControlPoint1, r.ControlPoint2, r.EndPoint);
     }
 
+    public override IProperty<Point> GetEndPoint()
+    {
+        return EndPoint;
+    }
+
     public partial class Resource
     {
         public override Point? GetEndPoint()
