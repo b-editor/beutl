@@ -6,27 +6,36 @@ namespace Beutl.Animation;
 
 public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 {
-    public IValidator<T>? Validator
+    private EngineObject? _parent;
+
+    public override Type ValueType => typeof(T);
+
+    public new IValidator<T>? Validator
     {
         get => base.Validator as IValidator<T>;
         set => base.Validator = value;
     }
-    //
-    // public override void ApplyAnimation(Animatable target, IClock clock)
-    // {
-    //     if (UseGlobalClock)
-    //     {
-    //         target.SetValue(Property, Interpolate(clock.GlobalClock.CurrentTime));
-    //     }
-    //     else
-    //     {
-    //         target.SetValue(Property, Interpolate(clock.CurrentTime));
-    //     }
-    // }
 
-    public T? GetAnimatedValue(IClock clock)
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        return Interpolate(UseGlobalClock ? clock.GlobalClock.CurrentTime : clock.CurrentTime);
+        base.OnAttachedToHierarchy(in args);
+        _parent = this.FindHierarchicalParent<EngineObject>();
+    }
+
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
+    {
+        base.OnDetachedFromHierarchy(in args);
+        _parent = null;
+    }
+
+    public T? GetAnimatedValue(TimeSpan time)
+    {
+        if (_parent != null && !UseGlobalClock)
+        {
+            return Interpolate(time - _parent.TimeRange.Start);
+        }
+
+        return Interpolate(time);
     }
 
     public T? Interpolate(TimeSpan timeSpan)

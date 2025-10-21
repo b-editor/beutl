@@ -10,7 +10,6 @@ public class Renderer : IRenderer
     private readonly ImmediateCanvas _immediateCanvas;
     private readonly RenderTarget _surface;
     private readonly FpsText _fpsText = new();
-    private readonly InstanceClock _instanceClock = new();
 
     public Renderer(int width, int height)
     {
@@ -50,13 +49,11 @@ public class Renderer : IRenderer
         set => _fpsText.DrawFps = value;
     }
 
-    public IClock Clock => _instanceClock;
+    public TimeSpan Time { get; internal set; }
 
     public PixelSize FrameSize { get; }
 
     public RenderScene RenderScene { get; }
-
-    protected InstanceClock InternalClock => _instanceClock;
 
     public void Dispose()
     {
@@ -93,7 +90,7 @@ public class Renderer : IRenderer
         return RenderScene.HitTest(point);
     }
 
-    public bool Render(TimeSpan timeSpan)
+    public bool Render(TimeSpan time)
     {
         RenderThread.Dispatcher.VerifyAccess();
         if (!IsGraphicsRendering)
@@ -101,7 +98,7 @@ public class Renderer : IRenderer
             try
             {
                 IsGraphicsRendering = true;
-                _instanceClock.CurrentTime = timeSpan;
+                Time = time;
                 RenderScene.Clear();
                 using (_fpsText.StartRender(_immediateCanvas))
                 {

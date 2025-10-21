@@ -20,11 +20,13 @@ public interface IProperty
 
     Type ValueType { get; }
 
+    IAnimation? Animation { get; }
+
     bool IsAnimatable { get; }
 
     bool HasLocalValue { get; }
 
-    object? GetValueAsObject(IClock clock);
+    object? GetValueAsObject(TimeSpan time);
 
     void SetValueAsObject(object? value);
 
@@ -45,9 +47,11 @@ public interface IProperty<T> : IProperty
 
     T CurrentValue { get; set; }
 
-    IAnimation<T>? Animation { get; set; }
+    new IAnimation<T>? Animation { get; set; }
 
-    T GetValue(IClock clock);
+    IAnimation? IProperty.Animation => Animation;
+
+    T GetValue(TimeSpan time);
 
     event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 

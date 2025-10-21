@@ -44,9 +44,9 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
     }
 
     // Drawable
-    public void Add(Drawable drawable, IClock clock)
+    public void Add(Drawable drawable, TimeSpan time)
     {
-        var renderContext = new RenderContext(clock);
+        var renderContext = new RenderContext(time);
         Drawable.Resource? resource;
         bool shouldRender;
         if (!_cache.TryGetValue(drawable, out Entry? entry))
@@ -73,7 +73,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         CurrentFrame.Add(entry);
     }
 
-    public void UpdateAll(IReadOnlyList<Drawable> elements, IClock clock)
+    public void UpdateAll(IReadOnlyList<Drawable> elements, TimeSpan time)
     {
         _currentFrame?.Clear();
         if (elements.Count == 0)
@@ -85,7 +85,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
 
         foreach (Drawable element in elements)
         {
-            Add(element, clock);
+            Add(element, time);
         }
     }
 

@@ -19,7 +19,7 @@ public sealed class SceneRenderer(Scene scene) : Renderer(scene.FrameSize.Width,
 
     public void Evaluate(TimeSpan timeSpan)
     {
-        InternalClock.CurrentTime = timeSpan;
+        Time = timeSpan;
         SortLayers(timeSpan, out _);
         Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
         Span<Element> exited = CollectionsMarshal.AsSpan(_exited);
@@ -44,7 +44,7 @@ public sealed class SceneRenderer(Scene scene) : Renderer(scene.FrameSize.Width,
                     if (item is Drawable drawable)
                     {
                         int actualIndex = (drawable as DrawableDecorator)?.OriginalZIndex ?? item.ZIndex;
-                        RenderScene[actualIndex].Add(drawable, Clock);
+                        RenderScene[actualIndex].Add(drawable, Time);
                     }
                 }
             }
@@ -117,7 +117,7 @@ public sealed class SceneRenderer(Scene scene) : Renderer(scene.FrameSize.Width,
 
     protected override void RenderGraphicsCore()
     {
-        Evaluate(Clock.CurrentTime);
+        Evaluate(Time);
         base.RenderGraphicsCore();
     }
 

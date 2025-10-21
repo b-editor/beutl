@@ -101,6 +101,8 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         obj.Invalidated -= OnKeyFrameInvalidated;
     }
 
+    public abstract Type ValueType { get; }
+
     public bool UseGlobalClock
     {
         get => _useGlobalClock;

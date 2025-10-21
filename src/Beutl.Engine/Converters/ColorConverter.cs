@@ -111,7 +111,7 @@ public sealed class ColorConverter : TypeConverter
         }
         else if (value is SolidColorBrush solidColorBrush)
         {
-            return solidColorBrush.Color.GetValue(ZeroClock.Instance);
+            return solidColorBrush.Color.GetValue(TimeSpan.Zero);
         }
         else if (value is SolidColorBrush.Resource solidColorBrushResource)
         {

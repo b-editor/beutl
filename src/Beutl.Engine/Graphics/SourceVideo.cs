@@ -177,20 +177,20 @@ public partial class SourceVideo : Drawable
 
         partial void PostUpdate(SourceVideo obj, RenderContext context)
         {
-            var clock = context.Clock;
+            var time = context.Time;
             // アニメーションがある場合、前回のキーフレームを引く
             var anm = obj.Speed.Animation;
             if (anm is KeyFrameAnimation<float> keyFrameAnimation)
             {
                 RequestedPosition = obj.CalculateVideoTime(
                     keyFrameAnimation.UseGlobalClock
-                        ? clock.GlobalClock.CurrentTime
-                        : clock.CurrentTime,
+                        ? time
+                        : time - obj.TimeRange.Start,
                     this);
             }
             else
             {
-                RequestedPosition = clock.CurrentTime * (_speed / 100);
+                RequestedPosition = (time - obj.TimeRange.Start) * (_speed / 100);
             }
 
             // ループ処理を追加

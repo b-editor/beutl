@@ -95,7 +95,7 @@ public class AnimatableProperty<T> : IProperty<T>
         CurrentValue = value;
     }
 
-    public T GetValue(IClock clock)
+    public T GetValue(TimeSpan time)
     {
         try
         {
@@ -104,7 +104,7 @@ public class AnimatableProperty<T> : IProperty<T>
             // アニメーション値を優先
             if (_animation != null)
             {
-                value = _animation.GetAnimatedValue(clock) ?? _currentValue;
+                value = _animation.GetAnimatedValue(time) ?? _currentValue;
 
                 // アニメーション値もバリデーション
                 value = ValidateAndCoerce(value);
@@ -125,7 +125,7 @@ public class AnimatableProperty<T> : IProperty<T>
         }
     }
 
-    public object? GetValueAsObject(IClock clock) => GetValue(clock);
+    public object? GetValueAsObject(TimeSpan time) => GetValue(time);
 
     public void SetValueAsObject(object? value)
     {

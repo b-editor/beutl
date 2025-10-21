@@ -58,12 +58,12 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
         CurrentValue = value;
     }
 
-    public T GetValue(IClock clock)
+    public T GetValue(TimeSpan time)
     {
         return _currentValue;
     }
 
-    public object? GetValueAsObject(IClock clock) => GetValue(clock);
+    public object? GetValueAsObject(TimeSpan time) => GetValue(time);
 
     public void SetValueAsObject(object? value)
     {

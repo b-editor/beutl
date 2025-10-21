@@ -98,7 +98,7 @@ public class ShakeEffect : FilterEffect
             CompareAndUpdate(context, ((ShakeEffect)obj).Speed, ref _speed, ref updateOnly);
 
             float oldTime = _time;
-            _time = (float)context.Clock.CurrentTime.TotalSeconds;
+            _time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;
             // ReSharper disable once CompareOfFloatsByEqualityOperator
             if (!updateOnly && oldTime != _time)
             {

@@ -71,12 +71,12 @@ public class ListProperty<T> : IListProperty<T>
         CurrentValue = value;
     }
 
-    public ICoreList<T> GetValue(IClock clock)
+    public ICoreList<T> GetValue(TimeSpan time)
     {
         return CurrentValue;
     }
 
-    public object? GetValueAsObject(IClock clock) => GetValue(clock);
+    public object? GetValueAsObject(TimeSpan time) => GetValue(time);
 
     public void SetValueAsObject(object? value)
     {
@@ -221,6 +221,8 @@ public class ListProperty<T> : IListProperty<T>
     public void Insert(int index, object? value) => ((IList)_items).Insert(index, value);
 
     public void Remove(object? value) => ((IList)_items).Remove(value);
+
+    public void EnsureCapacity(int capacity) => _items.EnsureCapacity(capacity);
 
     void IList.RemoveAt(int index) => ((IList)_items).RemoveAt(index);
 
