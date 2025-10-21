@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 
 namespace Beutl.Graphics.Transformation;
 
@@ -6,10 +7,10 @@ public sealed class TransformGroup : Transform
 {
     public TransformGroup()
     {
-        Children = new Transforms(this);
+        ScanProperties<TransformGroup>();
     }
 
-    public Transforms Children { get; }
+    public IListProperty<Transform> Children { get; } = Property.CreateList<Transform>();
 
     public override Matrix CreateMatrix(RenderContext context)
     {
