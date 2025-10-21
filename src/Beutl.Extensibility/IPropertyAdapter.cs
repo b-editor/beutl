@@ -1,6 +1,6 @@
 ﻿using System.Reactive.Linq;
-
 using Beutl.Animation;
+using Beutl.Engine;
 
 namespace Beutl.Extensibility;
 
@@ -19,6 +19,26 @@ public interface IPropertyAdapter
     object? GetDefaultValue();
 
     CoreProperty? GetCoreProperty() => null;
+
+    IProperty? GetEngineProperty() => null;
+
+    Attribute[] GetAttributes()
+    {
+        var coreProperty = GetCoreProperty();
+        if (coreProperty != null)
+        {
+            var metadata = coreProperty.GetMetadata<CorePropertyMetadata>(ImplementedType);
+            return metadata.Attributes;
+        }
+
+        var engineProperty = GetEngineProperty();
+        if (engineProperty != null)
+        {
+            return engineProperty.GetPropertyInfo()?.GetCustomAttributes(true).OfType<Attribute>().ToArray() ?? [];
+        }
+
+        return [];
+    }
 
     void SetValue(object? value);
 

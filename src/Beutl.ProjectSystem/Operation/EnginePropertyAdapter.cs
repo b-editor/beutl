@@ -6,23 +6,29 @@ using Beutl.Extensibility;
 
 namespace Beutl.Operation;
 
-public class EnginePropertyAdapter<T>(IProperty<T> property, EngineObject obj) : IPropertyAdapter<T>
+public class EnginePropertyAdapter<T> : IPropertyAdapter<T>
 {
-    private readonly Lazy<DisplayAttribute?> _displayAttribute = new(() =>
-    {
-        var info = property.GetPropertyInfo();
-        object[]? attrs = info?.GetCustomAttributes(typeof(DisplayAttribute), true);
-        return attrs?.Length > 0 ? (DisplayAttribute?)attrs[0] : null;
-    });
-
+    private readonly Lazy<Attribute[]> _attributes;
+    private readonly Lazy<DisplayAttribute?> _displayAttribute;
     private IObservable<T?>? _observable;
 
-    public EngineObject Object { get; } = obj;
+    public EnginePropertyAdapter(IProperty<T> property, EngineObject obj)
+    {
+        _attributes = new Lazy<Attribute[]>(() =>
+        {
+            var info = property.GetPropertyInfo();
+            return info?.GetCustomAttributes(true).OfType<Attribute>().ToArray() ?? [];
+        });
+        _displayAttribute = new Lazy<DisplayAttribute?>(() => _attributes.Value.FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute);
+        Object = obj;
+        Property = property;
+    }
 
-    public IProperty<T> Property { get; } = property;
+    public EngineObject Object { get; }
 
-    [field: AllowNull, MaybeNull]
-    public Type ImplementedType => field ??= Object.GetType();
+    public IProperty<T> Property { get; }
+
+    [field: AllowNull, MaybeNull] public Type ImplementedType => field ??= Object.GetType();
 
     public Type PropertyType => Property.ValueType;
 
@@ -31,6 +37,10 @@ public class EnginePropertyAdapter<T>(IProperty<T> property, EngineObject obj) :
     public string? Description => _displayAttribute.Value?.GetDescription();
 
     public bool IsReadOnly => false;
+
+    IProperty IPropertyAdapter.GetEngineProperty() => Property;
+
+    Attribute[] IPropertyAdapter.GetAttributes() => _attributes.Value;
 
     public object? GetDefaultValue()
     {
