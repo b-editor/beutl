@@ -8,7 +8,7 @@ using Avalonia.Input;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Models;
-using Beutl.NodeTree;
+// using Beutl.NodeTree;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Reactive.Bindings;
@@ -29,39 +29,39 @@ public class LibraryItemViewModel
 
     public List<LibraryItemViewModel> Children { get; } = [];
 
-    public static LibraryItemViewModel CreateFromNodeRegistryItem(NodeRegistry.BaseRegistryItem registryItem,
-        string? parentFullName = null)
-    {
-        string? description = null;
-        object? data = null;
-        string? typeName = null;
-
-        if (registryItem is NodeRegistry.RegistryItem draggable)
-        {
-            DisplayAttribute? att = draggable.Type.GetCustomAttribute<DisplayAttribute>();
-            description = att?.GetDescription();
-            data = draggable;
-            typeName = draggable.Type.Name;
-        }
-
-        var obj = new LibraryItemViewModel()
-        {
-            DisplayName = registryItem.DisplayName,
-            Description = description,
-            Data = data,
-            Type = Strings.NodeTree,
-            FullDisplayName = parentFullName != null
-                ? $"{parentFullName} / {registryItem.DisplayName}"
-                : registryItem.DisplayName
-        };
-
-        if (registryItem is NodeRegistry.GroupableRegistryItem group)
-        {
-            obj.Children.AddRange(group.Items.Select(x => CreateFromNodeRegistryItem(x, obj.FullDisplayName)));
-        }
-
-        return obj;
-    }
+    // public static LibraryItemViewModel CreateFromNodeRegistryItem(NodeRegistry.BaseRegistryItem registryItem,
+    //     string? parentFullName = null)
+    // {
+    //     string? description = null;
+    //     object? data = null;
+    //     string? typeName = null;
+    //
+    //     if (registryItem is NodeRegistry.RegistryItem draggable)
+    //     {
+    //         DisplayAttribute? att = draggable.Type.GetCustomAttribute<DisplayAttribute>();
+    //         description = att?.GetDescription();
+    //         data = draggable;
+    //         typeName = draggable.Type.Name;
+    //     }
+    //
+    //     var obj = new LibraryItemViewModel()
+    //     {
+    //         DisplayName = registryItem.DisplayName,
+    //         Description = description,
+    //         Data = data,
+    //         Type = Strings.NodeTree,
+    //         FullDisplayName = parentFullName != null
+    //             ? $"{parentFullName} / {registryItem.DisplayName}"
+    //             : registryItem.DisplayName
+    //     };
+    //
+    //     if (registryItem is NodeRegistry.GroupableRegistryItem group)
+    //     {
+    //         obj.Children.AddRange(group.Items.Select(x => CreateFromNodeRegistryItem(x, obj.FullDisplayName)));
+    //     }
+    //
+    //     return obj;
+    // }
 
     public static LibraryItemViewModel CreateFromOperatorRegistryItem(LibraryItem registryItem,
         string? parentFullName = null)
@@ -100,10 +100,11 @@ public class LibraryItemViewModel
                 }
             }
         }
-        else if (Data is NodeRegistry.RegistryItem regitem)
-        {
-            yield return (BeutlDataFormats.Node, regitem.Type);
-        }
+        // TODO: NodeTree
+        // else if (Data is NodeRegistry.RegistryItem regitem)
+        // {
+        //     yield return (BeutlDataFormats.Node, regitem.Type);
+        // }
     }
 
     private static DataFormat<string> GetKnownDataFormat(string format)
@@ -126,7 +127,8 @@ public class LibraryItemViewModel
 
     public bool CanDragDrop()
     {
-        return Data is SingleTypeLibraryItem or MultipleTypeLibraryItem or NodeRegistry.RegistryItem;
+        // TODO: NodeTree
+        return Data is SingleTypeLibraryItem or MultipleTypeLibraryItem;// or NodeRegistry.RegistryItem;
     }
 
     public int Match(Regex[] regexes)
@@ -171,13 +173,14 @@ public class LibraryItemViewModel
                 }
             }
         }
-        else if (Data is NodeRegistry.RegistryItem regitem)
-        {
-            if (RegexHelper.IsMatch(regexes, regitem.Type.Name))
-            {
-                result += 75;
-            }
-        }
+        // TODO: NodeTree
+        // else if (Data is NodeRegistry.RegistryItem regitem)
+        // {
+            // if (RegexHelper.IsMatch(regexes, regitem.Type.Name))
+            // {
+                // result += 75;
+            // }
+        // }
 
         return result;
     }
@@ -251,11 +254,14 @@ public sealed class LibraryViewModel : IDisposable, IToolContext
         LibraryItems = new List<LibraryItemViewModel>(libItems.Count);
         LibraryItems.AddRange(libItems.Select(x => LibraryItemViewModel.CreateFromOperatorRegistryItem(x)));
 
-        IList<NodeRegistry.BaseRegistryItem> nodes = NodeRegistry.GetRegistered();
-        Nodes = new List<LibraryItemViewModel>(nodes.Count);
-        Nodes.AddRange(nodes.Select(x => LibraryItemViewModel.CreateFromNodeRegistryItem(x)));
+        // TODO: Node
+        // IList<NodeRegistry.BaseRegistryItem> nodes = NodeRegistry.GetRegistered();
+        // Nodes = new List<LibraryItemViewModel>(nodes.Count);
+        // Nodes.AddRange(nodes.Select(x => LibraryItemViewModel.CreateFromNodeRegistryItem(x)));
+        Nodes = new List<LibraryItemViewModel>();
 
-        AllItems = new(LibraryService.Current._totalCount + NodeRegistry.s_totalCount);
+        // AllItems = new(LibraryService.Current._totalCount + NodeRegistry.s_totalCount);
+        AllItems = new(LibraryService.Current._totalCount);
         AddAllItems(LibraryItems);
         AddAllItems(Nodes);
     }

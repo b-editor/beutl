@@ -11,7 +11,7 @@ using Avalonia.Xaml.Interactivity;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
-using Beutl.ViewModels.NodeTree;
+// using Beutl.ViewModels.NodeTree;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings.Extensions;
 using Setter = Avalonia.Styling.Setter;
@@ -194,17 +194,18 @@ public sealed partial class ElementView : UserControl
         }
     }
 
-    private void OpenNodeTree_Click(object? sender, RoutedEventArgs e)
-    {
-        Element model = ViewModel.Model;
-        EditViewModel context = ViewModel.Timeline.EditorContext;
-        NodeTreeTabViewModel? nodeTree = context.FindToolTab<NodeTreeTabViewModel>(
-            v => v.Element.Value == model || v.Element.Value == null);
-        nodeTree ??= new NodeTreeTabViewModel(context);
-        nodeTree.Element.Value = model;
+    // TODO: NodeTree
+    // private void OpenNodeTree_Click(object? sender, RoutedEventArgs e)
+    // {
+        // Element model = ViewModel.Model;
+        // EditViewModel context = ViewModel.Timeline.EditorContext;
+        // NodeTreeTabViewModel? nodeTree = context.FindToolTab<NodeTreeTabViewModel>(
+            // v => v.Element.Value == model || v.Element.Value == null);
+        // nodeTree ??= new NodeTreeTabViewModel(context);
+        // nodeTree.Element.Value = model;
 
-        context.OpenToolTab(nodeTree);
-    }
+        // context.OpenToolTab(nodeTree);
+    // }
 
     private TimeSpan RoundStartTime(TimeSpan time, float scale, bool flag)
     {

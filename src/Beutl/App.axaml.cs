@@ -9,7 +9,6 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Configuration;
-using Beutl.NodeTree.Nodes;
 using Beutl.Operators;
 using Beutl.Pages;
 using Beutl.Services;
@@ -96,8 +95,9 @@ public sealed class App : Application
         // 以下三つの処理は意外と重い
         Parallel.Invoke(
             () => GetMainViewModel().RegisterServices(),
-            LibraryRegistrar.RegisterAll,
-            NodesRegistrar.RegisterAll);
+            LibraryRegistrar.RegisterAll);
+        // TODO: NodeTree
+            // NodesRegistrar.RegisterAll);
 
         ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
     }

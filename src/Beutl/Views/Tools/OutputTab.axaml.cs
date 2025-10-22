@@ -7,7 +7,7 @@ using Avalonia.LogicalTree;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
-using Beutl.Views.NodeTree;
+// using Beutl.Views.NodeTree;
 using AddOutputProfileDialog = Beutl.Views.Dialogs.AddOutputProfileDialog;
 
 namespace Beutl.Views.Tools;
