@@ -6,7 +6,7 @@ public class RenderContext(TimeSpan time)
 {
     public static RenderContext Default { get; } = new(TimeSpan.Zero);
 
-    public TimeSpan Time => time;
+    public TimeSpan Time { get; set; } = time;
 
     public T Get<T>(IProperty<T> property)
     {
