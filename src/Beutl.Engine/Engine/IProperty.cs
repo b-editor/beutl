@@ -1,6 +1,7 @@
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Collections;
+using Beutl.Serialization;
 
 namespace Beutl.Engine;
 
@@ -16,21 +17,17 @@ public interface IListProperty<T> : IListProperty, IProperty<ICoreList<T>>, ICor
 
 public interface IProperty
 {
+    object? DefaultValue { get; }
+
     string Name { get; }
 
     Type ValueType { get; }
 
-    IAnimation? Animation { get; }
+    IAnimation? Animation { get; set; }
 
     bool IsAnimatable { get; }
 
     bool HasLocalValue { get; }
-
-    object? GetValueAsObject(TimeSpan time);
-
-    void SetValueAsObject(object? value);
-
-    object? GetDefaultValueAsObject();
 
     void SetPropertyInfo(PropertyInfo propertyInfo);
 
@@ -39,17 +36,27 @@ public interface IProperty
     void SetOwnerObject(EngineObject? owner);
 
     EngineObject? GetOwnerObject();
+
+    void DeserializeValue(ICoreSerializationContext context);
+
+    void SerializeValue(ICoreSerializationContext context);
 }
 
 public interface IProperty<T> : IProperty
 {
-    T DefaultValue { get; }
+    new T DefaultValue { get; }
 
     T CurrentValue { get; set; }
 
     new IAnimation<T>? Animation { get; set; }
 
-    IAnimation? IProperty.Animation => Animation;
+    object? IProperty.DefaultValue => DefaultValue;
+
+    IAnimation? IProperty.Animation
+    {
+        get => Animation;
+        set => Animation = (IAnimation<T>?)value;
+    }
 
     T GetValue(TimeSpan time);
 

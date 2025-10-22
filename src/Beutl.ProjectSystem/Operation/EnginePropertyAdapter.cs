@@ -44,7 +44,7 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>
 
     public object? GetDefaultValue()
     {
-        return Property.GetDefaultValueAsObject();
+        return Property.DefaultValue;
     }
 
     public IObservable<T?> GetObservable()

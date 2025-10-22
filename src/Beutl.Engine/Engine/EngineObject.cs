@@ -3,9 +3,11 @@ using System.Linq.Expressions;
 using System.Reactive.Disposables;
 using System.Reflection;
 using Beutl;
+using Beutl.Animation;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Reactive;
+using Beutl.Serialization;
 
 namespace Beutl.Engine;
 
@@ -135,6 +137,35 @@ public class EngineObject : Hierarchical, IAffectsRender
         _timeAnchorSubscription = Disposable.Create((d1, d2), t => t.DisposeAll());
     }
 
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+
+        Dictionary<string, IAnimation>? animations
+            = context.GetValue<Dictionary<string, IAnimation>>("Animations");
+
+        foreach (IProperty property in _properties)
+        {
+            property.DeserializeValue(context);
+            if (property.IsAnimatable && animations?.TryGetValue(property.Name, out IAnimation? value) == true)
+            {
+                property.Animation = value;
+            }
+        }
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        base.Serialize(context);
+        Dictionary<string, IAnimation> animations = _properties.Where(p=> p is { IsAnimatable: true, Animation: not null })
+            .ToDictionary(p => p.Name, p => p.Animation!);
+
+        context.SetValue("Animations", animations);
+        foreach (IProperty property in _properties)
+        {
+            property.SerializeValue(context);
+        }
+    }
     // internal int Version { get; private set; }
 
     private void AffectsRender_Invalidated(object? sender, RenderInvalidatedEventArgs e)

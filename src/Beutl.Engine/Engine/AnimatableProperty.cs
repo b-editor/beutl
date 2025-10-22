@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using Beutl.Animation;
+using Beutl.Serialization;
 using Beutl.Validation;
 
 namespace Beutl.Engine;
@@ -125,42 +126,6 @@ public class AnimatableProperty<T> : IProperty<T>
         }
     }
 
-    public object? GetValueAsObject(TimeSpan time) => GetValue(time);
-
-    public void SetValueAsObject(object? value)
-    {
-        if (value is T typedValue)
-        {
-            CurrentValue = typedValue;
-        }
-        else if (value == null && !typeof(T).IsValueType)
-        {
-            CurrentValue = default(T)!;
-        }
-        else
-        {
-            // 型変換を試行
-            try
-            {
-                if (value is IConvertible convertible && typeof(T).IsAssignableFrom(typeof(IConvertible)))
-                {
-                    var converted = (T)Convert.ChangeType(convertible, typeof(T));
-                    CurrentValue = converted;
-                }
-                else
-                {
-                    CurrentValue = DefaultValue;
-                }
-            }
-            catch
-            {
-                CurrentValue = DefaultValue;
-            }
-        }
-    }
-
-    public object? GetDefaultValueAsObject() => DefaultValue;
-
     public void SetPropertyInfo(PropertyInfo propertyInfo)
     {
         _propertyInfo = propertyInfo;
@@ -216,5 +181,19 @@ public class AnimatableProperty<T> : IProperty<T>
         CurrentValue = DefaultValue;
         HasLocalValue = false;
         Animation = null;
+    }
+
+    public void DeserializeValue(ICoreSerializationContext context)
+    {
+        var optional = context.GetValue<Optional<T>>(Name);
+        if (optional.HasValue)
+        {
+            CurrentValue = optional.Value;
+        }
+    }
+
+    public void SerializeValue(ICoreSerializationContext context)
+    {
+        context.SetValue(Name, CurrentValue);
     }
 }

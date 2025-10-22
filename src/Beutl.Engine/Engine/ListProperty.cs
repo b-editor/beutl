@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Collections;
+using Beutl.Serialization;
 
 namespace Beutl.Engine;
 
@@ -76,18 +77,6 @@ public class ListProperty<T> : IListProperty<T>
         return CurrentValue;
     }
 
-    public object? GetValueAsObject(TimeSpan time) => GetValue(time);
-
-    public void SetValueAsObject(object? value)
-    {
-        if (value is ICoreList<T> typedValue)
-        {
-            CurrentValue = typedValue;
-        }
-    }
-
-    public object? GetDefaultValueAsObject() => DefaultValue;
-
     public void SetPropertyInfo(PropertyInfo propertyInfo)
     {
         _propertyInfo = propertyInfo;
@@ -118,6 +107,20 @@ public class ListProperty<T> : IListProperty<T>
         }
 
         _owner = owner;
+    }
+
+    public void DeserializeValue(ICoreSerializationContext context)
+    {
+        var optional = context.GetValue<Optional<T[]>>(Name);
+        if (optional.HasValue)
+        {
+            CurrentValue.Replace(optional.Value);
+        }
+    }
+
+    public void SerializeValue(ICoreSerializationContext context)
+    {
+        context.SetValue(Name, CurrentValue);
     }
 
     public EngineObject? GetOwnerObject()
