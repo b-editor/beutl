@@ -1,9 +1,9 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transformation;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Immutable;
 using Beutl.Media.Pixel;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework.Legacy;
@@ -21,22 +21,20 @@ public class ShapeTests
     [Test]
     public void DrawRectangle()
     {
-        var shape = new RectShape
-        {
-            AlignmentX = AlignmentX.Center,
-            AlignmentY = AlignmentY.Center,
-            TransformOrigin = RelativePoint.Center,
-
-            Width = 100,
-            Height = 100,
-            Fill = Brushes.White
-        };
+        var shape = new RectShape();
+        shape.AlignmentX.CurrentValue = AlignmentX.Center;
+        shape.AlignmentY.CurrentValue = AlignmentY.Center;
+        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
+        shape.Width.CurrentValue = 100;
+        shape.Height.CurrentValue = 100;
+        shape.Fill.CurrentValue = Brushes.White;
+        var resource = shape.ToResource(RenderContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
-        canvas.DrawDrawable(shape);
+        canvas.DrawDrawable(resource);
 
         using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
@@ -46,31 +44,28 @@ public class ShapeTests
     [Test]
     public void DrawRectangleWithPen()
     {
-        var shape = new RectShape
-        {
-            AlignmentX = AlignmentX.Center,
-            AlignmentY = AlignmentY.Center,
-            TransformOrigin = RelativePoint.Center,
+        var shape = new RectShape();
+        shape.AlignmentX.CurrentValue = AlignmentX.Center;
+        shape.AlignmentY.CurrentValue = AlignmentY.Center;
+        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
+        shape.Width.CurrentValue = 100;
+        shape.Height.CurrentValue = 100;
+        shape.Fill.CurrentValue = Brushes.Gray;
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.White;
+        pen.Thickness.CurrentValue = 10;
+        pen.StrokeCap.CurrentValue = StrokeCap.Round;
+        pen.DashArray.CurrentValue = [2];
+        shape.Pen.CurrentValue = pen;
 
-            Width = 100,
-            Height = 100,
-
-            Fill = Brushes.Gray,
-            Pen = new Pen()
-            {
-                Brush = Brushes.White,
-                Thickness = 10,
-                StrokeCap = StrokeCap.Round,
-                DashArray = [2],
-            }
-        };
+        var resource = shape.ToResource(RenderContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
 
-        canvas.DrawDrawable(shape);
+        canvas.DrawDrawable(resource);
 
         using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
@@ -80,22 +75,20 @@ public class ShapeTests
     [Test]
     public void DrawEllipse()
     {
-        var shape = new EllipseShape
-        {
-            AlignmentX = AlignmentX.Center,
-            AlignmentY = AlignmentY.Center,
-            TransformOrigin = RelativePoint.Center,
-
-            Width = 100,
-            Height = 100,
-            Fill = Brushes.White
-        };
+        var shape = new EllipseShape();
+        shape.AlignmentX.CurrentValue = AlignmentX.Center;
+        shape.AlignmentY.CurrentValue = AlignmentY.Center;
+        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
+        shape.Width.CurrentValue = 100;
+        shape.Height.CurrentValue = 100;
+        shape.Fill.CurrentValue = Brushes.White;
+        var resource = shape.ToResource(RenderContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
-        canvas.DrawDrawable(shape);
+        canvas.DrawDrawable(resource);
 
         using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
@@ -105,24 +98,21 @@ public class ShapeTests
     [Test]
     public void DrawRoundedRect()
     {
-        var shape = new RoundedRectShape
-        {
-            AlignmentX = AlignmentX.Center,
-            AlignmentY = AlignmentY.Center,
-            TransformOrigin = RelativePoint.Center,
-
-            Width = 100,
-            Height = 100,
-            CornerRadius = new CornerRadius(25),
-
-            Fill = Brushes.White
-        };
+        var shape = new RoundedRectShape();
+        shape.AlignmentX.CurrentValue = AlignmentX.Center;
+        shape.AlignmentY.CurrentValue = AlignmentY.Center;
+        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
+        shape.Width.CurrentValue = 100;
+        shape.Height.CurrentValue = 100;
+        shape.CornerRadius.CurrentValue = new CornerRadius(25);
+        shape.Fill.CurrentValue = Brushes.White;
+        var resource = shape.ToResource(RenderContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
-        canvas.DrawDrawable(shape);
+        canvas.DrawDrawable(resource);
 
         using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
@@ -135,31 +125,27 @@ public class ShapeTests
     [TestCase(StrokeAlignment.Outside)]
     public void DrawRoundedRectWithStroke(StrokeAlignment alignment)
     {
-        var shape = new RoundedRectShape
-        {
-            AlignmentX = AlignmentX.Center,
-            AlignmentY = AlignmentY.Center,
-            TransformOrigin = RelativePoint.Center,
-
-            Width = 100,
-            Height = 100,
-            CornerRadius = new CornerRadius(25),
-
-            Fill = Brushes.Gray,
-            Pen = new Pen()
-            {
-                Brush = Brushes.White,
-                Thickness = 10,
-                StrokeCap = StrokeCap.Round,
-                StrokeAlignment = alignment,
-            }
-        };
+        var shape = new RoundedRectShape();
+        shape.AlignmentX.CurrentValue = AlignmentX.Center;
+        shape.AlignmentY.CurrentValue = AlignmentY.Center;
+        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
+        shape.Width.CurrentValue = 100;
+        shape.Height.CurrentValue = 100;
+        shape.CornerRadius.CurrentValue = new CornerRadius(25);
+        shape.Fill.CurrentValue = Brushes.Gray;
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.White;
+        pen.Thickness.CurrentValue = 10;
+        pen.StrokeCap.CurrentValue = StrokeCap.Round;
+        pen.StrokeAlignment.CurrentValue = alignment;
+        shape.Pen.CurrentValue = pen;
+        var resource = shape.ToResource(RenderContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
-        canvas.DrawDrawable(shape);
+        canvas.DrawDrawable(resource);
 
         using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
@@ -170,11 +156,11 @@ public class ShapeTests
     public void DrawGeometry()
     {
         var figure = new PathFigure();
-        var geometry = new PathGeometry { Figures = [figure] };
+        var geometry = new PathGeometry { Figures = { figure } };
         var center = new Point(100, 100);
         float radius = 0.45f * Math.Min(200, 200);
 
-        figure.StartPoint = new Point(100, 100 - radius);
+        figure.StartPoint.CurrentValue = new Point(100, 100 - radius);
 
         for (int i = 1; i < 5; i++)
         {
@@ -183,24 +169,25 @@ public class ShapeTests
                 new LineSegment(center + new Point(radius * MathF.Sin(angle), -radius * MathF.Cos(angle))));
         }
 
-        figure.IsClosed = true;
+        figure.IsClosed.CurrentValue = true;
 
-        var shape = new GeometryShape
-        {
-            AlignmentX = AlignmentX.Center,
-            AlignmentY = AlignmentY.Center,
-            TransformOrigin = RelativePoint.Center,
+        var shape = new GeometryShape();
+        shape.AlignmentX.CurrentValue = AlignmentX.Center;
+        shape.AlignmentY.CurrentValue = AlignmentY.Center;
+        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
+        shape.Data.CurrentValue = geometry;
+        shape.Fill.CurrentValue = Brushes.White;
 
-            Data = geometry,
-            Fill = Brushes.White,
-            Transform = new ImmutableTransform(Matrix.CreateTranslation(-geometry.Bounds.Position))
-        };
+        var resource = shape.ToResource(RenderContext.Default);
+        shape.Transform.CurrentValue = new TranslateTransform(-resource.Data!.Bounds.Position);
+        bool updateOnly = false;
+        resource.Update(shape, RenderContext.Default, ref updateOnly);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
-        canvas.DrawDrawable(shape);
+        canvas.DrawDrawable(resource);
 
         using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
@@ -217,11 +204,13 @@ public class ShapeTests
     public void DrawGeometryWithPen(StrokeAlignment alignment, PathFillType fillType)
     {
         var figure = new PathFigure();
-        var geometry = new PathGeometry { Figures = [figure], FillType = fillType };
+        var geometry = new PathGeometry();
+        geometry.Figures.Add(figure);
+        geometry.FillType.CurrentValue = fillType;
         var center = new Point(100, 100);
         float radius = 0.45f * Math.Min(200, 200);
 
-        figure.StartPoint = new Point(100, 100 - radius);
+        figure.StartPoint.CurrentValue = new Point(100, 100 - radius);
 
         for (int i = 1; i < 5; i++)
         {
@@ -230,32 +219,32 @@ public class ShapeTests
                 new LineSegment(center + new Point(radius * MathF.Sin(angle), -radius * MathF.Cos(angle))));
         }
 
-        figure.IsClosed = true;
+        figure.IsClosed.CurrentValue = true;
 
-        var shape = new GeometryShape
-        {
-            AlignmentX = AlignmentX.Center,
-            AlignmentY = AlignmentY.Center,
-            TransformOrigin = RelativePoint.Center,
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.White;
+        pen.Thickness.CurrentValue = 10;
+        pen.StrokeCap.CurrentValue = StrokeCap.Round;
+        pen.StrokeAlignment.CurrentValue = alignment;
 
-            Data = geometry,
+        var shape = new GeometryShape();
+        shape.AlignmentX.CurrentValue = AlignmentX.Center;
+        shape.AlignmentY.CurrentValue = AlignmentY.Center;
+        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
+        shape.Data.CurrentValue = geometry;
+        shape.Fill.CurrentValue = Brushes.Gray;
+        shape.Pen.CurrentValue = pen;
 
-            Fill = Brushes.Gray,
-            Pen = new Pen()
-            {
-                Brush = Brushes.White,
-                Thickness = 10,
-                StrokeCap = StrokeCap.Round,
-                StrokeAlignment = alignment,
-            },
-            Transform = new ImmutableTransform(Matrix.CreateTranslation(-geometry.Bounds.Position))
-        };
+        var resource = shape.ToResource(RenderContext.Default);
+        shape.Transform.CurrentValue = new TranslateTransform(-resource.Data!.Bounds.Position);
+        bool updateOnly = false;
+        resource.Update(shape, RenderContext.Default, ref updateOnly);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
 
         canvas.Clear(Colors.Black);
-        canvas.DrawDrawable(shape);
+        canvas.DrawDrawable(resource);
 
         using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 

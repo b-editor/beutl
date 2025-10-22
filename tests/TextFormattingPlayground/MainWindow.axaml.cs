@@ -2,21 +2,27 @@
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Beutl.Graphics.Rendering;
-using Canvas = Beutl.Graphics.ImmediateCanvas;
+using Brushes = Beutl.Media.Brushes;
+using TextBlock = Beutl.Graphics.Shapes.TextBlock;
 
 namespace TextFormattingPlayground;
 
 public partial class MainWindow : Window
 {
-    private readonly Beutl.Graphics.Shapes.TextBlock _text;
+    private readonly TextBlock _text;
+    private readonly TextBlock.Resource _resource;
+    private readonly DrawableRenderNode _node;
 
     public MainWindow()
     {
         InitializeComponent();
-        _text = new Beutl.Graphics.Shapes.TextBlock()
+        _text = new TextBlock()
         {
-            Size = 70
+            Size = { CurrentValue = 70 }, Fill = { CurrentValue = Brushes.White }
         };
+
+        _resource = _text.ToResource(RenderContext.Default);
+        _node = new DrawableRenderNode(_resource);
 
         textBox.GetObservable(TextBox.TextProperty).Subscribe(TextChanged);
 #if DEBUG
@@ -24,36 +30,35 @@ public partial class MainWindow : Window
 #endif
     }
 
-    private async void TextChanged(string? obj)
+    private void TextChanged(string? obj)
     {
         try
         {
-            await Task.Delay(500);
-            _text.Text = obj ?? string.Empty;
+            _text.Text.CurrentValue = obj ?? string.Empty;
             Draw();
         }
-        catch
+        catch (Exception ex)
         {
-
+            Console.WriteLine(ex);
         }
     }
 
     private unsafe void Draw()
     {
-        _text.Measure(Beutl.Graphics.Size.Infinity);
-        var bounds = _text.Bounds;
-        var width = (int)bounds.Width;
-        var height = (int)bounds.Height;
+        var updateOnly = false;
+        var oldVersion = _resource.Version;
+        _resource.Update(_text, RenderContext.Default, ref updateOnly);
+        if (_resource.Version != oldVersion) return;
 
-        if (width <= 0 || height <= 0)
-            return;
+        using (var context = new GraphicsContext2D(_node,
+                   new Beutl.Media.PixelSize((int)image.Bounds.Width, (int)image.Bounds.Height)))
+        {
+            context.Clear(Beutl.Media.Colors.Black);
+            _text.Render(context, _resource);
+        }
 
-        using var renderTarget = RenderTarget.Create(width, height)!;
-        using var canvas = new Canvas(renderTarget);
-        canvas.Clear(Beutl.Media.Colors.Black);
-        canvas.DrawDrawable(_text);
-
-        using var bmp = renderTarget.Snapshot();
+        var processor = new RenderNodeProcessor(_node, false);
+        using var bmp = processor.RasterizeAndConcat();
 
         if (image.Source is WriteableBitmap old)
         {
@@ -62,7 +67,7 @@ public partial class MainWindow : Window
         }
 
         var wbmp = new WriteableBitmap(
-            new PixelSize(canvas.Size.Width, canvas.Size.Height),
+            new PixelSize(bmp.Width, bmp.Height),
             Avalonia.Skia.SkiaPlatform.DefaultDpi,
             Avalonia.Platform.PixelFormat.Bgra8888,
             Avalonia.Platform.AlphaFormat.Premul);

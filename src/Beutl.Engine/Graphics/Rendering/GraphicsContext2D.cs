@@ -489,7 +489,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            next.Update(matrix, transformOperator);
+            _hasChanges = next.Update(matrix, transformOperator);
             Push(next);
         }
 

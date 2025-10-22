@@ -5,7 +5,7 @@ using NUnit.Framework.Legacy;
 
 namespace Beutl.UnitTests.Engine;
 
-public class TransformParser
+public class TransformParserTests
 {
     [Test]
     [TestCase("translate(10px)", 10f, 0f)]
@@ -16,11 +16,11 @@ public class TransformParser
     [TestCase("translateY(10px)", 0f, 10f)]
     public void ParseTranslate(string data, float x, float y)
     {
-        var transform = Transform.Parse(data) as TranslateTransform;
+        var transform = TransformParser.Parse(data) as TranslateTransform;
 
         ClassicAssert.NotNull(transform);
-        ClassicAssert.AreEqual(x, transform!.X);
-        ClassicAssert.AreEqual(y, transform.Y);
+        ClassicAssert.AreEqual(x, transform!.X.CurrentValue);
+        ClassicAssert.AreEqual(y, transform.Y.CurrentValue);
     }
 
     [Test]
@@ -30,10 +30,10 @@ public class TransformParser
     [TestCase("rotate(3.14159265rad)", 180f)]
     public void ParseRotate(string data, float angleDeg)
     {
-        var transform = Transform.Parse(data) as RotationTransform;
+        var transform = TransformParser.Parse(data) as RotationTransform;
 
         ClassicAssert.NotNull(transform);
-        ClassicAssert.AreEqual(angleDeg, transform!.Rotation);
+        ClassicAssert.AreEqual(angleDeg, transform!.Rotation.CurrentValue);
     }
 
     [Test]
@@ -51,11 +51,11 @@ public class TransformParser
     [TestCase("scaleY(10%)", 1f, 0.1f)]
     public void ParseScale(string data, float x, float y)
     {
-        var transform = Transform.Parse(data) as ScaleTransform;
+        var transform = TransformParser.Parse(data) as ScaleTransform;
 
         ClassicAssert.NotNull(transform);
-        ClassicAssert.AreEqual(x, transform!.ScaleX / 100);
-        ClassicAssert.AreEqual(y, transform.ScaleY / 100);
+        ClassicAssert.AreEqual(x, transform!.ScaleX.CurrentValue / 100);
+        ClassicAssert.AreEqual(y, transform.ScaleY.CurrentValue / 100);
     }
 
     [Test]
@@ -81,11 +81,11 @@ public class TransformParser
     [TestCase("skew(3.14159265rad, 3.14159265rad)", 180f, 180f)]
     public void ParseSkew(string data, float x, float y)
     {
-        var transform = Transform.Parse(data) as SkewTransform;
+        var transform = TransformParser.Parse(data) as SkewTransform;
 
         ClassicAssert.NotNull(transform);
-        ClassicAssert.AreEqual(x, transform!.SkewX);
-        ClassicAssert.AreEqual(y, transform.SkewY);
+        ClassicAssert.AreEqual(x, transform!.SkewX.CurrentValue);
+        ClassicAssert.AreEqual(y, transform.SkewY.CurrentValue);
     }
 
     [Test]

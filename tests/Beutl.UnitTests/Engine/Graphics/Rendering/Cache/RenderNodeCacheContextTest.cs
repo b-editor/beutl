@@ -34,7 +34,7 @@ public class RenderNodeCacheContextTest
     public void CanCacheRecursive_ShouldReturnFalse_WhenCacheCannotCache()
     {
         // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
 
@@ -49,7 +49,7 @@ public class RenderNodeCacheContextTest
     public void CanCacheRecursive_ShouldReturnTrue_WhenCacheCanCache()
     {
         // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
@@ -67,13 +67,13 @@ public class RenderNodeCacheContextTest
     public void CanCacheRecursive_ShouldReturnFalse_WhenChildCountIsDifferent()
     {
         // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
         containerNode.Cache.CaptureChildren();
-        containerNode.AddChild(new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null));
+        containerNode.AddChild(new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null));
 
         // Act
         bool result = RenderNodeCacheContext.CanCacheRecursive(containerNode);
@@ -86,13 +86,13 @@ public class RenderNodeCacheContextTest
     public void CanCacheRecursive_ShouldReturnFalse_WhenChildIsDifferent()
     {
         // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
         containerNode.Cache.CaptureChildren();
-        containerNode.SetChild(0, new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null));
+        containerNode.SetChild(0, new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null));
 
         // Act
         bool result = RenderNodeCacheContext.CanCacheRecursive(containerNode);
@@ -105,7 +105,7 @@ public class RenderNodeCacheContextTest
     public void CanCacheRecursive_ShouldReturnFalse_WhenNotCaptured()
     {
         // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
@@ -122,7 +122,7 @@ public class RenderNodeCacheContextTest
     public void CanCacheRecursiveChildrenOnly_ShouldReturnFalse_WhenAnyChildCannotCache()
     {
         // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         containerNode.Cache.ReportRenderCount(3);
@@ -139,7 +139,7 @@ public class RenderNodeCacheContextTest
     public void CanCacheRecursiveChildrenOnly_ShouldReturnTrue_WhenAllChildrenCanCache()
     {
         // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
@@ -155,7 +155,7 @@ public class RenderNodeCacheContextTest
     public void ClearCache_ShouldInvalidateCache()
     {
         // Arrange
-        using var node = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        using var node = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         using (var renderTarget = RenderTarget.CreateNull(100, 100))
         {
             node.Cache.StoreCache(renderTarget, new Rect(0, 0, 100, 100));
@@ -173,7 +173,7 @@ public class RenderNodeCacheContextTest
     {
         // Arrange
         using var node = new ContainerRenderNode();
-        using var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        using var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         using (var renderTarget = RenderTarget.CreateNull(100, 100))
         {
             childNode.Cache.StoreCache(renderTarget, new Rect(0, 0, 100, 100));
@@ -191,7 +191,7 @@ public class RenderNodeCacheContextTest
     public void MakeCache_ShouldCreateCache_WhenCacheIsEnabledAndCanCache()
     {
         // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
@@ -210,7 +210,7 @@ public class RenderNodeCacheContextTest
     public void MakeCache_ShouldNotCreateCache_WhenCacheIsDisabled()
     {
         // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
@@ -229,7 +229,7 @@ public class RenderNodeCacheContextTest
     public void MakeCache_ShouldNotCreateCache_WhenCannotCacheChildren()
     {
         // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         containerNode.Cache.ReportRenderCount(3);
@@ -247,7 +247,7 @@ public class RenderNodeCacheContextTest
     public void CreateDefaultCache_ShouldStoreCache_WhenCacheRulesMatch()
     {
         // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
@@ -266,7 +266,7 @@ public class RenderNodeCacheContextTest
     public void CreateDefaultCache_ShouldNotStoreCache_WhenCacheRulesDoNotMatch()
     {
         // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.White, null);
+        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         _context!.CacheOptions = new RenderCacheOptions(true, new RenderCacheRules(1, 1));

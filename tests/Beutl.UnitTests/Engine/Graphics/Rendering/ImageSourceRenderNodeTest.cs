@@ -19,25 +19,35 @@ public class ImageSourceRenderNodeTest
     }
 
     [Test]
-    public void Equals_ShouldReturnTrue_WhenAllPropertiesMatch()
+    public void Update_ShouldReturnFalse_WhenAllPropertiesMatch()
     {
         IImageSource source = CreateMockImageSource();
-        IBrush fill = Brushes.White;
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
-        var node = new ImageSourceRenderNode(source, fill, pen);
+        var fill = Brushes.Resource.White;
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue= 1;
+        var penResource = pen.ToResource(RenderContext.Default);
+        var node = new ImageSourceRenderNode(source, fill, penResource);
 
-        Assert.That(node.Equals(source, fill, pen), Is.True);
+        Assert.That(node.Update(source, fill, penResource), Is.False);
     }
 
     [Test]
-    public void Equals_ShouldReturnFalse_WhenPropertiesDoNotMatch()
+    public void Update_ShouldReturnTrue_WhenPropertiesDoNotMatch()
     {
         IImageSource source = CreateMockImageSource();
-        IBrush fill = Brushes.White;
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
-        var node = new ImageSourceRenderNode(source, fill, pen);
+        var fill = Brushes.Resource.White;
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue = 1;
+        var penResource = pen.ToResource(RenderContext.Default);
+        var node = new ImageSourceRenderNode(source, fill, penResource);
 
-        Assert.That(node.Equals(Mock.Of<IImageSource>(), fill, pen), Is.False);
+        pen.Thickness.CurrentValue = 2;
+        var updateOnly = false;
+        penResource.Update(pen, RenderContext.Default, ref updateOnly);
+
+        Assert.That(node.Update(source, fill, penResource), Is.True);
     }
 
     [Test]
@@ -70,10 +80,13 @@ public class ImageSourceRenderNodeTest
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideStroke()
     {
         IImageSource source = CreateMockImageSource();
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 50 };
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue = 50;
+        var penResource = pen.ToResource(RenderContext.Default);
         var context = new RenderNodeContext([]);
 
-        var node = new ImageSourceRenderNode(source, null, pen);
+        var node = new ImageSourceRenderNode(source, null, penResource);
         var operations = node.Process(context);
         var point = new Point(-10, -10);
 
@@ -84,10 +97,13 @@ public class ImageSourceRenderNodeTest
     public void HitTest_ShouldReturnFalse_WhenPointIsOutsideStroke()
     {
         IImageSource source = CreateMockImageSource();
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 50 };
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue = 50;
+        var penResource = pen.ToResource(RenderContext.Default);
         var context = new RenderNodeContext([]);
 
-        var node = new ImageSourceRenderNode(source, null, pen);
+        var node = new ImageSourceRenderNode(source, null, penResource);
         var operations = node.Process(context);
         var point = new Point(60, 60);
 
@@ -98,7 +114,7 @@ public class ImageSourceRenderNodeTest
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideFill()
     {
         IImageSource source = CreateMockImageSource();
-        IBrush fill = Brushes.White;
+        Brush.Resource fill = Brushes.Resource.White;
         var context = new RenderNodeContext([]);
 
         var node = new ImageSourceRenderNode(source, fill, null);
@@ -112,7 +128,7 @@ public class ImageSourceRenderNodeTest
     public void HitTest_ShouldReturnFalse_WhenPointIsOutsideFill()
     {
         IImageSource source = CreateMockImageSource();
-        IBrush fill = Brushes.White;
+        Brush.Resource fill = Brushes.Resource.White;
         var context = new RenderNodeContext([]);
 
         var node = new ImageSourceRenderNode(source, fill, null);

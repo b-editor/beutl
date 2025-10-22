@@ -8,43 +8,55 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 public class RectangleRenderNodeTest
 {
     [Test]
-    public void Equals_ShouldReturnTrue_WhenAllPropertiesMatch()
+    public void Update_ShouldReturnFalse_WhenAllPropertiesMatch()
     {
         var rect = new Rect(0, 0, 100, 100);
-        IBrush fill = new SolidColorBrush(Colors.Red);
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
+        var fill = Brushes.Resource.Red;
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue = 1;
+        var penResource = pen.ToResource(RenderContext.Default);
 
-        var node = new RectangleRenderNode(rect, fill, pen);
+        var node = new RectangleRenderNode(rect, fill, penResource);
 
-        Assert.That(node.Equals(rect, fill, pen), Is.True);
+        Assert.That(node.Update(rect, fill, penResource), Is.False);
     }
 
     [Test]
-    public void Equals_ShouldReturnFalse_WhenPropertiesDoNotMatch()
+    public void Update_ShouldReturnTrue_WhenPropertiesDoNotMatch()
     {
         var rect1 = new Rect(0, 0, 100, 100);
         var rect2 = new Rect(0, 0, 200, 200);
-        IBrush fill1 = new SolidColorBrush(Colors.Red);
-        IBrush fill2 = new SolidColorBrush(Colors.Blue);
-        IPen pen1 = new Pen { Brush = Brushes.Black, Thickness = 1 };
-        IPen pen2 = new Pen { Brush = Brushes.Black, Thickness = 2 };
+        var fill1 = Brushes.Resource.Red;
+        var fill2 = Brushes.Resource.Blue;
+        var pen1 = new Pen();
+        pen1.Brush.CurrentValue = Brushes.Black;
+        pen1.Thickness.CurrentValue = 1;
+        var pen2 = new Pen();
+        pen2.Brush.CurrentValue = Brushes.Black;
+        pen2.Thickness.CurrentValue = 2;
+        var penResource1 = pen1.ToResource(RenderContext.Default);
+        var penResource2 = pen2.ToResource(RenderContext.Default);
 
-        var node = new RectangleRenderNode(rect1, fill1, pen1);
+        var node = new RectangleRenderNode(rect1, fill1, penResource1);
 
-        Assert.That(node.Equals(rect2, fill1, pen1), Is.False);
-        Assert.That(node.Equals(rect1, fill2, pen1), Is.False);
-        Assert.That(node.Equals(rect1, fill1, pen2), Is.False);
+        Assert.That(node.Update(rect2, fill1, penResource1), Is.True);
+        Assert.That(node.Update(rect1, fill2, penResource1), Is.True);
+        Assert.That(node.Update(rect1, fill1, penResource2), Is.True);
     }
 
     [Test]
     public void Process_ShouldReturnCorrectRenderNodeOperation()
     {
         var rect = new Rect(0, 0, 100, 100);
-        IBrush fill = new SolidColorBrush(Colors.Red);
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
+        var fill = Brushes.Resource.Red;
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue = 1;
+        var penResource = pen.ToResource(RenderContext.Default);
         var context = new RenderNodeContext([]);
 
-        var node = new RectangleRenderNode(rect, fill, pen);
+        var node = new RectangleRenderNode(rect, fill, penResource);
         var operations = node.Process(context);
 
         Assert.That(operations, Is.Not.Null);
@@ -55,11 +67,14 @@ public class RectangleRenderNodeTest
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideRectangle()
     {
         var rect = new Rect(0, 0, 100, 100);
-        IBrush fill = new SolidColorBrush(Colors.Red);
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
+        var fill = Brushes.Resource.Red;
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue = 1;
+        var penResource = pen.ToResource(RenderContext.Default);
         var context = new RenderNodeContext([]);
 
-        var node = new RectangleRenderNode(rect, fill, pen);
+        var node = new RectangleRenderNode(rect, fill, penResource);
         var operations = node.Process(context);
         var point = new Point(50, 50);
 
@@ -70,11 +85,14 @@ public class RectangleRenderNodeTest
     public void HitTest_ShouldReturnFalse_WhenPointIsOutsideRectangle()
     {
         var rect = new Rect(0, 0, 100, 100);
-        IBrush fill = new SolidColorBrush(Colors.Red);
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
+        var fill = Brushes.Resource.Red;
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue = 1;
+        var penResource = pen.ToResource(RenderContext.Default);
         var context = new RenderNodeContext([]);
 
-        var node = new RectangleRenderNode(rect, fill, pen);
+        var node = new RectangleRenderNode(rect, fill, penResource);
         var operations = node.Process(context);
         var point = new Point(150, 150);
 
@@ -85,10 +103,13 @@ public class RectangleRenderNodeTest
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideRectangleStroke()
     {
         var rect = new Rect(25, 25, 75, 75);
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 50 };
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue = 50;
+        var penResource = pen.ToResource(RenderContext.Default);
         var context = new RenderNodeContext([]);
 
-        var node = new RectangleRenderNode(rect, null, pen);
+        var node = new RectangleRenderNode(rect, null, penResource);
         var operations = node.Process(context);
         var point = new Point(30, 50);
 

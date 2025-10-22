@@ -11,22 +11,42 @@ public class PublishOperatorTests
 {
     private class TestDrawable : Drawable
     {
-        protected override Size MeasureCore(Size availableSize) => throw new NotImplementedException();
+        protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
+        {
+            return new Size(100, 100);
+        }
 
-        protected override void OnDraw(GraphicsContext2D context) => throw new NotImplementedException();
+        protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+        {
+        }
+
+        public override Resource ToResource(RenderContext context)
+        {
+            var res = new Resource();
+            var updateOnly = true;
+            res.Update(this, context, ref updateOnly);
+            return res;
+        }
+
+        public new class Resource : Drawable.Resource
+        {
+        }
     }
 
-    private class TestOperator() : PublishOperator<TestDrawable>(
-    [
-        (Drawable.TransformProperty, () => new TransformGroup()),
-        Drawable.AlignmentXProperty,
-        Drawable.AlignmentYProperty,
-        Drawable.TransformOriginProperty,
-        (Drawable.FillProperty, () => new SolidColorBrush(Colors.White)),
-        (Drawable.FilterEffectProperty, () => new FilterEffectGroup()),
-        Drawable.BlendModeProperty,
-        (Drawable.OpacityProperty, 100)
-    ]);
+    private class TestOperator : PublishOperator<TestDrawable>
+    {
+        protected override void FillProperties()
+        {
+            AddProperty(Value.Transform, new TransformGroup());
+            AddProperty(Value.AlignmentX);
+            AddProperty(Value.AlignmentY);
+            AddProperty(Value.TransformOrigin);
+            AddProperty(Value.Fill, new SolidColorBrush(Colors.White));
+            AddProperty(Value.FilterEffect, new FilterEffectGroup());
+            AddProperty(Value.BlendMode);
+            AddProperty(Value.Opacity, 100f);
+        }
+    }
 
     [Test]
     public void ValueProperty_ShouldBeConfigured()

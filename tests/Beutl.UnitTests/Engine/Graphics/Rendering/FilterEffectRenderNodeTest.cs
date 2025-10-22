@@ -12,7 +12,7 @@ public class FilterEffectRenderNodeTest
         return new RenderNodeContext([
             RenderNodeOperation.CreateLambda(
                 new Rect(0, 0, 100, 100),
-                canvas => canvas.DrawEllipse(new Rect(0, 0, 100, 100), Brushes.White, null),
+                canvas => canvas.DrawEllipse(new Rect(0, 0, 100, 100), Brushes.Resource.White, null),
                 point => false
             )
         ]);
@@ -22,7 +22,8 @@ public class FilterEffectRenderNodeTest
     public void Process_ShouldReturnRenderNodeOperations()
     {
         var effect = new Blur();
-        var node = new FilterEffectRenderNode(effect);
+        var resource = effect.ToResource(RenderContext.Default);
+        var node = new FilterEffectRenderNode(resource);
         var context = CreateRenderNodeContext();
         var operations = node.Process(context);
 
@@ -32,8 +33,9 @@ public class FilterEffectRenderNodeTest
     [Test]
     public void Process_ShouldApplyFilterEffect()
     {
-        var effect = new Blur() { Sigma = new(10, 10) };
-        var node = new FilterEffectRenderNode(effect);
+        var effect = new Blur() { Sigma = {CurrentValue = new(10, 10) } };
+        var resource = effect.ToResource(RenderContext.Default);
+        var node = new FilterEffectRenderNode(resource);
         var context = CreateRenderNodeContext();
         var operations = node.Process(context);
 
@@ -45,38 +47,44 @@ public class FilterEffectRenderNodeTest
     }
 
     [Test]
-    public void Equals_ShouldReturnTrueForSameFilterEffect()
+    public void Update_ShouldReturnFalseForSameFilterEffect()
     {
         var effect = new Blur();
-        var node = new FilterEffectRenderNode(effect);
+        var resource = effect.ToResource(RenderContext.Default);
+        var node = new FilterEffectRenderNode(resource);
 
-        var result = node.Equals(effect);
+        var result = node.Update(resource);
+
+        Assert.That(result, Is.False);
+    }
+
+    // Effectのプロパティを変更するとUpdateがTrueを返す
+    [Test]
+    public void Update_ShouldReturnTrueForDifferentFilterEffectProperty()
+    {
+        var effect = new Blur();
+        var resource = effect.ToResource(RenderContext.Default);
+        var node = new FilterEffectRenderNode(resource);
+        effect.Sigma.CurrentValue = new(10, 10);
+        var updateOnly = false;
+        resource.Update(effect, RenderContext.Default, ref updateOnly);
+
+        var result = node.Update(resource);
 
         Assert.That(result, Is.True);
     }
 
-    // Effectのプロパティを変更するとEqualsがfalseを返す
     [Test]
-    public void Equals_ShouldReturnFalseForDifferentFilterEffectProperty()
-    {
-        var effect = new Blur();
-        var node = new FilterEffectRenderNode(effect);
-        effect.Sigma = new(10, 10);
-
-        var result = node.Equals(effect);
-
-        Assert.That(result, Is.False);
-    }
-
-    [Test]
-    public void Equals_ShouldReturnFalseForDifferentFilterEffect()
+    public void Update_ShouldReturnTrueForDifferentFilterEffect()
     {
         var effect1 = new Blur();
         var effect2 = new DropShadow();
-        var node = new FilterEffectRenderNode(effect1);
+        var effectResource1 = effect1.ToResource(RenderContext.Default);
+        var effectResource2 = effect2.ToResource(RenderContext.Default);
+        var node = new FilterEffectRenderNode(effectResource1);
 
-        var result = node.Equals(effect2);
+        var result = node.Update(effectResource2);
 
-        Assert.That(result, Is.False);
+        Assert.That(result, Is.True);
     }
 }
