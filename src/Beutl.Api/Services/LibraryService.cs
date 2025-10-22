@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Reactive.Linq;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 
@@ -28,10 +29,11 @@ public class LibraryService(BeutlApiApplication clients) : IBeutlApiResource
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
+        // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
         return await (await clients.Library.GetLibrary(start, count))
-            .ToAsyncEnumerable()
-            .SelectAwait(async x => await GetPackage(x.Package.Name))
-            .ToArrayAsync();
+            .ToObservable()
+            .SelectMany(async x => await GetPackage(x.Package.Name))
+            .ToArray();
     }
 
     public async Task<Release> Acquire(Package package)

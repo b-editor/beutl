@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics;
+using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 using Beutl.Api.Clients;
 using Beutl.Api.Objects;
 
@@ -32,19 +34,23 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
+        // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
         return await (await clients.Discover.GetFeatured(start, count).ConfigureAwait(false))
-            .ToAsyncEnumerable()
-            .SelectAwait(async x => await GetPackage(x.Name).ConfigureAwait(false))
-            .ToArrayAsync()
+            .ToObservable()
+            .SelectMany(async x => await GetPackage(x.Name).ConfigureAwait(false))
+            .ToArray()
+            .ToTask()
             .ConfigureAwait(false);
     }
 
     public async Task<Package[]> Search(string query, int start = 0, int count = 30)
     {
+        // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
         return await (await clients.Discover.Search(query, start, count).ConfigureAwait(false))
-            .ToAsyncEnumerable()
-            .SelectAwait(async x => await GetPackage(x.Name).ConfigureAwait(false))
-            .ToArrayAsync()
+            .ToObservable()
+            .SelectMany(async x => await GetPackage(x.Name).ConfigureAwait(false))
+            .ToArray()
+            .ToTask()
             .ConfigureAwait(false);
     }
 }
