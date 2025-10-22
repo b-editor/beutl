@@ -12,6 +12,11 @@ namespace Beutl.Graphics;
 [DummyType(typeof(DummyDrawable))]
 public abstract partial class Drawable : EngineObject
 {
+    public Drawable()
+    {
+        ScanProperties<Drawable>();
+    }
+
     [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings),
         GroupName = nameof(Strings.ImageFilter))]
     public IProperty<FilterEffect?> FilterEffect { get; } = Property.Create<FilterEffect?>();

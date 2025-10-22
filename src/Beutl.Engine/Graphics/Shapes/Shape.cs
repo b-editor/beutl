@@ -9,6 +9,11 @@ namespace Beutl.Graphics.Shapes;
 
 public abstract partial class Shape : Drawable
 {
+    public Shape()
+    {
+        ScanProperties<Shape>();
+    }
+
     [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(-1);
