@@ -37,7 +37,7 @@ public abstract partial class GraphEditorViewViewModelFactory
             return IsAssignableToGenericType(baseType, genericType);
         }
 
-        Type type = parent.Animation.Property.PropertyType;
+        Type type = parent.Animation.ValueType;
         if (s_registry.TryGetValue(type, out GraphEditorViewViewModelFactory? factory))
         {
             yield return factory;

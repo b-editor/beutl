@@ -323,7 +323,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         float scale = parent2.Options.Value.Scale;
         int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
 
-        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.Property.PropertyType,
+        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.ValueType,
                 out object? obj))
         {
             var keyframe = Model;
@@ -369,7 +369,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         float scale = parent2.Options.Value.Scale;
         int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
 
-        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.Property.PropertyType,
+        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.ValueType,
                 out object? obj))
         {
             var keyframe = Model;
@@ -449,7 +449,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 CoreSerializerHelper.PopulateFromJsonObject(newKeyFrame, jsonObj);
                 CommandRecorder recorder = Parent.Parent.EditorContext.CommandRecorder;
 
-                if (type.GenericTypeArguments[0] != Parent.Parent.Animation.Property.PropertyType)
+                if (type.GenericTypeArguments[0] != Parent.Parent.Animation.ValueType)
                 {
                     // イージングのみ変更
                     RecordableCommands.Edit(Model, KeyFrame.EasingProperty, newKeyFrame.Easing, Model.Easing)

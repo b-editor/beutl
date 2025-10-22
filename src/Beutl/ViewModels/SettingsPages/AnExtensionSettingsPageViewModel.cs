@@ -1,4 +1,5 @@
-﻿using Beutl.Controls.Navigation;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Controls.Navigation;
 using Beutl.Operation;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
@@ -80,11 +81,10 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
 
         foreach ((string? Key, IPropertyEditorContext?[] Value) group in tempItems.GroupBy(x =>
         {
-            if (x is BaseEditorViewModel { PropertyAdapter: { } adapter }
-                && adapter.GetCoreProperty() is { } coreProperty
-                && coreProperty.TryGetMetadata(adapter.ImplementedType, out CorePropertyMetadata? metadata))
+            if (x is BaseEditorViewModel { PropertyAdapter: { } adapter })
             {
-                return metadata.DisplayAttribute?.GetGroupName();
+                return (adapter.GetAttributes().FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute)
+                    ?.GetGroupName();
             }
             else
             {

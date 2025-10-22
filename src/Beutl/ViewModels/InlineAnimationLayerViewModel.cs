@@ -234,22 +234,20 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
             KeyFrameAnimation animation = (KeyFrameAnimation)Property.Animation!;
 
-            if (discriminator.GenericTypeArguments[0] != animation.Property.PropertyType)
+            if (discriminator.GenericTypeArguments[0] != animation.ValueType)
             {
                 _logger.LogError("The property type of the pasted animation does not match.");
-                NotificationService.ShowError(Strings.GraphEditor, $"The property type of the pasted animation does not match. (Expected: {animation.Property.PropertyType.Name}, Actual: {discriminator.GenericTypeArguments[0].Name})");
+                NotificationService.ShowError(Strings.GraphEditor, $"The property type of the pasted animation does not match. (Expected: {animation.ValueType.Name}, Actual: {discriminator.GenericTypeArguments[0].Name})");
                 return;
             }
 
             JsonObject oldJson = CoreSerializerHelper.SerializeToJsonObject(animation);
             Guid id = animation.Id;
-            CoreProperty property = animation.Property;
 
             RecordableCommands.Create(
                     () =>
                     {
                         CoreSerializerHelper.PopulateFromJsonObject(animation, newJson);
-                        animation.Property = property;
                         animation.Id = id;
                         foreach (IKeyFrame item in animation.KeyFrames)
                         {
@@ -259,7 +257,6 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                     () =>
                     {
                         CoreSerializerHelper.PopulateFromJsonObject(animation, oldJson);
-                        animation.Property = property;
                         animation.Id = id;
                     },
                     [Element.Model])
@@ -304,7 +301,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(discriminator)!;
             CoreSerializerHelper.PopulateFromJsonObject(newKeyFrame, newJson);
 
-            if (discriminator.GenericTypeArguments[0] != animation.Property.PropertyType)
+            if (discriminator.GenericTypeArguments[0] != animation.ValueType)
             {
                 InsertKeyFrame(newKeyFrame.Easing, pointerPosition);
                 NotificationService.ShowWarning(Strings.GraphEditor,
