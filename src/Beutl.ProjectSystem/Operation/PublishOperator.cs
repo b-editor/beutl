@@ -46,7 +46,8 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
         context.AddFlowRenderable(Value);
         if (_element == null) return;
 
-        // TODO: IsTimeAnchorをtrueにする
+        // TODO: 毎フレーム更新するのではなく、変更があったときだけ更新するようにする
+        Value.IsTimeAnchor = true;
         Value.ZIndex = _element.ZIndex;
         Value.TimeRange = new TimeRange(_element.Start, _element.Length);
         Value.IsEnabled = _element.IsEnabled;

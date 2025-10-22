@@ -1,27 +1,37 @@
+using System.ComponentModel;
 using System.Linq.Expressions;
+using System.Reactive.Disposables;
 using System.Reflection;
 using Beutl;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Reactive;
 
 namespace Beutl.Engine;
 
 public class EngineObject : Hierarchical, IAffectsRender
 {
-    // これらのプロパティはIPropertyにしないが、もし描画に影響する場合は派生クラスのResourceに手動で含める
+    // これらのプロパティは描画時ではなく編集時に更新されるべき
+    public static readonly CoreProperty<bool> IsTimeAnchorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<int> ZIndexProperty;
     public static readonly CoreProperty<TimeRange> TimeRangeProperty;
+    private bool _isTimeAnchor;
     private bool _isEnabled = true;
     private int _zIndex;
     private TimeRange _timeRange;
-
+    private IDisposable? _timeAnchorSubscription;
     private readonly List<IProperty> _properties = new();
 
     public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
 
     static EngineObject()
     {
+        IsTimeAnchorProperty = ConfigureProperty<bool, EngineObject>(nameof(IsTimeAnchor))
+            .Accessor(o => o.IsTimeAnchor, (o, v) => o.IsTimeAnchor = v)
+            .DefaultValue(false)
+            .Register();
+
         IsEnabledProperty = ConfigureProperty<bool, EngineObject>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
@@ -35,7 +45,7 @@ public class EngineObject : Hierarchical, IAffectsRender
             .Accessor(o => o.TimeRange, (o, v) => o.TimeRange = v)
             .Register();
 
-        AffectsRender<EngineObject>(IsEnabledProperty);
+        AffectsRender<EngineObject>(IsEnabledProperty, IsTimeAnchorProperty, ZIndexProperty, TimeRangeProperty);
     }
 
     protected EngineObject()
@@ -45,6 +55,12 @@ public class EngineObject : Hierarchical, IAffectsRender
     }
 
     public virtual IReadOnlyList<IProperty> Properties => _properties;
+
+    public bool IsTimeAnchor
+    {
+        get => _isTimeAnchor;
+        set => SetAndRaise(IsTimeAnchorProperty, ref _isTimeAnchor, value);
+    }
 
     public bool IsEnabled
     {
@@ -62,6 +78,61 @@ public class EngineObject : Hierarchical, IAffectsRender
     {
         get => _timeRange;
         set => SetAndRaise(TimeRangeProperty, ref _timeRange, value);
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args is CorePropertyChangedEventArgs<bool> boolArgs)
+        {
+            if (boolArgs.Property.Id == IsTimeAnchorProperty.Id)
+            {
+                if (boolArgs.NewValue)
+                {
+                    RevokeTimeAnchorSubscription();
+                }
+                else
+                {
+                    SubscribeTimeAnchor();
+                }
+            }
+        }
+    }
+
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
+    {
+        base.OnAttachedToHierarchy(in args);
+        if (IsTimeAnchor) return;
+
+        SubscribeTimeAnchor();
+    }
+
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
+    {
+        base.OnDetachedFromHierarchy(in args);
+        RevokeTimeAnchorSubscription();
+    }
+
+    private void RevokeTimeAnchorSubscription()
+    {
+        _timeAnchorSubscription?.Dispose();
+        _timeAnchorSubscription = null;
+    }
+
+    private void SubscribeTimeAnchor()
+    {
+        _timeAnchorSubscription?.Dispose();
+
+        var parent = this.FindHierarchicalParent<EngineObject>();
+        if (parent == null) return;
+
+        var d1 = parent.GetObservable(TimeRangeProperty)
+            .Subscribe(t => TimeRange = t);
+
+        var d2 = parent.GetObservable(ZIndexProperty)
+            .Subscribe(z => ZIndex = z);
+
+        _timeAnchorSubscription = Disposable.Create((d1, d2), t => t.DisposeAll());
     }
 
     // internal int Version { get; private set; }

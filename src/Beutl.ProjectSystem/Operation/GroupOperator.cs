@@ -32,7 +32,9 @@ public sealed class GroupOperator : PublishOperator<DrawableGroup>
         context.AddFlowRenderable(value);
 
         if (_element == null) return;
-        // TODO: IsTimeAnchor
+
+        // TODO: 毎フレーム更新するのではなく、変更があったときだけ更新するようにする
+        Value.IsTimeAnchor = true;
         Value.ZIndex = _element.ZIndex;
         Value.TimeRange = new TimeRange(_element.Start, _element.Length);
         Value.IsEnabled = _element.IsEnabled;

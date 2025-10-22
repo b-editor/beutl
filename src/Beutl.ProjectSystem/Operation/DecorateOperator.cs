@@ -46,7 +46,8 @@ public sealed class DecorateOperator : PublishOperator<DrawableDecorator>
         //
         //
         //     if (_element == null) continue;
-        //     // TODO: IsTimeAnchor
+        // TODO: 毎フレーム更新するのではなく、変更があったときだけ更新するようにする
+        //     decorator.IsTimeAnchor = true;
         //     decorator.ZIndex = _element.ZIndex;
         //     decorator.TimeRange = new TimeRange(_element.Start, _element.Length);
         //     decorator.ApplyAnimations(_element.Clock);
