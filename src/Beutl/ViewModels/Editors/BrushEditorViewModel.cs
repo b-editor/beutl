@@ -2,7 +2,6 @@
 using Beutl.Animation;
 using Beutl.Graphics;
 using Beutl.Media;
-using Beutl.Media.Immutable;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -13,11 +12,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     private IDisposable? _revoker;
     private Action? _update;
 
-    public BrushEditorViewModel(IPropertyAdapter property)
+    public BrushEditorViewModel(IPropertyAdapter<Brush?> property)
         : base(property)
     {
         Value = property.GetObservable()
-            .Select(x => x as IBrush)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(Disposables);
 
@@ -26,41 +24,41 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         {
             _revoker?.Dispose();
             _revoker = null;
-            (AvaloniaBrush.Value, _revoker, _update) = v.ToAvaBrushSync();
+            (AvaloniaBrush.Value, _revoker, _update) = v.ToAvaBrushSync(CurrentTime);
         });
 
         ChildContext = Value.Select(v => v as ICoreObject)
-            .Select(x => x != null ? new PropertiesEditorViewModel(x, m => m.Browsable) : null)
+            .Select(x => x != null ? new PropertiesEditorViewModel(x) : null)
             .Do(AcceptChildren)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsSolid = Value.Select(v => v is ISolidColorBrush)
+        IsSolid = Value.Select(v => v is SolidColorBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsLinearGradient = Value.Select(v => v is ILinearGradientBrush)
+        IsLinearGradient = Value.Select(v => v is LinearGradientBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsConicGradient = Value.Select(v => v is IConicGradientBrush)
+        IsConicGradient = Value.Select(v => v is ConicGradientBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsRadialGradient = Value.Select(v => v is IRadialGradientBrush)
+        IsRadialGradient = Value.Select(v => v is RadialGradientBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsPerlinNoise = Value.Select(v => v is IPerlinNoiseBrush)
+        IsPerlinNoise = Value.Select(v => v is PerlinNoiseBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsDrawable = Value.Select(v => v is IDrawableBrush)
+        IsDrawable = Value.Select(v => v is DrawableBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
         Value.CombineWithPrevious()
-            .Select(v => v.OldValue as IAnimatable)
+            .Select(v => v.OldValue)
             .Where(v => v != null)
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
@@ -78,7 +76,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         }
     }
 
-    public ReadOnlyReactiveProperty<IBrush?> Value { get; }
+    public ReadOnlyReactiveProperty<Brush?> Value { get; }
 
     public ReactiveProperty<Avalonia.Media.Brush?> AvaloniaBrush { get; }
 
@@ -107,21 +105,18 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     {
         if (GetDefaultValue() is { } defaultValue)
         {
-            SetValue(Value.Value, (IBrush?)defaultValue);
+            SetValue(Value.Value, (Brush?)defaultValue);
         }
     }
 
-    public void SetValue(IBrush? oldValue, IBrush? newValue)
+    public void SetValue(Brush? oldValue, Brush? newValue)
     {
-        if (!EqualityComparer<IBrush>.Default.Equals(oldValue, newValue))
+        if (!EqualityComparer<Brush>.Default.Equals(oldValue, newValue))
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            IPropertyAdapter prop = PropertyAdapter;
 
-            RecordableCommands.Create(GetStorables())
-                .OnDo(() => prop.SetValue(newValue))
-                .OnUndo(() => prop.SetValue(oldValue))
-                .ToCommand()
+            RecordableCommands.Edit((IPropertyAdapter<Brush>)PropertyAdapter, newValue, oldValue)
+                .WithStoables(GetStorables())
                 .DoAndRecord(recorder);
         }
     }
@@ -131,7 +126,9 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         if (Value.Value is SolidColorBrush solid)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            RecordableCommands.Edit(solid, SolidColorBrush.ColorProperty, newValue, oldValue)
+
+            // TODO: Colorプロパティにアニメーションが適用されている時の対応
+            RecordableCommands.Edit(solid.Color, newValue, oldValue)
                 .WithStoables(GetStorables())
                 .DoAndRecord(recorder);
         }
@@ -163,7 +160,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
     public void ConfirmeGradientStop(
         int oldIndex, int newIndex,
-        ImmutableGradientStop oldObject, GradientStop obj)
+        GradientStop.Resource oldObject, GradientStop obj)
     {
         CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         if (Value.Value is GradientBrush { GradientStops: { } list })
@@ -174,11 +171,11 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
                     .Move(oldIndex, newIndex)
                     .ToCommand([]);
 
-            IRecordableCommand? offset = obj.Offset != oldObject.Offset
-                ? RecordableCommands.Edit(obj, GradientStop.OffsetProperty, obj.Offset, oldObject.Offset)
+            IRecordableCommand? offset = obj.Offset.CurrentValue != oldObject.Offset
+                ? RecordableCommands.Edit(obj.Offset, obj.Offset.CurrentValue, oldObject.Offset)
                 : null;
-            IRecordableCommand? color = obj.Color != oldObject.Color
-                ? RecordableCommands.Edit(obj, GradientStop.ColorProperty, obj.Color, oldObject.Color)
+            IRecordableCommand? color = obj.Color.CurrentValue != oldObject.Color
+                ? RecordableCommands.Edit(obj.Color, obj.Color.CurrentValue, oldObject.Color)
                 : null;
 
             move.Append(offset)
@@ -195,7 +192,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             if (Activator.CreateInstance(type) is Drawable instance)
             {
                 CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-                RecordableCommands.Edit(drawable, DrawableBrush.DrawableProperty, instance, drawable.Drawable)
+                RecordableCommands.Edit(drawable.Drawable, instance)
                     .WithStoables(GetStorables())
                     .DoAndRecord(recorder);
             }

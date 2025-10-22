@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Collections.Pooled;
+using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Operation;
 using Beutl.Services;
@@ -15,11 +15,10 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class PenEditorViewModel : BaseEditorViewModel
 {
-    public PenEditorViewModel(IPropertyAdapter property)
+    public PenEditorViewModel(IPropertyAdapter<Pen?> property)
         : base(property)
     {
         Value = property.GetObservable()
-            .Select(x => x as IPen)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(Disposables);
 
@@ -27,7 +26,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             .DisposeWith(Disposables);
     }
 
-    private void Update(IPen? pen)
+    private void Update(Pen? pen)
     {
         static void CreateContexts(PooledList<IPropertyAdapter> props, CoreList<IPropertyEditorContext> dst)
         {
@@ -51,23 +50,23 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
         MajorProperties.Clear();
         MinorProperties.Clear();
-        if (pen is Pen mutablePen)
+        if (pen != null)
         {
             using var props = new PooledList<IPropertyAdapter>();
             Span<IPropertyAdapter> span = props.AddSpan(4);
-            span[0] = new AnimatablePropertyAdapter<float>(Pen.ThicknessProperty, mutablePen);
-            span[1] = new AnimatablePropertyAdapter<StrokeJoin>(Pen.StrokeJoinProperty, mutablePen);
-            span[2] = new AnimatablePropertyAdapter<StrokeAlignment>(Pen.StrokeAlignmentProperty, mutablePen);
-            span[3] = new AnimatablePropertyAdapter<IBrush?>(Pen.BrushProperty, mutablePen);
+            span[0] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.Thickness, pen);
+            span[1] = new EnginePropertyAdapter<StrokeJoin>(pen.StrokeJoin, pen);
+            span[2] = new EnginePropertyAdapter<StrokeAlignment>(pen.StrokeAlignment, pen);
+            span[3] = new EnginePropertyAdapter<Brush?>(pen.Brush, pen);
 
             CreateContexts(props, MajorProperties);
 
             props.Clear();
             span = props.AddSpan(4);
-            span[0] = new AnimatablePropertyAdapter<float>(Pen.MiterLimitProperty, mutablePen);
-            span[1] = new AnimatablePropertyAdapter<StrokeCap>(Pen.StrokeCapProperty, mutablePen);
-            span[2] = new AnimatablePropertyAdapter<CoreList<float>?>(Pen.DashArrayProperty, mutablePen);
-            span[3] = new AnimatablePropertyAdapter<float>(Pen.DashOffsetProperty, mutablePen);
+            span[0] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.MiterLimit, pen);
+            span[1] = new EnginePropertyAdapter<StrokeCap>(pen.StrokeCap, pen);
+            span[2] = new EnginePropertyAdapter<CoreList<float>?>(pen.DashArray, pen);
+            span[3] = new EnginePropertyAdapter<float>(pen.DashOffset, pen);
 
             CreateContexts(props, MinorProperties);
         }
@@ -77,7 +76,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     private void AcceptChildren()
     {
-        if (Value.Value is Pen)
+        if (Value.Value != null)
         {
             var visitor = new Visitor(this);
             foreach (IPropertyEditorContext item in MajorProperties)
@@ -93,7 +92,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new(false);
 
-    public ReadOnlyReactiveProperty<IPen?> Value { get; }
+    public ReadOnlyReactiveProperty<Pen?> Value { get; }
 
     public CoreList<IPropertyEditorContext> MajorProperties { get; } = [];
 
@@ -103,13 +102,13 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     {
         if (GetDefaultValue() is { } defaultValue)
         {
-            SetValue(Value.Value, (IPen?)defaultValue);
+            SetValue(Value.Value, (Pen?)defaultValue);
         }
     }
 
-    public void SetValue(IPen? oldValue, IPen? newValue)
+    public void SetValue(Pen? oldValue, Pen? newValue)
     {
-        if (!EqualityComparer<IPen>.Default.Equals(oldValue, newValue))
+        if (!EqualityComparer<Pen>.Default.Equals(oldValue, newValue))
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             IPropertyAdapter prop = PropertyAdapter;

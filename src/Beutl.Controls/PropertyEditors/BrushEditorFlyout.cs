@@ -31,8 +31,8 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
     public static readonly StyledProperty<Brush?> BrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyout, Brush?>(nameof(Brush));
 
-    public static readonly StyledProperty<Media.IBrush?> OriginalBrushProperty =
-        AvaloniaProperty.Register<BrushEditorFlyout, Media.IBrush?>(nameof(OriginalBrush));
+    public static readonly StyledProperty<Media.Brush?> OriginalBrushProperty =
+        AvaloniaProperty.Register<BrushEditorFlyout, Media.Brush?>(nameof(OriginalBrush));
 
     public static readonly StyledProperty<string?> DrawableNameProperty =
         AvaloniaProperty.Register<BrushEditorFlyout, string?>(nameof(DrawableName));
@@ -46,7 +46,7 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
         set => SetValue(BrushProperty, value);
     }
 
-    public Media.IBrush? OriginalBrush
+    public Media.Brush? OriginalBrush
     {
         get => GetValue(OriginalBrushProperty);
         set => SetValue(OriginalBrushProperty, value);

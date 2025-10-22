@@ -49,4 +49,6 @@ public interface ICoreList<T> : IObservableList<T>, ICoreReadOnlyList<T>, ICoreL
     new void RemoveAt(int index);
 
     new void Clear();
+
+    void EnsureCapacity(int capacity);
 }

@@ -55,8 +55,8 @@ public sealed partial class GradientStopsEditor : UserControl
         if (viewModel.IsDisposed) return;
 
         GradientStop obj = list[e.OldIndex];
-        obj.Offset = (float)e.Object.Offset;
-        obj.Color = e.Object.Color.ToMedia();
+        obj.Offset.CurrentValue = (float)e.Object.Offset;
+        obj.Color.CurrentValue = e.Object.Color.ToMedia();
         if (e.NewIndex != e.OldIndex)
             list.Move(e.OldIndex, e.NewIndex);
     }
@@ -80,10 +80,14 @@ public sealed partial class GradientStopsEditor : UserControl
         {
             int index = viewModel.Stops.Value.IndexOf(astop);
             var bstop = viewModel.Value.Value[index];
-            bstop.Color = args.NewColor.Value.ToMedia();
+            bstop.Color.CurrentValue = args.NewColor.Value.ToMedia();
             viewModel.ConfirmeGradientStop(
                 index, index,
-                new Media.Immutable.ImmutableGradientStop(bstop.Offset, args.OldColor.Value.ToMedia()),
+                new GradientStop.Resource
+                {
+                    Offset = bstop.Offset.CurrentValue,
+                    Color = args.OldColor.Value.ToMedia()
+                },
                 bstop);
         }
     }

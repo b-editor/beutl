@@ -28,11 +28,11 @@ public static class AddOrSetHelper
         }
     }
 
-    public static void AddOrSet(ref ITransform? tra, ITransform toBeAdded, ImmutableArray<IStorable?> storables, CommandRecorder recorder)
+    public static void AddOrSet(ref Transform? tra, Transform toBeAdded, ImmutableArray<IStorable?> storables, CommandRecorder recorder)
     {
         if (tra is TransformGroup group)
         {
-            group.Children.BeginRecord<ITransform>()
+            group.Children.BeginRecord<Transform>()
                 .Add(toBeAdded)
                 .ToCommand(storables)
                 .DoAndRecord(recorder);

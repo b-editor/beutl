@@ -20,9 +20,9 @@ public enum KnownTransformType
     Rotation3D,
 }
 
-public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
+public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
 {
-    private static KnownTransformType GetTransformType(ITransform? obj)
+    private static KnownTransformType GetTransformType(Transform? obj)
     {
         return obj switch
         {
@@ -36,7 +36,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
         };
     }
 
-    private static ITransform? CreateTransform(KnownTransformType type)
+    private static Transform? CreateTransform(KnownTransformType type)
     {
         return type switch
         {
@@ -64,7 +64,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
         };
     }
 
-    public TransformEditorViewModel(IPropertyAdapter<ITransform?> property)
+    public TransformEditorViewModel(IPropertyAdapter<Transform?> property)
         : base(property)
     {
         TransformType = Value.Select(GetTransformType)
@@ -95,15 +95,15 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
 
                     if (v is TransformGroup group)
                     {
-                        var prop = new EnginePropertyAdapter<Transforms>(TransformGroup.ChildrenProperty, group);
-                        Group.Value = new ListEditorViewModel<ITransform?>(prop)
+                        var prop = new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group);
+                        Group.Value = new ListEditorViewModel<Transform?>(prop)
                         {
                             IsExpanded = { Value = true }
                         };
                     }
-                    else if (v is Transform transform)
+                    else if (v != null)
                     {
-                        Properties.Value = new PropertiesEditorViewModel(transform, (p, m) => m.Browsable && p != Transform.IsEnabledProperty);
+                        Properties.Value = new PropertiesEditorViewModel(v);
                     }
 
                     AcceptChild();
@@ -130,7 +130,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
             .DisposeWith(Disposables);
 
         Value.CombineWithPrevious()
-            .Select(v => v.OldValue as IAnimatable)
+            .Select(v => v.OldValue)
             .Where(v => v != null)
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
@@ -150,7 +150,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
-    public ReactivePropertySlim<ListEditorViewModel<ITransform?>?> Group { get; } = new();
+    public ReactivePropertySlim<ListEditorViewModel<Transform?>?> Group { get; } = new();
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -174,7 +174,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
 
     public void ChangeType(KnownTransformType type)
     {
-        ITransform? obj = CreateTransform(type);
+        Transform? obj = CreateTransform(type);
         if (obj != null)
         {
             SetValue(Value.Value, obj);
@@ -187,7 +187,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<ITransform?>
             && CreateTransform(type) is { } obj)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            group.Children.BeginRecord<ITransform>()
+            group.Children.BeginRecord<Transform>()
                 .Add(obj)
                 .ToCommand(GetStorables())
                 .DoAndRecord(recorder);

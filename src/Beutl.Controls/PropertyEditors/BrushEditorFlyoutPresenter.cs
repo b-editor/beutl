@@ -20,8 +20,8 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     public static readonly StyledProperty<Brush?> BrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyoutPresenter, Brush?>(nameof(Brush));
 
-    public static readonly StyledProperty<Media.IBrush?> OriginalBrushProperty =
-        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, Media.IBrush?>(nameof(OriginalBrush));
+    public static readonly StyledProperty<Media.Brush?> OriginalBrushProperty =
+        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, Media.Brush?>(nameof(OriginalBrush));
 
     public static readonly StyledProperty<string?> DrawableNameProperty =
         AvaloniaProperty.Register<BrushEditorFlyoutPresenter, string?>(nameof(DrawableName));
@@ -72,7 +72,7 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         set => SetValue(BrushProperty, value);
     }
 
-    public Media.IBrush? OriginalBrush
+    public Media.Brush? OriginalBrush
     {
         get => GetValue(OriginalBrushProperty);
         set => SetValue(OriginalBrushProperty, value);

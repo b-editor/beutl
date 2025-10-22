@@ -8,6 +8,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
 using Beutl.Animation;
 using Beutl.Configuration;
+using Beutl.Engine;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
@@ -577,7 +578,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         imageData.Save(imageFile);
 
         var sp = new SourceImageOperator();
-        sp.Value.Source = BitmapSource.Open(imageFile);
+        sp.Value.Source.CurrentValue = BitmapSource.Open(imageFile);
         var newElement = new Element
         {
             Start = ClickedFrame,
@@ -755,7 +756,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                          (x, y) => (y, x.AnimationId)))
         {
             IAnimatablePropertyAdapter? anmProp = null;
-            Animatable? animatable = null;
+            EngineObject? engineObject = null;
 
             void FindAndSetAncestor(Span<object> span, KeyFrameAnimation kfAnm)
             {
@@ -766,8 +767,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                         case IAnimatablePropertyAdapter anmProp2 when ReferenceEquals(anmProp2.Animation, kfAnm):
                             anmProp = anmProp2;
                             return;
-                        case Animatable animatable2:
-                            animatable = animatable2;
+                        case EngineObject engineObject2:
+                            engineObject = engineObject2;
                             return;
                     }
                 }
@@ -775,7 +776,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
             bool Predicate(Stack<object> stack, object obj)
             {
-                if (obj is KeyFrameAnimation kfAnm && kfAnm.Id == anmId)
+                if (obj is IProperty { Animation: KeyFrameAnimation kfAnm } && kfAnm.Id == anmId)
                 {
                     using var pooledArray = new PooledArray<object>(stack.Count);
                     // 同じものが見つかった時に、上の階層から、IAbstractPropertyやAnimatableを探す。
@@ -794,7 +795,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             //    element,
             //    v => v is IAbstractAnimatableProperty { Animation: KeyFrameAnimation kfAnm } && kfAnm.Id == anmId);
 
-            if (searcher.Search() is KeyFrameAnimation anm)
+            if (searcher.Search() is IProperty { Animation: KeyFrameAnimation anm } prop)
             {
                 if (anmProp != null)
                 {
@@ -802,13 +803,13 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                     _logger.LogDebug("Inline animation attached for element {ElementId} and animation {AnimationId}.",
                         element.Id, anmId);
                 }
-                else if (animatable != null)
+                else if (engineObject != null)
                 {
                     try
                     {
-                        Type type = typeof(AnimatablePropertyAdapter<>).MakeGenericType(anm.Property.PropertyType);
+                        Type type = typeof(AnimatablePropertyAdapter<>).MakeGenericType(anm.ValueType);
                         var createdProp =
-                            (IAnimatablePropertyAdapter)Activator.CreateInstance(type, anm.Property, animatable)!;
+                            (IAnimatablePropertyAdapter)Activator.CreateInstance(type, prop, engineObject)!;
                         AttachInline(createdProp, element);
                         _logger.LogDebug(
                             "Inline animation created and attached for element {ElementId} and animation {AnimationId}.",

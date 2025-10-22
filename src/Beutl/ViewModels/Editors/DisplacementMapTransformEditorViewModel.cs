@@ -86,7 +86,7 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
 
                         if (v is not null)
                         {
-                            Properties.Value = new PropertiesEditorViewModel(v, (p, m) => m.Browsable);
+                            Properties.Value = new PropertiesEditorViewModel(v);
                         }
 
                         AcceptChild();
@@ -95,7 +95,7 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
             .DisposeWith(Disposables);
 
         Value.CombineWithPrevious()
-            .Select(v => v.OldValue as IAnimatable)
+            .Select(v => v.OldValue)
             .Where(v => v != null)
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
