@@ -1,10 +1,7 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Media;
 using Beutl.Operation;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -12,7 +9,6 @@ namespace Beutl.ViewModels.Editors;
 public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 {
     private readonly ReactivePropertySlim<EditViewModel?> _editViewModel = new();
-    private bool _invalidated = true;
 
     public PathFigureEditorViewModel(IPropertyAdapter<PathFigure> property)
         : base(property)
@@ -23,28 +19,25 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
             .Take(1)
             .Subscribe(_ =>
                 Value.Subscribe(v =>
-                {
-                    Properties.Value?.Dispose();
-                    Properties.Value = null;
-                    Group.Value?.Dispose();
-                    Group.Value = null;
-
-                    if (v is PathFigure group)
                     {
-                        var prop = new EnginePropertyAdapter<PathSegments>(PathFigure.SegmentsProperty, group);
-                        Group.Value = new ListEditorViewModel<PathSegment>(prop)
+                        Properties.Value?.Dispose();
+                        Properties.Value = null;
+                        Group.Value?.Dispose();
+                        Group.Value = null;
+
+                        if (v is { } group)
                         {
-                            IsExpanded = { Value = true }
-                        };
+                            var prop = new EnginePropertyAdapter<ICoreList<PathSegment>>(group.Segments, group);
+                            Group.Value = new ListEditorViewModel<PathSegment>(prop) { IsExpanded = { Value = true } };
 
-                        Properties.Value = new PropertiesEditorViewModel(group,
-                            (p, m) => p == PathFigure.StartPointProperty
-                                   || p == PathFigure.IsClosedProperty);
-                    }
+                            Properties.Value = new PropertiesEditorViewModel(group,
+                                p => p == group.StartPoint
+                                     || p == group.IsClosed);
+                        }
 
-                    AcceptChild();
-                })
-                .DisposeWith(Disposables))
+                        AcceptChild();
+                    })
+                    .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
         Value.CombineWithPrevious()
@@ -53,25 +46,23 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
 
-        Value.CombineWithPrevious()
-            .Subscribe(t =>
-            {
-                if (t.OldValue != null)
-                    t.OldValue.Invalidated -= OnFigureInvalidated;
-
-                if (t.NewValue != null)
-                    t.NewValue.Invalidated += OnFigureInvalidated;
-            })
-            .DisposeWith(Disposables);
-
-        EditingPath = _editViewModel.Select(v => v?.Player.PathEditor.PathFigure ?? Observable.Return<PathFigure?>(null))
+        EditingPath = _editViewModel
+            .Select(v => v?.Player.PathEditor.PathFigure ?? Observable.Return<PathFigure?>(null))
             .Switch()
             .CombineLatest(Value)
             .Select(t => t.First == t.Second && t.First != null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        RecreatePreviewPath();
+        // TODO: テスト必要
+        Value.Select(i => i.ToAvaGeometrySync(CurrentTime))
+            .CombineWithPrevious()
+            // Null-conditionalアクセスがグレーアウトしているが必要なはず...
+            .Do(t => t.OldValue.Item2?.Dispose())
+            .Select(t => t.NewValue.Item1)
+            .Switch()
+            .Subscribe(geometry => PreviewPath.Value = geometry)
+            .DisposeWith(Disposables);
     }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
@@ -84,39 +75,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 
     public ReadOnlyReactivePropertySlim<bool> EditingPath { get; }
 
-    public ReactivePropertySlim<Avalonia.Media.Geometry?> PreviewPath { get; } = new(null);
-
-    private void OnFigureInvalidated(object? sender, RenderInvalidatedEventArgs e)
-    {
-        _invalidated = true;
-    }
-
-    public void RecreatePreviewPath()
-    {
-        if (!_invalidated) return;
-
-        try
-        {
-            if (Value.Value != null)
-            {
-                using (var context = new GeometryContext())
-                {
-                    Value.Value.ApplyTo(context);
-                    string path = context.NativeObject.ToSvgPathData();
-                    PreviewPath.Value = Avalonia.Media.Geometry.Parse(path);
-                    return;
-                }
-            }
-        }
-        catch
-        {
-            PreviewPath.Value = null;
-        }
-        finally
-        {
-            _invalidated = false;
-        }
-    }
+    public ReactivePropertySlim<Avalonia.Media.Geometry?> PreviewPath { get; } = new();
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -171,6 +130,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
             {
                 IsExpanded.Value = (bool)isExpanded;
             }
+
             Properties.Value?.ReadFromJson(json);
 
             if (Group.Value != null
@@ -206,10 +166,6 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 
     protected override void Dispose(bool disposing)
     {
-        if (Value.Value != null)
-        {
-            Value.Value.Invalidated -= OnFigureInvalidated;
-        }
         if (_editViewModel.Value is { } editViewModel)
         {
             PathEditorTabViewModel? tab = editViewModel.FindToolTab<PathEditorTabViewModel>();
@@ -224,6 +180,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
                 pathEditor.FigureContext.Value = null;
             }
         }
+
         PreviewPath.Value = null;
 
         base.Dispose(disposing);

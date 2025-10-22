@@ -119,6 +119,7 @@
         <views:PathGeometryControl x:Name="view"
                                    Figure="{Binding PathFigure.Value}"
                                    Geometry="{Binding PathGeometry.Value}"
+                                   GeometryResource="{Binding GeometryResource.Value}"
                                    IsHitTestVisible="False"
                                    IsPlaying="{Binding EditViewModel.Player.IsPlaying.Value}"
                                    Matrix="{Binding #root.Matrix}"

@@ -2,81 +2,83 @@
 
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-
+using Beutl.Engine;
 using Beutl.Media;
-
 using BtlPoint = Beutl.Graphics.Point;
 
 namespace Beutl.Views;
 
 public static class PathEditorHelper
 {
-    public static CoreProperty<BtlPoint>[] GetControlPointProperties(object datacontext)
+    public static IProperty<BtlPoint>[] GetControlPointProperties(object datacontext)
     {
         return datacontext switch
         {
-            ConicSegment => [ConicSegment.ControlPointProperty],
-            CubicBezierSegment => [CubicBezierSegment.ControlPoint1Property, CubicBezierSegment.ControlPoint2Property],
-            QuadraticBezierSegment => [QuadraticBezierSegment.ControlPointProperty],
+            ConicSegment conicSegment => [conicSegment.ControlPoint],
+            CubicBezierSegment cubicBezierSegment =>
+                [cubicBezierSegment.ControlPoint1, cubicBezierSegment.ControlPoint2],
+            QuadraticBezierSegment quadraticBezierSegment => [quadraticBezierSegment.ControlPoint],
             _ => [],
         };
     }
 
-    public static CoreProperty<BtlPoint>? GetControlPointProperty(object datacontext, int i)
+    public static IProperty<BtlPoint>? GetControlPointProperty(object datacontext, int i)
     {
         return datacontext switch
         {
-            ConicSegment => ConicSegment.ControlPointProperty,
-            CubicBezierSegment => i == 0 ? CubicBezierSegment.ControlPoint1Property : CubicBezierSegment.ControlPoint2Property,
-            QuadraticBezierSegment => QuadraticBezierSegment.ControlPointProperty,
+            ConicSegment conicSegment => conicSegment.ControlPoint,
+            CubicBezierSegment cubicBezierSegment => i == 0
+                ? cubicBezierSegment.ControlPoint1
+                : cubicBezierSegment.ControlPoint2,
+            QuadraticBezierSegment quadraticBezierSegment => quadraticBezierSegment.ControlPoint,
             _ => null,
         };
     }
 
-    public static CoreProperty<BtlPoint>? GetProperty(Thumb t)
+    public static IProperty<BtlPoint>? GetProperty(Thumb t)
     {
         switch (t.DataContext)
         {
-            case ArcSegment:
-                return ArcSegment.PointProperty;
+            case ArcSegment arcSegment:
+                return arcSegment.Point;
 
-            case ConicSegment:
+            case ConicSegment conicSegment:
                 switch (t.Tag)
                 {
                     case "ControlPoint":
-                        return ConicSegment.ControlPointProperty;
+                        return conicSegment.ControlPoint;
                     case "EndPoint":
-                        return ConicSegment.EndPointProperty;
+                        return conicSegment.EndPoint;
                 }
+
                 break;
 
-            case CubicBezierSegment:
+            case CubicBezierSegment cubicBezierSegment:
                 switch (t.Tag)
                 {
                     case "ControlPoint1":
-                        return CubicBezierSegment.ControlPoint1Property;
+                        return cubicBezierSegment.ControlPoint1;
 
                     case "ControlPoint2":
-                        return CubicBezierSegment.ControlPoint2Property;
+                        return cubicBezierSegment.ControlPoint2;
                     case "EndPoint":
-                        return CubicBezierSegment.EndPointProperty;
+                        return cubicBezierSegment.EndPoint;
                 }
+
                 break;
 
-            case LineSegment:
-                return LineSegment.PointProperty;
+            case LineSegment lineSegment:
+                return lineSegment.Point;
 
-            case MoveOperation:
-                return MoveOperation.PointProperty;
-
-            case QuadraticBezierSegment:
+            case QuadraticBezierSegment quadraticBezierSegment:
                 switch (t.Tag)
                 {
                     case "ControlPoint":
-                        return QuadraticBezierSegment.ControlPointProperty;
+                        return quadraticBezierSegment.ControlPoint;
                     case "EndPoint":
-                        return QuadraticBezierSegment.EndPointProperty;
+                        return quadraticBezierSegment.EndPoint;
                 }
+
                 break;
         }
 
@@ -87,23 +89,39 @@ public static class PathEditorHelper
     {
         return tag switch
         {
-            "Arc" => new ArcSegment() { Point = point },
+            "Arc" => new ArcSegment() { Point = { CurrentValue = point } },
             "Conic" => new ConicSegment()
             {
-                EndPoint = point,
-                ControlPoint = new(float.Lerp(point.X, lastPoint.X, 0.5f), float.Lerp(point.Y, lastPoint.Y, 0.5f))
+                EndPoint = { CurrentValue = point },
+                ControlPoint =
+                {
+                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.5f),
+                        float.Lerp(point.Y, lastPoint.Y, 0.5f))
+                }
             },
             "Cubic" => new CubicBezierSegment()
             {
-                EndPoint = point,
-                ControlPoint1 = new(float.Lerp(point.X, lastPoint.X, 0.66f), float.Lerp(point.Y, lastPoint.Y, 0.66f)),
-                ControlPoint2 = new(float.Lerp(point.X, lastPoint.X, 0.33f), float.Lerp(point.Y, lastPoint.Y, 0.33f)),
+                EndPoint = { CurrentValue = point },
+                ControlPoint1 =
+                {
+                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.66f),
+                        float.Lerp(point.Y, lastPoint.Y, 0.66f))
+                },
+                ControlPoint2 =
+                {
+                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.33f),
+                        float.Lerp(point.Y, lastPoint.Y, 0.33f))
+                },
             },
-            "Line" => new LineSegment() { Point = point },
+            "Line" => new LineSegment() { Point = { CurrentValue = point } },
             "Quad" => new QuadraticBezierSegment()
             {
-                EndPoint = point,
-                ControlPoint = new(float.Lerp(point.X, lastPoint.X, 0.5f), float.Lerp(point.Y, lastPoint.Y, 0.5f))
+                EndPoint = { CurrentValue = point },
+                ControlPoint =
+                {
+                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.5f),
+                        float.Lerp(point.Y, lastPoint.Y, 0.5f))
+                }
             },
             _ => null,
         };
@@ -155,7 +173,6 @@ public static class PathEditorHelper
                 }
 
             case LineSegment:
-            case MoveOperation:
                 {
                     Thumb t = create();
                     t.DataContext = obj;

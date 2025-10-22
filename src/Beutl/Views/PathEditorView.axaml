@@ -103,6 +103,7 @@
         <local:PathGeometryControl x:Name="view"
                                    Figure="{Binding PathFigure.Value}"
                                    Geometry="{Binding PathGeometry.Value}"
+                                   GeometryResource="{Binding GeometryResource.Value}"
                                    IsHitTestVisible="False"
                                    Matrix="{Binding AvaMatrix.Value}"
                                    Scale="{Binding #root.Scale}"

@@ -1,6 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls.Primitives;
-
+using Beutl.Engine;
 using Beutl.Media;
 
 using BtlPoint = Beutl.Graphics.Point;
@@ -18,7 +18,7 @@ internal interface IPathEditorView
 
     double Scale { get; }
 
-    Thumb? FindThumb(PathSegment segment, CoreProperty<BtlPoint> property);
+    Thumb? FindThumb(PathSegment segment, IProperty<BtlPoint> property);
 
     Thumb[] GetSelectedAnchors();
 }

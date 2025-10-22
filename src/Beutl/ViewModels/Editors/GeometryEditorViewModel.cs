@@ -34,18 +34,18 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
 
                     if (v is PathGeometry group)
                     {
-                        var prop = new EnginePropertyAdapter<PathFigures>(PathGeometry.FiguresProperty, group);
+                        var prop = new EnginePropertyAdapter<ICoreList<PathFigure>>(group.Figures, group);
                         Group.Value = new ListEditorViewModel<PathFigure>(prop)
                         {
                             IsExpanded = { Value = true }
                         };
 
                         Properties.Value = new PropertiesEditorViewModel(group,
-                            (p, m) => p == Geometry.FillTypeProperty);
+                            p => p == group.FillType);
                     }
-                    else if (v is Geometry geometry)
+                    else if (v is { } geometry)
                     {
-                        Properties.Value = new PropertiesEditorViewModel(geometry, (p, m) => m.Browsable && p != Geometry.TransformProperty);
+                        Properties.Value = new PropertiesEditorViewModel(geometry, (p) => p != geometry.Transform);
                     }
 
                     AcceptChild();

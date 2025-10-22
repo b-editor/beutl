@@ -3,6 +3,7 @@
 using Avalonia.Controls.Primitives;
 
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Media;
 
 using BtlPoint = Beutl.Graphics.Point;
@@ -13,7 +14,7 @@ namespace Beutl.Views;
 public sealed class PathPointDragState
 {
     public PathPointDragState(
-        CoreProperty<BtlPoint> property,
+        IProperty<BtlPoint> property,
         PathSegment target,
         KeyFrame<BtlPoint>? previous,
         KeyFrame<BtlPoint>? next,
@@ -27,8 +28,8 @@ public sealed class PathPointDragState
         Target = target;
         OldPreviousValue = previous?.Value ?? default;
         OldNextValue = next?.Value ?? default;
-        OldValue = target.GetValue(property);
-        Animation = Target.Animations.FirstOrDefault(a => a.Property == Property) as KeyFrameAnimation<BtlPoint>;
+        OldValue = property.CurrentValue;
+        Animation = property.Animation as KeyFrameAnimation<BtlPoint>;
     }
 
     public KeyFrameAnimation<BtlPoint>? Animation { get; }
@@ -39,7 +40,7 @@ public sealed class PathPointDragState
 
     public Thumb? Thumb { get; set; }
 
-    public CoreProperty<BtlPoint> Property { get; }
+    public IProperty<BtlPoint> Property { get; }
 
     public PathSegment Target { get; }
 
@@ -51,7 +52,7 @@ public sealed class PathPointDragState
 
     public BtlPoint OldValue { get; }
 
-    public BtlPoint GetSampleValue()
+    public BtlPoint GetSampleValue(TimeSpan currentTime)
     {
         if (Previous != null)
         {
@@ -59,34 +60,20 @@ public sealed class PathPointDragState
         }
         else
         {
-            return Target.GetValue(Property);
+            return Property.GetValue(currentTime);
         }
     }
 
-    public BtlPoint GetInterpolatedValue(ProjectSystem.Element element, TimeSpan currentTime)
+    public BtlPoint GetInterpolatedValue(TimeSpan currentTime)
     {
-        if (Animation != null)
-        {
-            if (Animation.UseGlobalClock)
-            {
-                return Animation.Interpolate(currentTime);
-            }
-            else
-            {
-                return Animation.Interpolate(currentTime - element.Start);
-            }
-        }
-        else
-        {
-            return Target.GetValue(Property);
-        }
+        return Property.GetValue(currentTime);
     }
 
     public void SetValue(BtlPoint point)
     {
         if (Previous == null && Next == null)
         {
-            Target.SetValue(Property, point);
+            Property.CurrentValue = point;
         }
         else
         {
@@ -100,10 +87,10 @@ public sealed class PathPointDragState
     {
         if (Previous == null && Next == null)
         {
-            BtlPoint p = Target.GetValue(Property) + delta;
+            BtlPoint p = Property.CurrentValue + delta;
             p = new BtlPoint(PathEditorHelper.Round(p.X), PathEditorHelper.Round(p.Y));
 
-            Target.SetValue(Property, p);
+            Property.CurrentValue = p;
         }
         else
         {
@@ -118,7 +105,7 @@ public sealed class PathPointDragState
     {
         if (Previous == null && Next == null)
         {
-            return RecordableCommands.Edit(Target, Property, Target.GetValue(Property), OldValue)
+            return RecordableCommands.Edit(Property, Property.CurrentValue, OldValue)
                 .WithStoables(storables);
         }
         else
