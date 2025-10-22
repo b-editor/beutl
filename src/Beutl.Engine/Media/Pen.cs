@@ -19,14 +19,14 @@ public sealed partial class Pen : EngineObject
     public IProperty<Beutl.Collections.CoreList<float>?> DashArray { get; } = Property.Create<CoreList<float>?>();
 
     [Display(Name = nameof(Strings.Pen_DashOffset), ResourceType = typeof(Strings))]
-    public IProperty<float> DashOffset { get; } = Property.Create<float>(0);
+    public IProperty<float> DashOffset { get; } = Property.CreateAnimatable<float>(0);
 
     [Display(Name = nameof(Strings.Thickness), ResourceType = typeof(Strings))]
     [Range(0, float.MaxValue)]
-    public IProperty<float> Thickness { get; } = Property.Create<float>(1);
+    public IProperty<float> Thickness { get; } = Property.CreateAnimatable<float>(1);
 
     [Display(Name = nameof(Strings.Pen_MiterLimit), ResourceType = typeof(Strings))]
-    public IProperty<float> MiterLimit { get; } = Property.Create<float>(10);
+    public IProperty<float> MiterLimit { get; } = Property.CreateAnimatable<float>(10);
 
     [Display(Name = nameof(Strings.Pen_StrokeCap), ResourceType = typeof(Strings))]
     public IProperty<StrokeCap> StrokeCap { get; } = Property.Create(Media.StrokeCap.Flat);
