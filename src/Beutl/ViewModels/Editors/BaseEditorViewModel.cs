@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Data;
@@ -7,6 +8,7 @@ using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Helpers;
 using Beutl.Logging;
@@ -21,6 +23,7 @@ namespace Beutl.ViewModels.Editors;
 public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProvider
 {
     protected readonly ILogger Logger;
+    private readonly Subject<TimeSpan> _currentTime;
     protected CompositeDisposable Disposables = [];
     private IDisposable? _currentFrameRevoker;
     private bool _skipKeyFrameIndexSubscription;
@@ -35,6 +38,9 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
         Header = property.DisplayName;
         Description = property.Description;
+
+        _currentTime = new Subject<TimeSpan>().DisposeWith(Disposables);
+        CurrentTime = _currentTime.Publish(TimeSpan.Zero).RefCount();
 
         IObservable<bool> hasAnimation = property is IAnimatablePropertyAdapter anm
             ? anm.ObserveAnimation.Select(x => x != null)
@@ -150,6 +156,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public ReactivePropertySlim<float> KeyFrameIndex { get; } = new();
 
+    public IObservable<TimeSpan> CurrentTime { get; }
+
     public bool IsAnimatable => PropertyAdapter is IAnimatablePropertyAdapter;
 
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
@@ -198,6 +206,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                 if (PropertyAdapter is IAnimatablePropertyAdapter animatableProperty)
                 {
                     _currentFrameRevoker = _editViewModel.CurrentTime
+                        .Do(_currentTime.OnNext)
                         .CombineLatest(animatableProperty.ObserveAnimation
                             .Select(x => (x as IKeyFrameAnimation)?.KeyFrames)
                             .Select(x => x?.CollectionChangedAsObservable()
@@ -413,18 +422,15 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     public override void PrepareToEditAnimation()
     {
         if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty
-            && animatableProperty.Animation is not KeyFrameAnimation<T>
-            && animatableProperty.GetCoreProperty() is CoreProperty<T> coreProperty)
+            && animatableProperty.Animation is not KeyFrameAnimation<T>)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             var oldAnimation = animatableProperty.Animation;
-            var newAnimation = new KeyFrameAnimation<T>(coreProperty);
+            var newAnimation = new KeyFrameAnimation<T>();
             T initialValue = animatableProperty.GetValue()!;
             newAnimation.KeyFrames.Add(new KeyFrame<T>
             {
-                Value = initialValue,
-                Easing = new SplineEasing(),
-                KeyTime = TimeSpan.Zero
+                Value = initialValue, Easing = new SplineEasing(), KeyTime = TimeSpan.Zero
             });
 
             RecordableCommands.Create(GetStorables())
