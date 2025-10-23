@@ -124,37 +124,16 @@ public static class AvaloniaTypeConverter
 
                 return (resource, resource.Version);
             })
-            .DistinctUntilChanged(t => t.Version) ;
+            .DistinctUntilChanged(t => t.Version);
     }
 
     private static IDisposable AdaptEngineObject<T, TResource>(T obj, IObservable<TimeSpan> time,
-        Func<T, RenderContext, TResource> createResource, Action<TResource, bool> onUpdated)
+        Func<T, RenderContext, TResource> createResource, Action<TResource> onUpdated)
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
-        var renderContext = new RenderContext(TimeSpan.Zero);
-
-        var subject = new Subject<Unit>();
-        var d = obj.GetObservable(EngineObject.TimeRangeProperty)
-            .CombineLatest(time)
-            .Subscribe(t =>
-            {
-                var currentTime = t.Second;
-                renderContext.Time = currentTime;
-                subject.OnNext(Unit.Default);
-            });
-
-        var resource = createResource(obj, renderContext);
-
-        subject.Subscribe(_ =>
-        {
-            bool updateOnly = false;
-            int oldVersion = resource.Version;
-            resource.Update(obj, renderContext, ref updateOnly);
-            onUpdated(resource, resource.Version != oldVersion);
-        });
-
-        return d;
+        return obj.SubscribeEngineVersionedResource(time, createResource)
+            .Subscribe(t => onUpdated(t.Resource));
     }
 
     public static (Avalonia.Media.GradientStop, IDisposable) ToAvaGradientStopSync(
@@ -164,7 +143,7 @@ public static class AvaloniaTypeConverter
         var d = AdaptEngineObject(
             obj, time,
             (o, rc) => o.ToResource(rc),
-            (r, _) =>
+            r =>
             {
                 s.Color = r.Color.ToAvalonia();
                 s.Offset = r.Offset;
@@ -180,9 +159,9 @@ public static class AvaloniaTypeConverter
         var d = AdaptEngineObject(
             obj, time,
             (o, rc) => o.ToResource(rc),
-            (r, changed) =>
+            r =>
             {
-                if (!changed && reactiveProperty.Value != null!)
+                if (reactiveProperty.Value != null!)
                     return;
 
                 string svgPath = r.GetCachedPath().ToSvgPathData();
@@ -199,9 +178,9 @@ public static class AvaloniaTypeConverter
         var d = AdaptEngineObject(
             obj, time,
             (o, rc) => o.ToResource(rc),
-            (r, changed) =>
+            r =>
             {
-                if (!changed && reactiveProperty.Value != null!)
+                if (reactiveProperty.Value != null!)
                     return;
 
                 using var context = new GeometryContext();
@@ -415,7 +394,7 @@ public static class AvaloniaTypeConverter
                     var d = AdaptEngineObject(
                         s, time,
                         (o, rc) => o.ToResource(rc),
-                        (r, _) => ss.Color = r.Color.ToAvalonia());
+                        r => ss.Color = r.Color.ToAvalonia());
                     return (ss, d, null);
                 }
 
@@ -444,10 +423,10 @@ public static class AvaloniaTypeConverter
                     var d = AdaptEngineObject(
                         db, time,
                         (o, rc) => o.ToResource(rc),
-                        (r, changed) =>
+                        r =>
                         {
                             handler ??= new DrawableImageBrushHandler(r, imageBrush);
-                            handler.Update(changed);
+                            handler.Update();
                         });
 
                     return (imageBrush, d, null);
@@ -511,10 +490,8 @@ public static class AvaloniaTypeConverter
             _drawableBrush = drawableBrush;
         }
 
-        public void Update(bool changed)
+        public void Update()
         {
-            if (!changed) return;
-
             _cts?.Cancel();
             _cts = new CancellationTokenSource();
             var token = _cts.Token;
