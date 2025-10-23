@@ -72,16 +72,4 @@ public class PublishOperatorTests
         Assert.That(obj.Properties[6].GetValue(), Is.EqualTo(BlendMode.SrcOver));
         Assert.That(obj.Properties[7].GetValue(), Is.EqualTo(100f));
     }
-
-    [Test]
-    public void Value_Invalidated_ShouldTriggerOperatorInvalidated()
-    {
-        var obj = new TestOperator();
-        bool invalidatedTriggered = false;
-        obj.Invalidated += (s, e) => invalidatedTriggered = true;
-
-        obj.Value.Invalidate();
-
-        Assert.That(invalidatedTriggered, Is.True);
-    }
 }

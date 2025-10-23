@@ -15,7 +15,7 @@ public interface IListProperty<T> : IListProperty, IProperty<ICoreList<T>>, ICor
     new CoreList<T>.Enumerator GetEnumerator();
 }
 
-public interface IProperty
+public interface IProperty : INotifyEdited
 {
     object? DefaultValue { get; }
 

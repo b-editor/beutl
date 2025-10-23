@@ -5,7 +5,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Media;
 
-public sealed partial class PathFigure : EngineObject, IAffectsRender
+public sealed partial class PathFigure : EngineObject
 {
     public PathFigure()
     {

@@ -34,7 +34,7 @@ public sealed class SpeedNode : AudioNode
         _processor = null;
     }
 
-    private void OnAnimationInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnAnimationEdited(object? sender, EventArgs e)
     {
         InvalidateCache();
     }
@@ -52,10 +52,10 @@ public sealed class SpeedNode : AudioNode
         {
             InvalidateCache();
             if (_animation != null)
-                _animation.Invalidated -= OnAnimationInvalidated;
+                _animation.Edited -= OnAnimationEdited;
 
             if (animation != null)
-                animation.Invalidated += OnAnimationInvalidated;
+                animation.Edited += OnAnimationEdited;
 
             _animation = animation;
         }

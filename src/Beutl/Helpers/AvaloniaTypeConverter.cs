@@ -55,9 +55,9 @@ public static class AvaloniaTypeConverter
     public static IObservable<T> SubscribeEngineProperty<T>(
         this IProperty<T> property, EngineObject obj, IObservable<TimeSpan> time)
     {
-        return Observable.FromEventPattern<RenderInvalidatedEventArgs>(
-                h => obj.Invalidated += h,
-                h => obj.Invalidated -= h)
+        return Observable.FromEventPattern(
+                h => obj.Edited += h,
+                h => obj.Edited -= h)
             .Select(_ => Unit.Default)
             .Publish(Unit.Default).RefCount()
             .CombineLatest(time)
@@ -71,9 +71,9 @@ public static class AvaloniaTypeConverter
     {
         var renderContext = new RenderContext(TimeSpan.Zero);
         TResource? resource = null;
-        return Observable.FromEventPattern<RenderInvalidatedEventArgs>(
-                h => obj.Invalidated += h,
-                h => obj.Invalidated -= h)
+        return Observable.FromEventPattern(
+                h => obj.Edited += h,
+                h => obj.Edited -= h)
             .Select(_ => Unit.Default)
             .Publish(Unit.Default).RefCount()
             .CombineLatest(time)
@@ -103,9 +103,9 @@ public static class AvaloniaTypeConverter
     {
         var renderContext = new RenderContext(TimeSpan.Zero);
         TResource? resource = null;
-        return Observable.FromEventPattern<RenderInvalidatedEventArgs>(
-                h => obj.Invalidated += h,
-                h => obj.Invalidated -= h)
+        return Observable.FromEventPattern(
+                h => obj.Edited += h,
+                h => obj.Edited -= h)
             .Select(_ => Unit.Default)
             .Publish(Unit.Default).RefCount()
             .CombineLatest(time)

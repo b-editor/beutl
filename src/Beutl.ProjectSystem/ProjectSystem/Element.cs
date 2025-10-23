@@ -12,7 +12,7 @@ using Beutl.Serialization;
 
 namespace Beutl.ProjectSystem;
 
-public class Element : ProjectItem, IAffectsRender
+public class Element : ProjectItem, INotifyEdited
 {
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> LengthProperty;
@@ -68,7 +68,7 @@ public class Element : ProjectItem, IAffectsRender
     public Element()
     {
         Operation = new SourceOperation();
-        Operation.Invalidated += (_, e) => Invalidated?.Invoke(this, e);
+        Operation.Edited += (s, e) => Edited?.Invoke(s, e);
 
         // NodeTree = new ElementNodeTreeModel();
         // NodeTree.Invalidated += (_, e) => Invalidated?.Invoke(this, e);
@@ -77,7 +77,7 @@ public class Element : ProjectItem, IAffectsRender
         // HierarchicalChildren.Add(NodeTree);
     }
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     // 0以上
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
@@ -190,7 +190,7 @@ public class Element : ProjectItem, IAffectsRender
                 TimeRange newRange = Range;
                 TimeRange oldRange = GetOldRange();
 
-                Invalidated?.Invoke(this, new TimelineInvalidatedEventArgs(this, nameof(e.PropertyName))
+                Edited?.Invoke(this, new ElementEditedEventArgs
                 {
                     AffectedRange = [newRange, oldRange]
                 });
@@ -199,7 +199,7 @@ public class Element : ProjectItem, IAffectsRender
                 || e.Property == IsEnabledProperty
                 || e.Property == UseNodeProperty)
             {
-                Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this, nameof(e.PropertyName)));
+                Edited?.Invoke(this, EventArgs.Empty);
             }
         }
     }

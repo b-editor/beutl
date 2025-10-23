@@ -103,7 +103,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
             })
             .DisposeWith(_disposables);
 
-        Scene.Invalidated += OnSceneInvalidated;
+        Scene.Edited += OnSceneEdited;
 
         _isEnabled.Subscribe(async v =>
             {
@@ -137,12 +137,12 @@ public sealed class PlayerViewModel : IAsyncDisposable
             .DisposeWith(_disposables);
     }
 
-    private void OnSceneInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnSceneEdited(object? sender, EventArgs e)
     {
-        if (e is TimelineInvalidatedEventArgs timelineInvalidated)
+        if (e is ElementEditedEventArgs elementEdited)
         {
             TimeSpan time = EditViewModel.CurrentTime.Value;
-            if (!timelineInvalidated.AffectedRange.Any(v => v.Contains(time)))
+            if (!elementEdited.AffectedRange.Any(v => v.Contains(time)))
             {
                 return;
             }
@@ -236,7 +236,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
             BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
             FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
-            Scene.Invalidated -= OnSceneInvalidated;
+            Scene.Edited -= OnSceneEdited;
             _currentFrameSubscription?.Dispose();
 
             IsPlaying.Value = true;
@@ -331,7 +331,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
             };
 
             _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
-            Scene.Invalidated += OnSceneInvalidated;
+            Scene.Edited += OnSceneEdited;
             _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
         });
     }
@@ -770,7 +770,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
     {
         _logger.LogInformation("Disposing PlayerViewModel. ({SceneId})", _editViewModel.SceneId);
         await Pause();
-        Scene!.Invalidated -= OnSceneInvalidated;
+        Scene!.Edited -= OnSceneEdited;
         _disposables.Dispose();
         _currentFrameSubscription?.Dispose();
         AfterRendered.Dispose();

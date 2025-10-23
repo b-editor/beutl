@@ -11,7 +11,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Engine;
 
-public class EngineObject : Hierarchical, IAffectsRender
+public class EngineObject : Hierarchical, INotifyEdited
 {
     // これらのプロパティは描画時ではなく編集時に更新されるべき
     public static readonly CoreProperty<bool> IsTimeAnchorProperty;
@@ -25,7 +25,7 @@ public class EngineObject : Hierarchical, IAffectsRender
     private IDisposable? _timeAnchorSubscription;
     private readonly List<IProperty> _properties = new();
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     static EngineObject()
     {
@@ -48,12 +48,6 @@ public class EngineObject : Hierarchical, IAffectsRender
             .Register();
 
         AffectsRender<EngineObject>(IsEnabledProperty, IsTimeAnchorProperty, ZIndexProperty, TimeRangeProperty);
-    }
-
-    protected EngineObject()
-    {
-        // TODO: Propertiesの変更を検出する
-        // AnimationInvalidated += (_, e) => RaiseInvalidated(e);
     }
 
     public virtual IReadOnlyList<IProperty> Properties => _properties;
@@ -167,11 +161,6 @@ public class EngineObject : Hierarchical, IAffectsRender
         }
     }
 
-    private void AffectsRender_Invalidated(object? sender, RenderInvalidatedEventArgs e)
-    {
-        RaiseInvalidated(e);
-    }
-
     // TODO: 不要になる予定
     protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : EngineObject
@@ -182,30 +171,20 @@ public class EngineObject : Hierarchical, IAffectsRender
             {
                 if (e.Sender is T s)
                 {
-                    s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
+                    s.RaiseEdited();
 
-                    if (e.OldValue is IAffectsRender oldAffectsRender)
+                    if (e.OldValue is INotifyEdited oldAffectsRender)
                     {
-                        oldAffectsRender.Invalidated -= s.AffectsRender_Invalidated;
+                        oldAffectsRender.Edited -= s.OnPropertyEdited;
                     }
 
-                    if (e.NewValue is IAffectsRender newAffectsRender)
+                    if (e.NewValue is INotifyEdited newAffectsRender)
                     {
-                        newAffectsRender.Invalidated += s.AffectsRender_Invalidated;
+                        newAffectsRender.Edited += s.OnPropertyEdited;
                     }
                 }
             });
         }
-    }
-
-    public void Invalidate()
-    {
-        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
-    }
-
-    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
-    {
-        Invalidated?.Invoke(this, args);
     }
 
     protected void ScanProperties<T>() where T : EngineObject
@@ -245,7 +224,18 @@ public class EngineObject : Hierarchical, IAffectsRender
         if (!_properties.Contains(property))
         {
             _properties.Add(property);
+            property.Edited += OnPropertyEdited;
         }
+    }
+
+    private void OnPropertyEdited(object? sender, EventArgs e)
+    {
+        Edited?.Invoke(sender, e);
+    }
+
+    protected void RaiseEdited()
+    {
+        Edited?.Invoke(this, EventArgs.Empty);
     }
 
     public virtual Resource ToResource(RenderContext context)

@@ -26,7 +26,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         KeyFrames.Detached += OnKeyFrameDetached;
     }
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     private void OnKeyTimeChanged(object? sender, EventArgs e)
     {
@@ -74,9 +74,9 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         }
     }
 
-    private void OnKeyFrameInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnKeyFrameEdited(object? sender, EventArgs e)
     {
-        Invalidated?.Invoke(this, e);
+        Edited?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnKeyFrameAttached(IKeyFrame obj)
@@ -87,7 +87,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         }
 
         obj.KeyTimeChanged += OnKeyTimeChanged;
-        obj.Invalidated += OnKeyFrameInvalidated;
+        obj.Edited += OnKeyFrameEdited;
     }
 
     private void OnKeyFrameDetached(IKeyFrame obj)
@@ -98,7 +98,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         }
 
         obj.KeyTimeChanged -= OnKeyTimeChanged;
-        obj.Invalidated -= OnKeyFrameInvalidated;
+        obj.Edited -= OnKeyFrameEdited;
     }
 
     public abstract Type ValueType { get; }
@@ -147,7 +147,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         base.OnPropertyChanged(args);
         if (args.PropertyName is nameof(UseGlobalClock))
         {
-            Invalidated?.Invoke(this, new(this));
+            Edited?.Invoke(this, EventArgs.Empty);
         }
     }
 }

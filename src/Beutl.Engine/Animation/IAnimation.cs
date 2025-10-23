@@ -4,7 +4,7 @@ using Beutl.Validation;
 
 namespace Beutl.Animation;
 
-public interface IAnimation : IAffectsRender, ICoreSerializable, IHierarchical
+public interface IAnimation : INotifyEdited, ICoreSerializable, IHierarchical
 {
     TimeSpan Duration { get; }
 

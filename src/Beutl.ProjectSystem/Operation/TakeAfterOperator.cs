@@ -31,7 +31,7 @@ public sealed class TakeAfterOperator : SourceOperator
         {
             if (SetAndRaise(CountProperty, ref _count, value))
             {
-                RaiseInvalidated(new Media.RenderInvalidatedEventArgs(this, nameof(Count)));
+                RaiseEdited(this, EventArgs.Empty);
             }
         }
     }

@@ -45,6 +45,7 @@ public class AnimatableProperty<T> : IProperty<T>
                 HasLocalValue = true;
 
                 ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
+                Edited?.Invoke(this, EventArgs.Empty);
                 if (_owner is IModifiableHierarchical ownerHierarchical)
                 {
                     if (oldValue is IHierarchical oldHierarchical)
@@ -53,6 +54,11 @@ public class AnimatableProperty<T> : IProperty<T>
                     if (validatedValue is IHierarchical newHierarchical)
                         ownerHierarchical.AddChild(newHierarchical);
                 }
+
+                if (oldValue is INotifyEdited oldEdited)
+                    oldEdited.Edited -= OnChildEdited;
+                if (validatedValue is INotifyEdited newEdited)
+                    newEdited.Edited += OnChildEdited;
             }
         }
     }
@@ -73,6 +79,7 @@ public class AnimatableProperty<T> : IProperty<T>
                 }
 
                 AnimationChanged?.Invoke(_animation!);
+                Edited?.Invoke(this, EventArgs.Empty);
                 if (_owner is IModifiableHierarchical ownerHierarchical)
                 {
                     if (oldValue is IHierarchical oldHierarchical)
@@ -81,6 +88,11 @@ public class AnimatableProperty<T> : IProperty<T>
                     if (value is IHierarchical newHierarchical)
                         ownerHierarchical.AddChild(newHierarchical);
                 }
+
+                if (oldValue is INotifyEdited oldEdited)
+                    oldEdited.Edited -= OnChildEdited;
+                if (_animation is INotifyEdited newEdited)
+                    newEdited.Edited += OnChildEdited;
             }
         }
     }
@@ -89,11 +101,18 @@ public class AnimatableProperty<T> : IProperty<T>
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
+    public event EventHandler? Edited;
+
     public event Action<IAnimation<T>?>? AnimationChanged;
 
     public void operator <<= (T value)
     {
         CurrentValue = value;
+    }
+
+    private void OnChildEdited(object? sender, EventArgs e)
+    {
+        Edited?.Invoke(sender, e);
     }
 
     public T GetValue(TimeSpan time)

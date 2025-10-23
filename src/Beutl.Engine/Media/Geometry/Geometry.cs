@@ -7,7 +7,7 @@ using SkiaSharp;
 
 namespace Beutl.Media;
 
-public abstract partial class Geometry : EngineObject, IAffectsRender
+public abstract partial class Geometry : EngineObject
 {
     public Geometry()
     {

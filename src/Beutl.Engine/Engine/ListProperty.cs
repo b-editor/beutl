@@ -8,7 +8,6 @@ using Beutl.Serialization;
 
 namespace Beutl.Engine;
 
-// TODO: AffectsRenderに対応させる
 public class ListProperty<T> : IListProperty<T>
 {
     private readonly CoreList<T> _items = [];
@@ -25,6 +24,10 @@ public class ListProperty<T> : IListProperty<T>
             {
                 ownerHierarchical.AddChild(hierarchical);
             }
+            if (item is INotifyEdited edited)
+            {
+                edited.Edited += OnChildEdited;
+            }
         };
         _items.Detached += item =>
         {
@@ -32,7 +35,12 @@ public class ListProperty<T> : IListProperty<T>
             {
                 ownerHierarchical.RemoveChild(hierarchical);
             }
+            if (item is INotifyEdited edited)
+            {
+                edited.Edited -= OnChildEdited;
+            }
         };
+        _items.CollectionChanged += (s, e) => Edited?.Invoke(this, EventArgs.Empty);
     }
 
     public bool HasValidator => false;
@@ -67,9 +75,16 @@ public class ListProperty<T> : IListProperty<T>
         remove { }
     }
 
+    public event EventHandler? Edited;
+
     public void operator <<= (ICoreList<T> value)
     {
         CurrentValue = value;
+    }
+
+    private void OnChildEdited(object? sender, EventArgs e)
+    {
+        Edited?.Invoke(sender, e);
     }
 
     public ICoreList<T> GetValue(TimeSpan time)

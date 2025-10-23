@@ -17,7 +17,7 @@ public class Composer : IComposer
         public List<AudioNode> Nodes { get; set; } = new();
         public AudioNode[]? OutputNodes { get; set; }
         public bool IsDirty { get; set; } = true;
-        public EventHandler<RenderInvalidatedEventArgs>? InvalidatedHandler { get; set; }
+        public EventHandler? EditedHandler { get; set; }
 
         public void Dispose()
         {
@@ -210,9 +210,9 @@ public class Composer : IComposer
             _audioCache.AddOrUpdate(sound, entry);
 
             // Register invalidation handler
-            var handler = new EventHandler<RenderInvalidatedEventArgs>((s, e) => OnSoundInvalidated(sound, e));
-            sound.Invalidated += handler;
-            entry.InvalidatedHandler = handler;
+            var handler = new EventHandler((s, e) => OnSoundEdited(sound, e));
+            sound.Edited += handler;
+            entry.EditedHandler = handler;
         }
 
         if (entry.IsDirty)
@@ -240,7 +240,7 @@ public class Composer : IComposer
         _currentEntry.Add(entry);
     }
 
-    private void OnSoundInvalidated(Sound sound, RenderInvalidatedEventArgs e)
+    private void OnSoundEdited(Sound sound, EventArgs e)
     {
         if (_audioCache.TryGetValue(sound, out var entry))
         {
@@ -257,9 +257,9 @@ public class Composer : IComposer
         {
             if (_audioCache.TryGetValue(sound, out var entry))
             {
-                if (entry.InvalidatedHandler != null)
+                if (entry.EditedHandler != null)
                 {
-                    sound.Invalidated -= entry.InvalidatedHandler;
+                    sound.Edited -= entry.EditedHandler;
                 }
 
                 _audioCache.Remove(sound);
@@ -274,9 +274,9 @@ public class Composer : IComposer
             // Clean up all contexts and event handlers
             foreach (var kvp in _audioCache)
             {
-                if (kvp.Value.InvalidatedHandler != null)
+                if (kvp.Value.EditedHandler != null)
                 {
-                    kvp.Key.Invalidated -= kvp.Value.InvalidatedHandler;
+                    kvp.Key.Edited -= kvp.Value.EditedHandler;
                 }
 
                 kvp.Value.Dispose();

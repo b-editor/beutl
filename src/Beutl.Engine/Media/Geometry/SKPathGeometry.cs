@@ -32,7 +32,7 @@ internal sealed partial class SKPathGeometry : Geometry
             _path = clone ? new SKPath(path) : path;
         }
 
-        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
+        RaiseEdited();
     }
 
     public override void ApplyTo(IGeometryContext context, Geometry.Resource resource)

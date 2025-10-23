@@ -9,7 +9,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public abstract partial class DisplacementMapTransform : EngineObject, IAffectsRender
+public abstract partial class DisplacementMapTransform : EngineObject
 {
     internal abstract void ApplyTo(
         Brush.Resource displacementMap, Resource resource, GradientSpreadMethod spreadMethod, FilterEffectContext context);

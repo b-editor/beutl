@@ -63,7 +63,7 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 
     public event EventHandler? KeyTimeChanged;
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
@@ -71,7 +71,7 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
         if (args is CorePropertyChangedEventArgs args1
             && args.PropertyName is nameof(Value) or nameof(Easing) or nameof(KeyTime))
         {
-            Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this, args1.Property.Name));
+            Edited?.Invoke(this, EventArgs.Empty);
 
             switch (args.PropertyName)
             {
@@ -80,14 +80,14 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
                     break;
                 case nameof(Value):
                     // IAffectsRenderのイベント登録
-                    if (args1.OldValue is IAffectsRender affectsRender1)
+                    if (args1.OldValue is INotifyEdited oldEdited)
                     {
-                        affectsRender1.Invalidated -= AffectsRender_Invalidated;
+                        oldEdited.Edited -= OnPropertyEdited;
                     }
 
-                    if (args1.NewValue is IAffectsRender affectsRender2)
+                    if (args1.NewValue is INotifyEdited newEdited)
                     {
-                        affectsRender2.Invalidated += AffectsRender_Invalidated;
+                        newEdited.Edited += OnPropertyEdited;
                     }
 
                     break;
@@ -95,9 +95,9 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
         }
     }
 
-    private void AffectsRender_Invalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnPropertyEdited(object? sender, EventArgs e)
     {
-        Invalidated?.Invoke(this, e);
+        Edited?.Invoke(this, EventArgs.Empty);
     }
 
     void IKeyFrame.SetParent(IKeyFrameAnimation? parent)

@@ -13,7 +13,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
-public sealed class SourceOperation : Hierarchical, IAffectsRender
+public sealed class SourceOperation : Hierarchical, INotifyEdited
 {
     public static readonly CoreProperty<ICoreList<SourceOperator>> ChildrenProperty;
     private readonly HierarchicalList<SourceOperator> _children;
@@ -37,7 +37,7 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
         _children.CollectionChanged += OnOperatorsCollectionChanged;
     }
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     [NotAutoSerialized]
     public ICoreList<SourceOperator> Children => _children;
@@ -198,21 +198,21 @@ public sealed class SourceOperation : Hierarchical, IAffectsRender
     private void OnOperatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         _isDirty = true;
-        Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this));
+        Edited?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnOperatorAttached(SourceOperator obj)
     {
-        obj.Invalidated += OnOperatorInvalidated;
+        obj.Edited += OnOperatorEdited;
     }
 
     private void OnOperatorDetached(SourceOperator obj)
     {
-        obj.Invalidated -= OnOperatorInvalidated;
+        obj.Edited -= OnOperatorEdited;
     }
 
-    private void OnOperatorInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnOperatorEdited(object? sender, EventArgs e)
     {
-        Invalidated?.Invoke(this, e);
+        Edited?.Invoke(sender, e);
     }
 }

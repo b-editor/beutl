@@ -128,14 +128,14 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             {
                 if (t.OldValue != null)
                 {
-                    t.OldValue.Invalidated -= OnAnimationInvalidated;
+                    t.OldValue.Edited -= OnAnimationEdited;
                     _innerDisposables.Clear();
                     ClearItems();
                 }
 
                 if (t.NewValue != null)
                 {
-                    t.NewValue.Invalidated += OnAnimationInvalidated;
+                    t.NewValue.Edited += OnAnimationEdited;
                     if (t.NewValue is IKeyFrameAnimation kfAnimation)
                     {
                         kfAnimation.KeyFrames.ForEachItem(
@@ -442,7 +442,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         Width.Value = duration.ToPixel(Timeline.Options.Value.Scale);
     }
 
-    private void OnAnimationInvalidated(object? sender, EventArgs e)
+    private void OnAnimationEdited(object? sender, EventArgs e)
     {
         UpdateWidth();
     }
@@ -479,7 +479,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         _innerDisposables?.Dispose();
         _disposables.Dispose();
         if (Property.Animation != null)
-            Property.Animation.Invalidated -= OnAnimationInvalidated;
+            Property.Animation.Edited -= OnAnimationEdited;
 
         ClearItems();
 

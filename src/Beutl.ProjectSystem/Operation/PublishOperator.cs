@@ -85,15 +85,15 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
         if (args is CorePropertyChangedEventArgs<T?> e
             && e.Property.Id == ValueProperty.Id)
         {
-            RaiseInvalidated(new RenderInvalidatedEventArgs(this, nameof(Value)));
-            if (e.OldValue is IAffectsRender oldValue)
+            RaiseEdited(this, EventArgs.Empty);
+            if (e.OldValue is INotifyEdited oldValue)
             {
-                oldValue.Invalidated -= OnValueInvalidated;
+                oldValue.Edited -= OnValueEdited;
             }
 
-            if (e.NewValue is IAffectsRender newValue)
+            if (e.NewValue is INotifyEdited newValue)
             {
-                newValue.Invalidated += OnValueInvalidated;
+                newValue.Edited += OnValueEdited;
             }
 
             Properties.Clear();
@@ -113,8 +113,8 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
         _element = null;
     }
 
-    private void OnValueInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnValueEdited(object? sender, EventArgs e)
     {
-        RaiseInvalidated(e);
+        RaiseEdited(sender, e);
     }
 }
