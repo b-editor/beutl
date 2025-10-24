@@ -46,13 +46,6 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
     public override void Evaluate(OperatorEvaluationContext context)
     {
         context.AddFlowRenderable(Value);
-        if (_element == null) return;
-
-        // TODO: 毎フレーム更新するのではなく、変更があったときだけ更新するようにする
-        Value.IsTimeAnchor = true;
-        Value.ZIndex = _element.ZIndex;
-        Value.TimeRange = new TimeRange(_element.Start, _element.Length);
-        Value.IsEnabled = _element.IsEnabled;
     }
 
     protected void AddProperty<TProperty>(IProperty<TProperty> property, Optional<TProperty> defaultValue = default)
@@ -84,22 +77,28 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs<T?> e
-            && e.Property.Id == ValueProperty.Id)
+        if (args is CorePropertyChangedEventArgs e)
         {
-            RaiseEdited(this, EventArgs.Empty);
-            if (e.OldValue is INotifyEdited oldValue)
+            if (e.Property.Id == ValueProperty.Id)
             {
-                oldValue.Edited -= OnValueEdited;
-            }
+                RaiseEdited(this, EventArgs.Empty);
+                if (e.OldValue is INotifyEdited oldValue)
+                {
+                    oldValue.Edited -= OnValueEdited;
+                }
 
-            if (e.NewValue is INotifyEdited newValue)
+                if (e.NewValue is INotifyEdited newValue)
+                {
+                    newValue.Edited += OnValueEdited;
+                }
+
+                Properties.Clear();
+                FillProperties();
+            }
+            else if (e.Property.Id == IsEnabledProperty.Id && _element != null)
             {
-                newValue.Edited += OnValueEdited;
+                Value.IsEnabled = _element.IsEnabled && IsEnabled;
             }
-
-            Properties.Clear();
-            FillProperties();
         }
     }
 
@@ -109,6 +108,7 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
         {
             _isDeserializing = true;
             base.Deserialize(context);
+            UpdateValueFromElement();
         }
         finally
         {
@@ -120,11 +120,51 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
     {
         base.OnAttachedToHierarchy(in args);
         _element = this.FindHierarchicalParent<Element>();
+        if (_element != null)
+        {
+            _element.PropertyChanged += OnParentElementPropertyChanged;
+            UpdateValueFromElement();
+        }
+    }
+
+    private void UpdateValueFromElement()
+    {
+        if (_element == null) return;
+
+        Value.IsTimeAnchor = true;
+        Value.ZIndex = _element.ZIndex;
+        Value.TimeRange = new TimeRange(_element.Start, _element.Length);
+        Value.IsEnabled = _element.IsEnabled && IsEnabled;
+    }
+
+    private void OnParentElementPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e is CorePropertyChangedEventArgs args && _element != null)
+        {
+            if (args.Property.Id == Element.IsEnabledProperty.Id)
+            {
+                Value.IsEnabled = _element.IsEnabled && IsEnabled;
+            }
+            else if (args.Property.Id == Element.ZIndexProperty.Id)
+            {
+                Value.ZIndex = _element.ZIndex;
+            }
+            else if (args.Property.Id == Element.StartProperty.Id || 
+                     args.Property.Id == Element.LengthProperty.Id)
+            {
+                Value.TimeRange = new TimeRange(_element.Start, _element.Length);
+            }
+        }
     }
 
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(in args);
+        if (_element != null)
+        {
+            _element.PropertyChanged -= OnParentElementPropertyChanged;
+        }
+
         _element = null;
     }
 
