@@ -151,7 +151,7 @@ public abstract partial class Shape : Drawable
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
         var r = (Resource)resource;
-        if (IsEnabled)
+        if (r.IsEnabled)
         {
             Size availableSize = context.Size.ToSize(1);
             Size size = MeasureCore(availableSize, resource);

@@ -16,7 +16,7 @@ public sealed partial class DrawableGroup : Drawable
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
-        if (IsEnabled)
+        if (resource.IsEnabled)
         {
             var r = (Resource)resource;
             Size availableSize = context.Size.ToSize(1);

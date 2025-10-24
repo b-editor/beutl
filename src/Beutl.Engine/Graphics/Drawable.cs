@@ -67,7 +67,7 @@ public abstract partial class Drawable : EngineObject
 
     public virtual void Render(GraphicsContext2D context, Resource resource)
     {
-        if (IsEnabled)
+        if (resource.IsEnabled)
         {
             Size availableSize = context.Size.ToSize(1);
             Size size = MeasureCore(availableSize, resource);

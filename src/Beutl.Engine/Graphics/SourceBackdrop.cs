@@ -27,7 +27,7 @@ public partial class SourceBackdrop : Drawable
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
-        if (IsEnabled)
+        if (resource.IsEnabled)
         {
             var r = (Resource)resource;
             var backdrop = context.Snapshot();

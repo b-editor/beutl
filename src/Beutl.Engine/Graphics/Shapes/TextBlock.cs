@@ -338,6 +338,7 @@ public partial class TextBlock : Drawable
 
             if (_isDirty)
             {
+                Version++;
                 _elements = null;
                 _isDirty = false;
             }

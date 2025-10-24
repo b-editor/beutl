@@ -252,11 +252,22 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         public int Version { get; protected set; }
 
+        public bool IsEnabled { get; private set; }
+
         public EngineObject GetOriginal() => _original;
 
         public virtual void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
         {
             _original = obj;
+            if (IsEnabled != obj.IsEnabled)
+            {
+                IsEnabled = obj.IsEnabled;
+                if (!updateOnly)
+                {
+                    Version++;
+                    updateOnly = true;
+                }
+            }
         }
 
         protected void CompareAndUpdate<TValue>(RenderContext context, IProperty<TValue> prop, ref TValue field,

@@ -23,7 +23,7 @@ public sealed class FilterEffectRenderNode(FilterEffect.Resource filterEffect) :
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        if (FilterEffect == null)
+        if (FilterEffect == null || !FilterEffect.Value.Resource.IsEnabled)
         {
             return context.Input;
         }
