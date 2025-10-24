@@ -482,6 +482,23 @@ public sealed class GraphicsContext2D(
         return new(this, _nodes.Count);
     }
 
+    public PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false)
+    {
+        OpacityMaskRenderNode? next = Next<OpacityMaskRenderNode>();
+
+        if (next == null)
+        {
+            AddAndPush(new OpacityMaskRenderNode(mask, bounds, invert), next);
+        }
+        else
+        {
+            _hasChanges = next.Update(mask, bounds, invert);
+            Push(next);
+        }
+
+        return new(this, _nodes.Count);
+    }
+
     public PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend)
     {
         TransformRenderNode? next = Next<TransformRenderNode>();

@@ -293,19 +293,18 @@ public class GraphicsContext2DTests
         Assert.That(node.Children[0], Is.InstanceOf<FilterEffectRenderNode>());
     }
 
-    // TODO: OpacityMaskRenderNodeの実装が未完了
-    // [Test]
-    // public void PushOpacityMask_ShouldCreateOpacityMaskRenderNode()
-    // {
-    //     var node = new ContainerRenderNode();
-    //     var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
-    //     var mask = Brushes.White;
-    //
-    //     context.PushOpacityMask(mask, new Rect(0, 0, 100, 100)).Dispose();
-    //
-    //     Assert.That(node.Children, Is.Not.Empty);
-    //     Assert.That(node.Children[0], Is.InstanceOf<OpacityMaskRenderNode>());
-    // }
+    [Test]
+    public void PushOpacityMask_ShouldCreateOpacityMaskRenderNode()
+    {
+        var node = new ContainerRenderNode();
+        var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
+        var mask = Brushes.Resource.White;
+    
+        context.PushOpacityMask(mask, new Rect(0, 0, 100, 100)).Dispose();
+    
+        Assert.That(node.Children, Is.Not.Empty);
+        Assert.That(node.Children[0], Is.InstanceOf<OpacityMaskRenderNode>());
+    }
 
     [Test]
     public void PushTransform_ShouldCreateTransformRenderNode()
