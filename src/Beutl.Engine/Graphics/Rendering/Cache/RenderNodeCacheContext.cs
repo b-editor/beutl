@@ -32,16 +32,10 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
 
         if (node is ContainerRenderNode container)
         {
-            if (cache.Children?.Count != container.Children.Count)
-                return false;
-
-            for (int i = 0; i < cache.Children.Count; i++)
+            for (int i = 0; i < container.Children.Count; i++)
             {
-                WeakReference<RenderNode> capturedRef = cache.Children[i];
                 RenderNode current = container.Children[i];
-                if (!capturedRef.TryGetTarget(out RenderNode? captured)
-                    || !ReferenceEquals(captured, current)
-                    || !CanCacheRecursive(current))
+                if (!CanCacheRecursive(current))
                 {
                     return false;
                 }
@@ -90,7 +84,7 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
         RenderNodeCache cache = node.Cache;
         // ここでのnodeは途中まで、キャッシュしても良い
         // CanCacheRecursive内で再帰呼び出ししているのはすべてキャッシュできる必要がある
-        if (cache.CanCache() && CanCacheRecursiveChildrenOnly(node))
+        if (CanCacheRecursive(node))
         {
             if (!cache.IsCached)
             {

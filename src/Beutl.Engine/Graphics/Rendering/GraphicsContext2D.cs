@@ -63,11 +63,12 @@ public sealed class GraphicsContext2D(
         {
             _container.AddChild(node);
         }
+
+        _hasChanges = true;
     }
 
     private void AddAndPush(ContainerRenderNode node, ContainerRenderNode? old)
     {
-        // TODO: _hasChangesをtrueにするべきか？
         if (old != null)
         {
             node.BringFrom(old);
@@ -310,6 +311,7 @@ public sealed class GraphicsContext2D(
             {
                 foreach (RenderNode node in _container.Children.Take(_drawOperationindex..))
                 {
+                    _hasChanges = true;
                     node.Dispose();
                     Untracked(node);
                 }
@@ -330,6 +332,7 @@ public sealed class GraphicsContext2D(
             {
                 foreach (RenderNode node in _container.Children.Take(_drawOperationindex..))
                 {
+                    _hasChanges = true;
                     node.Dispose();
                     Untracked(node);
                 }

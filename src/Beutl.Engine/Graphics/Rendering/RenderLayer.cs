@@ -136,16 +136,25 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
                     {
                         RevalidateAll(item);
                     }
-
-                    cache.CaptureChildren();
                 }
 
                 cache.IncrementRenderCount();
+                current.HasChanges = false;
                 if (cache.IsCached && !RenderNodeCacheContext.CanCacheRecursive(current))
                 {
                     cache.Invalidate();
                 }
             }
+
+            /*
+             * - ANode (HasChanges: true)
+             *   - BNode (HasChanges: true)
+             *     - CNode (HasChanges: false) <- この出力をキャッシュしたい
+             * CNodeがキャッシュできるようにするには、少なくともCNodeとその子孫がすべてHasChanges==falseである必要がある。
+             * HasChanges==falseのときに、カウントを増やし、HasChanges==trueのときにカウントを0にリセットする。
+             * そして、カウントが一定数以上になったときにキャッシュ可能とする。
+             * 
+             */
         }
     }
 
