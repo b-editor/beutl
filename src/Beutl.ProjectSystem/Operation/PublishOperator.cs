@@ -4,6 +4,7 @@ using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
@@ -12,6 +13,7 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
 {
     public static readonly CoreProperty<T> ValueProperty;
     private Element? _element;
+    private bool _isDeserializing;
 
     private readonly EvaluationTarget _evaluationTarget =
         typeof(T).IsAssignableTo(typeof(Drawable)) ? EvaluationTarget.Graphics
@@ -55,7 +57,7 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
 
     protected void AddProperty<TProperty>(IProperty<TProperty> property, Optional<TProperty> defaultValue = default)
     {
-        if (defaultValue.HasValue)
+        if (!_isDeserializing && defaultValue.HasValue)
         {
             property.CurrentValue = defaultValue.Value;
         }
@@ -98,6 +100,19 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
 
             Properties.Clear();
             FillProperties();
+        }
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        try
+        {
+            _isDeserializing = true;
+            base.Deserialize(context);
+        }
+        finally
+        {
+            _isDeserializing = false;
         }
     }
 
