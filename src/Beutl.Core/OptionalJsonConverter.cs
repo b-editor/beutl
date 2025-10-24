@@ -13,6 +13,7 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
         return typeToConvert.IsAssignableTo(typeof(IOptional));
     }
 
+    // TODO: JsonArrayに対応させる
     public override IOptional? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var jsonNode = JsonNode.Parse(ref reader);

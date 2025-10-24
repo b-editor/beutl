@@ -126,11 +126,10 @@ public class ListProperty<T> : IListProperty<T>
 
     public void DeserializeValue(ICoreSerializationContext context)
     {
-        var optional = context.GetValue<Optional<T[]>>(Name);
-        if (optional.HasValue)
-        {
-            CurrentValue.Replace(optional.Value);
-        }
+        if (!context.Contains(Name)) return;
+        T[]? list = context.GetValue<T[]>(Name);
+        if (list == null) return;
+        CurrentValue.Replace(list);
     }
 
     public void SerializeValue(ICoreSerializationContext context)
