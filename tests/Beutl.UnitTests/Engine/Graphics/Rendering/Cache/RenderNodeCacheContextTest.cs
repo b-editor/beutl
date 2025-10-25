@@ -54,7 +54,6 @@ public class RenderNodeCacheContextTest
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
-        containerNode.Cache.CaptureChildren();
 
         // Act
         bool result = RenderNodeCacheContext.CanCacheRecursive(containerNode);
@@ -72,7 +71,6 @@ public class RenderNodeCacheContextTest
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
-        containerNode.Cache.CaptureChildren();
         containerNode.AddChild(new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null));
 
         // Act
@@ -91,25 +89,7 @@ public class RenderNodeCacheContextTest
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
-        containerNode.Cache.CaptureChildren();
         containerNode.SetChild(0, new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null));
-
-        // Act
-        bool result = RenderNodeCacheContext.CanCacheRecursive(containerNode);
-
-        // Assert
-        Assert.That(result, Is.False);
-    }
-
-    [Test]
-    public void CanCacheRecursive_ShouldReturnFalse_WhenNotCaptured()
-    {
-        // Arrange
-        var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
-        var containerNode = new ContainerRenderNode();
-        containerNode.AddChild(childNode);
-        childNode.Cache.ReportRenderCount(3);
-        containerNode.Cache.ReportRenderCount(3);
 
         // Act
         bool result = RenderNodeCacheContext.CanCacheRecursive(containerNode);
@@ -126,7 +106,6 @@ public class RenderNodeCacheContextTest
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         containerNode.Cache.ReportRenderCount(3);
-        containerNode.Cache.CaptureChildren();
 
         // Act
         var result = RenderNodeCacheContext.CanCacheRecursiveChildrenOnly(containerNode);
@@ -196,7 +175,6 @@ public class RenderNodeCacheContextTest
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
-        containerNode.Cache.CaptureChildren();
         _context!.CacheOptions = new RenderCacheOptions(true, RenderCacheRules.Default);
 
         // Act
@@ -215,7 +193,6 @@ public class RenderNodeCacheContextTest
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
-        containerNode.Cache.CaptureChildren();
         _context!.CacheOptions = new RenderCacheOptions(false, RenderCacheRules.Default);
 
         // Act
@@ -233,7 +210,6 @@ public class RenderNodeCacheContextTest
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         containerNode.Cache.ReportRenderCount(3);
-        containerNode.Cache.CaptureChildren();
         _context!.CacheOptions = new RenderCacheOptions(true, RenderCacheRules.Default);
 
         // Act
@@ -252,7 +228,6 @@ public class RenderNodeCacheContextTest
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
-        containerNode.Cache.CaptureChildren();
         _context!.CacheOptions = new RenderCacheOptions(true, new RenderCacheRules(10000, 1));
 
         // Act
