@@ -6,11 +6,12 @@ namespace Beutl.Graphics.Rendering;
 
 // TODO: 実験的
 public sealed class BoundaryTransformRenderNode(
-    Transform.Resource transform,
+    Transform.Resource? transform,
     RelativePoint transformOrigin,
     Size screenSize,
     AlignmentX alignmentX,
-    AlignmentY alignmentY) : ContainerRenderNode
+    AlignmentY alignmentY,
+    bool splitted) : ContainerRenderNode
 {
     public (Transform.Resource Resource, int Version)? Transform { get; private set; } = transform.Capture();
 
@@ -22,9 +23,11 @@ public sealed class BoundaryTransformRenderNode(
 
     public AlignmentY AlignmentY { get; private set; } = alignmentY;
 
+    public bool Splitted { get; private set; } = splitted;
+
     public bool Update(
-        Transform.Resource transform, RelativePoint transformOrigin, Size screenSize,
-        AlignmentX alignmentX, AlignmentY alignmentY)
+        Transform.Resource? transform, RelativePoint transformOrigin, Size screenSize,
+        AlignmentX alignmentX, AlignmentY alignmentY, bool splitted)
     {
         bool changed = false;
         if (Transform?.Resource.GetOriginal() != transform?.GetOriginal()
@@ -58,6 +61,12 @@ public sealed class BoundaryTransformRenderNode(
             changed = true;
         }
 
+        if (Splitted != splitted)
+        {
+            Splitted = splitted;
+            changed = true;
+        }
+
         HasChanges = changed;
         return changed;
     }
@@ -66,7 +75,7 @@ public sealed class BoundaryTransformRenderNode(
     {
         Vector pt = CalculateTranslate(bounds.Size);
         var origin = TransformOrigin.ToPixels(bounds.Size);
-        Matrix offset = Matrix.CreateTranslation(origin);
+        Matrix offset = Matrix.CreateTranslation(origin + bounds.Position);
         var transform = Transform?.Resource;
 
         if (transform != null)
@@ -121,25 +130,54 @@ public sealed class BoundaryTransformRenderNode(
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        var bounds = context.CalculateBounds();
-        var transform = GetTransformMatrix(bounds);
-        return context.Input.Select(r =>
-            RenderNodeOperation.CreateLambda(
-                r.Bounds.TransformToAABB(transform),
-                canvas =>
-                {
-                    using (canvas.PushTransform(transform))
+        if (Splitted)
+        {
+
+            return context.Input.Select(r =>
+            {
+                var bounds = r.Bounds;
+                var transform = GetTransformMatrix(bounds);
+                return RenderNodeOperation.CreateLambda(
+                    r.Bounds.TransformToAABB(transform),
+                    canvas =>
                     {
-                        r.Render(canvas);
-                    }
-                },
-                hitTest: point =>
-                {
-                    if (transform.HasInverse)
-                        point *= transform.Invert();
-                    return r.HitTest(point);
-                },
-                onDispose: r.Dispose))
-            .ToArray();
+                        using (canvas.PushTransform(transform))
+                        {
+                            r.Render(canvas);
+                        }
+                    },
+                    hitTest: point =>
+                    {
+                        if (transform.HasInverse)
+                            point *= transform.Invert();
+                        return r.HitTest(point);
+                    },
+                    onDispose: r.Dispose);
+            })
+                .ToArray();
+        }
+        else
+        {
+            var bounds = context.CalculateBounds();
+            var transform = GetTransformMatrix(bounds);
+            return context.Input.Select(r =>
+                RenderNodeOperation.CreateLambda(
+                    r.Bounds.TransformToAABB(transform),
+                    canvas =>
+                    {
+                        using (canvas.PushTransform(transform))
+                        {
+                            r.Render(canvas);
+                        }
+                    },
+                    hitTest: point =>
+                    {
+                        if (transform.HasInverse)
+                            point *= transform.Invert();
+                        return r.HitTest(point);
+                    },
+                    onDispose: r.Dispose))
+                .ToArray();
+        }
     }
 }

@@ -43,7 +43,7 @@ public sealed class SceneRenderer(Scene scene) : Renderer(scene.FrameSize.Width,
                 {
                     if (item is Drawable drawable)
                     {
-                        int actualIndex = (drawable as DrawableDecorator)?.OriginalZIndex ?? item.ZIndex;
+                        int actualIndex = item.ZIndex;
                         RenderScene[actualIndex].Add(drawable, Time);
                     }
                 }

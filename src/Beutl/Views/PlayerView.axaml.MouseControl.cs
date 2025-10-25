@@ -360,7 +360,8 @@ public partial class PlayerView
 
             if (Drawable != null)
             {
-                int zindex = (Drawable as DrawableDecorator)?.OriginalZIndex ?? Drawable.ZIndex;
+                // TODO: DrawableGroup以下のDrawableを拾った場合の対応
+                int zindex = Drawable.ZIndex;
                 TimeSpan time = EditViewModel.CurrentTime.Value;
 
                 Element = scene.Children.FirstOrDefault(v =>

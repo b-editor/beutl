@@ -533,4 +533,48 @@ public sealed class GraphicsContext2D(
 
         return new(this, _nodes.Count);
     }
+
+    public PushedState PushBoundaryTransform(Transform.Resource? transform,
+        RelativePoint transformOrigin,
+        Size screenSize,
+        AlignmentX alignmentX,
+        AlignmentY alignmentY)
+    {
+        BoundaryTransformRenderNode? next = Next<BoundaryTransformRenderNode>();
+
+        if (next == null)
+        {
+            AddAndPush(new BoundaryTransformRenderNode(
+                transform, transformOrigin, screenSize, alignmentX, alignmentY, false), next);
+        }
+        else
+        {
+            _hasChanges = next.Update(transform, transformOrigin, screenSize, alignmentX, alignmentY, true);
+            Push(next);
+        }
+
+        return new(this, _nodes.Count);
+    }
+
+    public PushedState PushSplittedTransform(Transform.Resource? transform,
+        RelativePoint transformOrigin,
+        Size screenSize,
+        AlignmentX alignmentX,
+        AlignmentY alignmentY)
+    {
+        BoundaryTransformRenderNode? next = Next<BoundaryTransformRenderNode>();
+
+        if (next == null)
+        {
+            AddAndPush(new BoundaryTransformRenderNode(
+                transform, transformOrigin, screenSize, alignmentX, alignmentY, true), next);
+        }
+        else
+        {
+            _hasChanges = next.Update(transform, transformOrigin, screenSize, alignmentX, alignmentY, true);
+            Push(next);
+        }
+
+        return new(this, _nodes.Count);
+    }
 }

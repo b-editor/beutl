@@ -38,7 +38,8 @@ public partial class PlayerView
 
             if (drawable != null)
             {
-                int zindex = (drawable as DrawableDecorator)?.OriginalZIndex ?? drawable.ZIndex;
+                // TODO: DrawableGroup以下のDrawableを拾った場合の対応
+                int zindex = drawable.ZIndex;
 
                 Element? element = scene.Children.FirstOrDefault(v =>
                     v.ZIndex == zindex

@@ -14,19 +14,21 @@ public sealed partial class DrawableGroup : Drawable
 
     public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
 
+    public IProperty<bool> Concat { get; } = Property.Create(false);
+
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
         if (resource.IsEnabled)
         {
             var r = (Resource)resource;
             Size availableSize = context.Size.ToSize(1);
-            Matrix transform = GetTransformMatrix(availableSize, r);
 
             using (context.PushBlendMode(r.BlendMode))
-            using (context.PushLayer())
-            using (context.PushTransform(transform))
+            using (r.Concat 
+                ? context.PushBoundaryTransform(r.Transform, r.TransformOrigin, availableSize, Media.AlignmentX.Left, Media.AlignmentY.Top)
+                : context.PushSplittedTransform(r.Transform, r.TransformOrigin, availableSize, Media.AlignmentX.Left, Media.AlignmentY.Top))
             using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
-            using (context.PushLayer())
+            using (r.Concat ? context.PushLayer() : new())
             {
                 OnDraw(context, r);
             }
@@ -39,23 +41,6 @@ public sealed partial class DrawableGroup : Drawable
         foreach (Drawable.Resource item in r.Children)
         {
             context.DrawDrawable(item);
-        }
-    }
-
-    private Matrix GetTransformMatrix(Size availableSize, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        Vector origin = r.TransformOrigin.ToPixels(availableSize);
-        Matrix offset = Matrix.CreateTranslation(origin);
-        var transform = r.Transform;
-
-        if (transform != null)
-        {
-            return (-offset) * transform.Matrix * offset;
-        }
-        else
-        {
-            return Matrix.Identity;
         }
     }
 

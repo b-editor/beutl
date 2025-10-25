@@ -4,11 +4,9 @@ using Beutl.Graphics.Rendering;
 
 namespace Beutl.Graphics;
 
-// TODO: トランスフォームの動作が変わるので検証する
-//       Child(エフェクト適用後)のBoundsからトランスフォームしていたのが、
-//       エフェクト適用前のBoundsからトランスフォームするようになる
 // Drawable継承しているが、Drawableのメソッドは使っていない
 [Display(Name = "Decorator")]
+[Obsolete("Use DrawableGroup { Concat = false } instead.")]
 public sealed partial class DrawableDecorator : Drawable
 {
     public DrawableDecorator()
@@ -16,9 +14,7 @@ public sealed partial class DrawableDecorator : Drawable
         ScanProperties<DrawableDecorator>();
     }
 
-    public IProperty<Drawable?> Child { get; } = Property.Create<Drawable?>();
-
-    public int OriginalZIndex => (Child.CurrentValue as DrawableDecorator)?.OriginalZIndex ?? ZIndex;
+    public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
@@ -27,51 +23,24 @@ public sealed partial class DrawableDecorator : Drawable
             var r = (Resource)resource;
             Size availableSize = context.Size.ToSize(1);
 
-            Matrix transform = GetTransformMatrix(availableSize, r);
-            using (context.PushBlendMode(r.BlendMode))
-            using (context.PushTransform(transform))
-            using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
+            foreach (var child in r.Children)
             {
-                OnDraw(context, resource);
+                using (context.PushBlendMode(r.BlendMode))
+                using (context.PushBoundaryTransform(r.Transform, r.TransformOrigin, availableSize, Media.AlignmentX.Left, Media.AlignmentY.Top))
+                using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
+                {
+                    context.DrawDrawable(child);
+                }
             }
         }
     }
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
-        var r = (Resource)resource;
-        if (r.Child != null)
-        {
-            context.DrawDrawable(r.Child);
-        }
-    }
-
-    private Matrix GetTransformMatrix(Size availableSize, Drawable.Resource resource)
-    {
-        Vector origin = resource.TransformOrigin.ToPixels(availableSize);
-        Matrix offset = Matrix.CreateTranslation(origin);
-        var transform = resource.Transform;
-
-        if (transform != null)
-        {
-            return (-offset) * transform.Matrix * offset;
-        }
-        else
-        {
-            return Matrix.Identity;
-        }
     }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
-        var r = (Resource)resource;
-        if (r.Child != null)
-        {
-            return r.Child.GetOriginal().MeasureInternal(availableSize, r.Child);
-        }
-        else
-        {
-            return Size.Empty;
-        }
+        return Size.Empty;
     }
 }

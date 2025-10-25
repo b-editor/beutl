@@ -4,14 +4,13 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
+[Obsolete("Use GroupOperator { Concat = false } instead.")]
 public sealed class DecorateOperator : PublishOperator<DrawableDecorator>
 {
-    private readonly ConditionalWeakTable<Drawable, DrawableDecorator> _bag = [];
-    private Element? _element;
-
     protected override void FillProperties()
     {
         AddProperty(Value.Transform, new TransformGroup());
@@ -22,57 +21,33 @@ public sealed class DecorateOperator : PublishOperator<DrawableDecorator>
 
     public override void Evaluate(OperatorEvaluationContext context)
     {
-        // TODO: より低いレイヤーで実装する
-        // if (!IsEnabled) return;
-        //
-        // for (int i = 0; i < context.FlowRenderables.Count; i++)
-        // {
-        //     if (context.FlowRenderables[i] is not Drawable drawable) continue;
-        //     var decorator = _bag.GetValue(drawable, d => new DrawableDecorator());
-        //     decorator.Child.CurrentValue = drawable;
-        //     context.FlowRenderables[i] = decorator;
-        //
-        //     decorator.Transform = (Value.Transform as IMutableTransform)?.ToImmutable() ?? Value.Transform;
-        //     decorator.TransformOrigin = Value.TransformOrigin;
-        //     decorator.BlendMode = Value.BlendMode;
-        //     if (Value.FilterEffect is null)
-        //     {
-        //         decorator.FilterEffect = null;
-        //     }
-        //     else
-        //     {
-        //         decorator.FilterEffect ??= Value.FilterEffect.CreateDelegatedInstance();
-        //     }
-        //
-        //
-        //     if (_element == null) continue;
-        // TODO: 毎フレーム更新するのではなく、変更があったときだけ更新するようにする
-        //     decorator.IsTimeAnchor = true;
-        //     decorator.ZIndex = _element.ZIndex;
-        //     decorator.TimeRange = new TimeRange(_element.Start, _element.Length);
-        //     decorator.ApplyAnimations(_element.Clock);
-        //     decorator.IsVisible = _element.IsEnabled;
-        // }
-    }
-    //
-    // public override void Exit()
-    // {
-    //     base.Exit();
-    //     foreach (var entry in _bag)
-    //     {
-    //         entry.Value.Child = null;
-    //     }
-    // }
+        if (!IsEnabled)
+        {
+            Value.Children.Clear();
+            return;
+        }
 
-    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnAttachedToHierarchy(in args);
-        _element = this.FindHierarchicalParent<Element>();
+        Drawable[] items = context.FlowRenderables.OfType<Drawable>().ToArray();
+        context.FlowRenderables.Clear();
+        Value.Children.Replace(items);
+        base.Evaluate(context);
     }
 
-    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
+    public override void Enter()
     {
-        base.OnDetachedFromHierarchy(in args);
-        _element = null;
+        base.Enter();
+        Value.Children.Clear();
+    }
+
+    public override void Exit()
+    {
+        base.Exit();
+        Value.Children.Clear();
+    }
+
+    public override void Serialize(ICoreSerializationContext context)
+    {
+        Value.Children.Clear();
+        base.Serialize(context);
     }
 }
