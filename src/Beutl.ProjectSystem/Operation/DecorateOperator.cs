@@ -8,7 +8,6 @@ using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
-[Obsolete("Use GroupOperator { Concat = false } instead.")]
 public sealed class DecorateOperator : PublishOperator<DrawableDecorator>
 {
     protected override void FillProperties()
