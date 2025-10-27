@@ -133,6 +133,11 @@ public sealed class GraphicsContext2D(
 
     public void DrawImageSource(IImageSource source, Brush.Resource? fill, Pen.Resource? pen)
     {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ArgumentNullException.ThrowIfNull(source);
+        ObjectDisposedException.ThrowIf(source.IsDisposed, source);
+
         ImageSourceRenderNode? next = Next<ImageSourceRenderNode>();
 
         if (next == null)
@@ -149,6 +154,11 @@ public sealed class GraphicsContext2D(
 
     public void DrawVideoSource(IVideoSource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
     {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ArgumentNullException.ThrowIfNull(source);
+        ObjectDisposedException.ThrowIf(source.IsDisposed, source);
+
         Rational rate = source.FrameRate;
         double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
         DrawVideoSource(source, (int)frameNum, fill, pen);
@@ -156,6 +166,11 @@ public sealed class GraphicsContext2D(
 
     public void DrawVideoSource(IVideoSource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ArgumentNullException.ThrowIfNull(source);
+        ObjectDisposedException.ThrowIf(source.IsDisposed, source);
+
         VideoSourceRenderNode? next = Next<VideoSourceRenderNode>();
 
         if (next == null)
@@ -172,6 +187,9 @@ public sealed class GraphicsContext2D(
 
     public void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+
         EllipseRenderNode? next = Next<EllipseRenderNode>();
 
         if (next == null)
@@ -188,6 +206,11 @@ public sealed class GraphicsContext2D(
 
     public void DrawGeometry(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
     {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ArgumentNullException.ThrowIfNull(geometry);
+        ObjectDisposedException.ThrowIf(geometry.IsDisposed, geometry);
+
         GeometryRenderNode? next = Next<GeometryRenderNode>();
 
         if (next == null)
@@ -204,6 +227,9 @@ public sealed class GraphicsContext2D(
 
     public void DrawRectangle(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+
         RectangleRenderNode? next = Next<RectangleRenderNode>();
 
         if (next == null)
@@ -220,6 +246,10 @@ public sealed class GraphicsContext2D(
 
     public void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
     {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ArgumentNullException.ThrowIfNull(text);
+
         TextRenderNode? next = Next<TextRenderNode>();
 
         if (next == null)
@@ -236,6 +266,9 @@ public sealed class GraphicsContext2D(
 
     public void DrawDrawable(Drawable.Resource drawable)
     {
+        ArgumentNullException.ThrowIfNull(drawable);
+        ObjectDisposedException.ThrowIf(drawable.IsDisposed, drawable);
+
         DrawableRenderNode? next = Next<DrawableRenderNode>();
 
         if (next == null)
@@ -262,6 +295,9 @@ public sealed class GraphicsContext2D(
 
     public void DrawNode(RenderNode node)
     {
+        ArgumentNullException.ThrowIfNull(node);
+        ObjectDisposedException.ThrowIf(node.IsDisposed, node);
+
         RenderNode? next = Next();
 
         if (next == null || !node.Equals(next))
@@ -274,6 +310,8 @@ public sealed class GraphicsContext2D(
 
     public void DrawBackdrop(IBackdrop backdrop)
     {
+        ArgumentNullException.ThrowIfNull(backdrop);
+
         DrawBackdropRenderNode? next = Next<DrawBackdropRenderNode>();
 
         var b = new Rect(canvasSize.ToSize(1));
@@ -415,6 +453,9 @@ public sealed class GraphicsContext2D(
 
     public PushedState PushClip(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect)
     {
+        ArgumentNullException.ThrowIfNull(geometry);
+        ObjectDisposedException.ThrowIf(geometry.IsDisposed, geometry);
+
         GeometryClipRenderNode? next = Next<GeometryClipRenderNode>();
 
         if (next == null)
@@ -449,6 +490,9 @@ public sealed class GraphicsContext2D(
 
     public PushedState PushFilterEffect(FilterEffect.Resource effect)
     {
+        ArgumentNullException.ThrowIfNull(effect);
+        ObjectDisposedException.ThrowIf(effect.IsDisposed, effect);
+
         switch (effect)
         {
             case FilterEffectGroup.Resource group:
@@ -484,6 +528,9 @@ public sealed class GraphicsContext2D(
 
     public PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false)
     {
+        ArgumentNullException.ThrowIfNull(mask);
+        ObjectDisposedException.ThrowIf(mask.IsDisposed, mask);
+
         OpacityMaskRenderNode? next = Next<OpacityMaskRenderNode>();
 
         if (next == null)
@@ -519,6 +566,9 @@ public sealed class GraphicsContext2D(
     public PushedState PushTransform(Transform.Resource transform,
         TransformOperator transformOperator = TransformOperator.Prepend)
     {
+        ArgumentNullException.ThrowIfNull(transform);
+        ObjectDisposedException.ThrowIf(transform.IsDisposed, transform);
+
         TransformRenderNode? next = Next<TransformRenderNode>();
         var matrix = transform.Matrix;
         if (next == null)
@@ -540,6 +590,9 @@ public sealed class GraphicsContext2D(
         AlignmentX alignmentX,
         AlignmentY alignmentY)
     {
+        ArgumentNullException.ThrowIfNull(transform);
+        ObjectDisposedException.ThrowIf(transform.IsDisposed, transform);
+
         BoundaryTransformRenderNode? next = Next<BoundaryTransformRenderNode>();
 
         if (next == null)
@@ -562,6 +615,9 @@ public sealed class GraphicsContext2D(
         AlignmentX alignmentX,
         AlignmentY alignmentY)
     {
+        ArgumentNullException.ThrowIfNull(transform);
+        ObjectDisposedException.ThrowIf(transform.IsDisposed, transform);
+
         BoundaryTransformRenderNode? next = Next<BoundaryTransformRenderNode>();
 
         if (next == null)
