@@ -241,6 +241,11 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                             }
                         });
                 }
+                else
+                {
+                    _currentFrameRevoker = _editViewModel.CurrentTime
+                        .Subscribe(_currentTime.OnNext);
+                }
             }
         }
         else if (visitor is PropertyEditor editor)
