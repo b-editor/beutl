@@ -95,6 +95,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         {
             RenderNodeCacheContext.ClearCache(item.Value.Node);
 
+            item.Value.Node.Drawable?.Resource.Dispose();
             item.Value.Dispose();
         }
 
@@ -153,7 +154,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
              * CNodeがキャッシュできるようにするには、少なくともCNodeとその子孫がすべてHasChanges==falseである必要がある。
              * HasChanges==falseのときに、カウントを増やし、HasChanges==trueのときにカウントを0にリセットする。
              * そして、カウントが一定数以上になったときにキャッシュ可能とする。
-             * 
+             *
              */
         }
     }
@@ -162,6 +163,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
     {
         foreach (KeyValuePair<Drawable, Entry> item in _cache)
         {
+            item.Value.Node.Drawable?.Resource.Dispose();
             item.Value.Dispose();
         }
 
@@ -170,6 +172,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         {
             foreach (Entry item in _currentFrame)
             {
+                item.Node.Drawable?.Resource.Dispose();
                 item.Dispose();
             }
 
