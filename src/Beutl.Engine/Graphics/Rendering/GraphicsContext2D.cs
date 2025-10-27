@@ -24,28 +24,6 @@ public sealed class GraphicsContext2D(
     public PixelSize Size => canvasSize;
 
     internal Action<RenderNode>? OnUntracked { get; set; }
-    //
-    // public T Get<T>(IProperty<T> property)
-    // {
-    //     return property.GetValue(Clock);
-    // }
-    //
-    // public (T1, T2) Get<T1, T2>(IProperty<T1> property1, IProperty<T2> property2)
-    // {
-    //     return (property1.GetValue(Clock), property2.GetValue(Clock));
-    // }
-    //
-    // public (T1, T2, T3) Get<T1, T2, T3>(IProperty<T1> property1, IProperty<T2> property2, IProperty<T3> property3)
-    // {
-    //     return (property1.GetValue(Clock), property2.GetValue(Clock), property3.GetValue(Clock));
-    // }
-    //
-    // public (T1, T2, T3, T4) Get<T1, T2, T3, T4>(IProperty<T1> property1, IProperty<T2> property2,
-    //     IProperty<T3> property3, IProperty<T4> property4)
-    // {
-    //     return (property1.GetValue(Clock), property2.GetValue(Clock), property3.GetValue(Clock),
-    //         property4.GetValue(Clock));
-    // }
 
     private void Untracked(RenderNode? node)
     {
