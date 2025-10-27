@@ -161,9 +161,6 @@ public static class AvaloniaTypeConverter
             (o, rc) => o.ToResource(rc),
             r =>
             {
-                if (reactiveProperty.Value != null!)
-                    return;
-
                 string svgPath = r.GetCachedPath().ToSvgPathData();
                 reactiveProperty.Value = Avalonia.Media.Geometry.Parse(svgPath);
             });
@@ -180,9 +177,6 @@ public static class AvaloniaTypeConverter
             (o, rc) => o.ToResource(rc),
             r =>
             {
-                if (reactiveProperty.Value != null!)
-                    return;
-
                 using var context = new GeometryContext();
                 var original = r.GetOriginal();
                 original.ApplyTo(context, r);

@@ -54,7 +54,6 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        // TODO: テスト必要
         Value.Select(i => i.ToAvaGeometrySync(CurrentTime))
             .CombineWithPrevious()
             // Null-conditionalアクセスがグレーアウトしているが必要なはず...
