@@ -118,7 +118,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           name: beutl-win_x64${{ matrix.standalone == true && '-standalone' || '' }}-${{ needs.determine-version.outputs.semVer }}
           path: artifacts
@@ -163,7 +163,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           name: beutl-linux_x64-standalone-${{ needs.determine-version.outputs.semVer }}
           path: artifacts
@@ -361,7 +361,7 @@ jobs:
     needs: [ build-executable, build-windows-installer, build-debian-package, build-nuget, build-app-bundle ]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           path: artifacts
 
