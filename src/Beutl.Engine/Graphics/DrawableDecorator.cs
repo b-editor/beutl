@@ -21,13 +21,25 @@ public sealed partial class DrawableDecorator : Drawable
         {
             var r = (Resource)resource;
             Size availableSize = context.Size.ToSize(1);
+            var boundsMemory = context.UseMemory<Rect>();
+            var transformParams = (r.Transform, r.TransformOrigin, availableSize, boundsMemory);
 
             foreach (var child in r.Children)
             {
                 using (context.PushBlendMode(r.BlendMode))
-                // NOTE: TransformOriginはGroupのFilterEffect適用後のBoundsに基づいて計算される、通常のTransformとは異なるため注意
-                using (context.PushBoundaryTransform(r.Transform, r.TransformOrigin, availableSize, Media.AlignmentX.Left, Media.AlignmentY.Top))
-                using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))  // TODO: ここでのCalculateBoundsをPushTransformまで持っていきたい
+                using (context.PushNode(
+                           transformParams,
+                           b => new DrawableGroup.CustomTransformRenderNode(
+                               b.Transform, b.TransformOrigin, b.availableSize,
+                               Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory),
+                           (n, b) => n.Update(
+                               b.Transform, b.TransformOrigin, b.availableSize,
+                               Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
+                using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
+                using (context.PushNode(
+                           boundsMemory,
+                           b => new DrawableGroup.BoundsObserveNode(b),
+                           (n, b) => n.Update(b)))
                 {
                     context.DrawDrawable(child);
                 }

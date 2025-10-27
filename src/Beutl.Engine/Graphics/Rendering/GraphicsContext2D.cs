@@ -47,6 +47,7 @@ public sealed class GraphicsContext2D(
 
     private void AddAndPush(ContainerRenderNode node, ContainerRenderNode? old)
     {
+        old ??= Next<ContainerRenderNode>();
         if (old != null)
         {
             node.BringFrom(old);
@@ -83,6 +84,25 @@ public sealed class GraphicsContext2D(
     {
         _drawOperationindex = 0;
         _nodes.Clear();
+    }
+
+    public MemoryNode<T> UseMemory<T>(T defaultValue)
+    {
+        MemoryNode<T>? next = Next<MemoryNode<T>>();
+
+        if (next == null)
+        {
+            next =  new MemoryNode<T>(defaultValue);
+            Add(next);
+        }
+
+        ++_drawOperationindex;
+        return next;
+    }
+
+    public MemoryNode<T?> UseMemory<T>()
+    {
+        return UseMemory<T?>(default);
     }
 
     public void Clear()
@@ -281,6 +301,27 @@ public sealed class GraphicsContext2D(
         if (next == null || !node.Equals(next))
         {
             Add(node);
+        }
+
+        ++_drawOperationindex;
+    }
+
+    public void DrawNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode, Func<TNode, TParams, bool> updateNode)
+        where TNode : RenderNode
+    {
+        ArgumentNullException.ThrowIfNull(createNode);
+        ArgumentNullException.ThrowIfNull(updateNode);
+
+        TNode? next = Next<TNode>();
+
+        if (next == null)
+        {
+            TNode node = createNode(parameters);
+            Add(node);
+        }
+        else
+        {
+            _hasChanges = updateNode(next, parameters);
         }
 
         ++_drawOperationindex;
@@ -556,6 +597,28 @@ public sealed class GraphicsContext2D(
         else
         {
             _hasChanges = next.Update(matrix, transformOperator);
+            Push(next);
+        }
+
+        return new(this, _nodes.Count);
+    }
+
+    public PushedState PushNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode, Func<TNode, TParams, bool> updateNode)
+        where TNode : ContainerRenderNode
+    {
+        ArgumentNullException.ThrowIfNull(createNode);
+        ArgumentNullException.ThrowIfNull(updateNode);
+
+        TNode? next = Next<TNode>();
+
+        if (next == null)
+        {
+            TNode node = createNode(parameters);
+            AddAndPush(node, next);
+        }
+        else
+        {
+            _hasChanges = updateNode(next, parameters);
             Push(next);
         }
 
