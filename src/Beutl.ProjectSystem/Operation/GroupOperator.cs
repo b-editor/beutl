@@ -14,7 +14,6 @@ public sealed class GroupOperator : PublishOperator<DrawableGroup>
         AddProperty(Value.TransformOrigin, RelativePoint.Center);
         AddProperty(Value.FilterEffect, new FilterEffectGroup());
         AddProperty(Value.BlendMode, BlendMode.SrcOver);
-        AddProperty(Value.Concat);
     }
 
     public override void Evaluate(OperatorEvaluationContext context)
