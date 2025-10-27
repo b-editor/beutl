@@ -542,6 +542,37 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         sb.Append(innerIndent).AppendLine("}");
         sb.AppendLine();
 
+        sb.Append(innerIndent)
+            .AppendLine(
+                $"partial void PreDispose(bool disposing);");
+        sb.Append(innerIndent)
+            .AppendLine(
+                $"partial void PostDispose(bool disposing);");
+        sb.Append(innerIndent).AppendLine("protected override void Dispose(bool disposing)");
+        sb.Append(innerIndent).AppendLine("{");
+        sb.Append(innerIndent).AppendLine("    this.PreDispose(disposing);");
+        foreach (ObjectPropertyInfo property in info.ObjectProperties)
+        {
+            string fieldName = ToFieldName(property.Name);
+            sb.Append(innerIndent).AppendLine($"    {fieldName}?.Dispose();");
+        }
+
+        foreach (ListPropertyInfo property in info.ListProperties)
+        {
+            string fieldName = ToFieldName(property.Name);
+            sb.Append(innerIndent).AppendLine($"    if ({fieldName} != null)");
+            sb.Append(innerIndent).AppendLine("    {");
+            sb.Append(innerIndent).AppendLine($"        foreach (var item in {fieldName})");
+            sb.Append(innerIndent).AppendLine("        {");
+            sb.Append(innerIndent).AppendLine("            item?.Dispose();");
+            sb.Append(innerIndent).AppendLine("        }");
+            sb.Append(innerIndent).AppendLine("        ");
+            sb.Append(innerIndent).AppendLine("    }");
+        }
+        sb.Append(innerIndent).AppendLine("    this.PostDispose(disposing);");
+        sb.Append(innerIndent).AppendLine("    base.Dispose(disposing);");
+        sb.Append(innerIndent).AppendLine("}");
+
         sb.Append(indent).AppendLine("}");
     }
 

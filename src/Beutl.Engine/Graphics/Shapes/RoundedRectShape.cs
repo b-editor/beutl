@@ -43,7 +43,9 @@ public sealed partial class RoundedRectShape : Shape
             {
                 if (_geometryResource.GetOriginal() != _geometry)
                 {
+                    var oldGeometry = _geometryResource;
                     _geometryResource = _geometry.ToResource(context);
+                    oldGeometry.Dispose();
                     Version++;
                 }
                 else
@@ -57,6 +59,11 @@ public sealed partial class RoundedRectShape : Shape
                     }
                 }
             }
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            _geometryResource?.Dispose();
         }
 
         public override Geometry.Resource? GetGeometry() => _geometryResource;

@@ -27,7 +27,9 @@ public sealed partial class EllipseShape : Shape
             {
                 if (_geometryResource.GetOriginal() != _geometry)
                 {
+                    var oldGeometry = _geometryResource;
                     _geometryResource = _geometry.ToResource(context);
+                    oldGeometry.Dispose();
                     Version++;
                 }
                 else
@@ -41,6 +43,11 @@ public sealed partial class EllipseShape : Shape
                     }
                 }
             }
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            _geometryResource?.Dispose();
         }
 
         public override Geometry.Resource? GetGeometry() => _geometryResource;

@@ -246,18 +246,26 @@ public class EngineObject : Hierarchical, INotifyEdited
         return resource;
     }
 
-    public class Resource
+    public class Resource : IDisposable
     {
+        ~Resource()
+        {
+            Dispose(false);
+        }
+
         private EngineObject _original = null!;
 
         public int Version { get; protected set; }
 
         public bool IsEnabled { get; private set; }
 
+        public bool IsDisposed { get; private set; }
+
         public EngineObject GetOriginal() => _original;
 
         public virtual void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
         {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             _original = obj;
             if (IsEnabled != obj.IsEnabled)
             {
@@ -299,10 +307,12 @@ public class EngineObject : Hierarchical, INotifyEdited
                     var item = field[i];
                     if (item.GetOriginal() != child)
                     {
+                        var oldItem = item;
                         item = (TResource)child.ToResource(context);
                         field[i] = item;
                         Version++;
                         updateOnly = true;
+                        oldItem.Dispose();
                     }
                     else
                     {
@@ -336,7 +346,9 @@ public class EngineObject : Hierarchical, INotifyEdited
 
             while (field.Count > prop.Count)
             {
+                var oldItem = field[^1];
                 field.RemoveAt(field.Count - 1);
+                oldItem.Dispose();
             }
         }
 
@@ -371,9 +383,11 @@ public class EngineObject : Hierarchical, INotifyEdited
                 {
                     if (field.GetOriginal() != value)
                     {
+                        var oldField = field;
                         field = (TResource)value.ToResource(context);
                         Version++;
                         updateOnly = true;
+                        oldField.Dispose();
                     }
                     else
                     {
@@ -388,6 +402,19 @@ public class EngineObject : Hierarchical, INotifyEdited
                     }
                 }
             }
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+        }
+
+        public void Dispose()
+        {
+            if (IsDisposed) return;
+
+            Dispose(true);
+            IsDisposed = true;
+            GC.SuppressFinalize(this);
         }
     }
 

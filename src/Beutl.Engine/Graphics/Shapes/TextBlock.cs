@@ -247,6 +247,7 @@ public partial class TextBlock : Drawable
 
         public TextElements GetTextElements()
         {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             if (_elements == null)
             {
                 if (string.IsNullOrEmpty(Text))
@@ -271,6 +272,11 @@ public partial class TextBlock : Drawable
             }
 
             return _elements;
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            _pen?.Dispose();
         }
 
         partial void PreUpdate(TextBlock obj, RenderContext context)

@@ -32,6 +32,7 @@ public abstract partial class Geometry : EngineObject
 
         internal SKPath GetCachedPath()
         {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             if (_capturedVersion != Version || _cachedPath == null)
             {
                 _capturedVersion = Version;
@@ -54,6 +55,7 @@ public abstract partial class Geometry : EngineObject
 
         internal SKPath? GetCachedStrokePath(Pen.Resource pen)
         {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             if (_cachedPen == null || _cachedPen?.Resource.GetOriginal() != pen.GetOriginal()
                 || _cachedPen?.Version != pen.Version)
             {
@@ -67,6 +69,7 @@ public abstract partial class Geometry : EngineObject
 
         public Rect GetRenderBounds(Pen.Resource? pen)
         {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             if (pen == null)
             {
                 return Bounds;
@@ -80,6 +83,7 @@ public abstract partial class Geometry : EngineObject
 
         public bool FillContains(Point point)
         {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             return PathContainsCore(GetCachedPath(), point);
         }
 
@@ -90,11 +94,21 @@ public abstract partial class Geometry : EngineObject
 
         public bool StrokeContains(Pen.Resource? pen, Point point)
         {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             if (pen == null) return false;
 
-            SKPath strokePath = GetCachedStrokePath(pen);
+            SKPath? strokePath = GetCachedStrokePath(pen);
 
             return PathContainsCore(strokePath, point);
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            _cachedPath?.Dispose();
+
+            _cachedStrokePath?.Dispose();
+
+            _cachedPen = null;
         }
     }
 }
