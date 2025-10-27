@@ -97,7 +97,7 @@ jobs:
             --version ${{ needs.determine-version.outputs.nugetVer }}
 
       - name: Save
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: beutl-${{ matrix.rid }}${{ matrix.standalone == true && '-standalone' || '' }}-${{ needs.determine-version.outputs.semVer }}
           path: ./artifacts/*.zip
@@ -145,7 +145,7 @@ jobs:
             --assembly-version ${{ needs.determine-version.outputs.asmVer }}
 
       - name: Save installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup
           path: ./artifacts/beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup.exe
@@ -215,7 +215,7 @@ jobs:
           fakeroot dpkg-deb --build ubuntu22.04_amd64 .
 
       - name: Save package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ubuntu22.04_amd64
           path: ./packages/beutl_${{ needs.determine-version.outputs.simpleVer }}-${{ needs.determine-version.outputs.revision }}ubuntu22.04_amd64.deb
@@ -321,7 +321,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "output/AppBundle/Beutl.app" "artifacts/Beutl.${{ matrix.rid }}.app.zip"
 
       - name: Save
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Beutl_${{ matrix.rid }}
           path: artifacts/Beutl.${{ matrix.rid }}.app.zip
@@ -352,7 +352,7 @@ jobs:
             --informational-version ${{ needs.determine-version.outputs.infoVer }}
 
       - name: Save
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Packages
           path: ./artifacts/*.nupkg

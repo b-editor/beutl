@@ -59,7 +59,7 @@ jobs:
         run: reportgenerator -reports:`find tests/Beutl.UnitTests/TestResults/*/coverage.cobertura.xml | head -n 1 ` -targetdir:coveragereport -reporttypes:Html
 
       - name: Save
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Coverage
           path: coveragereport
