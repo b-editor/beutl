@@ -8,8 +8,7 @@ public class DrawableRenderNode(Drawable.Resource drawable) : ContainerRenderNod
 
     public bool Update(Drawable.Resource drawable)
     {
-        if (Drawable?.Resource.GetOriginal() != drawable?.GetOriginal()
-            || Drawable?.Version != drawable?.Version)
+        if (!drawable.Compare(Drawable))
         {
             Drawable = drawable.Capture();
             HasChanges = true;

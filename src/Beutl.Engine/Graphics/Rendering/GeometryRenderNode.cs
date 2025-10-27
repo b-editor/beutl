@@ -11,8 +11,7 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
     public bool Update(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
     {
         bool changed = Update(fill, pen);
-        if (Geometry?.Resource.GetOriginal() != geometry?.GetOriginal()
-            || Geometry?.Version != geometry?.Version)
+        if (!geometry.Compare(Geometry))
         {
             Geometry = geometry.Capture();
             changed = true;

@@ -30,8 +30,7 @@ public sealed class BoundaryTransformRenderNode(
         AlignmentX alignmentX, AlignmentY alignmentY, bool splitted)
     {
         bool changed = false;
-        if (Transform?.Resource.GetOriginal() != transform?.GetOriginal()
-            || Transform?.Version != transform?.Version)
+        if (!transform.Compare(Transform))
         {
             Transform = transform.Capture();
             changed = true;

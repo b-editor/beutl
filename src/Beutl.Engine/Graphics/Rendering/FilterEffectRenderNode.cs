@@ -10,8 +10,7 @@ public sealed class FilterEffectRenderNode(FilterEffect.Resource filterEffect) :
 
     public bool Update(FilterEffect.Resource? fe)
     {
-        if (FilterEffect?.Resource.GetOriginal() != fe?.GetOriginal()
-            || FilterEffect?.Version != fe?.Version)
+        if (!fe.Compare(FilterEffect))
         {
             FilterEffect = fe.Capture();
             HasChanges = true;

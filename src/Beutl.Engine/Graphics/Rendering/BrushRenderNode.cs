@@ -20,15 +20,13 @@ public abstract class BrushRenderNode : RenderNode
     protected bool Update(Brush.Resource? fill, Pen.Resource? pen)
     {
         bool changed = false;
-        if (Fill?.Resource.GetOriginal() != fill?.GetOriginal()
-            || Fill?.Version != fill?.Version)
+        if (!fill.Compare(Fill))
         {
             Fill = fill.Capture();
             changed = true;
         }
 
-        if (Pen?.Resource.GetOriginal() != pen?.GetOriginal()
-            || Pen?.Version != pen?.Version)
+        if (!pen.Compare(Pen))
         {
             Pen = pen.Capture();
             changed = true;

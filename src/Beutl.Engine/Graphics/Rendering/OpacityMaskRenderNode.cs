@@ -14,8 +14,7 @@ public sealed class OpacityMaskRenderNode(Brush.Resource mask, Rect maskBounds, 
     public bool Update(Brush.Resource? mask, Rect maskBounds, bool invert)
     {
         bool changed = false;
-        if (Mask?.Resource.GetOriginal() != mask?.GetOriginal()
-            || Mask?.Version != mask?.Version)
+        if (!mask.Compare(Mask))
         {
             Mask = mask.Capture();
             changed = true;

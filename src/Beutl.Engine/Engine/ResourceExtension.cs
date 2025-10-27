@@ -10,5 +10,12 @@ public static class ResourceExtension
                 return null;
             return (resource, resource.Version);
         }
+
+        public bool Compare((T Resource, int Version)? captured)
+        {
+            return ReferenceEquals(captured?.Resource, resource)
+                   && ReferenceEquals(captured?.Resource.GetOriginal(), resource?.GetOriginal())
+                   && captured?.Version == resource?.Version;
+        }
     }
 }

@@ -12,8 +12,7 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
     public bool Update(Geometry.Resource clip, ClipOperation operation)
     {
         bool changed = false;
-        if (Clip?.Resource.GetOriginal() != clip?.GetOriginal()
-            || Clip?.Version != clip?.Version)
+        if (!clip.Compare(Clip))
         {
             Clip = clip.Capture();
             changed = true;
