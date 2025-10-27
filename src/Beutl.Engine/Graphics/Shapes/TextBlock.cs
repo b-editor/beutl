@@ -102,7 +102,7 @@ public partial class TextBlock : Drawable
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
-        var r= (Resource)resource;
+        var r = (Resource)resource;
 
         if (r.SplitByCharacters)
         {
