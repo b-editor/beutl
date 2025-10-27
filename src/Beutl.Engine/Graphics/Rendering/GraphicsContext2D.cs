@@ -1,6 +1,4 @@
-﻿using Beutl.Animation;
-using Beutl.Engine;
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -619,56 +617,6 @@ public sealed class GraphicsContext2D(
         else
         {
             _hasChanges = updateNode(next, parameters);
-            Push(next);
-        }
-
-        return new(this, _nodes.Count);
-    }
-
-    public PushedState PushBoundaryTransform(Transform.Resource? transform,
-        RelativePoint transformOrigin,
-        Size screenSize,
-        AlignmentX alignmentX,
-        AlignmentY alignmentY)
-    {
-        ArgumentNullException.ThrowIfNull(transform);
-        ObjectDisposedException.ThrowIf(transform.IsDisposed, transform);
-
-        BoundaryTransformRenderNode? next = Next<BoundaryTransformRenderNode>();
-
-        if (next == null)
-        {
-            AddAndPush(new BoundaryTransformRenderNode(
-                transform, transformOrigin, screenSize, alignmentX, alignmentY, false), next);
-        }
-        else
-        {
-            _hasChanges = next.Update(transform, transformOrigin, screenSize, alignmentX, alignmentY, true);
-            Push(next);
-        }
-
-        return new(this, _nodes.Count);
-    }
-
-    public PushedState PushSplittedTransform(Transform.Resource? transform,
-        RelativePoint transformOrigin,
-        Size screenSize,
-        AlignmentX alignmentX,
-        AlignmentY alignmentY)
-    {
-        ArgumentNullException.ThrowIfNull(transform);
-        ObjectDisposedException.ThrowIf(transform.IsDisposed, transform);
-
-        BoundaryTransformRenderNode? next = Next<BoundaryTransformRenderNode>();
-
-        if (next == null)
-        {
-            AddAndPush(new BoundaryTransformRenderNode(
-                transform, transformOrigin, screenSize, alignmentX, alignmentY, true), next);
-        }
-        else
-        {
-            _hasChanges = next.Update(transform, transformOrigin, screenSize, alignmentX, alignmentY, true);
             Push(next);
         }
 
