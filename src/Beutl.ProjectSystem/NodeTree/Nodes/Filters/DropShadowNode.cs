@@ -4,7 +4,7 @@ using Beutl.Media;
 
 namespace Beutl.NodeTree.Nodes.Effects;
 
-public class DropShadowNode : FilterEffectNode
+public class DropShadowNode : FilterEffectNode<DropShadow>
 {
     private readonly InputSocket<Point> _posSocket;
     private readonly InputSocket<Size> _sigmaSocket;
@@ -13,26 +13,18 @@ public class DropShadowNode : FilterEffectNode
 
     public DropShadowNode()
     {
-        _posSocket = AsInput(DropShadow.PositionProperty).AcceptNumber();
-        _sigmaSocket = AsInput(DropShadow.SigmaProperty).AcceptNumber();
-        _colorSocket = AsInput(DropShadow.ColorProperty);
-        _shadowOnlySocket = AsInput(DropShadow.ShadowOnlyProperty);
+        _posSocket = AsInput<Point>("Position").AcceptNumber();
+        _sigmaSocket = AsInput<Size>("Sigma").AcceptNumber();
+        _colorSocket = AsInput<Color>("Color");
+        _shadowOnlySocket = AsInput<bool>("ShadowOnly");
     }
 
-    public override void InitializeForContext(NodeEvaluationContext context)
+    protected override void EvaluateCore()
     {
-        base.InitializeForContext(context);
-        context.State = new FilterEffectNodeEvaluationState(new DropShadow());
-    }
-
-    protected override void EvaluateCore(FilterEffect? state)
-    {
-        if (state is DropShadow model)
-        {
-            model.Position = _posSocket.Value;
-            model.Sigma = _sigmaSocket.Value;
-            model.Color = _colorSocket.Value;
-            model.ShadowOnly = _shadowOnlySocket.Value;
-        }
+        Object.Position.CurrentValue = _posSocket.Value;
+        Object.Sigma.CurrentValue = _sigmaSocket.Value;
+        Object.Color.CurrentValue = _colorSocket.Value;
+        Object.ShadowOnly.CurrentValue = _shadowOnlySocket.Value;
+        base.EvaluateCore();
     }
 }
