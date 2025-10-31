@@ -2,14 +2,6 @@
 
 public class RandomSingleNode : Node
 {
-    private static readonly CoreProperty<float> MaximumProperty
-        = ConfigureProperty<float, RandomSingleNode>(o => o.Maximum)
-            .DefaultValue(1)
-            .Register();
-    private static readonly CoreProperty<float> MinimumProperty
-        = ConfigureProperty<float, RandomSingleNode>(o => o.Minimum)
-            .DefaultValue(0)
-            .Register();
     private readonly OutputSocket<float> _valueSocket;
     private readonly InputSocket<float> _maximumSocket;
     private readonly InputSocket<float> _minimumSocket;
@@ -17,13 +9,9 @@ public class RandomSingleNode : Node
     public RandomSingleNode()
     {
         _valueSocket = AsOutput<float>("Value");
-        _maximumSocket = AsInput(MaximumProperty).AcceptNumber();
-        _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
+        _maximumSocket = AsInput<float>("Maximum").AcceptNumber();
+        _minimumSocket = AsInput<float>("Minimum").AcceptNumber();
     }
-
-    private float Maximum { get; set; } = 1;
-
-    private float Minimum { get; set; }
 
     public override void Evaluate(NodeEvaluationContext context)
     {
@@ -37,14 +25,6 @@ public class RandomSingleNode : Node
 
 public class RandomDoubleNode : Node
 {
-    private static readonly CoreProperty<double> MaximumProperty
-        = ConfigureProperty<double, RandomDoubleNode>(o => o.Maximum)
-            .DefaultValue(1)
-            .Register();
-    private static readonly CoreProperty<double> MinimumProperty
-        = ConfigureProperty<double, RandomDoubleNode>(o => o.Minimum)
-            .DefaultValue(0)
-            .Register();
     private readonly OutputSocket<double> _valueSocket;
     private readonly InputSocket<double> _maximumSocket;
     private readonly InputSocket<double> _minimumSocket;
@@ -52,13 +32,9 @@ public class RandomDoubleNode : Node
     public RandomDoubleNode()
     {
         _valueSocket = AsOutput<double>("Value");
-        _maximumSocket = AsInput(MaximumProperty).AcceptNumber();
-        _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
+        _maximumSocket = AsInput<double>("Maximum").AcceptNumber();
+        _minimumSocket = AsInput<double>("Minimum").AcceptNumber();
     }
-
-    private double Maximum { get; set; } = 1;
-
-    private double Minimum { get; set; }
 
     public override void Evaluate(NodeEvaluationContext context)
     {
@@ -72,14 +48,6 @@ public class RandomDoubleNode : Node
 
 public class RandomInt32Node : Node
 {
-    private static readonly CoreProperty<int> MaximumProperty
-        = ConfigureProperty<int, RandomInt32Node>(o => o.Maximum)
-            .DefaultValue(100)
-            .Register();
-    private static readonly CoreProperty<int> MinimumProperty
-        = ConfigureProperty<int, RandomInt32Node>(o => o.Minimum)
-            .DefaultValue(0)
-            .Register();
     private readonly OutputSocket<int> _valueSocket;
     private readonly InputSocket<int> _maximumSocket;
     private readonly InputSocket<int> _minimumSocket;
@@ -87,32 +55,27 @@ public class RandomInt32Node : Node
     public RandomInt32Node()
     {
         _valueSocket = AsOutput<int>("Value");
-        _maximumSocket = AsInput(MaximumProperty).AcceptNumber();
-        _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
+        _maximumSocket = AsInput<int>("Maximum").AcceptNumber();
+        _minimumSocket = AsInput<int>("Minimum").AcceptNumber();
     }
-
-    private int Maximum { get; set; } = 100;
-
-    private int Minimum { get; set; }
 
     public override void Evaluate(NodeEvaluationContext context)
     {
         int max = _maximumSocket.Value;
         int min = _minimumSocket.Value;
-        _valueSocket.Value = Random.Shared.Next(min, max);
+        if (max <= min)
+        {
+            _valueSocket.Value = Random.Shared.Next(max, min);
+        }
+        else
+        {
+            _valueSocket.Value = Random.Shared.Next(min, max);
+        }
     }
 }
 
 public class RandomInt64Node : Node
 {
-    private static readonly CoreProperty<long> MaximumProperty
-        = ConfigureProperty<long, RandomInt64Node>(o => o.Maximum)
-            .DefaultValue(100)
-            .Register();
-    private static readonly CoreProperty<long> MinimumProperty
-        = ConfigureProperty<long, RandomInt64Node>(o => o.Minimum)
-            .DefaultValue(0)
-            .Register();
     private readonly OutputSocket<long> _valueSocket;
     private readonly InputSocket<long> _maximumSocket;
     private readonly InputSocket<long> _minimumSocket;
@@ -120,18 +83,19 @@ public class RandomInt64Node : Node
     public RandomInt64Node()
     {
         _valueSocket = AsOutput<long>("Value");
-        _maximumSocket = AsInput(MaximumProperty).AcceptNumber();
-        _minimumSocket = AsInput(MinimumProperty).AcceptNumber();
+        _maximumSocket = AsInput<long>("Maximum").AcceptNumber();
+        _minimumSocket = AsInput<long>("Minimum").AcceptNumber();
     }
-
-    private long Maximum { get; set; } = 100;
-
-    private long Minimum { get; set; }
 
     public override void Evaluate(NodeEvaluationContext context)
     {
         long max = _maximumSocket.Value;
         long min = _minimumSocket.Value;
+        if (max <= min)
+        {
+            _valueSocket.Value = Random.Shared.NextInt64(max, min);
+            return;
+        }
         _valueSocket.Value = Random.Shared.NextInt64(min, max);
     }
 }

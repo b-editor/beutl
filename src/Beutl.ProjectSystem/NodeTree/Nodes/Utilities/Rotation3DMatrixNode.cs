@@ -18,13 +18,13 @@ public class Rotation3DMatrixNode : MatrixNode
 
     public Rotation3DMatrixNode()
     {
-        _rotationXSocket = AsInput(Rotation3DTransform.RotationXProperty).AcceptNumber();
-        _rotationYSocket = AsInput(Rotation3DTransform.RotationYProperty).AcceptNumber();
-        _rotationZSocket = AsInput(Rotation3DTransform.RotationZProperty).AcceptNumber();
-        _centerXSocket = AsInput(Rotation3DTransform.CenterXProperty).AcceptNumber();
-        _centerYSocket = AsInput(Rotation3DTransform.CenterYProperty).AcceptNumber();
-        _centerZSocket = AsInput(Rotation3DTransform.CenterZProperty).AcceptNumber();
-        _depthSocket = AsInput(Rotation3DTransform.DepthProperty).AcceptNumber();
+        _rotationXSocket = AsInput<float>("RotationX").AcceptNumber();
+        _rotationYSocket = AsInput<float>("RotationY").AcceptNumber();
+        _rotationZSocket = AsInput<float>("RotationZ").AcceptNumber();
+        _centerXSocket = AsInput<float>("CenterX").AcceptNumber();
+        _centerYSocket = AsInput<float>("CenterY").AcceptNumber();
+        _centerZSocket = AsInput<float>("CenterZ").AcceptNumber();
+        _depthSocket = AsInput<float>("Depth").AcceptNumber();
     }
 
     public override Matrix GetMatrix(NodeEvaluationContext context)
