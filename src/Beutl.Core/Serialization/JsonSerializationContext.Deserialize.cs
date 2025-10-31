@@ -137,4 +137,25 @@ public partial class JsonSerializationContext
             return default;
         }
     }
+
+    public object? GetValue(string name, Type type)
+    {
+        // TにはOptional型が入る場合があるので、Jsonプロパティがnullの場合と存在しない場合で分ける
+        if (_json.TryGetPropertyValue(name, out JsonNode? node))
+        {
+            if (node == null)
+            {
+                return null;
+            }
+            else
+            {
+                return Deserialize(node, type, name, ErrorNotifier, this);
+            }
+        }
+        else
+        {
+            // 存在しない場合
+            return default;
+        }
+    }
 }
