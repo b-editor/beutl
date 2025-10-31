@@ -36,7 +36,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             _property = property;
             AssociatedProperty = property.Property;
 
-            property.Invalidated += OnSetterInvalidated;
+            property.Edited += OnSetterInvalidated;
         }
 
         void ILayerInputSocket.SetProperty(IPropertyAdapter property)

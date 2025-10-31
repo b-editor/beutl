@@ -46,15 +46,15 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
 
         protected override void Deinitialize()
         {
-            adapter.Invalidated -= Setter_Invalidated;
+            adapter.Edited -= Setter_Edited;
         }
 
         protected override void Initialize()
         {
-            adapter.Invalidated += Setter_Invalidated;
+            adapter.Edited += Setter_Edited;
         }
 
-        private void Setter_Invalidated(object? sender, EventArgs e)
+        private void Setter_Edited(object? sender, EventArgs e)
         {
             if (_prevAnimation != adapter.Animation)
             {
@@ -75,17 +75,17 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
             {
                 if (_animation != null)
                 {
-                    _animation.Invalidated -= Animation_Invalidated;
+                    _animation.Edited -= Animation_Edited;
                 }
 
                 _animation = value;
 
                 if (value != null)
                 {
-                    value.Invalidated += Animation_Invalidated;
+                    value.Edited += Animation_Edited;
                 }
 
-                Invalidated?.Invoke(this, EventArgs.Empty);
+                Edited?.Invoke(this, EventArgs.Empty);
             }
         }
     }
@@ -116,18 +116,16 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
 
     public bool IsReadOnly => false;
 
-    CoreProperty IPropertyAdapter.GetCoreProperty() => Property;
+    public event EventHandler? Edited;
 
-    public event EventHandler? Invalidated;
-
-    private void Animation_Invalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void Animation_Edited(object? sender, EventArgs e)
     {
-        Invalidated?.Invoke(this, EventArgs.Empty);
+        Edited?.Invoke(this, EventArgs.Empty);
     }
 
-    private void Value_Invalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void Value_Edited(object? sender, EventArgs e)
     {
-        Invalidated?.Invoke(this, EventArgs.Empty);
+        Edited?.Invoke(this, EventArgs.Empty);
     }
 
     public IObservable<T?> GetObservable()
@@ -149,17 +147,17 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
 
         if (!EqualityComparer<T>.Default.Equals(_rxProperty.Value, value))
         {
-            if (_rxProperty.Value is IAffectsRender oldValue)
+            if (_rxProperty.Value is INotifyEdited oldValue)
             {
-                oldValue.Invalidated -= Value_Invalidated;
+                oldValue.Edited -= Value_Edited;
             }
 
             _rxProperty.Value = value;
 
-            Invalidated?.Invoke(this, EventArgs.Empty);
-            if (value is IAffectsRender newValue)
+            Edited?.Invoke(this, EventArgs.Empty);
+            if (value is INotifyEdited newValue)
             {
-                newValue.Invalidated += Value_Invalidated;
+                newValue.Edited += Value_Edited;
             }
         }
     }

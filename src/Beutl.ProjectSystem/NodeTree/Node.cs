@@ -38,7 +38,7 @@ public abstract class Node : Hierarchical
     private void OnItemDetached(INodeItem obj)
     {
         obj.NodeTreeInvalidated -= OnItemNodeTreeInvalidated;
-        obj.Invalidated -= OnItemInvalidated;
+        obj.Edited -= OnItemInvalidated;
         if (_nodeTree != null)
         {
             obj.NotifyDetachedFromNodeTree(_nodeTree);
@@ -48,14 +48,14 @@ public abstract class Node : Hierarchical
     private void OnItemAttached(INodeItem obj)
     {
         obj.NodeTreeInvalidated += OnItemNodeTreeInvalidated;
-        obj.Invalidated += OnItemInvalidated;
+        obj.Edited += OnItemInvalidated;
         if (_nodeTree != null)
         {
             obj.NotifyAttachedToNodeTree(_nodeTree);
         }
     }
 
-    private void OnItemInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnItemInvalidated(object? sender, EventArgs e)
     {
         RaiseInvalidated(e);
     }
@@ -90,16 +90,16 @@ public abstract class Node : Hierarchical
 
     public event EventHandler? NodeTreeInvalidated;
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     protected void InvalidateNodeTree()
     {
         NodeTreeInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
+    protected void RaiseInvalidated(EventArgs args)
     {
-        Invalidated?.Invoke(this, args);
+        Edited?.Invoke(this, args);
     }
 
     public virtual void InitializeForContext(NodeEvaluationContext context)

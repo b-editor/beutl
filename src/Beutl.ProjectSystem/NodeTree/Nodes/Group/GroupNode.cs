@@ -24,7 +24,7 @@ public class GroupNode : Node
             Name = "Group"
         };
         HierarchicalChildren.Add(Group);
-        Group.Invalidated += OnGroupInvalidated;
+        Group.Edited += OnGroupEdited;
 
         this.GetObservable(NameProperty).Subscribe(v => Group.Name = string.IsNullOrWhiteSpace(v) ? "Group" : v);
         Group.GetObservable(NameProperty).Subscribe(v => Name = v == "Group" ? "" : v);
@@ -50,7 +50,7 @@ public class GroupNode : Node
         _inputSocketDisposable.Clear();
     }
 
-    private void OnGroupInvalidated(object? sender, Media.RenderInvalidatedEventArgs e)
+    private void OnGroupEdited(object? sender, EventArgs e)
     {
         RaiseInvalidated(e);
     }

@@ -45,20 +45,20 @@ public class NodeGroup : NodeTreeModel
         set => SetAndRaise(OutputProperty, ref _output, value);
     }
 
-    private void OnNodeTreeInvalidated(object? sender, EventArgs e)
+    private void OnNodeTreeEdited(object? sender, EventArgs e)
     {
-        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
+        RaiseInvalidated(e);
     }
 
-    private void OnNodeInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnNodeEdited(object? sender, EventArgs e)
     {
         RaiseInvalidated(e);
     }
 
     private void OnNodeAttached(Node obj)
     {
-        obj.NodeTreeInvalidated += OnNodeTreeInvalidated;
-        obj.Invalidated += OnNodeInvalidated;
+        obj.NodeTreeInvalidated += OnNodeTreeEdited;
+        obj.Edited += OnNodeEdited;
         if (obj is GroupInput groupInput)
         {
             Input = groupInput;
@@ -71,8 +71,8 @@ public class NodeGroup : NodeTreeModel
 
     private void OnNodeDetached(Node obj)
     {
-        obj.NodeTreeInvalidated -= OnNodeTreeInvalidated;
-        obj.Invalidated -= OnNodeInvalidated;
+        obj.NodeTreeInvalidated -= OnNodeTreeEdited;
+        obj.Edited -= OnNodeEdited;
         if (obj == Input)
         {
             Input = null;
@@ -102,7 +102,7 @@ public class NodeGroup : NodeTreeModel
         }
     }
 
-    public object InitializeForState(IRenderer renderer, IClock clock)
+    public object InitializeForState(IRenderer renderer)
     {
         var evalContexts = new List<NodeEvaluationContext[]>();
 
@@ -115,7 +115,6 @@ public class NodeGroup : NodeTreeModel
             evalContexts.Add(array);
             foreach (NodeEvaluationContext item in array)
             {
-                item.Clock = clock;
                 item.Renderer = renderer;
                 item.List = array;
                 item.Node.InitializeForContext(item);
