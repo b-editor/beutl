@@ -18,7 +18,7 @@ public abstract class Transform : EngineObject
 
     public new sealed class Resource : EngineObject.Resource
     {
-        public Matrix Matrix { get; private set; } = Matrix.Identity;
+        public Matrix Matrix { get; set; } = Matrix.Identity;
 
         public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
         {

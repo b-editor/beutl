@@ -255,9 +255,9 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         private EngineObject _original = null!;
 
-        public int Version { get; protected set; }
+        public int Version { get; set; }
 
-        public bool IsEnabled { get; private set; }
+        public bool IsEnabled { get; set; }
 
         public bool IsDisposed { get; private set; }
 
