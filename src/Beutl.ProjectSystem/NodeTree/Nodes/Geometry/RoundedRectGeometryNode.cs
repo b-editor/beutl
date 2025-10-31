@@ -1,41 +1,31 @@
-﻿using Beutl.Media;
+using Beutl.Media;
 
 namespace Beutl.NodeTree.Nodes.Geometry;
 
-public sealed class RoundedRectGeometryNode : Node
+public sealed class RoundedRectGeometryNode : GeometryNode<RoundedRectGeometry, RoundedRectGeometry.Resource>
 {
-    private readonly OutputSocket<RoundedRectGeometry> _outputSocket;
-    private readonly InputSocket<float> _widthSocket;
-    private readonly InputSocket<float> _heightSocket;
-    private readonly InputSocket<CornerRadius> _radiusSocket;
-
     public RoundedRectGeometryNode()
     {
-        _outputSocket = AsOutput<RoundedRectGeometry>("Geometry");
-
-        _widthSocket = AsInput<float, RoundedRectGeometry>(RoundedRectGeometry.WidthProperty, value: 100).AcceptNumber();
-        _heightSocket = AsInput<float, RoundedRectGeometry>(RoundedRectGeometry.HeightProperty, value: 100).AcceptNumber();
-        _radiusSocket = AsInput<CornerRadius, RoundedRectGeometry>(RoundedRectGeometry.CornerRadiusProperty, value: new(25));
+        WidthSocket = AsInput<float>("Width").AcceptNumber();
+        WidthSocket.Value = 100;
+        HeightSocket = AsInput<float>("Height").AcceptNumber();
+        HeightSocket.Value = 100;
+        RadiusSocket = AsInput<CornerRadius>("Radius");
+        RadiusSocket.Value = new CornerRadius(25);
     }
 
-    public override void InitializeForContext(NodeEvaluationContext context)
-    {
-        base.InitializeForContext(context);
-        context.State = new RoundedRectGeometry();
-    }
+    public InputSocket<float> WidthSocket { get; }
 
-    public override void UninitializeForContext(NodeEvaluationContext context)
-    {
-        base.UninitializeForContext(context);
-        context.State = null;
-    }
+    public InputSocket<float> HeightSocket { get; }
+
+    public InputSocket<CornerRadius> RadiusSocket { get; }
 
     public override void Evaluate(NodeEvaluationContext context)
     {
-        RoundedRectGeometry rectangle = context.GetOrSetState<RoundedRectGeometry>();
-        rectangle.Width = _widthSocket.Value;
-        rectangle.Height = _heightSocket.Value;
-        rectangle.CornerRadius = _radiusSocket.Value;
-        _outputSocket.Value = rectangle;
+        Object.Width.CurrentValue = WidthSocket.Value;
+        Object.Height.CurrentValue = HeightSocket.Value;
+        Object.CornerRadius.CurrentValue = RadiusSocket.Value;
+
+        base.Evaluate(context);
     }
 }
