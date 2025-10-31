@@ -1,62 +1,81 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Engine;
+using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 
 namespace Beutl.NodeTree.Nodes;
 
-public abstract class OutputNode : Node
+public class OutputNode : Node
 {
-    private Drawable? _prevDrawable;
+    private readonly RenderNodeDrawable _drawable = new();
 
     public OutputNode()
     {
-        InputSocket = AsInput<Drawable>("Drawable");
-
-        InputSocket.Disconnected += OnInputSocketDisconnected;
+        InputSocket = AsInput<RenderNode>("Drawable");
     }
 
-    protected InputSocket<Drawable> InputSocket { get; }
+    protected InputSocket<RenderNode> InputSocket { get; }
 
     public override void Evaluate(NodeEvaluationContext context)
     {
-        Drawable? value = InputSocket.Value;
-        if (value != _prevDrawable)
-        {
-            if (_prevDrawable != null)
-            {
-                Detach(_prevDrawable);
-            }
-            if (value != null)
-            {
-                Attach(value);
-            }
-
-            _prevDrawable = value;
-        }
-
-        EvaluateCore(context);
+        RenderNode? input = InputSocket.Value;
+        _drawable.Node = input;
+        context.AddRenderable(_drawable);
     }
 
-    protected abstract void EvaluateCore(NodeEvaluationContext context);
-
-    protected abstract void Attach(Drawable drawable);
-
-    protected abstract void Detach(Drawable drawable);
-
-    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
+    [SuppressResourceClassGeneration]
+    private sealed class RenderNodeDrawable : Drawable
     {
-        base.OnDetachedFromHierarchy(args);
-        if (_prevDrawable != null)
+        public RenderNode? Node { get; set; }
+
+        public override Resource ToResource(RenderContext context)
         {
-            Detach(_prevDrawable);
-            _prevDrawable = null;
+            bool updateOnly = false;
+            var resource = new _Resource();
+            resource.Update(this, context, ref updateOnly);
+            return resource;
         }
-    }
 
-    private void OnInputSocketDisconnected(object? sender, SocketConnectionChangedEventArgs e)
-    {
-        if (_prevDrawable != null)
+        protected override Size MeasureCore(Size availableSize, Resource resource)
         {
-            Detach(_prevDrawable);
-            _prevDrawable = null;
+            return Size.Empty;
+        }
+
+        protected override void OnDraw(GraphicsContext2D context, Resource resource)
+        {
+        }
+
+        public override void Render(GraphicsContext2D context, Resource resource)
+        {
+            var r = resource as _Resource;
+            if (r?.Node != null)
+            {
+                context.DrawNode(r.Node, n => n, (n, _) => n.HasChanges);
+            }
+        }
+
+        public sealed class _Resource : Resource
+        {
+            public RenderNode? Node { get; set; }
+
+            public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+            {
+                base.Update(obj, context, ref updateOnly);
+                if (obj is RenderNodeDrawable renderNode)
+                {
+                    if (Node != renderNode.Node)
+                    {
+                        Node = renderNode.Node;
+                        Version++;
+                        updateOnly = true;
+                    }
+
+                    if (Node?.HasChanges == true)
+                    {
+                        Version++;
+                        updateOnly = true;
+                    }
+                }
+            }
         }
     }
 }
