@@ -2,9 +2,6 @@
 
 public class SwitchNode : Node
 {
-    private static readonly CoreProperty<bool> SwitchProperty = ConfigureProperty<bool, SwitchNode>(o => o.Switch)
-        .DefaultValue(false)
-        .Register();
     private readonly OutputSocket<object?> _outputSocket;
     private readonly InputSocket<bool> _switchSocket;
     private readonly InputSocket<object?> _trueSocket;
@@ -13,15 +10,9 @@ public class SwitchNode : Node
     public SwitchNode()
     {
         _outputSocket = AsOutput<object?>("Output", "Output");
-        _switchSocket = AsInput(SwitchProperty);
+        _switchSocket = AsInput<bool>("Switch");
         _trueSocket = AsInput<object?>("True");
         _falseSocket = AsInput<object?>("False");
-    }
-
-    private bool Switch
-    {
-        get => false;
-        set { }
     }
 
     public override void Evaluate(NodeEvaluationContext context)
