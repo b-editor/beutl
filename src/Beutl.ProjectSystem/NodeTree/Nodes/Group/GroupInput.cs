@@ -11,28 +11,27 @@ public class GroupInput : Node, ISocketsCanBeAdded
 
     public class GroupInputSocket<T> : OutputSocket<T>, IGroupSocket, IAutomaticallyGeneratedSocket
     {
-        public CoreProperty? AssociatedProperty { get; set; }
+        public string? AssociatedPropertyName { get; set; }
+
+        public Type? AssociatedPropertyType { get; set; }
 
         public override void Serialize(ICoreSerializationContext context)
         {
             base.Serialize(context);
-            if (AssociatedProperty is { OwnerType: Type ownerType } property)
+            context.SetValue(nameof(AssociatedPropertyName), AssociatedPropertyName);
+            if (AssociatedPropertyType is { } type)
             {
-                context.SetValue(
-                    nameof(AssociatedProperty),
-                    new CorePropertyRecord(property.Name, TypeFormat.ToString(ownerType)));
+                context.SetValue(nameof(AssociatedPropertyType), TypeFormat.ToString(type));
             }
         }
 
         public override void Deserialize(ICoreSerializationContext context)
         {
             base.Deserialize(context);
-            if (context.GetValue<CorePropertyRecord>(nameof(AssociatedProperty)) is { } prop)
+            AssociatedPropertyName = context.GetValue<string?>(nameof(AssociatedPropertyName));
+            if (context.GetValue<string?>(nameof(AssociatedPropertyType)) is { } typeString)
             {
-                Type ownerType = TypeFormat.ToType(prop.Owner)!;
-
-                AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
-                    .FirstOrDefault(x => x.Name == prop.Name);
+                AssociatedPropertyType = TypeFormat.ToType(typeString);
             }
         }
 
@@ -48,13 +47,9 @@ public class GroupInput : Node, ISocketsCanBeAdded
 
             if (Activator.CreateInstance(type) is IOutputSocket outputSocket)
             {
-                CoreProperty? coreProperty = inputSocket.Property?.GetCoreProperty();
                 ((NodeItem)outputSocket).LocalId = NextLocalId++;
-                ((IGroupSocket)outputSocket).AssociatedProperty = coreProperty;
-                if (coreProperty == null)
-                {
-                    ((CoreObject)outputSocket).Name = NodeDisplayNameHelper.GetDisplayName(inputSocket);
-                }
+                ((IGroupSocket)outputSocket).AssociatedPropertyName = inputSocket.Name;
+                ((IGroupSocket)outputSocket).AssociatedPropertyType = valueType;
 
                 Items.Add(outputSocket);
                 if (outputSocket.TryConnect(inputSocket))

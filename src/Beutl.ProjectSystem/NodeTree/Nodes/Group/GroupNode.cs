@@ -60,7 +60,7 @@ public class GroupNode : Node
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = Group.InitializeForState(context.Renderer, context.Clock);
+        context.State = Group.InitializeForState(context.Renderer);
     }
 
     public override void UninitializeForContext(NodeEvaluationContext context)
@@ -155,7 +155,7 @@ public class GroupNode : Node
 
     private void AddOutput(int index, IInputSocket item)
     {
-        IOutputSocket? outputSocket = CreateOutput(NodeDisplayNameHelper.GetDisplayName(item), item.AssociatedType!);
+        IOutputSocket? outputSocket = CreateOutput(item.Name, item.AssociatedType!);
         if (outputSocket is ISupportSetValueNodeItem supportSetValue)
         {
             supportSetValue.SetThrough(item);
@@ -240,15 +240,15 @@ public class GroupNode : Node
     private void AddInput(int index, IGroupSocket item)
     {
         IInputSocket? inputSocket;
-        if (item.AssociatedProperty != null)
+        if (item.AssociatedPropertyName != null && item.AssociatedPropertyType != null)
         {
-            inputSocket = CreateInput(item.AssociatedProperty);
+            inputSocket = CreateInput(item.AssociatedPropertyName, item.AssociatedPropertyType);
             inputSocket.Property?.SetValue(item.Property?.GetValue());
             inputSocket.Name = item.Name;
         }
         else
         {
-            inputSocket = CreateInput(NodeDisplayNameHelper.GetDisplayName(item), item.AssociatedType!);
+            inputSocket = CreateInput(item.Name, item.AssociatedType!);
         }
 
         _inputSocketDisposable.Insert(index, ((CoreObject)item).GetObservable(NameProperty)

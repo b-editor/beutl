@@ -16,7 +16,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
     {
         void SetProperty(IPropertyAdapter property);
 
-        void SetupProperty(CoreProperty property);
+        void SetupProperty(string propertyName);
 
         IPropertyAdapter? GetProperty();
     }
@@ -29,12 +29,15 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         {
         }
 
-        public CoreProperty? AssociatedProperty { get; set; }
+        public string? AssociatedPropertyName { get; set; }
+
+        public Type? AssociatedPropertyType { get; set; }
 
         public void SetProperty(NodePropertyAdapter<T> property)
         {
             _property = property;
-            AssociatedProperty = property.Property;
+            AssociatedPropertyName = property.Name;
+            AssociatedPropertyType = typeof(T);
 
             property.Edited += OnSetterInvalidated;
         }
@@ -49,9 +52,9 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             return _property;
         }
 
-        public void SetupProperty(CoreProperty property)
+        public void SetupProperty(string propertyName)
         {
-            SetProperty(new NodePropertyAdapter<T>((CoreProperty<T>)property, property.OwnerType));
+            SetProperty(new NodePropertyAdapter<T>(propertyName));
         }
 
         private void OnSetterInvalidated(object? sender, EventArgs e)
@@ -70,7 +73,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             {
                 if (property is IAnimatablePropertyAdapter<T> { Animation: { } animation })
                 {
-                    Value = animation.GetAnimatedValue(context.Clock);
+                    Value = animation.GetAnimatedValue(context.Renderer.Time);
                 }
                 else
                 {
@@ -89,15 +92,10 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         {
             base.Deserialize(context);
             string name = context.GetValue<string>("Property")!;
-            string owner = context.GetValue<string>("Target")!;
-            Type ownerType = TypeFormat.ToType(owner)!;
 
-            AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
-                .FirstOrDefault(x => x.Name == name);
-
-            if (AssociatedProperty != null)
+            if (name != null)
             {
-                SetupProperty(AssociatedProperty);
+                SetupProperty(name);
 
                 GetProperty()?.Deserialize(context);
             }
@@ -107,15 +105,14 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
     public bool AddSocket(ISocket socket, [NotNullWhen(true)] out Connection? connection)
     {
         connection = null;
-        if (socket is IInputSocket { AssociatedType: { } valueType } inputSocket
-            && inputSocket.Property?.GetCoreProperty() is { } property)
+        if (socket is IInputSocket { AssociatedType: { } valueType } inputSocket)
         {
             Type type = typeof(LayerInputSocket<>).MakeGenericType(valueType);
 
             if (Activator.CreateInstance(type) is ILayerInputSocket outputSocket)
             {
                 ((NodeItem)outputSocket).LocalId = NextLocalId++;
-                outputSocket.SetupProperty(property);
+                outputSocket.SetupProperty(inputSocket.Name);
                 outputSocket.GetProperty()?.SetValue(inputSocket.Property?.GetValue());
 
                 Items.Add(outputSocket);

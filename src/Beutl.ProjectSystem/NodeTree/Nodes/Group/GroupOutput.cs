@@ -11,32 +11,29 @@ public class GroupOutput : Node, ISocketsCanBeAdded
 
     public class GroupOutputSocket<T> : InputSocket<T>, IAutomaticallyGeneratedSocket, IGroupSocket
     {
-        public CoreProperty? AssociatedProperty { get; set; }
+        public string? AssociatedPropertyName { get; set; }
+
+        public Type? AssociatedPropertyType { get; set; }
 
         public override void Serialize(ICoreSerializationContext context)
         {
             base.Serialize(context);
-            if (AssociatedProperty is { OwnerType: Type ownerType } property)
+            context.SetValue(nameof(AssociatedPropertyName), AssociatedPropertyName);
+            if (AssociatedPropertyType is { } type)
             {
-                context.SetValue(
-                    nameof(AssociatedProperty),
-                    new CorePropertyRecord(property.Name, TypeFormat.ToString(ownerType)));
+                context.SetValue(nameof(AssociatedPropertyType), TypeFormat.ToString(type));
             }
         }
 
         public override void Deserialize(ICoreSerializationContext context)
         {
             base.Deserialize(context);
-            if (context.GetValue<CorePropertyRecord>(nameof(AssociatedProperty)) is { } prop)
+            AssociatedPropertyName = context.GetValue<string?>(nameof(AssociatedPropertyName));
+            if (context.GetValue<string?>(nameof(AssociatedPropertyType)) is { } typeString)
             {
-                Type ownerType = TypeFormat.ToType(prop.Owner)!;
-
-                AssociatedProperty = PropertyRegistry.GetRegistered(ownerType)
-                    .FirstOrDefault(x => x.Name == prop.Name);
+                AssociatedPropertyType = TypeFormat.ToType(typeString);
             }
         }
-
-        private record CorePropertyRecord(string Name, string Owner);
     }
 
     public bool AddSocket(ISocket socket, [NotNullWhen(true)] out Connection? connection)
@@ -48,13 +45,9 @@ public class GroupOutput : Node, ISocketsCanBeAdded
 
             if (Activator.CreateInstance(type) is IInputSocket inputSocket)
             {
-                CoreProperty? coreProperty = outputSocket.Property?.GetCoreProperty();
                 ((NodeItem)inputSocket).LocalId = NextLocalId++;
-                ((IGroupSocket)inputSocket).AssociatedProperty = coreProperty;
-                if (coreProperty == null)
-                {
-                    ((CoreObject)inputSocket).Name = NodeDisplayNameHelper.GetDisplayName(outputSocket);
-                }
+                ((IGroupSocket)inputSocket).AssociatedPropertyName = outputSocket.Name;
+                ((IGroupSocket)inputSocket).AssociatedPropertyType = valueType;
 
                 Items.Add(inputSocket);
                 if (outputSocket.TryConnect(inputSocket))

@@ -2,5 +2,7 @@
 
 public interface IGroupSocket : ISocket
 {
-    CoreProperty? AssociatedProperty { get; set; }
+    string? AssociatedPropertyName { get; set; }
+
+    Type? AssociatedPropertyType { get; set; }
 }
