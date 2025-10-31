@@ -127,12 +127,11 @@
                         </Style>
                     </ui:ToggleMenuFlyoutItem.Styles>
                 </ui:ToggleMenuFlyoutItem>
-                <!--  TODO: NodeTree  -->
-                <!-- <ui:MenuFlyoutItem Click="OpenNodeTree_Click" Text="{x:Static lang:Strings.OpenNodeTree}"> -->
-                <!--     <ui:MenuFlyoutItem.IconSource> -->
-                <!--         <icons:SymbolIconSource Symbol="Open" /> -->
-                <!--     </ui:MenuFlyoutItem.IconSource> -->
-                <!-- </ui:MenuFlyoutItem> -->
+                <ui:MenuFlyoutItem Click="OpenNodeTree_Click" Text="{x:Static lang:Strings.OpenNodeTree}">
+                    <ui:MenuFlyoutItem.IconSource>
+                        <icons:SymbolIconSource Symbol="Open" />
+                    </ui:MenuFlyoutItem.IconSource>
+                </ui:MenuFlyoutItem>
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>
         <Panel>

@@ -6,7 +6,7 @@ using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
-// using Beutl.NodeTree;
+using Beutl.NodeTree;
 using Beutl.Operation;
 using Beutl.Serialization;
 
@@ -20,7 +20,7 @@ public class Element : ProjectItem, INotifyEdited
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<SourceOperation> OperationProperty;
-    // public static readonly CoreProperty<ElementNodeTreeModel> NodeTreeProperty;
+    public static readonly CoreProperty<ElementNodeTreeModel> NodeTreeProperty;
     public static readonly CoreProperty<bool> UseNodeProperty;
     private TimeSpan _start;
     private TimeSpan _length;
@@ -55,9 +55,9 @@ public class Element : ProjectItem, INotifyEdited
             .Accessor(o => o.Operation, null)
             .Register();
 
-        // NodeTreeProperty = ConfigureProperty<ElementNodeTreeModel, Element>(nameof(NodeTree))
-            // .Accessor(o => o.NodeTree, null)
-            // .Register();
+        NodeTreeProperty = ConfigureProperty<ElementNodeTreeModel, Element>(nameof(NodeTree))
+            .Accessor(o => o.NodeTree, null)
+            .Register();
 
         UseNodeProperty = ConfigureProperty<bool, Element>(nameof(UseNode))
             .Accessor(o => o.UseNode, (o, v) => o.UseNode = v)
@@ -70,11 +70,11 @@ public class Element : ProjectItem, INotifyEdited
         Operation = new SourceOperation();
         Operation.Edited += (s, e) => Edited?.Invoke(s, e);
 
-        // NodeTree = new ElementNodeTreeModel();
-        // NodeTree.Invalidated += (_, e) => Invalidated?.Invoke(this, e);
+        NodeTree = new ElementNodeTreeModel();
+        NodeTree.Edited += (s, e) => Edited?.Invoke(s, e);
 
         HierarchicalChildren.Add(Operation);
-        // HierarchicalChildren.Add(NodeTree);
+        HierarchicalChildren.Add(NodeTree);
     }
 
     public event EventHandler? Edited;
@@ -116,7 +116,7 @@ public class Element : ProjectItem, INotifyEdited
 
     public SourceOperation Operation { get; }
 
-    // public ElementNodeTreeModel NodeTree { get; }
+    public ElementNodeTreeModel NodeTree { get; }
 
     public bool UseNode
     {
@@ -138,25 +138,25 @@ public class Element : ProjectItem, INotifyEdited
     {
         base.Serialize(context);
         context.SetValue(nameof(Operation), Operation);
-        // context.SetValue(nameof(NodeTree), NodeTree);
+        context.SetValue(nameof(NodeTree), NodeTree);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
         context.Populate(nameof(Operation), Operation);
-        // context.Populate(nameof(NodeTree), NodeTree);
+        context.Populate(nameof(NodeTree), NodeTree);
     }
 
     public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer)
     {
         lock (this)
         {
-            // if (UseNode)
-            // {
-                // return NodeTree.Evaluate(target, renderer, this);
-            // }
-            // else
+            if (UseNode)
+            {
+                return NodeTree.Evaluate(target, renderer, this);
+            }
+            else
             {
                 return Operation.Evaluate(target, renderer, this);
             }

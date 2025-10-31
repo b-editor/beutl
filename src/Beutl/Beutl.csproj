@@ -112,8 +112,6 @@
       <Generator>TextTemplatingFileGenerator</Generator>
       <LastGenOutput>GraphEditorViewViewModelFactory.Impl.cs</LastGenOutput>
     </None>
-    <None Remove="ViewModels\NodeTree\**" />
-    <None Remove="Views\NodeTree\**" />
   </ItemGroup>
   <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
@@ -140,30 +138,14 @@
       <DependentUpon>UpdateDialog.axaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Remove="ViewModels\NodeTree\**" />
-    <Compile Remove="Services\PrimitiveImpls\NodeTreeInputTabExtension.cs" />
-    <Compile Remove="Services\PrimitiveImpls\NodeTreeTabExtension.cs" />
-    <Compile Remove="Views\NodeTree\**" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\osx-update.sh" />
     <EmbeddedResource Include="Resources\linux-update.sh" />
     <EmbeddedResource Include="Resources\win-update.ps1" />
-    <EmbeddedResource Remove="ViewModels\NodeTree\**" />
-    <EmbeddedResource Remove="Views\NodeTree\**" />
   </ItemGroup>
   <ItemGroup>
     <AvaloniaResource Include="Resources\Fonts\**" />
-    <AvaloniaResource Remove="ViewModels\NodeTree\**" />
-    <AvaloniaResource Remove="Views\NodeTree\**" />
-  </ItemGroup>
-  <ItemGroup>
-    <AvaloniaXaml Remove="ViewModels\NodeTree\**" />
-    <AvaloniaXaml Remove="Views\NodeTree\**" />
-  </ItemGroup>
-  <ItemGroup>
-    <AdditionalFiles Remove="ViewModels\NodeTree\**" />
-    <AdditionalFiles Remove="Views\NodeTree\**" />
   </ItemGroup>
 
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />

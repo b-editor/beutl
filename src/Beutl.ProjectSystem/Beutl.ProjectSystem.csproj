@@ -11,6 +11,11 @@
     <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Remove="NodeTree\**\*.cs" />
+    <Compile Remove="NodeTree\Nodes\Brushes\ConicGradientBrushNode.cs" />
+    <Compile Remove="NodeTree\Nodes\Brushes\DrawableBrushNode.cs" />
+    <Compile Remove="NodeTree\Nodes\Brushes\FillNode.cs" />
+    <Compile Remove="NodeTree\Nodes\Brushes\LinearGradientBrushNode.cs" />
+    <Compile Remove="NodeTree\Nodes\Brushes\RadialGradientBrushNode.cs" />
+    <Compile Remove="NodeTree\Nodes\Brushes\TileBrushNode.cs" />
   </ItemGroup>
 </Project>
