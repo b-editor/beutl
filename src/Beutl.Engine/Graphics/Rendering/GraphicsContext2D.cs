@@ -43,14 +43,8 @@ public sealed class GraphicsContext2D(
         _hasChanges = true;
     }
 
-    private void AddAndPush(ContainerRenderNode node, ContainerRenderNode? old)
+    private void AddAndPush(ContainerRenderNode node)
     {
-        old ??= Next<ContainerRenderNode>();
-        if (old != null)
-        {
-            node.BringFrom(old);
-        }
-
         Add(node);
         Push(node);
     }
@@ -269,7 +263,7 @@ public sealed class GraphicsContext2D(
 
         if (next == null)
         {
-            AddAndPush(new DrawableRenderNode(drawable), next);
+            AddAndPush(new DrawableRenderNode(drawable));
         }
         else
         {
@@ -407,7 +401,7 @@ public sealed class GraphicsContext2D(
 
         if (next == null)
         {
-            AddAndPush(new PushRenderNode(), next);
+            AddAndPush(new PushRenderNode());
         }
         else
         {
@@ -423,7 +417,7 @@ public sealed class GraphicsContext2D(
 
         if (next == null)
         {
-            AddAndPush(new LayerRenderNode(limit), next);
+            AddAndPush(new LayerRenderNode(limit));
         }
         else
         {
@@ -440,7 +434,7 @@ public sealed class GraphicsContext2D(
 
         if (next == null)
         {
-            AddAndPush(new BlendModeRenderNode(blendMode), next);
+            AddAndPush(new BlendModeRenderNode(blendMode));
         }
         else
         {
@@ -457,7 +451,7 @@ public sealed class GraphicsContext2D(
 
         if (next == null)
         {
-            AddAndPush(new RectClipRenderNode(clip, operation), next);
+            AddAndPush(new RectClipRenderNode(clip, operation));
         }
         else
         {
@@ -477,7 +471,7 @@ public sealed class GraphicsContext2D(
 
         if (next == null)
         {
-            AddAndPush(new GeometryClipRenderNode(geometry, operation), next);
+            AddAndPush(new GeometryClipRenderNode(geometry, operation));
         }
         else
         {
@@ -494,7 +488,7 @@ public sealed class GraphicsContext2D(
 
         if (next == null)
         {
-            AddAndPush(new OpacityRenderNode(opacity), next);
+            AddAndPush(new OpacityRenderNode(opacity));
         }
         else
         {
@@ -528,7 +522,7 @@ public sealed class GraphicsContext2D(
 
                     if (next == null)
                     {
-                        AddAndPush(new FilterEffectRenderNode(effect), next);
+                        AddAndPush(new FilterEffectRenderNode(effect));
                     }
                     else
                     {
@@ -552,7 +546,7 @@ public sealed class GraphicsContext2D(
 
         if (next == null)
         {
-            AddAndPush(new OpacityMaskRenderNode(mask, bounds, invert), next);
+            AddAndPush(new OpacityMaskRenderNode(mask, bounds, invert));
         }
         else
         {
@@ -569,7 +563,7 @@ public sealed class GraphicsContext2D(
 
         if (next == null)
         {
-            AddAndPush(new TransformRenderNode(matrix, transformOperator), next);
+            AddAndPush(new TransformRenderNode(matrix, transformOperator));
         }
         else
         {
@@ -590,7 +584,7 @@ public sealed class GraphicsContext2D(
         var matrix = transform.Matrix;
         if (next == null)
         {
-            AddAndPush(new TransformRenderNode(matrix, transformOperator), next);
+            AddAndPush(new TransformRenderNode(matrix, transformOperator));
         }
         else
         {
@@ -612,7 +606,7 @@ public sealed class GraphicsContext2D(
         if (next == null)
         {
             TNode node = createNode(parameters);
-            AddAndPush(node, next);
+            AddAndPush(node);
         }
         else
         {

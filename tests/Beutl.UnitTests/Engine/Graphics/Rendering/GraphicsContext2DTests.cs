@@ -34,21 +34,26 @@ public class GraphicsContext2DTests
         var resource = drawable.ToResource(RenderContext.Default);
 
         var node = new DrawableRenderNode(resource);
-        var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
-        drawable.Render(context, resource);
+        using (var context = new GraphicsContext2D(node, new PixelSize(1920, 1080)))
+        {
+            drawable.Render(context, resource);
+        }
 
         ((FilterEffectGroup)drawable.FilterEffect.CurrentValue).Children.RemoveAt(0);
         var updateOnly = false;
         resource.Update(drawable, RenderContext.Default, ref updateOnly);
-        context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
+
         bool triggered = false;
         RenderNode? untrackedNode = null;
-        context.OnUntracked = n =>
+        using (var context2 = new GraphicsContext2D(node, new PixelSize(1920, 1080)))
         {
-            triggered = true;
-            untrackedNode = n;
-        };
-        drawable.Render(context, resource);
+            context2.OnUntracked = n =>
+            {
+                triggered = true;
+                untrackedNode = n;
+            };
+            drawable.Render(context2, resource);
+        }
 
         Assert.That(triggered, Is.True);
         Assert.That(untrackedNode, Is.Not.Null);
@@ -299,9 +304,9 @@ public class GraphicsContext2DTests
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
         var mask = Brushes.Resource.White;
-    
+
         context.PushOpacityMask(mask, new Rect(0, 0, 100, 100)).Dispose();
-    
+
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<OpacityMaskRenderNode>());
     }
