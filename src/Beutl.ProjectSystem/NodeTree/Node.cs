@@ -182,11 +182,12 @@ public abstract class Node : Hierarchical
         if (ValidateLocalId(localId))
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
-        return new DefaultInputSocket<T>
-        {
-            Name = name,
-            LocalId = localId
-        };
+        var adapter = new NodePropertyAdapter<T>(name);
+        var socket = new DefaultInputSocket<T>();
+        socket.SetPropertyAdapter(adapter);
+        socket.Name = name;
+        socket.LocalId = localId;
+        return socket;
     }
 
     protected IInputSocket CreateInput(string name, Type type, int localId = -1)
