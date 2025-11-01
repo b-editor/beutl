@@ -360,6 +360,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             {
                 if (field is not null)
                 {
+                    field.Dispose();
                     field = null;
                     if (!updateOnly)
                     {
