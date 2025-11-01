@@ -30,7 +30,8 @@ internal static class TransformParser
         ("rad", Unit.Radian),
         ("turn", Unit.Turn),
         ("px", Unit.Pixel),
-        ("%", Unit.Relative)
+        ("%", Unit.Relative),
+        ("", Unit.None),
     ];
 
     public static Transform Parse(ReadOnlySpan<char> s)
@@ -231,7 +232,7 @@ internal static class TransformParser
 
                 outValues[valueIndex++] = ParseValue(valuePart);
 
-                part = part.Slice(commaIndex + 1, part.Length - commaIndex - 1);
+                part = part.Slice(commaIndex + 1, part.Length - commaIndex - 1).Trim();
             }
 
             return valueIndex;
