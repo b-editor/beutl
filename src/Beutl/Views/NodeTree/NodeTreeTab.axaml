@@ -21,7 +21,13 @@
                           ItemsSource="{Binding Items}">
             <ui:BreadcrumbBar.ItemTemplate>
                 <DataTemplate x:DataType="viewModel:NodeTreeNavigationItem">
-                    <TextBlock Text="{Binding Name.Value}" />
+                     <ui:BreadcrumbBarItem Content="{Binding}">
+                            <ui:BreadcrumbBarItem.ContentTemplate>
+                                <DataTemplate DataType="viewModel:NodeTreeNavigationItem">
+                                    <TextBlock Text="{Binding Name.Value}" />
+                                </DataTemplate>
+                            </ui:BreadcrumbBarItem.ContentTemplate>
+                        </ui:BreadcrumbBarItem>
                 </DataTemplate>
             </ui:BreadcrumbBar.ItemTemplate>
         </ui:BreadcrumbBar>
