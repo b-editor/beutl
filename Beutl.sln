@@ -36,6 +36,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.Utilities", "src\Beut
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.WaitingDialog", "src\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj", "{B9A615DC-58C2-78E4-0BDE-D4673F22E9F4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl.Protocol", "src\Beutl.Protocol\Beutl.Protocol.csproj", "{5FF7301A-0BDD-4491-B587-5A5C892A85C3}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Beutl", "src\Beutl\Beutl.csproj", "{B4C3B9FD-CAC7-FDA4-E241-8D008154D7E9}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{DEE5DD87-39C1-BF34-B639-A387DCCF972B}"

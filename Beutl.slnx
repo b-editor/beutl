@@ -56,4 +56,5 @@
   <Project Path="src\Beutl.Utilities\Beutl.Utilities.csproj" />
   <Project Path="src\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
   <Project Path="src\Beutl\Beutl.csproj" />
+  <Project Path="src\Beutl.Protocol\Beutl.Protocol.csproj" />
 </Solution>

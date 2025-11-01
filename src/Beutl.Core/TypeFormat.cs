@@ -5,7 +5,7 @@ using Beutl.JsonDiscriminator;
 
 namespace Beutl
 {
-    internal static class TypeFormat
+    public static class TypeFormat
     {
         public static Type? ToType(string fullName)
         {

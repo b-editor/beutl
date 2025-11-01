@@ -99,3 +99,61 @@ public interface IAnimatablePropertyAdapter<T> : IPropertyAdapter<T>, IAnimatabl
 
     IObservable<IAnimation?> IAnimatablePropertyAdapter.ObserveAnimation => ObserveAnimation;
 }
+
+public interface IRemotePropertyAdapter
+{
+    string DisplayName { get; }
+
+    string? Description { get; }
+
+    Type PropertyType { get; }
+
+    ValueTask SetValue(object? value);
+
+    IObservable<object?> GetObservable();
+}
+
+public interface IRemotePropertyAdapter<T> : IRemotePropertyAdapter
+{
+    ValueTask SetValue(T? value);
+
+    new IObservable<T?> GetObservable();
+
+    async ValueTask IRemotePropertyAdapter.SetValue(object? value)
+    {
+        if (value is T typed)
+        {
+            await SetValue(typed);
+        }
+        else
+        {
+            await SetValue(default);
+        }
+    }
+
+    IObservable<object?> IRemotePropertyAdapter.GetObservable()
+    {
+        return GetObservable().Select(x => (object?)x);
+    }
+}
+
+public interface IAnimatableRemotePropertyAdapter : IRemotePropertyAdapter
+{
+    ValueTask SetAnimation(IAnimation? animation);
+
+    IObservable<IAnimation?> ObserveAnimation { get; }
+}
+
+public interface IAnimatableRemotePropertyAdapter<T> : IRemotePropertyAdapter<T>, IAnimatableRemotePropertyAdapter
+{
+    new IObservable<IAnimation<T>?> ObserveAnimation { get; }
+
+    IObservable<IAnimation?> IAnimatableRemotePropertyAdapter.ObserveAnimation => ObserveAnimation;
+
+    async ValueTask IAnimatableRemotePropertyAdapter.SetAnimation(IAnimation? animation)
+    {
+        await SetAnimation(animation as IAnimation<T>);
+    }
+
+    ValueTask SetAnimation(IAnimation<T>? animation);
+}

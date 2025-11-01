@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Serialization;
 
-namespace Beutl.Helpers;
+namespace Beutl;
 
 public static class CoreSerializerHelper
 {
@@ -17,7 +17,7 @@ public static class CoreSerializerHelper
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Serialize(context);
-            var jsonObject =  context.GetJsonObject();
+            var jsonObject = context.GetJsonObject();
             jsonObject.WriteDiscriminator(obj.GetType());
             return jsonObject;
         }
@@ -37,6 +37,23 @@ public static class CoreSerializerHelper
     public static string ConvertToJsonString(JsonObject jsonNode)
     {
         return jsonNode.ToJsonString(JsonHelper.SerializerOptions);
+    }
+
+    public static object DeserializeFromJsonObject(JsonObject json)
+    {
+        if (!json.TryGetDiscriminator(out Type? type) || type == null)
+        {
+            throw new InvalidOperationException("Discriminator not found in JSON object.");
+        }
+
+        var obj = Activator.CreateInstance(type) as ICoreSerializable
+            ?? throw new InvalidOperationException($"Could not create instance of type {type.FullName}.");
+        var context = new JsonSerializationContext(type, NullSerializationErrorNotifier.Instance, json: json);
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            obj.Deserialize(context);
+        }
+        return obj;
     }
 
     public static void PopulateFromJsonObject<T>(T obj, JsonObject json)
