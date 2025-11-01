@@ -144,4 +144,45 @@ public partial class JsonSerializationContext
             _knownTypes[name] = (typeof(T), actualType);
         }
     }
+
+    public void SetValue(string name, object? value, Type type)
+    {
+        if (value is Unit)
+        {
+            _json.Remove(name);
+            _knownTypes.Remove(name);
+        }
+        else if (value == null)
+        {
+            _json[name] = null;
+            _knownTypes.Remove(name);
+        }
+        else
+        {
+            Type actualType = value.GetType();
+            if (value is ICoreSerializable or IEnumerable or IReference)
+            {
+                _json[name] = Serialize(name, value, actualType, type, ErrorNotifier, this);
+            }
+            else if (value is JsonNode jsonNode)
+            {
+                _json[name] = jsonNode;
+            }
+            else
+            {
+                ISerializationErrorNotifier? captured = LocalSerializationErrorNotifier.Current;
+                try
+                {
+                    LocalSerializationErrorNotifier.Current = new RelaySerializationErrorNotifier(ErrorNotifier, name);
+                    _json[name] = JsonSerializer.SerializeToNode(value, type, JsonHelper.SerializerOptions);
+                }
+                finally
+                {
+                    LocalSerializationErrorNotifier.Current = captured;
+                }
+            }
+
+            _knownTypes[name] = (type, actualType);
+        }
+    }
 }

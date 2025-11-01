@@ -48,7 +48,7 @@ internal static class PropertyEntrySerializer
         return (value, animationNode?.ToAnimation(context));
     }
 
-    public static (string, JsonNode?) ToJson(string name, object? value, IAnimation? animation, Type targetType, ICoreSerializationContext context)
+    public static (string, JsonNode?) ToJson(string name, object? value, IAnimation? animation, Type valueType, Type targetType, ICoreSerializationContext context)
     {
         string? owner = null;
         JsonNode? animationNode = null;
@@ -59,7 +59,7 @@ internal static class PropertyEntrySerializer
         var innerContext = new JsonSerializationContext(targetType, errorNotifier, context, simJson);
         using (ThreadLocalSerializationContext.Enter(innerContext))
         {
-            context.SetValue(name, value);
+            innerContext.SetValue(name, value, valueType);
         }
         JsonNode? jsonNode = simJson[name];
         simJson[name] = null;

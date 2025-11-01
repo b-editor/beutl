@@ -145,7 +145,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
         context.SetValue("Property", Name);
         context.SetValue("Target", TypeFormat.ToString(ImplementedType));
 
-        context.SetValue("Setter", PropertyEntrySerializer.ToJson(Name, _rxProperty.Value, Animation, ImplementedType, context).Item2);
+        context.SetValue("Setter", PropertyEntrySerializer.ToJson(Name, _rxProperty.Value, Animation, PropertyType, ImplementedType, context).Item2);
     }
 
     public void Deserialize(ICoreSerializationContext context)
