@@ -18,9 +18,8 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ObjectPropertyTabExtension.Instance,
         SourceOperatorsTabExtension.Instance,
         PropertyEditorExtension.Instance,
-        // TODO: NodeTree
-        // NodeTreeTabExtension.Instance,
-        // NodeTreeInputTabExtension.Instance,
+        NodeTreeTabExtension.Instance,
+        NodeTreeInputTabExtension.Instance,
         GraphEditorTabExtension.Instance,
         SceneSettingsTabExtension.Instance,
         WaveReaderExtension.Instance,
