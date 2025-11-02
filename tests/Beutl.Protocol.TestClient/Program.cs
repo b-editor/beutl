@@ -1,6 +1,7 @@
 using Beutl.Protocol.TestClient;
+using Beutl.Protocol.Operations;
+using Beutl.Protocol.Synchronization;
 using Beutl.Protocol.Transport;
-using Beutl.Protocol;
 
 Console.WriteLine("=== Beutl Protocol Test Client ===\n");
 
@@ -15,7 +16,7 @@ testData.Items.Add("Item 1");
 testData.Items.Add("Item 2");
 
 // Create sequence number generator
-var sequenceGenerator = new SequenceNumberGenerator();
+var sequenceGenerator = new OperationSequenceGenerator();
 
 // Create transport client
 var hubUrl = args.Length > 0 ? args[0] : "http://localhost:5110/sync";
@@ -45,21 +46,21 @@ try
     await transport.ConnectAsync();
     Console.WriteLine("[CONNECTED] Successfully connected to server\n");
 
-    // Create synchronizer
-    var synchronizer = new ObjectSynchronizer(
+    // Create operation publisher
+    var publisher = new CoreObjectOperationPublisher(
         observer: null,
         obj: testData,
         sequenceNumberGenerator: sequenceGenerator
     );
 
-    // Create operation executor for applying remote operations
-    var executor = new OperationExecutor();
+    // Create operation applier for applying remote operations
+    var applier = new OperationApplier();
 
     // Create remote synchronizer
     var remoteSynchronizer = new RemoteSynchronizer(
-        synchronizer,
+        publisher,
         transport,
-        executor
+        applier
     );
 
     Console.WriteLine("Test scenarios:");
@@ -149,7 +150,7 @@ try
     // Cleanup
     Console.WriteLine("\n[CLEANUP] Disconnecting...");
     remoteSynchronizer.Dispose();
-    synchronizer.Dispose();
+    publisher.Dispose();
     await transport.DisconnectAsync();
     transport.Dispose();
 
