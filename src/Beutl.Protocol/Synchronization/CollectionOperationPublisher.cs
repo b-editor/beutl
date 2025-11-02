@@ -49,6 +49,12 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        // Suppress publishing during remote operation application to prevent echo-back
+        if (PublishingSuppression.IsSuppressed)
+        {
+            return;
+        }
+
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add:

@@ -1,3 +1,5 @@
+using Beutl.Protocol.Synchronization;
+
 namespace Beutl.Protocol.Operations;
 
 public sealed class OperationApplier
@@ -16,7 +18,11 @@ public sealed class OperationApplier
             throw new ArgumentNullException(nameof(operation));
         }
 
-        operation.Apply(CreateDefaultContext());
+        // Suppress publishing while applying remote operations to prevent echo-back
+        using (PublishingSuppression.Enter())
+        {
+            operation.Apply(CreateDefaultContext());
+        }
     }
 
     public void Apply(SyncOperation operation, OperationExecutionContext context)
@@ -31,7 +37,11 @@ public sealed class OperationApplier
             throw new ArgumentNullException(nameof(context));
         }
 
-        operation.Apply(context);
+        // Suppress publishing while applying remote operations to prevent echo-back
+        using (PublishingSuppression.Enter())
+        {
+            operation.Apply(context);
+        }
     }
 
     private OperationExecutionContext CreateDefaultContext()

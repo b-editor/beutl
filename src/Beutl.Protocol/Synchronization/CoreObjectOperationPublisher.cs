@@ -111,6 +111,12 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
 
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        // Suppress publishing during remote operation application to prevent echo-back
+        if (PublishingSuppression.IsSuppressed)
+        {
+            return;
+        }
+
         if (e is not CorePropertyChangedEventArgs args ||
             sender is not ICoreObject source ||
             args.Property.Id == Hierarchical.HierarchicalParentProperty.Id)

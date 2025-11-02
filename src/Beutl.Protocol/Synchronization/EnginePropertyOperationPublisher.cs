@@ -88,6 +88,12 @@ public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
 
     private void OnAnimationChanged(IAnimation<T>? animation)
     {
+        // Suppress publishing during remote operation application to prevent echo-back
+        if (PublishingSuppression.IsSuppressed)
+        {
+            return;
+        }
+
         _animationPublisher?.Dispose();
         _animationPublisher = null;
 
@@ -110,6 +116,12 @@ public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
 
     private void OnValueChanged(object? sender, PropertyValueChangedEventArgs<T> e)
     {
+        // Suppress publishing during remote operation application to prevent echo-back
+        if (PublishingSuppression.IsSuppressed)
+        {
+            return;
+        }
+
         _valuePublisher?.Dispose();
         _valuePublisher = null;
 
