@@ -1,4 +1,5 @@
 using System.Reactive.Subjects;
+using Beutl.Protocol.Operations;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,14 +11,14 @@ namespace Beutl.Protocol.Transport;
 public class SignalRTransportClient : ITransport
 {
     private readonly HubConnection _connection;
-    private readonly Subject<OperationBase> _incomingOperations;
+    private readonly Subject<SyncOperation> _incomingOperations;
     private readonly SemaphoreSlim _connectionLock;
     private TransportState _state;
     private bool _disposed;
 
     public SignalRTransportClient(string hubUrl, Action<IHubConnectionBuilder>? configureConnection = null)
     {
-        _incomingOperations = new Subject<OperationBase>();
+        _incomingOperations = new Subject<SyncOperation>();
         _connectionLock = new SemaphoreSlim(1, 1);
         _state = TransportState.Disconnected;
 
@@ -33,7 +34,7 @@ public class SignalRTransportClient : ITransport
         SetupConnectionHandlers();
     }
 
-    public IObservable<OperationBase> IncomingOperations => _incomingOperations;
+    public IObservable<SyncOperation> IncomingOperations => _incomingOperations;
 
     public TransportState State
     {
@@ -91,7 +92,7 @@ public class SignalRTransportClient : ITransport
         }
     }
 
-    public async Task SendOperationAsync(OperationBase operation, CancellationToken cancellationToken = default)
+    public async Task SendOperationAsync(SyncOperation operation, CancellationToken cancellationToken = default)
     {
         if (_connection.State != HubConnectionState.Connected)
         {

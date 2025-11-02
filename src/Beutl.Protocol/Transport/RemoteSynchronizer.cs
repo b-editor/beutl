@@ -1,4 +1,6 @@
 using System.Reactive.Linq;
+using Beutl.Protocol.Operations;
+using Beutl.Protocol.Synchronization;
 
 namespace Beutl.Protocol.Transport;
 
@@ -8,24 +10,24 @@ namespace Beutl.Protocol.Transport;
 /// </summary>
 public class RemoteSynchronizer : IDisposable
 {
-    private readonly ISynchronizer _localSynchronizer;
+    private readonly IOperationPublisher _localPublisher;
     private readonly ITransport _transport;
-    private readonly OperationExecutor _executor;
+    private readonly OperationApplier _applier;
     private readonly IDisposable _localSubscription;
     private readonly IDisposable _remoteSubscription;
     private bool _disposed;
 
     public RemoteSynchronizer(
-        ISynchronizer localSynchronizer,
+        IOperationPublisher localPublisher,
         ITransport transport,
-        OperationExecutor executor)
+        OperationApplier applier)
     {
-        _localSynchronizer = localSynchronizer ?? throw new ArgumentNullException(nameof(localSynchronizer));
+        _localPublisher = localPublisher ?? throw new ArgumentNullException(nameof(localPublisher));
         _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-        _executor = executor ?? throw new ArgumentNullException(nameof(executor));
+        _applier = applier ?? throw new ArgumentNullException(nameof(applier));
 
         // Subscribe to local operations and send them to remote
-        _localSubscription = _localSynchronizer.Operations
+        _localSubscription = _localPublisher.Operations
             .Subscribe(
                 operation => _ = SendOperationAsync(operation),
                 error => Console.WriteLine($"Error in local operations: {error.Message}"),
@@ -41,7 +43,7 @@ public class RemoteSynchronizer : IDisposable
             );
     }
 
-    private async Task SendOperationAsync(OperationBase operation)
+    private async Task SendOperationAsync(SyncOperation operation)
     {
         try
         {
@@ -54,12 +56,12 @@ public class RemoteSynchronizer : IDisposable
         }
     }
 
-    private void ExecuteRemoteOperation(OperationBase operation)
+    private void ExecuteRemoteOperation(SyncOperation operation)
     {
         try
         {
             // Execute the operation using the executor
-            _executor.Execute(operation);
+            _applier.Apply(operation);
         }
         catch (Exception ex)
         {

@@ -1,3 +1,5 @@
+using Beutl.Protocol.Operations;
+
 namespace Beutl.Protocol.Transport;
 
 /// <summary>
@@ -8,14 +10,14 @@ public interface ITransport : IDisposable
     /// <summary>
     /// Gets an observable stream of operations received from remote peers.
     /// </summary>
-    IObservable<OperationBase> IncomingOperations { get; }
+    IObservable<SyncOperation> IncomingOperations { get; }
 
     /// <summary>
     /// Sends an operation to remote peers.
     /// </summary>
     /// <param name="operation">The operation to send.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task SendOperationAsync(OperationBase operation, CancellationToken cancellationToken = default);
+    Task SendOperationAsync(SyncOperation operation, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Connects to the remote endpoint.

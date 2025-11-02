@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using Beutl.Protocol.Operations;
+using Beutl.Protocol.Synchronization;
 
 namespace Beutl.Protocol.Transport;
 
@@ -82,20 +84,20 @@ public class ConnectionManager : IDisposable
     /// Creates and adds a remote synchronizer for the specified connection.
     /// </summary>
     /// <param name="connectionId">The connection ID.</param>
-    /// <param name="localSynchronizer">The local synchronizer.</param>
-    /// <param name="executor">The operation executor.</param>
+    /// <param name="localPublisher">The local operation publisher.</param>
+    /// <param name="applier">The operation applier.</param>
     /// <returns>True if the synchronizer was added, false if it already exists.</returns>
     public bool AddSynchronizer(
         string connectionId,
-        ISynchronizer localSynchronizer,
-        OperationExecutor executor)
+        IOperationPublisher localPublisher,
+        OperationApplier applier)
     {
         if (!_connections.TryGetValue(connectionId, out var transport))
         {
             throw new InvalidOperationException($"Connection '{connectionId}' not found");
         }
 
-        var synchronizer = new RemoteSynchronizer(localSynchronizer, transport, executor);
+        var synchronizer = new RemoteSynchronizer(localPublisher, transport, applier);
         return _synchronizers.TryAdd(connectionId, synchronizer);
     }
 

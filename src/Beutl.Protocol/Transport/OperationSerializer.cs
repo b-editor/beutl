@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using Beutl.Protocol.Operations;
+
 namespace Beutl.Protocol.Transport;
 
 /// <summary>
@@ -19,7 +21,7 @@ public static class OperationSerializer
     /// </summary>
     /// <param name="operation">The operation to serialize.</param>
     /// <returns>A JSON string representation of the operation.</returns>
-    public static string Serialize(OperationBase operation)
+    public static string Serialize(SyncOperation operation)
     {
         var envelope = new OperationEnvelope
         {
@@ -36,7 +38,7 @@ public static class OperationSerializer
     /// </summary>
     /// <param name="json">The JSON string to deserialize.</param>
     /// <returns>The deserialized operation.</returns>
-    public static OperationBase Deserialize(string json)
+    public static SyncOperation Deserialize(string json)
     {
         var envelope = JsonSerializer.Deserialize<OperationEnvelope>(json, s_options)
             ?? throw new InvalidOperationException("Failed to deserialize operation envelope");
@@ -44,12 +46,12 @@ public static class OperationSerializer
         var type = Type.GetType(envelope.TypeName)
             ?? throw new InvalidOperationException($"Operation type '{envelope.TypeName}' not found");
 
-        if (!typeof(OperationBase).IsAssignableFrom(type))
+        if (!typeof(SyncOperation).IsAssignableFrom(type))
         {
-            throw new InvalidOperationException($"Type '{envelope.TypeName}' is not an OperationBase");
+            throw new InvalidOperationException($"Type '{envelope.TypeName}' is not a {nameof(SyncOperation)}");
         }
 
-        var operation = (OperationBase)(envelope.Payload.Deserialize(type, s_options)
+        var operation = (SyncOperation)(envelope.Payload.Deserialize(type, s_options)
             ?? throw new InvalidOperationException("Failed to deserialize operation payload"));
 
         operation.SequenceNumber = envelope.SequenceNumber;

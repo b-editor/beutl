@@ -1,4 +1,5 @@
 using System.Reactive.Subjects;
+using Beutl.Protocol.Operations;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Beutl.Protocol.Transport;
@@ -9,18 +10,18 @@ namespace Beutl.Protocol.Transport;
 public class SignalRTransportServer : ITransport
 {
     private readonly IHubContext<SynchronizationHub, ISynchronizationClient> _hubContext;
-    private readonly Subject<OperationBase> _incomingOperations;
+    private readonly Subject<SyncOperation> _incomingOperations;
     private TransportState _state;
     private bool _disposed;
 
     public SignalRTransportServer(IHubContext<SynchronizationHub, ISynchronizationClient> hubContext)
     {
         _hubContext = hubContext ?? throw new ArgumentNullException(nameof(hubContext));
-        _incomingOperations = new Subject<OperationBase>();
+        _incomingOperations = new Subject<SyncOperation>();
         _state = TransportState.Connected; // Server is always "connected"
     }
 
-    public IObservable<OperationBase> IncomingOperations => _incomingOperations;
+    public IObservable<SyncOperation> IncomingOperations => _incomingOperations;
 
     public TransportState State
     {
@@ -52,7 +53,7 @@ public class SignalRTransportServer : ITransport
         return Task.CompletedTask;
     }
 
-    public async Task SendOperationAsync(OperationBase operation, CancellationToken cancellationToken = default)
+    public async Task SendOperationAsync(SyncOperation operation, CancellationToken cancellationToken = default)
     {
         if (_state != TransportState.Connected)
         {
@@ -63,7 +64,7 @@ public class SignalRTransportServer : ITransport
         await _hubContext.Clients.All.ReceiveOperationAsync(json);
     }
 
-    public async Task SendOperationToGroupAsync(string groupName, OperationBase operation, CancellationToken cancellationToken = default)
+    public async Task SendOperationToGroupAsync(string groupName, SyncOperation operation, CancellationToken cancellationToken = default)
     {
         if (_state != TransportState.Connected)
         {
@@ -78,7 +79,7 @@ public class SignalRTransportServer : ITransport
     /// Called by the hub when an operation is received from a client.
     /// This allows the server to process incoming operations.
     /// </summary>
-    public void ReceiveOperation(OperationBase operation)
+    public void ReceiveOperation(SyncOperation operation)
     {
         _incomingOperations.OnNext(operation);
     }
