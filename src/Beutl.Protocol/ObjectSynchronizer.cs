@@ -1,6 +1,8 @@
 using System.Collections;
 using System.ComponentModel;
 using System.Reactive.Subjects;
+using Beutl.Animation;
+using Beutl.Engine;
 
 namespace Beutl.Protocol;
 
@@ -9,19 +11,26 @@ public class ObjectSynchronizer : ISynchronizer
     private readonly ICoreObject _object;
     private readonly Dictionary<int, ObjectSynchronizer> _childSynchronizers = new();
     private readonly Dictionary<int, ListSynchronizer> _childListSynchronizers = new();
+    private readonly Dictionary<string, ISynchronizer> _enginePropertySynchronizers = new();
     private readonly Subject<OperationBase> _operations = new();
     private readonly IDisposable? _subscription;
+    private readonly SequenceNumberGenerator _sequenceNumberGenerator;
+
     public IObservable<OperationBase> Operations => _operations;
 
     public ObjectSynchronizer(
-        IObserver<OperationBase> observer,
+        IObserver<OperationBase>? observer,
         ICoreObject obj,
         SequenceNumberGenerator sequenceNumberGenerator)
     {
         _object = obj;
-        _subscription = _operations.Subscribe(observer);
-        var props = PropertyRegistry.GetRegistered(obj.GetType());
-        foreach (var prop in props)
+        _sequenceNumberGenerator = sequenceNumberGenerator;
+        if (observer != null)
+        {
+            _subscription = _operations.Subscribe(observer);
+        }
+        var cprops = PropertyRegistry.GetRegistered(obj.GetType());
+        foreach (var prop in cprops)
         {
             var value = obj.GetValue(prop);
             if (value is IList list)
@@ -36,6 +45,19 @@ public class ObjectSynchronizer : ISynchronizer
             }
         }
         obj.PropertyChanged += OnPropertyChanged;
+
+        if (obj is EngineObject eobj)
+        {
+            var eprops = eobj.Properties;
+            foreach (var prop in eprops)
+            {
+                var enginePropertyType = typeof(EnginePropertySynchronizer<>).MakeGenericType(prop.ValueType);
+                var enginePropertySynchronizer = (ISynchronizer)Activator.CreateInstance(
+                    enginePropertyType, _operations,
+                    eobj, prop, sequenceNumberGenerator)!;
+                _enginePropertySynchronizers.Add(prop.Name, enginePropertySynchronizer);
+            }
+        }
     }
 
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -57,9 +79,8 @@ public class ObjectSynchronizer : ISynchronizer
                 _childSynchronizers.Add(args.Property.Id, newChildSynchronizer);
             }
 
-            Type type = typeof(UpdatePropertyOperation<>).MakeGenericType(args.Property.PropertyType);
-            object operation = Activator.CreateInstance(type, obj.Id, args.Property.Name, args.NewValue)!;
-            _operations.OnNext((OperationBase)operation);
+            var operation = UpdatePropertyOperation.Create(obj, args.Property, args.NewValue, _sequenceNumberGenerator);
+            _operations.OnNext(operation);
         }
     }
 
