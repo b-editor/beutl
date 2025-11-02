@@ -79,5 +79,8 @@
     <PackageVersion Include="Vortice.Direct3D9" Version="3.6.2" />
     <PackageVersion Include="Vortice.MediaFoundation" Version="3.6.2" />
     <PackageVersion Include="Vortice.XAudio2" Version="3.6.2" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Protocols.Json" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Core" Version="1.1.0" />
   </ItemGroup>
 </Project>
