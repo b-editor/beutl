@@ -107,6 +107,83 @@ public class SignalRTransportClient : ITransport
         }, cancellationToken);
     }
 
+    /// <summary>
+    /// Requests the initial state from the server.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The serialized initial state, or null if not available.</returns>
+    public async Task<string?> RequestInitialStateAsync(CancellationToken cancellationToken = default)
+    {
+        if (_connection.State != HubConnectionState.Connected)
+        {
+            throw new InvalidOperationException("Cannot request initial state when not connected");
+        }
+
+        // Request state from peers (stateless server approach)
+        var tcs = new TaskCompletionSource<string?>();
+        
+        // Set up one-time handler for receiving state from peer
+        _connection.On<string>("ReceiveStateFromPeerAsync", (state) =>
+        {
+            tcs.TrySetResult(state);
+        });
+
+        try
+        {
+            // Request state from peers via the hub
+            await _connection.InvokeAsync("RequestInitialStateFromPeerAsync", cancellationToken);
+
+            // Wait for a peer to respond (with timeout)
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+            var completedTask = await Task.WhenAny(
+                tcs.Task,
+                Task.Delay(Timeout.Infinite, linkedCts.Token)
+            );
+
+            if (completedTask == tcs.Task)
+            {
+                return await tcs.Task;
+            }
+
+            // Timeout - no peers available
+            return null;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        finally
+        {
+            // Clean up the handler
+            _connection.Remove("ReceiveStateFromPeerAsync");
+        }
+    }
+
+    /// <summary>
+    /// Sets up a callback to provide state to other peers when requested.
+    /// </summary>
+    /// <param name="stateProvider">A function that returns the current serialized state.</param>
+    public void SetupPeerStateProvider(Func<string> stateProvider)
+    {
+        _connection.On<string>("RequestStateFromPeerAsync", async (requestingConnectionId) =>
+        {
+            try
+            {
+                // Get current state
+                var state = stateProvider();
+                
+                // Send state back to the requesting peer
+                await _connection.InvokeAsync("SendStateToPeerAsync", requestingConnectionId, state);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to send state to peer: {ex.Message}");
+            }
+        });
+    }
+
     public void Dispose()
     {
         if (_disposed)

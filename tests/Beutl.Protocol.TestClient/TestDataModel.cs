@@ -8,13 +8,13 @@ namespace Beutl.Protocol.TestClient;
 /// </summary>
 public class TestDataModel : EngineObject
 {
-    public static readonly CoreProperty<string> NameProperty;
+    public static readonly CoreProperty<string> TitleProperty;
     public static readonly CoreProperty<int> CountProperty;
     public static readonly CoreProperty<CoreList<string>> ItemsProperty;
 
     static TestDataModel()
     {
-        NameProperty = ConfigureProperty<string, TestDataModel>(nameof(Name))
+        TitleProperty = ConfigureProperty<string, TestDataModel>(nameof(Title))
             .DefaultValue("Default")
             .Register();
 
@@ -27,10 +27,10 @@ public class TestDataModel : EngineObject
             .Register();
     }
 
-    public string Name
+    public string Title
     {
-        get => GetValue(NameProperty);
-        set => SetValue(NameProperty, value);
+        get => GetValue(TitleProperty);
+        set => SetValue(TitleProperty, value);
     }
 
     public int Count

@@ -2,6 +2,13 @@ namespace Beutl.Protocol.Operations;
 
 public sealed class OperationApplier
 {
+    public OperationApplier(CoreObject root)
+    {
+        Root = root ?? throw new ArgumentNullException(nameof(root));
+    }
+
+    public CoreObject Root { get; }
+
     public void Apply(SyncOperation operation)
     {
         if (operation is null)
@@ -27,8 +34,8 @@ public sealed class OperationApplier
         operation.Apply(context);
     }
 
-    private static OperationExecutionContext CreateDefaultContext()
+    private OperationExecutionContext CreateDefaultContext()
     {
-        return new OperationExecutionContext(BeutlApplication.Current);
+        return new OperationExecutionContext(Root);
     }
 }

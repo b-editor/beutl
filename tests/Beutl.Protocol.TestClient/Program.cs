@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Beutl.Protocol.TestClient;
 using Beutl.Protocol.Operations;
 using Beutl.Protocol.Synchronization;
@@ -8,7 +9,7 @@ Console.WriteLine("=== Beutl Protocol Test Client ===\n");
 // Create test data model
 var testData = new TestDataModel
 {
-    Name = "Test Object",
+    Title = "Test Object",
     Count = 0
 };
 
@@ -46,6 +47,54 @@ try
     await transport.ConnectAsync();
     Console.WriteLine("[CONNECTED] Successfully connected to server\n");
 
+    // Setup peer state provider so other clients can request our state
+    transport.SetupPeerStateProvider(() =>
+    {
+        Console.WriteLine("[PEER] Another client requested our state");
+
+        // Use CoreSerializerHelper to properly serialize the CoreObject
+        var state = Beutl.CoreSerializerHelper.SerializeToJsonString(testData);
+
+        return state;
+    });
+
+    // Request initial state from peers (stateless server approach)
+    Console.WriteLine("[SYNC] Requesting initial state from peers...");
+    var initialState = await transport.RequestInitialStateAsync();
+
+    if (!string.IsNullOrEmpty(initialState))
+    {
+        Console.WriteLine("[SYNC] Received initial state from peer:");
+        Console.WriteLine(initialState);
+        Console.WriteLine();
+
+        try
+        {
+            // Parse JSON to JsonObject
+            var jsonObject = JsonNode.Parse(initialState)?.AsObject();
+
+            if (jsonObject != null)
+            {
+                // Use CoreSerializerHelper to deserialize and populate testData
+                Beutl.CoreSerializerHelper.PopulateFromJsonObject(testData, jsonObject);
+
+                Console.WriteLine("[SYNC] Successfully applied initial state to local object");
+                Console.WriteLine($"  Title: {testData.Title}");
+                Console.WriteLine($"  Count: {testData.Count}");
+                Console.WriteLine($"  Items: {testData.Items.Count} items\n");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Failed to deserialize initial state: {ex.Message}");
+            Console.WriteLine("[INFO] Continuing with default state\n");
+        }
+    }
+    else
+    {
+        Console.WriteLine("[SYNC] No peers available or timeout - starting with default state\n");
+    }
+
     // Create operation publisher
     var publisher = new CoreObjectOperationPublisher(
         observer: null,
@@ -54,7 +103,7 @@ try
     );
 
     // Create operation applier for applying remote operations
-    var applier = new OperationApplier();
+    var applier = new OperationApplier(testData);
 
     // Create remote synchronizer
     var remoteSynchronizer = new RemoteSynchronizer(
@@ -64,7 +113,7 @@ try
     );
 
     Console.WriteLine("Test scenarios:");
-    Console.WriteLine("1. Update Name property");
+    Console.WriteLine("1. Update Title property");
     Console.WriteLine("2. Increment Counter");
     Console.WriteLine("3. Add item to list");
     Console.WriteLine("4. Remove item from list");
@@ -80,10 +129,10 @@ try
         switch (input?.ToLower())
         {
             case "1":
-                Console.Write("Enter new name: ");
-                var newName = Console.ReadLine();
-                testData.Name = newName ?? "Default";
-                Console.WriteLine($"[LOCAL] Name updated to: {testData.Name}");
+                Console.Write("Enter new title: ");
+                var newTitle = Console.ReadLine();
+                testData.Title = newTitle ?? "Default";
+                Console.WriteLine($"[LOCAL] Title updated to: {testData.Title}");
                 break;
 
             case "2":
@@ -124,7 +173,7 @@ try
 
             case "5":
                 Console.WriteLine("\n=== Current State ===");
-                Console.WriteLine($"Name: {testData.Name}");
+                Console.WriteLine($"Title: {testData.Title}");
                 Console.WriteLine($"Count: {testData.Count}");
                 Console.WriteLine($"Items ({testData.Items.Count}):");
                 for (int i = 0; i < testData.Items.Count; i++)
