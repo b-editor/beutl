@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Text.Json.Nodes;
 using Beutl.Engine;
+using Beutl.Serialization;
 
 namespace Beutl.Protocol.Operations.Collections;
 
@@ -10,7 +11,7 @@ public sealed class InsertCollectionItemOperation : SyncOperation
 
     public required string PropertyName { get; set; }
 
-    public required JsonObject Item { get; set; }
+    public required JsonNode Item { get; set; }
 
     public required int Index { get; set; }
 
@@ -21,11 +22,9 @@ public sealed class InsertCollectionItemOperation : SyncOperation
 
         var coreProperty = PropertyRegistry.FindRegistered(obj.GetType(), PropertyName);
 
-        var newItem = CoreSerializerHelper.DeserializeFromJsonObject(Item);
-
         if (coreProperty != null)
         {
-            ApplyToCoreProperty(obj, coreProperty, newItem);
+            ApplyToCoreProperty(obj, coreProperty);
             return;
         }
 
@@ -39,12 +38,14 @@ public sealed class InsertCollectionItemOperation : SyncOperation
                 throw new InvalidOperationException($"Engine property {PropertyName} is not a list on type {obj.GetType().FullName}.");
             }
 
-            ApplyToEngineProperty(listProperty, newItem);
+            ApplyToEngineProperty(listProperty);
         }
     }
 
-    private void ApplyToEngineProperty(IListProperty listProperty, object newItem)
+    private void ApplyToEngineProperty(IListProperty listProperty)
     {
+        var elementType = listProperty.ElementType;
+        var newItem = CoreSerializerHelper.DeserializeFromJsonNode(Item, elementType);
         if (Index < 0 || Index > listProperty.Count)
         {
             listProperty.Add(newItem);
@@ -55,12 +56,17 @@ public sealed class InsertCollectionItemOperation : SyncOperation
         }
     }
 
-    private void ApplyToCoreProperty(ICoreObject obj, CoreProperty coreProperty, object newItem)
+    private void ApplyToCoreProperty(ICoreObject obj, CoreProperty coreProperty)
     {
         if (obj.GetValue(coreProperty) is not IList list)
         {
             throw new InvalidOperationException($"Property {PropertyName} is not a list on type {obj.GetType().FullName}.");
         }
+
+        var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
+        if (elementType is null) throw new InvalidOperationException("Could not determine element type of the list.");
+
+        var newItem = CoreSerializerHelper.DeserializeFromJsonNode(Item, elementType);
 
         if (Index < 0 || Index > list.Count)
         {

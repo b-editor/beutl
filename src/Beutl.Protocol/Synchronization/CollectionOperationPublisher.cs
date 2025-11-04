@@ -80,9 +80,9 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
         }
 
         int index = e.NewStartingIndex;
-        foreach (ICoreObject newItem in e.NewItems.OfType<ICoreObject>())
+        foreach (object newItem in e.NewItems)
         {
-            var json = CoreSerializerHelper.SerializeToJsonObject(newItem);
+            var json = CoreSerializerHelper.SerializeToJsonNode(newItem);
             var operation = new InsertCollectionItemOperation
             {
                 SequenceNumber = _sequenceNumberGenerator.GetNext(),
@@ -120,32 +120,16 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
             return;
         }
 
-        if (e.OldItems.Count == 1)
+        var operation = new MoveCollectionRangeOperation
         {
-            ICoreObject movedItem = (ICoreObject)e.OldItems[0]!;
-            var operation = new MoveCollectionItemOperation
-            {
-                SequenceNumber = _sequenceNumberGenerator.GetNext(),
-                ObjectId = _owner.Id,
-                PropertyName = _propertyName,
-                ItemId = movedItem.Id,
-                Index = e.NewStartingIndex
-            };
-            _operations.OnNext(operation);
-        }
-        else
-        {
-            var operation = new MoveCollectionRangeOperation
-            {
-                SequenceNumber = _sequenceNumberGenerator.GetNext(),
-                ObjectId = _owner.Id,
-                PropertyName = _propertyName,
-                OldIndex = e.OldStartingIndex,
-                NewIndex = e.NewStartingIndex,
-                Count = e.OldItems.Count
-            };
-            _operations.OnNext(operation);
-        }
+            SequenceNumber = _sequenceNumberGenerator.GetNext(),
+            ObjectId = _owner.Id,
+            PropertyName = _propertyName,
+            OldIndex = e.OldStartingIndex,
+            NewIndex = e.NewStartingIndex,
+            Count = e.OldItems.Count
+        };
+        _operations.OnNext(operation);
     }
 
     private void EnqueueReplace(NotifyCollectionChangedEventArgs e)
@@ -166,9 +150,9 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
         if (e.NewItems != null)
         {
             int index = e.NewStartingIndex;
-            foreach (ICoreObject newItem in e.NewItems.OfType<ICoreObject>())
+            foreach (var newItem in e.NewItems)
             {
-                var json = CoreSerializerHelper.SerializeToJsonObject(newItem);
+                var json = CoreSerializerHelper.SerializeToJsonNode(newItem);
                 var operation = new InsertCollectionItemOperation
                 {
                     SequenceNumber = _sequenceNumberGenerator.GetNext(),

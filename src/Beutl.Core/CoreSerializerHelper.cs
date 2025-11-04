@@ -1,10 +1,23 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Security.Cryptography;
+using System.Text.Json.Nodes;
 using Beutl.Serialization;
 
 namespace Beutl;
 
 public static class CoreSerializerHelper
 {
+    public static JsonNode SerializeToJsonNode(object obj)
+    {
+        var ownerJson = new JsonObject();
+        var context = new JsonSerializationContext(obj.GetType(), NullSerializationErrorNotifier.Instance, json: ownerJson);
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            context.SetValue("Value", obj);
+        }
+
+        return ownerJson["Value"]!;
+    }
+
     public static JsonObject SerializeToJsonObject<T>(T obj)
         where T : ICoreSerializable
     {
@@ -54,6 +67,16 @@ public static class CoreSerializerHelper
             obj.Deserialize(context);
         }
         return obj;
+    }
+
+    public static object? DeserializeFromJsonNode(JsonNode json, Type type)
+    {
+        var ownerJson = new JsonObject { ["Value"] = json.DeepClone() };
+        var context = new JsonSerializationContext(type, NullSerializationErrorNotifier.Instance, json: ownerJson);
+        using (ThreadLocalSerializationContext.Enter(context))
+        {
+            return context.GetValue("Value", type);
+        }
     }
 
     public static void PopulateFromJsonObject<T>(T obj, JsonObject json)
