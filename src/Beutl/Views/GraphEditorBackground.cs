@@ -92,7 +92,7 @@ public sealed class GraphEditorBackground : Control
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
-        _disposable = this.GetResourceObservable("TextFillColorTertiaryBrush").Subscribe(b =>
+        _disposable = this.GetResourceObservable("GraphEditorGridLineBrush").Subscribe(b =>
         {
             if (b is IBrush brush)
             {

@@ -8,6 +8,10 @@
              Name="Beutl">
     <Application.Resources>
         <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="Resources/GraphEditorResources.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+
             <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
 
             <KeyGesture x:Key="CreateNewProjectKeyGesture">Ctrl+Shift+N</KeyGesture>

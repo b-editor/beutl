@@ -29,7 +29,8 @@
 
     <Grid x:Name="grid"
           ColumnDefinitions="Auto,*"
-          RowDefinitions="Auto,*">
+          RowDefinitions="Auto,*"
+          Background="{DynamicResource GraphEditorBackgroundBrush}">
 
         <local:TimelineScale x:Name="scale"
                              Grid.Column="1"
@@ -64,7 +65,7 @@
                    MinWidth="{Binding #scroll.Bounds.Width}"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Stretch"
-                   Background="Transparent">
+                   Background="{DynamicResource GraphEditorBackgroundBrush}">
                 <Panel.ContextMenu>
                     <ContextMenu>
                         <MenuItem Command="{Binding CopyAllKeyFramesCommand}" Header="{x:Static lang:Strings.CopyAll}">
@@ -218,15 +219,15 @@
                                                     <Panel>
                                                         <Line IsHitTestVisible="False"
                                                               IsVisible="{Binding IsSplineEasing.Value}"
-                                                              Stroke="{DynamicResource TextControlForeground}"
-                                                              StrokeThickness="2"
+                                                              Stroke="{DynamicResource GraphEditorHandleLineBrush}"
+                                                              StrokeThickness="1.5"
                                                               StartPoint="{Binding ControlPoint1.Value}"
                                                               EndPoint="{Binding LeftBottom.Value}" />
 
                                                         <Line IsHitTestVisible="False"
                                                               IsVisible="{Binding IsSplineEasing.Value}"
-                                                              Stroke="{DynamicResource TextControlForeground}"
-                                                              StrokeThickness="2"
+                                                              Stroke="{DynamicResource GraphEditorHandleLineBrush}"
+                                                              StrokeThickness="1.5"
                                                               StartPoint="{Binding ControlPoint2.Value}"
                                                               EndPoint="{Binding RightTop.Value}" />
 
@@ -234,7 +235,7 @@
                                                               HorizontalAlignment="Left"
                                                               VerticalAlignment="Top"
                                                               Classes.decreasing="{Binding Decreasing.Value}"
-                                                              Fill="{DynamicResource SystemFillColorCaution}"
+                                                              Fill="{DynamicResource GraphEditorKeyFrameBrush}"
                                                               PointerPressed="OnKeyTimePointerPressed">
                                                             <Path.RenderTransform>
                                                                 <TranslateTransform X="{Binding RightTop.Value.X}" Y="{Binding RightTop.Value.Y}" />
@@ -272,13 +273,13 @@
                                                         <Path HorizontalAlignment="Left"
                                                               VerticalAlignment="Top"
                                                               Data="{StaticResource ControlPointGeometry}"
-                                                              Fill="Transparent"
+                                                              Fill="{DynamicResource GraphEditorControlPointFillBrush}"
                                                               IsVisible="{Binding IsSplineEasing.Value}"
                                                               PointerMoved="OnControlPointPointerMoved"
                                                               PointerPressed="OnControlPointPointerPressed"
                                                               PointerReleased="OnControlPointPointerReleased"
-                                                              Stroke="Green"
-                                                              StrokeThickness="3"
+                                                              Stroke="{DynamicResource GraphEditorControlPointStrokeBrush}"
+                                                              StrokeThickness="2"
                                                               Tag="ControlPoint1">
                                                             <Path.RenderTransform>
                                                                 <TranslateTransform X="{Binding ControlPoint1.Value.X}" Y="{Binding ControlPoint1.Value.Y}" />
@@ -288,13 +289,13 @@
                                                         <Path HorizontalAlignment="Left"
                                                               VerticalAlignment="Top"
                                                               Data="{StaticResource ControlPointGeometry}"
-                                                              Fill="Transparent"
+                                                              Fill="{DynamicResource GraphEditorControlPointFillBrush}"
                                                               IsVisible="{Binding IsSplineEasing.Value}"
                                                               PointerMoved="OnControlPointPointerMoved"
                                                               PointerPressed="OnControlPointPointerPressed"
                                                               PointerReleased="OnControlPointPointerReleased"
-                                                              Stroke="Green"
-                                                              StrokeThickness="3"
+                                                              Stroke="{DynamicResource GraphEditorControlPointStrokeBrush}"
+                                                              StrokeThickness="2"
                                                               Tag="ControlPoint2">
                                                             <Path.RenderTransform>
                                                                 <TranslateTransform X="{Binding ControlPoint2.Value.X}" Y="{Binding ControlPoint2.Value.Y}" />
