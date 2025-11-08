@@ -14,7 +14,9 @@ using Reactive.Bindings;
 namespace Beutl.ViewModels;
 
 public sealed class InlineAnimationLayerViewModel<T>(
-    IAnimatablePropertyAdapter<T> property, TimelineViewModel timeline, ElementViewModel element)
+    IAnimatablePropertyAdapter<T> property,
+    TimelineViewModel timeline,
+    ElementViewModel element)
     : InlineAnimationLayerViewModel(property, timeline, element)
 {
     public override void DropEasing(Easing easing, TimeSpan keyTime)
@@ -28,7 +30,8 @@ public sealed class InlineAnimationLayerViewModel<T>(
 
             TimeSpan threshold = TimeSpan.FromSeconds(1d / rate) * 3;
 
-            IKeyFrame? keyFrame = kfAnimation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
+            IKeyFrame? keyFrame =
+                kfAnimation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
             if (keyFrame != null)
             {
                 CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
@@ -45,32 +48,23 @@ public sealed class InlineAnimationLayerViewModel<T>(
 
     public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
     {
-        if (Property.Animation is KeyFrameAnimation<T> kfAnimation)
-        {
-            keyTime = ConvertKeyTime(keyTime, kfAnimation);
-            if (!kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
-            {
-                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-                var keyframe = new KeyFrame<T>()
-                {
-                    Value = kfAnimation.Interpolate(keyTime),
-                    Easing = easing,
-                    KeyTime = keyTime
-                };
+        if (Property.Animation is not KeyFrameAnimation<T> animation) return;
 
-                RecordableCommands.Create([Element.Model])
-                    .OnDo(() => kfAnimation.KeyFrames.Add(keyframe, out _))
-                    .OnUndo(() => kfAnimation.KeyFrames.Remove(keyframe))
-                    .ToCommand()
-                    .DoAndRecord(recorder);
-            }
-        }
+        AnimationOperations.InsertKeyFrame(
+            animation: animation,
+            scene: Timeline.Scene,
+            element: Element.Model,
+            easing: easing,
+            keyTime: keyTime,
+            logger: _logger,
+            cr: Timeline.EditorContext.CommandRecorder,
+            storables: [Element.Model]);
     }
 }
 
 public abstract class InlineAnimationLayerViewModel : IDisposable
 {
-    private readonly ILogger _logger = Log.CreateLogger<InlineAnimationLayerViewModel>();
+    protected readonly ILogger _logger = Log.CreateLogger<InlineAnimationLayerViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly CompositeDisposable _innerDisposables = [];
     private readonly ReactivePropertySlim<bool> _useGlobalClock = new(true);
@@ -120,7 +114,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         DeleteCurrentAnimationCommand = new ReactiveCommand()
             .WithSubscribe(() =>
             {
-                if (Property.Animation is {} animation)
+                if (Property.Animation is { } animation)
                 {
                     (Timeline.EditorContext as ISupportCloseAnimation)?.Close(animation);
                     DeleteAnimation();
@@ -144,14 +138,14 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                     if (t.NewValue is IKeyFrameAnimation kfAnimation)
                     {
                         kfAnimation.KeyFrames.ForEachItem(
-                            (idx, item) => Items.Insert(idx, new InlineKeyFrameViewModel(item, kfAnimation, this)),
-                            (idx, _) =>
-                            {
-                                InlineKeyFrameViewModel item = Items[idx];
-                                item.Dispose();
-                                Items.RemoveAt(idx);
-                            },
-                            ClearItems)
+                                (idx, item) => Items.Insert(idx, new InlineKeyFrameViewModel(item, kfAnimation, this)),
+                                (idx, _) =>
+                                {
+                                    InlineKeyFrameViewModel item = Items[idx];
+                                    item.Dispose();
+                                    Items.RemoveAt(idx);
+                                },
+                                ClearItems)
                             .DisposeWith(_innerDisposables);
                     }
 
@@ -312,12 +306,13 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             if (discriminator.GenericTypeArguments[0] != animation.Property.PropertyType)
             {
                 InsertKeyFrame(newKeyFrame.Easing, pointerPosition);
-                NotificationService.ShowWarning(Strings.GraphEditor, "The property type of the pasted keyframe does not match. Only the easing is applied.");
+                NotificationService.ShowWarning(Strings.GraphEditor,
+                    "The property type of the pasted keyframe does not match. Only the easing is applied.");
                 return;
             }
 
             var keyTime = ConvertKeyTime(pointerPosition, animation);
-            if (animation.KeyFrames.FirstOrDefault(k=>k.KeyTime == keyTime) is { } existingKeyFrame)
+            if (animation.KeyFrames.FirstOrDefault(k => k.KeyTime == keyTime) is { } existingKeyFrame)
             {
                 // イージングと値を変更
                 object? oldValue = existingKeyFrame.Value;
@@ -328,7 +323,8 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                 command1.Append(command2)
                     .WithStoables([Element.Model])
                     .DoAndRecord(recorder);
-                NotificationService.ShowWarning(Strings.GraphEditor, "A keyframe already exists at the paste position. The easing and value have been updated.");
+                NotificationService.ShowWarning(Strings.GraphEditor,
+                    "A keyframe already exists at the paste position. The easing and value have been updated.");
             }
             else
             {
@@ -461,7 +457,8 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         return new PrepareAnimationContext(Margin.Value, LeftMargin.Value);
     }
 
-    public async void AnimationRequest(PrepareAnimationContext context, Thickness layerMargin, Thickness leftMargin, CancellationToken cancellationToken = default)
+    public async void AnimationRequest(PrepareAnimationContext context, Thickness layerMargin, Thickness leftMargin,
+        CancellationToken cancellationToken = default)
     {
         if (LayerHeader.Value is { } layerHeader)
         {
@@ -506,7 +503,8 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public record struct PrepareAnimationContext(Thickness Margin, Thickness LeftMargin);
 
-    private sealed class TrackedInlineLayerTopObservable(InlineAnimationLayerViewModel inline) : LightweightObservableBase<double>
+    private sealed class TrackedInlineLayerTopObservable(InlineAnimationLayerViewModel inline)
+        : LightweightObservableBase<double>
     {
         private IDisposable? _disposable1;
         private IDisposable? _disposable2;

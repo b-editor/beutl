@@ -120,7 +120,8 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                     RecordableCommands.Edit(Model, KeyFrame.EasingProperty, newKeyFrame.Easing, Model.Easing)
                         .WithStoables([Parent.Element.Model])
                         .DoAndRecord(recorder);
-                    NotificationService.ShowWarning(Strings.GraphEditor, "The property type of the pasted keyframe does not match. Only the easing is applied.");
+                    NotificationService.ShowWarning(Strings.GraphEditor,
+                        "The property type of the pasted keyframe does not match. Only the easing is applied.");
                 }
                 else
                 {
@@ -132,6 +133,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                         .ToCommand([Parent.Element.Model])
                         .DoAndRecord(recorder);
                 }
+
                 return;
             }
 
@@ -146,11 +148,14 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private void Remove()
     {
-        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-        Animation.KeyFrames.BeginRecord<IKeyFrame>()
-            .Remove(Model)
-            .ToCommand([Parent.Element.Model])
-            .DoAndRecord(recorder);
+        AnimationOperations.RemoveKeyFrame(
+            animation: Animation,
+            scene: Timeline.Scene,
+            element: Parent.Element.Model,
+            keyframe: Model,
+            logger: _logger,
+            cr: Timeline.EditorContext.CommandRecorder,
+            storables: [Parent.Element.Model]);
     }
 
     public void UpdateKeyTime()

@@ -46,32 +46,21 @@ public sealed class GraphEditorViewModel<T>(
         }
         else
         {
-            _logger.LogInformation("Inserting new key frame at {KeyTime}", keyTime);
             InsertKeyFrame(easing, originalKeyTime);
         }
     }
 
     public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
     {
-        _logger.LogInformation("Inserting key frame at {KeyTime}", keyTime);
-        keyTime = ConvertKeyTime(keyTime);
-        var kfAnimation = (KeyFrameAnimation<T>)Animation;
-        if (!kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
-        {
-            CommandRecorder recorder = EditorContext.CommandRecorder;
-            var keyframe = new KeyFrame<T>
-            {
-                Value = kfAnimation.Interpolate(keyTime),
-                Easing = easing,
-                KeyTime = keyTime
-            };
-
-            RecordableCommands.Create(GetStorables())
-                .OnDo(() => kfAnimation.KeyFrames.Add(keyframe, out _))
-                .OnUndo(() => kfAnimation.KeyFrames.Remove(keyframe))
-                .ToCommand()
-                .DoAndRecord(recorder);
-        }
+        AnimationOperations.InsertKeyFrame(
+            animation: (KeyFrameAnimation<T>)Animation,
+            scene: Scene,
+            element: Element,
+            easing: easing,
+            keyTime: keyTime,
+            logger: _logger,
+            cr: EditorContext.CommandRecorder,
+            storables: GetStorables());
     }
 }
 

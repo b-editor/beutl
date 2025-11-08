@@ -473,10 +473,13 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     private void Remove()
     {
-        CommandRecorder recorder = Parent.Parent.EditorContext.CommandRecorder;
-        Parent.Parent.Animation.KeyFrames.BeginRecord<IKeyFrame>()
-            .Remove(Model)
-            .ToCommand(GetStorables())
-            .DoAndRecord(recorder);
+        AnimationOperations.RemoveKeyFrame(
+            animation: Parent.Parent.Animation,
+            scene: Parent.Parent.Scene,
+            element: Parent.Parent.Element,
+            keyframe: Model,
+            logger: _logger,
+            cr: Parent.Parent.EditorContext.CommandRecorder,
+            storables: GetStorables());
     }
 }
