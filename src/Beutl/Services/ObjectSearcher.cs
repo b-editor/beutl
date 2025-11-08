@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using Beutl.Engine;
 
 namespace Beutl.Services;
 
@@ -76,6 +77,20 @@ public class ObjectSearcher
                         }
                     }
 
+                    if (coreObject is EngineObject engineObject)
+                    {
+                        foreach (IProperty property in engineObject.Properties)
+                        {
+                            if ((!property.ValueType.IsValueType
+                                 || property.ValueType.IsAssignableTo(typeof(IOptional)))
+                                && property.CurrentValue is { } value
+                                && SearchRecursive(value) is { } result)
+                            {
+                                return result;
+                            }
+                        }
+                    }
+
                     break;
 
                 case IEnumerable enm:
@@ -140,6 +155,17 @@ public class ObjectSearcher
                                  .Where(x => x != null))
                     {
                         SearchAllRecursive(item!, list);
+                    }
+
+                    if (coreObject is EngineObject engineObject)
+                    {
+                        foreach (object? item in engineObject.Properties
+                                     .Where(x => !x.ValueType.IsValueType)
+                                     .Select(x => x.CurrentValue)
+                                     .Where(x => x != null))
+                        {
+                            SearchAllRecursive(item!, list);
+                        }
                     }
 
                     break;

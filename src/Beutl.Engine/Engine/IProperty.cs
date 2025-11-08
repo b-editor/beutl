@@ -19,6 +19,8 @@ public interface IProperty : INotifyEdited
 {
     object? DefaultValue { get; }
 
+    object? CurrentValue { get; set; }
+
     string Name { get; }
 
     Type ValueType { get; }
@@ -46,7 +48,7 @@ public interface IProperty<T> : IProperty
 {
     new T DefaultValue { get; }
 
-    T CurrentValue { get; set; }
+    new T CurrentValue { get; set; }
 
     new IAnimation<T>? Animation { get; set; }
 
@@ -56,6 +58,26 @@ public interface IProperty<T> : IProperty
     {
         get => Animation;
         set => Animation = (IAnimation<T>?)value;
+    }
+
+    object? IProperty.CurrentValue
+    {
+        get => CurrentValue;
+        set
+        {
+            if (value is T tValue)
+            {
+                CurrentValue = tValue;
+            }
+            else if (value == null && !typeof(T).IsValueType)
+            {
+                CurrentValue = default!;
+            }
+            else
+            {
+                throw new InvalidCastException();
+            }
+        }
     }
 
     T GetValue(TimeSpan time);
