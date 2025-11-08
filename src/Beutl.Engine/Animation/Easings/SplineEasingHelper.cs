@@ -81,7 +81,7 @@ public static class SplineEasingHelper
         return (left, right);
     }
 
-    struct InterpolationInfo<T>
+    class InterpolationInfo<T>
         where T : struct, INumber<T>
     {
         public bool Decrease;
@@ -106,19 +106,28 @@ public static class SplineEasingHelper
             Easing = easing;
         }
 
+        public void Update(KeyFrame<T> keyframe, KeyFrame<T> prevKeyFrame)
+        {
+            Decrease = keyframe.Value < prevKeyFrame.Value;
+            Height = float.CreateChecked(T.Abs(keyframe.Value - prevKeyFrame.Value));
+            Width = (float)(keyframe.KeyTime - prevKeyFrame.KeyTime).TotalSeconds;
+            P1 = (X: 0f, Y: Decrease ? Height : 0f);
+            P2 = (X: Width, Y: Decrease ? 0f : Height);
+        }
+
         // CP1からP1へのベクトル
-        private (float X, float Y) ControlPoint1Vector()
+        public (float X, float Y) ControlPoint1Vector()
         {
             return (X: P1.X - CP1.X, Y: P1.Y - CP1.Y);
         }
 
         // CP2からP2へのベクトル
-        private (float X, float Y) ControlPoint2Vector()
+        public (float X, float Y) ControlPoint2Vector()
         {
             return (X: P2.X - CP2.X, Y: P2.Y - CP2.Y);
         }
 
-        public void ProcessControlPoint1(InterpolationInfo<T> prevInfo)
+        public void MakeControlPoint1Symmetry(InterpolationInfo<T> prevInfo)
         {
             var vector = prevInfo.ControlPoint2Vector();
 
@@ -139,12 +148,16 @@ public static class SplineEasingHelper
             {
                 newPoint.Y = newPoint.Y / Height;
             }
+
+            if (!double.IsFinite(newPoint.X)) newPoint.X = 0;
+            if (!double.IsFinite(newPoint.Y)) newPoint.Y = 0;
+
             // Update CP1
             Easing.X1 = newPoint.X;
             Easing.Y1 = newPoint.Y;
         }
 
-        public void ProcessControlPoint2(InterpolationInfo<T> nextInfo)
+        public void MakeControlPoint2Symmetry(InterpolationInfo<T> nextInfo)
         {
             var vector = nextInfo.ControlPoint1Vector();
 
@@ -166,9 +179,94 @@ public static class SplineEasingHelper
                 newPoint.Y = newPoint.Y / Height;
             }
 
+            if (!double.IsFinite(newPoint.X)) newPoint.X = 1;
+            if (!double.IsFinite(newPoint.Y)) newPoint.Y = 1;
+
             // Update CP2
             Easing.X2 = newPoint.X;
             Easing.Y2 = newPoint.Y;
+        }
+
+        public IRecordableCommand UpdateControlPoint1((float X, float Y) vector)
+        {
+            vector = (-vector.X, -vector.Y);
+            // ベクトルの角度を取得
+            float radians = MathF.Atan2(vector.Y, vector.X);
+
+            var length = Length(vector.X, vector.Y);
+            var newPoint = CalculatePoint(radians, length);
+            newPoint.X += P1.X;
+            newPoint.Y += P1.Y;
+
+            newPoint.X = Math.Clamp(newPoint.X / Width, 0, 1);
+            if (Decrease)
+            {
+                newPoint.Y = 1 - (newPoint.Y / Height);
+            }
+            else
+            {
+                newPoint.Y = newPoint.Y / Height;
+            }
+
+            if (!double.IsFinite(newPoint.X)) newPoint.X = 0;
+            if (!double.IsFinite(newPoint.Y)) newPoint.Y = 0;
+
+            // Update CP1
+            var easing = Easing;
+            var oldPoint = (easing.X1, easing.Y1);
+            return RecordableCommands.Create()
+                .OnDo(() =>
+                {
+                    easing.X1 = newPoint.X;
+                    easing.Y1 = newPoint.Y;
+                })
+                .OnUndo(() =>
+                {
+                    easing.X1 = oldPoint.X1;
+                    easing.Y1 = oldPoint.Y1;
+                })
+                .ToCommand();
+        }
+
+        public IRecordableCommand UpdateControlPoint2((float X, float Y) vector)
+        {
+            vector = (-vector.X, -vector.Y);
+            // ベクトルの角度を取得
+            float radians = MathF.Atan2(vector.Y, vector.X);
+
+            var length = Length(vector.X, vector.Y);
+            var newPoint = CalculatePoint(radians, length);
+            newPoint.X += P2.X;
+            newPoint.Y += P2.Y;
+
+            newPoint.X = Math.Clamp(newPoint.X / Width, 0, 1);
+            if (Decrease)
+            {
+                newPoint.Y = 1 - (newPoint.Y / Height);
+            }
+            else
+            {
+                newPoint.Y = newPoint.Y / Height;
+            }
+
+            if (!double.IsFinite(newPoint.X)) newPoint.X = 1;
+            if (!double.IsFinite(newPoint.Y)) newPoint.Y = 1;
+
+            // Update CP1
+            var easing = Easing;
+            var oldPoint = (easing.X2, easing.Y2);
+            return RecordableCommands.Create()
+                .OnDo(() =>
+                {
+                    easing.X2 = newPoint.X;
+                    easing.Y2 = newPoint.Y;
+                })
+                .OnUndo(() =>
+                {
+                    easing.X2 = oldPoint.X2;
+                    easing.Y2 = oldPoint.Y2;
+                })
+                .ToCommand();
         }
 
         // X1 > X2になる場合調整を行う
@@ -209,14 +307,15 @@ public static class SplineEasingHelper
         return (x, y);
     }
 
-    private static readonly ConcurrentDictionary<Type, Optional<MethodInfo>> s_cachedGenericMethods = new();
+    private static readonly ConcurrentDictionary<Type, Optional<MethodInfo>> s_cachedRemoveGenericMethods = new();
+    private static readonly ConcurrentDictionary<Type, Optional<MethodInfo>> s_cachedMoveGenericMethods = new();
 
     public static void Remove(IKeyFrameAnimation animation, int index)
     {
         var type = animation.Property.PropertyType;
-        if (!s_cachedGenericMethods.TryGetValue(type, out var method))
+        if (!s_cachedRemoveGenericMethods.TryGetValue(type, out var method))
         {
-            s_cachedGenericMethods[type] = method = default;
+            s_cachedRemoveGenericMethods[type] = method = default;
             Type[] interfaces = type.GetInterfaces();
             if (type.IsValueType &&
                 interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>)))
@@ -226,7 +325,7 @@ public static class SplineEasingHelper
                 if (methodInfo != null)
                 {
                     var genericMethod = methodInfo.MakeGenericMethod(type);
-                    s_cachedGenericMethods[type] = method = genericMethod;
+                    s_cachedRemoveGenericMethods[type] = method = genericMethod;
                 }
             }
         }
@@ -238,6 +337,41 @@ public static class SplineEasingHelper
         else
         {
             animation.KeyFrames.RemoveAt(index);
+        }
+    }
+
+    public static IRecordableCommand Move(
+        IKeyFrameAnimation animation, IKeyFrame keyFrame, TimeSpan keyTime)
+    {
+        var type = animation.Property.PropertyType;
+        if (!s_cachedMoveGenericMethods.TryGetValue(type, out var method))
+        {
+            s_cachedMoveGenericMethods[type] = method = default;
+            Type[] interfaces = type.GetInterfaces();
+            if (type.IsValueType &&
+                interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>)))
+            {
+                Type methodType = typeof(SplineEasingHelper);
+                var methodInfo = methodType.GetMethod(nameof(MoveGeneric), BindingFlags.Public | BindingFlags.Static);
+                if (methodInfo != null)
+                {
+                    var genericMethod = methodInfo.MakeGenericMethod(type);
+                    s_cachedMoveGenericMethods[type] = method = genericMethod;
+                }
+            }
+        }
+
+        if (method.HasValue)
+        {
+            return (IRecordableCommand?)method.Value.Invoke(null, [animation, keyFrame, keyTime]);
+        }
+        else
+        {
+            var oldKeyTime = keyFrame.KeyTime;
+            return RecordableCommands.Create()
+                .OnDo(() => keyFrame.KeyTime = keyTime)
+                .OnUndo(() => keyFrame.KeyTime = oldKeyTime)
+                .ToCommand();
         }
     }
 
@@ -263,7 +397,7 @@ public static class SplineEasingHelper
                 && animation.KeyFrames[index - 2] is KeyFrame<T> prevPrevKeyFrame)
             {
                 var prevInfo = new InterpolationInfo<T>(prevSplineEasing, prevKeyFrame, prevPrevKeyFrame);
-                nextInfo.ProcessControlPoint1(prevInfo);
+                nextInfo.MakeControlPoint1Symmetry(prevInfo);
             }
 
             if (index + 2 < animation.KeyFrames.Count && animation.KeyFrames[index + 2] is KeyFrame<T>
@@ -272,12 +406,89 @@ public static class SplineEasingHelper
                 } nextNextKeyFrame)
             {
                 var nextNextInfo = new InterpolationInfo<T>(nextNextSplineEasing, nextNextKeyFrame, nextKeyFrame);
-                nextInfo.ProcessControlPoint2(nextNextInfo);
+                nextInfo.MakeControlPoint2Symmetry(nextNextInfo);
             }
 
             nextInfo.PostProcess();
         }
 
         animation.KeyFrames.RemoveAt(index);
+    }
+
+
+    public static IRecordableCommand MoveGeneric<T>(
+        KeyFrameAnimation<T> animation, KeyFrame<T> keyFrame, TimeSpan keyTime)
+        where T : struct, INumber<T>
+    {
+        var oldKeyTime = keyFrame.KeyTime;
+        var command = RecordableCommands.Create()
+            .OnDo(() => keyFrame.KeyTime = keyTime)
+            .OnUndo(() => keyFrame.KeyTime = oldKeyTime)
+            .ToCommand();
+
+        int oldIndex = animation.KeyFrames.IndexOf(keyFrame);
+        if (0 <= oldIndex - 1)
+        {
+            var oldNextKeyFrame = oldIndex + 1 < animation.KeyFrames.Count
+                ? (KeyFrame<T>)animation.KeyFrames[oldIndex + 1]
+                : null;
+            var oldPrevKeyFrame = (KeyFrame<T>)animation.KeyFrames[oldIndex - 1];
+            var oldNextInfo = oldNextKeyFrame?.Easing is SplineEasing oldNextEasing
+                ? new InterpolationInfo<T>(oldNextEasing, oldNextKeyFrame, keyFrame)
+                : null;
+            var currentInfo = keyFrame.Easing is SplineEasing currentEasing
+                ? new InterpolationInfo<T>(currentEasing, keyFrame, oldPrevKeyFrame)
+                : null;
+            var oldNextCPV1 = oldNextInfo?.ControlPoint1Vector();
+            var oldNextCPV2 = oldNextInfo?.ControlPoint2Vector();
+            var currentCPV1 = currentInfo?.ControlPoint1Vector();
+            var currentCPV2 = currentInfo?.ControlPoint2Vector();
+
+            var newIndex = animation.KeyFrames.IndexAtOrCount(keyTime);
+            // ここで移動前後で区間が変わらないことを確認
+
+            if (oldPrevKeyFrame.KeyTime < keyTime && oldNextKeyFrame?.KeyTime > keyTime)
+            {
+                keyFrame.KeyTime = keyTime;
+
+                oldNextInfo?.Update(oldNextKeyFrame, keyFrame);
+                currentInfo?.Update(keyFrame, oldPrevKeyFrame);
+
+                return command
+                    .Append(oldNextCPV1.HasValue ? oldNextInfo?.UpdateControlPoint1(oldNextCPV1.Value) : null)
+                    .Append(oldNextCPV2.HasValue ? oldNextInfo?.UpdateControlPoint2(oldNextCPV2.Value) : null)
+                    .Append(currentCPV1.HasValue ? currentInfo?.UpdateControlPoint1(currentCPV1.Value) : null)
+                    .Append(currentCPV2.HasValue ? currentInfo?.UpdateControlPoint2(currentCPV2.Value) : null);
+            }
+            else if (0 <= newIndex - 1 && newIndex <= animation.KeyFrames.Count)
+            {
+                var newNextKeyFrame = newIndex < animation.KeyFrames.Count
+                    ? (KeyFrame<T>)animation.KeyFrames[newIndex]
+                    : null;
+                var newPrevKeyFrame = (KeyFrame<T>)animation.KeyFrames[newIndex - 1];
+                var newNextInfo = newNextKeyFrame?.Easing is SplineEasing newNextEasing
+                    ? new InterpolationInfo<T>(newNextEasing, newNextKeyFrame, newPrevKeyFrame)
+                    : null;
+
+                var newNextCPV1 = newNextInfo?.ControlPoint1Vector();
+                var newNextCPV2 = newNextInfo?.ControlPoint2Vector();
+
+                keyFrame.KeyTime = keyTime;
+
+                oldNextInfo?.Update(oldNextKeyFrame!, oldPrevKeyFrame);
+                newNextInfo?.Update(newNextKeyFrame!, keyFrame);
+                currentInfo?.Update(keyFrame, newPrevKeyFrame);
+
+                return command
+                    .Append(oldNextCPV2.HasValue ? oldNextInfo?.UpdateControlPoint2(oldNextCPV2.Value) : null)
+                    .Append(currentCPV1.HasValue ? oldNextInfo?.UpdateControlPoint1(currentCPV1.Value) : null)
+                    .Append(newNextCPV2.HasValue ? newNextInfo?.UpdateControlPoint2(newNextCPV2.Value) : null)
+                    .Append(oldNextCPV1.HasValue ? newNextInfo?.UpdateControlPoint1(oldNextCPV1.Value) : null)
+                    .Append(currentCPV2.HasValue ? currentInfo?.UpdateControlPoint2(currentCPV2.Value) : null)
+                    .Append(newNextCPV1.HasValue ? currentInfo?.UpdateControlPoint1(newNextCPV1.Value) : null);
+            }
+        }
+
+        return command;
     }
 }

@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
@@ -166,8 +167,8 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
 
         TimeSpan time = Left.Value.ToTimeSpan(scale).RoundToRate(rate);
-        RecordableCommands.Edit(Model, KeyFrame.KeyTimeProperty, time)
-            .WithStoables([Parent.Element.Model])
+        SplineEasingHelper.Move(Animation, Model, time)
+            ?.WithStoables([Parent.Element.Model])
             .DoAndRecord(recorder);
 
         Left.Value = time.ToPixel(scale);
