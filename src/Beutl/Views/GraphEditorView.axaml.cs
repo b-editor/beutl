@@ -593,13 +593,14 @@ public partial class GraphEditorView : UserControl
             && _cPointPressed
             && sender is Shape { DataContext: GraphEditorKeyFrameViewModel itemViewModel, Tag: string tag })
         {
+            var recorder = viewModel.EditorContext.CommandRecorder;
             switch (tag)
             {
                 case "ControlPoint1":
-                    itemViewModel.SubmitControlPoint1(_oldValue.Item1, _oldValue.Item2);
+                    itemViewModel.SubmitControlPoint1(_oldValue.Item1, _oldValue.Item2)?.DoAndRecord(recorder);
                     break;
                 case "ControlPoint2":
-                    itemViewModel.SubmitControlPoint2(_oldValue.Item1, _oldValue.Item2);
+                    itemViewModel.SubmitControlPoint2(_oldValue.Item1, _oldValue.Item2)?.DoAndRecord(recorder);
                     break;
             }
 
@@ -609,10 +610,10 @@ public partial class GraphEditorView : UserControl
                 switch (tag)
                 {
                     case "ControlPoint2":
-                        oppotite.SubmitControlPoint1(_oldValue2.Item1, _oldValue2.Item2);
+                        oppotite.SubmitControlPoint1(_oldValue2.Item1, _oldValue2.Item2)?.DoAndRecord(recorder);
                         break;
                     case "ControlPoint1":
-                        oppotite.SubmitControlPoint2(_oldValue2.Item1, _oldValue2.Item2);
+                        oppotite.SubmitControlPoint2(_oldValue2.Item1, _oldValue2.Item2)?.DoAndRecord(recorder);
                         break;
                 }
             }
@@ -625,9 +626,19 @@ public partial class GraphEditorView : UserControl
 
     private bool _keyTimePressed;
     private Point _keyTimeStart;
+
+    // ViewControlPoint2は後ろの位置からの相対的な位置
+    // ドラッグ前のコントロールポイントの位置（表示上の点）
+    private (Point ControlPoint1, Point ControlPoint2)? _viewControlPoints;
+    private (Point ControlPoint1, Point ControlPoint2)? _nextViewControlPoints;
+
+    // ドラッグ前のコントロールポイントの位置（データ側での点）
+    private readonly Dictionary<IKeyFrame, (Point ControlPoint1, Point ControlPoint2)> _oldControlPoints = new();
+
     private IKeyFrame? _keyframe;
     private TimeSpan _oldKeyTime;
     private GraphEditorKeyFrameViewModel? _keyframeViewModel;
+    private GraphEditorKeyFrameViewModel? _nextKeyframeViewModel;
 
     private bool _crossed;
 
@@ -651,6 +662,11 @@ public partial class GraphEditorView : UserControl
 
                 if (y.HasValue && itemViewModel != null)
                 {
+                    int nextIndex = selectedView.KeyFrames.IndexOf(itemViewModel) + 1;
+                    _nextKeyframeViewModel = nextIndex < selectedView.KeyFrames.Count
+                        ? selectedView.KeyFrames[nextIndex]
+                        : null;
+
                     itemViewModel.EndY.Value = y.Value;
                 }
 
@@ -665,9 +681,6 @@ public partial class GraphEditorView : UserControl
                     Point position = point.Position;
                     Point delta = position - _keyTimeStart;
                     _keyTimeStart = position;
-
-                    itemViewModel.EndY.Value -= delta.Y;
-
                     float scale = viewModel.Options.Value.Scale;
                     int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
 
@@ -682,13 +695,56 @@ public partial class GraphEditorView : UserControl
                     }
                     else
                     {
+                        itemViewModel.EndY.Value -= delta.Y;
                         double right = itemViewModel.Right.Value + delta.X;
                         var timeSpan = right.ToTimeSpan(scale);
                         // 左のキーフレームに横断した場合
                         if (itemViewModel._previous.Value is { Model.KeyTime: TimeSpan prevTime }
                             && prevTime > timeSpan.RoundToRate(rate))
                         {
+                            int index = selectedView.KeyFrames.IndexOf(itemViewModel);
+                            var viewControlPoints = _viewControlPoints;
+                            var nextViewControlPoints = _nextViewControlPoints;
+                            if (0 <= index - 1)
+                            {
+                                // 編集中のキーフレームの前後のキーフレームが変わるので、コントロールポイントを保存しておく
+                                var prev = selectedView.KeyFrames[index - 1];
+                                if (_nextViewControlPoints.HasValue)
+                                {
+                                    _nextViewControlPoints = (
+                                        _nextViewControlPoints.Value.ControlPoint1,
+                                        prev.RightTop.Value - prev.ControlPoint2.Value);
+                                }
+
+                                if (_viewControlPoints.HasValue)
+                                {
+                                    _viewControlPoints = (
+                                        prev.LeftBottom.Value - prev.ControlPoint1.Value,
+                                        _viewControlPoints.Value.ControlPoint2);
+                                }
+
+                                if (prev.Model.Easing is SplineEasing splineEasing)
+                                {
+                                    _oldControlPoints.TryAdd(prev.Model, (
+                                        new Point(splineEasing.X1, splineEasing.Y1),
+                                        new Point(splineEasing.X2, splineEasing.Y2)));
+                                }
+                            }
+
                             itemViewModel.SubmitCrossed(timeSpan);
+
+                            // 現在編集中のキーフレームが横断したので、indexは現在の後になっている
+                            if (index + 1 < selectedView.KeyFrames.Count && viewControlPoints.HasValue &&
+                                nextViewControlPoints.HasValue)
+                            {
+                                // 編集中のキーフレームの前後のキーフレームが変わったので、移動前の時点でのコントロールポイントを表示上の位置で設定する
+                                var nextNext = selectedView.KeyFrames[index + 1];
+                                nextNext.UpdateControlPoint1(
+                                    nextNext.LeftBottom.Value - viewControlPoints.Value.ControlPoint1);
+                                nextNext.UpdateControlPoint2(
+                                    nextNext.RightTop.Value - nextViewControlPoints.Value.ControlPoint2);
+                            }
+
                             _crossed = true;
                             e.Handled = true;
                             return;
@@ -702,7 +758,46 @@ public partial class GraphEditorView : UserControl
                         if (itemViewModel._next is { Model.KeyTime: TimeSpan nextTime }
                             && timeSpan.RoundToRate(rate) > nextTime)
                         {
+                            int index = selectedView.KeyFrames.IndexOf(itemViewModel);
+                            var viewControlPoints = _viewControlPoints;
+                            var nextViewControlPoints = _nextViewControlPoints;
+                            if (index + 2 < selectedView.KeyFrames.Count)
+                            {
+                                var nextNext = selectedView.KeyFrames[index + 2];
+                                if (_nextViewControlPoints.HasValue)
+                                {
+                                    _nextViewControlPoints = (_nextViewControlPoints.Value.ControlPoint1,
+                                        nextNext.RightTop.Value - nextNext.ControlPoint2.Value);
+                                }
+
+                                if (_viewControlPoints.HasValue)
+                                {
+                                    _viewControlPoints = (nextNext.LeftBottom.Value - nextNext.ControlPoint1.Value,
+                                        _viewControlPoints.Value.ControlPoint2);
+                                }
+
+                                if (nextNext.Model.Easing is SplineEasing splineEasing)
+                                {
+                                    _oldControlPoints.TryAdd(nextNext.Model, (
+                                        new Point(splineEasing.X1, splineEasing.Y1),
+                                        new Point(splineEasing.X2, splineEasing.Y2)));
+                                }
+                            }
+
                             itemViewModel.SubmitCrossed(timeSpan);
+
+                            // 現在編集中のキーフレームが横断したので、indexは現在の手前になっている
+                            if (index < selectedView.KeyFrames.Count && viewControlPoints.HasValue &&
+                                nextViewControlPoints.HasValue)
+                            {
+                                // 編集中のキーフレームの前後のキーフレームが変わったので、移動前の時点でのコントロールポイントを表示上の位置で設定する
+                                var prev = selectedView.KeyFrames[index];
+                                prev.UpdateControlPoint1(
+                                    prev.LeftBottom.Value - viewControlPoints.Value.ControlPoint1);
+                                prev.UpdateControlPoint2(
+                                    prev.RightTop.Value - nextViewControlPoints.Value.ControlPoint2);
+                            }
+
                             _crossed = true;
                             e.Handled = true;
                             return;
@@ -713,6 +808,22 @@ public partial class GraphEditorView : UserControl
                         }
 
                         itemViewModel.Right.Value = timeSpan.ToPixel(scale);
+                    }
+
+                    if (_viewControlPoints != null)
+                    {
+                        itemViewModel.UpdateControlPoint1(
+                            itemViewModel.LeftBottom.Value - _viewControlPoints.Value.ControlPoint1);
+                        itemViewModel.UpdateControlPoint2(
+                            itemViewModel.RightTop.Value - _viewControlPoints.Value.ControlPoint2);
+                    }
+
+                    if (_nextKeyframeViewModel != null && _nextViewControlPoints != null)
+                    {
+                        _nextKeyframeViewModel.UpdateControlPoint1(
+                            _nextKeyframeViewModel.LeftBottom.Value - _nextViewControlPoints.Value.ControlPoint1);
+                        _nextKeyframeViewModel.UpdateControlPoint2(
+                            _nextKeyframeViewModel.RightTop.Value - _nextViewControlPoints.Value.ControlPoint2);
                     }
 
                     // マウスがスクロール外に行った時、スクロールを移動する
@@ -749,7 +860,8 @@ public partial class GraphEditorView : UserControl
             }
             else
             {
-                _keyframeViewModel.SubmitKeyTimeAndValue(_oldKeyTime);
+                _keyframeViewModel.SubmitKeyTimeAndValue(_oldKeyTime, _oldControlPoints);
+                _oldControlPoints.Clear();
             }
 
             _followingKeyFrames = null;
@@ -775,6 +887,15 @@ public partial class GraphEditorView : UserControl
                 _keyframe = itemViewModel.Model;
                 _keyframeViewModel = itemViewModel;
                 _oldKeyTime = _keyframe.KeyTime;
+                _viewControlPoints = GetSplineControlPoints(itemViewModel);
+                int nextIndex = itemViewModel.Parent.KeyFrames.IndexOf(itemViewModel) + 1;
+                _nextKeyframeViewModel = nextIndex < itemViewModel.Parent.KeyFrames.Count
+                    ? itemViewModel.Parent.KeyFrames[nextIndex]
+                    : null;
+                _nextViewControlPoints = _nextKeyframeViewModel != null
+                    ? GetSplineControlPoints(_nextKeyframeViewModel)
+                    : null;
+
                 _crossed = false;
                 viewModel.BeginEditing();
                 e.Handled = true;
@@ -783,6 +904,26 @@ public partial class GraphEditorView : UserControl
                     _followingKeyFrames = itemViewModel.Parent.KeyFrames.Where(i => i != itemViewModel).ToArray();
                 }
             }
+        }
+    }
+
+    private (Point, Point)? GetSplineControlPoints(GraphEditorKeyFrameViewModel keyFrame)
+    {
+        if (keyFrame.Model.Easing is SplineEasing easing)
+        {
+            var viewControlPoint1 = keyFrame.ControlPoint1.Value;
+            var viewControlPoint2 = keyFrame.ControlPoint2.Value;
+            viewControlPoint1 = keyFrame.LeftBottom.Value - viewControlPoint1;
+            viewControlPoint2 = keyFrame.RightTop.Value - viewControlPoint2;
+            var controlPoint1 = new Point(easing.X1, easing.Y1);
+            var controlPoint2 = new Point(easing.X2, easing.Y2);
+
+            _oldControlPoints[keyFrame.Model] = (controlPoint1, controlPoint2);
+            return (viewControlPoint1, viewControlPoint2);
+        }
+        else
+        {
+            return default;
         }
     }
 
