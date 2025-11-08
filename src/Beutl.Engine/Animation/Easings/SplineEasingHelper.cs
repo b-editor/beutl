@@ -460,13 +460,15 @@ public static class SplineEasingHelper
                     .Append(currentCPV1.HasValue ? currentInfo?.UpdateControlPoint1(currentCPV1.Value) : null)
                     .Append(currentCPV2.HasValue ? currentInfo?.UpdateControlPoint2(currentCPV2.Value) : null);
             }
-            else if (0 <= newIndex - 1 && newIndex <= animation.KeyFrames.Count)
+            else if (0 <= newIndex && newIndex <= animation.KeyFrames.Count)
             {
                 var newNextKeyFrame = newIndex < animation.KeyFrames.Count
                     ? (KeyFrame<T>)animation.KeyFrames[newIndex]
                     : null;
-                var newPrevKeyFrame = (KeyFrame<T>)animation.KeyFrames[newIndex - 1];
-                var newNextInfo = newNextKeyFrame?.Easing is SplineEasing newNextEasing
+                var newPrevKeyFrame = 0 <= newIndex - 1
+                    ? (KeyFrame<T>)animation.KeyFrames[newIndex - 1]
+                    : null;
+                var newNextInfo = newNextKeyFrame?.Easing is SplineEasing newNextEasing && newPrevKeyFrame != null
                     ? new InterpolationInfo<T>(newNextEasing, newNextKeyFrame, newPrevKeyFrame)
                     : null;
 
@@ -477,15 +479,16 @@ public static class SplineEasingHelper
 
                 oldNextInfo?.Update(oldNextKeyFrame!, oldPrevKeyFrame);
                 newNextInfo?.Update(newNextKeyFrame!, keyFrame);
-                currentInfo?.Update(keyFrame, newPrevKeyFrame);
+                if (newPrevKeyFrame != null)
+                    currentInfo?.Update(keyFrame, newPrevKeyFrame);
 
                 return command
                     .Append(oldNextCPV2.HasValue ? oldNextInfo?.UpdateControlPoint2(oldNextCPV2.Value) : null)
                     .Append(currentCPV1.HasValue ? oldNextInfo?.UpdateControlPoint1(currentCPV1.Value) : null)
                     .Append(newNextCPV2.HasValue ? newNextInfo?.UpdateControlPoint2(newNextCPV2.Value) : null)
                     .Append(oldNextCPV1.HasValue ? newNextInfo?.UpdateControlPoint1(oldNextCPV1.Value) : null)
-                    .Append(currentCPV2.HasValue ? currentInfo?.UpdateControlPoint2(currentCPV2.Value) : null)
-                    .Append(newNextCPV1.HasValue ? currentInfo?.UpdateControlPoint1(newNextCPV1.Value) : null);
+                    .Append(currentCPV2.HasValue && newPrevKeyFrame != null ? currentInfo?.UpdateControlPoint2(currentCPV2.Value) : null)
+                    .Append(newNextCPV1.HasValue && newPrevKeyFrame != null ? currentInfo?.UpdateControlPoint1(newNextCPV1.Value) : null);
             }
         }
 
