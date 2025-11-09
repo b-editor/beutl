@@ -10,7 +10,6 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     public static readonly CoreProperty<T?> ValueProperty;
     internal static readonly Animator<T> s_animator;
     private T? _value;
-    internal IValidator<T>? _validator;
     private IKeyFrameAnimation? _parent;
 
     public KeyFrame()
@@ -32,10 +31,10 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
         get => _value;
         set
         {
-            if (_validator != null)
+            if (Validator != null)
             {
                 T? coerced = value;
-                if (_validator.TryCoerce(default, ref coerced))
+                if (Validator.TryCoerce(default, ref coerced))
                 {
                     value = coerced!;
                 }

@@ -1,10 +1,12 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Serialization;
+using Beutl.Validation;
 
 namespace Beutl.Engine;
 
@@ -145,6 +147,15 @@ public class ListProperty<T> : IListProperty<T>
     public CoreList<T>.Enumerator GetEnumerator()
     {
         return _items.GetEnumerator();
+    }
+
+    public IValidator CreateValidator(PropertyInfo propertyInfo)
+    {
+        return new MultipleValidator<CoreList<T>>([]);
+    }
+
+    public void SetValidator(IValidator validator)
+    {
     }
 
 

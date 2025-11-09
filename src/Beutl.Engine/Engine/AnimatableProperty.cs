@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Reflection;
 using Beutl.Animation;
@@ -10,7 +11,7 @@ public class AnimatableProperty<T> : IProperty<T>
 {
     private T _currentValue;
     private IAnimation<T>? _animation;
-    private readonly IValidator<T>? _validator;
+    private IValidator<T>? _validator;
     private PropertyInfo? _propertyInfo;
     private string _name;
     private EngineObject? _owner;
@@ -152,6 +153,25 @@ public class AnimatableProperty<T> : IProperty<T>
     }
 
     public PropertyInfo? GetPropertyInfo() => _propertyInfo;
+
+    public IValidator CreateValidator(PropertyInfo propertyInfo)
+    {
+        var attributes = propertyInfo.GetCustomAttributes().ToArray();
+        IValidator<T>[] validations = attributes.OfType<ValidationAttribute>()
+            .Select(CorePropertyMetadata<T>.ConvertValidator)
+            .ToArray();
+
+        return new MultipleValidator<T>(validations);
+    }
+
+    public void SetValidator(IValidator validator)
+    {
+        _validator = (IValidator<T>)validator;
+        if (Animation != null)
+        {
+            Animation.Validator = _validator;
+        }
+    }
 
     public void SetOwnerObject(EngineObject? owner)
     {

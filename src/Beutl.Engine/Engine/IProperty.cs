@@ -2,6 +2,7 @@ using System.Reflection;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Serialization;
+using Beutl.Validation;
 
 namespace Beutl.Engine;
 
@@ -42,6 +43,10 @@ public interface IProperty : INotifyEdited
     void DeserializeValue(ICoreSerializationContext context);
 
     void SerializeValue(ICoreSerializationContext context);
+
+    IValidator CreateValidator(PropertyInfo propertyInfo);
+
+    void SetValidator(IValidator validator);
 }
 
 public interface IProperty<T> : IProperty

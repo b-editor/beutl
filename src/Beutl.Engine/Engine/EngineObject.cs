@@ -8,6 +8,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Serialization;
+using Beutl.Validation;
 
 namespace Beutl.Engine;
 
@@ -151,7 +152,8 @@ public class EngineObject : Hierarchical, INotifyEdited
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        Dictionary<string, IAnimation> animations = _properties.Where(p=> p is { IsAnimatable: true, Animation: not null })
+        Dictionary<string, IAnimation> animations = _properties
+            .Where(p => p is { IsAnimatable: true, Animation: not null })
             .ToDictionary(p => p.Name, p => p.Animation!);
 
         context.SetValue("Animations", animations);
@@ -212,9 +214,16 @@ public class EngineObject : Hierarchical, INotifyEdited
             var property = func(this);
             if (property != null)
             {
+                if (!ReflectionCache<T>.Validators.TryGetValue(propertyInfo.Name, out IValidator? validator))
+                {
+                    validator = property.CreateValidator(propertyInfo);
+                    ReflectionCache<T>.Validators[propertyInfo.Name] = validator;
+                }
+
                 RegisterProperty(property);
                 property.SetPropertyInfo(propertyInfo);
                 property.SetOwnerObject(this);
+                property.SetValidator(validator);
             }
         }
     }
@@ -422,5 +431,6 @@ public class EngineObject : Hierarchical, INotifyEdited
     private static class ReflectionCache<T>
     {
         public static readonly List<(PropertyInfo, Func<object, IProperty?>)> Properties = new();
+        public static readonly Dictionary<string, IValidator> Validators = new();
     }
 }

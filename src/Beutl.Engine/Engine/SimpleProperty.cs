@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Serialization;
@@ -7,6 +8,7 @@ namespace Beutl.Engine;
 
 public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) : IProperty<T>
 {
+    private IValidator<T>? _validator = validator;
     private T _currentValue = defaultValue;
     private PropertyInfo? _propertyInfo;
     private string? _name;
@@ -93,6 +95,21 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
 
     public PropertyInfo? GetPropertyInfo() => _propertyInfo;
 
+    public IValidator CreateValidator(PropertyInfo propertyInfo)
+    {
+        var attributes = propertyInfo.GetCustomAttributes().ToArray();
+        IValidator<T>[] validations = attributes.OfType<ValidationAttribute>()
+            .Select(CorePropertyMetadata<T>.ConvertValidator)
+            .ToArray();
+
+        return new MultipleValidator<T>(validations);
+    }
+
+    public void SetValidator(IValidator validator)
+    {
+        _validator = (IValidator<T>)validator;
+    }
+
     public void SetOwnerObject(EngineObject? owner)
     {
         if (_owner == owner) return;
@@ -119,10 +136,10 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
 
     private T ValidateAndCoerce(T value)
     {
-        if (validator == null)
+        if (_validator == null)
             return value;
 
-        if (validator.TryCoerce(new(this, null), ref value!))
+        if (_validator.TryCoerce(new(this, null), ref value!))
         {
             return value;
         }
@@ -136,7 +153,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
         HasLocalValue = false;
     }
 
-    public bool HasValidator => validator != null;
+    public bool HasValidator => _validator != null;
 
     public override string ToString() =>
         $"{Name}: {_currentValue} (Default: {DefaultValue}, Simple)";
