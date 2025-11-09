@@ -74,7 +74,11 @@ public abstract class Sound : Renderable
     public virtual void Compose(AudioContext context)
     {
         var soundSource = GetSoundSource();
-        if (soundSource == null) throw new Exception("Sound source is not available");
+        if (soundSource == null)
+        {
+            context.Clear();
+            return;
+        }
 
         // Create source node
         var sourceNode = context.CreateSourceNode(soundSource);
