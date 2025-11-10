@@ -12,6 +12,7 @@ using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using ExCSS;
 using Microsoft.Extensions.Logging;
@@ -403,13 +404,13 @@ public abstract class GraphEditorViewModel : IDisposable
                 return;
             }
 
-            JsonObject oldJson = CoreSerializerHelper.SerializeToJsonObject(animation);
+            JsonObject oldJson = CoreSerializer.SerializeToJsonObject(animation);
             Guid id = animation.Id;
 
             RecordableCommands.Create(
                     () =>
                     {
-                        CoreSerializerHelper.PopulateFromJsonObject(animation, newJson);
+                        CoreSerializer.PopulateFromJsonObject(animation, newJson);
                         animation.Id = id;
                         foreach (IKeyFrame item in animation.KeyFrames)
                         {
@@ -418,7 +419,7 @@ public abstract class GraphEditorViewModel : IDisposable
                     },
                     () =>
                     {
-                        CoreSerializerHelper.PopulateFromJsonObject(animation, oldJson);
+                        CoreSerializer.PopulateFromJsonObject(animation, oldJson);
                         animation.Id = id;
                     },
                     GetStorables())
@@ -461,7 +462,7 @@ public abstract class GraphEditorViewModel : IDisposable
             KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
 
             KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(discriminator)!;
-            CoreSerializerHelper.PopulateFromJsonObject(newKeyFrame, newJson);
+            CoreSerializer.PopulateFromJsonObject(newKeyFrame, newJson);
 
             if (discriminator.GenericTypeArguments[0] != animation.ValueType)
             {

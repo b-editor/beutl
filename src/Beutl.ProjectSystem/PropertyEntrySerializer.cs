@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
-
 using Beutl.Animation;
 using Beutl.Serialization;
 
@@ -9,11 +8,10 @@ namespace Beutl;
 [ExcludeFromCodeCoverage]
 internal static class PropertyEntrySerializer
 {
-    public static (Optional<object?> value, IAnimation? animation) ToTuple(JsonNode? json, string name, Type valueType, Type targetType, ICoreSerializationContext context)
+    public static (Optional<object?> value, IAnimation? animation) ToTuple(JsonNode? json, Type valueType)
     {
         JsonNode? animationNode = null;
         JsonNode? valueNode = null;
-        Type ownerType = targetType;
 
         if (json is JsonValue jsonValue)
         {
@@ -32,71 +30,46 @@ internal static class PropertyEntrySerializer
         Optional<object?> value = null;
         if (valueNode != null)
         {
-            // Todo: 互換性維持のために汚くなってる
-            var errorNotifier = new RelaySerializationErrorNotifier(context.ErrorNotifier, name);
-            var simJson = new JsonObject
-            {
-                [name] = valueNode
-            };
-            var innerContext = new JsonSerializationContext(ownerType, errorNotifier, context, simJson);
-            using (ThreadLocalSerializationContext.Enter(innerContext))
-            {
-                value = innerContext.GetValue(name, valueType);
-            }
+            value = CoreSerializer.DeserializeFromJsonNode(valueNode, valueType);
         }
 
-        return (value, animationNode?.ToAnimation(context));
+        IAnimation? animation = null;
+        if (animationNode != null)
+        {
+            animation = CoreSerializer.DeserializeFromJsonNode(animationNode, typeof(IAnimation)) as IAnimation;
+        }
+
+        return (value, animation);
     }
 
-    public static (string, JsonNode?) ToJson(string name, object? value, IAnimation? animation, Type valueType, Type targetType, ICoreSerializationContext context)
+    public static JsonNode? ToJson(object? value, IAnimation? animation, Type valueType)
     {
-        string? owner = null;
         JsonNode? animationNode = null;
-
-        // Todo: 互換性維持のために汚くなってる
-        var simJson = new JsonObject();
-        var errorNotifier = new RelaySerializationErrorNotifier(context.ErrorNotifier, name);
-        var innerContext = new JsonSerializationContext(targetType, errorNotifier, context, simJson);
-        using (ThreadLocalSerializationContext.Enter(innerContext))
-        {
-            innerContext.SetValue(name, value, valueType);
-        }
-        JsonNode? jsonNode = simJson[name];
-        simJson[name] = null;
 
         if (animation is not null)
         {
-            // if (animation.Property.Id != property.Id)
-            // {
-            //     throw new InvalidOperationException("Animation.Property != Property");
-            // }
-
-            animationNode = animation.ToJson(innerContext);
+            animationNode = CoreSerializer.SerializeToJsonObject(animation);
         }
+
+        JsonNode? jsonNode = value != null ? CoreSerializer.SerializeToJsonNode(value) : null;
 
         if (jsonNode is JsonValue jsonValue
-            && owner == null
             && animationNode == null)
         {
-            return (name, jsonValue);
+            return jsonValue;
         }
-        else if (jsonNode == null && owner == null && animationNode == null)
+        else if (jsonNode == null && animationNode == null)
         {
-            return (name, null);
+            return null;
         }
         else
         {
-            var json = new JsonObject
-            {
-                ["Value"] = jsonNode
-            };
+            var json = new JsonObject { ["Value"] = jsonNode };
 
-            if (owner != null)
-                json["Owner"] = owner;
             if (animationNode != null)
                 json["Animation"] = animationNode;
 
-            return (name, json);
+            return json;
         }
     }
 }

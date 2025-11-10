@@ -11,26 +11,7 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
         var jsonNode = JsonNode.Parse(ref reader);
         if (jsonNode is JsonObject jsonObject)
         {
-            if (LocalSerializationErrorNotifier.Current is not { } notifier)
-            {
-                notifier = NullSerializationErrorNotifier.Instance;
-            }
-            ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
-
-            var context = new JsonSerializationContext(typeToConvert, notifier, parent, jsonObject);
-
-            Type? actualType = typeToConvert.IsSealed ? typeToConvert : jsonObject.GetDiscriminator(typeToConvert);
-            if (actualType?.IsAssignableTo(typeToConvert) == true
-                && Activator.CreateInstance(actualType) is ICoreSerializable instance)
-            {
-                using (ThreadLocalSerializationContext.Enter(context))
-                {
-                    instance.Deserialize(context);
-                    context.AfterDeserialized(instance);
-                }
-
-                return instance;
-            }
+            return CoreSerializer.DeserializeFromJsonObject(jsonObject, typeToConvert) as ICoreSerializable;
         }
 
         throw new JsonException();
@@ -38,21 +19,7 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
 
     public override void Write(Utf8JsonWriter writer, ICoreSerializable value, JsonSerializerOptions options)
     {
-        if (LocalSerializationErrorNotifier.Current is not { } notifier)
-        {
-            notifier = NullSerializationErrorNotifier.Instance;
-        }
-
-        ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
-        Type valueType = value.GetType();
-        var context = new JsonSerializationContext(value.GetType(), notifier, parent);
-        using (ThreadLocalSerializationContext.Enter(context))
-        {
-            value.Serialize(context);
-        }
-
-        JsonObject obj = context.GetJsonObject();
-        obj.WriteDiscriminator(valueType);
+        JsonObject obj = CoreSerializer.SerializeToJsonObject(value);
         obj.WriteTo(writer, options);
     }
 }

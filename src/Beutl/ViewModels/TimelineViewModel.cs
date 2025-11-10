@@ -19,6 +19,7 @@ using Beutl.Operation;
 using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Reactive;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using DynamicData;
@@ -501,7 +502,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         var oldElements = jsonArray
             .Select(node => (node, element: new Element()))
-            .Do(t => CoreSerializerHelper.PopulateFromJsonObject(t.element, t.node!.AsObject()))
+            .Do(t => CoreSerializer.PopulateFromJsonObject(t.element, t.node!.AsObject()))
             .Select(t => t.element)
             .ToArray();
 
@@ -545,7 +546,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         var oldElement = new Element();
 
-        CoreSerializerHelper.PopulateFromJsonObject(oldElement, jsonObject);
+        CoreSerializer.PopulateFromJsonObject(oldElement, jsonObject);
 
         ObjectRegenerator.Regenerate(oldElement, out Element newElement);
 

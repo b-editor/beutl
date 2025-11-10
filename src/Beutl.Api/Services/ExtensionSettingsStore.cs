@@ -1,5 +1,4 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Extensibility;
 using Beutl.Serialization;
 
@@ -35,25 +34,14 @@ public sealed class ExtensionSettingsStore
         Type extensionType = extension.GetType();
         if (_json[extensionType.FullName!] is JsonObject obj)
         {
-            var context = new JsonSerializationContext(
-                settings.GetType(), NullSerializationErrorNotifier.Instance, json: obj);
-            using (ThreadLocalSerializationContext.Enter(context))
-            {
-                settings.Deserialize(context);
-            }
+            CoreSerializer.PopulateFromJsonObject(settings, obj);
         }
     }
 
     public void Save(Extension extension, ExtensionSettings settings)
     {
         Type extensionType = extension.GetType();
-        var context = new JsonSerializationContext(settings.GetType(), NullSerializationErrorNotifier.Instance);
-        using (ThreadLocalSerializationContext.Enter(context))
-        {
-            settings.Serialize(context);
-
-            _json[extensionType.FullName!] = context.GetJsonObject();
-        }
+        _json[extensionType.FullName!] = CoreSerializer.SerializeToJsonObject(settings);
 
         SaveAll();
     }

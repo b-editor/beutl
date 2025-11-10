@@ -1,8 +1,14 @@
-﻿namespace Beutl.Serialization;
+﻿using Beutl.IO;
+
+namespace Beutl.Serialization;
 
 public interface ICoreSerializationContext
 {
     CoreSerializationMode Mode { get; }
+
+    IFileSystem FileSystem { get; }
+
+    Uri? BaseUri { get; }
 
     Type OwnerType { get; }
 

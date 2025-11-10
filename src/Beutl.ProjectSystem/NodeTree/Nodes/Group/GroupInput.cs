@@ -75,25 +75,8 @@ public class GroupInput : Node, ISocketsCanBeAdded
             int index = 0;
             foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
             {
-                if (itemJson.TryGetDiscriminator(out Type? type)
-                    && Activator.CreateInstance(type) is IOutputSocket socket)
+                if (CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(IOutputSocket)) is IOutputSocket socket)
                 {
-                    if (socket is ICoreSerializable serializable)
-                    {
-                        if (LocalSerializationErrorNotifier.Current is not { } notifier)
-                        {
-                            notifier = NullSerializationErrorNotifier.Instance;
-                        }
-                        ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
-
-                        var innerContext = new JsonSerializationContext(type, notifier, parent, itemJson);
-                        using (ThreadLocalSerializationContext.Enter(innerContext))
-                        {
-                            serializable.Deserialize(innerContext);
-                            innerContext.AfterDeserialized(serializable);
-                        }
-                    }
-
                     Items.Add(socket);
                     ((NodeItem)socket).LocalId = index;
                 }

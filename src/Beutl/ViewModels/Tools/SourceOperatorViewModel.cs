@@ -223,7 +223,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
         if (@operator == null) throw new Exception(message);
 
-        CoreSerializerHelper.PopulateFromJsonObject(@operator, type!, json);
+        CoreSerializer.PopulateFromJsonObject(@operator, type!, json);
 
         IStorable? storable = sourceOperation.FindHierarchicalParent<IStorable>();
         CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();

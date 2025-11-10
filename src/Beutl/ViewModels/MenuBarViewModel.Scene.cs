@@ -4,6 +4,7 @@ using Avalonia.Input.Platform;
 using Beutl.Helpers;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels.Tools;
 using Reactive.Bindings;
@@ -89,7 +90,7 @@ public partial class MenuBarViewModel
 
     private static DataTransfer CreateElementDataObject(Element element)
     {
-        string json = CoreSerializerHelper.SerializeToJsonString(element);
+        string json = CoreSerializer.SerializeToJsonString(element);
         var data = new DataTransfer();
         data.Add(DataTransferItem.CreateText(json));
         data.Add(DataTransferItem.Create(BeutlDataFormats.Element, json));

@@ -11,6 +11,7 @@ using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using DynamicData;
@@ -50,10 +51,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     && Controller?.Value != null)
                 {
                     var newController = newEncoder.CreateController(newFile);
-                    var videoSettings = CoreSerializerHelper.SerializeToJsonObject(Controller.Value.VideoSettings);
-                    CoreSerializerHelper.PopulateFromJsonObject(newController.VideoSettings, videoSettings);
-                    var audioSettings = CoreSerializerHelper.SerializeToJsonObject(Controller.Value.AudioSettings);
-                    CoreSerializerHelper.PopulateFromJsonObject(Controller.Value.AudioSettings, audioSettings);
+                    var videoSettings = CoreSerializer.SerializeToJsonObject(Controller.Value.VideoSettings);
+                    CoreSerializer.PopulateFromJsonObject(newController.VideoSettings, videoSettings);
+                    var audioSettings = CoreSerializer.SerializeToJsonObject(Controller.Value.AudioSettings);
+                    CoreSerializer.PopulateFromJsonObject(Controller.Value.AudioSettings, audioSettings);
                     return newController;
                 }
 
@@ -315,7 +316,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         if (settings == null) return null;
         try
         {
-            return CoreSerializerHelper.SerializeToJsonObject(settings, settings.GetType());
+            return CoreSerializer.SerializeToJsonObject(settings);
         }
         catch (Exception e)
         {
@@ -351,7 +352,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             if (settings == null) return;
             try
             {
-                CoreSerializerHelper.PopulateFromJsonObject(settings, settings.GetType(), json);
+                CoreSerializer.PopulateFromJsonObject(settings, settings.GetType(), json);
             }
             catch (Exception e)
             {

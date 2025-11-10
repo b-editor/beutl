@@ -14,7 +14,6 @@ public static class ObjectRegenerator
 
     private static void RegenerateCore(ICoreSerializable obj, PooledArrayBufferWriter<byte> output)
     {
-        var type = obj.GetType();
         var searcher = new ObjectSearcher(obj, v => v is ICoreObject);
 
         Guid[] ids = searcher.SearchAll()
@@ -24,14 +23,7 @@ public static class ObjectRegenerator
             .ToArray();
 
         // JsonObjectに変換
-        var jsonObject = new JsonObject();
-        var context = new JsonSerializationContext(type, NullSerializationErrorNotifier.Instance, json: jsonObject);
-        using (ThreadLocalSerializationContext.Enter(context))
-        {
-            obj.Serialize(context);
-        }
-
-        jsonObject.WriteDiscriminator(type);
+        var jsonObject = CoreSerializer.SerializeToJsonObject(obj);
 
         // UTF-8に書き込む
         JsonSerializerOptions options = JsonHelper.SerializerOptions;
@@ -78,12 +70,7 @@ public static class ObjectRegenerator
         JsonObject jsonObj = JsonNode.Parse(buffer)!.AsObject();
         var instance = new T();
 
-        var context = new JsonSerializationContext(
-            typeof(T), NullSerializationErrorNotifier.Instance, json: jsonObj);
-        using (ThreadLocalSerializationContext.Enter(context))
-        {
-            instance.Deserialize(context);
-        }
+        CoreSerializer.PopulateFromJsonObject(instance, jsonObj);
 
         newInstance = instance;
     }
@@ -110,12 +97,7 @@ public static class ObjectRegenerator
         JsonObject jsonObj = JsonNode.Parse(buffer)!.AsObject();
         var instance = new ListWrapper<T>();
 
-        var context = new JsonSerializationContext(
-            typeof(ListWrapper<T>), NullSerializationErrorNotifier.Instance, json: jsonObj);
-        using (ThreadLocalSerializationContext.Enter(context))
-        {
-            instance.Deserialize(context);
-        }
+        CoreSerializer.PopulateFromJsonObject(instance, jsonObj);
 
         newInstance = instance.Items.ToArray();
     }

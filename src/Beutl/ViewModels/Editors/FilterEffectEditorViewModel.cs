@@ -232,7 +232,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
         if (instance == null) throw new Exception(message);
 
-        CoreSerializerHelper.PopulateFromJsonObject(instance, type!, json);
+        CoreSerializer.PopulateFromJsonObject(instance, type!, json);
 
         SetValue(Value.Value, instance);
     }

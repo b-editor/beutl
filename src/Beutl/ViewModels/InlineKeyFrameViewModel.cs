@@ -6,6 +6,7 @@ using Beutl.Animation.Easings;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Models;
+using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -104,7 +105,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                 }
 
                 KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(type)!;
-                CoreSerializerHelper.PopulateFromJsonObject(newKeyFrame, jsonObj);
+                CoreSerializer.PopulateFromJsonObject(newKeyFrame, jsonObj);
                 CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
 
                 if (type.GenericTypeArguments[0] != Parent.Property.PropertyType)

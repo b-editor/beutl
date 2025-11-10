@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Beutl.Embedding.FFmpeg.Encoding;
 using Beutl.Helpers;
 using Beutl.Logging;
+using Beutl.Serialization;
 using Beutl.Services.PrimitiveImpls;
 using FFmpeg.AutoGen;
 using Microsoft.Extensions.Logging;
@@ -212,8 +213,8 @@ public sealed class OutputPresetService
             new JsonObject
             {
                 ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
-                ["VideoSettings"] = CoreSerializerHelper.SerializeToJsonObject(vid),
-                ["AudioSettings"] = CoreSerializerHelper.SerializeToJsonObject(aud)
+                ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
+                ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
             },
             "High Quality"));
 
@@ -231,8 +232,8 @@ public sealed class OutputPresetService
             new JsonObject
             {
                 ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
-                ["VideoSettings"] = CoreSerializerHelper.SerializeToJsonObject(vid),
-                ["AudioSettings"] = CoreSerializerHelper.SerializeToJsonObject(aud)
+                ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
+                ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
             },
             "Medium Quality"));
 
@@ -250,8 +251,8 @@ public sealed class OutputPresetService
             new JsonObject
             {
                 ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
-                ["VideoSettings"] = CoreSerializerHelper.SerializeToJsonObject(vid),
-                ["AudioSettings"] = CoreSerializerHelper.SerializeToJsonObject(aud)
+                ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
+                ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
             },
             "Low Quality"));
     }
