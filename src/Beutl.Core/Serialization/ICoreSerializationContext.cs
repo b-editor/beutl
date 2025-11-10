@@ -6,8 +6,6 @@ public interface ICoreSerializationContext
 
     Type OwnerType { get; }
 
-    ISerializationErrorNotifier ErrorNotifier { get; }
-
     void SetValue<T>(string name, T? value);
 
     T? GetValue<T>(string name);

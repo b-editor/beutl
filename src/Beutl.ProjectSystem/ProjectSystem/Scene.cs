@@ -658,7 +658,7 @@ public class Scene : ProjectItem, INotifyEdited
             _timeRange = element.Range;
 
             var jsonObject = new JsonObject();
-            var context = new JsonSerializationContext(typeof(Element), NullSerializationErrorNotifier.Instance, json: jsonObject);
+            var context = new JsonSerializationContext(typeof(Element), json: jsonObject);
             using (ThreadLocalSerializationContext.Enter(context))
             {
                 element.Serialize(context);
@@ -701,7 +701,7 @@ public class Scene : ProjectItem, INotifyEdited
             _element = new Element();
 
             JsonObject? jsonObject = JsonSerializer.Deserialize<JsonObject>(_jsonBytes);
-            var context = new JsonSerializationContext(typeof(Element), NullSerializationErrorNotifier.Instance, json: jsonObject);
+            var context = new JsonSerializationContext(typeof(Element), json: jsonObject);
             using (ThreadLocalSerializationContext.Enter(context))
             {
                 _element.Deserialize(context);

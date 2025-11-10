@@ -67,7 +67,7 @@ public static class JsonHelper
 
     public static void JsonSave2(this ICoreSerializable serializable, string filename)
     {
-        var context = new JsonSerializationContext(serializable.GetType(), NullSerializationErrorNotifier.Instance);
+        var context = new JsonSerializationContext(serializable.GetType());
         using (ThreadLocalSerializationContext.Enter(context))
         {
             serializable.Serialize(context);
@@ -81,7 +81,7 @@ public static class JsonHelper
         if (JsonRestore(filename) is JsonObject obj)
         {
             var context = new JsonSerializationContext(
-                serializable.GetType(), NullSerializationErrorNotifier.Instance, json: obj);
+                serializable.GetType(), json: obj);
             using (ThreadLocalSerializationContext.Enter(context))
             {
                 serializable.Deserialize(context);

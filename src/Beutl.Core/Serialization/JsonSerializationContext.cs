@@ -5,7 +5,6 @@ namespace Beutl.Serialization;
 
 public partial class JsonSerializationContext(
     Type ownerType,
-    ISerializationErrorNotifier errorNotifier,
     ICoreSerializationContext? parent = null,
     JsonObject? json = null)
     : IJsonSerializationContext
@@ -26,8 +25,6 @@ public partial class JsonSerializationContext(
 
     [MemberNotNullWhen(false, nameof(Parent))]
     public bool IsRoot => Parent == null;
-
-    public ISerializationErrorNotifier ErrorNotifier { get; } = errorNotifier;
 
     public JsonObject GetJsonObject()
     {
@@ -57,7 +54,6 @@ public partial class JsonSerializationContext(
         {
             var context = new JsonSerializationContext(
                 ownerType: obj.GetType(),
-                errorNotifier: new RelaySerializationErrorNotifier(ErrorNotifier, name),
                 parent: this,
                 json: jobj);
 
