@@ -631,7 +631,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
             Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
             if (boundary.Length > 0)
             {
-                using var pen = new Pen.Resource()
+                var pen = new Pen.Resource()
                 {
                     Brush = Brushes.Resource.White,
                     Thickness = scale,
