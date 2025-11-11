@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
-using Beutl.IO;
 
 namespace Beutl.Serialization;
 
@@ -22,8 +21,6 @@ public partial class JsonSerializationContext(
     public JsonSerializationContext Root => IsRoot ? this : (Parent as JsonSerializationContext)!.Root;
 
     public CoreSerializationMode Mode => options?.Mode ?? Parent?.Mode ?? CoreSerializationMode.ReadWrite;
-
-    public IFileSystem FileSystem => options?.FileSystem ?? Parent?.FileSystem ?? new LocalFileSystem();
 
     public Uri? BaseUri => options?.BaseUri ?? (!IsRoot ? Root.BaseUri : null);
 

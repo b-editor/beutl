@@ -32,19 +32,7 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
                 }
             }
 
-            Stream? stream;
-            if (uri.Scheme == "data")
-            {
-                // Data URIスキームの処理
-                var (data, _) = UriHelper.ParseDataUri(uri);
-                stream = new MemoryStream(data);
-            }
-            else
-            {
-                if (parentContext == null) throw new JsonException("Cannot resolve URI without a parent context.");
-
-                stream = parentContext.FileSystem.OpenFile(uri);
-            }
+            using Stream stream = UriHelper.ResolveStream(uri);
 
             var node = JsonNode.Parse(stream);
             if (node is JsonObject jsonObject1)
@@ -69,19 +57,30 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
         var parentContext = ThreadLocalSerializationContext.Current;
         if (value is CoreObject { Uri: not null } coreObj && parentContext != null)
         {
-            var serializedUri = coreObj.Uri;
-            if (parentContext.BaseUri?.Scheme == coreObj.Uri.Scheme)
+            var node = CoreSerializer.SerializeToJsonObject(value, new CoreSerializerOptions { BaseUri = coreObj.Uri });
+            if (!coreObj.Uri.IsFile)
             {
-                // Trailing slashによって動作が変わってしまう
-                serializedUri = parentContext.BaseUri.MakeRelativeUri(coreObj.Uri);
+                var jsonString = node.ToJsonString(new() { WriteIndented = false });
+                var uri = UriHelper.CreateBase64DataUri("application/json",
+                    System.Text.Encoding.UTF8.GetBytes(jsonString));
+                writer.WriteStringValue(uri.ToString());
+            }
+            else
+            {
+                var serializedUri = coreObj.Uri;
+                if (parentContext.BaseUri?.Scheme == coreObj.Uri.Scheme)
+                {
+                    // Trailing slashによって動作が変わってしまう
+                    serializedUri = parentContext.BaseUri.MakeRelativeUri(coreObj.Uri);
+                }
+
+                writer.WriteStringValue(serializedUri.ToString());
+
+                using var stream = File.Create(coreObj.Uri.LocalPath);
+                using var innerWriter = new Utf8JsonWriter(stream);
+                node.WriteTo(innerWriter);
             }
 
-            writer.WriteStringValue(serializedUri.ToString());
-
-            using var stream = parentContext.FileSystem.CreateFile(coreObj.Uri);
-            using var innerWriter = new Utf8JsonWriter(stream);
-            var node = CoreSerializer.SerializeToJsonObject(value, new CoreSerializerOptions { BaseUri = coreObj.Uri });
-            node.WriteTo(innerWriter);
             return;
         }
 

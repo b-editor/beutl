@@ -59,4 +59,11 @@ internal static class UriHelper
             return (System.Text.Encoding.UTF8.GetBytes(Uri.UnescapeDataString(dataPart)), metadata);
         }
     }
+
+    public static Uri CreateBase64DataUri(string mediaType, byte[] data)
+    {
+        string base64Data = Convert.ToBase64String(data);
+        string uriString = $"data:{mediaType};base64,{base64Data}";
+        return new Uri(uriString);
+    }
 }

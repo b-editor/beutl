@@ -126,19 +126,7 @@ public partial class JsonSerializationContext
             }
         }
 
-        Stream? stream;
-        if (uri.Scheme == "data")
-        {
-            // Data URIスキームの処理
-            var (data, _) = UriHelper.ParseDataUri(uri);
-            stream = new MemoryStream(data);
-        }
-        else
-        {
-            if (parent == null) throw new JsonException("Cannot resolve URI without a parent context.");
-
-            stream = parent.FileSystem.OpenFile(uri);
-        }
+        using Stream stream = UriHelper.ResolveStream(uri);
 
         var node = JsonNode.Parse(stream);
         if (node is not JsonObject jsonObject) return null;

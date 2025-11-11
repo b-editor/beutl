@@ -1,14 +1,10 @@
 ﻿using System.Text.Json.Nodes;
-using Beutl.IO;
-using Beutl.Serialization;
 
 namespace Beutl.Serialization;
 
 public record CoreSerializerOptions
 {
     public Uri? BaseUri { get; init; }
-
-    public IFileSystem? FileSystem { get; init; }
 
     public CoreSerializationMode? Mode { get; init; }
 }

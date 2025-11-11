@@ -99,18 +99,29 @@ public partial class JsonSerializationContext
     private static JsonValue SerializeObjectFile(
         CoreObject value, ICoreSerializationContext parent)
     {
-        var serializedUri = value.Uri!;
-        if (parent.BaseUri?.Scheme == value.Uri!.Scheme)
-        {
-            serializedUri = parent.BaseUri.MakeRelativeUri(value.Uri);
-        }
-
-        using var stream = parent.FileSystem.CreateFile(value.Uri);
-        using var innerWriter = new Utf8JsonWriter(stream);
         var node = CoreSerializer.SerializeToJsonObject(value, new CoreSerializerOptions { BaseUri = value.Uri });
-        node.WriteTo(innerWriter);
+        if (value.Uri?.IsFile != true)
+        {
+            var jsonString = node.ToJsonString(new() { WriteIndented = false });
+            var uri = UriHelper.CreateBase64DataUri("application/json",
+                System.Text.Encoding.UTF8.GetBytes(jsonString));
+            return (JsonValue)uri.ToString();
+        }
+        else
+        {
+            var serializedUri = value.Uri;
+            if (parent.BaseUri?.Scheme == value.Uri.Scheme)
+            {
+                // Trailing slashによって動作が変わってしまう
+                serializedUri = parent.BaseUri.MakeRelativeUri(value.Uri);
+            }
 
-        return JsonValue.Create(serializedUri.ToString());
+            using var stream = File.Create(value.Uri.LocalPath);
+            using var innerWriter = new Utf8JsonWriter(stream);
+            node.WriteTo(innerWriter);
+
+            return (JsonValue)serializedUri.ToString();
+        }
     }
 
     public void SetValue<T>(string name, T? value)
