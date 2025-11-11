@@ -252,7 +252,7 @@ public static class SplineEasingHelper
             if (!double.IsFinite(newPoint.X)) newPoint.X = 1;
             if (!double.IsFinite(newPoint.Y)) newPoint.Y = 1;
 
-            // Update CP1
+            // Update CP2
             var easing = Easing;
             var oldPoint = (easing.X2, easing.Y2);
             return RecordableCommands.Create()
