@@ -130,7 +130,7 @@ public partial class JsonSerializationContext
         if (uri.Scheme == "data")
         {
             // Data URIスキームの処理
-            var (data, _) = DataUriHelper.ParseDataUri(uri);
+            var (data, _) = UriHelper.ParseDataUri(uri);
             stream = new MemoryStream(data);
         }
         else

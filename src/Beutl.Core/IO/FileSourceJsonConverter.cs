@@ -42,18 +42,7 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
                 throw new JsonException($"Could not create instance of type {typeToConvert.FullName}.");
             }
 
-            if (uri.Scheme == "data")
-            {
-                // Data URIスキームの処理
-                var (data, _) = DataUriHelper.ParseDataUri(uri);
-                instance.ReadFrom(new MemoryStream(data), uri);
-                return instance;
-            }
-
-            if (parentContext == null) throw new JsonException("Cannot resolve URI without a parent context.");
-
-            var stream = parentContext.FileSystem.OpenFile(uri);
-            instance.ReadFrom(stream, uri);
+            instance.ReadFrom(uri);
             return instance;
         }
         else
@@ -74,14 +63,5 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
         }
 
         writer.WriteStringValue(serializedUri.ToString());
-
-        // ファイルに書き込むかの判断はここで行う
-        if (!parentContext.Mode.HasFlag(CoreSerializationMode.WriteBlobFiles) && value.IsBlob)
-        {
-            return;
-        }
-
-        using var stream = parentContext.FileSystem.CreateFile(value.Uri);
-        value.WriteTo(stream);
     }
 }

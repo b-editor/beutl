@@ -5,11 +5,7 @@ namespace Beutl.IO;
 [JsonConverter(typeof(FileSourceJsonConverter))]
 public interface IFileSource
 {
-    bool IsBlob { get; }
-
     Uri Uri { get; }
 
-    void WriteTo(Stream stream);
-
-    void ReadFrom(Stream stream, Uri uri);
+    void ReadFrom(Uri uri);
 }
