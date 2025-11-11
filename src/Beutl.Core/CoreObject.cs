@@ -72,6 +72,8 @@ public abstract class CoreObject : ICoreObject
         set => SetValue(NameProperty, value);
     }
 
+    public Uri? Uri { get; set; }
+
     private Dictionary<int, IEntry> Values => _values ??= [];
 
     private Dictionary<int, string> Errors => _errors ??= [];

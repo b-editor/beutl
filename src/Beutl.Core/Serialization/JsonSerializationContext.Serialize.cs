@@ -17,6 +17,11 @@ public partial class JsonSerializationContext
         }
         else if (value is ICoreSerializable coreSerializable)
         {
+            if (coreSerializable is CoreObject { Uri: not null } coreObject && parent != null)
+            {
+                return SerializeObjectFile(coreObject, parent);
+            }
+
             var innerContext = new JsonSerializationContext(
                 actualType,
                 parent);
@@ -89,6 +94,23 @@ public partial class JsonSerializationContext
 
         UseJsonSerializer:
         return JsonSerializer.SerializeToNode(value, baseType, JsonHelper.SerializerOptions);
+    }
+
+    private static JsonValue SerializeObjectFile(
+        CoreObject value, ICoreSerializationContext parent)
+    {
+        var serializedUri = value.Uri!;
+        if (parent.BaseUri?.Scheme == value.Uri!.Scheme)
+        {
+            serializedUri = parent.BaseUri.MakeRelativeUri(value.Uri);
+        }
+
+        using var stream = parent.FileSystem.CreateFile(value.Uri);
+        using var innerWriter = new Utf8JsonWriter(stream);
+        var node = CoreSerializer.SerializeToJsonObject(value, new CoreSerializerOptions { BaseUri = value.Uri });
+        node.WriteTo(innerWriter);
+
+        return JsonValue.Create(serializedUri.ToString());
     }
 
     public void SetValue<T>(string name, T? value)

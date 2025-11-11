@@ -90,15 +90,68 @@ public partial class JsonSerializationContext
                     return ArrayTypeHelpers.ConvertArrayType(output, baseType, elementType);
                 }
             }
-            else if (node is JsonValue jsonValue
-                     && jsonValue.TryGetValue(out Guid id)
-                     && baseType.IsAssignableTo(typeof(IReference)))
+            else if (node is JsonValue jsonValue)
             {
-                return Activator.CreateInstance(baseType, id);
+                if (jsonValue.TryGetValue(out Guid id)
+                    && baseType.IsAssignableTo(typeof(IReference)))
+                {
+                    return Activator.CreateInstance(baseType, id);
+                }
+                if (jsonValue.TryGetValue(out string? uriString)
+                    && typeof(ICoreSerializable).IsAssignableFrom(baseType))
+                {
+                    return DeserializeObjectFile(uriString, baseType, parent);
+                }
             }
         }
 
         return JsonSerializer.Deserialize(node, baseType, JsonHelper.SerializerOptions);
+    }
+
+    private static object? DeserializeObjectFile(string? uriString, Type type, ICoreSerializationContext? parent)
+    {
+        if (!Uri.TryCreate(uriString, UriKind.RelativeOrAbsolute, out Uri? uri))
+        {
+            throw new JsonException($"Invalid URI: {uriString}");
+        }
+
+        if (!uri.IsAbsoluteUri)
+        {
+            if (parent == null)
+                throw new JsonException("Cannot resolve relative URI without a parent context.");
+
+            if (!Uri.TryCreate(parent.BaseUri, uriString, out uri))
+            {
+                throw new JsonException($"Invalid relative URI: {uriString}");
+            }
+        }
+
+        Stream? stream;
+        if (uri.Scheme == "data")
+        {
+            // Data URIスキームの処理
+            var (data, _) = DataUriHelper.ParseDataUri(uri);
+            stream = new MemoryStream(data);
+        }
+        else
+        {
+            if (parent == null) throw new JsonException("Cannot resolve URI without a parent context.");
+
+            stream = parent.FileSystem.OpenFile(uri);
+        }
+
+        var node = JsonNode.Parse(stream);
+        if (node is not JsonObject jsonObject) return null;
+
+        var obj = CoreSerializer.DeserializeFromJsonObject(
+            jsonObject, type, new CoreSerializerOptions { BaseUri = uri });
+
+        if (obj is CoreObject coreObj)
+        {
+            coreObj.Uri = uri;
+        }
+
+        return obj as ICoreSerializable;
     }
 
     public T? GetValue<T>(string name)

@@ -53,10 +53,10 @@ public class JsonSerializationTest
     {
         BeutlApplication app = BeutlApplication.Current;
         var proj = new Project();
-    
+
         proj.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.bproj"));
         app.Project = proj;
-    
+
         var scene = new Scene();
         scene.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.scene"));
         proj.Items.Add(scene);
@@ -65,7 +65,7 @@ public class JsonSerializationTest
         scene.AddChild(elm1).Do();
         elm1.Operation.Children.Add(new EllipseOperator());
         elm1.Operation.Children.Add(new DecorateOperator());
-    
+
         var elm2 = new Element { ZIndex = 2 };
         elm2.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"1.layer"));
         scene.AddChild(elm2).Do();
@@ -75,7 +75,7 @@ public class JsonSerializationTest
         elm2.NodeTree.Nodes.Add(rectNode);
         elm2.NodeTree.Nodes.Add(shapeNode);
         elm2.NodeTree.Nodes.Add(outNode);
-    
+
         Assert.That(((OutputSocket<Geometry.Resource>)rectNode.Items[0]).TryConnect((InputSocket<Geometry.Resource?>)shapeNode.Items[1]));
         Assert.That(((OutputSocket<GeometryRenderNode>)shapeNode.Items[0]).TryConnect((InputSocket<RenderNode?>)outNode.Items[0]));
     }
@@ -91,14 +91,14 @@ public class JsonSerializationTest
         original3.Instance = original1;
         var json = new JsonObject();
 
-        var context1 = new JsonSerializationContext(original3.GetType(), NullSerializationErrorNotifier.Instance, json: json);
+        var context1 = new JsonSerializationContext(original3.GetType(), json: json);
         using (ThreadLocalSerializationContext.Enter(context1))
         {
             original3.Serialize(context1);
         }
 
         var restored = new TestSerializable();
-        var context2 = new JsonSerializationContext(original3.GetType(), NullSerializationErrorNotifier.Instance, json: json);
+        var context2 = new JsonSerializationContext(original3.GetType(), json: json);
         using (ThreadLocalSerializationContext.Enter(context2))
         {
             restored.Deserialize(context2);
