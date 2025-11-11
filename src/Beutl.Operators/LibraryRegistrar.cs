@@ -120,7 +120,6 @@ public static class LibraryRegistrar
                 .AddFilterEffect<DropShadow>(Strings.DropShadow)
                 .AddFilterEffect<InnerShadow>(Strings.InnerShadow)
                 .AddFilterEffect<FlatShadow>(Strings.FlatShadow)
-                .AddFilterEffect<Border>($"{Strings.Border} (deprecated)")
                 .AddFilterEffect<StrokeEffect>(Strings.StrokeEffect)
                 .AddFilterEffect<Clipping>(Strings.Clipping)
                 .AddFilterEffect<Dilate>(Strings.Dilate)
