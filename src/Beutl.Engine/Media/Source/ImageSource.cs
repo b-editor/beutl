@@ -17,7 +17,7 @@ public abstract class ImageSource : IImageSource
 
     public abstract bool IsGenerated { get; }
 
-    public abstract string Name { get; }
+    public abstract Uri Uri { get; }
 
     public bool IsDisposed { get; private set; }
 
@@ -26,6 +26,8 @@ public abstract class ImageSource : IImageSource
     public abstract bool Read([NotNullWhen(true)] out IBitmap? bitmap);
 
     public abstract bool TryGetRef([NotNullWhen(true)] out Ref<IBitmap>? bitmap);
+
+    public abstract void ReadFrom(Uri uri);
 
     protected abstract void OnDispose(bool disposing);
 

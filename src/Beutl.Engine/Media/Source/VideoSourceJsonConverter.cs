@@ -1,21 +1,18 @@
-﻿using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿using Beutl.IO;
 
 namespace Beutl.Media.Source;
 
-public sealed class VideoSourceJsonConverter : JsonConverter<IVideoSource?>
+public sealed class VideoSourceJsonConverter : FileSourceJsonConverter
 {
-    public override IVideoSource? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override bool CanConvert(Type typeToConvert)
     {
-        string? s = reader.GetString();
-
-        return s != null && VideoSource.TryOpen(s, out var videoSource)
-            ? videoSource
-            : null;
+        return typeToConvert.IsAssignableTo(typeof(IVideoSource));
     }
 
-    public override void Write(Utf8JsonWriter writer, IVideoSource? value, JsonSerializerOptions options)
+    public override IFileSource? CreateInstance(Type typeToConvert)
     {
-        writer.WriteStringValue(value?.Name);
+        return typeToConvert == typeof(IVideoSource)
+            ? new VideoSource()
+            : Activator.CreateInstance(typeToConvert) as IVideoSource;
     }
 }

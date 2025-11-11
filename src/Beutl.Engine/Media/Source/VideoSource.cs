@@ -5,17 +5,11 @@ namespace Beutl.Media.Source;
 
 public sealed class VideoSource : IVideoSource
 {
-    private readonly Ref<MediaReader> _mediaReader;
-    private readonly double _frameRate;
+    private Ref<MediaReader>? _mediaReader;
+    private Uri? _uri;
 
-    public VideoSource(Ref<MediaReader> mediaReader, string fileName)
+    public VideoSource()
     {
-        _mediaReader = mediaReader;
-        Name = fileName;
-        Duration = TimeSpan.FromSeconds(mediaReader.Value.VideoInfo.Duration.ToDouble());
-        FrameSize = mediaReader.Value.VideoInfo.FrameSize;
-        FrameRate = mediaReader.Value.VideoInfo.FrameRate;
-        _frameRate = FrameRate.ToDouble();
     }
 
     ~VideoSource()
@@ -23,20 +17,29 @@ public sealed class VideoSource : IVideoSource
         Dispose();
     }
 
-    public TimeSpan Duration { get; }
+    public TimeSpan Duration =>
+        _mediaReader?.Value.VideoInfo.Duration != null
+            ? TimeSpan.FromSeconds(_mediaReader.Value.VideoInfo.Duration.ToDouble())
+            : throw new InvalidOperationException("MediaReader is not set.");
 
-    public Rational FrameRate { get; }
+    public Rational FrameRate => _mediaReader?.Value.VideoInfo.FrameRate ??
+                                 throw new InvalidOperationException("MediaReader is not set.");
 
-    public PixelSize FrameSize { get; }
+    public PixelSize FrameSize => _mediaReader?.Value.VideoInfo.FrameSize ??
+                                  throw new InvalidOperationException("MediaReader is not set.");
 
     public bool IsDisposed { get; private set; }
 
-    public string Name { get; }
+    public Uri Uri => _uri ?? throw new InvalidOperationException("URI is not set.");
 
     public static VideoSource Open(string fileName)
     {
         var reader = MediaReader.Open(fileName, new(MediaMode.Video));
-        return new VideoSource(Ref<MediaReader>.Create(reader), fileName);
+        return new VideoSource
+        {
+            _mediaReader = Ref<MediaReader>.Create(reader),
+            _uri = new Uri(new Uri("file://"), fileName)
+        };
     }
 
     public static bool TryOpen(string fileName, out VideoSource? result)
@@ -53,11 +56,22 @@ public sealed class VideoSource : IVideoSource
         }
     }
 
+    public void ReadFrom(Uri uri)
+    {
+        if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
+
+        _mediaReader?.Dispose();
+        _mediaReader = null;
+        var reader = MediaReader.Open(uri.LocalPath, new(MediaMode.Video));
+        _mediaReader = Ref<MediaReader>.Create(reader);
+        _uri = uri;
+    }
+
     public void Dispose()
     {
         if (!IsDisposed)
         {
-            _mediaReader.Dispose();
+            _mediaReader?.Dispose();
             GC.SuppressFinalize(this);
             IsDisposed = true;
         }
@@ -67,24 +81,25 @@ public sealed class VideoSource : IVideoSource
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
-        return new VideoSource(_mediaReader.Clone(), Name);
+        return new VideoSource { _mediaReader = _mediaReader?.Clone(), _uri = _uri };
     }
 
     public bool Read(TimeSpan frame, [NotNullWhen(true)] out IBitmap? bitmap)
     {
-        if (IsDisposed)
+        if (IsDisposed || _mediaReader == null)
         {
             bitmap = null;
             return false;
         }
 
-        double frameNum = frame.TotalSeconds * _frameRate;
+        double frameRate = FrameRate.ToDouble();
+        double frameNum = frame.TotalSeconds * frameRate;
         return _mediaReader.Value.ReadVideo((int)frameNum, out bitmap);
     }
 
     public bool Read(int frame, [NotNullWhen(true)] out IBitmap? bitmap)
     {
-        if (IsDisposed)
+        if (IsDisposed || _mediaReader == null)
         {
             bitmap = null;
             return false;
@@ -97,13 +112,13 @@ public sealed class VideoSource : IVideoSource
     {
         return obj is VideoSource source
                && !IsDisposed && !source.IsDisposed
-               && ReferenceEquals(_mediaReader.Value, source._mediaReader.Value);
+               && ReferenceEquals(_mediaReader?.Value, source._mediaReader?.Value);
     }
 
     public override int GetHashCode()
     {
         // ReSharper disable once NonReadonlyMemberInGetHashCode
-        return HashCode.Combine(!IsDisposed ? _mediaReader.Value : null);
+        return HashCode.Combine(!IsDisposed ? _mediaReader?.Value : null);
     }
 
     IVideoSource IVideoSource.Clone() => Clone();

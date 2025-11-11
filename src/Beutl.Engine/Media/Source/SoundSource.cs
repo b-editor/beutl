@@ -1,33 +1,46 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 
 namespace Beutl.Media.Source;
 
-public class SoundSource(Ref<MediaReader> mediaReader, string fileName) : ISoundSource
+public class SoundSource : ISoundSource
 {
-    private readonly Ref<MediaReader> _mediaReader = mediaReader;
+    private Ref<MediaReader>? _mediaReader;
+    private Uri? _uri;
+
+    public SoundSource()
+    {
+    }
 
     ~SoundSource()
     {
         Dispose();
     }
 
-    public TimeSpan Duration { get; } = TimeSpan.FromSeconds(mediaReader.Value.AudioInfo.Duration.ToDouble());
+    public TimeSpan Duration =>
+        _mediaReader?.Value.AudioInfo.Duration != null
+            ? TimeSpan.FromSeconds(_mediaReader.Value.AudioInfo.Duration.ToDouble())
+            : throw new InvalidOperationException("MediaReader is not set.");
 
-    public int SampleRate { get; } = mediaReader.Value.AudioInfo.SampleRate;
+    public int SampleRate => _mediaReader?.Value.AudioInfo.SampleRate ??
+                             throw new InvalidOperationException("MediaReader is not set.");
 
-    public int NumChannels { get; } = mediaReader.Value.AudioInfo.NumChannels;
+    public int NumChannels => _mediaReader?.Value.AudioInfo.NumChannels ??
+                              throw new InvalidOperationException("MediaReader is not set.");
 
     public bool IsDisposed { get; private set; }
 
-    public string Name { get; } = fileName;
+    public Uri Uri => _uri ?? throw new InvalidOperationException("URI is not set.");
 
     public static SoundSource Open(string fileName)
     {
         var reader = MediaReader.Open(fileName, new(MediaMode.Audio));
-        return new SoundSource(Ref<MediaReader>.Create(reader), fileName);
+        return new SoundSource
+        {
+            _mediaReader = Ref<MediaReader>.Create(reader),
+            _uri = new Uri(new Uri("file://"), fileName)
+        };
     }
 
     public static bool TryOpen(string fileName, out SoundSource? result)
@@ -44,11 +57,21 @@ public class SoundSource(Ref<MediaReader> mediaReader, string fileName) : ISound
         }
     }
 
+    public void ReadFrom(Uri uri)
+    {
+        if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
+        _mediaReader?.Dispose();
+        _mediaReader = null;
+        var reader = MediaReader.Open(uri.LocalPath, new(MediaMode.Audio));
+        _mediaReader = Ref<MediaReader>.Create(reader);
+        _uri = uri;
+    }
+
     public void Dispose()
     {
         if (!IsDisposed)
         {
-            _mediaReader.Dispose();
+            _mediaReader?.Dispose();
             GC.SuppressFinalize(this);
             IsDisposed = true;
         }
@@ -58,12 +81,12 @@ public class SoundSource(Ref<MediaReader> mediaReader, string fileName) : ISound
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
-        return new SoundSource(_mediaReader.Clone(), Name);
+        return new SoundSource { _mediaReader = _mediaReader?.Clone(), _uri = _uri };
     }
 
     public bool Read(int start, int length, [NotNullWhen(true)] out IPcm? sound)
     {
-        if (IsDisposed)
+        if (IsDisposed || _mediaReader == null)
         {
             sound = null;
             return false;
@@ -74,7 +97,7 @@ public class SoundSource(Ref<MediaReader> mediaReader, string fileName) : ISound
 
     public bool Read(TimeSpan start, TimeSpan length, [NotNullWhen(true)] out IPcm? sound)
     {
-        if (IsDisposed)
+        if (IsDisposed || _mediaReader == null)
         {
             sound = null;
             return false;
@@ -85,7 +108,7 @@ public class SoundSource(Ref<MediaReader> mediaReader, string fileName) : ISound
 
     public bool Read(TimeSpan start, int length, [NotNullWhen(true)] out IPcm? sound)
     {
-        if (IsDisposed)
+        if (IsDisposed || _mediaReader == null)
         {
             sound = null;
             return false;
@@ -96,7 +119,7 @@ public class SoundSource(Ref<MediaReader> mediaReader, string fileName) : ISound
 
     public bool Read(int start, TimeSpan length, [NotNullWhen(true)] out IPcm? sound)
     {
-        if (IsDisposed)
+        if (IsDisposed || _mediaReader == null)
         {
             sound = null;
             return false;
@@ -111,13 +134,13 @@ public class SoundSource(Ref<MediaReader> mediaReader, string fileName) : ISound
     {
         return obj is SoundSource source
                && !IsDisposed && !source.IsDisposed
-               && ReferenceEquals(_mediaReader.Value, source._mediaReader.Value);
+               && ReferenceEquals(_mediaReader?.Value, source._mediaReader?.Value);
     }
 
     public override int GetHashCode()
     {
         // ReSharper disable once NonReadonlyMemberInGetHashCode
-        return HashCode.Combine(!IsDisposed ? _mediaReader.Value : null);
+        return HashCode.Combine(!IsDisposed ? _mediaReader?.Value : null);
     }
 
     private int ToSamples(TimeSpan timeSpan)

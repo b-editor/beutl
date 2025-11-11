@@ -1,21 +1,18 @@
-﻿using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿using Beutl.IO;
 
 namespace Beutl.Media.Source;
 
-public sealed class ImageSourceJsonConverter : JsonConverter<IImageSource?>
+public sealed class ImageSourceJsonConverter : FileSourceJsonConverter
 {
-    public override IImageSource? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override bool CanConvert(Type typeToConvert)
     {
-        string? s = reader.GetString();
-
-        return s != null && BitmapSource.TryOpen(s, out var imageSource)
-            ? imageSource
-            : null;
+        return typeToConvert.IsAssignableTo(typeof(IImageSource));
     }
 
-    public override void Write(Utf8JsonWriter writer, IImageSource? value, JsonSerializerOptions options)
+    public override IFileSource? CreateInstance(Type typeToConvert)
     {
-        writer.WriteStringValue(value?.Name);
+        return typeToConvert == typeof(IImageSource)
+                ? new BitmapSource()
+                : Activator.CreateInstance(typeToConvert) as IImageSource;
     }
 }

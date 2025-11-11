@@ -12,6 +12,13 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
         return typeToConvert.IsAssignableTo(typeof(IFileSource));
     }
 
+    public virtual IFileSource? CreateInstance(Type typeToConvert)
+    {
+        return typeToConvert == typeof(IFileSource)
+                ? new BlobFileSource()
+                : Activator.CreateInstance(typeToConvert) as IFileSource;
+    }
+
     public override IFileSource? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var jsonNode = JsonNode.Parse(ref reader);
@@ -34,9 +41,7 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
                 }
             }
 
-            IFileSource? instance = typeToConvert == typeof(IFileSource)
-                ? new BlobFileSource()
-                : Activator.CreateInstance(typeToConvert) as IFileSource;
+            IFileSource? instance = CreateInstance(typeToConvert);
             if (instance == null)
             {
                 throw new JsonException($"Could not create instance of type {typeToConvert.FullName}.");
