@@ -25,7 +25,7 @@ public partial class JsonSerializationContext(
 
     public IFileSystem FileSystem => options?.FileSystem ?? Parent?.FileSystem ?? new LocalFileSystem();
 
-    public Uri? BaseUri => options?.BaseUri ?? Root.BaseUri;
+    public Uri? BaseUri => options?.BaseUri ?? (!IsRoot ? Root.BaseUri : null);
 
     public Type OwnerType { get; } = ownerType;
 
