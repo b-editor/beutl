@@ -861,9 +861,9 @@ public partial class GraphEditorView : UserControl
             else
             {
                 _keyframeViewModel.SubmitKeyTimeAndValue(_oldKeyTime, _oldControlPoints);
-                _oldControlPoints.Clear();
             }
 
+            _oldControlPoints.Clear();
             _followingKeyFrames = null;
             _keyframe = null;
             _keyframeViewModel = null;
