@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 
 namespace Beutl.Protocol.Queries;
 
-public class QueryClient : IAsyncDisposable
+public class QueryClient : IAsyncDisposable, IQueryClient
 {
     private readonly HubConnection _connection;
     private readonly Dictionary<string, Subject<QueryUpdate>> _subscriptionSubjects = new();
