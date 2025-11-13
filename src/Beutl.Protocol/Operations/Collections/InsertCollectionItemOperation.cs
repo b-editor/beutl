@@ -9,7 +9,7 @@ public sealed class InsertCollectionItemOperation : SyncOperation
 {
     public required Guid ObjectId { get; set; }
 
-    public required string PropertyName { get; set; }
+    public required string PropertyPath { get; set; }
 
     public required JsonNode Item { get; set; }
 
@@ -20,7 +20,8 @@ public sealed class InsertCollectionItemOperation : SyncOperation
         var obj = context.FindObject(ObjectId)
             ?? throw new InvalidOperationException($"Object with ID {ObjectId} not found.");
 
-        var coreProperty = PropertyRegistry.FindRegistered(obj.GetType(), PropertyName);
+        var name = PropertyPathHelper.GetPropertyNameFromPath(PropertyPath);
+        var coreProperty = PropertyRegistry.FindRegistered(obj.GetType(), name);
 
         if (coreProperty != null)
         {
@@ -30,12 +31,12 @@ public sealed class InsertCollectionItemOperation : SyncOperation
 
         if (obj is EngineObject engineObj)
         {
-            var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == PropertyName)
-                ?? throw new InvalidOperationException($"Engine property {PropertyName} not found on type {obj.GetType().FullName}.");
+            var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == name)
+                ?? throw new InvalidOperationException($"Engine property {PropertyPath} not found on type {obj.GetType().FullName}.");
 
             if (engineProperty is not IListProperty listProperty)
             {
-                throw new InvalidOperationException($"Engine property {PropertyName} is not a list on type {obj.GetType().FullName}.");
+                throw new InvalidOperationException($"Engine property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
             }
 
             ApplyToEngineProperty(listProperty);
@@ -60,7 +61,7 @@ public sealed class InsertCollectionItemOperation : SyncOperation
     {
         if (obj.GetValue(coreProperty) is not IList list)
         {
-            throw new InvalidOperationException($"Property {PropertyName} is not a list on type {obj.GetType().FullName}.");
+            throw new InvalidOperationException($"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
         }
 
         var elementType = ArrayTypeHelpers.GetElementType(list.GetType());

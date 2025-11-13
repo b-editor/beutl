@@ -3,17 +3,18 @@ using System.Reactive.Subjects;
 using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Protocol.Operations;
-using Beutl.Protocol.Operations.Collections;
 using Beutl.Protocol.Operations.Property;
 
 namespace Beutl.Protocol.Synchronization;
 
+// TODO: IListProperty対応
 public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
 {
     private readonly Subject<SyncOperation> _operations = new();
     private readonly IDisposable? _subscription;
     private readonly ICoreObject _object;
     private readonly IProperty<T> _property;
+    private readonly string _propertyPath;
     private readonly OperationSequenceGenerator _sequenceNumberGenerator;
     private IOperationPublisher? _valuePublisher;
     private IOperationPublisher? _animationPublisher;
@@ -22,10 +23,12 @@ public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
         IObserver<SyncOperation>? observer,
         ICoreObject obj,
         IProperty<T> property,
-        OperationSequenceGenerator sequenceNumberGenerator)
+        OperationSequenceGenerator sequenceNumberGenerator,
+        string propertyPath)
     {
         _object = obj;
         _property = property;
+        _propertyPath = propertyPath;
         _sequenceNumberGenerator = sequenceNumberGenerator;
 
         if (observer != null)
@@ -43,7 +46,8 @@ public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
                 _animationPublisher = new CoreObjectOperationPublisher(
                     _operations,
                     animationObject,
-                    _sequenceNumberGenerator);
+                    _sequenceNumberGenerator,
+                    $"{_propertyPath}.Animation");
             }
 
             animatable.AnimationChanged += OnAnimationChanged;
@@ -74,7 +78,7 @@ public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
                 _operations,
                 list,
                 _object,
-                _property.Name,
+                _propertyPath,
                 _sequenceNumberGenerator);
         }
         else if (value is ICoreObject child)
@@ -82,7 +86,8 @@ public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
             _valuePublisher = new CoreObjectOperationPublisher(
                 _operations,
                 child,
-                _sequenceNumberGenerator);
+                _sequenceNumberGenerator,
+                _propertyPath);
         }
     }
 
@@ -97,18 +102,21 @@ public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
         _animationPublisher?.Dispose();
         _animationPublisher = null;
 
+        string animationPath = $"{_propertyPath}.Animation";
+
         if (animation is ICoreObject animObject)
         {
             _animationPublisher = new CoreObjectOperationPublisher(
                 _operations,
                 animObject,
-                _sequenceNumberGenerator);
+                _sequenceNumberGenerator,
+                animationPath);
         }
 
         _operations.OnNext(UpdatePropertyValueOperation.Create(
             _object,
             _property,
-            $"{_property.Name}.Animation",
+            animationPath,
             typeof(IAnimation),
             animation,
             _sequenceNumberGenerator));
@@ -130,7 +138,7 @@ public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
         _operations.OnNext(UpdatePropertyValueOperation.Create(
             _object,
             _property,
-            _property.Name,
+            _propertyPath,
             _property.ValueType,
             e.NewValue,
             _sequenceNumberGenerator));

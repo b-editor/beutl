@@ -1,10 +1,8 @@
 using System.Collections;
 using System.ComponentModel;
 using System.Reactive.Subjects;
-using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Protocol.Operations;
-using Beutl.Protocol.Operations.Collections;
 using Beutl.Protocol.Operations.Property;
 
 namespace Beutl.Protocol.Synchronization;
@@ -12,6 +10,7 @@ namespace Beutl.Protocol.Synchronization;
 public sealed class CoreObjectOperationPublisher : IOperationPublisher
 {
     private readonly ICoreObject _object;
+    private readonly string _propertyPath;
     private readonly Dictionary<int, CoreObjectOperationPublisher> _childPublishers = new();
     private readonly Dictionary<int, CollectionOperationPublisher> _collectionPublishers = new();
     private readonly Dictionary<string, IOperationPublisher> _enginePropertyPublishers = new();
@@ -22,9 +21,11 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
     public CoreObjectOperationPublisher(
         IObserver<SyncOperation>? observer,
         ICoreObject obj,
-        OperationSequenceGenerator sequenceNumberGenerator)
+        OperationSequenceGenerator sequenceNumberGenerator,
+        string propertyPath = "")
     {
         _object = obj;
+        _propertyPath = propertyPath;
         _sequenceNumberGenerator = sequenceNumberGenerator;
 
         if (observer != null)
@@ -66,11 +67,19 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
         _operations.OnCompleted();
     }
 
+    private string BuildPropertyPath(string propertyName)
+    {
+        return string.IsNullOrEmpty(_propertyPath)
+            ? propertyName
+            : $"{_propertyPath}.{propertyName}";
+    }
+
     private void InitializeChildPublishers(ICoreObject obj, OperationSequenceGenerator sequenceNumberGenerator)
     {
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(obj.GetType()))
         {
             object? value = obj.GetValue(property);
+            string childPath = BuildPropertyPath(property.Name);
 
             if (value is IList list)
             {
@@ -78,7 +87,7 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
                     _operations,
                     list,
                     obj,
-                    property.Name,
+                    childPath,
                     sequenceNumberGenerator);
                 _collectionPublishers.Add(property.Id, collectionPublisher);
             }
@@ -87,7 +96,8 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
                 var childPublisher = new CoreObjectOperationPublisher(
                     _operations,
                     child,
-                    sequenceNumberGenerator);
+                    sequenceNumberGenerator,
+                    childPath);
                 _childPublishers.Add(property.Id, childPublisher);
             }
         }
@@ -97,13 +107,15 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
     {
         foreach (IProperty property in engineObject.Properties)
         {
+            string childPath = BuildPropertyPath(property.Name);
             var publisherType = typeof(EnginePropertyOperationPublisher<>).MakeGenericType(property.ValueType);
             var publisher = (IOperationPublisher)Activator.CreateInstance(
                 publisherType,
                 _operations,
                 engineObject,
                 property,
-                sequenceNumberGenerator)!;
+                sequenceNumberGenerator,
+                childPath)!;
 
             _enginePropertyPublishers.Add(property.Name, publisher);
         }
@@ -134,13 +146,15 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
             collectionPublisher.Dispose();
         }
 
+        string childPath = BuildPropertyPath(args.Property.Name);
+
         if (args.NewValue is IList list)
         {
             var newPublisher = new CollectionOperationPublisher(
                 _operations,
                 list,
                 source,
-                args.Property.Name,
+                childPath,
                 _sequenceNumberGenerator);
             _collectionPublishers.Add(args.Property.Id, newPublisher);
         }
@@ -149,13 +163,15 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
             var newPublisher = new CoreObjectOperationPublisher(
                 _operations,
                 newChild,
-                new OperationSequenceGenerator());
+                _sequenceNumberGenerator,
+                childPath);
             _childPublishers.Add(args.Property.Id, newPublisher);
         }
 
         var operation = UpdatePropertyValueOperation.Create(
             source,
             args.Property,
+            childPath,
             args.NewValue,
             _sequenceNumberGenerator);
         _operations.OnNext(operation);

@@ -5,12 +5,12 @@ using Beutl.Serialization;
 
 namespace Beutl.Protocol.Operations.Property;
 
-public sealed class UpdatePropertyValueOperation(Guid objectId, string propertyName, JsonNode? value) : SyncOperation
+public sealed class UpdatePropertyValueOperation(Guid objectId, string propertyPath, JsonNode? value) : SyncOperation
 {
     public static UpdatePropertyValueOperation Create(
         ICoreObject obj,
         IProperty property,
-        string name,
+        string propertyPath,
         Type type,
         object? value,
         OperationSequenceGenerator sequenceNumberGenerator)
@@ -25,7 +25,7 @@ public sealed class UpdatePropertyValueOperation(Guid objectId, string propertyN
         JsonNode? jsonNode = simJson[property.Name];
         simJson[property.Name] = null;
 
-        return new UpdatePropertyValueOperation(obj.Id, name, jsonNode)
+        return new UpdatePropertyValueOperation(obj.Id, propertyPath, jsonNode)
         {
             SequenceNumber = sequenceNumberGenerator.GetNext()
         };
@@ -34,6 +34,7 @@ public sealed class UpdatePropertyValueOperation(Guid objectId, string propertyN
     public static UpdatePropertyValueOperation Create(
         ICoreObject obj,
         CoreProperty property,
+        string propertyPath,
         object? value,
         OperationSequenceGenerator sequenceNumberGenerator)
     {
@@ -47,7 +48,7 @@ public sealed class UpdatePropertyValueOperation(Guid objectId, string propertyN
         JsonNode? jsonNode = simJson[property.Name];
         simJson[property.Name] = null;
 
-        return new UpdatePropertyValueOperation(obj.Id, property.Name, jsonNode)
+        return new UpdatePropertyValueOperation(obj.Id, propertyPath, jsonNode)
         {
             SequenceNumber = sequenceNumberGenerator.GetNext()
         };
@@ -55,7 +56,7 @@ public sealed class UpdatePropertyValueOperation(Guid objectId, string propertyN
 
     public Guid ObjectId { get; set; } = objectId;
 
-    public string PropertyName { get; set; } = propertyName;
+    public string PropertyPath { get; set; } = propertyPath;
 
     public JsonNode? Value { get; set; } = value;
 
@@ -64,7 +65,26 @@ public sealed class UpdatePropertyValueOperation(Guid objectId, string propertyN
         var obj = context.FindObject(ObjectId)
             ?? throw new InvalidOperationException($"Object with ID {ObjectId} not found.");
 
-        var coreProperty = PropertyRegistry.FindRegistered(obj.GetType(), PropertyName);
+        string name = PropertyPath;
+        bool updateAnimation = false;
+
+        if (PropertyPath.Contains('.'))
+        {
+            var parts = PropertyPath.Split('.');
+
+            if (parts[^1] == "Animation" && parts.Length >= 2)
+            {
+                name = parts[^2];
+                updateAnimation = true;
+            }
+            else
+            {
+                name = parts[^1];
+                updateAnimation = false;
+            }
+        }
+
+        var coreProperty = PropertyRegistry.FindRegistered(obj.GetType(), name);
 
         if (coreProperty != null)
         {
@@ -74,29 +94,8 @@ public sealed class UpdatePropertyValueOperation(Guid objectId, string propertyN
 
         if (obj is EngineObject engineObj)
         {
-            string name = PropertyName;
-            bool updateAnimation = false;
-
-            if (PropertyName.Contains('.'))
-            {
-                var parts = PropertyName.Split('.');
-
-                if (parts.Length > 2)
-                {
-                    throw new InvalidOperationException($"Nested properties deeper than one level are not supported: {PropertyName}.");
-                }
-
-                if (parts[1] != "Animation")
-                {
-                    throw new InvalidOperationException($"Only animation properties are supported for nested properties: {PropertyName}.");
-                }
-
-                name = parts[0];
-                updateAnimation = true;
-            }
-
             var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == name)
-                ?? throw new InvalidOperationException($"Engine property {PropertyName} not found on type {obj.GetType().FullName}.");
+                ?? throw new InvalidOperationException($"Engine property {PropertyPath} not found on type {obj.GetType().FullName}.");
 
             ApplyToEngineProperty(engineObj, engineProperty, updateAnimation);
         }

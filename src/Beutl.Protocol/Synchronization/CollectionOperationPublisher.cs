@@ -10,7 +10,7 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
 {
     private readonly IList _list;
     private readonly ICoreObject _owner;
-    private readonly string _propertyName;
+    private readonly string _propertyPath;
     private readonly OperationSequenceGenerator _sequenceNumberGenerator;
     private readonly Subject<SyncOperation> _operations = new();
     private readonly IDisposable _subscription;
@@ -19,12 +19,12 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
         IObserver<SyncOperation> observer,
         IList list,
         ICoreObject owner,
-        string propertyName,
+        string propertyPath,
         OperationSequenceGenerator sequenceNumberGenerator)
     {
         _list = list;
         _owner = owner;
-        _propertyName = propertyName;
+        _propertyPath = propertyPath;
         _sequenceNumberGenerator = sequenceNumberGenerator;
         _subscription = _operations.Subscribe(observer);
 
@@ -87,7 +87,7 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
             {
                 SequenceNumber = _sequenceNumberGenerator.GetNext(),
                 ObjectId = _owner.Id,
-                PropertyName = _propertyName,
+                PropertyPath = _propertyPath,
                 Item = json,
                 Index = index++
             };
@@ -106,7 +106,7 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
         {
             SequenceNumber = _sequenceNumberGenerator.GetNext(),
             ObjectId = _owner.Id,
-            PropertyName = _propertyName,
+            PropertyPath = _propertyPath,
             Index = e.OldStartingIndex,
             Count = e.OldItems.Count
         };
@@ -124,7 +124,7 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
         {
             SequenceNumber = _sequenceNumberGenerator.GetNext(),
             ObjectId = _owner.Id,
-            PropertyName = _propertyName,
+            PropertyPath = _propertyPath,
             OldIndex = e.OldStartingIndex,
             NewIndex = e.NewStartingIndex,
             Count = e.OldItems.Count
@@ -140,7 +140,7 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
             {
                 SequenceNumber = _sequenceNumberGenerator.GetNext(),
                 ObjectId = _owner.Id,
-                PropertyName = _propertyName,
+                PropertyPath = _propertyPath,
                 Index = e.OldStartingIndex,
                 Count = e.OldItems.Count
             };
@@ -157,7 +157,7 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
                 {
                     SequenceNumber = _sequenceNumberGenerator.GetNext(),
                     ObjectId = _owner.Id,
-                    PropertyName = _propertyName,
+                    PropertyPath = _propertyPath,
                     Item = json,
                     Index = index++
                 };
