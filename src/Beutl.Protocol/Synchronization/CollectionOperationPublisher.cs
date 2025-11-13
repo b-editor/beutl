@@ -12,6 +12,7 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
     private readonly ICoreObject _owner;
     private readonly string _propertyPath;
     private readonly OperationSequenceGenerator _sequenceNumberGenerator;
+    private readonly Dictionary<ICoreObject, CoreObjectOperationPublisher> _childPublishers = new();
     private readonly Subject<SyncOperation> _operations = new();
     private readonly IDisposable _subscription;
 
@@ -28,6 +29,14 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
         _sequenceNumberGenerator = sequenceNumberGenerator;
         _subscription = _operations.Subscribe(observer);
 
+        foreach (object item in list)
+        {
+            if (item is ICoreObject coreObject)
+            {
+                InitializeChildPublishers(coreObject, sequenceNumberGenerator);
+            }
+        }
+
         if (list is INotifyCollectionChanged notifyCollection)
         {
             notifyCollection.CollectionChanged += OnCollectionChanged;
@@ -36,8 +45,24 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
 
     public IObservable<SyncOperation> Operations => _operations;
 
+    private void InitializeChildPublishers(ICoreObject obj, OperationSequenceGenerator sequenceNumberGenerator)
+    {
+        var childPublisher = new CoreObjectOperationPublisher(
+            _operations,
+            obj,
+            sequenceNumberGenerator,
+            _propertyPath);
+        _childPublishers.Add(obj, childPublisher);
+    }
+
     public void Dispose()
     {
+        foreach (var childPublisher in _childPublishers.Values)
+        {
+            childPublisher.Dispose();
+        }
+
+        _childPublishers.Clear();
         if (_list is INotifyCollectionChanged notifyCollection)
         {
             notifyCollection.CollectionChanged -= OnCollectionChanged;
@@ -82,6 +107,11 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
         int index = e.NewStartingIndex;
         foreach (object newItem in e.NewItems)
         {
+            if (newItem is ICoreObject coreObject)
+            {
+                InitializeChildPublishers(coreObject, _sequenceNumberGenerator);
+            }
+
             var json = CoreSerializerHelper.SerializeToJsonNode(newItem);
             var operation = new InsertCollectionItemOperation
             {
@@ -100,6 +130,18 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
         if (e.OldItems == null)
         {
             return;
+        }
+
+        foreach (object oldItem in e.OldItems)
+        {
+            if (oldItem is ICoreObject coreObject)
+            {
+                if (_childPublishers.TryGetValue(coreObject, out var childPublisher))
+                {
+                    childPublisher.Dispose();
+                    _childPublishers.Remove(coreObject);
+                }
+            }
         }
 
         var operation = new RemoveCollectionRangeOperation
@@ -136,6 +178,18 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
     {
         if (e.OldItems != null)
         {
+            foreach (object oldItem in e.OldItems)
+            {
+                if (oldItem is ICoreObject coreObject)
+                {
+                    if (_childPublishers.TryGetValue(coreObject, out var childPublisher))
+                    {
+                        childPublisher.Dispose();
+                        _childPublishers.Remove(coreObject);
+                    }
+                }
+            }
+
             var operation = new RemoveCollectionRangeOperation
             {
                 SequenceNumber = _sequenceNumberGenerator.GetNext(),
@@ -152,6 +206,11 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
             int index = e.NewStartingIndex;
             foreach (var newItem in e.NewItems)
             {
+                if (newItem is ICoreObject coreObject)
+                {
+                    InitializeChildPublishers(coreObject, _sequenceNumberGenerator);
+                }
+
                 var json = CoreSerializerHelper.SerializeToJsonNode(newItem);
                 var operation = new InsertCollectionItemOperation
                 {
