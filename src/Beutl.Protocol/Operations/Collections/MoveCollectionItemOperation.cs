@@ -3,7 +3,7 @@ using Beutl.Engine;
 
 namespace Beutl.Protocol.Operations.Collections;
 
-public sealed class MoveCollectionItemOperation : SyncOperation
+public sealed class MoveCollectionItemOperation : SyncOperation, IPropertyPathProvider
 {
     public required Guid ObjectId { get; set; }
 

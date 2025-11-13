@@ -5,7 +5,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Protocol.Operations.Collections;
 
-public sealed class InsertCollectionItemOperation : SyncOperation
+public sealed class InsertCollectionItemOperation : SyncOperation, IPropertyPathProvider
 {
     public required Guid ObjectId { get; set; }
 

@@ -5,7 +5,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Protocol.Operations.Property;
 
-public sealed class UpdatePropertyValueOperation(Guid objectId, string propertyPath, JsonNode? value) : SyncOperation
+public sealed class UpdatePropertyValueOperation(Guid objectId, string propertyPath, JsonNode? value) : SyncOperation, IPropertyPathProvider
 {
     public static UpdatePropertyValueOperation Create(
         ICoreObject obj,
