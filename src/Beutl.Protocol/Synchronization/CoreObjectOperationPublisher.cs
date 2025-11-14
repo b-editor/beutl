@@ -78,6 +78,8 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
     {
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(obj.GetType()))
         {
+            if (Hierarchical.HierarchicalParentProperty.Id == property.Id) continue;
+
             object? value = obj.GetValue(property);
             string childPath = BuildPropertyPath(property.Name);
 
@@ -103,7 +105,8 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
         }
     }
 
-    private void InitializeEnginePropertyPublishers(EngineObject engineObject, OperationSequenceGenerator sequenceNumberGenerator)
+    private void InitializeEnginePropertyPublishers(EngineObject engineObject,
+        OperationSequenceGenerator sequenceNumberGenerator)
     {
         foreach (IProperty property in engineObject.Properties)
         {

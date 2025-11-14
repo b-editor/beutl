@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Beutl.Protocol\Beutl.Protocol.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--    ProjectReferenceだとAvalonia関係のエラーが出るので-->
+    <Compile Include="..\Beutl.ProjectSystem\**\*.cs" />
+    <Compile Remove="..\Beutl.ProjectSystem\obj\**\*.cs" />
+    <Compile Include="..\Beutl.Operators\**\*.cs" />
+    <Compile Remove="..\Beutl.Operators\obj\**\*.cs" />
+    <Compile Include="..\Beutl.Extensibility\IPropertyAdapter.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="..\Beutl.ProjectSystem\NodeTree\Nodes\Brushes\ConicGradientBrushNode.cs" />
+    <Compile Remove="..\Beutl.ProjectSystem\NodeTree\Nodes\Brushes\DrawableBrushNode.cs" />
+    <Compile Remove="..\Beutl.ProjectSystem\NodeTree\Nodes\Brushes\FillNode.cs" />
+    <Compile Remove="..\Beutl.ProjectSystem\NodeTree\Nodes\Brushes\LinearGradientBrushNode.cs" />
+    <Compile Remove="..\Beutl.ProjectSystem\NodeTree\Nodes\Brushes\RadialGradientBrushNode.cs" />
+    <Compile Remove="..\Beutl.ProjectSystem\NodeTree\Nodes\Brushes\TileBrushNode.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
+    <PackageReference Include="ReactiveProperty" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
