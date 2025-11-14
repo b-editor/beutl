@@ -18,28 +18,40 @@ public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
     private readonly OperationSequenceGenerator _sequenceNumberGenerator;
     private IOperationPublisher? _valuePublisher;
     private IOperationPublisher? _animationPublisher;
+    private readonly HashSet<string>? _propertyPathsToTrack;
 
     public EnginePropertyOperationPublisher(
         IObserver<SyncOperation>? observer,
         ICoreObject obj,
         IProperty<T> property,
         OperationSequenceGenerator sequenceNumberGenerator,
-        string propertyPath)
+        string propertyPath,
+        HashSet<string>? propertyPathsToTrack = null)
     {
         _object = obj;
         _property = property;
         _propertyPath = propertyPath;
         _sequenceNumberGenerator = sequenceNumberGenerator;
+        _propertyPathsToTrack = propertyPathsToTrack;
 
         if (observer != null)
         {
             _subscription = _operations.Subscribe(observer);
         }
 
-        InitializePublishers(property.CurrentValue);
+        HashSet<string>? propertiesToTrack = _propertyPathsToTrack?.Where(i => i.Contains(_propertyPath))
+            .Select(i => i.Substring(_propertyPath.Length).TrimStart('.').Split('.').First())
+            .Where(i => !string.IsNullOrEmpty(i))
+            .ToHashSet();
 
-        _property.ValueChanged += OnValueChanged;
-        if (_property is AnimatableProperty<T> animatable)
+        if (propertiesToTrack?.Contains("CurrentValue") != false)
+        {
+            InitializePublishers(property.CurrentValue);
+
+            _property.ValueChanged += OnValueChanged;
+        }
+
+        if (_property is AnimatableProperty<T> animatable && propertiesToTrack?.Contains("Animation") != false)
         {
             if (animatable.Animation is ICoreObject animationObject)
             {
@@ -79,7 +91,8 @@ public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
                 list,
                 _object,
                 _propertyPath,
-                _sequenceNumberGenerator);
+                _sequenceNumberGenerator,
+                _propertyPathsToTrack);
         }
         else if (value is ICoreObject child)
         {
@@ -87,7 +100,8 @@ public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
                 _operations,
                 child,
                 _sequenceNumberGenerator,
-                _propertyPath);
+                _propertyPath,
+                _propertyPathsToTrack);
         }
     }
 
@@ -110,7 +124,8 @@ public sealed class EnginePropertyOperationPublisher<T> : IOperationPublisher
                 _operations,
                 animObject,
                 _sequenceNumberGenerator,
-                animationPath);
+                animationPath,
+                _propertyPathsToTrack);
         }
 
         _operations.OnNext(UpdatePropertyValueOperation.Create(

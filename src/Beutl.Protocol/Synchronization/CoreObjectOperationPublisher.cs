@@ -17,28 +17,36 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
     private readonly Subject<SyncOperation> _operations = new();
     private readonly IDisposable? _subscription;
     private readonly OperationSequenceGenerator _sequenceNumberGenerator;
+    private readonly HashSet<string>? _propertyPathsToTrack;
+    private readonly HashSet<string>? _propertiesToTrack;
 
     public CoreObjectOperationPublisher(
         IObserver<SyncOperation>? observer,
         ICoreObject obj,
         OperationSequenceGenerator sequenceNumberGenerator,
-        string propertyPath = "")
+        string propertyPath = "",
+        HashSet<string>? propertyPathsToTrack = null)
     {
         _object = obj;
         _propertyPath = propertyPath;
         _sequenceNumberGenerator = sequenceNumberGenerator;
+        _propertyPathsToTrack = propertyPathsToTrack;
 
         if (observer != null)
         {
             _subscription = _operations.Subscribe(observer);
         }
 
-        InitializeChildPublishers(obj, sequenceNumberGenerator);
+        _propertiesToTrack = _propertyPathsToTrack?.Where(i => i.Contains(_propertyPath))
+            .Select(i => i.Substring(_propertyPath.Length).TrimStart('.').Split('.').First())
+            .Where(i => !string.IsNullOrEmpty(i))
+            .ToHashSet();
+        InitializeChildPublishers();
         obj.PropertyChanged += OnPropertyChanged;
 
         if (obj is EngineObject engineObject)
         {
-            InitializeEnginePropertyPublishers(engineObject, sequenceNumberGenerator);
+            InitializeEnginePropertyPublishers(engineObject);
         }
     }
 
@@ -74,13 +82,17 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
             : $"{_propertyPath}.{propertyName}";
     }
 
-    private void InitializeChildPublishers(ICoreObject obj, OperationSequenceGenerator sequenceNumberGenerator)
+    private void InitializeChildPublishers()
     {
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(obj.GetType()))
+        foreach (CoreProperty property in PropertyRegistry.GetRegistered(_object.GetType()))
         {
             if (Hierarchical.HierarchicalParentProperty.Id == property.Id) continue;
+            if (_propertiesToTrack != null && !_propertiesToTrack.Contains(property.Name))
+            {
+                continue;
+            }
 
-            object? value = obj.GetValue(property);
+            object? value = _object.GetValue(property);
             string childPath = BuildPropertyPath(property.Name);
 
             if (value is IList list)
@@ -88,9 +100,10 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
                 var collectionPublisher = new CollectionOperationPublisher(
                     _operations,
                     list,
-                    obj,
+                    _object,
                     childPath,
-                    sequenceNumberGenerator);
+                    _sequenceNumberGenerator,
+                    _propertyPathsToTrack);
                 _collectionPublishers.Add(property.Id, collectionPublisher);
             }
             else if (value is ICoreObject child)
@@ -98,18 +111,23 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
                 var childPublisher = new CoreObjectOperationPublisher(
                     _operations,
                     child,
-                    sequenceNumberGenerator,
-                    childPath);
+                    _sequenceNumberGenerator,
+                    childPath,
+                    _propertyPathsToTrack);
                 _childPublishers.Add(property.Id, childPublisher);
             }
         }
     }
 
-    private void InitializeEnginePropertyPublishers(EngineObject engineObject,
-        OperationSequenceGenerator sequenceNumberGenerator)
+    private void InitializeEnginePropertyPublishers(EngineObject engineObject)
     {
         foreach (IProperty property in engineObject.Properties)
         {
+            if (_propertiesToTrack != null && !_propertiesToTrack.Contains(property.Name))
+            {
+                continue;
+            }
+
             string childPath = BuildPropertyPath(property.Name);
             var publisherType = typeof(EnginePropertyOperationPublisher<>).MakeGenericType(property.ValueType);
             var publisher = (IOperationPublisher)Activator.CreateInstance(
@@ -117,8 +135,9 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
                 _operations,
                 engineObject,
                 property,
-                sequenceNumberGenerator,
-                childPath)!;
+                _sequenceNumberGenerator,
+                childPath,
+                _propertyPathsToTrack)!;
 
             _enginePropertyPublishers.Add(property.Name, publisher);
         }
@@ -135,6 +154,12 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
         if (e is not CorePropertyChangedEventArgs args ||
             sender is not ICoreObject source ||
             args.Property.Id == Hierarchical.HierarchicalParentProperty.Id)
+        {
+            return;
+        }
+
+        if (_propertiesToTrack != null &&
+            !_propertiesToTrack.Contains(args.Property.Name))
         {
             return;
         }
@@ -158,7 +183,8 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
                 list,
                 source,
                 childPath,
-                _sequenceNumberGenerator);
+                _sequenceNumberGenerator,
+                _propertyPathsToTrack);
             _collectionPublishers.Add(args.Property.Id, newPublisher);
         }
         else if (args.NewValue is ICoreObject newChild)
@@ -167,7 +193,8 @@ public sealed class CoreObjectOperationPublisher : IOperationPublisher
                 _operations,
                 newChild,
                 _sequenceNumberGenerator,
-                childPath);
+                childPath,
+                _propertyPathsToTrack);
             _childPublishers.Add(args.Property.Id, newPublisher);
         }
 

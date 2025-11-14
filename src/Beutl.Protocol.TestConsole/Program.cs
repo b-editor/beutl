@@ -6,7 +6,6 @@ using Beutl.Protocol.Operations;
 using Beutl.Protocol.Operations.Property;
 using Beutl.Protocol.Queries;
 using Beutl.Protocol.Synchronization;
-using Beutl.Protocol.TestConsole;
 
 // Create test data
 var root = new Scene

@@ -32,7 +32,7 @@ public class QuerySubscription : IDisposable
         RebuildTrackedPropertyPaths();
 
         // Create a publisher that will recursively monitor all changes
-        _publisher = new CoreObjectOperationPublisher(null, target, sequenceNumberGenerator);
+        _publisher = new CoreObjectOperationPublisher(null, target, sequenceNumberGenerator, "", _trackedPropertyPaths);
 
         // Subscribe to operations and convert them to query updates
         // Only process operations that affect properties in the query schema

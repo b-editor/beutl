@@ -15,25 +15,27 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
     private readonly Dictionary<ICoreObject, CoreObjectOperationPublisher> _childPublishers = new();
     private readonly Subject<SyncOperation> _operations = new();
     private readonly IDisposable _subscription;
+    private readonly HashSet<string>? _propertyPathsToTrack;
 
-    public CollectionOperationPublisher(
-        IObserver<SyncOperation> observer,
+    public CollectionOperationPublisher(IObserver<SyncOperation> observer,
         IList list,
         ICoreObject owner,
         string propertyPath,
-        OperationSequenceGenerator sequenceNumberGenerator)
+        OperationSequenceGenerator sequenceNumberGenerator,
+        HashSet<string>? propertyPathsToTrack = null)
     {
         _list = list;
         _owner = owner;
         _propertyPath = propertyPath;
         _sequenceNumberGenerator = sequenceNumberGenerator;
         _subscription = _operations.Subscribe(observer);
+        _propertyPathsToTrack = propertyPathsToTrack;
 
         foreach (object item in list)
         {
             if (item is ICoreObject coreObject)
             {
-                InitializeChildPublishers(coreObject, sequenceNumberGenerator);
+                InitializeChildPublishers(coreObject);
             }
         }
 
@@ -45,13 +47,14 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
 
     public IObservable<SyncOperation> Operations => _operations;
 
-    private void InitializeChildPublishers(ICoreObject obj, OperationSequenceGenerator sequenceNumberGenerator)
+    private void InitializeChildPublishers(ICoreObject obj)
     {
         var childPublisher = new CoreObjectOperationPublisher(
             _operations,
             obj,
-            sequenceNumberGenerator,
-            _propertyPath);
+            _sequenceNumberGenerator,
+            _propertyPath,
+            _propertyPathsToTrack);
         _childPublishers.Add(obj, childPublisher);
     }
 
@@ -109,7 +112,7 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
         {
             if (newItem is ICoreObject coreObject)
             {
-                InitializeChildPublishers(coreObject, _sequenceNumberGenerator);
+                InitializeChildPublishers(coreObject);
             }
 
             var json = CoreSerializerHelper.SerializeToJsonNode(newItem);
@@ -208,7 +211,7 @@ public sealed class CollectionOperationPublisher : IOperationPublisher
             {
                 if (newItem is ICoreObject coreObject)
                 {
-                    InitializeChildPublishers(coreObject, _sequenceNumberGenerator);
+                    InitializeChildPublishers(coreObject);
                 }
 
                 var json = CoreSerializerHelper.SerializeToJsonNode(newItem);
