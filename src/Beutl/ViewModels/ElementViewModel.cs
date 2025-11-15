@@ -412,8 +412,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         }
 
-        backward.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!,
-            Constants.ElementFileExtension));
+        CoreSerializer.StoreToUri(
+            backward,
+            RandomFileNameGenerator.GenerateUri(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension));
         IRecordableCommand command2 = Scene.AddChild(backward);
         IRecordableCommand command3 = backward.Operation.OnSplit(true, forwardLength, -forwardLength);
         IRecordableCommand command4 = Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);

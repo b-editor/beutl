@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Beutl.Serialization;
 
@@ -100,6 +101,53 @@ public static class CoreSerializer
         {
             obj.Deserialize(context);
             context.AfterDeserialized(obj);
+        }
+    }
+
+    public static T RestoreFromUri<T>(Uri uri)
+        where T : ICoreSerializable
+    {
+        using var stream = UriHelper.ResolveStream(uri);
+
+        var node = JsonNode.Parse(stream);
+        if (node is not JsonObject jsonObject) throw new JsonException();
+
+        var obj = DeserializeFromJsonObject(
+            jsonObject, typeof(T), new CoreSerializerOptions { BaseUri = uri });
+
+        if (obj is CoreObject coreObj)
+        {
+            coreObj.Uri = uri;
+        }
+
+        return (T)obj;
+    }
+
+    public static void StoreToUri<T>(T obj, Uri uri)
+        where T : ICoreSerializable
+    {
+        if (uri.Scheme == "file")
+        {
+            if (obj is CoreObject coreObj)
+            {
+                coreObj.Uri = uri;
+            }
+
+            var directory = Path.GetDirectoryName(uri.LocalPath);
+            if (directory != null)
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            using var stream = new FileStream(uri.LocalPath, FileMode.Create, FileAccess.Write, FileShare.Write);
+            using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
+
+            SerializeToJsonObject(obj, new CoreSerializerOptions { BaseUri = uri })
+                .WriteTo(writer, JsonHelper.SerializerOptions);
+        }
+        else
+        {
+            throw new JsonException();
         }
     }
 }

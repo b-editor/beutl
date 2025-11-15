@@ -298,28 +298,29 @@ public class Scene : ProjectItem, INotifyEdited
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Scene.SyncronizeFiles");
 
         string baseDir = Path.GetDirectoryName(FileName)!;
-        pathToElement = pathToElement.Select(x => Path.GetFullPath(x, baseDir)).ToArray();
+        var uriToElement = pathToElement.Select(x => PathToUri(Path.GetFullPath(x, baseDir))).ToArray();
 
         // 削除するElements
-        Element[] toBeRemoved = Children.ExceptBy(pathToElement, x => x.FileName).ToArray();
+        Element[] elementsRemove = Children.ExceptBy(uriToElement, x => x.Uri).ToArray();
         // 追加するElements
-        string[] toBeAdded = pathToElement.Except(Children.Select(x => x.FileName)).ToArray();
+        Uri[] urisAdd = uriToElement.Except(Children.Select(x => x.Uri).Where(u => u != null)).ToArray()!;
 
-        foreach (Element item in toBeRemoved)
+        foreach (Element item in elementsRemove)
         {
             Children.Remove(item);
         }
 
-        Children.AddRange(toBeAdded.AsParallel().Select(item =>
-        {
-            var element = new Element();
-            element.Restore(item);
-            return element;
-        }));
+        Children.AddRange(urisAdd.AsParallel().Select(CoreSerializer.RestoreFromUri<Element>));
 
-        activity?.SetTag("addCount", toBeAdded.Length);
-        activity?.SetTag("removeCount", toBeRemoved.Length);
+        activity?.SetTag("addCount", urisAdd.Length);
+        activity?.SetTag("removeCount", elementsRemove.Length);
         activity?.SetTag("childrenCount", Children.Count);
+        return;
+
+        static Uri PathToUri(string path)
+        {
+            return new Uri(new Uri("file://"), path);
+        }
     }
 
     private void UpdateInclude()
@@ -332,9 +333,9 @@ public class Scene : ProjectItem, INotifyEdited
         matcher.AddExcludePatterns(_excludeElements);
 
         string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
-        foreach (Element item in Children.GetMarshal().Value)
+        foreach (Element item in Children)
         {
-            string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
+            string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
 
             // 含まれていない場合追加
             if (!files.Contains(rel))
@@ -355,9 +356,9 @@ public class Scene : ProjectItem, INotifyEdited
             string dirPath = Path.GetDirectoryName(FileName)!;
             foreach (Element item in e.OldItems.OfType<Element>())
             {
-                string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
+                string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
 
-                if (!_excludeElements.Contains(rel) && File.Exists(item.FileName))
+                if (!_excludeElements.Contains(rel) && File.Exists(item.Uri!.LocalPath))
                 {
                     _excludeElements.Add(rel);
                 }
@@ -366,14 +367,14 @@ public class Scene : ProjectItem, INotifyEdited
             }
         }
         else if (e.Action == NotifyCollectionChangedAction.Add
-            && e.NewItems != null)
+                 && e.NewItems != null)
         {
             string dirPath = Path.GetDirectoryName(FileName)!;
             foreach (Element item in e.NewItems.OfType<Element>())
             {
-                string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
+                string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
 
-                if (_excludeElements.Contains(rel) && File.Exists(item.FileName))
+                if (_excludeElements.Contains(rel) && File.Exists(item.Uri!.LocalPath))
                 {
                     _excludeElements.Remove(rel);
                 }
@@ -646,25 +647,20 @@ public class Scene : ProjectItem, INotifyEdited
     {
         private readonly Scene _scene;
         private readonly TimeRange _timeRange;
-        private readonly byte[] _jsonBytes;
-        private string _fileName;
+        private readonly JsonObject _jsonObject;
+        private Uri _uri;
         private Element? _element;
 
         public DeleteCommand(Scene scene, Element element)
         {
             _scene = scene;
             _element = element;
-            _fileName = element.FileName;
+            _uri = element.Uri!;
             _timeRange = element.Range;
 
-            var jsonObject = new JsonObject();
-            var context = new JsonSerializationContext(typeof(Element), json: jsonObject);
-            using (ThreadLocalSerializationContext.Enter(context))
-            {
-                element.Serialize(context);
-            }
-
-            _jsonBytes = JsonSerializer.SerializeToUtf8Bytes(jsonObject);
+            _jsonObject = CoreSerializer.SerializeToJsonObject(
+                element,
+                new CoreSerializerOptions { BaseUri = element.Uri });
         }
 
         public ImmutableArray<CoreObject?> GetStorables() => [_scene];
@@ -675,7 +671,7 @@ public class Scene : ProjectItem, INotifyEdited
         {
             if (_element != null)
             {
-                string fileName = _element.FileName;
+                string fileName = _element.Uri!.LocalPath;
                 if (File.Exists(fileName))
                 {
                     File.Delete(fileName);
@@ -693,22 +689,15 @@ public class Scene : ProjectItem, INotifyEdited
 
         public void Undo()
         {
-            if (File.Exists(_fileName))
+            if (File.Exists(_uri.LocalPath))
             {
-                _fileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(_scene.FileName)!, "belm");
+                _uri = RandomFileNameGenerator.GenerateUri(Path.GetDirectoryName(_uri.LocalPath)!, "belm");
             }
 
-            _element = new Element();
+            _element = (Element)CoreSerializer.DeserializeFromJsonObject(_jsonObject, typeof(Element),
+                new CoreSerializerOptions { BaseUri = _uri });
 
-            JsonObject? jsonObject = JsonSerializer.Deserialize<JsonObject>(_jsonBytes);
-            var context = new JsonSerializationContext(typeof(Element), json: jsonObject);
-            using (ThreadLocalSerializationContext.Enter(context))
-            {
-                _element.Deserialize(context);
-                context.AfterDeserialized(_element);
-            }
-
-            _element.Save(_fileName);
+            CoreSerializer.StoreToUri(_element, _uri);
 
             _scene.Children.Add(_element);
         }
@@ -735,7 +724,8 @@ public class Scene : ProjectItem, INotifyEdited
         public void Do()
         {
             TimeSpan newEnd = newStart + newLength;
-            (Element? before, Element? after, Element? cover) = element.GetBeforeAndAfterAndCover(zIndex, newStart, newEnd);
+            (Element? before, Element? after, Element? cover) =
+                element.GetBeforeAndAfterAndCover(zIndex, newStart, newEnd);
 
             if (before != null && before.Range.End >= newStart)
             {
@@ -889,7 +879,8 @@ public class Scene : ProjectItem, INotifyEdited
 
             TimeSpan newEnd = newStart + element.Length;
             int newIndex = element.ZIndex + _deltaZIndex;
-            (Element? before, Element? after, Element? _) = element.GetBeforeAndAfterAndCover(newIndex, newStart, _elements);
+            (Element? before, Element? after, Element? _) =
+                element.GetBeforeAndAfterAndCover(newIndex, newStart, _elements);
 
             if (before != null && before.Range.End >= newStart)
             {

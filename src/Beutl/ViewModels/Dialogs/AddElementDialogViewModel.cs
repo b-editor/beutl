@@ -3,7 +3,7 @@ using Beutl.Media;
 using Beutl.Models;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
-
+using Beutl.Serialization;
 using Reactive.Bindings;
 
 using AColor = Avalonia.Media.Color;
@@ -80,7 +80,7 @@ public sealed class AddElementDialogViewModel
                 Length = Duration.Value,
                 ZIndex = Layer.Value,
                 AccentColor = new(Color.Value.A, Color.Value.R, Color.Value.G, Color.Value.B),
-                FileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(_scene.FileName)!, Constants.ElementFileExtension)
+                Uri = RandomFileNameGenerator.GenerateUri(Path.GetDirectoryName(_scene.FileName)!, Constants.ElementFileExtension)
             };
 
             if (_description.InitialOperator != null)
@@ -111,7 +111,7 @@ public sealed class AddElementDialogViewModel
                 }
             }
 
-            element.Save(element.FileName);
+            CoreSerializer.StoreToUri(element, element.Uri);
             _scene.AddChild(element).DoAndRecord(_recorder);
         });
     }

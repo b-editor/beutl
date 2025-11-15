@@ -526,7 +526,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             newElement.Start = newElement.Start - minStart + newStart;
             newElement.ZIndex = newElement.ZIndex - minZIndex + newZIndex;
 
-            newElement.Save(RandomFileNameGenerator.Generate(
+            CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
                 Path.GetDirectoryName(Scene.FileName)!,
                 Constants.ElementFileExtension));
         }
@@ -553,7 +553,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         newElement.Start = ClickedFrame;
         newElement.ZIndex = CalculateClickedLayer();
 
-        newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!,
+        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
+            Path.GetDirectoryName(Scene.FileName)!,
             Constants.ElementFileExtension));
 
         CommandRecorder recorder = EditorContext.CommandRecorder;
@@ -590,7 +591,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             Name = Path.GetFileName(imageFile)
         };
 
-        newElement.Save(RandomFileNameGenerator.Generate(dir, Constants.ElementFileExtension));
+        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
+            dir, Constants.ElementFileExtension));
 
         CommandRecorder recorder = EditorContext.CommandRecorder;
         Scene.AddChild(newElement).DoAndRecord(recorder);

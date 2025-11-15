@@ -15,6 +15,7 @@ using Beutl.Models;
 using Beutl.Operation;
 using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
@@ -224,11 +225,22 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         {
             Dispatcher.UIThread.Invoke(() =>
             {
-                foreach (IStorable item in e.Storables)
+                foreach (CoreObject item in e.Storables)
                 {
                     try
                     {
-                        item.Save(item.FileName);
+                        if (item.Uri != null)
+                        {
+                            CoreSerializer.StoreToUri(item, item.Uri);
+                        }
+                        else if (item is IStorable storable)
+                        {
+                            storable.Save(storable.FileName);
+                        }
+                        else if (item is Hierarchical hierarchical && hierarchical.EnumerateAncestors<CoreObject>().FirstOrDefault(o => o.Uri != null) is { } obj)
+                        {
+                            CoreSerializer.StoreToUri(obj, obj.Uri!);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -485,7 +497,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 Start = desc.Start,
                 Length = desc.Length,
                 ZIndex = desc.Layer,
-                FileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!,
+                Uri = RandomFileNameGenerator.GenerateUri(Path.GetDirectoryName(Scene.FileName)!,
                     Constants.ElementFileExtension)
             };
         }
@@ -549,7 +561,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 BitmapSource.TryOpen(desc.FileName, out BitmapSource? image);
                 t.Value.Source.CurrentValue = image;
 
-                element.Save(element.FileName);
+                CoreSerializer.StoreToUri(element, element.Uri!);
                 list.Add(Scene.AddChild(element));
                 scrollPos = (element.Range, element.ZIndex);
             }
@@ -569,8 +581,8 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 if (sound != null)
                     element2.Length = sound.Duration;
 
-                element1.Save(element1.FileName);
-                element2.Save(element2.FileName);
+                CoreSerializer.StoreToUri(element1, element1.Uri!);
+                CoreSerializer.StoreToUri(element2, element2.Uri!);
                 list.Add(Scene.AddChild(element1));
                 list.Add(Scene.AddChild(element2));
                 scrollPos = (element1.Range, element1.ZIndex);
@@ -586,7 +598,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                     element.Length = sound.Duration;
                 }
 
-                element.Save(element.FileName);
+                CoreSerializer.StoreToUri(element, element.Uri!);
                 list.Add(Scene.AddChild(element));
                 scrollPos = (element.Range, element.ZIndex);
             }
@@ -622,7 +634,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 SetTransform(element.Operation, operatour);
             }
 
-            element.Save(element.FileName);
+            CoreSerializer.StoreToUri(element, element.Uri!);
             Scene.AddChild(element).DoAndRecord(CommandRecorder);
 
             timeline?.ScrollTo.Execute((element.Range, element.ZIndex));
@@ -738,7 +750,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         {
             viewModel._logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
             scene.Save(scene.FileName);
-            Parallel.ForEach(scene.Children, item => item.Save(item.FileName));
+            Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
             viewModel.SaveState();
             viewModel._logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
 
