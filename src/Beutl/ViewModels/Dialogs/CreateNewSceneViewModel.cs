@@ -65,7 +65,11 @@ public sealed class CreateNewSceneViewModel
             var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
             CoreSerializer.StoreToUri(scene, new Uri(new Uri("file://"), Path.Combine(Location.Value, Name.Value, $"{Name.Value}.{Constants.SceneFileExtension}")));
 
-            _proj?.Items.Add(scene);
+            if (_proj != null)
+            {
+                _proj.Items.Add(scene);
+                CoreSerializer.StoreToUri(_proj, _proj.Uri!);
+            }
 
             EditorService.Current.ActivateTabItem(scene);
         });

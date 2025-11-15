@@ -8,6 +8,7 @@ using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
@@ -170,6 +171,7 @@ public partial class MainView
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 project.Items.Remove(projItem);
+                CoreSerializer.StoreToUri(project, project.Uri!);
             }
         }
     }

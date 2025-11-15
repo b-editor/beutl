@@ -200,7 +200,11 @@ public partial class MenuBarViewModel
 
             projItem ??= CoreSerializer.RestoreFromUri<ProjectItem>(uri);
 
-            project?.Items.Add(projItem);
+            if (project != null)
+            {
+                project.Items.Add(projItem);
+                CoreSerializer.StoreToUri(project, project.Uri!);
+            }
 
             EditorService.Current.ActivateTabItem(projItem);
         }
