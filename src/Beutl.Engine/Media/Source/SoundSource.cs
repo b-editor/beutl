@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
+using Beutl.Serialization;
 
 namespace Beutl.Media.Source;
 
@@ -39,7 +40,7 @@ public class SoundSource : ISoundSource
         return new SoundSource
         {
             _mediaReader = Ref<MediaReader>.Create(reader),
-            _uri = new Uri(new Uri("file://"), fileName)
+            _uri = UriHelper.CreateFromPath(fileName)
         };
     }
 

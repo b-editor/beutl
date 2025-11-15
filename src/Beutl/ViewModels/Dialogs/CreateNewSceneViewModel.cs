@@ -63,7 +63,9 @@ public sealed class CreateNewSceneViewModel
         Create.Subscribe(() =>
         {
             var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
-            CoreSerializer.StoreToUri(scene, new Uri(new Uri("file://"), Path.Combine(Location.Value, Name.Value, $"{Name.Value}.{Constants.SceneFileExtension}")));
+            CoreSerializer.StoreToUri(scene,
+                UriHelper.CreateFromPath(Path.Combine(Location.Value, Name.Value,
+                    $"{Name.Value}.{Constants.SceneFileExtension}")));
 
             if (_proj != null)
             {

@@ -50,7 +50,7 @@ public sealed class SceneProjectItemExtension : ProjectItemExtension
             Scene? scene;
             try
             {
-                scene = CoreSerializer.RestoreFromUri<Scene>(new Uri(new Uri("file://"), file));
+                scene = CoreSerializer.RestoreFromUri<Scene>(UriHelper.CreateFromPath(file));
                 _logger.LogInformation("Successfully restored the scene from file: {File}", file);
             }
             catch (Exception ex)

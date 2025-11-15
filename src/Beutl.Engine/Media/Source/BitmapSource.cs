@@ -32,7 +32,7 @@ public sealed class BitmapSource : ImageSource
         var source = new BitmapSource
         {
             _bitmap = Ref<IBitmap>.Create(bitmap),
-            _uri = new Uri(new Uri("file://"), fileName)
+            _uri = UriHelper.CreateFromPath(fileName)
         };
         return source;
     }

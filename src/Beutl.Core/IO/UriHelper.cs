@@ -66,4 +66,9 @@ internal static class UriHelper
         string uriString = $"data:{mediaType};base64,{base64Data}";
         return new Uri(uriString);
     }
+
+    public static Uri CreateFromPath(string path)
+    {
+        return new Uri(new Uri("file://"), path);
+    }
 }

@@ -193,7 +193,7 @@ public partial class MenuBarViewModel
         {
             Project? project = ProjectService.Current.CurrentProject.Value;
 
-            var uri = new Uri(new Uri("file://"), file);
+            var uri = UriHelper.CreateFromPath(file);
             ProjectItem? projItem = null;
             if (project != null)
                 projItem = project.Items.FirstOrDefault(i => i.Uri == uri);

@@ -71,7 +71,7 @@ public sealed class ProjectService
                 return;
             }
 
-            var project = CoreSerializer.RestoreFromUri<Project>(new Uri(new Uri("file://"), file));
+            var project = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(file));
 
             _app.Project = project;
             // 値を発行
@@ -113,12 +113,12 @@ public sealed class ProjectService
             location = Path.Combine(location, name);
             var scene = new Scene(width, height, name)
             {
-                Uri = new Uri(new Uri("file://"), Path.Combine(location, $"{name}.{Constants.SceneFileExtension}")),
+                Uri = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{Constants.SceneFileExtension}")),
             };
             var project = new Project()
             {
                 Items = { scene },
-                Uri  = new Uri(new Uri("file://"), Path.Combine(location, $"{name}.{Constants.ProjectFileExtension}")),
+                Uri  = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{Constants.ProjectFileExtension}")),
                 Variables =
                 {
                     [ProjectVariableKeys.FrameRate] = framerate.ToString(),
