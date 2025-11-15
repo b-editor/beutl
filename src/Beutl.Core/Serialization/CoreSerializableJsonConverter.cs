@@ -32,21 +32,7 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
                 }
             }
 
-            using Stream stream = UriHelper.ResolveStream(uri);
-
-            var node = JsonNode.Parse(stream);
-            if (node is JsonObject jsonObject1)
-            {
-                var obj = CoreSerializer.DeserializeFromJsonObject(
-                    jsonObject1, typeToConvert, new CoreSerializerOptions { BaseUri = uri });
-
-                if (obj is CoreObject coreObj)
-                {
-                    coreObj.Uri = uri;
-                }
-
-                return obj as ICoreSerializable;
-            }
+            return CoreSerializer.RestoreFromUri(uri, typeToConvert) as ICoreSerializable;
         }
 
         throw new JsonException();

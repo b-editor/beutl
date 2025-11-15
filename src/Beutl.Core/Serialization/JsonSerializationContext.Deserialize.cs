@@ -126,20 +126,7 @@ public partial class JsonSerializationContext
             }
         }
 
-        using Stream stream = UriHelper.ResolveStream(uri);
-
-        var node = JsonNode.Parse(stream);
-        if (node is not JsonObject jsonObject) return null;
-
-        var obj = CoreSerializer.DeserializeFromJsonObject(
-            jsonObject, type, new CoreSerializerOptions { BaseUri = uri });
-
-        if (obj is CoreObject coreObj)
-        {
-            coreObj.Uri = uri;
-        }
-
-        return obj as ICoreSerializable;
+        return CoreSerializer.RestoreFromUri(uri, type);
     }
 
     public T? GetValue<T>(string name)

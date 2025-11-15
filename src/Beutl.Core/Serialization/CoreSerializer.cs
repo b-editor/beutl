@@ -107,20 +107,61 @@ public static class CoreSerializer
     public static T RestoreFromUri<T>(Uri uri)
         where T : ICoreSerializable
     {
+        return (T)RestoreFromUri(uri, typeof(T));
+    }
+
+    public static object RestoreFromUri(Uri uri, Type type)
+    {
         using var stream = UriHelper.ResolveStream(uri);
 
         var node = JsonNode.Parse(stream);
         if (node is not JsonObject jsonObject) throw new JsonException();
 
-        var obj = DeserializeFromJsonObject(
-            jsonObject, typeof(T), new CoreSerializerOptions { BaseUri = uri });
+        // 互換性処理
+        if (type == typeof(ProjectItem) && !node.TryGetDiscriminator(out Type _))
+        {
+            node["$type"] = "[Beutl.ProjectSystem]:Scene";
+        }
+
+        Type? actualType = type.IsSealed ? type : jsonObject.GetDiscriminator(type);
+        if (actualType == null)
+        {
+            throw new InvalidOperationException("Discriminator not found in JSON object.");
+        }
+
+        var obj = Activator.CreateInstance(actualType) as ICoreSerializable
+                  ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
 
         if (obj is CoreObject coreObj)
         {
             coreObj.Uri = uri;
         }
 
-        return (T)obj;
+        PopulateFromJsonObject(
+            obj, type, jsonObject, new CoreSerializerOptions { BaseUri = uri });
+
+        return obj;
+    }
+
+    public static void PopulateFromUri<T>(T obj, Uri uri)
+        where T : ICoreSerializable
+    {
+        PopulateFromUri(obj, typeof(T), uri);
+    }
+
+    public static void PopulateFromUri(ICoreSerializable obj, Type type, Uri uri)
+    {
+        using var stream = UriHelper.ResolveStream(uri);
+
+        var node = JsonNode.Parse(stream);
+        if (node is not JsonObject jsonObject) throw new JsonException();
+        if (obj is CoreObject coreObj)
+        {
+            coreObj.Uri = uri;
+        }
+
+        PopulateFromJsonObject(
+            obj, type, jsonObject, new CoreSerializerOptions { BaseUri = uri });
     }
 
     public static void StoreToUri<T>(T obj, Uri uri)
