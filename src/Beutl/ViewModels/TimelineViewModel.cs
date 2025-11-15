@@ -526,9 +526,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             newElement.Start = newElement.Start - minStart + newStart;
             newElement.ZIndex = newElement.ZIndex - minZIndex + newZIndex;
 
-            CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
-                Path.GetDirectoryName(Scene.FileName)!,
-                Constants.ElementFileExtension));
+            CoreSerializer.StoreToUri(newElement,
+                RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
         }
 
         CommandRecorder recorder = EditorContext.CommandRecorder;
@@ -554,8 +553,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         newElement.ZIndex = CalculateClickedLayer();
 
         CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
-            Path.GetDirectoryName(Scene.FileName)!,
-            Constants.ElementFileExtension));
+            Scene.Uri!, Constants.ElementFileExtension));
 
         CommandRecorder recorder = EditorContext.CommandRecorder;
         Scene.AddChild(newElement).DoAndRecord(recorder);
@@ -568,7 +566,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         var imageData = await clipboard.TryGetBitmapAsync();
         if (imageData == null) return;
 
-        string dir = Path.GetDirectoryName(Scene.FileName)!;
+        string dir = Path.GetDirectoryName(Scene.Uri!.LocalPath)!;
         // 画像を保存
         string resDir = Path.Combine(dir, "resources");
         if (!Directory.Exists(resDir))

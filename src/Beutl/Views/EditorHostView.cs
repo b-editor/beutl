@@ -22,7 +22,7 @@ public sealed class EditorHostView : ContentControl
         Control? control = null;
         if (DataContext is IEditorContext viewModel)
         {
-            if (viewModel.Extension.TryCreateEditor(viewModel.EdittingFile, out control))
+            if (viewModel.Extension.TryCreateEditor(viewModel.Object, out control))
             {
                 var cm = App.GetContextCommandManager();
                 cm?.Attach(control, viewModel.Extension);
@@ -34,7 +34,7 @@ public sealed class EditorHostView : ContentControl
             {
                 Text = $"""
                            Error:
-                               {string.Format(Message.CouldNotOpenFollowingFileWithExtension, viewModel.Extension.DisplayName, Path.GetFileName(viewModel.EdittingFile))}
+                               {string.Format(Message.CouldNotOpenFollowingFileWithExtension, viewModel.Extension.DisplayName, viewModel.Object.Uri)}
 
                            Message:
                                {Message.EditorContextHasAlreadyBeenCreated}

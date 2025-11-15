@@ -212,8 +212,7 @@ public sealed partial class MainView : UserControl
                         await commands.OnSave();
                     }
 
-                    string file = selectedTab.FilePath.Value;
-                    if (editorExtension.TryCreateContext(file, out IEditorContext? context))
+                    if (editorExtension.TryCreateContext(selectedTab.Context.Value.Object, out IEditorContext? context))
                     {
                         selectedTab.Context.Value.Dispose();
                         selectedTab.Context.Value = context;

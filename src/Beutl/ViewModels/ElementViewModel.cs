@@ -414,7 +414,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         CoreSerializer.StoreToUri(
             backward,
-            RandomFileNameGenerator.GenerateUri(Path.GetDirectoryName(Scene.FileName)!, Constants.ElementFileExtension));
+            RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
         IRecordableCommand command2 = Scene.AddChild(backward);
         IRecordableCommand command3 = backward.Operation.OnSplit(true, forwardLength, -forwardLength);
         IRecordableCommand command4 = Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);

@@ -80,7 +80,7 @@ public sealed class AddElementDialogViewModel
                 Length = Duration.Value,
                 ZIndex = Layer.Value,
                 AccentColor = new(Color.Value.A, Color.Value.R, Color.Value.G, Color.Value.B),
-                Uri = RandomFileNameGenerator.GenerateUri(Path.GetDirectoryName(_scene.FileName)!, Constants.ElementFileExtension)
+                Uri = RandomFileNameGenerator.GenerateUri(_scene.Uri!, Constants.ElementFileExtension)
             };
 
             if (_description.InitialOperator != null)

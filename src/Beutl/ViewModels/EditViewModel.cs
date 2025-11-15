@@ -298,7 +298,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     public EditorExtension Extension => SceneEditorExtension.Instance;
 
-    public string EdittingFile => Scene.FileName;
+    public CoreObject Object => Scene;
 
     public IKnownEditorCommands? Commands { get; private set; }
 
@@ -367,7 +367,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     private string ViewStateDirectory()
     {
-        string directory = Path.GetDirectoryName(EdittingFile)!;
+        string directory = Path.GetDirectoryName(Scene.Uri!.LocalPath)!;
 
         directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
         if (!Directory.Exists(directory))
@@ -396,13 +396,13 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         json["current-time"] = JsonValue.Create(CurrentTime.Value);
 
-        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(EdittingFile)}.config"));
+        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath)}.config"));
     }
 
     private void RestoreState()
     {
         string viewStateDir = ViewStateDirectory();
-        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(EdittingFile)}.config");
+        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath)}.config");
 
         if (File.Exists(viewStateFile))
         {
@@ -497,8 +497,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 Start = desc.Start,
                 Length = desc.Length,
                 ZIndex = desc.Layer,
-                Uri = RandomFileNameGenerator.GenerateUri(Path.GetDirectoryName(Scene.FileName)!,
-                    Constants.ElementFileExtension)
+                Uri = RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension)
             };
         }
 
@@ -749,7 +748,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         public ValueTask<bool> OnSave()
         {
             viewModel._logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
-            scene.Save(scene.FileName);
+            CoreSerializer.StoreToUri(scene, scene.Uri!);
             Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
             viewModel.SaveState();
             viewModel._logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);

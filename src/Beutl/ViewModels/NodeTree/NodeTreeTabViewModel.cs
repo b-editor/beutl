@@ -89,14 +89,13 @@ public sealed class NodeTreeTabViewModel : IToolContext
             {
                 NodeTree.Value = new NodeTreeViewModel(v.NodeTree, editViewModel);
                 IObservable<string> name = v.GetObservable(CoreObject.NameProperty);
-                IObservable<string> fileName = v.GetObservable(ProjectItem.FileNameProperty)
-                    .Select(x => Path.GetFileNameWithoutExtension(x));
+                var fileName = Path.GetFileNameWithoutExtension(v.Uri!.LocalPath);
 
                 Items.Add(new NodeTreeNavigationItem(
                     viewModel: NodeTree.Value,
                     nodeTree: v.NodeTree,
-                    name: name.CombineLatest(fileName)
-                        .Select(x => string.IsNullOrWhiteSpace(x.First) ? x.Second : x.First)
+                    name: name
+                        .Select(x => string.IsNullOrWhiteSpace(x) ? fileName : x)
                         .ToReadOnlyReactivePropertySlim()!));
 
                 RestoreState(v);

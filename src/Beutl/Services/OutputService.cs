@@ -20,7 +20,7 @@ public sealed class OutputProfileItem : IDisposable
 
         Context.Started += OnStarted;
         Context.Finished += OnFinished;
-        _logger.LogInformation("OutputProfileItem created. File: {File}, Context: {Context}", Context.TargetFile,
+        _logger.LogInformation("OutputProfileItem created. File: {File}, Context: {Context}", Context.Object.Uri,
             Context);
     }
 
@@ -30,37 +30,37 @@ public sealed class OutputProfileItem : IDisposable
 
     private void OnStarted(object? sender, EventArgs e)
     {
-        _logger.LogDebug("Output started for file: {File}", Context.TargetFile);
+        _logger.LogDebug("Output started for file: {File}", Context.Object.Uri);
 
-        if (EditorService.Current.TryGetTabItem(Context.TargetFile, out EditorTabItem? tabItem))
+        if (EditorService.Current.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
         {
             tabItem.Context.Value.IsEnabled.Value = false;
-            _logger.LogDebug("Tab item disabled for file: {File}", Context.TargetFile);
+            _logger.LogDebug("Tab item disabled for file: {File}", Context.Object.Uri);
         }
         else
         {
-            _logger.LogWarning("Tab item not found for file: {File}", Context.TargetFile);
+            _logger.LogWarning("Tab item not found for file: {File}", Context.Object.Uri);
         }
     }
 
     private void OnFinished(object? sender, EventArgs e)
     {
-        _logger.LogDebug("Output finished for file: {File}", Context.TargetFile);
+        _logger.LogDebug("Output finished for file: {File}", Context.Object.Uri);
 
-        if (EditorService.Current.TryGetTabItem(Context.TargetFile, out EditorTabItem? tabItem))
+        if (EditorService.Current.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
         {
             tabItem.Context.Value.IsEnabled.Value = true;
-            _logger.LogDebug("Tab item enabled for file: {File}", Context.TargetFile);
+            _logger.LogDebug("Tab item enabled for file: {File}", Context.Object.Uri);
         }
         else
         {
-            _logger.LogWarning("Tab item not found for file: {File}", Context.TargetFile);
+            _logger.LogWarning("Tab item not found for file: {File}", Context.Object.Uri);
         }
     }
 
     public void Dispose()
     {
-        _logger.LogInformation("Disposing OutputProfileItem for file: {File}", Context.TargetFile);
+        _logger.LogInformation("Disposing OutputProfileItem for file: {File}", Context.Object.Uri);
         Context.Started -= OnStarted;
         Context.Finished -= OnFinished;
         Context.Dispose();
@@ -73,7 +73,7 @@ public sealed class OutputProfileItem : IDisposable
         return new JsonObject
         {
             ["Extension"] = TypeFormat.ToString(item.Context.Extension.GetType()),
-            ["File"] = item.Context.TargetFile,
+            ["File"] = item.Context.Object.Uri!.LocalPath,
             [nameof(Context)] = ctxJson
         };
     }
@@ -124,7 +124,7 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
     private readonly ReactivePropertySlim<OutputProfileItem?> _selectedItem = new();
 
     private readonly string _filePath = Path.Combine(
-        Path.GetDirectoryName(editViewModel.Scene.FileName)!, Constants.BeutlFolder, "output-profile.json");
+        Path.GetDirectoryName(editViewModel.Scene.Uri!.LocalPath)!, Constants.BeutlFolder, "output-profile.json");
 
     private readonly ILogger _logger = Log.CreateLogger<OutputService>();
     private bool _isRestored;
@@ -148,11 +148,11 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
         _logger.LogInformation("Added new OutputProfileItem. File: {File}, Context: {Context}", file, context);
     }
 
-    public static OutputExtension[] GetExtensions(string file)
+    public static OutputExtension[] GetExtensions(Type type)
     {
         return ExtensionProvider.Current
             .GetExtensions<OutputExtension>()
-            .Where(x => x.IsSupported(file)).ToArray();
+            .Where(x => x.IsSupported(type)).ToArray();
     }
 
     public void SaveItems()

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Configuration;
+using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -102,7 +103,11 @@ public partial class MenuBarViewModel
 
         try
         {
-            project?.Save(project.FileName);
+            if (project != null)
+            {
+                CoreSerializer.StoreToUri(project, project.Uri!);
+            }
+
             itemsCount++;
 
             foreach (EditorTabItem? item in EditorService.Current.TabItems)
@@ -116,7 +121,8 @@ public partial class MenuBarViewModel
                     else
                     {
                         Type type = item.Extension.Value.GetType();
-                        _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name, item.FileName.Value);
+                        _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
+                            item.FileName.Value);
                         NotificationService.ShowError(Message.Unable_to_save_file, item.FileName.Value);
                     }
                 }
@@ -167,7 +173,8 @@ public partial class MenuBarViewModel
                 else
                 {
                     Type type = item.Extension.Value.GetType();
-                    _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name, item.FileName.Value);
+                    _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
+                        item.FileName.Value);
                     NotificationService.ShowInformation(string.Empty, Message.OperationCouldNotBeExecuted);
                 }
             }
@@ -182,20 +189,25 @@ public partial class MenuBarViewModel
 
     internal static void OpenFileCore(string file)
     {
-        Project? project = ProjectService.Current.CurrentProject.Value;
-
-        if (project != null)
+        try
         {
-            if (project.Items.Any(i => i.FileName == file))
-                return;
+            Project? project = ProjectService.Current.CurrentProject.Value;
 
-            if (ProjectItemContainer.Current.TryGetOrCreateItem(file, out ProjectItem? projItem))
-            {
-                project.Items.Add(projItem);
-            }
+            var uri = new Uri(new Uri("file://"), file);
+            ProjectItem? projItem = null;
+            if (project != null)
+                projItem = project.Items.FirstOrDefault(i => i.Uri == uri);
+
+            projItem ??= CoreSerializer.RestoreFromUri<ProjectItem>(uri);
+
+            project?.Items.Add(projItem);
+
+            EditorService.Current.ActivateTabItem(projItem);
         }
-
-        EditorService.Current.ActivateTabItem(file);
+        catch (Exception ex)
+        {
+            _ = ex.Handle();
+        }
     }
 
     private async void OnCloseFileCore(EditorTabItem? item)
@@ -209,7 +221,7 @@ public partial class MenuBarViewModel
             EditorTabItem? tabItem = item ?? EditorService.Current.SelectedTabItem.Value;
             if (tabItem != null)
             {
-                await EditorService.Current.CloseTabItem(tabItem.FilePath.Value);
+                await EditorService.Current.CloseTabItem(tabItem);
             }
         }
     }

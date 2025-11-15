@@ -52,7 +52,7 @@ public class OutputTabViewModel : IToolContext
         try
         {
             _logger.LogInformation("Adding item with extension: {ExtensionName}", extension.Name);
-            _outputService.AddItem(EditViewModel.Scene.FileName, extension);
+            _outputService.AddItem(EditViewModel.Scene.Uri!.LocalPath, extension);
             _logger.LogInformation("Item added successfully.");
         }
         catch (Exception e)
@@ -127,7 +127,7 @@ public class OutputTabViewModel : IToolContext
         if (Items.Count != 0) return;
 
         _logger.LogInformation("Creating default profile.");
-        var ext = OutputService.GetExtensions(EditViewModel.Scene.FileName);
+        var ext = OutputService.GetExtensions(EditViewModel.Scene.GetType());
         if (ext.Length == 1)
         {
             AddItem(ext[0]);

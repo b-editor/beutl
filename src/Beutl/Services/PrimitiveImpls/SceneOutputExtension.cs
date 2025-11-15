@@ -2,6 +2,7 @@
 
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
@@ -37,11 +38,6 @@ public sealed class SceneOutputExtension : OutputExtension
         };
     }
 
-    public override bool MatchFileExtension(string ext)
-    {
-        return string.Equals(ext, ".scene", StringComparison.OrdinalIgnoreCase);
-    }
-
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IOutputContext? context)
     {
         if (editorContext is EditViewModel editViewModel)
@@ -55,6 +51,8 @@ public sealed class SceneOutputExtension : OutputExtension
             return false;
         }
     }
+
+    public override bool IsSupported(Type type) => type.IsAssignableTo(typeof(Scene));
 
     public override bool TryCreateControl(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
