@@ -253,7 +253,7 @@ public class Scene : ProjectItem, INotifyEdited
         if (context.GetValue<JsonObject>(nameof(Elements)) is JsonObject elementsJson)
         {
             var matcher = new Matcher();
-            var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(FileName)!));
+            var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(Uri!.LocalPath)!));
 
             // 含めるクリップ
             if (elementsJson.TryGetPropertyValue("Include", out JsonNode? includeNode))
@@ -276,29 +276,11 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
-    protected override void SaveCore(string filename)
-    {
-        string? directory = Path.GetDirectoryName(filename);
-
-        if (directory != null && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        this.JsonSave2(filename);
-    }
-
-    protected override void RestoreCore(string filename)
-    {
-        this.JsonRestore2(filename);
-    }
-
     private void SyncronizeFiles(IEnumerable<string> pathToElement)
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Scene.SyncronizeFiles");
 
-        string baseDir = Path.GetDirectoryName(FileName)!;
-        var uriToElement = pathToElement.Select(x => PathToUri(Path.GetFullPath(x, baseDir))).ToArray();
+        var uriToElement = pathToElement.Select(x => new Uri(Uri!, x)).ToArray();
 
         // 削除するElements
         Element[] elementsRemove = Children.ExceptBy(uriToElement, x => x.Uri).ToArray();
@@ -315,17 +297,11 @@ public class Scene : ProjectItem, INotifyEdited
         activity?.SetTag("addCount", urisAdd.Length);
         activity?.SetTag("removeCount", elementsRemove.Length);
         activity?.SetTag("childrenCount", Children.Count);
-        return;
-
-        static Uri PathToUri(string path)
-        {
-            return new Uri(new Uri("file://"), path);
-        }
     }
 
     private void UpdateInclude()
     {
-        string dirPath = Path.GetDirectoryName(FileName)!;
+        string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
         var directory = new DirectoryInfoWrapper(new DirectoryInfo(dirPath));
 
         var matcher = new Matcher();
@@ -353,7 +329,7 @@ public class Scene : ProjectItem, INotifyEdited
         if (e.Action == NotifyCollectionChangedAction.Remove
             && e.OldItems != null)
         {
-            string dirPath = Path.GetDirectoryName(FileName)!;
+            string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
             foreach (Element item in e.OldItems.OfType<Element>())
             {
                 string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
@@ -369,7 +345,7 @@ public class Scene : ProjectItem, INotifyEdited
         else if (e.Action == NotifyCollectionChangedAction.Add
                  && e.NewItems != null)
         {
-            string dirPath = Path.GetDirectoryName(FileName)!;
+            string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
             foreach (Element item in e.NewItems.OfType<Element>())
             {
                 string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);

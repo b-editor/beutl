@@ -1,5 +1,4 @@
-﻿using System.Collections.Specialized;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Beutl.Collections;
 using Beutl.Serialization;
 
@@ -11,21 +10,26 @@ public static class ProjectVariableKeys
     public const string SampleRate = "samplerate";
 }
 
-public sealed class Project : Hierarchical, IStorable
+public sealed class Project : Hierarchical
 {
+    public static readonly CoreProperty<HierarchicalList<ProjectItem>> ItemsProperty;
+    public static readonly CoreProperty<Dictionary<string, string>> VariablesProperty;
     public static readonly CoreProperty<string> AppVersionProperty;
     public static readonly CoreProperty<string> MinAppVersionProperty;
-    private string? _rootDirectory;
-    private string? _fileName;
-    private EventHandler? _saved;
-    private EventHandler? _restored;
     private readonly HierarchicalList<ProjectItem> _items;
-    private readonly Dictionary<string, string> _variables = [];
 
     public const string DefaultMinAppVersion = "1.0.0-preview.9";
 
     static Project()
     {
+        ItemsProperty = ConfigureProperty<HierarchicalList<ProjectItem>, Project>(nameof(Items))
+            .Accessor(o => o.Items, (o, v) => o.Items = v)
+            .Register();
+
+        VariablesProperty = ConfigureProperty<Dictionary<string, string>, Project>(nameof(Variables))
+            .Accessor(o => o.Variables)
+            .Register();
+
         AppVersionProperty = ConfigureProperty<string, Project>(nameof(AppVersion))
             .Accessor(o => o.AppVersion)
             .Register();
@@ -40,24 +44,7 @@ public sealed class Project : Hierarchical, IStorable
     {
         MinAppVersion = DefaultMinAppVersion;
         _items = new HierarchicalList<ProjectItem>(this);
-        _items.CollectionChanged += Items_CollectionChanged;
     }
-
-    event EventHandler IStorable.Saved
-    {
-        add => _saved += value;
-        remove => _saved -= value;
-    }
-
-    event EventHandler IStorable.Restored
-    {
-        add => _restored += value;
-        remove => _restored -= value;
-    }
-
-    public string RootDirectory => _rootDirectory ?? throw new Exception("The file name is not set.");
-
-    public string FileName => _fileName ?? throw new Exception("The file name is not set.");
 
     public string AppVersion { get; private set; } = BeutlApplication.Version;
 
@@ -65,38 +52,15 @@ public sealed class Project : Hierarchical, IStorable
 
     public DateTime LastSavedTime { get; private set; }
 
-    public ICoreList<ProjectItem> Items => _items;
-
-    public IDictionary<string, string> Variables => _variables;
-
-    public void Restore(string filename)
+    [NotAutoSerialized]
+    public HierarchicalList<ProjectItem> Items
     {
-        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Restore");
-        activity?.SetTag("filenameHash", filename.GetMD5Hash());
-
-        _fileName = filename;
-        _rootDirectory = Path.GetDirectoryName(filename);
-
-        this.JsonRestore2(filename);
-        LastSavedTime = File.GetLastWriteTimeUtc(filename);
-
-        _restored?.Invoke(this, EventArgs.Empty);
+        get => _items;
+        set => _items.Replace(value);
     }
 
-    public void Save(string filename)
-    {
-        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Save");
-        activity?.SetTag("filenameHash", filename.GetMD5Hash());
-
-        _fileName = filename;
-        _rootDirectory = Path.GetDirectoryName(filename);
-        LastSavedTime = DateTime.UtcNow;
-
-        this.JsonSave2(filename);
-        File.SetLastWriteTimeUtc(filename, LastSavedTime);
-
-        _saved?.Invoke(this, EventArgs.Empty);
-    }
+    [NotAutoSerialized]
+    public Dictionary<string, string> Variables { get; } = [];
 
     public override void Deserialize(ICoreSerializationContext context)
     {
@@ -110,7 +74,7 @@ public sealed class Project : Hierarchical, IStorable
             Variables.Clear();
             foreach (KeyValuePair<string, string> item in vars)
             {
-                Variables.Add(item);
+                Variables.Add(item.Key, item.Value);
             }
         }
 
@@ -131,48 +95,29 @@ public sealed class Project : Hierarchical, IStorable
         context.SetValue("appVersion", BeutlApplication.Version);
         context.SetValue("minAppVersion", DefaultMinAppVersion);
 
-        context.SetValue("items", Items
-            .Select(item => Path.GetRelativePath(RootDirectory, item.FileName).Replace('\\', '/')));
+        context.SetValue("items", Items);
 
         context.SetValue("variables", Variables);
     }
 
-    public void Dispose()
-    {
-        _items.CollectionChanged -= Items_CollectionChanged;
-        _items.Clear();
-    }
-
-    private void Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (_fileName != null)
-            Save(_fileName);
-    }
-
     private void SyncronizeScenes(IEnumerable<string> pathToItem)
     {
-        _items.CollectionChanged -= Items_CollectionChanged;
-        pathToItem = pathToItem.Select(x => Path.GetFullPath(x, RootDirectory)).ToArray();
+        var uriToItem = pathToItem.Select(x => new Uri(Uri!, x)).ToArray();
 
         // 削除するシーン
-        IEnumerable<ProjectItem> toRemoveItems = _items.ExceptBy(pathToItem, x => x.FileName);
+        IEnumerable<ProjectItem> toRemoveItems = _items.ExceptBy(uriToItem, x => x.Uri!);
         // 追加するシーン
-        IEnumerable<string> toAddItems = pathToItem.Except(_items.Select(x => x.FileName));
+        IEnumerable<Uri> toAddItems = uriToItem.Except(_items.Select(x => x.Uri))!;
 
-        foreach (ProjectItem? item in toRemoveItems)
+        foreach (ProjectItem item in toRemoveItems)
         {
             _items.Remove(item);
         }
 
-        ProjectItemContainer resolver = ProjectItemContainer.Current;
-        foreach (string item in toAddItems)
+        foreach (Uri item in toAddItems)
         {
-            if (resolver.TryGetOrCreateItem(item, out ProjectItem? projectItem))
-            {
-                _items.Add(projectItem);
-            }
+            var projectItem = CoreSerializer.RestoreFromUri<ProjectItem>(item);
+            _items.Add(projectItem);
         }
-
-        _items.CollectionChanged += Items_CollectionChanged;
     }
 }
