@@ -166,33 +166,27 @@ public sealed class SourceOperation : Hierarchical, INotifyEdited
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
-        IStorable? storable = this.FindHierarchicalParent<IStorable>();
-
         return Children.BeginRecord<SourceOperator>()
             .Add(@operator)
-            .ToCommand([storable]);
+            .ToCommand([this]);
     }
 
     public IRecordableCommand RemoveChild(SourceOperator @operator)
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
-        IStorable? storable = this.FindHierarchicalParent<IStorable>();
-
         return Children.BeginRecord<SourceOperator>()
             .Remove(@operator)
-            .ToCommand([storable]);
+            .ToCommand([this]);
     }
 
     public IRecordableCommand InsertChild(int index, SourceOperator @operator)
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
-        IStorable? storable = this.FindHierarchicalParent<IStorable>();
-
         return Children.BeginRecord<SourceOperator>()
             .Insert(index, @operator)
-            .ToCommand([storable]);
+            .ToCommand([this]);
     }
 
     private void OnOperatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

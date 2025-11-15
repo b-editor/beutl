@@ -109,4 +109,15 @@ public static class HierarchicalExtensions
             if (item is TResult t) yield return t;
         }
     }
+
+    public static IEnumerable<TResult> EnumerateAncestors<TResult>(this IHierarchical self)
+    {
+        IHierarchical? parent = self;
+
+        while (parent != null)
+        {
+            if (parent is TResult t) yield return t;
+            parent = parent.HierarchicalParent;
+        }
+    }
 }

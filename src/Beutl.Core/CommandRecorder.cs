@@ -18,7 +18,7 @@ public enum CommandType
     Redo,
 }
 
-internal record Entry(IRecordableCommand Command, ImmutableHashSet<IStorable> Storables);
+internal record Entry(IRecordableCommand Command, ImmutableHashSet<CoreObject> Storables);
 
 public class CommandRecorder : INotifyPropertyChanged
 {

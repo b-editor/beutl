@@ -31,7 +31,7 @@ public static class CollectionBatchExtension
 
         ICollectionBatchChanges Clear();
 
-        IRecordableCommand ToCommand(ImmutableArray<IStorable?> storables);
+        IRecordableCommand ToCommand(ImmutableArray<CoreObject?> storables);
     }
 
     public interface ICollectionBatchChanges<T>
@@ -48,7 +48,7 @@ public static class CollectionBatchExtension
 
         ICollectionBatchChanges<T> Clear();
 
-        IRecordableCommand ToCommand(ImmutableArray<IStorable?> storables);
+        IRecordableCommand ToCommand(ImmutableArray<CoreObject?> storables);
     }
 
     private sealed class CollectionBatchChanges(IList list) : ICollectionBatchChanges
@@ -91,7 +91,7 @@ public static class CollectionBatchExtension
             return this;
         }
 
-        public IRecordableCommand ToCommand(ImmutableArray<IStorable?> storables)
+        public IRecordableCommand ToCommand(ImmutableArray<CoreObject?> storables)
         {
             return _commands.ToArray().ToCommand(storables);
         }
@@ -137,7 +137,7 @@ public static class CollectionBatchExtension
             return this;
         }
 
-        public IRecordableCommand ToCommand(ImmutableArray<IStorable?> storables)
+        public IRecordableCommand ToCommand(ImmutableArray<CoreObject?> storables)
         {
             return _commands.ToArray().ToCommand(storables);
         }

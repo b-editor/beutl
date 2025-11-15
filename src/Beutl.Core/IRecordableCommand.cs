@@ -6,7 +6,7 @@ public interface IRecordableCommand
 {
     bool Nothing => false;
 
-    ImmutableArray<IStorable?> GetStorables() => [];
+    ImmutableArray<CoreObject?> GetStorables() => [];
 
     void Do();
 
@@ -51,22 +51,22 @@ public static partial class RecordableCommands
         return new MultipleCommand(commands, []);
     }
 
-    public static IRecordableCommand ToCommand(this IRecordableCommand[] commands, ImmutableArray<IStorable?> storables)
+    public static IRecordableCommand ToCommand(this IRecordableCommand[] commands, ImmutableArray<CoreObject?> storables)
     {
         return new MultipleCommand(commands, storables);
     }
 
-    public static IRecordableCommand WithStoables(this IRecordableCommand command, ImmutableArray<IStorable?> storables, bool overwrite = false)
+    public static IRecordableCommand WithStoables(this IRecordableCommand command, ImmutableArray<CoreObject?> storables, bool overwrite = false)
     {
         return new WithStoableCommand(command, storables, overwrite);
     }
 
     private sealed class WithStoableCommand(
-        IRecordableCommand command, ImmutableArray<IStorable?> storables, bool overwrite) : IRecordableCommand
+        IRecordableCommand command, ImmutableArray<CoreObject?> storables, bool overwrite) : IRecordableCommand
     {
         public bool Nothing => command.Nothing;
 
-        public ImmutableArray<IStorable?> GetStorables()
+        public ImmutableArray<CoreObject?> GetStorables()
         {
             if (overwrite)
             {
@@ -107,7 +107,7 @@ public static partial class RecordableCommands
             }
         }
 
-        public ImmutableArray<IStorable?> GetStorables()
+        public ImmutableArray<CoreObject?> GetStorables()
         {
             return command1.GetStorables()
                 .Concat(command2.GetStorables())
@@ -133,7 +133,7 @@ public static partial class RecordableCommands
         }
     }
 
-    private sealed class MultipleCommand(IRecordableCommand[] commands, ImmutableArray<IStorable?> storables) : IRecordableCommand
+    private sealed class MultipleCommand(IRecordableCommand[] commands, ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
         public bool Nothing
         {
@@ -146,7 +146,7 @@ public static partial class RecordableCommands
             }
         }
 
-        public ImmutableArray<IStorable?> GetStorables()
+        public ImmutableArray<CoreObject?> GetStorables()
         {
             return commands.SelectMany(v => v.GetStorables())
                 .Concat(storables)
@@ -187,7 +187,7 @@ public static partial class RecordableCommands
 
         public bool Nothing => true;
 
-        public ImmutableArray<IStorable?> GetStorables()
+        public ImmutableArray<CoreObject?> GetStorables()
         {
             return [];
         }

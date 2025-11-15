@@ -47,7 +47,7 @@ public partial class PlayerView
 
         public float OldNextValue { get; } = next?.Value ?? 0;
 
-        public IRecordableCommand? CreateCommand(ImmutableArray<IStorable?> storables)
+        public IRecordableCommand? CreateCommand(ImmutableArray<CoreObject?> storables)
         {
             return RecordableCommands.Append(
                 Previous != null && Previous.Value != OldPreviousValue
@@ -309,7 +309,7 @@ public partial class PlayerView
             return true;
         }
 
-        private IRecordableCommand? CreateTranslationCommand(ImmutableArray<IStorable?> storables)
+        private IRecordableCommand? CreateTranslationCommand(ImmutableArray<CoreObject?> storables)
         {
             if (_translateTransform != null)
             {
@@ -331,7 +331,7 @@ public partial class PlayerView
             {
                 _imagePressed = false;
 
-                ImmutableArray<IStorable?> storables = [Element];
+                ImmutableArray<CoreObject?> storables = [Element];
                 IRecordableCommand? command = CreateTranslationCommand(storables)
                     .Append((_xKeyFrame?.CreateCommand(storables)).Append(_yKeyFrame?.CreateCommand(storables)));
                 command?.DoAndRecord(EditViewModel.CommandRecorder);

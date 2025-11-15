@@ -510,7 +510,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                     AddOrSetHelper.AddOrSet(
                         ref transform,
                         new TranslateTransform(desc.Position),
-                        [operation.FindHierarchicalParent<IStorable>()],
+                        [operation],
                         CommandRecorder);
                     transformp.SetValue(transform);
                 }

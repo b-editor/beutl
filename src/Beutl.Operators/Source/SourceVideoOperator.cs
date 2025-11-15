@@ -71,11 +71,10 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>
 
         if (backward)
         {
-            IStorable? storable = this.FindHierarchicalParent<IStorable>();
             TimeSpan newValue = Value.OffsetPosition.CurrentValue + startDelta;
             TimeSpan oldValue = Value.OffsetPosition.CurrentValue;
 
-            return RecordableCommands.Create([storable])
+            return RecordableCommands.Create([this])
                 .OnDo(() => Value.OffsetPosition.CurrentValue = newValue)
                 .OnUndo(() => Value.OffsetPosition.CurrentValue = oldValue)
                 .ToCommand();

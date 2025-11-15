@@ -585,7 +585,7 @@ public class Scene : ProjectItem, INotifyEdited
         private int _zIndex;
         private TimeRange _range;
 
-        public ImmutableArray<IStorable?> GetStorables() => [scene, element];
+        public ImmutableArray<CoreObject?> GetStorables() => [scene, element];
 
         public void Do()
         {
@@ -621,7 +621,7 @@ public class Scene : ProjectItem, INotifyEdited
     {
         private int _zIndex;
 
-        public ImmutableArray<IStorable?> GetStorables() => [scene, element];
+        public ImmutableArray<CoreObject?> GetStorables() => [scene, element];
 
         public void Do()
         {
@@ -667,7 +667,7 @@ public class Scene : ProjectItem, INotifyEdited
             _jsonBytes = JsonSerializer.SerializeToUtf8Bytes(jsonObject);
         }
 
-        public ImmutableArray<IStorable?> GetStorables() => [_scene];
+        public ImmutableArray<CoreObject?> GetStorables() => [_scene];
 
         public ImmutableArray<TimeRange> GetAffectedRange() => [_timeRange];
 
@@ -727,7 +727,7 @@ public class Scene : ProjectItem, INotifyEdited
 
         public bool Nothing => newStart == oldStart && newLength == oldLength && zIndex == _oldZIndex;
 
-        public ImmutableArray<IStorable?> GetStorables() => [scene, element];
+        public ImmutableArray<CoreObject?> GetStorables() => [scene, element];
 
         public ImmutableArray<TimeRange> GetAffectedRange()
             => [new TimeRange(newStart, newLength), new TimeRange(oldStart, oldLength)];
@@ -914,7 +914,7 @@ public class Scene : ProjectItem, INotifyEdited
             return null;
         }
 
-        public ImmutableArray<IStorable?> GetStorables()
+        public ImmutableArray<CoreObject?> GetStorables()
         {
             if (_conflict)
                 return [];

@@ -314,7 +314,7 @@ public abstract class GraphEditorViewModel : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    protected ImmutableArray<IStorable?> GetStorables()
+    protected ImmutableArray<CoreObject?> GetStorables()
     {
         return [Element];
     }

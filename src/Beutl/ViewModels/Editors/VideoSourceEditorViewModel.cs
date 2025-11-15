@@ -46,14 +46,14 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
         KeyFrame<IVideoSource?> setter,
         IVideoSource? oldValue,
         IVideoSource? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
+        ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
         private readonly string? _newName = newValue?.Name;
         private IVideoSource? _oldValue = oldValue;
         private IVideoSource? _newValue = newValue;
 
-        public ImmutableArray<IStorable?> GetStorables() => storables;
+        public ImmutableArray<CoreObject?> GetStorables() => storables;
 
         public void Do()
         {
@@ -91,14 +91,14 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
         IPropertyAdapter<IVideoSource?> setter,
         IVideoSource? oldValue,
         IVideoSource? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
+        ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
         private readonly string? _newName = newValue?.Name;
         private IVideoSource? _oldValue = oldValue;
         private IVideoSource? _newValue = newValue;
 
-        public ImmutableArray<IStorable?> GetStorables() => storables;
+        public ImmutableArray<CoreObject?> GetStorables() => storables;
 
         public void Do()
         {

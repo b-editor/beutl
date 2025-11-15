@@ -225,11 +225,10 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
         CoreSerializer.PopulateFromJsonObject(@operator, type!, json);
 
-        IStorable? storable = sourceOperation.FindHierarchicalParent<IStorable>();
         CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
 
         var (newValue, oldValue) = (@operator, Model);
-        RecordableCommands.Create([storable])
+        RecordableCommands.Create([sourceOperation])
             .OnDo(() => sourceOperation.Children[index] = newValue)
             .OnUndo(() => sourceOperation.Children[index] = oldValue)
             .ToCommand()

@@ -398,7 +398,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         return command;
     }
 
-    private ImmutableArray<IStorable?> GetStorables()
+    private ImmutableArray<CoreObject?> GetStorables()
     {
         return [Parent.Parent.Element];
     }

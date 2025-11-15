@@ -47,14 +47,14 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
 
     private sealed class SetKeyFrameValueCommand(
         KeyFrame<IImageSource?> setter, IImageSource? oldValue, IImageSource? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
+        ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
         private readonly string? _newName = newValue?.Name;
         private IImageSource? _oldValue = oldValue;
         private IImageSource? _newValue = newValue;
 
-        public ImmutableArray<IStorable?> GetStorables() => storables;
+        public ImmutableArray<CoreObject?> GetStorables() => storables;
 
         public void Do()
         {
@@ -90,14 +90,14 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
 
     private sealed class SetCommand(
         IPropertyAdapter<IImageSource?> setter, IImageSource? oldValue, IImageSource? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
+        ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
         private readonly string? _newName = newValue?.Name;
         private IImageSource? _oldValue = oldValue;
         private IImageSource? _newValue = newValue;
 
-        public ImmutableArray<IStorable?> GetStorables() => storables;
+        public ImmutableArray<CoreObject?> GetStorables() => storables;
 
         public void Do()
         {

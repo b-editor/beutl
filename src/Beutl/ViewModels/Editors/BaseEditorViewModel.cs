@@ -162,7 +162,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
 
-    protected ImmutableArray<IStorable?> GetStorables() => [_element];
+    protected ImmutableArray<CoreObject?> GetStorables() => [_element];
 
     public void Dispose()
     {
@@ -308,7 +308,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             Task.Run(() =>
             {
                 int rate = player.GetFrameRate();
-                ImmutableArray<IStorable?> storables = GetStorables();
+                ImmutableArray<CoreObject?> storables = GetStorables();
                 IEnumerable<TimeRange> affectedRange = storables.OfType<Element>().Select(v => v.Range);
 
                 cacheManager.DeleteAndUpdateBlocks(affectedRange

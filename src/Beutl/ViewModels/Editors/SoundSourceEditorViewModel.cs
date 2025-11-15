@@ -47,14 +47,14 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
 
     private sealed class SetKeyFrameValueCommand(
         KeyFrame<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
+        ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
         private readonly string? _newName = newValue?.Name;
         private ISoundSource? _oldValue = oldValue;
         private ISoundSource? _newValue = newValue;
 
-        public ImmutableArray<IStorable?> GetStorables() => storables;
+        public ImmutableArray<CoreObject?> GetStorables() => storables;
 
         public void Do()
         {
@@ -90,14 +90,14 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
 
     private sealed class SetCommand(
         IPropertyAdapter<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
+        ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
         private readonly string? _oldName = oldValue?.Name;
         private readonly string? _newName = newValue?.Name;
         private ISoundSource? _oldValue = oldValue;
         private ISoundSource? _newValue = newValue;
 
-        public ImmutableArray<IStorable?> GetStorables() => storables;
+        public ImmutableArray<CoreObject?> GetStorables() => storables;
 
         public void Do()
         {
