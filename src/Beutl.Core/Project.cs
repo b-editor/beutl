@@ -50,8 +50,6 @@ public sealed class Project : Hierarchical
 
     public string MinAppVersion { get; private set; }
 
-    public DateTime LastSavedTime { get; private set; }
-
     [NotAutoSerialized]
     public HierarchicalList<ProjectItem> Items
     {
