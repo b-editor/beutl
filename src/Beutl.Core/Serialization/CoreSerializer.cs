@@ -118,7 +118,7 @@ public static class CoreSerializer
         if (node is not JsonObject jsonObject) throw new JsonException();
 
         // 互換性処理
-        if (type == typeof(ProjectItem) && !node.TryGetDiscriminator(out Type _))
+        if (type == typeof(ProjectItem) && !node.TryGetDiscriminator(out Type? _))
         {
             node["$type"] = "[Beutl.ProjectSystem]:Scene";
         }

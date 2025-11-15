@@ -51,6 +51,27 @@ public sealed class BitmapSource : ImageSource
         }
     }
 
+    public static BitmapSource Open(Uri uri)
+    {
+        var source = new BitmapSource();
+        source.ReadFrom(uri);
+        return source;
+    }
+
+    public static bool TryOpen(Uri uri, out BitmapSource? result)
+    {
+        try
+        {
+            result = Open(uri);
+            return true;
+        }
+        catch
+        {
+            result = null;
+            return false;
+        }
+    }
+
     public override IImageSource Clone()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);

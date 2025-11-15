@@ -58,6 +58,27 @@ public class SoundSource : ISoundSource
         }
     }
 
+    public static SoundSource Open(Uri uri)
+    {
+        var source = new SoundSource();
+        source.ReadFrom(uri);
+        return source;
+    }
+
+    public static bool TryOpen(Uri uri, out SoundSource? result)
+    {
+        try
+        {
+            result = Open(uri);
+            return true;
+        }
+        catch
+        {
+            result = null;
+            return false;
+        }
+    }
+
     public void ReadFrom(Uri uri)
     {
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");

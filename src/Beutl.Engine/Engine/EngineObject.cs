@@ -362,7 +362,7 @@ public class EngineObject : Hierarchical, INotifyEdited
         }
 
         protected void CompareAndUpdateObject<TObject, TResource>(RenderContext context, IProperty<TObject> prop,
-            ref TResource? field, ref bool updateOnly) where TObject : EngineObject where TResource : Resource
+            ref TResource? field, ref bool updateOnly) where TObject : EngineObject? where TResource : Resource
         {
             var value = context.Get(prop);
             if (value is null)

@@ -14,11 +14,11 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
     public ImageSourceEditorViewModel(IPropertyAdapter<IImageSource?> property)
         : base(property)
     {
-        FullName = Value.Select(x => x?.Name)
+        FullName = Value.Select(x => x?.Uri.LocalPath)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        FileInfo = Value.Select(x => x != null ? new FileInfo(x.Name) : null)
+        FileInfo = Value.Select(x => x != null ? new FileInfo(x.Uri.LocalPath) : null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -49,8 +49,8 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
         KeyFrame<IImageSource?> setter, IImageSource? oldValue, IImageSource? newValue,
         ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
-        private readonly string? _oldName = oldValue?.Name;
-        private readonly string? _newName = newValue?.Name;
+        private readonly Uri? _oldUri = oldValue?.Uri;
+        private readonly Uri? _newUri = newValue?.Uri;
         private IImageSource? _oldValue = oldValue;
         private IImageSource? _newValue = newValue;
 
@@ -58,9 +58,9 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
 
         public void Do()
         {
-            if (_newValue == null && _newName != null)
+            if (_newValue == null && _newUri != null)
             {
-                BitmapSource.TryOpen(_newName, out BitmapSource? newValue);
+                BitmapSource.TryOpen(_newUri, out BitmapSource? newValue);
                 _newValue = newValue;
             }
 
@@ -76,9 +76,9 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
 
         public void Undo()
         {
-            if (_oldValue == null && _oldName != null)
+            if (_oldValue == null && _oldUri != null)
             {
-                BitmapSource.TryOpen(_oldName, out BitmapSource? oldValue);
+                BitmapSource.TryOpen(_oldUri, out BitmapSource? oldValue);
                 _oldValue = oldValue;
             }
 
@@ -92,8 +92,8 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
         IPropertyAdapter<IImageSource?> setter, IImageSource? oldValue, IImageSource? newValue,
         ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
-        private readonly string? _oldName = oldValue?.Name;
-        private readonly string? _newName = newValue?.Name;
+        private readonly Uri? _oldUri = oldValue?.Uri;
+        private readonly Uri? _newUri = newValue?.Uri;
         private IImageSource? _oldValue = oldValue;
         private IImageSource? _newValue = newValue;
 
@@ -101,9 +101,9 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
 
         public void Do()
         {
-            if (_newValue == null && _newName != null)
+            if (_newValue == null && _newUri != null)
             {
-                BitmapSource.TryOpen(_newName, out BitmapSource? newValue);
+                BitmapSource.TryOpen(_newUri, out BitmapSource? newValue);
                 _newValue = newValue;
             }
 
@@ -119,9 +119,9 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
 
         public void Undo()
         {
-            if (_oldValue == null && _oldName != null)
+            if (_oldValue == null && _oldUri != null)
             {
-                BitmapSource.TryOpen(_oldName, out BitmapSource? oldValue);
+                BitmapSource.TryOpen(_oldUri, out BitmapSource? oldValue);
                 _oldValue = oldValue;
             }
 

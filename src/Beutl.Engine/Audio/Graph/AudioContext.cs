@@ -92,7 +92,7 @@ public sealed class AudioContext : IDisposable
         if (_previousNodes != null)
         {
             var existing = _previousNodes.OfType<SourceNode>()
-                .FirstOrDefault(n => n.Source?.Name == source.Name);
+                .FirstOrDefault(n => n.Source?.Uri == source.Uri);
             if (existing != null)
             {
                 _previousNodes.Remove(existing);

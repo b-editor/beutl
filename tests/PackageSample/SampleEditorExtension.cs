@@ -3,8 +3,9 @@
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Platform.Storage;
+using Beutl;
 using Beutl.Extensibility;
-
+using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
 
 using Reactive.Bindings;
@@ -13,17 +14,17 @@ namespace PackageSample;
 
 public sealed class TextEditorContext : IEditorContext
 {
-    public TextEditorContext(string file, SampleEditorExtension extension)
+    public TextEditorContext(CoreObject obj, SampleEditorExtension extension)
     {
         Extension = extension;
-        EdittingFile = file;
-        Text.Value = File.ReadAllText(file);
+        Object = obj;
+        Text.Value = File.ReadAllText(obj.Uri!.LocalPath);
         Commands = new CommandsImpl(this);
     }
 
     public EditorExtension Extension { get; }
 
-    public string EdittingFile { get; }
+    public CoreObject Object { get; }
 
     public IKnownEditorCommands? Commands { get; }
 
@@ -65,7 +66,7 @@ public sealed class TextEditorContext : IEditorContext
         {
             try
             {
-                await File.WriteAllTextAsync(context.EdittingFile, context.Text.Value);
+                await File.WriteAllTextAsync(context.Object.Uri!.LocalPath, context.Text.Value);
                 return true;
             }
             catch
@@ -114,12 +115,12 @@ public sealed class SampleEditorExtension : EditorExtension
         return ext is ".txt" or ".scene";
     }
 
-    public override bool TryCreateContext(string file, [NotNullWhen(true)] out IEditorContext? context)
+    public override bool TryCreateContext(CoreObject obj, [NotNullWhen(true)] out IEditorContext? context)
     {
         context = null;
-        if (file.EndsWith(".txt") || file.EndsWith(".scene"))
+        if (obj is Scene)
         {
-            context = new TextEditorContext(file, this);
+            context = new TextEditorContext(obj, this);
             return true;
         }
         else
@@ -128,10 +129,10 @@ public sealed class SampleEditorExtension : EditorExtension
         }
     }
 
-    public override bool TryCreateEditor(string file, [NotNullWhen(true)] out Control? editor)
+    public override bool TryCreateEditor(CoreObject obj, [NotNullWhen(true)] out Control? editor)
     {
         editor = null;
-        if (file.EndsWith(".txt") || file.EndsWith(".scene"))
+        if (obj is Scene)
         {
             editor = new TextEditor();
             return true;

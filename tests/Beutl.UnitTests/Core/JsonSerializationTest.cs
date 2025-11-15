@@ -53,21 +53,22 @@ public class JsonSerializationTest
     {
         BeutlApplication app = BeutlApplication.Current;
         var proj = new Project();
+        var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
 
-        proj.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.bproj"));
+        CoreSerializer.StoreToUri(proj, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.bproj")));
         app.Project = proj;
 
         var scene = new Scene();
-        scene.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.scene"));
+        CoreSerializer.StoreToUri(scene, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.scene")));
         proj.Items.Add(scene);
         var elm1 = new Element();
-        elm1.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.layer"));
+        CoreSerializer.StoreToUri(elm1, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.layer")));
         scene.AddChild(elm1).Do();
         elm1.Operation.Children.Add(new EllipseOperator());
         elm1.Operation.Children.Add(new DecorateOperator());
 
         var elm2 = new Element { ZIndex = 2 };
-        elm2.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"1.layer"));
+        CoreSerializer.StoreToUri(elm2, UriHelper.CreateFromPath(Path.Combine(basePath, $"1.layer")));
         scene.AddChild(elm2).Do();
         var rectNode = new RectGeometryNode();
         var shapeNode = new GeometryShapeNode();
