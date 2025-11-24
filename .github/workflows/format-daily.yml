@@ -20,10 +20,11 @@ jobs:
         run: dotnet tool install --global XamlStyler.Console
 
       - name: Run dotnet format
-        run: dotnet format --verbosity diagnostic
+        run: dotnet format Beutl.slnx --verbosity diagnostic
 
-      - name: Run xaml styler
-        run: xstyler -f src/**/*.axaml --ignore -c xamlstyler.json 
+# Avaloniaのxamlで Panel > TextBlock のような時に > が &gt; に変換されてしまうので一旦無効化
+#      - name: Run xaml styler
+#        run: xstyler -f ./**/*.axaml --ignore -c xamlstyler.json
 
       - name: Check for modified files
         id: git-check
