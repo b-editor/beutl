@@ -4,10 +4,10 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Avalonia.Threading;
-using Azure.Monitor.OpenTelemetry.Exporter;
 using Beutl.Configuration;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
+using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -22,7 +22,12 @@ internal class Telemetry : IDisposable
     private readonly TracerProvider? _tracerProvider;
     private readonly Lazy<ResourceBuilder> _resourceBuilder;
     internal readonly string _sessionId;
-    private const string Instrumentation = "b8cc7df1-1367-41f5-a819-5c95a10075cb";
+
+#if true
+    private static string BaseUrl = "https://otel.beditor.net";
+#else
+    private static string BaseUrl = "http://localhost:4318";
+#endif
 
     static Telemetry()
     {
@@ -92,7 +97,11 @@ internal class Telemetry : IDisposable
                 .AddProcessor(new AddVersionActivityProcessor())
                 .AddProcessor(new RemoveSensitiveDataProcessor())
                 .AddSource([.. list])
-                .AddAzureMonitorTraceExporter(b => b.ConnectionString = $"InstrumentationKey={Instrumentation}")
+                .AddOtlpExporter(options =>
+                {
+                    options.Endpoint = new Uri($"{BaseUrl}/v1/traces");
+                    options.Protocol = OtlpExportProtocol.HttpProtobuf;
+                })
                 .Build();
         }
     }
@@ -142,11 +151,17 @@ internal class Telemetry : IDisposable
 
             if (GlobalConfiguration.Instance.TelemetryConfig.Beutl_Logging == true)
             {
-                builder.AddOpenTelemetry(o => o
-                    .SetResourceBuilder(_resourceBuilder.Value)
-                    .AddProcessor(new AddVersionLogProcessor())
-                    .AddProcessor(new RemoveSensitiveDataLogProcessor())
-                    .AddAzureMonitorLogExporter(az => az.ConnectionString = $"InstrumentationKey={Instrumentation}"));
+                builder.AddOpenTelemetry(o =>
+                {
+                    o.SetResourceBuilder(_resourceBuilder.Value);
+                    o.AddProcessor(new AddVersionLogProcessor());
+                    o.AddProcessor(new RemoveSensitiveDataLogProcessor());
+                    o.AddOtlpExporter((exporterOptions, _) =>
+                    {
+                        exporterOptions.Endpoint = new Uri($"{BaseUrl}/v1/logs");
+                        exporterOptions.Protocol = OtlpExportProtocol.HttpProtobuf;
+                    });
+                });
             }
         });
     }

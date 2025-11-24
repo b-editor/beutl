@@ -1,0 +1,55 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+  # 追加の属性を付与する場合
+  attributes:
+    actions:
+      - key: deployment.environment
+        value: "development"
+        action: insert
+
+exporters:
+  # デバッグ用 - コンソールに出力
+  debug:
+    verbosity: detailed
+
+  # ファイルに出力する場合
+  file:
+    path: /telemetry-data/telemetry-data.json
+
+  # Jaegerに送信
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch, attributes]
+      exporters: [debug, file, otlp/jaeger]
+
+    metrics:
+      receivers: [otlp]
+      processors: [batch, attributes]
+      exporters: [debug, file]
+
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, file]
+
+  telemetry:
+    logs:
+      level: info
