@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
@@ -120,7 +121,8 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                     RecordableCommands.Edit(Model, KeyFrame.EasingProperty, newKeyFrame.Easing, Model.Easing)
                         .WithStoables([Parent.Element.Model])
                         .DoAndRecord(recorder);
-                    NotificationService.ShowWarning(Strings.GraphEditor, "The property type of the pasted keyframe does not match. Only the easing is applied.");
+                    NotificationService.ShowWarning(Strings.GraphEditor,
+                        "The property type of the pasted keyframe does not match. Only the easing is applied.");
                 }
                 else
                 {
@@ -132,6 +134,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                         .ToCommand([Parent.Element.Model])
                         .DoAndRecord(recorder);
                 }
+
                 return;
             }
 
@@ -146,11 +149,14 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private void Remove()
     {
-        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-        Animation.KeyFrames.BeginRecord<IKeyFrame>()
-            .Remove(Model)
-            .ToCommand([Parent.Element.Model])
-            .DoAndRecord(recorder);
+        AnimationOperations.RemoveKeyFrame(
+            animation: Animation,
+            scene: Timeline.Scene,
+            element: Parent.Element.Model,
+            keyframe: Model,
+            logger: _logger,
+            cr: Timeline.EditorContext.CommandRecorder,
+            storables: [Parent.Element.Model]);
     }
 
     public void UpdateKeyTime()
@@ -161,8 +167,8 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
 
         TimeSpan time = Left.Value.ToTimeSpan(scale).RoundToRate(rate);
-        RecordableCommands.Edit(Model, KeyFrame.KeyTimeProperty, time)
-            .WithStoables([Parent.Element.Model])
+        SplineEasingHelper.Move(Animation, Model, time)
+            ?.WithStoables([Parent.Element.Model])
             .DoAndRecord(recorder);
 
         Left.Value = time.ToPixel(scale);

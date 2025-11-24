@@ -66,7 +66,7 @@ public sealed class GraphEditorScale : Control
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
-        _disposable = this.GetResourceObservable("TextControlForeground").Subscribe(b =>
+        _disposable = this.GetResourceObservable("GraphEditorScaleTextBrush").Subscribe(b =>
         {
             if (b is IBrush brush)
             {

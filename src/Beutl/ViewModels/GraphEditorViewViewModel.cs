@@ -154,6 +154,14 @@ public sealed class GraphEditorViewViewModel : IDisposable
             }
         }
 
+        void UpdateLast()
+        {
+            if (KeyFrames.Count > 0)
+            {
+                KeyFrames[^1].SetLast();
+            }
+        }
+
         // | NewItem 1 | NewItem 2 | NewItem 3 | Existing | ...
         //          ^     /     ^     /     ^     /
         //           \---/       \---/       \---/
@@ -172,6 +180,7 @@ public sealed class GraphEditorViewViewModel : IDisposable
 
             GraphEditorKeyFrameViewModel? existing = TryGet(index);
             existing?.SetPrevious(TryGet(index - 1));
+            UpdateLast();
         }
 
         // |  Existing | OldItem 1 | OldItem 2 | Existing | ...
@@ -188,6 +197,7 @@ public sealed class GraphEditorViewViewModel : IDisposable
 
             GraphEditorKeyFrameViewModel? existing = TryGet(index);
             existing?.SetPrevious(TryGet(index - 1));
+            UpdateLast();
         }
 
         switch (e.Action)

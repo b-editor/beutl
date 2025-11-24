@@ -1,0 +1,25 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <!-- GraphEditor Light Mode Colors -->
+            <SolidColorBrush x:Key="GraphEditorBackgroundBrush">#F5F5F5</SolidColorBrush>
+            <SolidColorBrush x:Key="GraphEditorGridLineBrush">#19000000</SolidColorBrush>
+            <SolidColorBrush x:Key="GraphEditorScaleTextBrush">#B4404040</SolidColorBrush>
+            <SolidColorBrush x:Key="GraphEditorControlPointFillBrush">#E0EAF5</SolidColorBrush>
+            <SolidColorBrush x:Key="GraphEditorControlPointStrokeBrush">#4080D0</SolidColorBrush>
+            <SolidColorBrush x:Key="GraphEditorHandleLineBrush">#80606060</SolidColorBrush>
+            <SolidColorBrush x:Key="GraphEditorKeyFrameBrush">#FF8C3D</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <!-- GraphEditor Dark Mode Colors -->
+            <SolidColorBrush x:Key="GraphEditorBackgroundBrush">#1E1E1E</SolidColorBrush>
+            <SolidColorBrush x:Key="GraphEditorGridLineBrush">#28FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="GraphEditorScaleTextBrush">#B4C8C8C8</SolidColorBrush>
+            <SolidColorBrush x:Key="GraphEditorControlPointFillBrush">#203050</SolidColorBrush>
+            <SolidColorBrush x:Key="GraphEditorControlPointStrokeBrush">#60A0FF</SolidColorBrush>
+            <SolidColorBrush x:Key="GraphEditorHandleLineBrush">#80D0D0D0</SolidColorBrush>
+            <SolidColorBrush x:Key="GraphEditorKeyFrameBrush">#FFB84D</SolidColorBrush>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

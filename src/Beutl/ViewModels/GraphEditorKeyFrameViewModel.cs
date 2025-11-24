@@ -203,6 +203,11 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         }
     }
 
+    public void SetLast()
+    {
+        _next = null;
+    }
+
     public void Dispose()
     {
         _previous.Value = null;
@@ -263,40 +268,40 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         }
     }
 
-    public void SubmitControlPoint1(float oldX, float oldY)
+    public IRecordableCommand? SubmitControlPoint1(float oldX, float oldY)
     {
         if (Model.Easing is SplineEasing splineEasing)
         {
-            CommandRecorder recorder = Parent.Parent.EditorContext.CommandRecorder;
             var oldValues = (X1: oldX, Y1: oldY);
             var newValues = (splineEasing.X1, splineEasing.Y1);
             if (oldValues == newValues)
-                return;
+                return null;
 
-            RecordableCommands.Create(GetStorables())
+            return RecordableCommands.Create(GetStorables())
                 .OnDo(() => (splineEasing.X1, splineEasing.Y1) = (newValues.X1, newValues.Y1))
                 .OnUndo(() => (splineEasing.X1, splineEasing.Y1) = (oldValues.X1, oldValues.Y1))
-                .ToCommand()
-                .DoAndRecord(recorder);
+                .ToCommand();
         }
+
+        return null;
     }
 
-    public void SubmitControlPoint2(float oldX, float oldY)
+    public IRecordableCommand? SubmitControlPoint2(float oldX, float oldY)
     {
         if (Model.Easing is SplineEasing splineEasing)
         {
-            CommandRecorder recorder = Parent.Parent.EditorContext.CommandRecorder;
             var oldValues = (X2: oldX, Y2: oldY);
             var newValues = (splineEasing.X2, splineEasing.Y2);
             if (oldValues == newValues)
-                return;
+                return null;
 
-            RecordableCommands.Create(GetStorables())
+            return RecordableCommands.Create(GetStorables())
                 .OnDo(() => (splineEasing.X2, splineEasing.Y2) = (newValues.X2, newValues.Y2))
                 .OnUndo(() => (splineEasing.X2, splineEasing.Y2) = (oldValues.X2, oldValues.Y2))
-                .ToCommand()
-                .DoAndRecord(recorder);
+                .ToCommand();
         }
+
+        return null;
     }
 
     public void SubmitCrossed(TimeSpan timeSpan)
@@ -305,11 +310,14 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         Model.KeyTime = timeSpan.RoundToRate(rate);
     }
 
-    public void SubmitKeyTimeAndValue(TimeSpan oldKeyTime)
+    public void SubmitKeyTimeAndValue(
+        TimeSpan oldKeyTime,
+        Dictionary<IKeyFrame, (Point ControlPoint1, Point ControlPoint2)> oldControlPoints)
     {
         GraphEditorViewModel parent2 = Parent.Parent;
         CommandRecorder recorder = parent2.EditorContext.CommandRecorder;
         IKeyFrameAnimation animation = parent2.Animation;
+        IRecordableCommand? command;
 
         float scale = parent2.Options.Value.Scale;
         int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
@@ -321,25 +329,33 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             var (oldTime, oldValue) = (oldKeyTime, Model.Value);
             var (newTime, newValue) = (Right.Value.ToTimeSpan(scale).RoundToRate(rate), obj);
 
-            RecordableCommands.Create(GetStorables())
+            command = RecordableCommands.Create(GetStorables())
                 .OnDo(() => (keyframe.Value, keyframe.KeyTime) = (newValue, newTime))
                 .OnUndo(() => (keyframe.Value, keyframe.KeyTime) = (oldValue, oldTime))
-                .ToCommand()
-                .DoAndRecord(recorder);
-
-            EndY.Value = Parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
+                .ToCommand();
         }
         else
         {
-            RecordableCommands.Edit(
+            command = RecordableCommands.Edit(
                     target: Model,
                     property: KeyFrame.KeyTimeProperty,
                     value: Right.Value.ToTimeSpan(scale).RoundToRate(rate),
                     oldValue: oldKeyTime)
-                .WithStoables(GetStorables())
-                .DoAndRecord(recorder);
+                .WithStoables(GetStorables());
         }
 
+        foreach (var pair in oldControlPoints)
+        {
+            var itemViewModel = Parent.KeyFrames.FirstOrDefault(i => i.Model == pair.Key);
+            if (itemViewModel == null) continue;
+            command = command
+                .Append(itemViewModel.SubmitControlPoint1((float)pair.Value.ControlPoint1.X, (float)pair.Value.ControlPoint1.Y))
+                .Append(itemViewModel.SubmitControlPoint2((float)pair.Value.ControlPoint2.X, (float)pair.Value.ControlPoint2.Y));
+        }
+
+        command.DoAndRecord(recorder);
+
+        EndY.Value = Parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
         Right.Value = Model.KeyTime.ToPixel(Parent.Parent.Options.Value.Scale);
     }
 
@@ -447,7 +463,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                     RecordableCommands.Edit(Model, KeyFrame.EasingProperty, newKeyFrame.Easing, Model.Easing)
                         .WithStoables([Parent.Parent.Element])
                         .DoAndRecord(recorder);
-                    NotificationService.ShowWarning(Strings.GraphEditor, "The property type of the pasted keyframe does not match. Only the easing is applied.");
+                    NotificationService.ShowWarning(Strings.GraphEditor,
+                        "The property type of the pasted keyframe does not match. Only the easing is applied.");
                 }
                 else
                 {
@@ -459,6 +476,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                         .ToCommand([Parent.Parent.Element])
                         .DoAndRecord(recorder);
                 }
+
                 return;
             }
 
@@ -473,10 +491,13 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     private void Remove()
     {
-        CommandRecorder recorder = Parent.Parent.EditorContext.CommandRecorder;
-        Parent.Parent.Animation.KeyFrames.BeginRecord<IKeyFrame>()
-            .Remove(Model)
-            .ToCommand(GetStorables())
-            .DoAndRecord(recorder);
+        AnimationOperations.RemoveKeyFrame(
+            animation: Parent.Parent.Animation,
+            scene: Parent.Parent.Scene,
+            element: Parent.Parent.Element,
+            keyframe: Model,
+            logger: _logger,
+            cr: Parent.Parent.EditorContext.CommandRecorder,
+            storables: GetStorables());
     }
 }

@@ -8,6 +8,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
+using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -366,68 +367,47 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         }
     }
 
-    private TimeSpan ConvertKeyTime(TimeSpan globalkeyTime, IAnimation animation)
-    {
-        Element? element = this.GetService<Element>();
-        TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
-        TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
-
-        int rate = this.GetService<EditViewModel>()?.Scene?.FindHierarchicalParent<Project>() is { } proj
-            ? proj.GetFrameRate()
-            : 30;
-
-        return keyTime.RoundToRate(rate);
-    }
-
     public override void InsertKeyFrame(TimeSpan keyTime)
     {
-        if (GetAnimation() is KeyFrameAnimation<T> kfAnimation)
+        if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
+
+        Element? element = this.GetService<Element>();
+        Scene? scene = this.GetService<EditViewModel>()?.Scene;
+        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+        var keyframe = AnimationOperations.InsertKeyFrame(
+            animation: kfAnimation,
+            scene: scene,
+            element: element,
+            easing: null,
+            keyTime: keyTime,
+            logger: Logger,
+            cr: recorder,
+            storables: GetStorables());
+
+        if (keyframe == null) return;
+
+        int index = kfAnimation.KeyFrames.IndexOf(keyframe);
+        if (index >= 0)
         {
-            keyTime = ConvertKeyTime(keyTime, kfAnimation);
-            if (!kfAnimation.KeyFrames.Any(x => x.KeyTime == keyTime))
-            {
-                CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-                var keyframe = new KeyFrame<T>
-                {
-                    Value = kfAnimation.Interpolate(keyTime),
-                    Easing = new SplineEasing(),
-                    KeyTime = keyTime
-                };
-
-                RecordableCommands.Create(GetStorables())
-                    .OnDo(() => kfAnimation.KeyFrames.Add(keyframe, out _))
-                    .OnUndo(() => kfAnimation.KeyFrames.Remove(keyframe))
-                    .ToCommand()
-                    .DoAndRecord(recorder);
-
-                int index = kfAnimation.KeyFrames.IndexOf(keyframe);
-                if (index >= 0)
-                {
-                    KeyFrameIndex.Value = index;
-                }
-            }
+            KeyFrameIndex.Value = index;
         }
     }
 
     public override void RemoveKeyFrame(TimeSpan keyTime)
     {
-        if (PropertyAdapter is IAnimatablePropertyAdapter
-            {
-                Animation: IKeyFrameAnimation kfAnimation,
-                PropertyType: { } ptype
-            })
-        {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            keyTime = ConvertKeyTime(keyTime, kfAnimation);
-            IKeyFrame? keyframe = kfAnimation.KeyFrames.FirstOrDefault(x => x.KeyTime == keyTime);
-            if (keyframe != null)
-            {
-                kfAnimation.KeyFrames.BeginRecord<IKeyFrame>()
-                    .Remove(keyframe)
-                    .ToCommand(GetStorables())
-                    .DoAndRecord(recorder);
-            }
-        }
+        if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
+
+        Element? element = this.GetService<Element>();
+        Scene? scene = this.GetService<EditViewModel>()?.Scene;
+        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+        AnimationOperations.RemoveKeyFrame(
+            animation: kfAnimation,
+            scene: scene,
+            element: element,
+            keyTime: keyTime,
+            logger: Logger,
+            cr: recorder,
+            storables: GetStorables());
     }
 
     public override void PrepareToEditAnimation()
