@@ -496,7 +496,7 @@ public sealed partial class ElementView : UserControl
                     {
                         await viewModel.SubmitViewModelChanges();
                     }
-                    else
+                    else if (elems.Length > 1)
                     {
                         var animations = viewModel.Timeline.SelectedElements
                             .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
