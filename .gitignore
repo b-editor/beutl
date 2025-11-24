@@ -363,3 +363,5 @@ packages/ubuntu22.04_amd64/usr/bin/
 
 coverage_report/
 .nuke/temp
+
+telemetry-data.json
