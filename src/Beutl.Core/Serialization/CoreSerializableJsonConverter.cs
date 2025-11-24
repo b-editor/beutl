@@ -49,7 +49,7 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
                     new CoreSerializerOptions { BaseUri = coreObj.Uri });
 
                 using var stream = File.Create(coreObj.Uri.LocalPath);
-                using var innerWriter = new Utf8JsonWriter(stream);
+                using var innerWriter = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
                 node.WriteTo(innerWriter);
             }
 
