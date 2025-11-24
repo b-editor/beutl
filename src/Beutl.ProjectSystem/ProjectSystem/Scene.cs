@@ -209,14 +209,29 @@ public class Scene : ProjectItem, INotifyEdited
         context.SetValue("Width", FrameSize.Width);
         context.SetValue("Height", FrameSize.Height);
 
-        var elementsNode = new JsonObject();
+        if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
+        {
+            foreach (Element item in Children)
+            {
+                CoreSerializer.StoreToUri(item, item.Uri!);
+            }
+        }
 
-        UpdateInclude();
+        if (context.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects))
+        {
+            context.SetValue("Elements", Children);
+        }
+        else
+        {
+            var elementsNode = new JsonObject();
 
-        Process(elementsNode, "Include", _includeElements);
-        Process(elementsNode, "Exclude", _excludeElements);
+            UpdateInclude();
 
-        context.SetValue("Elements", elementsNode);
+            Process(elementsNode, "Include", _includeElements);
+            Process(elementsNode, "Exclude", _excludeElements);
+
+            context.SetValue("Elements", elementsNode);
+        }
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -250,25 +265,32 @@ public class Scene : ProjectItem, INotifyEdited
             FrameSize = new PixelSize(context.GetValue<int>("Width"), context.GetValue<int>("Height"));
         }
 
-        if (context.GetValue<JsonObject>(nameof(Elements)) is JsonObject elementsJson)
+        if (context.GetValue<JsonNode>(nameof(Elements)) is {  } elementsJson)
         {
-            var matcher = new Matcher();
-            var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(Uri!.LocalPath)!));
-
-            // 含めるクリップ
-            if (elementsJson.TryGetPropertyValue("Include", out JsonNode? includeNode))
+            if (elementsJson is JsonObject elementsObject)
             {
-                Process(matcher.AddInclude, includeNode!, _includeElements);
-            }
+                var matcher = new Matcher();
+                var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(Uri!.LocalPath)!));
 
-            // 除外するクリップ
-            if (elementsJson.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
+                // 含めるクリップ
+                if (elementsObject.TryGetPropertyValue("Include", out JsonNode? includeNode))
+                {
+                    Process(matcher.AddInclude, includeNode!, _includeElements);
+                }
+
+                // 除外するクリップ
+                if (elementsObject.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
+                {
+                    Process(matcher.AddExclude, excludeNode!, _excludeElements);
+                }
+
+                PatternMatchingResult result = matcher.Execute(directory);
+                SyncronizeFiles(result.Files.Select(x => x.Path));
+            }
+            else
             {
-                Process(matcher.AddExclude, excludeNode!, _excludeElements);
+                Children.Replace(context.GetValue<Elements>(nameof(Elements))!);
             }
-
-            PatternMatchingResult result = matcher.Execute(directory);
-            SyncronizeFiles(result.Files.Select(x => x.Path));
         }
         else
         {

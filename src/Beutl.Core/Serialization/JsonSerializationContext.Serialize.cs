@@ -96,30 +96,34 @@ public partial class JsonSerializationContext
         return JsonSerializer.SerializeToNode(value, baseType, JsonHelper.SerializerOptions);
     }
 
-    private static JsonValue SerializeObjectFile(
+    private static JsonNode SerializeObjectFile(
         CoreObject value, ICoreSerializationContext parent)
     {
-        var node = CoreSerializer.SerializeToJsonObject(value, new CoreSerializerOptions { BaseUri = value.Uri });
-        if (value.Uri?.IsFile != true)
+        if (parent.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
         {
-            var jsonString = node.ToJsonString(new() { WriteIndented = false });
-            var uri = UriHelper.CreateBase64DataUri("application/json",
-                System.Text.Encoding.UTF8.GetBytes(jsonString));
-            return (JsonValue)uri.ToString();
+            var node = CoreSerializer.SerializeToJsonObject(value,
+                new CoreSerializerOptions { BaseUri = value.Uri });
+
+            using var stream = File.Create(value.Uri!.LocalPath);
+            using var innerWriter = new Utf8JsonWriter(stream);
+            node.WriteTo(innerWriter);
+        }
+
+        var serializedUri = value.Uri!;
+        if (parent.BaseUri?.Scheme == value.Uri!.Scheme)
+        {
+            serializedUri = parent.BaseUri.MakeRelativeUri(value.Uri);
+        }
+
+        if (parent.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects))
+        {
+            var node = CoreSerializer.SerializeToJsonObject(value,
+                new CoreSerializerOptions { BaseUri = value.Uri });
+            node["Uri"] = serializedUri.ToString();
+            return node;
         }
         else
         {
-            var serializedUri = value.Uri;
-            if (parent.BaseUri?.Scheme == value.Uri.Scheme)
-            {
-                // Trailing slashによって動作が変わってしまう
-                serializedUri = parent.BaseUri.MakeRelativeUri(value.Uri);
-            }
-
-            using var stream = File.Create(value.Uri.LocalPath);
-            using var innerWriter = new Utf8JsonWriter(stream);
-            node.WriteTo(innerWriter);
-
             return (JsonValue)serializedUri.ToString();
         }
     }

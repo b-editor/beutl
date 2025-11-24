@@ -43,28 +43,33 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
         var parentContext = ThreadLocalSerializationContext.Current;
         if (value is CoreObject { Uri: not null } coreObj && parentContext != null)
         {
-            var node = CoreSerializer.SerializeToJsonObject(value, new CoreSerializerOptions { BaseUri = coreObj.Uri });
-            if (!coreObj.Uri.IsFile)
+            if (parentContext.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
             {
-                var jsonString = node.ToJsonString(new() { WriteIndented = false });
-                var uri = UriHelper.CreateBase64DataUri("application/json",
-                    System.Text.Encoding.UTF8.GetBytes(jsonString));
-                writer.WriteStringValue(uri.ToString());
-            }
-            else
-            {
-                var serializedUri = coreObj.Uri;
-                if (parentContext.BaseUri?.Scheme == coreObj.Uri.Scheme)
-                {
-                    // Trailing slashによって動作が変わってしまう
-                    serializedUri = parentContext.BaseUri.MakeRelativeUri(coreObj.Uri);
-                }
-
-                writer.WriteStringValue(serializedUri.ToString());
+                var node = CoreSerializer.SerializeToJsonObject(value,
+                    new CoreSerializerOptions { BaseUri = coreObj.Uri });
 
                 using var stream = File.Create(coreObj.Uri.LocalPath);
                 using var innerWriter = new Utf8JsonWriter(stream);
                 node.WriteTo(innerWriter);
+            }
+
+            var serializedUri = coreObj.Uri;
+            if (parentContext.BaseUri?.Scheme == coreObj.Uri.Scheme)
+            {
+                serializedUri = parentContext.BaseUri.MakeRelativeUri(coreObj.Uri);
+            }
+
+            if (parentContext.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects))
+            {
+                var node = CoreSerializer.SerializeToJsonObject(value,
+                    new CoreSerializerOptions { BaseUri = coreObj.Uri });
+
+                node["Uri"] = serializedUri.ToString();
+                node.WriteTo(writer, options);
+            }
+            else
+            {
+                writer.WriteStringValue(serializedUri.ToString());
             }
 
             return;

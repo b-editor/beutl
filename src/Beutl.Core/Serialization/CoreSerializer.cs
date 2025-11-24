@@ -67,7 +67,11 @@ public static class CoreSerializer
 
         var obj = Activator.CreateInstance(actualType) as ICoreSerializable
                   ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
-        var context = new JsonSerializationContext(actualType, ThreadLocalSerializationContext.Current, json, options);
+
+        var parentContext = ThreadLocalSerializationContext.Current;
+        ReflectUri(json, obj, parentContext, ref options);
+
+        var context = new JsonSerializationContext(actualType, parentContext, json, options);
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Deserialize(context);
@@ -75,6 +79,23 @@ public static class CoreSerializer
         }
 
         return obj;
+    }
+
+    // CoreObjectにUriを反映させ，CoreSerializerOptionsのBaseUriも更新する
+    internal static void ReflectUri(JsonObject json, ICoreSerializable obj, ICoreSerializationContext? parent, ref CoreSerializerOptions? options)
+    {
+        var baseUri = options?.BaseUri ?? parent?.BaseUri;
+        if (json["Uri"] is JsonValue uriValue && uriValue.TryGetValue(out string? uriString))
+        {
+            var uri = baseUri != null
+                ? new Uri(baseUri, uriString)
+                : new Uri(uriString, UriKind.RelativeOrAbsolute);
+            if (obj is CoreObject coreObj)
+            {
+                coreObj.Uri = uri;
+            }
+            options ??= new CoreSerializerOptions { BaseUri = uri, Mode = options?.Mode };
+        }
     }
 
     public static object? DeserializeFromJsonNode(JsonNode json, Type type, CoreSerializerOptions? options = null)
@@ -96,7 +117,10 @@ public static class CoreSerializer
     public static void PopulateFromJsonObject(ICoreSerializable obj, Type type, JsonObject json,
         CoreSerializerOptions? options = null)
     {
-        var context = new JsonSerializationContext(type, ThreadLocalSerializationContext.Current, json, options);
+        var parentContext = ThreadLocalSerializationContext.Current;
+        ReflectUri(json, obj, parentContext, ref options);
+
+        var context = new JsonSerializationContext(type, parentContext, json, options);
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Deserialize(context);
@@ -137,8 +161,8 @@ public static class CoreSerializer
             coreObj.Uri = uri;
         }
 
-        PopulateFromJsonObject(
-            obj, type, jsonObject, new CoreSerializerOptions { BaseUri = uri });
+        var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
+        PopulateFromJsonObject(obj, type, jsonObject, options);
 
         return obj;
     }
@@ -160,11 +184,11 @@ public static class CoreSerializer
             coreObj.Uri = uri;
         }
 
-        PopulateFromJsonObject(
-            obj, type, jsonObject, new CoreSerializerOptions { BaseUri = uri });
+        var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
+        PopulateFromJsonObject(obj, type, jsonObject, options);
     }
 
-    public static void StoreToUri<T>(T obj, Uri uri)
+    public static void StoreToUri<T>(T obj, Uri uri, CoreSerializationMode? mode = null)
         where T : ICoreSerializable
     {
         if (uri.Scheme == "file")
@@ -183,7 +207,8 @@ public static class CoreSerializer
             using var stream = new FileStream(uri.LocalPath, FileMode.Create, FileAccess.Write, FileShare.Write);
             using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
 
-            SerializeToJsonObject(obj, new CoreSerializerOptions { BaseUri = uri })
+            var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects  };
+            SerializeToJsonObject(obj, options)
                 .WriteTo(writer, JsonHelper.SerializerOptions);
         }
         else

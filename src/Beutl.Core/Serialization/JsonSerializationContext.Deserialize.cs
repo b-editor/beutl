@@ -59,6 +59,12 @@ public partial class JsonSerializationContext
                 Type? actualType = baseType.IsSealed ? baseType : obj.GetDiscriminator(baseType);
                 if (actualType?.IsAssignableTo(typeof(ICoreSerializable)) == true)
                 {
+                    var instance = Activator.CreateInstance(actualType) as ICoreSerializable
+                                   ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
+
+                    CoreSerializerOptions? options = null;
+                    CoreSerializer.ReflectUri(obj, instance, parent, ref options);
+
                     var context = new JsonSerializationContext(
                         ownerType: actualType,
                         parent: parent,
@@ -66,13 +72,10 @@ public partial class JsonSerializationContext
 
                     using (ThreadLocalSerializationContext.Enter(context))
                     {
-                        if (Activator.CreateInstance(actualType) is ICoreSerializable instance)
-                        {
-                            instance.Deserialize(context);
-                            context.AfterDeserialized(instance);
+                        instance.Deserialize(context);
+                        context.AfterDeserialized(instance);
 
-                            return instance;
-                        }
+                        return instance;
                     }
                 }
             }

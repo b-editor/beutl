@@ -65,7 +65,10 @@ public sealed class Project : Hierarchical
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Deserialize");
         base.Deserialize(context);
 
-        SyncronizeScenes(context.GetValue<string[]>("items")!);
+        if (context.GetValue<ProjectItem[]>("items") is { } items)
+        {
+            Items.Replace(items);
+        }
 
         if (context.GetValue<Dictionary<string, string>>("variables") is { } vars)
         {
@@ -96,26 +99,5 @@ public sealed class Project : Hierarchical
         context.SetValue("items", Items);
 
         context.SetValue("variables", Variables);
-    }
-
-    private void SyncronizeScenes(IEnumerable<string> pathToItem)
-    {
-        var uriToItem = pathToItem.Select(x => new Uri(Uri!, x)).ToArray();
-
-        // 削除するシーン
-        IEnumerable<ProjectItem> toRemoveItems = _items.ExceptBy(uriToItem, x => x.Uri!);
-        // 追加するシーン
-        IEnumerable<Uri> toAddItems = uriToItem.Except(_items.Select(x => x.Uri))!;
-
-        foreach (ProjectItem item in toRemoveItems)
-        {
-            _items.Remove(item);
-        }
-
-        foreach (Uri item in toAddItems)
-        {
-            var projectItem = CoreSerializer.RestoreFromUri<ProjectItem>(item);
-            _items.Add(projectItem);
-        }
     }
 }
