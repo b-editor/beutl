@@ -1,4 +1,5 @@
-﻿using Beutl.Audio.Effects;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -48,12 +49,14 @@ public abstract class Sound : Renderable
         // The Composer will handle cache invalidation
     }
 
+    [Range(0, float.MaxValue)]
     public float Gain
     {
         get => _gain;
         set => SetAndRaise(GainProperty, ref _gain, value);
     }
 
+    [Range(0, float.MaxValue)]
     public float Speed
     {
         get => _speed;
