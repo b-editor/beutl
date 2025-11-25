@@ -495,8 +495,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     private async Task PasteElementList(IClipboard clipboard)
     {
-        string? json = await clipboard.TryGetValueAsync(BeutlDataFormats.Elements);
-        if (json == null || JsonNode.Parse(json) is not JsonArray jsonArray) return;
+        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Elements) is not { } json
+            || JsonNode.Parse(json) is not JsonArray jsonArray) return;
 
         var oldElements = jsonArray
             .Select(node => (node, element: new Element()))
