@@ -312,7 +312,7 @@ public static class SplineEasingHelper
 
     public static void Remove(IKeyFrameAnimation animation, int index)
     {
-        var type = animation.Property.PropertyType;
+        var type = animation.ValueType;
         if (!s_cachedRemoveGenericMethods.TryGetValue(type, out var method))
         {
             s_cachedRemoveGenericMethods[type] = method = default;
@@ -343,7 +343,7 @@ public static class SplineEasingHelper
     public static IRecordableCommand Move(
         IKeyFrameAnimation animation, IKeyFrame keyFrame, TimeSpan keyTime)
     {
-        var type = animation.Property.PropertyType;
+        var type = animation.ValueType;
         if (!s_cachedMoveGenericMethods.TryGetValue(type, out var method))
         {
             s_cachedMoveGenericMethods[type] = method = default;
