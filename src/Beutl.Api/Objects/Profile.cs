@@ -57,10 +57,11 @@ public class Profile
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 
+        // TODO: System.Interactive.AsyncからSystem.Linq.Asyncが削除されれば、AsyncEnumerableを使った実装に戻す
         return await (await _clients.Users.GetUserPackages(Name, start, count))
-            .ToAsyncEnumerable()
-            .SelectAwait(async x => await _clients.Packages.GetPackage(x.Name))
+            .ToObservable()
+            .SelectMany(async x => await _clients.Packages.GetPackage(x.Name))
             .Select(x => new Package(this, x, _clients))
-            .ToArrayAsync();
+            .ToArray();
     }
 }
