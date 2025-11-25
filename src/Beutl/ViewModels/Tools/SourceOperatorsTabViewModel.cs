@@ -125,7 +125,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
     public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.Right);
+        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.RightUpperBottom);
 
     public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
         new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
