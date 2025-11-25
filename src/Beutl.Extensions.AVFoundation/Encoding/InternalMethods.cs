@@ -27,7 +27,9 @@ public class InternalMethods
             IntPtr.Zero,
             out var handle);
         if (error != CMFormatDescriptionError.None) throw new Exception(error.ToString());
-        return NewCMAudioFormatDescription(handle);
+
+        // 呼び出し側でRetainしたいがAPIが公開されていないためownsをfalseにして，CMAudioFormatDescriptionのコンストラクタでRetainしてもらう．
+        return NewCMAudioFormatDescription(handle, false);
     }
 
     public static CMBlockBuffer CreateCMBlockBufferWithMemoryBlock(uint length, IntPtr memoryBlock,
@@ -44,10 +46,12 @@ public class InternalMethods
             flags,
             out var handle);
         if (error != CMBlockBufferError.None) throw new Exception(error.ToString());
-        return NewCMBlockBuffer(handle);
+
+        // 呼び出し側でRetainしたいがAPIが公開されていないためownsをfalseにして，CMBlockBufferのコンストラクタでRetainしてもらう．
+        return NewCMBlockBuffer(handle, false);
     }
 
-    [DllImport("/System/Library/PrivateFrameworks/CoreMedia.framework/Versions/A/CoreMedia")]
+    [DllImport("/System/Library/Frameworks/CoreMedia.framework/CoreMedia")]
     public static extern unsafe CMFormatDescriptionError CMAudioFormatDescriptionCreate(
         IntPtr allocator,
         void* asbd,
@@ -59,12 +63,12 @@ public class InternalMethods
         out IntPtr handle);
 
     [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
-    public static extern CMAudioFormatDescription NewCMAudioFormatDescription(IntPtr handle);
+    public static extern CMAudioFormatDescription NewCMAudioFormatDescription(IntPtr handle, bool owns);
 
     [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
-    public static extern CMBlockBuffer NewCMBlockBuffer(IntPtr handle);
+    public static extern CMBlockBuffer NewCMBlockBuffer(IntPtr handle, bool owns);
 
-    [DllImport("/System/Library/PrivateFrameworks/CoreMedia.framework/Versions/A/CoreMedia")]
+    [DllImport("/System/Library/Frameworks/CoreMedia.framework/CoreMedia")]
     public static extern CMBlockBufferError CMBlockBufferCreateWithMemoryBlock(
         IntPtr allocator,
         IntPtr memoryBlock,

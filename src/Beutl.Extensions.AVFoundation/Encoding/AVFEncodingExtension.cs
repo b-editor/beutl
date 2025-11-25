@@ -2,6 +2,7 @@
 using Beutl.Extensibility;
 using MonoMac.AppKit;
 using System.ComponentModel.DataAnnotations;
+using System.Runtime.InteropServices;
 
 namespace Beutl.Extensions.AVFoundation.Encoding;
 
@@ -16,6 +17,15 @@ public class AVFEncodingExtension : ControllableEncodingExtension
         {
             try
             {
+                NativeLibrary.SetDllImportResolver(typeof(NSApplication).Assembly, (name, assembly, path) =>
+                {
+                    if (name == "/System/Library/PrivateFrameworks/CoreMedia.framework/Versions/A/CoreMedia")
+                    {
+                        return NativeLibrary.Load("/System/Library/Frameworks/CoreMedia.framework/CoreMedia");
+                    }
+
+                    return NativeLibrary.Load(name);
+                });
                 NSApplication.Init();
             }
             catch
