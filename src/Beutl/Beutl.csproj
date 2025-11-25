@@ -44,14 +44,14 @@
     <PackageReference Include="AsyncImageLoader.Avalonia" />
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Controls.ItemsRepeater" />
-    <PackageReference Include="Avalonia.Controls.PanAndZoom" />
+    <PackageReference Include="PanAndZoom" />
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
-    <PackageReference Include="Avalonia.ReactiveUI" />
-    <PackageReference Include="Avalonia.Svg.Skia" />
+    <PackageReference Include="ReactiveUI.Avalonia" />
+    <PackageReference Include="Svg.Controls.Skia.Avalonia" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
-    <PackageReference Include="Avalonia.Xaml.Behaviors" />
-    <PackageReference Include="Avalonia.Xaml.Interactivity" />
+    <PackageReference Include="Xaml.Behaviors.Avalonia" />
+    <PackageReference Include="Xaml.Behaviors.Interactivity" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
     <PackageReference Include="Dotnet.Bundle" />
     <PackageReference Include="DynamicData" />

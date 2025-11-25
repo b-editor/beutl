@@ -5,6 +5,7 @@ global using System.Reactive.Disposables;
 global using System.Reactive.Linq;
 
 global using Beutl;
+global using Beutl.Reactive;
 global using Beutl.Collections;
 global using Beutl.Extensibility;
 global using Beutl.Language;

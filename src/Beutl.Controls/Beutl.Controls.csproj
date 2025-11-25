@@ -20,8 +20,8 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Controls.ItemsRepeater" />
-    <PackageReference Include="Avalonia.Xaml.Behaviors" />
-    <PackageReference Include="Avalonia.Xaml.Interactivity" />
+    <PackageReference Include="Xaml.Behaviors.Avalonia" />
+    <PackageReference Include="Xaml.Behaviors.Interactivity" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.FluentAvalonia" />
