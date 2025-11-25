@@ -39,7 +39,7 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
         Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
     {
         Type objType = obj.GetType();
-        Type adapterType = typeof(EnginePropertyAdapter<>);
+        Type adapterType = typeof(CorePropertyAdapter<>);
 
         List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
         cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
