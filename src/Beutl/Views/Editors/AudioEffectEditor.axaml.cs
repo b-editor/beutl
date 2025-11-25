@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Models;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
@@ -44,8 +45,8 @@ public partial class AudioEffectEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.AudioEffect)
-            && e.Data.Get(KnownLibraryItemFormats.AudioEffect) is Type type
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.AudioEffect) is {  } typeName
+            && TypeFormat.ToType(typeName) is { } type
             && DataContext is AudioEffectEditorViewModel { IsDisposed: false } viewModel)
         {
             if (viewModel.IsGroup.Value)
@@ -64,7 +65,7 @@ public partial class AudioEffectEditor : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.AudioEffect))
+        if (e.DataTransfer.Contains(BeutlDataFormats.AudioEffect))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
             e.Handled = true;

@@ -6,6 +6,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Helpers;
 using Beutl.Logging;
+using Beutl.Models;
 using Beutl.Reactive;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -364,11 +365,11 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         {
             ObjectRegenerator.Regenerate(Property.Animation!, out string json);
 
-            var data = new DataObject();
-            data.Set(DataFormats.Text, json);
-            data.Set(nameof(IKeyFrameAnimation), json);
+            var data = new DataTransfer();
+            data.Add(DataTransferItem.CreateText(json));
+            data.Add(DataTransferItem.Create(BeutlDataFormats.KeyFrameAnimation, json));
 
-            await clipboard.SetDataObjectAsync(data);
+            await clipboard.SetDataAsync(data);
         }
         catch (Exception ex)
         {
@@ -385,18 +386,14 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
         try
         {
-            string[] formats = await clipboard.GetFormatsAsync();
-
-            if (formats.Contains(nameof(IKeyFrame)))
+            if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } keyFrameJson)
             {
-                byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrame)) as byte[];
-                PasteKeyFrame(System.Text.Encoding.UTF8.GetString(json!), pointerPosition);
+                PasteKeyFrame(keyFrameJson, pointerPosition);
                 return;
             }
-            else if (formats.Contains(nameof(IKeyFrameAnimation)))
+            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is { } keyFrameAnimationJson)
             {
-                byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrameAnimation)) as byte[];
-                PasteAnimation(System.Text.Encoding.UTF8.GetString(json!));
+                PasteAnimation(keyFrameAnimationJson);
                 return;
             }
 
@@ -411,7 +408,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public bool HandleDragOver(DragEventArgs e)
     {
-        if (!e.Data.Contains(KnownLibraryItemFormats.Easing)) return false;
+        if (!e.DataTransfer.Contains(BeutlDataFormats.Easing)) return false;
 
         e.DragEffects = DragDropEffects.Copy;
         return true;
@@ -419,8 +416,9 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public bool HandleDrop(DragEventArgs e, double positionX)
     {
-        if (!e.Data.Contains(KnownLibraryItemFormats.Easing)) return false;
-        if (e.Data.Get(KnownLibraryItemFormats.Easing) is not Easing easing) return false;
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Easing) is not { } typeName) return false;
+        if (TypeFormat.ToType(typeName) is not { } type) return false;
+        if (Activator.CreateInstance(type) is not Easing easing) return false;
 
         float scale = Timeline.Options.Value.Scale;
         TimeSpan time = positionX.ToTimeSpan(scale);

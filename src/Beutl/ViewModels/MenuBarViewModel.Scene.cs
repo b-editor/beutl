@@ -87,12 +87,12 @@ public partial class MenuBarViewModel
         }
     }
 
-    private static DataObject CreateElementDataObject(Element element)
+    private static DataTransfer CreateElementDataObject(Element element)
     {
         string json = CoreSerializerHelper.SerializeToJsonString(element);
-        var data = new DataObject();
-        data.Set(DataFormats.Text, json);
-        data.Set(Constants.Element, json);
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.CreateText(json));
+        data.Add(DataTransferItem.Create(BeutlDataFormats.Element, json));
 
         return data;
     }
@@ -114,9 +114,9 @@ public partial class MenuBarViewModel
             && viewModel.Scene is Scene scene
             && viewModel.SelectedObject.Value is Element element)
         {
-            DataObject data = CreateElementDataObject(element);
+            DataTransfer data = CreateElementDataObject(element);
 
-            await clipboard.SetDataObjectAsync(data);
+            await clipboard.SetDataAsync(data);
             scene.RemoveChild(element).DoAndRecord(viewModel.CommandRecorder);
         }
     }
@@ -127,9 +127,9 @@ public partial class MenuBarViewModel
             && TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.SelectedObject.Value is Element element)
         {
-            DataObject data = CreateElementDataObject(element);
+            DataTransfer data = CreateElementDataObject(element);
 
-            await clipboard.SetDataObjectAsync(data);
+            await clipboard.SetDataAsync(data);
         }
     }
 

@@ -1,7 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-
+using Beutl.Models;
 using Beutl.Services;
 
 namespace Beutl.Views.LibraryViews;
@@ -18,9 +18,9 @@ public partial class EasingsView : UserControl
 
     private async void OnSplineEasingPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        var data = new DataObject();
-        data.Set(KnownLibraryItemFormats.Easing, new Animation.Easings.SplineEasing());
-        await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy | DragDropEffects.Link);
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.Create(BeutlDataFormats.Easing, TypeFormat.ToString(typeof(Animation.Easings.SplineEasing))));
+        await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy | DragDropEffects.Link);
     }
 
     private async void OnEasingsPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -33,9 +33,9 @@ public partial class EasingsView : UserControl
 
                 if (control?.IsPointerOver == true)
                 {
-                    var data = new DataObject();
-                    data.Set(KnownLibraryItemFormats.Easing, item);
-                    await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy | DragDropEffects.Link);
+                    var data = new DataTransfer();
+                    data.Add(DataTransferItem.Create(BeutlDataFormats.Easing, TypeFormat.ToString(item.GetType())));
+                    await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy | DragDropEffects.Link);
                     return;
                 }
             }

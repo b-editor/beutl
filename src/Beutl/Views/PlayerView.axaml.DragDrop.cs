@@ -26,10 +26,10 @@ public partial class PlayerView
         AvaPoint position = e.GetPosition(image);
         double scaleX = image.Bounds.Size.Width / scene.FrameSize.Width;
         Point scaledPosition = (position / scaleX).ToBtlPoint();
-        Point centerePosition = scaledPosition - new Point(scene.FrameSize.Width / 2, scene.FrameSize.Height / 2);
+        Point centeredPosition = scaledPosition - new Point(scene.FrameSize.Width / 2f, scene.FrameSize.Height / 2f);
 
-        bool containsFe = e.Data.Contains(KnownLibraryItemFormats.FilterEffect);
-        bool containsTra = e.Data.Contains(KnownLibraryItemFormats.Transform);
+        bool containsFe = e.DataTransfer.Contains(BeutlDataFormats.FilterEffect);
+        bool containsTra = e.DataTransfer.Contains(BeutlDataFormats.Transform);
         if (containsFe || containsTra)
         {
             Drawable? drawable = await RenderThread.Dispatcher.InvokeAsync(() =>
@@ -51,7 +51,8 @@ public partial class PlayerView
                 }
 
                 if (containsFe
-                    && e.Data.Get(KnownLibraryItemFormats.FilterEffect) is Type feType
+                    && e.DataTransfer.TryGetValue(BeutlDataFormats.FilterEffect) is { } feTypeName
+                    && TypeFormat.ToType(feTypeName) is { } feType
                     && Activator.CreateInstance(feType) is FilterEffect newFe)
                 {
                     FilterEffect? fe = drawable.FilterEffect;
@@ -59,7 +60,8 @@ public partial class PlayerView
                     drawable.FilterEffect = fe;
                 }
                 else if (containsTra
-                         && e.Data.Get(KnownLibraryItemFormats.Transform) is Type traType
+                         && e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is { } traTypeName
+                            && TypeFormat.ToType(traTypeName) is { } traType
                          && Activator.CreateInstance(traType) is ITransform newTra)
                 {
                     ITransform? tra = drawable.Transform;
@@ -80,8 +82,8 @@ public partial class PlayerView
                 return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex) + 1;
             }
 
-            if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator)
-                && e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type type)
+            if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is { } typeName
+                && TypeFormat.ToType(typeName) is { } type)
             {
                 e.Handled = true;
 
@@ -89,7 +91,7 @@ public partial class PlayerView
 
                 if (e.KeyModifiers == KeyModifiers.Control)
                 {
-                    var desc = new ElementDescription(frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centerePosition);
+                    var desc = new ElementDescription(frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centeredPosition);
                     var dialogViewModel = new AddElementDialogViewModel(scene, desc, editViewModel.CommandRecorder);
                     var dialog = new AddElementDialog { DataContext = dialogViewModel };
                     await dialog.ShowAsync();
@@ -97,19 +99,15 @@ public partial class PlayerView
                 else
                 {
                     editViewModel.AddElement(new ElementDescription(
-                        frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centerePosition));
+                        frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centeredPosition));
                 }
             }
-            else if (e.Data.Contains(DataFormats.Files)
-                     && e.Data.GetFiles()
-                         ?.Where(v => v is IStorageFile)
-                         ?.Select(v => v.TryGetLocalPath())
-                         .FirstOrDefault(v => v != null) is { } fileName)
+            else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
             {
                 int zindex = CalculateZIndex(scene);
 
                 editViewModel.AddElement(new ElementDescription(
-                    frame, TimeSpan.FromSeconds(5), zindex, FileName: fileName, Position: centerePosition));
+                    frame, TimeSpan.FromSeconds(5), zindex, FileName: fileName, Position: centeredPosition));
 
                 e.Handled = true;
             }
@@ -118,10 +116,10 @@ public partial class PlayerView
 
     private void OnFrameDragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator)
-            || e.Data.Contains(KnownLibraryItemFormats.FilterEffect)
-            || e.Data.Contains(KnownLibraryItemFormats.Transform)
-            || e.Data.Contains(DataFormats.Files))
+        if (e.DataTransfer.Contains(BeutlDataFormats.SourceOperator)
+            || e.DataTransfer.Contains(BeutlDataFormats.FilterEffect)
+            || e.DataTransfer.Contains(BeutlDataFormats.Transform)
+            || e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.Copy;
         }

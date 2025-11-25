@@ -504,8 +504,8 @@ public sealed partial class Timeline : UserControl
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
         viewModel.ClickedPosition = pt;
 
-        if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator)
-            && e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type type)
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is { } typeName
+            && TypeFormat.ToType(typeName) is { } type)
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {
@@ -530,10 +530,7 @@ public sealed partial class Timeline : UserControl
                     InitialOperator: type));
             }
         }
-        else if (e.Data.GetFiles()
-                     ?.Where(v => v is IStorageFile)
-                     ?.Select(v => v.TryGetLocalPath())
-                     .FirstOrDefault(v => v != null) is { } fileName)
+        else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
         {
             viewModel.AddElement.Execute(new ElementDescription(
                 viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
@@ -543,8 +540,8 @@ public sealed partial class Timeline : UserControl
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator)
-            || (e.Data.GetFiles()?.Any() ?? false))
+        if (e.DataTransfer.Contains(BeutlDataFormats.SourceOperator)
+            || e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.Copy;
         }

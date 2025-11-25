@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -198,7 +197,7 @@ public sealed class DirectoryTreeView : TreeView
 
     private async void Copy(object sender, RoutedEventArgs e)
     {
-        if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard })
+        if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard, StorageProvider: IStorageProvider storageProvider })
         {
             if (SelectedItem is DirectoryTreeItem directoryTree)
             {
@@ -206,12 +205,10 @@ public sealed class DirectoryTreeView : TreeView
             }
             else if (SelectedItem is FileTreeItem fileTree)
             {
-                var data = new DataObject();
-                data.Set(DataFormats.Files, new string[]
-                {
-                    fileTree.Info.FullName
-                });
-                await clipboard.SetDataObjectAsync(data);
+                var data = new DataTransfer();
+                data.Add(DataTransferItem.CreateFile(await storageProvider.TryGetFileFromPathAsync(fileTree.Info.FullName)));
+
+                await clipboard.SetDataAsync(data);
             }
         }
     }
@@ -371,7 +368,7 @@ public sealed class DirectoryTreeView : TreeView
 
     private void OnDragOver(object sender, DragEventArgs e)
     {
-        if (e.Data.Contains(DataFormats.Files))
+        if (e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.Copy;
         }
@@ -379,7 +376,7 @@ public sealed class DirectoryTreeView : TreeView
 
     private void OnDrop(object sender, DragEventArgs e)
     {
-        if (e.Data.Contains(DataFormats.Files) && e.Source is ILogical logical)
+        if (e.DataTransfer.Contains(DataFormat.File) && e.Source is ILogical logical)
         {
             e.DragEffects = DragDropEffects.Copy;
 
@@ -391,7 +388,7 @@ public sealed class DirectoryTreeView : TreeView
             else if (treeViewItem is FileTreeItem fileTree && fileTree.Info.DirectoryName != null)
                 baseDir = fileTree.Info.DirectoryName;
 
-            foreach (IStorageItem src in e.Data.GetFiles() ?? [])
+            foreach (IStorageItem src in e.DataTransfer.TryGetFiles() ?? [])
             {
                 if (src is IStorageFile
                     && src.TryGetLocalPath() is string localPath)
@@ -580,20 +577,24 @@ public sealed class FileTreeItem : TreeViewItem
         }
     }
 
-    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    protected override async void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+        if (TopLevel.GetTopLevel(this) is not { StorageProvider: IStorageProvider storageProvider })
+            return;
+
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
+
             TreeView parent = this.FindLogicalAncestorOfType<TreeView>();
             parent.SelectedItem = this;
             Refresh();
 
-            var dataObject = new DataObject();
-            dataObject.Set(DataFormats.Files, new string[] { Info.FullName });
+            var data = new DataTransfer();
+            data.Add(DataTransferItem.CreateFile(await storageProvider.TryGetFileFromPathAsync(Info.FullName)));
 
             // ドラッグ開始
-            DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy).ConfigureAwait(false);
+            await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy).ConfigureAwait(false);
         }
     }
 

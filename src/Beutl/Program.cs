@@ -2,7 +2,7 @@
 
 using Avalonia;
 using Avalonia.Media;
-using Avalonia.ReactiveUI;
+using ReactiveUI.Avalonia;
 
 using Beutl.Configuration;
 using Beutl.Graphics.Rendering;

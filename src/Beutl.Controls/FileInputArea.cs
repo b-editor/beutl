@@ -93,7 +93,7 @@ public class FileInputArea : ContentControl
     private void OnDragEnter(object sender, DragEventArgs e)
     {
         if (_patternContexts != null
-            && e.Data.GetFiles() is { } files)
+            && e.DataTransfer.TryGetFiles() is { } files)
         {
             _matchResult = Match(_patternContexts, files);
             if (_matchResult != null)

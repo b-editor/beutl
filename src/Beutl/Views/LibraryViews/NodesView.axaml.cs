@@ -47,16 +47,16 @@ public partial class NodesView : UserControl
 
         if (item != null)
         {
-            (string, Type)[] arr = item.TryDragDrop().ToArray();
+            (DataFormat<string>, Type)[] arr = item.TryDragDrop().ToArray();
             if (arr.Length > 0)
             {
-                var dataObject = new DataObject();
-                foreach ((string format, Type type) in arr)
+                var data = new DataTransfer();
+                foreach ((DataFormat<string> format, Type type) in arr)
                 {
-                    dataObject.Set(format, type);
+                    data.Add(DataTransferItem.Create(format, TypeFormat.ToString(type)));
                 }
 
-                await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
+                await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy);
             }
         }
     }

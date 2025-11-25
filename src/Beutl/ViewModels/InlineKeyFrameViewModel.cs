@@ -5,6 +5,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Helpers;
 using Beutl.Logging;
+using Beutl.Models;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -66,12 +67,12 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
         try
         {
-            var dataObject = new DataObject();
+            var data = new DataTransfer();
             ObjectRegenerator.Regenerate(Model, out string json);
-            dataObject.Set(DataFormats.Text, json);
-            dataObject.Set(nameof(IKeyFrame), json);
+            data.Add(DataTransferItem.CreateText(json));
+            data.Add(DataTransferItem.Create(BeutlDataFormats.KeyFrame, json));
 
-            await clipboard.SetDataObjectAsync(dataObject);
+            await clipboard.SetDataAsync(data);
         }
         catch (Exception ex)
         {
@@ -87,18 +88,9 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
         try
         {
-            string[] formats = await clipboard.GetFormatsAsync();
-
-            if (formats.Contains(nameof(IKeyFrame)))
+            if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } json
+                && JsonNode.Parse(json) is JsonObject jsonObj)
             {
-                byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrame)) as byte[];
-                JsonNode? jsonNode = JsonNode.Parse(json!);
-                if (jsonNode is not JsonObject jsonObj)
-                {
-                    NotificationService.ShowWarning("", "Invalid keyframe data format.");
-                    return;
-                }
-
                 if (!jsonObj.TryGetDiscriminator(out Type? type))
                 {
                     NotificationService.ShowWarning("", "Invalid keyframe data format. missing $type.");
