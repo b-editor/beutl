@@ -22,7 +22,7 @@ public class AnimationOperations
     }
 
     public static KeyFrame<T>? InsertKeyFrame<T>(KeyFrameAnimation<T> animation, Scene? scene, Element? element,
-        Easing? easing, TimeSpan keyTime, ILogger logger, CommandRecorder cr, ImmutableArray<IStorable?> storables)
+        Easing? easing, TimeSpan keyTime, ILogger logger, CommandRecorder cr, ImmutableArray<CoreObject?> storables)
     {
         logger.LogInformation("Inserting key frame at {KeyTime}", keyTime);
         bool defaultEasing = easing is null or SplineEasing { X1: 0, Y1: 0, X2: 1, Y2: 1 };
@@ -82,7 +82,7 @@ public class AnimationOperations
     }
 
     public static void RemoveKeyFrame(IKeyFrameAnimation animation, Scene? scene, Element? element,
-        TimeSpan keyTime, ILogger logger, CommandRecorder cr, ImmutableArray<IStorable?> storables)
+        TimeSpan keyTime, ILogger logger, CommandRecorder cr, ImmutableArray<CoreObject?> storables)
     {
         logger.LogInformation("Removing key frame at {KeyTime}", keyTime);
         keyTime = ConvertKeyTime(animation, scene, element, keyTime, logger);
@@ -105,7 +105,7 @@ public class AnimationOperations
     }
 
     public static void RemoveKeyFrame(IKeyFrameAnimation animation, Scene? scene, Element? element,
-        IKeyFrame keyframe, ILogger logger, CommandRecorder cr, ImmutableArray<IStorable?> storables)
+        IKeyFrame keyframe, ILogger logger, CommandRecorder cr, ImmutableArray<CoreObject?> storables)
     {
         logger.LogInformation("Removing key frame at {KeyTime}", keyframe.KeyTime);
 
