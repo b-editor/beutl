@@ -7,355 +7,56 @@ on:
 
 jobs:
   determine-version:
-    runs-on: ubuntu-latest
-    outputs:
-      semVer: ${{ steps.nbgv.outputs.SemVer2 }}
-      nugetVer: ${{ steps.nbgv.outputs.NuGetPackageVersion }}
-      asmVer: ${{ steps.nbgv.outputs.AssemblyFileVersion }}
-      infoVer: ${{ steps.nbgv.outputs.AssemblyInformationalVersion }}
-      simpleVer: ${{ steps.nbgv.outputs.SimpleVersion }}
-      revision: ${{ steps.nbgv.outputs.VersionRevision }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
-
-      - name: Nerdbank.GitVersioning
-        id: nbgv
-        uses: dotnet/nbgv@v0.4.2
+    uses: ./.github/workflows/build-version.yml
 
   build-executable:
     needs: [ determine-version ]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rid: [ linux_x64, win_x64, osx_x64, osx_arm64 ]
-        standalone: [ true, false ]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
-
-      - name: Restore
-        run: |
-          chmod +x build.sh
-          ./build.sh restore --runtime ${{ matrix.rid }}
-
-      - name: Publish
-        run: |
-          ./build.sh publish \
-            --self-contained ${{ matrix.standalone }} \
-            --runtime ${{ matrix.rid }} \
-            --skip restore \
-            --version ${{ needs.determine-version.outputs.nugetVer }} \
-            --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
-            --informational-version ${{ needs.determine-version.outputs.infoVer }}
-
-      - if: ${{ matrix.rid == 'linux_x64' }}
-        name: Download libOpenCvSharpExtern.so
-        run: |
-          git clone https://github.com/b-editor/beutl-native-deps.git
-          cp beutl-native-deps/linux-x64/* output/Beutl
-          rm -rf beutl-native-deps
-
-      - name: Store Metadata
-        run: |
-          cd output/Beutl
-          ASSET_METADATA_ID=`uuidgen`
-          ASSET_METADATA_OS=`echo ${{ matrix.rid }} | cut -d '_' -f 1`
-          ASSET_METADATA_ARCH=`echo ${{ matrix.rid }} | cut -d '_' -f 2`
-          ASSET_METADATA_VERSION=${{ needs.determine-version.outputs.semVer }}
-          ASSET_METADATA_STANDALONE=${{ matrix.standalone }}
-          ASSET_METADATA_TYPE=zip
-          echo '{}' | jq \
-             --arg id $ASSET_METADATA_ID \
-             --arg os $ASSET_METADATA_OS \
-             --arg arch $ASSET_METADATA_ARCH \
-             --arg version $ASSET_METADATA_VERSION \
-             --arg standalone $ASSET_METADATA_STANDALONE \
-             --arg type $ASSET_METADATA_TYPE \
-            '.id=$id | .os=$os | .arch=$arch | .version=$version | .standalone=$standalone | .type=$type' > asset_metadata.json
-          cat asset_metadata.json
-
-      - name: Zip
-        run: |
-          ./build.sh zip \
-            --runtime ${{ matrix.rid }} \
-            --self-contained ${{ matrix.standalone }} \
-            --skip publish \
-            --version ${{ needs.determine-version.outputs.nugetVer }}
-
-      - name: Save
-        uses: actions/upload-artifact@v5
-        with:
-          name: beutl-${{ matrix.rid }}${{ matrix.standalone == true && '-standalone' || '' }}-${{ needs.determine-version.outputs.semVer }}
-          path: ./artifacts/*.zip
+    uses: ./.github/workflows/build-executable.yml
+    with:
+      semVer: ${{ needs.determine-version.outputs.semVer }}
+      nugetVer: ${{ needs.determine-version.outputs.nugetVer }}
+      asmVer: ${{ needs.determine-version.outputs.asmVer }}
+      infoVer: ${{ needs.determine-version.outputs.infoVer }}
 
   build-windows-installer:
     needs: [ determine-version, build-executable ]
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        standalone: [ true, false ]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
-
-      - uses: actions/download-artifact@v6
-        with:
-          name: beutl-win_x64${{ matrix.standalone == true && '-standalone' || '' }}-${{ needs.determine-version.outputs.semVer }}
-          path: artifacts
-
-      - name: Extract zip
-        run: |
-          mkdir output/Beutl
-          cd output/Beutl
-          7z x ../../artifacts/beutl-win-x64${{ matrix.standalone == true && '-standalone' || '' }}-${{ needs.determine-version.outputs.semVer }}.zip
-
-      - name: Update Metadata
-        shell: pwsh
-        run: |
-            cd output/Beutl
-            $ASSET_METADATA_ID = [guid]::NewGuid().ToString()
-            Get-Content asset_metadata.json | jq --arg id "$ASSET_METADATA_ID" '.id=$id | .type="installer"' | Set-Content asset_metadata.json
-            Get-Content asset_metadata.json
-
-      - name: Build installer
-        run: |
-          ./build.cmd build-installer `
-            --skip publish `
-            --self-contained ${{ matrix.standalone }} `
-            --assembly-version ${{ needs.determine-version.outputs.asmVer }}
-
-      - name: Save installer
-        uses: actions/upload-artifact@v5
-        with:
-          name: beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup
-          path: ./artifacts/beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup.exe
+    uses: ./.github/workflows/build-windows-installer.yml
+    with:
+      semVer: ${{ needs.determine-version.outputs.semVer }}
+      asmVer: ${{ needs.determine-version.outputs.asmVer }}
 
   build-debian-package:
     needs: [ determine-version, build-executable ]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
-
-      - uses: actions/download-artifact@v6
-        with:
-          name: beutl-linux_x64-standalone-${{ needs.determine-version.outputs.semVer }}
-          path: artifacts
-
-      - name: Extract zip
-        run: |
-          cd packages/ubuntu22.04_amd64/usr
-          mkdir -p lib/beutl
-          cd lib/beutl
-          unzip ${{ github.workspace }}/artifacts/Beutl-linux-x64-standalone-${{ needs.determine-version.outputs.semVer }}.zip
-
-      - name: Update Metadata
-        shell: bash
-        run: |
-          cd packages/ubuntu22.04_amd64/usr/lib/beutl
-          ASSET_METADATA_ID=`uuidgen`
-          cat asset_metadata.json | jq --arg id "$ASSET_METADATA_ID" '. .id=$id | .type="debian"' > asset_metadata_tmp.json
-          mv asset_metadata_tmp.json asset_metadata.json
-          cat asset_metadata.json
-
-      - name: Change mode
-        run: |
-          cd packages/ubuntu22.04_amd64/usr/lib/beutl
-          chmod +x Beutl
-          chmod +x Beutl.ExceptionHandler
-          chmod +x Beutl.PackageTools.UI
-          chmod +x Beutl.WaitingDialog
-
-      - name: Symbolic Link
-        run: |
-          cd packages/ubuntu22.04_amd64
-          mkdir usr/bin
-          ln -s /usr/lib/beutl/Beutl usr/bin/beutl
-
-      - name: Set Version
-        run: |
-          cd packages/ubuntu22.04_amd64/DEBIAN
-          echo "Version: ${{ needs.determine-version.outputs.simpleVer }}-${{ needs.determine-version.outputs.revision }}ubuntu22.04" >> control
-
-      - name: Set Installed-Size
-        run: |
-          SizeInKiloBytes=`du -s -k packages/ubuntu22.04_amd64 | awk '{print $1}'`
-          cd packages/ubuntu22.04_amd64/DEBIAN
-          echo "Installed-Size: $SizeInKiloBytes" >> control
-
-      - name: Build package
-        run: |
-          cd packages
-          fakeroot dpkg-deb --build ubuntu22.04_amd64 .
-
-      - name: Save package
-        uses: actions/upload-artifact@v5
-        with:
-          name: ubuntu22.04_amd64
-          path: ./packages/beutl_${{ needs.determine-version.outputs.simpleVer }}-${{ needs.determine-version.outputs.revision }}ubuntu22.04_amd64.deb
+    uses: ./.github/workflows/build-debian-package.yml
+    with:
+      semVer: ${{ needs.determine-version.outputs.semVer }}
+      simpleVer: ${{ needs.determine-version.outputs.simpleVer }}
+      revision: ${{ needs.determine-version.outputs.revision }}
 
   build-app-bundle:
     needs: [ determine-version ]
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        rid: [ osx_x64, osx_arm64 ]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
-
-      - name: Restore
-        run: |
-          chmod +x build.sh
-          ./build.sh Restore --runtime ${{ matrix.rid }}
-
-      - name: Bundle
-        run: |
-          ./build.sh bundle-app \
-            --runtime ${{ matrix.rid }} \
-            --skip restore \
-            --version ${{ needs.determine-version.outputs.nugetVer }} \
-            --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
-            --informational-version ${{ needs.determine-version.outputs.infoVer }}
-
-      - name: Store Metadata
-        shell: bash
-        run: |
-          cd output/AppBundle/Beutl.app/Contents/MacOS
-          ASSET_METADATA_ID=`uuidgen`
-          ASSET_METADATA_OS=`echo ${{ matrix.rid }} | cut -d '_' -f 1`
-          ASSET_METADATA_ARCH=`echo ${{ matrix.rid }} | cut -d '_' -f 2`
-          ASSET_METADATA_VERSION=${{ needs.determine-version.outputs.semVer }}
-          ASSET_METADATA_STANDALONE=true
-          ASSET_METADATA_TYPE=app
-          echo '{}' | jq \
-             --arg id $ASSET_METADATA_ID \
-             --arg os $ASSET_METADATA_OS \
-             --arg arch $ASSET_METADATA_ARCH \
-             --arg version $ASSET_METADATA_VERSION \
-             --arg standalone $ASSET_METADATA_STANDALONE \
-             --arg type $ASSET_METADATA_TYPE \
-            '.id=$id | .os=$os | .arch=$arch | .version=$version | .standalone=$standalone | .type=$type' > asset_metadata.json
-          cat asset_metadata.json
-
-      - name: Install Developer ID certificate
-        run: |
-          # Set up the keychain
-          security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
-
-          # Import the certificate
-          echo "${{ secrets.CERTIFICATES_P12 }}" | base64 --decode > certificates.p12
-          security import certificates.p12 -k build.keychain -P "${{ secrets.CERTIFICATES_P12_PASSWORD }}" -T /usr/bin/codesign
-
-          # Allow codesign to access keychain
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.KEYCHAIN_PASSWORD}}" build.keychain
-
-          # Store the credential in the keychain
-          xcrun notarytool store-credentials "AC_PASSWORD" --apple-id "${{ secrets.APPLE_ID }}" --team-id ${{ secrets.TEAM_ID }} --password "${{ secrets.APPLE_APP_PASSWORD }}"
-
-      - name: Code sign
-        env:
-          APP_NAME: output/AppBundle/Beutl.app
-          ENTITLEMENTS: build/AppEntitlements.entitlements
-          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
-        run: |
-          find "$APP_NAME/Contents/MacOS/"|while read fname; do
-            if [[ -f $fname ]]; then
-              echo "[INFO] Signing $fname"
-              codesign --deep --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" "$fname"
-            fi
-          done
-
-          echo "[INFO] Signing app file"
-
-          codesign --deep --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" "$APP_NAME"
-
-      - name: Verify
-        run: |
-          codesign --verify --deep --strict --verbose output/AppBundle/Beutl.app
-
-      - name: Notarize app
-        run: |
-          ditto -c -k --sequesterRsrc --keepParent "output/AppBundle/Beutl.app" "output/AppBundle/Beutl.zip"
-          xcrun notarytool submit "output/AppBundle/Beutl.zip" --wait --keychain-profile "AC_PASSWORD"
-          xcrun stapler staple "output/AppBundle/Beutl.app"
-          xcrun stapler validate "output/AppBundle/Beutl.app"
-
-      - name: Zip
-        run: |
-          mkdir -p artifacts
-          ditto -c -k --sequesterRsrc --keepParent "output/AppBundle/Beutl.app" "artifacts/Beutl.${{ matrix.rid }}.app.zip"
-
-      - name: Save
-        uses: actions/upload-artifact@v5
-        with:
-          name: Beutl_${{ matrix.rid }}
-          path: artifacts/Beutl.${{ matrix.rid }}.app.zip
+    uses: ./.github/workflows/build-macos-app.yml
+    with:
+      semVer: ${{ needs.determine-version.outputs.semVer }}
+      nugetVer: ${{ needs.determine-version.outputs.nugetVer }}
+      asmVer: ${{ needs.determine-version.outputs.asmVer }}
+      infoVer: ${{ needs.determine-version.outputs.infoVer }}
+    secrets:
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      CERTIFICATES_P12: ${{ secrets.CERTIFICATES_P12 }}
+      CERTIFICATES_P12_PASSWORD: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      TEAM_ID: ${{ secrets.TEAM_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+      SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
 
   build-nuget:
     needs: [ determine-version ]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
-
-      - name: Restore
-        run: |
-          chmod +x build.sh
-          ./build.sh restore
-
-      - name: Build & Pack
-        run: |
-          ./build.sh nuget-pack --skip restore \
-            --version ${{ needs.determine-version.outputs.nugetVer }} \
-            --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
-            --informational-version ${{ needs.determine-version.outputs.infoVer }}
-
-      - name: Save
-        uses: actions/upload-artifact@v5
-        with:
-          name: Packages
-          path: ./artifacts/*.nupkg
+    uses: ./.github/workflows/build-nuget.yml
+    with:
+      nugetVer: ${{ needs.determine-version.outputs.nugetVer }}
+      asmVer: ${{ needs.determine-version.outputs.asmVer }}
+      infoVer: ${{ needs.determine-version.outputs.infoVer }}
 
   create-release:
     needs: [ build-executable, build-windows-installer, build-debian-package, build-nuget, build-app-bundle ]

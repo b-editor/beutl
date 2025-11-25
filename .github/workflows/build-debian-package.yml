@@ -1,0 +1,84 @@
+name: Build Debian Package
+
+on:
+  workflow_call:
+    inputs:
+      semVer:
+        required: true
+        type: string
+      simpleVer:
+        required: true
+        type: string
+      revision:
+        required: true
+        type: string
+
+jobs:
+  build-debian-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - uses: actions/download-artifact@v6
+        with:
+          name: beutl-linux_x64-standalone-${{ inputs.semVer }}
+          path: artifacts
+
+      - name: Extract zip
+        run: |
+          cd packages/ubuntu22.04_amd64/usr
+          mkdir -p lib/beutl
+          cd lib/beutl
+          unzip ${{ github.workspace }}/artifacts/Beutl-linux-x64-standalone-${{ inputs.semVer }}.zip
+
+      - name: Update Metadata
+        shell: bash
+        run: |
+          cd packages/ubuntu22.04_amd64/usr/lib/beutl
+          ASSET_METADATA_ID=`uuidgen`
+          cat asset_metadata.json | jq --arg id "$ASSET_METADATA_ID" '. .id=$id | .type="debian"' > asset_metadata_tmp.json
+          mv asset_metadata_tmp.json asset_metadata.json
+          cat asset_metadata.json
+
+      - name: Change mode
+        run: |
+          cd packages/ubuntu22.04_amd64/usr/lib/beutl
+          chmod +x Beutl
+          chmod +x Beutl.ExceptionHandler
+          chmod +x Beutl.PackageTools.UI
+          chmod +x Beutl.WaitingDialog
+
+      - name: Symbolic Link
+        run: |
+          cd packages/ubuntu22.04_amd64
+          mkdir usr/bin
+          ln -s /usr/lib/beutl/Beutl usr/bin/beutl
+
+      - name: Set Version
+        run: |
+          cd packages/ubuntu22.04_amd64/DEBIAN
+          echo "Version: ${{ inputs.simpleVer }}-${{ inputs.revision }}ubuntu22.04" >> control
+
+      - name: Set Installed-Size
+        run: |
+          SizeInKiloBytes=`du -s -k packages/ubuntu22.04_amd64 | awk '{print $1}'`
+          cd packages/ubuntu22.04_amd64/DEBIAN
+          echo "Installed-Size: $SizeInKiloBytes" >> control
+
+      - name: Build package
+        run: |
+          cd packages
+          fakeroot dpkg-deb --build ubuntu22.04_amd64 .
+
+      - name: Save package
+        uses: actions/upload-artifact@v5
+        with:
+          name: ubuntu22.04_amd64
+          path: ./packages/beutl_${{ inputs.simpleVer }}-${{ inputs.revision }}ubuntu22.04_amd64.deb

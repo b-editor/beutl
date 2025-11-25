@@ -1,0 +1,89 @@
+name: Build Executable
+
+on:
+  workflow_call:
+    inputs:
+      semVer:
+        required: true
+        type: string
+      nugetVer:
+        required: true
+        type: string
+      asmVer:
+        required: true
+        type: string
+      infoVer:
+        required: true
+        type: string
+
+jobs:
+  build-executable:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rid: [ linux_x64, win_x64, osx_x64, osx_arm64 ]
+        standalone: [ true, false ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: |
+          chmod +x build.sh
+          ./build.sh restore --runtime ${{ matrix.rid }}
+
+      - name: Publish
+        run: |
+          ./build.sh publish \
+            --self-contained ${{ matrix.standalone }} \
+            --runtime ${{ matrix.rid }} \
+            --skip restore \
+            --version ${{ inputs.nugetVer }} \
+            --assembly-version ${{ inputs.asmVer }} \
+            --informational-version ${{ inputs.infoVer }}
+
+      - if: ${{ matrix.rid == 'linux_x64' }}
+        name: Download libOpenCvSharpExtern.so
+        run: |
+          git clone https://github.com/b-editor/beutl-native-deps.git
+          cp beutl-native-deps/linux-x64/* output/Beutl
+          rm -rf beutl-native-deps
+
+      - name: Store Metadata
+        run: |
+          cd output/Beutl
+          ASSET_METADATA_ID=`uuidgen`
+          ASSET_METADATA_OS=`echo ${{ matrix.rid }} | cut -d '_' -f 1`
+          ASSET_METADATA_ARCH=`echo ${{ matrix.rid }} | cut -d '_' -f 2`
+          ASSET_METADATA_VERSION=${{ inputs.semVer }}
+          ASSET_METADATA_STANDALONE=${{ matrix.standalone }}
+          ASSET_METADATA_TYPE=zip
+          echo '{}' | jq \
+             --arg id $ASSET_METADATA_ID \
+             --arg os $ASSET_METADATA_OS \
+             --arg arch $ASSET_METADATA_ARCH \
+             --arg version $ASSET_METADATA_VERSION \
+             --arg standalone $ASSET_METADATA_STANDALONE \
+             --arg type $ASSET_METADATA_TYPE \
+            '.id=$id | .os=$os | .arch=$arch | .version=$version | .standalone=$standalone | .type=$type' > asset_metadata.json
+          cat asset_metadata.json
+
+      - name: Zip
+        run: |
+          ./build.sh zip \
+            --runtime ${{ matrix.rid }} \
+            --self-contained ${{ matrix.standalone }} \
+            --skip publish \
+            --version ${{ inputs.nugetVer }}
+
+      - name: Save
+        uses: actions/upload-artifact@v5
+        with:
+          name: beutl-${{ matrix.rid }}${{ matrix.standalone == true && '-standalone' || '' }}-${{ inputs.semVer }}
+          path: ./artifacts/*.zip
