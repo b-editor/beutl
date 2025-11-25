@@ -26,7 +26,7 @@ public partial class PlayerView
         AvaPoint position = e.GetPosition(image);
         double scaleX = image.Bounds.Size.Width / scene.FrameSize.Width;
         Point scaledPosition = (position / scaleX).ToBtlPoint();
-        Point centerePosition = scaledPosition - new Point(scene.FrameSize.Width / 2f, scene.FrameSize.Height / 2f);
+        Point centeredPosition = scaledPosition - new Point(scene.FrameSize.Width / 2f, scene.FrameSize.Height / 2f);
 
         bool containsFe = e.DataTransfer.Contains(BeutlDataFormats.FilterEffect);
         bool containsTra = e.DataTransfer.Contains(BeutlDataFormats.Transform);
@@ -91,7 +91,7 @@ public partial class PlayerView
 
                 if (e.KeyModifiers == KeyModifiers.Control)
                 {
-                    var desc = new ElementDescription(frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centerePosition);
+                    var desc = new ElementDescription(frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centeredPosition);
                     var dialogViewModel = new AddElementDialogViewModel(scene, desc, editViewModel.CommandRecorder);
                     var dialog = new AddElementDialog { DataContext = dialogViewModel };
                     await dialog.ShowAsync();
@@ -99,7 +99,7 @@ public partial class PlayerView
                 else
                 {
                     editViewModel.AddElement(new ElementDescription(
-                        frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centerePosition));
+                        frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centeredPosition));
                 }
             }
             else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
@@ -107,7 +107,7 @@ public partial class PlayerView
                 int zindex = CalculateZIndex(scene);
 
                 editViewModel.AddElement(new ElementDescription(
-                    frame, TimeSpan.FromSeconds(5), zindex, FileName: fileName, Position: centerePosition));
+                    frame, TimeSpan.FromSeconds(5), zindex, FileName: fileName, Position: centeredPosition));
 
                 e.Handled = true;
             }
