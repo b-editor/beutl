@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls.Behaviors;
+using Beutl.Models;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -40,8 +41,8 @@ public sealed partial class SourceOperatorView : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator)
-            && e.Data.Get(KnownLibraryItemFormats.SourceOperator) is Type item2
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is {  } typeName
+            && TypeFormat.ToType(typeName) is { } item2
             && DataContext is SourceOperatorViewModel viewModel2)
         {
             CommandRecorder recorder = viewModel2.GetRequiredService<CommandRecorder>();
@@ -69,7 +70,7 @@ public sealed partial class SourceOperatorView : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.SourceOperator))
+        if (e.DataTransfer.Contains(BeutlDataFormats.SourceOperator))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }

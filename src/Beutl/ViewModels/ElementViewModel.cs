@@ -281,15 +281,15 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                     .ToArray())
                 .ToJsonString()
             : null;
-        var data = new DataObject();
-        data.Set(DataFormats.Text, singleJson);
-        data.Set(Constants.Element, singleJson);
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.CreateText(singleJson));
+        data.Add(DataTransferItem.Create(BeutlDataFormats.Element, singleJson));
         if (!skipMulti)
         {
-            data.Set(Constants.Elements, multiJson);
+            data.Add(DataTransferItem.Create(BeutlDataFormats.Elements, multiJson));
         }
 
-        await clipboard.SetDataObjectAsync(data);
+        await clipboard.SetDataAsync(data);
         return true;
     }
 

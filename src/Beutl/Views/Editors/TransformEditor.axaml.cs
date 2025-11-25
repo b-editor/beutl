@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Graphics.Transformation;
+using Beutl.Models;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
@@ -66,8 +67,8 @@ public partial class TransformEditor : UserControl
                 return KnownTransformType.Unknown;
         }
 
-        if (e.Data.Contains(KnownLibraryItemFormats.Transform)
-            && e.Data.Get(KnownLibraryItemFormats.Transform) is Type type
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is {  } typeName
+            && TypeFormat.ToType(typeName) is { } type
             && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
         {
             KnownTransformType knownType = ToKnownType(type);
@@ -90,7 +91,7 @@ public partial class TransformEditor : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.Transform))
+        if (e.DataTransfer.Contains(BeutlDataFormats.Transform))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
             e.Handled = true;

@@ -10,6 +10,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Helpers;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -59,8 +60,9 @@ public partial class GraphEditorView : UserControl
 
     private void OnDrap(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.Easing)
-            && e.Data.Get(KnownLibraryItemFormats.Easing) is Easing easing
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Easing) is {  } typeName
+            && TypeFormat.ToType(typeName) is { } type
+            && Activator.CreateInstance(type) is Easing easing
             && DataContext is GraphEditorViewModel { Options.Value.Scale: { } scale } viewModel)
         {
             TimeSpan time = e.GetPosition(graphPanel).X.ToTimeSpan(scale);
@@ -71,7 +73,7 @@ public partial class GraphEditorView : UserControl
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.Easing))
+        if (e.DataTransfer.Contains(BeutlDataFormats.Easing))
         {
             e.DragEffects = DragDropEffects.Copy;
             e.Handled = true;

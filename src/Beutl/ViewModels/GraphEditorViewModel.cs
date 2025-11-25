@@ -10,6 +10,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Helpers;
 using Beutl.Logging;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using ExCSS;
@@ -326,11 +327,11 @@ public abstract class GraphEditorViewModel : IDisposable
         {
             ObjectRegenerator.Regenerate(Animation, out string json);
 
-            var data = new DataObject();
-            data.Set(DataFormats.Text, json);
-            data.Set(nameof(IKeyFrameAnimation), json);
+            var data = new DataTransfer();
+            data.Add(DataTransferItem.CreateText(json));
+            data.Add(DataTransferItem.Create(BeutlDataFormats.KeyFrameAnimation, json));
 
-            await clipboard.SetDataObjectAsync(data);
+            await clipboard.SetDataAsync(data);
         }
         catch (Exception ex)
         {
@@ -346,18 +347,14 @@ public abstract class GraphEditorViewModel : IDisposable
 
         try
         {
-            string[] formats = await clipboard.GetFormatsAsync();
-
-            if (formats.Contains(nameof(IKeyFrame)))
+            if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } keyFrameJson)
             {
-                byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrame)) as byte[];
-                PasteKeyFrame(System.Text.Encoding.UTF8.GetString(json!), pointerPosition);
+                PasteKeyFrame(keyFrameJson, pointerPosition);
                 return;
             }
-            else if (formats.Contains(nameof(IKeyFrameAnimation)))
+            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is { } keyFrameAnimationJson)
             {
-                byte[]? json = await clipboard.GetDataAsync(nameof(IKeyFrameAnimation)) as byte[];
-                PasteAnimation(System.Text.Encoding.UTF8.GetString(json!));
+                PasteAnimation(keyFrameAnimationJson);
                 return;
             }
 

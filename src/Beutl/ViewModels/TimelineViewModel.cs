@@ -495,8 +495,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     private async Task PasteElementList(IClipboard clipboard)
     {
-        byte[]? json = await clipboard.GetDataAsync(Constants.Elements) as byte[];
-        if (JsonNode.Parse(json) is not JsonArray jsonArray) return;
+        string? json = await clipboard.TryGetValueAsync(BeutlDataFormats.Elements);
+        if (json == null || JsonNode.Parse(json) is not JsonArray jsonArray) return;
 
         var oldElements = jsonArray
             .Select(node => (node, element: new Element()))
@@ -539,7 +539,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     private async Task PasteElement(IClipboard clipboard)
     {
-        if (await clipboard.GetDataAsync(Constants.Element) is not byte[] json) return;
+        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Element) is not { } json) return;
         if (JsonNode.Parse(json) is not JsonObject jsonObject) return;
 
         var oldElement = new Element();
@@ -560,16 +560,10 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         ScrollTo.Execute((newElement.Range, newElement.ZIndex));
     }
 
-    private async Task PasteImageElement(string[] formats, IClipboard clipboard)
+    private async Task PasteImageElement(IClipboard clipboard)
     {
-        string[] imageFormats = ["image/png", "PNG", "public.png", "image/jpeg", "image/jpg"];
-
-        if (Array.Find(imageFormats, formats.Contains) is not { } matchFormat) return;
-
-        object? imageData = await clipboard.GetDataAsync(matchFormat);
-        if (imageData is not byte[] byteArray) return;
-
-        await using var stream = new MemoryStream(byteArray);
+        var imageData = await clipboard.TryGetBitmapAsync();
+        if (imageData == null) return;
 
         string dir = Path.GetDirectoryName(Scene.FileName)!;
         // 画像を保存
@@ -580,8 +574,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         }
 
         string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
-        using var bmp = Bitmap<Bgra8888>.FromStream(stream);
-        bmp.Save(imageFile, Graphics.EncodedImageFormat.Png);
+        imageData.Save(imageFile);
 
         var sp = new SourceImageOperator();
         sp.Value.Source = BitmapSource.Open(imageFile);
@@ -605,7 +598,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     private async Task PasteFiles(IClipboard clipboard)
     {
-        if (await clipboard.GetDataAsync(DataFormats.Files) is not IEnumerable<IStorageItem> files) return;
+        if (await clipboard.TryGetFilesAsync() is not { } files) return;
 
         var frame = ClickedFrame;
         int layer = CalculateClickedLayer();
@@ -626,23 +619,23 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             IClipboard? clipboard = App.GetClipboard();
             if (clipboard == null) return;
 
-            string[] formats = await clipboard.GetFormatsAsync();
+            var formats = await clipboard.GetDataFormatsAsync();
 
-            if (formats.Contains(Constants.Elements))
+            if (formats.Contains(BeutlDataFormats.Elements))
             {
                 await PasteElementList(clipboard);
             }
-            else if (formats.Contains(Constants.Element))
+            else if (formats.Contains(BeutlDataFormats.Element))
             {
                 await PasteElement(clipboard);
             }
-            else if (formats.Contains(DataFormats.Files))
+            else if (formats.Contains(DataFormat.File))
             {
                 await PasteFiles(clipboard);
             }
-            else
+            else if (formats.Contains(DataFormat.Bitmap))
             {
-                await PasteImageElement(formats, clipboard);
+                await PasteImageElement(clipboard);
             }
         }
         catch (Exception ex)

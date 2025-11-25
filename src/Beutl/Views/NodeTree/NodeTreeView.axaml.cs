@@ -6,6 +6,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Collections.Pooled;
+using Beutl.Models;
 using Beutl.NodeTree;
 using Beutl.Services;
 using Beutl.ViewModels.NodeTree;
@@ -40,8 +41,8 @@ public partial class NodeTreeView : UserControl
     private void OnDrop(object? sender, DragEventArgs e)
     {
         if (DataContext is NodeTreeViewModel viewModel
-            && e.Data.Contains(KnownLibraryItemFormats.Node)
-            && e.Data.Get(KnownLibraryItemFormats.Node) is Type item)
+            && e.DataTransfer.TryGetValue(BeutlDataFormats.Node) is { } typeName
+            && TypeFormat.ToType(typeName) is { } item)
         {
             Point point = e.GetPosition(canvas) - new Point(215 / 2, 0);
             viewModel.AddSocket(item, point);
@@ -50,7 +51,7 @@ public partial class NodeTreeView : UserControl
 
     private void OnDragEnter(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.Node))
+        if (e.DataTransfer.Contains(BeutlDataFormats.Node))
         {
             e.DragEffects = DragDropEffects.Copy;
         }

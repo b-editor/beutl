@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Models;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
@@ -57,8 +58,8 @@ public partial class FilterEffectEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains(KnownLibraryItemFormats.FilterEffect)
-            && e.Data.Get(KnownLibraryItemFormats.FilterEffect) is Type type
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.FilterEffect) is {  } typeName
+            && TypeFormat.ToType(typeName) is { } type
             && DataContext is FilterEffectEditorViewModel { IsDisposed: false } viewModel)
         {
             if (viewModel.IsGroup.Value)
@@ -77,7 +78,7 @@ public partial class FilterEffectEditor : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (!e.Data.Contains(KnownLibraryItemFormats.FilterEffect)) return;
+        if (!e.DataTransfer.Contains(BeutlDataFormats.FilterEffect)) return;
 
         e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         e.Handled = true;

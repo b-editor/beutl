@@ -4,8 +4,10 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using Avalonia.Input;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
+using Beutl.Models;
 using Beutl.NodeTree;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -83,25 +85,43 @@ public class LibraryItemViewModel
         return obj;
     }
 
-    public IEnumerable<(string, Type)> TryDragDrop()
+    public IEnumerable<(DataFormat<string>, Type)> TryDragDrop()
     {
         if (Data is LibraryItem libitem)
         {
             if (libitem is SingleTypeLibraryItem single)
-                yield return (single.Format, single.ImplementationType);
+                yield return (GetKnownDataFormat(single.Format), single.ImplementationType);
 
             if (libitem is MultipleTypeLibraryItem multi)
             {
                 foreach ((string s, Type t) in multi.Types)
                 {
-                    yield return (s, t);
+                    yield return (GetKnownDataFormat(s), t);
                 }
             }
         }
         else if (Data is NodeRegistry.RegistryItem regitem)
         {
-            yield return (KnownLibraryItemFormats.Node, regitem.Type);
+            yield return (BeutlDataFormats.Node, regitem.Type);
         }
+    }
+
+    private static DataFormat<string> GetKnownDataFormat(string format)
+    {
+        return format switch
+        {
+            KnownLibraryItemFormats.Easing => BeutlDataFormats.Easing,
+            KnownLibraryItemFormats.Transform => BeutlDataFormats.Transform,
+            KnownLibraryItemFormats.Sound => BeutlDataFormats.Sound,
+            KnownLibraryItemFormats.Geometry => BeutlDataFormats.Geometry,
+            KnownLibraryItemFormats.Drawable => BeutlDataFormats.Drawable,
+            KnownLibraryItemFormats.Brush => BeutlDataFormats.Brush,
+            KnownLibraryItemFormats.FilterEffect => BeutlDataFormats.FilterEffect,
+            KnownLibraryItemFormats.Node => BeutlDataFormats.Node,
+            KnownLibraryItemFormats.AudioEffect => BeutlDataFormats.AudioEffect,
+            KnownLibraryItemFormats.SourceOperator => BeutlDataFormats.SourceOperator,
+            _ => DataFormat.CreateStringApplicationFormat(format)
+        };
     }
 
     public bool CanDragDrop()
