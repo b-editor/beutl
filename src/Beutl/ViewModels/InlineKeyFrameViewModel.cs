@@ -88,7 +88,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
         try
         {
-            if (await clipboard.TryGetValueAsync(BeutlDataFormats.Easing) is { } json
+            if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } json
                 && JsonNode.Parse(json) is JsonObject jsonObj)
             {
                 if (!jsonObj.TryGetDiscriminator(out Type? type))
