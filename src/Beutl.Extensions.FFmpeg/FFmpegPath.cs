@@ -20,14 +20,11 @@ public static class FFmpegLoader
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(FFmpegLoader));
     private static readonly ILogger s_ffmpegLogger = Log.CreateLogger("FFmpeg");
     private static bool s_isInitialized;
-    private static readonly string s_defaultFFmpegExePath;
     private static readonly string s_defaultFFmpegPath;
 
     static FFmpegLoader()
     {
         s_defaultFFmpegPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "ffmpeg");
-        s_defaultFFmpegExePath =
-            Path.Combine(s_defaultFFmpegPath, OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg");
     }
 
     public static void Initialize()
@@ -37,7 +34,11 @@ public static class FFmpegLoader
 
         try
         {
+            // カスタムリゾルバを設定（ffmpeg.RootPathアクセス前に設定が必要）
+            // バージョン付きライブラリが見つからない場合、バージョンなしをフォールバックとして使用
             DynamicallyLoadedBindings.LibrariesPath = GetRootPath();
+            DynamicallyLoadedBindings.Initialize();
+            FixDependencyIssue();
             FFmpegSharp.FFmpegLog.SetupLogging(
                 logWrite: (s, i) =>
                 {
@@ -53,22 +54,21 @@ public static class FFmpegLoader
                     s_ffmpegLogger.Log(convertedLevel, "{OriginalLevel} {FFmpegLog}", level, s.TrimEnd('\n').TrimEnd('\r'));
                 });
             var sb = new StringBuilder();
-            sb.AppendLine("Versions:");
+            sb.AppendLine("RequestedVersions:");
 
-            foreach (KeyValuePair<string, int> item in ffmpeg.LibraryVersionMap)
+            foreach (KeyValuePair<string, int> item in DynamicallyLoadedBindings.LibraryVersionMap)
             {
                 sb.AppendLine($"  {item.Key}: {item.Value}");
             }
 
             sb.AppendLine("Licenses:");
-            sb.AppendLine($"  avcodec: {ffmpeg.avcodec_license()}");
-            sb.AppendLine($"  avdevice: {ffmpeg.avdevice_license()}");
-            sb.AppendLine($"  avfilter: {ffmpeg.avfilter_license()}");
-            sb.AppendLine($"  avformat: {ffmpeg.avformat_license()}");
-            sb.AppendLine($"  avutil: {ffmpeg.avutil_license()}");
-            sb.AppendLine($"  postproc: {ffmpeg.postproc_license()}");
-            sb.AppendLine($"  swresample: {ffmpeg.swresample_license()}");
-            sb.AppendLine($"  swscale: {ffmpeg.swscale_license()}");
+            sb.AppendLine($"  avcodec.{GetVersionString(ffmpeg.avcodec_version())}: {ffmpeg.avcodec_license()}");
+            sb.AppendLine($"  avdevice.{GetVersionString(ffmpeg.avdevice_version())}: {ffmpeg.avdevice_license()}");
+            sb.AppendLine($"  avfilter.{GetVersionString(ffmpeg.avfilter_version())}: {ffmpeg.avfilter_license()}");
+            sb.AppendLine($"  avformat.{GetVersionString(ffmpeg.avformat_version())}: {ffmpeg.avformat_license()}");
+            sb.AppendLine($"  avutil.{GetVersionString(ffmpeg.avutil_version())}: {ffmpeg.avutil_license()}");
+            sb.AppendLine($"  swresample.{GetVersionString(ffmpeg.swresample_version())}: {ffmpeg.swresample_license()}");
+            sb.AppendLine($"  swscale.{GetVersionString(ffmpeg.swscale_version())}: {ffmpeg.swscale_license()}");
             s_logger.LogInformation("{VersionAndLicense}", sb.ToString());
 
             s_isInitialized = true;
@@ -83,53 +83,43 @@ public static class FFmpegLoader
 
             throw;
         }
+
+        static string GetVersionString(uint version)
+        {
+            uint major = version >> 16 & 0xFF;
+            uint minor = version >> 8 & 0xFF;
+            uint patch = version & 0xFF;
+            return $"{major}.{minor}.{patch}";
+        }
     }
 
     private static void OpenDocumentUrl()
     {
         Process.Start(new ProcessStartInfo("https://docs.beutl.beditor.net/get-started/ffmpeg-install")
         {
-            UseShellExecute = true, Verb = "open"
+            UseShellExecute = true,
+            Verb = "open"
         });
     }
 
-    public static string GetExecutable()
+    private static void FixDependencyIssue()
     {
-        var paths = new List<string>
-        {
-            s_defaultFFmpegExePath,
-            Path.Combine(AppContext.BaseDirectory, OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg")
-        };
+        // FFmpeg 8.0 以降では postproc は廃止されているため、依存関係を修正する
+        // public static readonly Dictionary<string, string[]> LibraryDependenciesMap =
+        //     new()
+        //     {
+        //         { "avcodec", new[] { "avutil", "swresample" } },
+        //         { "avdevice", new[] { "avcodec", "avfilter", "avformat", "avutil" } },
+        //         { "avfilter", new[] { "avcodec", "avformat", "avutil", "postproc", "swresample", "swscale" } },
+        //         { "avformat", new[] { "avcodec", "avutil" } },
+        //         { "avutil", new string[0] },
+        //         { "postproc", new[] { "avutil" } },
+        //         { "swresample", new[] { "avutil" } },
+        //         { "swscale", new[] { "avutil" } }
+        //     };
 
-        if (OperatingSystem.IsLinux())
-        {
-            paths.Add("/usr/bin/ffmpeg");
-        }
-
-        if (OperatingSystem.IsMacOS())
-        {
-            switch (RuntimeInformation.OSArchitecture)
-            {
-                case Architecture.X64:
-                    paths.Add("/usr/local/lib/ffmpeg@6/bin/ffmpeg");
-                    paths.Add("/usr/local/bin/ffmpeg");
-                    break;
-                case Architecture.Arm64:
-                    paths.Add("/opt/homebrew/opt/ffmpeg@6/bin/ffmpeg");
-                    paths.Add("/opt/homebrew/bin/ffmpeg");
-                    break;
-            }
-        }
-
-        foreach (string item in paths)
-        {
-            if (File.Exists(item))
-            {
-                return item;
-            }
-        }
-
-        throw new InvalidOperationException();
+        FunctionResolverBase.LibraryDependenciesMap["avfilter"] = ["avcodec", "avformat", "avutil", "swresample", "swscale"];
+        FunctionResolverBase.LibraryDependenciesMap.Remove("postproc");
     }
 
     public static string GetRootPath()
@@ -164,11 +154,13 @@ public static class FFmpegLoader
             switch (RuntimeInformation.OSArchitecture)
             {
                 case Architecture.X64:
-                    paths.Add("/usr/local/opt/ffmpeg@6/lib");
+                    paths.Add("/usr/local/opt/ffmpeg@8/lib");
+                    paths.Add("/usr/local/opt/ffmpeg/lib");
                     paths.Add("/usr/local/lib");
                     break;
                 case Architecture.Arm64:
-                    paths.Add("/opt/homebrew/opt/ffmpeg@6/lib");
+                    paths.Add("/opt/homebrew/opt/ffmpeg@8/lib");
+                    paths.Add("/opt/homebrew/opt/ffmpeg/lib");
                     paths.Add("/opt/homebrew/lib");
                     break;
             }
@@ -190,10 +182,23 @@ public static class FFmpegLoader
         if (!Directory.Exists(basePath)) return false;
 
         string[] files = Directory.GetFiles(basePath);
-        foreach (KeyValuePair<string, int> item in ffmpeg.LibraryVersionMap)
+        foreach (KeyValuePair<string, int> item in DynamicallyLoadedBindings.LibraryVersionMap)
         {
-            ///usr/local/lib/libavformat.60.16.100.dylib
-            if (!files.Any(x => x.Contains(item.Key)))
+            string versionedLibraryName = string.Empty;
+            if (OperatingSystem.IsWindows())
+            {
+                versionedLibraryName = $"{item.Key}-{item.Value}.dll";
+            }
+            else if (OperatingSystem.IsLinux())
+            {
+                versionedLibraryName = $"lib{item.Key}.so.{item.Value}";
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                versionedLibraryName = $"lib{item.Key}.{item.Value}.dylib";
+            }
+
+            if (!files.Any(x => x.Contains(versionedLibraryName)))
             {
                 return false;
             }
