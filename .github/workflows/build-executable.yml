@@ -15,16 +15,26 @@ on:
       infoVer:
         required: true
         type: string
+    outputs:
+      artifact-run-id:
+        description: Run ID that published the artifacts
+        value: ${{ jobs.build-executable.outputs.artifact-run-id }}
 
 jobs:
   build-executable:
     runs-on: ubuntu-latest
+    outputs:
+      artifact-run-id: ${{ steps.run-id.outputs.run-id }}
     strategy:
       matrix:
         rid: [ linux_x64, win_x64, osx_x64, osx_arm64 ]
         standalone: [ true, false ]
 
     steps:
+      - name: Set artifact run id
+        id: run-id
+        run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
+
       - name: Checkout
         uses: actions/checkout@v6
 

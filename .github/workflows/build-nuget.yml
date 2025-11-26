@@ -12,12 +12,22 @@ on:
       infoVer:
         required: true
         type: string
+    outputs:
+      artifact-run-id:
+        description: Run ID that published the artifacts
+        value: ${{ jobs.build-nuget.outputs.artifact-run-id }}
 
 jobs:
   build-nuget:
     runs-on: ubuntu-latest
+    outputs:
+      artifact-run-id: ${{ steps.run-id.outputs.run-id }}
 
     steps:
+      - name: Set artifact run id
+        id: run-id
+        run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
+
       - name: Checkout
         uses: actions/checkout@v6
 

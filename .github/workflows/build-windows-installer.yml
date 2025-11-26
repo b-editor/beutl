@@ -9,15 +9,25 @@ on:
       asmVer:
         required: true
         type: string
+    outputs:
+      artifact-run-id:
+        description: Run ID that published the artifacts
+        value: ${{ jobs.build-windows-installer.outputs.artifact-run-id }}
 
 jobs:
   build-windows-installer:
     runs-on: windows-latest
+    outputs:
+      artifact-run-id: ${{ steps.run-id.outputs.run-id }}
     strategy:
       matrix:
         standalone: [ true, false ]
 
     steps:
+      - name: Set artifact run id
+        id: run-id
+        run: echo "run-id=${{ github.run_id }}" >> $env:GITHUB_OUTPUT
+
       - name: Checkout
         uses: actions/checkout@v6
 

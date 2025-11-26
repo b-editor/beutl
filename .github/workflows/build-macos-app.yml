@@ -30,15 +30,24 @@ on:
         required: true
       SIGNING_IDENTITY:
         required: true
+    outputs:
+      artifact-run-id:
+        description: Run ID that published the artifacts
+        value: ${{ jobs.build-app-bundle.outputs.artifact-run-id }}
 
 jobs:
   build-app-bundle:
     runs-on: macos-latest
+    outputs:
+      artifact-run-id: ${{ steps.run-id.outputs.run-id }}
     strategy:
       matrix:
         rid: [ osx_x64, osx_arm64 ]
 
     steps:
+      - name: Set artifact run id
+        id: run-id
+        run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
       - name: Checkout
         uses: actions/checkout@v6
 
