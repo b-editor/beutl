@@ -19,8 +19,9 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Dotnet.Bundle" Version="0.9.13" />
     <PackageVersion Include="DynamicData" Version="9.4.1" />
-    <PackageVersion Include="FFmpeg.AutoGen" Version="6.1.0" />
-    <PackageVersion Include="FFmpeg4Sharp" Version="6.0.0" />
+    <PackageVersion Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" Version="8.0.0" />
+    <PackageVersion Include="FFmpeg.AutoGen.Abstractions" Version="8.0.0" />
+    <PackageVersion Include="FFmpeg4Sharp" Version="7.0.1" />
     <PackageVersion Include="FluentAvaloniaUI" Version="2.4.1" />
     <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.224" />
     <PackageVersion Include="ILGPU.Algorithms" Version="1.5.1" />
