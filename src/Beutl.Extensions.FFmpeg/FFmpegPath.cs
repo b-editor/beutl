@@ -5,7 +5,8 @@ using System.Text;
 using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Logging;
 using Beutl.Services;
-using FFmpeg.AutoGen;
+using FFmpeg.AutoGen.Abstractions;
+using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
 using Microsoft.Extensions.Logging;
 
 #if FFMPEG_BUILD_IN
@@ -36,7 +37,7 @@ public static class FFmpegLoader
 
         try
         {
-            ffmpeg.RootPath = GetRootPath();
+            DynamicallyLoadedBindings.LibrariesPath = GetRootPath();
             FFmpegSharp.FFmpegLog.SetupLogging(
                 logWrite: (s, i) =>
                 {

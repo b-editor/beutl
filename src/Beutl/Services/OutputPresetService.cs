@@ -4,7 +4,7 @@ using Beutl.Embedding.FFmpeg.Encoding;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services.PrimitiveImpls;
-using FFmpeg.AutoGen;
+using FFmpeg.AutoGen.Abstractions;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 

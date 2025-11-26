@@ -1,6 +1,6 @@
 ﻿using Beutl.Extensibility;
 using Beutl.Logging;
-using FFmpeg.AutoGen;
+using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 using Microsoft.Extensions.Logging;
 
@@ -46,7 +46,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     }
 
     private void ConfigureAudioStream(
-        OutFormat outFormat, MediaMuxer muxer,
+        OutputFormat outFormat, MediaMuxer muxer,
         MediaFrame audioFrame, out MediaEncoder encoder, out MediaStream stream, out SampleConverter swr)
     {
         var codec = AudioSettings.Codec.Equals(CodecRecord.Default)
@@ -135,7 +135,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     }
 
     private void ConfigureVideoStream(
-        OutFormat outFormat, MediaMuxer muxer,
+        OutputFormat outFormat, MediaMuxer muxer,
         MediaFrame videoFrame, out MediaEncoder encoder, out MediaStream stream, out PixelConverter sws)
     {
         var codec = VideoSettings.Codec.Equals(CodecRecord.Default)
@@ -144,7 +144,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         int width = VideoSettings.DestinationSize.Width;
         int height = VideoSettings.DestinationSize.Height;
         var fps = VideoSettings.FrameRate;
-        var format = VideoSettings.Format;
+        var format = (AVPixelFormat)VideoSettings.Format;
         int bitRate = VideoSettings.Bitrate;
         var options = new MediaDictionary(VideoSettings.Options
             .Where(item => !string.IsNullOrWhiteSpace(item.Key))
@@ -199,7 +199,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     {
         bool encodeVideo = false, encodeAudio = false;
         using (var fs = File.OpenWrite(OutputFile))
-        using (var muxer = MediaMuxer.Create(fs, OutFormat.GuessFormat(null, OutputFile, null)))
+        using (var muxer = MediaMuxer.Create(fs, OutputFormat.GuessFormat(null, OutputFile, null)))
         using (var videoFrame = new MediaFrame())
         using (var audioFrame = new MediaFrame())
         {

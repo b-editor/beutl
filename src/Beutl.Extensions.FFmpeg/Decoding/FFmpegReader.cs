@@ -8,7 +8,7 @@ using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 
-using FFmpeg.AutoGen;
+using FFmpeg.AutoGen.Abstractions;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Decoding;

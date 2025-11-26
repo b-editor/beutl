@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using FFmpeg.AutoGen;
+using FFmpeg.AutoGen.Abstractions;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg;
