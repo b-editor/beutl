@@ -27,6 +27,7 @@ public static class FFmpegLoader
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(FFmpegLoader));
     private static readonly ILogger s_ffmpegLogger = Log.CreateLogger("FFmpeg");
     private static bool s_isInitialized;
+    private static bool s_isInitializationFailed;
     private static readonly string s_defaultFFmpegPath;
 
     static FFmpegLoader()
@@ -36,7 +37,7 @@ public static class FFmpegLoader
 
     public static void Initialize()
     {
-        if (s_isInitialized)
+        if (s_isInitialized || s_isInitializationFailed)
             return;
 
         try
@@ -69,13 +70,12 @@ public static class FFmpegLoader
         }
         catch
         {
+            s_isInitializationFailed = true;
             NotificationService.ShowError(
                 Strings.FFmpegError,
                 Strings.Make_sure_you_have_FFmpeg_installed,
                 onActionButtonClick: ShowInstallDialog,
                 actionButtonText: Strings.Install);
-
-            throw;
         }
 
         static string GetVersionString(uint version)
