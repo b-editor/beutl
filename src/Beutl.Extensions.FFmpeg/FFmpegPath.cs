@@ -105,19 +105,6 @@ public static class FFmpegLoader
     private static void FixDependencyIssue()
     {
         // FFmpeg 8.0 以降では postproc は廃止されているため、依存関係を修正する
-        // public static readonly Dictionary<string, string[]> LibraryDependenciesMap =
-        //     new()
-        //     {
-        //         { "avcodec", new[] { "avutil", "swresample" } },
-        //         { "avdevice", new[] { "avcodec", "avfilter", "avformat", "avutil" } },
-        //         { "avfilter", new[] { "avcodec", "avformat", "avutil", "postproc", "swresample", "swscale" } },
-        //         { "avformat", new[] { "avcodec", "avutil" } },
-        //         { "avutil", new string[0] },
-        //         { "postproc", new[] { "avutil" } },
-        //         { "swresample", new[] { "avutil" } },
-        //         { "swscale", new[] { "avutil" } }
-        //     };
-
         FunctionResolverBase.LibraryDependenciesMap["avfilter"] = ["avcodec", "avformat", "avutil", "swresample", "swscale"];
         FunctionResolverBase.LibraryDependenciesMap.Remove("postproc");
     }
@@ -184,19 +171,11 @@ public static class FFmpegLoader
         string[] files = Directory.GetFiles(basePath);
         foreach (KeyValuePair<string, int> item in DynamicallyLoadedBindings.LibraryVersionMap)
         {
-            string versionedLibraryName = string.Empty;
-            if (OperatingSystem.IsWindows())
-            {
-                versionedLibraryName = $"{item.Key}-{item.Value}.dll";
-            }
-            else if (OperatingSystem.IsLinux())
-            {
-                versionedLibraryName = $"lib{item.Key}.so.{item.Value}";
-            }
-            else if (OperatingSystem.IsMacOS())
-            {
-                versionedLibraryName = $"lib{item.Key}.{item.Value}.dylib";
-            }
+            string versionedLibraryName =
+                OperatingSystem.IsWindows() ? $"{item.Key}-{item.Value}.dll" :
+                OperatingSystem.IsLinux() ? $"lib{item.Key}.so.{item.Value}" :
+                OperatingSystem.IsMacOS() ? $"lib{item.Key}.{item.Value}.dylib" :
+                throw new InvalidOperationException();
 
             if (!files.Any(x => x.Contains(versionedLibraryName)))
             {
