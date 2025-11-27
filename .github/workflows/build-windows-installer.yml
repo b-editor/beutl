@@ -1,0 +1,69 @@
+name: Build Windows Installer
+
+on:
+  workflow_call:
+    inputs:
+      semVer:
+        required: true
+        type: string
+      asmVer:
+        required: true
+        type: string
+    outputs:
+      artifact-run-id:
+        description: Run ID that published the artifacts
+        value: ${{ jobs.build-windows-installer.outputs.artifact-run-id }}
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+    outputs:
+      artifact-run-id: ${{ steps.run-id.outputs.run-id }}
+    strategy:
+      matrix:
+        standalone: [ true, false ]
+
+    steps:
+      - name: Set artifact run id
+        id: run-id
+        run: echo "run-id=${{ github.run_id }}" >> $env:GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - uses: actions/download-artifact@v6
+        with:
+          name: beutl-win_x64${{ matrix.standalone == true && '-standalone' || '' }}-${{ inputs.semVer }}
+          path: artifacts
+
+      - name: Extract zip
+        run: |
+          mkdir output/Beutl
+          cd output/Beutl
+          7z x ../../artifacts/beutl-win-x64${{ matrix.standalone == true && '-standalone' || '' }}-${{ inputs.semVer }}.zip
+
+      - name: Update Metadata
+        shell: pwsh
+        run: |
+            cd output/Beutl
+            $ASSET_METADATA_ID = [guid]::NewGuid().ToString()
+            Get-Content asset_metadata.json | jq --arg id "$ASSET_METADATA_ID" '.id=$id | .type="installer"' | Set-Content asset_metadata.json
+            Get-Content asset_metadata.json
+
+      - name: Build installer
+        run: |
+          ./build.cmd build-installer `
+            --skip publish `
+            --self-contained ${{ matrix.standalone }} `
+            --assembly-version ${{ inputs.asmVer }}
+
+      - name: Save installer
+        uses: actions/upload-artifact@v5
+        with:
+          name: beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup
+          path: ./artifacts/beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup.exe

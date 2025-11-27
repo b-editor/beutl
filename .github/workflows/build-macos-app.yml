@@ -1,0 +1,147 @@
+name: Build macOS App Bundle
+
+on:
+  workflow_call:
+    inputs:
+      semVer:
+        required: true
+        type: string
+      nugetVer:
+        required: true
+        type: string
+      asmVer:
+        required: true
+        type: string
+      infoVer:
+        required: true
+        type: string
+    secrets:
+      KEYCHAIN_PASSWORD:
+        required: true
+      CERTIFICATES_P12:
+        required: true
+      CERTIFICATES_P12_PASSWORD:
+        required: true
+      APPLE_ID:
+        required: true
+      TEAM_ID:
+        required: true
+      APPLE_APP_PASSWORD:
+        required: true
+      SIGNING_IDENTITY:
+        required: true
+    outputs:
+      artifact-run-id:
+        description: Run ID that published the artifacts
+        value: ${{ jobs.build-app-bundle.outputs.artifact-run-id }}
+
+jobs:
+  build-app-bundle:
+    runs-on: macos-latest
+    outputs:
+      artifact-run-id: ${{ steps.run-id.outputs.run-id }}
+    strategy:
+      matrix:
+        rid: [ osx_x64, osx_arm64 ]
+
+    steps:
+      - name: Set artifact run id
+        id: run-id
+        run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: |
+          chmod +x build.sh
+          ./build.sh Restore --runtime ${{ matrix.rid }}
+
+      - name: Bundle
+        run: |
+          ./build.sh bundle-app \
+            --runtime ${{ matrix.rid }} \
+            --skip restore \
+            --version ${{ inputs.nugetVer }} \
+            --assembly-version ${{ inputs.asmVer }} \
+            --informational-version ${{ inputs.infoVer }}
+
+      - name: Store Metadata
+        shell: bash
+        run: |
+          cd output/AppBundle/Beutl.app/Contents/MacOS
+          ASSET_METADATA_ID=`uuidgen`
+          ASSET_METADATA_OS=`echo ${{ matrix.rid }} | cut -d '_' -f 1`
+          ASSET_METADATA_ARCH=`echo ${{ matrix.rid }} | cut -d '_' -f 2`
+          ASSET_METADATA_VERSION=${{ inputs.semVer }}
+          ASSET_METADATA_STANDALONE=true
+          ASSET_METADATA_TYPE=app
+          echo '{}' | jq \
+             --arg id $ASSET_METADATA_ID \
+             --arg os $ASSET_METADATA_OS \
+             --arg arch $ASSET_METADATA_ARCH \
+             --arg version $ASSET_METADATA_VERSION \
+             --arg standalone $ASSET_METADATA_STANDALONE \
+             --arg type $ASSET_METADATA_TYPE \
+            '.id=$id | .os=$os | .arch=$arch | .version=$version | .standalone=$standalone | .type=$type' > asset_metadata.json
+          cat asset_metadata.json
+
+      - name: Install Developer ID certificate
+        run: |
+          # Set up the keychain
+          security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+
+          # Import the certificate
+          echo "${{ secrets.CERTIFICATES_P12 }}" | base64 --decode > certificates.p12
+          security import certificates.p12 -k build.keychain -P "${{ secrets.CERTIFICATES_P12_PASSWORD }}" -T /usr/bin/codesign
+
+          # Allow codesign to access keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.KEYCHAIN_PASSWORD}}" build.keychain
+
+          # Store the credential in the keychain
+          xcrun notarytool store-credentials "AC_PASSWORD" --apple-id "${{ secrets.APPLE_ID }}" --team-id ${{ secrets.TEAM_ID }} --password "${{ secrets.APPLE_APP_PASSWORD }}"
+
+      - name: Code sign
+        env:
+          APP_NAME: output/AppBundle/Beutl.app
+          ENTITLEMENTS: build/AppEntitlements.entitlements
+          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+        run: |
+          find "$APP_NAME/Contents/MacOS/"|while read fname; do
+            if [[ -f $fname ]]; then
+              echo "[INFO] Signing $fname"
+              codesign --deep --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" "$fname"
+            fi
+          done
+
+          echo "[INFO] Signing app file"
+
+          codesign --deep --force --timestamp --options=runtime --entitlements "$ENTITLEMENTS" --sign "$SIGNING_IDENTITY" "$APP_NAME"
+
+      - name: Verify
+        run: |
+          codesign --verify --deep --strict --verbose output/AppBundle/Beutl.app
+
+      - name: Notarize app
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent "output/AppBundle/Beutl.app" "output/AppBundle/Beutl.zip"
+          xcrun notarytool submit "output/AppBundle/Beutl.zip" --wait --keychain-profile "AC_PASSWORD"
+          xcrun stapler staple "output/AppBundle/Beutl.app"
+          xcrun stapler validate "output/AppBundle/Beutl.app"
+
+      - name: Zip
+        run: |
+          mkdir -p artifacts
+          ditto -c -k --sequesterRsrc --keepParent "output/AppBundle/Beutl.app" "artifacts/Beutl.${{ matrix.rid }}.app.zip"
+
+      - name: Save
+        uses: actions/upload-artifact@v5
+        with:
+          name: Beutl_${{ matrix.rid }}
+          path: artifacts/Beutl.${{ matrix.rid }}.app.zip

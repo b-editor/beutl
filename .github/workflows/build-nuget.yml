@@ -1,0 +1,55 @@
+name: Build NuGet Packages
+
+on:
+  workflow_call:
+    inputs:
+      nugetVer:
+        required: true
+        type: string
+      asmVer:
+        required: true
+        type: string
+      infoVer:
+        required: true
+        type: string
+    outputs:
+      artifact-run-id:
+        description: Run ID that published the artifacts
+        value: ${{ jobs.build-nuget.outputs.artifact-run-id }}
+
+jobs:
+  build-nuget:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-run-id: ${{ steps.run-id.outputs.run-id }}
+
+    steps:
+      - name: Set artifact run id
+        id: run-id
+        run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: |
+          chmod +x build.sh
+          ./build.sh restore
+
+      - name: Build & Pack
+        run: |
+          ./build.sh nuget-pack --skip restore \
+            --version ${{ inputs.nugetVer }} \
+            --assembly-version ${{ inputs.asmVer }} \
+            --informational-version ${{ inputs.infoVer }}
+
+      - name: Save
+        uses: actions/upload-artifact@v5
+        with:
+          name: Packages
+          path: ./artifacts/*.nupkg

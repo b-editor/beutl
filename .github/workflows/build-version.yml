@@ -1,0 +1,48 @@
+name: Determine Version
+
+on:
+  workflow_call:
+    outputs:
+      semVer:
+        description: "Semantic Version"
+        value: ${{ jobs.determine-version.outputs.semVer }}
+      nugetVer:
+        description: "NuGet Package Version"
+        value: ${{ jobs.determine-version.outputs.nugetVer }}
+      asmVer:
+        description: "Assembly File Version"
+        value: ${{ jobs.determine-version.outputs.asmVer }}
+      infoVer:
+        description: "Assembly Informational Version"
+        value: ${{ jobs.determine-version.outputs.infoVer }}
+      simpleVer:
+        description: "Simple Version"
+        value: ${{ jobs.determine-version.outputs.simpleVer }}
+      revision:
+        description: "Version Revision"
+        value: ${{ jobs.determine-version.outputs.revision }}
+
+jobs:
+  determine-version:
+    runs-on: ubuntu-latest
+    outputs:
+      semVer: ${{ steps.nbgv.outputs.SemVer2 }}
+      nugetVer: ${{ steps.nbgv.outputs.NuGetPackageVersion }}
+      asmVer: ${{ steps.nbgv.outputs.AssemblyFileVersion }}
+      infoVer: ${{ steps.nbgv.outputs.AssemblyInformationalVersion }}
+      simpleVer: ${{ steps.nbgv.outputs.SimpleVersion }}
+      revision: ${{ steps.nbgv.outputs.VersionRevision }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Nerdbank.GitVersioning
+        id: nbgv
+        uses: dotnet/nbgv@v0.4.2
