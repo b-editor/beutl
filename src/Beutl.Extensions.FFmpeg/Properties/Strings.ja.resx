@@ -171,4 +171,19 @@
   <data name="FFmpeg_verification_failed" xml:space="preserve">
     <value>FFmpegのインストールは完了しましたが、検証に失敗しました。アプリケーションを再起動してください。</value>
   </data>
+  <data name="Installing_Homebrew" xml:space="preserve">
+    <value>Homebrewをインストール中...</value>
+  </data>
+  <data name="Homebrew_not_found_installing" xml:space="preserve">
+    <value>Homebrewが見つかりません。Homebrewをインストール中...</value>
+  </data>
+  <data name="Homebrew_installation_failed" xml:space="preserve">
+    <value>Homebrewのインストールに失敗しました: {0}</value>
+  </data>
+  <data name="Homebrew_not_found_after_installation" xml:space="preserve">
+    <value>インストール後もHomebrewが見つかりませんでした。</value>
+  </data>
+  <data name="Failed_to_install_Homebrew" xml:space="preserve">
+    <value>Homebrewのインストールに失敗しました: {0}</value>
+  </data>
 </root>

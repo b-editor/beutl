@@ -2,15 +2,13 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Net.Http.Json;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-
 using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Logging;
-
 using FFmpeg.AutoGen.Abstractions;
 using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
-
 using Microsoft.Extensions.Logging;
 
 #if FFMPEG_BUILD_IN
@@ -21,14 +19,12 @@ namespace Beutl.Extensions.FFmpeg;
 
 internal sealed class GitHubRelease
 {
-    [JsonPropertyName("assets")]
-    public GitHubAsset[]? Assets { get; set; }
+    [JsonPropertyName("assets")] public GitHubAsset[]? Assets { get; set; }
 }
 
 internal sealed class GitHubAsset
 {
-    [JsonPropertyName("name")]
-    public string? Name { get; set; }
+    [JsonPropertyName("name")] public string? Name { get; set; }
 
     [JsonPropertyName("browser_download_url")]
     public string? BrowserDownloadUrl { get; set; }
@@ -36,8 +32,8 @@ internal sealed class GitHubAsset
 
 public enum FFmpegInstallMethod
 {
-    BtbNBuilds,     // Windows, Linux: Download from BtbN/FFmpeg-Builds
-    Homebrew        // macOS: brew install ffmpeg@8
+    BtbNBuilds, // Windows, Linux: Download from BtbN/FFmpeg-Builds
+    Homebrew // macOS: brew install ffmpeg@8
 }
 
 public class FFmpegInstallService
@@ -83,6 +79,7 @@ public class FFmpegInstallService
                 _ => null
             };
         }
+
         return null;
     }
 
@@ -112,7 +109,8 @@ public class FFmpegInstallService
                 {
                     if (asset.Name != null && regex.IsMatch(asset.Name))
                     {
-                        _logger.LogInformation("Found FFmpeg asset: {Name}, URL: {Url}", asset.Name, asset.BrowserDownloadUrl);
+                        _logger.LogInformation("Found FFmpeg asset: {Name}, URL: {Url}", asset.Name,
+                            asset.BrowserDownloadUrl);
                         return asset.BrowserDownloadUrl;
                     }
                 }
@@ -132,8 +130,7 @@ public class FFmpegInstallService
     {
         try
         {
-            FFmpegInstallMethod method = GetRecommendedMethod();
-            if (method == FFmpegInstallMethod.Homebrew)
+            if (OperatingSystem.IsMacOS())
             {
                 await InstallWithHomebrewAsync();
             }
@@ -278,6 +275,7 @@ public class FFmpegInstallService
             {
                 Directory.Delete(destinationPath, true);
             }
+
             Directory.CreateDirectory(destinationPath);
 
             if (archivePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
@@ -315,7 +313,7 @@ public class FFmpegInstallService
 
     private async Task ExtractZipAsync(string zipPath, string destinationPath, CancellationToken ct)
     {
-        using ZipArchive archive = ZipFile.OpenRead(zipPath);
+        await using ZipArchive archive = await ZipFile.OpenReadAsync(zipPath, ct);
         int total = archive.Entries.Count;
         int current = 0;
 
@@ -336,7 +334,7 @@ public class FFmpegInstallService
 
                 Directory.CreateDirectory(Path.GetDirectoryName(entryPath)!);
                 await using FileStream fs = File.Create(entryPath);
-                await using Stream es = entry.Open();
+                await using Stream es = await entry.OpenAsync(ct);
                 await es.CopyToAsync(fs, ct);
             }
 
@@ -410,6 +408,7 @@ public class FFmpegInstallService
         }
     }
 
+    [SupportedOSPlatform("macos")]
     private async Task InstallWithHomebrewAsync()
     {
         CancellationToken ct = _cts.Token;
@@ -422,11 +421,30 @@ public class FFmpegInstallService
         string? brewPath = GetBrewPath();
         if (brewPath == null)
         {
-            _logger.LogError("Homebrew not found");
-            ProgressTextChanged?.Invoke(Strings.Homebrew_not_found);
-            Completed?.Invoke(false);
-            return;
+            _logger.LogInformation("Homebrew not found, attempting to install");
+            ProgressTextChanged?.Invoke(Strings.Homebrew_not_found_installing);
+
+            bool homebrewInstalled = await InstallHomebrewAsync();
+            if (!homebrewInstalled)
+            {
+                Completed?.Invoke(false);
+                return;
+            }
+
+            brewPath = GetBrewPath();
+            if (brewPath == null)
+            {
+                _logger.LogError("Homebrew still not found after installation");
+                ProgressTextChanged?.Invoke(Strings.Homebrew_not_found);
+                Completed?.Invoke(false);
+                return;
+            }
         }
+
+        ProgressTextChanged?.Invoke(Strings.Installing_FFmpeg_via_Homebrew);
+
+        // Get askpass script path for brew install
+        string askPassPath = GetAskPassScriptPath();
 
         // Run: brew install ffmpeg@8
         ProcessStartInfo psi = new(brewPath)
@@ -435,7 +453,12 @@ public class FFmpegInstallService
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
+            Environment =
+            {
+                ["NONINTERACTIVE"] = "1", // Set SUDO_ASKPASS for brew install (may need sudo for some operations)
+                ["SUDO_ASKPASS"] = askPassPath
+            }
         };
 
         try
@@ -500,10 +523,7 @@ public class FFmpegInstallService
         {
             ProcessStartInfo psi = new("which")
             {
-                Arguments = "brew",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
+                Arguments = "brew", RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true
             };
             using Process? process = Process.Start(psi);
             if (process != null)
@@ -520,6 +540,132 @@ public class FFmpegInstallService
         }
 
         return null;
+    }
+
+    [SupportedOSPlatform("macos")]
+    private static string GetAskPassScriptPath()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "Beutl");
+        Directory.CreateDirectory(tempDir);
+        string scriptPath = Path.Combine(tempDir, "askpass.js");
+
+        // Extract embedded askpass.js to temp file
+        using Stream? resourceStream = typeof(FFmpegInstallService).Assembly
+            .GetManifestResourceStream("askpass.js");
+
+        if (resourceStream != null)
+        {
+            using FileStream fileStream = File.Create(scriptPath);
+            resourceStream.CopyTo(fileStream);
+        }
+
+        // Make the script executable
+        try
+        {
+            AddExecutablePermission(scriptPath);
+        }
+        catch
+        {
+            // Ignore chmod errors
+        }
+
+        return scriptPath;
+    }
+
+    [SupportedOSPlatform("macos")]
+    private static void AddExecutablePermission(string filePath)
+    {
+        File.SetUnixFileMode(
+            filePath,
+            File.GetUnixFileMode(filePath)
+            | UnixFileMode.UserExecute
+            | UnixFileMode.GroupExecute
+            | UnixFileMode.OtherExecute);
+    }
+
+    [SupportedOSPlatform("macos")]
+    private async Task<bool> InstallHomebrewAsync()
+    {
+        CancellationToken ct = _cts.Token;
+        ProgressTextChanged?.Invoke(Strings.Installing_Homebrew);
+        IndeterminateChanged?.Invoke(true);
+
+        _logger.LogInformation("Installing Homebrew");
+
+        string askPassPath = GetAskPassScriptPath();
+
+        try
+        {
+            // Download the Homebrew install script
+            using var httpClient = new HttpClient();
+            string installScript = await httpClient.GetStringAsync(
+                "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh", ct);
+
+            // Save install script to temp file
+            string tempScriptPath = Path.Combine(Path.GetTempPath(), "Beutl", "brew_install.sh");
+            await File.WriteAllTextAsync(tempScriptPath, installScript, ct);
+            AddExecutablePermission(tempScriptPath);
+
+            // Run the Homebrew install script with SUDO_ASKPASS and NONINTERACTIVE
+            ProcessStartInfo psi = new("/bin/bash")
+            {
+                Arguments = $"-c \"{tempScriptPath}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                Environment =
+                {
+                    // Set environment variables for non-interactive install with GUI password prompt
+                    ["NONINTERACTIVE"] = "1",
+                    ["SUDO_ASKPASS"] = askPassPath
+                }
+            };
+
+            using Process? process = Process.Start(psi);
+            if (process == null)
+            {
+                throw new InvalidOperationException("Failed to start Homebrew install process");
+            }
+
+            Task<string> outputTask = process.StandardOutput.ReadToEndAsync(ct);
+            Task<string> errorTask = process.StandardError.ReadToEndAsync(ct);
+
+            await process.WaitForExitAsync(ct);
+
+            string output = await outputTask;
+            string error = await errorTask;
+
+            if (process.ExitCode != 0)
+            {
+                _logger.LogError("Homebrew installation failed: {Error}", error);
+                ProgressTextChanged?.Invoke(string.Format(Strings.Homebrew_installation_failed, error));
+                return false;
+            }
+
+            _logger.LogInformation("Homebrew installation completed: {Output}", output);
+
+            // Verify Homebrew was installed
+            string? brewPath = GetBrewPath();
+            if (brewPath == null)
+            {
+                _logger.LogError("Homebrew not found after installation");
+                ProgressTextChanged?.Invoke(Strings.Homebrew_not_found_after_installation);
+                return false;
+            }
+
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to install Homebrew");
+            ProgressTextChanged?.Invoke(string.Format(Strings.Failed_to_install_Homebrew, ex.Message));
+            return false;
+        }
     }
 
     private async Task VerifyAndCompleteAsync()

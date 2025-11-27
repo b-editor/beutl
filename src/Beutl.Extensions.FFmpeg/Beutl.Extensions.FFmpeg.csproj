@@ -35,6 +35,9 @@
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Strings.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+    <EmbeddedResource Include="Properties\askpass.js">
+      <LogicalName>askpass.js</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <Choose>

@@ -220,5 +220,50 @@ namespace Beutl.Extensions.FFmpeg.Properties {
                 return ResourceManager.GetString("Verifying_FFmpeg_installation", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Installing Homebrew....
+        /// </summary>
+        public static string Installing_Homebrew {
+            get {
+                return ResourceManager.GetString("Installing_Homebrew", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Homebrew not found. Installing Homebrew....
+        /// </summary>
+        public static string Homebrew_not_found_installing {
+            get {
+                return ResourceManager.GetString("Homebrew_not_found_installing", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Homebrew installation failed: {0}.
+        /// </summary>
+        public static string Homebrew_installation_failed {
+            get {
+                return ResourceManager.GetString("Homebrew_installation_failed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Homebrew not found after installation..
+        /// </summary>
+        public static string Homebrew_not_found_after_installation {
+            get {
+                return ResourceManager.GetString("Homebrew_not_found_after_installation", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to install Homebrew: {0}.
+        /// </summary>
+        public static string Failed_to_install_Homebrew {
+            get {
+                return ResourceManager.GetString("Failed_to_install_Homebrew", resourceCulture);
+            }
+        }
     }
 }

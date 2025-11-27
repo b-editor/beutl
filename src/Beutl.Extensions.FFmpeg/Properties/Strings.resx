@@ -171,4 +171,19 @@
   <data name="FFmpeg_verification_failed" xml:space="preserve">
     <value>FFmpeg installation completed, but verification failed. Please restart the application.</value>
   </data>
+  <data name="Installing_Homebrew" xml:space="preserve">
+    <value>Installing Homebrew...</value>
+  </data>
+  <data name="Homebrew_not_found_installing" xml:space="preserve">
+    <value>Homebrew not found. Installing Homebrew...</value>
+  </data>
+  <data name="Homebrew_installation_failed" xml:space="preserve">
+    <value>Homebrew installation failed: {0}</value>
+  </data>
+  <data name="Homebrew_not_found_after_installation" xml:space="preserve">
+    <value>Homebrew not found after installation.</value>
+  </data>
+  <data name="Failed_to_install_Homebrew" xml:space="preserve">
+    <value>Failed to install Homebrew: {0}</value>
+  </data>
 </root>
