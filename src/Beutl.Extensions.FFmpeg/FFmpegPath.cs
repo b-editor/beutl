@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Reflection;
+﻿using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -11,16 +10,9 @@ using Beutl.Services;
 
 using FFmpeg.AutoGen.Abstractions;
 using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
-
-using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.Logging;
 
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg;
-#else
 namespace Beutl.Extensions.FFmpeg;
-#endif
 
 public static class FFmpegLoader
 {

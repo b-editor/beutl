@@ -1,10 +1,6 @@
 using FluentAvalonia.UI.Controls;
 
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg;
-#else
 namespace Beutl.Extensions.FFmpeg;
-#endif
 
 public partial class FFmpegInstallDialog : ContentDialog
 {

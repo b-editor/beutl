@@ -6,11 +6,7 @@ using Reactive.Bindings;
 
 using Strings = Beutl.Extensions.FFmpeg.Properties.Strings;
 
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg;
-#else
 namespace Beutl.Extensions.FFmpeg;
-#endif
 
 public class FFmpegInstallDialogViewModel : IDisposable
 {

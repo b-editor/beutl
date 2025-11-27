@@ -11,11 +11,7 @@ using FFmpeg.AutoGen.Abstractions;
 using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
 using Microsoft.Extensions.Logging;
 
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg;
-#else
 namespace Beutl.Extensions.FFmpeg;
-#endif
 
 internal sealed class GitHubRelease
 {
