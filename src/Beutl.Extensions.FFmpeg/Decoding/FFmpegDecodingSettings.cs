@@ -1,6 +1,6 @@
 ﻿using Beutl.Extensibility;
 
-using FFmpeg.AutoGen;
+using FFmpeg.AutoGen.Abstractions;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Decoding;
@@ -40,16 +40,16 @@ public sealed class FFmpegDecodingSettings : ExtensionSettings
 
     public enum ScalingAlgorithm
     {
-        FastBilinear = ffmpeg.SWS_FAST_BILINEAR,
-        Bilinear = ffmpeg.SWS_BILINEAR,
-        Bicubic = ffmpeg.SWS_BICUBIC,
-        X = ffmpeg.SWS_X,
-        Point = ffmpeg.SWS_POINT,
-        Area = ffmpeg.SWS_AREA,
-        Bicublin = ffmpeg.SWS_BICUBLIN,
-        Gauss = ffmpeg.SWS_GAUSS,
-        Sinc = ffmpeg.SWS_SINC,
-        Lanczos = ffmpeg.SWS_LANCZOS,
-        Spline = ffmpeg.SWS_SPLINE,
+        FastBilinear = SwsFlags.SWS_FAST_BILINEAR,
+        Bilinear = SwsFlags.SWS_BILINEAR,
+        Bicubic = SwsFlags.SWS_BICUBIC,
+        X = SwsFlags.SWS_X,
+        Point = SwsFlags.SWS_POINT,
+        Area = SwsFlags.SWS_AREA,
+        Bicublin = SwsFlags.SWS_BICUBLIN,
+        Gauss = SwsFlags.SWS_GAUSS,
+        Sinc = SwsFlags.SWS_SINC,
+        Lanczos = SwsFlags.SWS_LANCZOS,
+        Spline = SwsFlags.SWS_SPLINE,
     }
 }

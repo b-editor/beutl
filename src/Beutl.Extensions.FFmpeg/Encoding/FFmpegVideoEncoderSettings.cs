@@ -1,7 +1,7 @@
 ﻿using Beutl.Collections;
 using Beutl.Media.Encoding;
 using Beutl.Serialization;
-using FFmpeg.AutoGen;
+using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 
 #if FFMPEG_BUILD_IN
