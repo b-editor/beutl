@@ -1,9 +1,10 @@
-using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Logging;
 
 using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
+
+using Strings = Beutl.Extensions.FFmpeg.Properties.Strings;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg;
@@ -41,6 +42,8 @@ public class FFmpegInstallDialogViewModel : IDisposable
     public ReactiveProperty<bool> IsCompleted { get; } = new(false);
 
     public ReactiveProperty<bool> IsSuccess { get; } = new(false);
+
+    public ReactiveProperty<string> CloseButtonText { get; } = new(Beutl.Language.Strings.Cancel);
 
     public string InstallMethodDescription => InstallMethod switch
     {
@@ -81,6 +84,7 @@ public class FFmpegInstallDialogViewModel : IDisposable
     {
         IsCompleted.Value = true;
         IsSuccess.Value = success;
+        CloseButtonText.Value = Beutl.Language.Strings.Close;
         _logger.LogInformation("FFmpeg installation completed: {Success}", success);
     }
 
@@ -100,5 +104,6 @@ public class FFmpegInstallDialogViewModel : IDisposable
         IsIndeterminate.Dispose();
         IsCompleted.Dispose();
         IsSuccess.Dispose();
+        CloseButtonText.Dispose();
     }
 }

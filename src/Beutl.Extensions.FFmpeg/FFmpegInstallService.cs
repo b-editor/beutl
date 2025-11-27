@@ -8,6 +8,9 @@ using System.Text.RegularExpressions;
 using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Logging;
 
+using FFmpeg.AutoGen.Abstractions;
+using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
+
 using Microsoft.Extensions.Logging;
 
 #if FFMPEG_BUILD_IN
@@ -197,8 +200,8 @@ public class FFmpegInstallService
             _logger.LogWarning(ex, "Failed to delete downloaded file: {File}", downloadedFile);
         }
 
-        ProgressTextChanged?.Invoke(Strings.Installation_complete);
-        Completed?.Invoke(true);
+        // 5. Verify FFmpeg installation
+        await VerifyAndCompleteAsync();
     }
 
     private async Task<string?> DownloadFileAsync(string url, CancellationToken ct)
@@ -461,9 +464,9 @@ public class FFmpegInstallService
             }
 
             _logger.LogInformation("Homebrew installation completed: {Output}", output);
-            ProgressTextChanged?.Invoke(Strings.Installation_complete);
-            IndeterminateChanged?.Invoke(false);
-            Completed?.Invoke(true);
+
+            // Verify FFmpeg installation
+            await VerifyAndCompleteAsync();
         }
         catch (OperationCanceledException)
         {
@@ -517,6 +520,50 @@ public class FFmpegInstallService
         }
 
         return null;
+    }
+
+    private async Task VerifyAndCompleteAsync()
+    {
+        ProgressTextChanged?.Invoke(Strings.Verifying_FFmpeg_installation);
+        IndeterminateChanged?.Invoke(true);
+
+        // Run verification in a background thread to avoid blocking
+        bool verified = await Task.Run(() =>
+        {
+            try
+            {
+                // Perform the same initialization as FFmpegLoader.Initialize()
+                DynamicallyLoadedBindings.LibrariesPath = FFmpegLoader.GetRootPath();
+                DynamicallyLoadedBindings.Initialize();
+                FFmpegLoader.SetupLogging();
+
+                // Try to call a basic FFmpeg function to verify it works
+                _ = ffmpeg.avcodec_version();
+                _ = ffmpeg.avformat_version();
+                _ = ffmpeg.avutil_version();
+
+                _logger.LogInformation("FFmpeg verification successful");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "FFmpeg verification failed");
+                return false;
+            }
+        });
+
+        IndeterminateChanged?.Invoke(false);
+
+        if (verified)
+        {
+            ProgressTextChanged?.Invoke(Strings.FFmpeg_installation_successful);
+            Completed?.Invoke(true);
+        }
+        else
+        {
+            ProgressTextChanged?.Invoke(Strings.FFmpeg_verification_failed);
+            Completed?.Invoke(false);
+        }
     }
 
     public void Cancel()

@@ -115,15 +115,6 @@ public static class FFmpegLoader
                 DataContext = viewModel
             };
 
-            // Subscribe to completion to close dialog
-            viewModel.IsCompleted.Subscribe(completed =>
-            {
-                if (completed)
-                {
-                    Dispatcher.UIThread.Post(() => dialog.Hide(ContentDialogResult.Primary));
-                }
-            });
-
             dialog.ShowAsync();
             viewModel.Start();
         });
