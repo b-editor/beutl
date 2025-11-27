@@ -46,20 +46,7 @@ public static class FFmpegLoader
             DynamicallyLoadedBindings.LibrariesPath = GetRootPath();
             DynamicallyLoadedBindings.Initialize();
             FixDependencyIssue();
-            FFmpegSharp.FFmpegLog.SetupLogging(
-                logWrite: (s, i) =>
-                {
-                    var level = (FFmpegSharp.LogLevel)i;
-                    var convertedLevel = level switch
-                    {
-                        FFmpegSharp.LogLevel.Debug => LogLevel.Debug,
-                        FFmpegSharp.LogLevel.Warning => LogLevel.Warning,
-                        FFmpegSharp.LogLevel.Error => LogLevel.Error,
-                        FFmpegSharp.LogLevel.Fatal => LogLevel.Critical,
-                        _ => LogLevel.Information
-                    };
-                    s_ffmpegLogger.Log(convertedLevel, "{OriginalLevel} {FFmpegLog}", level, s.TrimEnd('\n').TrimEnd('\r'));
-                });
+            SetupLogging();
             var sb = new StringBuilder();
             sb.AppendLine("RequestedVersions:");
 
@@ -98,6 +85,24 @@ public static class FFmpegLoader
             uint patch = version & 0xFF;
             return $"{major}.{minor}.{patch}";
         }
+    }
+
+    public static void SetupLogging()
+    {
+        FFmpegSharp.FFmpegLog.SetupLogging(
+            logWrite: (s, i) =>
+            {
+                var level = (FFmpegSharp.LogLevel)i;
+                var convertedLevel = level switch
+                {
+                    FFmpegSharp.LogLevel.Debug => LogLevel.Debug,
+                    FFmpegSharp.LogLevel.Warning => LogLevel.Warning,
+                    FFmpegSharp.LogLevel.Error => LogLevel.Error,
+                    FFmpegSharp.LogLevel.Fatal => LogLevel.Critical,
+                    _ => LogLevel.Information
+                };
+                s_ffmpegLogger.Log(convertedLevel, "{OriginalLevel} {FFmpegLog}", level, s.TrimEnd('\n').TrimEnd('\r'));
+            });
     }
 
     private static void ShowInstallDialog()
