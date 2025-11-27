@@ -79,7 +79,7 @@ public class FFmpegInstallService
         return null;
     }
 
-    public async Task<string?> GetDownloadUrlAsync(CancellationToken ct = default)
+    private async Task<string?> GetDownloadUrlAsync(HttpClient client, CancellationToken ct = default)
     {
         Regex? regex = GetAssetNameRegex();
         if (regex == null)
@@ -87,7 +87,6 @@ public class FFmpegInstallService
 
         try
         {
-            using HttpClient client = new();
             client.DefaultRequestHeaders.Add("User-Agent", "Beutl");
             client.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
 
@@ -120,19 +119,25 @@ public class FFmpegInstallService
             _logger.LogError(ex, "Failed to fetch releases from GitHub API");
             return null;
         }
+        finally
+        {
+            client.DefaultRequestHeaders.Remove("User-Agent");
+            client.DefaultRequestHeaders.Remove("Accept");
+        }
     }
 
     public async Task InstallAsync()
     {
         try
         {
+            using var client = new HttpClient();
             if (OperatingSystem.IsMacOS())
             {
-                await InstallWithHomebrewAsync();
+                await InstallWithHomebrewAsync(client);
             }
             else
             {
-                await InstallFromBtbNBuildsAsync();
+                await InstallFromBtbNBuildsAsync(client);
             }
         }
         catch (OperationCanceledException)
@@ -149,7 +154,7 @@ public class FFmpegInstallService
         }
     }
 
-    private async Task InstallFromBtbNBuildsAsync()
+    private async Task InstallFromBtbNBuildsAsync(HttpClient client)
     {
         CancellationToken ct = _cts.Token;
 
@@ -157,7 +162,7 @@ public class FFmpegInstallService
         ProgressTextChanged?.Invoke(Strings.Fetching_release_information);
         IndeterminateChanged?.Invoke(true);
 
-        string? downloadUrl = await GetDownloadUrlAsync(ct);
+        string? downloadUrl = await GetDownloadUrlAsync(client, ct);
         if (downloadUrl == null)
         {
             _logger.LogError("Failed to get download URL for FFmpeg");
@@ -167,7 +172,7 @@ public class FFmpegInstallService
         }
 
         // 2. Download
-        string? downloadedFile = await DownloadFileAsync(downloadUrl, ct);
+        string? downloadedFile = await DownloadFileAsync(client, downloadUrl, ct);
         if (downloadedFile == null)
         {
             Completed?.Invoke(false);
@@ -197,7 +202,7 @@ public class FFmpegInstallService
         await VerifyAndCompleteAsync();
     }
 
-    private async Task<string?> DownloadFileAsync(string url, CancellationToken ct)
+    private async Task<string?> DownloadFileAsync(HttpClient client, string url, CancellationToken ct)
     {
         try
         {
@@ -206,7 +211,6 @@ public class FFmpegInstallService
             ProgressTextChanged?.Invoke(Language.Message.Downloading);
 
             _logger.LogInformation("Downloading FFmpeg from {Url}", url);
-            using HttpClient client = new();
             using HttpResponseMessage response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
             response.EnsureSuccessStatusCode();
 
@@ -405,7 +409,7 @@ public class FFmpegInstallService
     }
 
     [SupportedOSPlatform("macos")]
-    private async Task InstallWithHomebrewAsync()
+    private async Task InstallWithHomebrewAsync(HttpClient client)
     {
         CancellationToken ct = _cts.Token;
         ProgressTextChanged?.Invoke(Strings.Installing_FFmpeg_via_Homebrew);
@@ -420,7 +424,7 @@ public class FFmpegInstallService
             _logger.LogInformation("Homebrew not found, attempting to install");
             ProgressTextChanged?.Invoke(Strings.Homebrew_not_found_installing);
 
-            bool homebrewInstalled = await InstallHomebrewAsync();
+            bool homebrewInstalled = await InstallHomebrewAsync(client);
             if (!homebrewInstalled)
             {
                 Completed?.Invoke(false);
@@ -580,7 +584,7 @@ public class FFmpegInstallService
     }
 
     [SupportedOSPlatform("macos")]
-    private async Task<bool> InstallHomebrewAsync()
+    private async Task<bool> InstallHomebrewAsync(HttpClient client)
     {
         CancellationToken ct = _cts.Token;
         ProgressTextChanged?.Invoke(Strings.Installing_Homebrew);
@@ -593,8 +597,7 @@ public class FFmpegInstallService
         try
         {
             // Download the Homebrew install script
-            using var httpClient = new HttpClient();
-            string installScript = await httpClient.GetStringAsync(
+            string installScript = await client.GetStringAsync(
                 "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh", ct);
 
             // Save install script to temp file
