@@ -123,4 +123,43 @@
   <data name="Make_sure_you_have_FFmpeg_installed" xml:space="preserve">
     <value>Make sure you have FFmpeg installed.</value>
   </data>
+  <data name="Install" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="Install_FFmpeg" xml:space="preserve">
+    <value>Install FFmpeg</value>
+  </data>
+  <data name="Preparing" xml:space="preserve">
+    <value>Preparing...</value>
+  </data>
+  <data name="Fetching_release_information" xml:space="preserve">
+    <value>Fetching release information...</value>
+  </data>
+  <data name="Failed_to_find_FFmpeg_release" xml:space="preserve">
+    <value>Failed to find FFmpeg release. Unsupported platform or network error.</value>
+  </data>
+  <data name="Installation_complete" xml:space="preserve">
+    <value>Installation complete.</value>
+  </data>
+  <data name="Installing_FFmpeg_via_Homebrew" xml:space="preserve">
+    <value>Installing FFmpeg via Homebrew...</value>
+  </data>
+  <data name="Homebrew_not_found" xml:space="preserve">
+    <value>Homebrew not found. Please install Homebrew first: https://brew.sh</value>
+  </data>
+  <data name="Installation_failed" xml:space="preserve">
+    <value>Installation failed: {0}</value>
+  </data>
+  <data name="Failed_to_run_Homebrew" xml:space="preserve">
+    <value>Failed to run Homebrew: {0}</value>
+  </data>
+  <data name="Download_FFmpeg_from_BtbN" xml:space="preserve">
+    <value>Download FFmpeg 8.0 from BtbN/FFmpeg-Builds (GitHub)</value>
+  </data>
+  <data name="Install_FFmpeg_using_Homebrew" xml:space="preserve">
+    <value>Install FFmpeg 8.0 using Homebrew (brew install ffmpeg@8)</value>
+  </data>
+  <data name="Unknown_method" xml:space="preserve">
+    <value>Unknown method</value>
+  </data>
 </root>

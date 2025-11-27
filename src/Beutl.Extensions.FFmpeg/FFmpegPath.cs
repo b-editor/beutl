@@ -2,11 +2,18 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+
+using Avalonia.Threading;
+
 using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Logging;
 using Beutl.Services;
+
 using FFmpeg.AutoGen.Abstractions;
 using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
+
+using FluentAvalonia.UI.Controls;
+
 using Microsoft.Extensions.Logging;
 
 #if FFMPEG_BUILD_IN
@@ -78,8 +85,8 @@ public static class FFmpegLoader
             NotificationService.ShowError(
                 Strings.FFmpegError,
                 Strings.Make_sure_you_have_FFmpeg_installed,
-                onActionButtonClick: OpenDocumentUrl,
-                actionButtonText: Beutl.Language.Strings.OpenDocument);
+                onActionButtonClick: ShowInstallDialog,
+                actionButtonText: Strings.Install);
 
             throw;
         }
@@ -93,12 +100,27 @@ public static class FFmpegLoader
         }
     }
 
-    private static void OpenDocumentUrl()
+    private static void ShowInstallDialog()
     {
-        Process.Start(new ProcessStartInfo("https://docs.beutl.beditor.net/get-started/ffmpeg-install")
+        Dispatcher.UIThread.Post(() =>
         {
-            UseShellExecute = true,
-            Verb = "open"
+            FFmpegInstallDialogViewModel viewModel = new();
+            FFmpegInstallDialog dialog = new()
+            {
+                DataContext = viewModel
+            };
+
+            // Subscribe to completion to close dialog
+            viewModel.IsCompleted.Subscribe(completed =>
+            {
+                if (completed)
+                {
+                    Dispatcher.UIThread.Post(() => dialog.Hide(ContentDialogResult.Primary));
+                }
+            });
+
+            dialog.ShowAsync();
+            viewModel.Start();
         });
     }
 

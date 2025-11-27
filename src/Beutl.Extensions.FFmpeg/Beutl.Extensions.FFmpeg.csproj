@@ -14,6 +14,8 @@
   <ItemGroup>
     <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
     <PackageReference Include="FFmpeg4Sharp" />
+    <PackageReference Include="FluentAvaloniaUI" />
+    <PackageReference Include="ReactiveProperty" />
   </ItemGroup>
 
   <ItemGroup>

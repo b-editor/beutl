@@ -22,21 +22,21 @@ namespace Beutl.Extensions.FFmpeg.Properties {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Strings {
+    public class Strings {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
         private static global::System.Globalization.CultureInfo resourceCulture;
         
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal Strings() {
+        public Strings() {
         }
-        
+
         /// <summary>
         ///   このクラスで使用されているキャッシュされた ResourceManager インスタンスを返します。
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Resources.ResourceManager ResourceManager {
+        public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
                     global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Beutl.Extensions.FFmpeg.Properties.Strings", typeof(Strings).Assembly);
@@ -51,7 +51,7 @@ namespace Beutl.Extensions.FFmpeg.Properties {
         ///   現在のスレッドの CurrentUICulture プロパティをオーバーライドします。
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Globalization.CultureInfo Culture {
+        public static global::System.Globalization.CultureInfo Culture {
             get {
                 return resourceCulture;
             }
@@ -63,7 +63,7 @@ namespace Beutl.Extensions.FFmpeg.Properties {
         /// <summary>
         ///   FFmpeg Error に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string FFmpegError {
+        public static string FFmpegError {
             get {
                 return ResourceManager.GetString("FFmpegError", resourceCulture);
             }
@@ -72,9 +72,125 @@ namespace Beutl.Extensions.FFmpeg.Properties {
         /// <summary>
         ///   Make sure you have FFmpeg installed. に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string Make_sure_you_have_FFmpeg_installed {
+        public static string Make_sure_you_have_FFmpeg_installed {
             get {
                 return ResourceManager.GetString("Make_sure_you_have_FFmpeg_installed", resourceCulture);
+            }
+        }
+
+        public static string Install
+        {
+            get
+            {
+                return ResourceManager.GetString("Install", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Install FFmpeg に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Install_FFmpeg {
+            get {
+                return ResourceManager.GetString("Install_FFmpeg", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Preparing... に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Preparing {
+            get {
+                return ResourceManager.GetString("Preparing", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Fetching release information... に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Fetching_release_information {
+            get {
+                return ResourceManager.GetString("Fetching_release_information", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Failed to find FFmpeg release. Unsupported platform or network error. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Failed_to_find_FFmpeg_release {
+            get {
+                return ResourceManager.GetString("Failed_to_find_FFmpeg_release", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Installation complete. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Installation_complete {
+            get {
+                return ResourceManager.GetString("Installation_complete", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Installing FFmpeg via Homebrew... に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Installing_FFmpeg_via_Homebrew {
+            get {
+                return ResourceManager.GetString("Installing_FFmpeg_via_Homebrew", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Homebrew not found. Please install Homebrew first: https://brew.sh に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Homebrew_not_found {
+            get {
+                return ResourceManager.GetString("Homebrew_not_found", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Installation failed: {0} に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Installation_failed {
+            get {
+                return ResourceManager.GetString("Installation_failed", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Failed to run Homebrew: {0} に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Failed_to_run_Homebrew {
+            get {
+                return ResourceManager.GetString("Failed_to_run_Homebrew", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Download FFmpeg 8.0 from BtbN/FFmpeg-Builds (GitHub) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Download_FFmpeg_from_BtbN {
+            get {
+                return ResourceManager.GetString("Download_FFmpeg_from_BtbN", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Install FFmpeg 8.0 using Homebrew (brew install ffmpeg@8) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Install_FFmpeg_using_Homebrew {
+            get {
+                return ResourceManager.GetString("Install_FFmpeg_using_Homebrew", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Unknown method に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Unknown_method {
+            get {
+                return ResourceManager.GetString("Unknown_method", resourceCulture);
             }
         }
     }
