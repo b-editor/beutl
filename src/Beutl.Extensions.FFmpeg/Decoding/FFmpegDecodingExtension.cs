@@ -1,6 +1,7 @@
 ﻿using Beutl.Extensibility;
 using Beutl.Media.Decoding;
 using System.ComponentModel.DataAnnotations;
+using Beutl.Extensions.FFmpeg;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Decoding;

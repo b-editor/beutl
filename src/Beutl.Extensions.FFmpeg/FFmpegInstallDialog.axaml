@@ -1,0 +1,36 @@
+<ui:ContentDialog x:Class="Beutl.Extensions.FFmpeg.FFmpegInstallDialog"
+                  xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:lang="using:Beutl.Language"
+                  xmlns:local="clr-namespace:Beutl.Extensions.FFmpeg"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:props="clr-namespace:Beutl.Extensions.FFmpeg.Properties"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  Title="{x:Static props:Strings.Install_FFmpeg}"
+                  d:DesignHeight="200"
+                  d:DesignWidth="400"
+                  x:CompileBindings="True"
+                  x:DataType="local:FFmpegInstallDialogViewModel"
+                  CloseButtonText="{Binding CloseButtonText.Value}"
+                  mc:Ignorable="d">
+    <ui:ContentDialog.Resources>
+        <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
+    </ui:ContentDialog.Resources>
+
+    <StackPanel Spacing="12">
+        <TextBlock IsVisible="{Binding !IsCompleted.Value}"
+                   Opacity="0.8"
+                   Text="{Binding InstallMethodDescription}"
+                   TextWrapping="Wrap" />
+
+        <TextBlock FontWeight="SemiBold"
+                   Text="{Binding ProgressText.Value}"
+                   TextWrapping="Wrap" />
+
+        <ProgressBar IsIndeterminate="{Binding IsIndeterminate.Value}"
+                     IsVisible="{Binding !IsCompleted.Value}"
+                     Maximum="{Binding ProgressMax.Value}"
+                     Value="{Binding ProgressValue.Value}" />
+    </StackPanel>
+</ui:ContentDialog>

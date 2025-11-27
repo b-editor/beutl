@@ -14,6 +14,8 @@
   <ItemGroup>
     <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
     <PackageReference Include="FFmpeg4Sharp" />
+    <PackageReference Include="FluentAvaloniaUI" />
+    <PackageReference Include="ReactiveProperty" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,8 +32,11 @@
 
   <ItemGroup>
     <EmbeddedResource Update="Properties\Strings.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
+      <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\askpass.js">
+      <LogicalName>askpass.js</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 
