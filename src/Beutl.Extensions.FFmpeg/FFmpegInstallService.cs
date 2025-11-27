@@ -60,14 +60,14 @@ public class FFmpegInstallService
         return Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "ffmpeg");
     }
 
-    private static string? GetAssetNamePattern()
+    private static Regex? GetAssetNameRegex()
     {
         if (OperatingSystem.IsWindows())
         {
             return RuntimeInformation.OSArchitecture switch
             {
-                Architecture.X64 => @"ffmpeg-n8\.0-\d+-win64-gpl-shared\.zip",
-                Architecture.Arm64 => @"ffmpeg-n8\.0-\d+-winarm64-gpl-shared\.zip",
+                Architecture.X64 => new(@"^ffmpeg-n8[0-9.-]+-.*-win64-gpl-shared-8[0-9.-]+\.zip$"),
+                Architecture.Arm64 => new(@"^ffmpeg-n8[0-9.-]+-.*-winarm64-gpl-shared-8[0-9.-]+\.zip$"),
                 _ => null
             };
         }
@@ -75,8 +75,8 @@ public class FFmpegInstallService
         {
             return RuntimeInformation.OSArchitecture switch
             {
-                Architecture.X64 => @"ffmpeg-n8\.0-\d+-linux64-gpl-shared\.tar\.xz",
-                Architecture.Arm64 => @"ffmpeg-n8\.0-\d+-linuxarm64-gpl-shared\.tar\.xz",
+                Architecture.X64 => new(@"^ffmpeg-n8[0-9.-]+-.*-linux64-gpl-shared-8[0-9.-]+\.tar\.xz$"),
+                Architecture.Arm64 => new(@"^ffmpeg-n8[0-9.-]+-.*-linuxarm64-gpl-shared-8[0-9.-]+\.tar\.xz$"),
                 _ => null
             };
         }
@@ -85,8 +85,8 @@ public class FFmpegInstallService
 
     public async Task<string?> GetDownloadUrlAsync(CancellationToken ct = default)
     {
-        string? pattern = GetAssetNamePattern();
-        if (pattern == null)
+        Regex? regex = GetAssetNameRegex();
+        if (regex == null)
             return null;
 
         try
@@ -99,8 +99,6 @@ public class FFmpegInstallService
             GitHubRelease[]? releases = await client.GetFromJsonAsync<GitHubRelease[]>(GitHubReleasesApiUrl, ct);
             if (releases == null)
                 return null;
-
-            Regex regex = new(pattern, RegexOptions.Compiled);
 
             foreach (GitHubRelease release in releases)
             {
