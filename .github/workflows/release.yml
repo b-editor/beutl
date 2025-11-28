@@ -99,10 +99,35 @@ jobs:
       - name: Print
         run: ls artifacts
 
+      - name: Download metadata artifacts
+        uses: actions/download-artifact@v6
+        with:
+          pattern: metadata-*
+          path: metadata
+          merge-multiple: false
+
+      - name: Merge metadata
+        run: |
+          echo "Metadata files:"
+          find metadata -name "asset_metadata.json" -type f
+
+          # 全てのasset_metadata.jsonを結合
+          echo '[]' > assets_metadata.json
+          for file in $(find metadata -name "asset_metadata.json" -type f); do
+            echo "Processing: $file"
+            cat "$file"
+            # 各ファイルの内容を配列に追加
+            jq -s '.[0] + [.[1]]' assets_metadata.json "$file" > tmp.json && mv tmp.json assets_metadata.json
+          done
+
+          echo ""
+          echo "Combined metadata:"
+          cat assets_metadata.json | jq .
+
       - uses: ncipollo/release-action@v1
         id: create_release
         with:
-          artifacts: "artifacts/**/*.zip,artifacts/**/*.deb,artifacts/beutl-setup/beutl-setup.exe,artifacts/beutl-standalone-setup/beutl-standalone-setup.exe"
+          artifacts: "artifacts/**/*.zip,artifacts/**/*.deb,artifacts/beutl-setup/beutl-setup.exe,artifacts/beutl-standalone-setup/beutl-standalone-setup.exe,assets_metadata.json"
           draft: true
           makeLatest: true
           generateReleaseNotes: true

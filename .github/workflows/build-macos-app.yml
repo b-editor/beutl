@@ -145,3 +145,9 @@ jobs:
         with:
           name: Beutl_${{ matrix.rid }}
           path: artifacts/Beutl.${{ matrix.rid }}.app.zip
+
+      - name: Save Metadata
+        uses: actions/upload-artifact@v5
+        with:
+          name: metadata-Beutl_${{ matrix.rid }}
+          path: ./output/AppBundle/Beutl.app/Contents/MacOS/asset_metadata.json
