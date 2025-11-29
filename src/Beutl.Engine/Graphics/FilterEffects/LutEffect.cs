@@ -132,7 +132,6 @@ public sealed partial class LutEffect : FilterEffect
     [Range(0, 100)]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
-    // TODO: Resource.UpdateでCubeを更新するようにする
     private void UpdateCube(FileInfo? value)
     {
         _cube = null;

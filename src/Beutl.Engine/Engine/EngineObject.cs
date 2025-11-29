@@ -163,7 +163,6 @@ public class EngineObject : Hierarchical, INotifyEdited
         }
     }
 
-    // TODO: 不要になる予定
     protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : EngineObject
     {
