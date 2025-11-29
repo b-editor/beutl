@@ -30,4 +30,9 @@ public readonly record struct StringSpan(string Source, int Start, int Length)
     {
         return Start >= 0 && (Start + Length) <= Source.Length;
     }
+
+    public static implicit operator StringSpan(string s)
+    {
+        return new StringSpan(s, 0, s.Length);
+    }
 }

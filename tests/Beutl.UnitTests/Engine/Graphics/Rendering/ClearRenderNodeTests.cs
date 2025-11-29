@@ -20,21 +20,21 @@ public class ClearRenderNodeTest
     }
 
     [Test]
-    public void Equals_ShouldReturnTrueForSameColor()
+    public void Update_ShouldReturnFalseForSameColor()
     {
         // Arrange
         var color = new Color(255, 0, 0, 255);
         var node = new ClearRenderNode(color);
 
         // Act
-        var result = node.Equals(color);
+        var result = node.Update(color);
 
         // Assert
-        Assert.That(result, Is.True);
+        Assert.That(result, Is.False);
     }
 
     [Test]
-    public void Equals_ShouldReturnFalseForDifferentColor()
+    public void Update_ShouldReturnTrueForDifferentColor()
     {
         // Arrange
         var color1 = new Color(255, 0, 0, 255);
@@ -42,10 +42,10 @@ public class ClearRenderNodeTest
         var node = new ClearRenderNode(color1);
 
         // Act
-        var result = node.Equals(color2);
+        var result = node.Update(color2);
 
         // Assert
-        Assert.That(result, Is.False);
+        Assert.That(result, Is.True);
     }
 
     [Test]

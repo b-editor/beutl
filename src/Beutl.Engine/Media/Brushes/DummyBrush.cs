@@ -5,7 +5,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Media;
 
-public sealed class DummyBrush : Brush, IDummy
+public sealed partial class DummyBrush : Brush, IDummy
 {
     internal JsonObject? Json { get; set; }
 
@@ -22,11 +22,6 @@ public sealed class DummyBrush : Brush, IDummy
     {
         base.Deserialize(context);
         Json = (context as IJsonSerializationContext)?.GetJsonObject();
-    }
-
-    public override IBrush ToImmutable()
-    {
-        return Brushes.Transparent;
     }
 
     public bool TryGetTypeName([NotNullWhen(true)] out string? result)

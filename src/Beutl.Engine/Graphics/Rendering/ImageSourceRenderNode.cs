@@ -3,18 +3,30 @@ using Beutl.Media.Source;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class ImageSourceRenderNode(IImageSource source, IBrush? fill, IPen? pen)
+public sealed class ImageSourceRenderNode(IImageSource source, Brush.Resource? fill, Pen.Resource? pen)
     : BrushRenderNode(fill, pen)
 {
-    public IImageSource Source { get; } = source.Clone();
+    public IImageSource Source { get; private set; } = source.Clone();
 
-    public Rect Bounds { get; } = PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen);
+    public Rect Bounds { get; private set; } = PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen);
 
-    public bool Equals(IImageSource source, IBrush? fill, IPen? pen)
+    public bool Update(IImageSource source, Brush.Resource? fill, Pen.Resource? pen)
     {
-        return EqualityComparer<IImageSource?>.Default.Equals(Source, source)
-            && EqualityComparer<IBrush?>.Default.Equals(Fill, fill)
-            && EqualityComparer<IPen?>.Default.Equals(Pen, pen);
+        bool changed = Update(fill, pen);
+        if (!Source.Equals(source))
+        {
+            Source.Dispose();
+            Source = source.Clone();
+            changed = true;
+        }
+
+        if (changed)
+        {
+            Bounds = PenHelper.GetBounds(new Rect(default, Source.FrameSize.ToSize(1)), Pen?.Resource);
+        }
+
+        HasChanges = changed;
+        return changed;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
@@ -29,7 +41,7 @@ public sealed class ImageSourceRenderNode(IImageSource source, IBrush? fill, IPe
 
                     using (bitmap)
                     {
-                        canvas.DrawBitmap(bitmap.Value, Fill, Pen);
+                        canvas.DrawBitmap(bitmap.Value, Fill?.Resource, Pen?.Resource);
                     }
                 },
                 hitTest: HitTest
@@ -45,8 +57,8 @@ public sealed class ImageSourceRenderNode(IImageSource source, IBrush? fill, IPe
 
     private bool HitTest(Point point)
     {
-        StrokeAlignment alignment = Pen?.StrokeAlignment ?? StrokeAlignment.Inside;
-        float thickness = Pen?.Thickness ?? 0;
+        StrokeAlignment alignment = Pen?.Resource.StrokeAlignment ?? StrokeAlignment.Inside;
+        float thickness = Pen?.Resource.Thickness ?? 0;
         thickness = PenHelper.GetRealThickness(alignment, thickness);
 
         if (Fill != null)

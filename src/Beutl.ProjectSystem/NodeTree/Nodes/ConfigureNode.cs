@@ -1,77 +1,32 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Graphics.Rendering;
 
 namespace Beutl.NodeTree.Nodes;
-
-public class ConfigureNodeEvaluationState(Drawable? previous, object? addtionalState)
-{
-    public Drawable? Previous { get; set; } = previous;
-
-    public object? AddtionalState { get; set; } = addtionalState;
-}
 
 public abstract class ConfigureNode : Node
 {
     public ConfigureNode()
     {
-        OutputSocket = AsOutput<Drawable>("Drawable");
-        InputSocket = AsInput<Drawable>("Drawable");
+        OutputSocket = AsOutput<ContainerRenderNode?>("Drawable");
+        InputSocket = AsInput<RenderNode?>("Drawable");
     }
 
-    protected OutputSocket<Drawable> OutputSocket { get; }
+    protected OutputSocket<ContainerRenderNode?> OutputSocket { get; }
 
-    protected InputSocket<Drawable> InputSocket { get; }
-
-    public override void UninitializeForContext(NodeEvaluationContext context)
-    {
-        base.UninitializeForContext(context);
-        if (context.State is ConfigureNodeEvaluationState { Previous: { } } state)
-        {
-            Detach(state.Previous, state.AddtionalState);
-            context.State = null;
-        }
-    }
+    protected InputSocket<RenderNode?> InputSocket { get; }
 
     public override void Evaluate(NodeEvaluationContext context)
     {
-        Drawable? value = InputSocket.Value;
-        var state = context.State as ConfigureNodeEvaluationState;
-        Drawable? prevDrawable = state?.Previous;
-        if (state != null)
-        {
-            state.Previous = value;
-        }
-        else
-        {
-            context.State = state = new ConfigureNodeEvaluationState(value, null);
-        }
+        RenderNode? input = InputSocket.Value;
+        ContainerRenderNode? output = OutputSocket.Value;
 
-        if (value != prevDrawable)
+        EvaluateCore();
+        if (input != null && output != null)
         {
-            if (prevDrawable != null)
-            {
-                Detach(prevDrawable, state?.AddtionalState);
-            }
-            if (value != null)
-            {
-                Attach(value, state?.AddtionalState);
-            }
+            output.HasChanges = input.HasChanges || output.HasChanges;
+            output.RemoveRange(0, output.Children.Count);
+            output.AddChild(input);
         }
-
-        if (value != null)
-        {
-            EvaluateCore(value, state?.AddtionalState);
-        }
-
-        OutputSocket.Value = value;
     }
 
-    protected abstract void EvaluateCore(Drawable drawable, object? state);
-
-    protected virtual void Attach(Drawable drawable, object? state)
-    {
-    }
-
-    protected virtual void Detach(Drawable drawable, object? state)
-    {
-    }
+    protected abstract void EvaluateCore();
 }

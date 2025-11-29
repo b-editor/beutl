@@ -1,53 +1,30 @@
-﻿using System.ComponentModel.DataAnnotations;
-
+using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
-
 using OpenCvSharp;
 
 namespace Beutl.Graphics.Effects.OpenCv;
 
-public class Blur : FilterEffect
+public partial class Blur : FilterEffect
 {
-    public static readonly CoreProperty<PixelSize> KernelSizeProperty;
-    public static readonly CoreProperty<bool> FixImageSizeProperty;
-    private PixelSize _kernelSize;
-    private bool _fixImageSize;
-
-    static Blur()
+    public Blur()
     {
-        KernelSizeProperty = ConfigureProperty<PixelSize, Blur>(nameof(KernelSize))
-            .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
-            .DefaultValue(PixelSize.Empty)
-            .Register();
-
-        FixImageSizeProperty = ConfigureProperty<bool, Blur>(nameof(FixImageSize))
-            .Accessor(o => o.FixImageSize, (o, v) => o.FixImageSize = v)
-            .DefaultValue(false)
-            .Register();
-
-        AffectsRender<Blur>(KernelSizeProperty, FixImageSizeProperty);
+        ScanProperties<Blur>();
     }
 
     [Display(Name = nameof(Strings.KernelSize), ResourceType = typeof(Strings))]
     [Range(typeof(PixelSize), "0,0", "max,max")]
-    public PixelSize KernelSize
-    {
-        get => _kernelSize;
-        set => SetAndRaise(KernelSizeProperty, ref _kernelSize, value);
-    }
+    public IProperty<PixelSize> KernelSize { get; } = Property.CreateAnimatable(PixelSize.Empty);
 
     [Display(Name = nameof(Strings.FixImageSize), ResourceType = typeof(Strings))]
-    public bool FixImageSize
-    {
-        get => _fixImageSize;
-        set => SetAndRaise(FixImageSizeProperty, ref _fixImageSize, value);
-    }
+    public IProperty<bool> FixImageSize { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.CustomEffect((KernelSize, FixImageSize), Apply, TransformBounds);
+        var r = (Resource)resource;
+        context.CustomEffect((r.KernelSize, r.FixImageSize), Apply, TransformBounds);
     }
 
     private static Rect TransformBounds((PixelSize KernelSize, bool FixImageSize) data, Rect rect)
@@ -66,6 +43,7 @@ public class Blur : FilterEffect
             int halfHeight = kheight / 2;
             rect = rect.Inflate(new Thickness(halfWidth, halfHeight));
         }
+
         return rect;
     }
 
@@ -115,10 +93,5 @@ public class Blur : FilterEffect
                 dst?.Dispose();
             }
         }
-    }
-
-    public override Rect TransformBounds(Rect rect)
-    {
-        return TransformBounds((_kernelSize, _fixImageSize), rect);
     }
 }

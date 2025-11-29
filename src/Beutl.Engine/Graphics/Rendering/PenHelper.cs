@@ -7,7 +7,7 @@ namespace Beutl.Graphics.Rendering;
 
 internal static class PenHelper
 {
-    public static Rect GetBounds(Rect rect, IPen? pen)
+    public static Rect GetBounds(Rect rect, Pen.Resource? pen)
     {
         if (pen != null)
         {
@@ -34,7 +34,7 @@ internal static class PenHelper
         };
     }
 
-    public static Rect CalculateBoundsWithStrokeCap(Rect rect, IPen? pen)
+    public static Rect CalculateBoundsWithStrokeCap(Rect rect, Pen.Resource? pen)
     {
         if (pen == null || MathUtilities.IsZero(pen.Thickness)) return rect;
 
@@ -48,7 +48,7 @@ internal static class PenHelper
     }
 
     public static void ConfigureStrokePaint(
-        IPen pen,
+        Pen.Resource pen,
         SKPaint paint, Size size)
     {
         float thickness = pen.Thickness;
@@ -94,7 +94,7 @@ internal static class PenHelper
         }
     }
 
-    public static SKPath CreateStrokePath(SKPath fillPath, IPen pen, Rect bounds)
+    public static SKPath CreateStrokePath(SKPath fillPath, Pen.Resource pen, Rect bounds)
     {
         var strokePath = new SKPath();
 

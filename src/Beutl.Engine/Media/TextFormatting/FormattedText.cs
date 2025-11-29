@@ -21,11 +21,11 @@ public class FormattedText : IEquatable<FormattedText>
     private Rect _bounds = default;
     private Rect _actualBounds;
     private bool _isDirty = false;
-    private IPen? _pen;
+    private Pen.Resource? _pen;
     private SKTextBlob? _textBlob;
     private SKPath? _fillPath;
     private SKPath? _strokePath;
-    private List<SKPathGeometry> _pathList = [];
+    private List<SKPathGeometry.Resource> _pathList = [];
 
     public FormattedText()
     {
@@ -81,9 +81,9 @@ public class FormattedText : IEquatable<FormattedText>
 
     public bool BeginOnNewLine { get; set; } = false;
 
-    public IBrush? Brush { get; set; }
+    public Brush.Resource? Brush { get; set; }
 
-    public IPen? Pen
+    public Pen.Resource? Pen
     {
         get => _pen;
         set => SetProperty(ref _pen, value);
@@ -183,15 +183,13 @@ public class FormattedText : IEquatable<FormattedText>
         var typeface = new Typeface(Font, Style, Weight);
         var font = new SKFont(typeface.ToSkia(), Size)
         {
-            Edging = SKFontEdging.Antialias,
-            Subpixel = true,
-            Hinting = SKFontHinting.Full
+            Edging = SKFontEdging.Antialias, Subpixel = true, Hinting = SKFontHinting.Full
         };
 
         return font;
     }
 
-    internal IReadOnlyList<Geometry> ToGeometies()
+    internal IReadOnlyList<Geometry.Resource> ToGeometies()
     {
         MeasureAndSetField();
         return _pathList;
@@ -216,7 +214,7 @@ public class FormattedText : IEquatable<FormattedText>
         Span<ushort> glyphs = run.Glyphs;
         Span<SKPoint> positions = run.Positions;
         CollectionsMarshal.SetCount(_pathList, result.Codepoints.Length);
-        Span<SKPathGeometry> pathList = CollectionsMarshal.AsSpan(_pathList);
+        Span<SKPathGeometry.Resource> pathList = CollectionsMarshal.AsSpan(_pathList);
         for (int i = 0; i < result.Codepoints.Length; i++)
         {
             glyphs[i] = (ushort)result.Codepoints[i];
@@ -232,14 +230,31 @@ public class FormattedText : IEquatable<FormattedText>
 
                 tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
 
-                ref SKPathGeometry? exist = ref pathList[i]!;
-                exist ??= new SKPathGeometry();
-                exist.SetSKPath(tmp, false);
+                ref SKPathGeometry.Resource? exist = ref pathList[i]!;
+                if (exist is null)
+                {
+                    var geom = new SKPathGeometry();
+                    geom.SetSKPath(tmp, false);
+                    exist = geom.ToResource(RenderContext.Default);
+                }
+                else
+                {
+                    exist.GetOriginal().SetSKPath(tmp, false);
+                }
             }
             else
             {
-                ref SKPathGeometry? exist = ref pathList[i]!;
-                exist ??= new SKPathGeometry();
+                ref SKPathGeometry.Resource? exist = ref pathList[i]!;
+                if (exist is null)
+                {
+                    var geom = new SKPathGeometry();
+                    geom.SetSKPath(tmp, false);
+                    exist = geom.ToResource(RenderContext.Default);
+                }
+                else
+                {
+                    exist.GetOriginal().SetSKPath(tmp, false);
+                }
             }
         }
 
@@ -296,8 +311,8 @@ public class FormattedText : IEquatable<FormattedText>
                && Spacing == other?.Spacing
                && Text.Equals(other?.Text)
                && BeginOnNewLine == other?.BeginOnNewLine
-               && EqualityComparer<IBrush>.Default.Equals(Brush, other?.Brush)
-               && EqualityComparer<IPen>.Default.Equals(Pen, other?.Pen);
+               && EqualityComparer<Brush.Resource>.Default.Equals(Brush, other?.Brush)
+               && EqualityComparer<Pen.Resource>.Default.Equals(Pen, other?.Pen);
     }
 
     public override int GetHashCode()

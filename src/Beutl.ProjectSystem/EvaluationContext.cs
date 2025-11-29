@@ -1,15 +1,15 @@
 ﻿using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 
 namespace Beutl;
 
 public class EvaluationContext
 {
-    internal IList<Renderable> _renderables;
+    internal IList<EngineObject> _renderables;
 
     public EvaluationContext(EvaluationContext context)
     {
-        Clock = context.Clock;
         Renderer = context.Renderer;
         List = context.List;
         _renderables = context._renderables;
@@ -22,15 +22,13 @@ public class EvaluationContext
     {
     }
 
-    public IClock Clock { get; internal set; }
-
     public IRenderer Renderer { get; internal set; }
 
     public IReadOnlyList<EvaluationContext> List { get; internal set; }
 
     public EvaluationTarget Target { get; internal set; }
 
-    public void AddRenderable(Renderable renderable)
+    public void AddRenderable(EngineObject renderable)
     {
         _renderables?.Add(renderable);
     }

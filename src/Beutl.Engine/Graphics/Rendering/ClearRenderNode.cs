@@ -4,11 +4,17 @@ namespace Beutl.Graphics.Rendering;
 
 public sealed class ClearRenderNode(Color color) : RenderNode
 {
-    public Color Color { get; } = color;
+    public Color Color { get; private set; } = color;
 
-    public bool Equals(Color color)
+    public bool Update(Color color)
     {
-        return Color == color;
+        if (Color != color)
+        {
+            Color = color;
+            HasChanges = true;
+            return true;
+        }
+        return false;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)

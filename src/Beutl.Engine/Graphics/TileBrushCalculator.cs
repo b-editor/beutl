@@ -7,7 +7,7 @@ internal readonly struct TileBrushCalculator
     private readonly Size _imageSize;
     private readonly Rect _drawRect;
 
-    public TileBrushCalculator(ITileBrush brush, Size contentSize, Size targetSize)
+    public TileBrushCalculator(TileBrush.Resource brush, Size contentSize, Size targetSize)
         : this(
               brush.TileMode,
               brush.Stretch,

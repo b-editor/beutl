@@ -1,28 +1,22 @@
 ﻿using System.ComponentModel;
+using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Serialization;
+using Beutl.Validation;
 
 namespace Beutl.Animation;
 
 public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
 {
     public static readonly CoreProperty<bool> UseGlobalClockProperty;
-    private CoreProperty? _property;
     private bool _useGlobalClock;
+    private IValidator? _validator;
 
     static KeyFrameAnimation()
     {
         UseGlobalClockProperty = ConfigureProperty<bool, KeyFrameAnimation>(nameof(UseGlobalClock))
             .Accessor(o => o.UseGlobalClock, (o, v) => o.UseGlobalClock = v)
             .Register();
-    }
-
-    public KeyFrameAnimation(CoreProperty property)
-    {
-        _property = property;
-        KeyFrames = new KeyFrames(this);
-        KeyFrames.Attached += OnKeyFrameAttached;
-        KeyFrames.Detached += OnKeyFrameDetached;
     }
 
     public KeyFrameAnimation()
@@ -32,7 +26,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         KeyFrames.Detached += OnKeyFrameDetached;
     }
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     private void OnKeyTimeChanged(object? sender, EventArgs e)
     {
@@ -80,32 +74,34 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         }
     }
 
-    private void OnKeyFrameInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnKeyFrameEdited(object? sender, EventArgs e)
     {
-        Invalidated?.Invoke(this, e);
+        Edited?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnKeyFrameAttached(IKeyFrame obj)
     {
         if (obj is KeyFrame keyFrame)
         {
-            keyFrame.Property = Property;
+            keyFrame.Validator = Validator;
         }
 
         obj.KeyTimeChanged += OnKeyTimeChanged;
-        obj.Invalidated += OnKeyFrameInvalidated;
+        obj.Edited += OnKeyFrameEdited;
     }
 
     private void OnKeyFrameDetached(IKeyFrame obj)
     {
         if (obj is KeyFrame keyFrame)
         {
-            keyFrame.Property = null;
+            keyFrame.Validator = null;
         }
 
         obj.KeyTimeChanged -= OnKeyTimeChanged;
-        obj.Invalidated -= OnKeyFrameInvalidated;
+        obj.Edited -= OnKeyFrameEdited;
     }
+
+    public abstract Type ValueType { get; }
 
     public bool UseGlobalClock
     {
@@ -115,17 +111,17 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
 
     public KeyFrames KeyFrames { get; }
 
-    public CoreProperty Property
+    public IValidator? Validator
     {
-        get => _property!;
+        get => _validator;
         set
         {
-            _property = value;
+            _validator = value;
             foreach (IKeyFrame item in KeyFrames)
             {
                 if (item is KeyFrame keyFrame)
                 {
-                    keyFrame.Property = _property;
+                    keyFrame.Validator = value;
                 }
             }
         }
@@ -135,8 +131,6 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         => KeyFrames.Count > 0
             ? KeyFrames[^1].KeyTime
             : TimeSpan.Zero;
-
-    public abstract void ApplyAnimation(Animatable target, IClock clock);
 
     public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(IKeyFrame keyframe)
     {
@@ -153,22 +147,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         base.OnPropertyChanged(args);
         if (args.PropertyName is nameof(UseGlobalClock))
         {
-            Invalidated?.Invoke(this, new(this));
-        }
-    }
-
-    public override void Serialize(ICoreSerializationContext context)
-    {
-        base.Serialize(context);
-        context.SetValue(nameof(Property), Property);
-    }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        base.Deserialize(context);
-        if (context.GetValue<CoreProperty>(nameof(Property)) is { } prop)
-        {
-            Property = prop;
+            Edited?.Invoke(this, EventArgs.Empty);
         }
     }
 }

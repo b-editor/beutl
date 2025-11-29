@@ -2,14 +2,27 @@
 
 public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : ContainerRenderNode
 {
-    public Rect Clip { get; } = clip;
+    public Rect Clip { get; private set; } = clip;
 
-    public ClipOperation Operation { get; } = operation;
+    public ClipOperation Operation { get; private set; } = operation;
 
-    public bool Equals(Rect clip, ClipOperation operation)
+    public bool Update(Rect clip, ClipOperation operation)
     {
-        return Clip == clip
-            && Operation == operation;
+        bool changed = false;
+        if (Clip != clip)
+        {
+            Clip = clip;
+            changed = true;
+        }
+
+        if (Operation != operation)
+        {
+            Operation = operation;
+            changed = true;
+        }
+
+        HasChanges = true;
+        return changed;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)

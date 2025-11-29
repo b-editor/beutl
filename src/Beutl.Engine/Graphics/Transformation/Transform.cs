@@ -1,139 +1,39 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-using Beutl.Animation;
-using Beutl.Media;
-using Beutl.Media.Immutable;
+﻿using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 
 namespace Beutl.Graphics.Transformation;
 
-public abstract class Transform : Animatable, IMutableTransform
+[SuppressResourceClassGeneration]
+public abstract class Transform : EngineObject
 {
-    public static readonly CoreProperty<bool> IsEnabledProperty;
-    private bool _isEnabled = true;
+    public abstract Matrix CreateMatrix(RenderContext context);
 
-    static Transform()
+    public override Resource ToResource(RenderContext context)
     {
-        IsEnabledProperty = ConfigureProperty<bool, Transform>(nameof(IsEnabled))
-            .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
-            .DefaultValue(true)
-            .Register();
-
-        AffectsRender<Transform>(IsEnabledProperty);
+        var resource = new Resource();
+        bool updateOnly = true;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
     }
 
-    protected Transform()
+    public new sealed class Resource : EngineObject.Resource
     {
-        AnimationInvalidated += (_, e) => RaiseInvalidated(e);
-    }
+        public Matrix Matrix { get; set; } = Matrix.Identity;
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
-
-    public static ITransform Identity { get; } = new IdentityTransform();
-
-    public abstract Matrix Value { get; }
-
-    public bool IsEnabled
-    {
-        get => _isEnabled;
-        set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
-    }
-
-    public static bool TryParse(string s, [NotNullWhen(true)] out ITransform? transform)
-    {
-        return TryParse(s.AsSpan(), out transform);
-    }
-
-    public static bool TryParse(ReadOnlySpan<char> s, [NotNullWhen(true)] out ITransform? transform)
-    {
-        try
+        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
         {
-            transform = Parse(s);
-            return true;
-        }
-        catch
-        {
-            transform = null;
-            return false;
-        }
-    }
+            base.Update(obj, context, ref updateOnly);
+            var transform = (Transform)obj;
 
-    public static ITransform Parse(string s)
-    {
-        return Parse(s.AsSpan());
-    }
+            var oldMatrix = Matrix;
+            Matrix = transform.CreateMatrix(context);
+            if (updateOnly) return;
 
-    public static ITransform Parse(ReadOnlySpan<char> s)
-    {
-        return TransformParser.Parse(s);
-    }
-
-    public ITransform ToImmutable()
-    {
-        return new ImmutableTransform(Value, _isEnabled);
-    }
-
-    protected static void AffectsRender<T>(
-        CoreProperty? property1 = null,
-        CoreProperty? property2 = null,
-        CoreProperty? property3 = null,
-        CoreProperty? property4 = null)
-        where T : Transform
-    {
-        static void onNext(CorePropertyChangedEventArgs e)
-        {
-            if (e.Sender is T s)
+            if (oldMatrix != Matrix)
             {
-                s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
-
-                if (e.OldValue is IAffectsRender oldAffectsRender)
-                    oldAffectsRender.Invalidated -= s.OnAffectsRenderInvalidated;
-
-                if (e.NewValue is IAffectsRender newAffectsRender)
-                    newAffectsRender.Invalidated += s.OnAffectsRenderInvalidated;
+                updateOnly = true;
+                Version++;
             }
         }
-
-        property1?.Changed.Subscribe(onNext);
-        property2?.Changed.Subscribe(onNext);
-        property3?.Changed.Subscribe(onNext);
-        property4?.Changed.Subscribe(onNext);
-    }
-
-    private void OnAffectsRenderInvalidated(object? sender, RenderInvalidatedEventArgs e)
-    {
-        Invalidated?.Invoke(this, e);
-    }
-
-    protected static void AffectsRender<T>(params CoreProperty[] properties)
-        where T : Transform
-    {
-        foreach (CoreProperty? item in properties)
-        {
-            item.Changed.Subscribe(e =>
-            {
-                if (e.Sender is T s)
-                {
-                    s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
-
-                    if (e.OldValue is IAffectsRender oldAffectsRender)
-                        oldAffectsRender.Invalidated -= s.OnAffectsRenderInvalidated;
-
-                    if (e.NewValue is IAffectsRender newAffectsRender)
-                        newAffectsRender.Invalidated += s.OnAffectsRenderInvalidated;
-                }
-            });
-        }
-    }
-
-    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
-    {
-        Invalidated?.Invoke(this, args);
-    }
-
-    private sealed class IdentityTransform : ITransform
-    {
-        public Matrix Value => Matrix.Identity;
-
-        public bool IsEnabled => true;
     }
 }

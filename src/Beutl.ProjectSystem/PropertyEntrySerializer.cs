@@ -9,7 +9,7 @@ namespace Beutl;
 [ExcludeFromCodeCoverage]
 internal static class PropertyEntrySerializer
 {
-    public static (CoreProperty? property, Optional<object?> value, IAnimation? animation) ToTuple(JsonNode? json, string name, Type targetType, ICoreSerializationContext context)
+    public static (Optional<object?> value, IAnimation? animation) ToTuple(JsonNode? json, string name, Type valueType, Type targetType, ICoreSerializationContext context)
     {
         JsonNode? animationNode = null;
         JsonNode? valueNode = null;
@@ -22,20 +22,6 @@ internal static class PropertyEntrySerializer
         }
         else if (json is JsonObject jobj)
         {
-            if (jobj.TryGetPropertyValue("Owner", out JsonNode? ownerNode)
-                && ownerNode is JsonValue ownerValue
-                && ownerValue.TryGetValue(out string? ownerStr))
-            {
-                if (TypeFormat.ToType(ownerStr) is { } ownerType1)
-                {
-                    ownerType = ownerType1;
-                }
-                else
-                {
-                    return default;
-                }
-            }
-
             valueNode = jobj["Value"];
             // あとで他のJsonNodeに入れるため
             jobj["Value"] = null;
@@ -43,40 +29,29 @@ internal static class PropertyEntrySerializer
             animationNode = jobj["Animation"];
         }
 
-        CoreProperty? property = PropertyRegistry.GetRegistered(ownerType).FirstOrDefault(x => x.Name == name);
-
-        if (property == null)
-            return default;
-
         Optional<object?> value = null;
         if (valueNode != null)
         {
             // Todo: 互換性維持のために汚くなってる
-            var errorNotifier = new RelaySerializationErrorNotifier(context.ErrorNotifier, property.Name);
+            var errorNotifier = new RelaySerializationErrorNotifier(context.ErrorNotifier, name);
             var simJson = new JsonObject
             {
-                [property.Name] = valueNode
+                [name] = valueNode
             };
             var innerContext = new JsonSerializationContext(ownerType, errorNotifier, context, simJson);
             using (ThreadLocalSerializationContext.Enter(innerContext))
             {
-                value = property.RouteDeserialize(innerContext);
+                value = innerContext.GetValue(name, valueType);
             }
         }
 
-        return (property, value, animationNode?.ToAnimation(property, context));
+        return (value, animationNode?.ToAnimation(context));
     }
 
-    public static (string, JsonNode?) ToJson(CoreProperty property, object? value, IAnimation? animation, Type targetType, ICoreSerializationContext context)
+    public static (string, JsonNode?) ToJson(string name, object? value, IAnimation? animation, Type valueType, Type targetType, ICoreSerializationContext context)
     {
         string? owner = null;
         JsonNode? animationNode = null;
-        string? name = property.Name;
-
-        if (!targetType.IsAssignableTo(property.OwnerType))
-        {
-            owner = TypeFormat.ToString(property.OwnerType);
-        }
 
         // Todo: 互換性維持のために汚くなってる
         var simJson = new JsonObject();
@@ -84,17 +59,17 @@ internal static class PropertyEntrySerializer
         var innerContext = new JsonSerializationContext(targetType, errorNotifier, context, simJson);
         using (ThreadLocalSerializationContext.Enter(innerContext))
         {
-            property.RouteSerialize(innerContext, value);
+            innerContext.SetValue(name, value, valueType);
         }
         JsonNode? jsonNode = simJson[name];
         simJson[name] = null;
 
         if (animation is not null)
         {
-            if (animation.Property.Id != property.Id)
-            {
-                throw new InvalidOperationException("Animation.Property != Property");
-            }
+            // if (animation.Property.Id != property.Id)
+            // {
+            //     throw new InvalidOperationException("Animation.Property != Property");
+            // }
 
             animationNode = animation.ToJson(innerContext);
         }

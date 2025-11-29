@@ -1,76 +1,29 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
-using Beutl.Graphics.Rendering;
+using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Media.Source;
 
 namespace Beutl.Audio;
 
-public abstract class Sound : Renderable
+[SuppressResourceClassGeneration]
+public abstract class Sound : EngineObject
 {
-    public static readonly CoreProperty<float> GainProperty;
-    public static readonly CoreProperty<float> SpeedProperty;
-    public static readonly CoreProperty<IAudioEffect?> EffectProperty;
-
-    private float _gain = 100;
-    private float _speed = 100;
-    private IAudioEffect? _effect;
-
-    static Sound()
-    {
-        GainProperty = ConfigureProperty<float, Sound>(nameof(Gain))
-            .Accessor(o => o.Gain, (o, v) => o.Gain = v)
-            .DefaultValue(100)
-            .Register();
-
-        SpeedProperty = ConfigureProperty<float, Sound>(nameof(Speed))
-            .Accessor(o => o.Speed, (o, v) => o.Speed = v)
-            .DefaultValue(100)
-            .Register();
-
-        EffectProperty = ConfigureProperty<IAudioEffect?, Sound>(nameof(Effect))
-            .Accessor(o => o.Effect, (o, v) => o.Effect = v)
-            .DefaultValue(null)
-            .Register();
-
-        AffectsRender<Sound>(GainProperty, EffectProperty, TimeRangeProperty, SpeedProperty);
-    }
-
     public Sound()
     {
-        Invalidated += OnInvalidated;
-    }
-
-
-    private void OnInvalidated(object? sender, RenderInvalidatedEventArgs e)
-    {
-        // Notify any external cache that this sound has changed
-        // The Composer will handle cache invalidation
+        ScanProperties<Sound>();
     }
 
     [Range(0, float.MaxValue)]
-    public float Gain
-    {
-        get => _gain;
-        set => SetAndRaise(GainProperty, ref _gain, value);
-    }
+    public IProperty<float> Gain { get; } = Property.CreateAnimatable(100f);
 
     [Range(0, float.MaxValue)]
-    public float Speed
-    {
-        get => _speed;
-        set => SetAndRaise(SpeedProperty, ref _speed, value);
-    }
+    public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
+
+    public IProperty<AudioEffect?> Effect { get; } = Property.Create<AudioEffect?>();
 
     public TimeSpan Duration { get; private set; }
-
-    public IAudioEffect? Effect
-    {
-        get => _effect;
-        set => SetAndRaise(EffectProperty, ref _effect, value);
-    }
-
 
     protected abstract ISoundSource? GetSoundSource();
 
@@ -89,19 +42,19 @@ public abstract class Sound : Renderable
         var resampleNode = context.CreateResampleNode(soundSource.SampleRate);
         context.Connect(sourceNode, resampleNode);
 
-        var speedNode = context.CreateSpeedNode(Speed / 100f, this, SpeedProperty);
+        var speedNode = context.CreateSpeedNode(Speed);
         context.Connect(resampleNode, speedNode);
 
         // Create gain node with animation support
-        var gainNode = context.CreateGainNode(Gain / 100f, this, GainProperty);
+        var gainNode = context.CreateGainNode(Gain);
         context.Connect(speedNode, gainNode);
 
         AudioNode currentNode = gainNode;
 
         // Add effect if present
-        if (_effect != null && _effect.IsEnabled)
+        if (Effect.CurrentValue != null && Effect.CurrentValue.IsEnabled)
         {
-            var effectNode = context.CreateEffectNode(_effect);
+            var effectNode = context.CreateEffectNode(Effect.CurrentValue);
             context.Connect(currentNode, effectNode);
             currentNode = effectNode;
         }

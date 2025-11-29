@@ -1,38 +1,26 @@
-﻿using Beutl.Media;
+using Beutl.Media;
 
 namespace Beutl.NodeTree.Nodes.Geometry;
 
-public sealed class RectGeometryNode : Node
+public sealed class RectGeometryNode : GeometryNode<RectGeometry, RectGeometry.Resource>
 {
-    private readonly OutputSocket<RectGeometry> _outputSocket;
-    private readonly InputSocket<float> _widthSocket;
-    private readonly InputSocket<float> _heightSocket;
-
     public RectGeometryNode()
     {
-        _outputSocket = AsOutput<RectGeometry>("Geometry");
-
-        _widthSocket = AsInput<float, RectGeometry>(RectGeometry.WidthProperty, value: 100).AcceptNumber();
-        _heightSocket = AsInput<float, RectGeometry>(RectGeometry.HeightProperty, value: 100).AcceptNumber();
+        WidthSocket = AsInput<float>("Width").AcceptNumber();
+        WidthSocket.Value = 100;
+        HeightSocket = AsInput<float>("Height").AcceptNumber();
+        HeightSocket.Value = 100;
     }
 
-    public override void InitializeForContext(NodeEvaluationContext context)
-    {
-        base.InitializeForContext(context);
-        context.State = new RectGeometry();
-    }
+    public InputSocket<float> WidthSocket { get; }
 
-    public override void UninitializeForContext(NodeEvaluationContext context)
-    {
-        base.UninitializeForContext(context);
-        context.State = null;
-    }
+    public InputSocket<float> HeightSocket { get; }
 
     public override void Evaluate(NodeEvaluationContext context)
     {
-        RectGeometry rectangle = context.GetOrSetState<RectGeometry>();
-        rectangle.Width = _widthSocket.Value;
-        rectangle.Height = _heightSocket.Value;
-        _outputSocket.Value = rectangle;
+        Object.Width.CurrentValue = WidthSocket.Value;
+        Object.Height.CurrentValue = HeightSocket.Value;
+
+        base.Evaluate(context);
     }
 }

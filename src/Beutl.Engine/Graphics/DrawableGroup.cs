@@ -1,129 +1,236 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
-using Beutl.Serialization;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
 
 namespace Beutl.Graphics;
 
 [Display(Name = "Group")]
-public sealed class DrawableGroup : Drawable
+public sealed partial class DrawableGroup : Drawable
 {
-    public static readonly CoreProperty<Drawables> ChildrenProperty;
-    private readonly Drawables _children = [];
-
-    static DrawableGroup()
-    {
-        ChildrenProperty = ConfigureProperty<Drawables, DrawableGroup>(nameof(Children))
-            .Accessor(o => o.Children, (o, v) => o.Children = v)
-            .Register();
-    }
-
     public DrawableGroup()
     {
-        _children.Invalidated += (_, e) => RaiseInvalidated(e);
-        _children.Attached += HierarchicalChildren.Add;
-        _children.Detached += item => HierarchicalChildren.Remove(item);
+        ScanProperties<DrawableGroup>();
     }
 
-    [NotAutoSerialized]
-    public Drawables Children
-    {
-        get => _children;
-        set => _children.Replace(value);
-    }
+    public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
 
-    public override void Serialize(ICoreSerializationContext context)
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
-        base.Serialize(context);
-        context.SetValue(nameof(Children), Children);
-    }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        base.Deserialize(context);
-        if (context.GetValue<Drawables>(nameof(Children)) is { } children)
+        if (resource.IsEnabled)
         {
-            Children = children;
-        }
-    }
-
-    public override void Measure(Size availableSize)
-    {
-        Rect rect = PrivateMeasureCore(availableSize);
-        Matrix transform = GetTransformMatrix(availableSize);
-
-        if (FilterEffect != null)
-        {
-            rect = FilterEffect.TransformBounds(rect);
-        }
-
-        Bounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
-    }
-
-    private Rect PrivateMeasureCore(Size availableSize)
-    {
-        Rect rect = default;
-        foreach (Drawable item in _children.GetMarshal().Value)
-        {
-            item.Measure(availableSize);
-            rect = rect.Union(item.Bounds);
-        }
-
-        return rect;
-    }
-
-    public override void Render(GraphicsContext2D context)
-    {
-        if (IsVisible)
-        {
+            var r = (Resource)resource;
             Size availableSize = context.Size.ToSize(1);
-            Rect rect = PrivateMeasureCore(availableSize);
-            if (FilterEffect != null && !rect.IsInvalid)
+            var boundsMemory = context.UseMemory<Rect>();
+            var transformParams = (r.Transform, r.TransformOrigin, availableSize, boundsMemory);
+
+            using (context.PushBlendMode(r.BlendMode))
+            using (context.PushNode(
+                       transformParams,
+                       b => new CustomTransformRenderNode(
+                           b.Transform, b.TransformOrigin, b.availableSize,
+                           Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory),
+                       (n, b) => n.Update(
+                           b.Transform, b.TransformOrigin, b.availableSize,
+                           Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
+            using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
+            using (context.PushNode(
+                       boundsMemory,
+                       b => new BoundsObserveNode(b),
+                       (n, b) => n.Update(b)))
             {
-                rect = FilterEffect.TransformBounds(rect);
+                OnDraw(context, r);
             }
-
-            Matrix transform = GetTransformMatrix(availableSize);
-            Rect transformedBounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
-
-            using (context.PushBlendMode(BlendMode))
-            using (context.PushLayer(transformedBounds.IsInvalid ? default : transformedBounds))
-            using (context.PushTransform(transform))
-            using (FilterEffect == null ? new() : context.PushFilterEffect(FilterEffect))
-            using (OpacityMask == null ? new() : context.PushOpacityMask(OpacityMask, new Rect(rect.Size)))
-            using (context.PushLayer())
-            {
-                OnDraw(context);
-            }
-
-            Bounds = transformedBounds;
         }
     }
 
-    protected override void OnDraw(GraphicsContext2D context)
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
-        foreach (Drawable item in _children.GetMarshal().Value)
+        var r = (Resource)resource;
+        foreach (Drawable.Resource item in r.Children)
         {
             context.DrawDrawable(item);
         }
     }
 
-    private Matrix GetTransformMatrix(Size availableSize)
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
-        Vector origin = TransformOrigin.ToPixels(availableSize);
-        Matrix offset = Matrix.CreateTranslation(origin);
+        return Size.Empty;
+    }
 
-        if (Transform is { IsEnabled: true })
+    internal sealed class BoundsObserveNode : ContainerRenderNode
+    {
+        public BoundsObserveNode(MemoryNode<Rect> memoryNode)
         {
-            return (-offset) * Transform.Value * offset;
+            MemoryNode = memoryNode;
         }
-        else
+
+        public MemoryNode<Rect> MemoryNode { get; private set; }
+
+        public bool Update(MemoryNode<Rect> memoryNode)
         {
-            return Matrix.Identity;
+            if (memoryNode != MemoryNode)
+            {
+                MemoryNode = memoryNode;
+                HasChanges = true;
+                return true;
+            }
+
+            return false;
+        }
+
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            MemoryNode.Value = context.CalculateBounds();
+            return context.Input;
         }
     }
 
-    protected override Size MeasureCore(Size availableSize)
+    internal sealed class CustomTransformRenderNode(
+        Transform.Resource? transform,
+        RelativePoint transformOrigin,
+        Size screenSize,
+        AlignmentX alignmentX,
+        AlignmentY alignmentY,
+        MemoryNode<Rect> bounds) : ContainerRenderNode
     {
-        return PrivateMeasureCore(availableSize).Size;
+        public (Transform.Resource Resource, int Version)? Transform { get; private set; } = transform.Capture();
+
+        public RelativePoint TransformOrigin { get; private set; } = transformOrigin;
+
+        public Size ScreenSize { get; private set; } = screenSize;
+
+        public AlignmentX AlignmentX { get; private set; } = alignmentX;
+
+        public AlignmentY AlignmentY { get; private set; } = alignmentY;
+
+        public MemoryNode<Rect> Bounds { get; private set; } = bounds;
+
+        public bool Update(
+            Transform.Resource? transform, RelativePoint transformOrigin, Size screenSize,
+            AlignmentX alignmentX, AlignmentY alignmentY, MemoryNode<Rect> bounds)
+        {
+            bool changed = false;
+            if (!transform.Compare(Transform))
+            {
+                Transform = transform.Capture();
+                changed = true;
+            }
+
+            if (TransformOrigin != transformOrigin)
+            {
+                TransformOrigin = transformOrigin;
+                changed = true;
+            }
+
+            if (ScreenSize != screenSize)
+            {
+                ScreenSize = screenSize;
+                changed = true;
+            }
+
+            if (AlignmentX != alignmentX)
+            {
+                AlignmentX = alignmentX;
+                changed = true;
+            }
+
+            if (AlignmentY != alignmentY)
+            {
+                AlignmentY = alignmentY;
+                changed = true;
+            }
+
+            if (Bounds != bounds)
+            {
+                Bounds = bounds;
+                changed = true;
+            }
+
+            HasChanges = changed;
+            return changed;
+        }
+
+        private Matrix GetTransformMatrix(Rect bounds)
+        {
+            Vector pt = CalculateTranslate(bounds.Size);
+            var origin = TransformOrigin.ToPixels(bounds.Size);
+            Matrix offset = Matrix.CreateTranslation(origin + bounds.Position);
+            var transform = Transform?.Resource;
+
+            if (transform != null)
+            {
+                return (-offset) * transform.Matrix * offset * Matrix.CreateTranslation(pt);
+            }
+            else
+            {
+                return Matrix.CreateTranslation(pt);
+            }
+        }
+
+        private Point CalculateTranslate(Size bounds)
+        {
+            float x = 0;
+            float y = 0;
+
+            if (float.IsFinite(ScreenSize.Width))
+            {
+                switch (AlignmentX)
+                {
+                    case Media.AlignmentX.Left:
+                        x = 0;
+                        break;
+                    case Media.AlignmentX.Center:
+                        x = ScreenSize.Width / 2 - bounds.Width / 2;
+                        break;
+                    case Media.AlignmentX.Right:
+                        x = ScreenSize.Width - bounds.Width;
+                        break;
+                }
+            }
+
+            if (float.IsFinite(ScreenSize.Height))
+            {
+                switch (AlignmentY)
+                {
+                    case Media.AlignmentY.Top:
+                        y = 0;
+                        break;
+                    case Media.AlignmentY.Center:
+                        y = ScreenSize.Height / 2 - bounds.Height / 2;
+                        break;
+                    case Media.AlignmentY.Bottom:
+                        y = ScreenSize.Height - bounds.Height;
+                        break;
+                }
+            }
+
+            return new Point(x, y);
+        }
+
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            var bounds = Bounds.Value;
+            var transform = GetTransformMatrix(bounds);
+            return context.Input.Select(r =>
+                    RenderNodeOperation.CreateLambda(
+                        r.Bounds.TransformToAABB(transform),
+                        canvas =>
+                        {
+                            using (canvas.PushTransform(transform))
+                            {
+                                r.Render(canvas);
+                            }
+                        },
+                        hitTest: point =>
+                        {
+                            if (transform.HasInverse)
+                                point *= transform.Invert();
+                            return r.HitTest(point);
+                        },
+                        onDispose: r.Dispose))
+                .ToArray();
+        }
     }
 }

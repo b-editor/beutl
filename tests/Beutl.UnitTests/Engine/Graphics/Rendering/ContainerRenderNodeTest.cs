@@ -53,20 +53,6 @@ public class ContainerRenderNodeTest
     }
 
     [Test]
-    public void BringFrom_ShouldTransferChildrenFromAnotherContainer()
-    {
-        var node = new ContainerRenderNode();
-        var sourceContainer = new ContainerRenderNode();
-        var child = new ContainerRenderNode();
-        sourceContainer.AddChild(child);
-
-        node.BringFrom(sourceContainer);
-
-        Assert.That(node.Children, Contains.Item(child));
-        Assert.That(sourceContainer.Children, Is.Empty);
-    }
-
-    [Test]
     public void Process_ShouldReturnContextInput()
     {
         var node = new ContainerRenderNode();

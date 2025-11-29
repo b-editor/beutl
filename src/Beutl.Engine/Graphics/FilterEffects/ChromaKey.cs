@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
@@ -7,39 +8,13 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public class ChromaKey : FilterEffect
+public partial class ChromaKey : FilterEffect
 {
-    public static readonly CoreProperty<Color> ColorProperty;
-    public static readonly CoreProperty<float> HueRangeProperty;
-    public static readonly CoreProperty<float> SaturationRangeProperty;
-    public static readonly CoreProperty<float> BoundaryProperty;
     private static readonly ILogger s_logger = Log.CreateLogger<ChromaKey>();
     private static readonly SKRuntimeEffect? s_runtimeEffect;
-    private Color _color;
-    private float _hueRange;
-    private float _saturationRange;
-    private float _boundary = 2f;
 
     static ChromaKey()
     {
-        ColorProperty = ConfigureProperty<Color, ChromaKey>(nameof(Color))
-            .Accessor(o => o.Color, (o, v) => o.Color = v)
-            .Register();
-
-        HueRangeProperty = ConfigureProperty<float, ChromaKey>(nameof(HueRange))
-            .Accessor(o => o.HueRange, (o, v) => o.HueRange = v)
-            .Register();
-
-        SaturationRangeProperty = ConfigureProperty<float, ChromaKey>(nameof(SaturationRange))
-            .Accessor(o => o.SaturationRange, (o, v) => o.SaturationRange = v)
-            .Register();
-
-        BoundaryProperty = ConfigureProperty<float, ChromaKey>(nameof(Boundary))
-            .Accessor(o => o.Boundary, (o, v) => o.Boundary = v)
-            .DefaultValue(2f)
-            .Register();
-
-        AffectsRender<ChromaKey>(ColorProperty, HueRangeProperty, SaturationRangeProperty, BoundaryProperty);
         string sksl =
             """
             uniform shader src;
@@ -108,37 +83,30 @@ public class ChromaKey : FilterEffect
         }
     }
 
-    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
-    public Color Color
+    public ChromaKey()
     {
-        get => _color;
-        set => SetAndRaise(ColorProperty, ref _color, value);
+        ScanProperties<ChromaKey>();
     }
+
+    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
+    public IProperty<Color> Color { get; } = Property.CreateAnimatable<Color>();
 
     [Display(Name = nameof(Strings.HueRange), ResourceType = typeof(Strings))]
-    public float HueRange
-    {
-        get => _hueRange;
-        set => SetAndRaise(HueRangeProperty, ref _hueRange, value);
-    }
+    public IProperty<float> HueRange { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(Strings.SaturationRange), ResourceType = typeof(Strings))]
-    public float SaturationRange
-    {
-        get => _saturationRange;
-        set => SetAndRaise(SaturationRangeProperty, ref _saturationRange, value);
-    }
+    public IProperty<float> SaturationRange { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(Strings.BoundaryCorrection), ResourceType = typeof(Strings))]
-    public float Boundary
-    {
-        get => _boundary;
-        set => SetAndRaise(BoundaryProperty, ref _boundary, value);
-    }
+    public IProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.CustomEffect((Color, HueRange, SaturationRange, Boundary), OnApplyTo, (_, r) => r);
+        var r = (Resource)resource;
+        context.CustomEffect(
+            (color: r.Color, hueRange: r.HueRange, satRange: r.SaturationRange, boundary: r.Boundary),
+            OnApplyTo,
+            static (_, r) => r);
     }
 
     private static void OnApplyTo((Color color, float hueRange, float satRange, float boundary) data, CustomFilterEffectContext c)

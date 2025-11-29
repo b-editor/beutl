@@ -9,17 +9,6 @@ public static class MathUtilities
 
     public const float FloatEpsilon = 1.192092896e-07F;
 
-    // Todo: Deg2Rad
-    public static float ToRadians(float degrees)
-    {
-        return degrees * (MathF.PI / 180.0f);
-    }
-
-    public static float ToDegrees(float radians)
-    {
-        return radians * (180.0f / MathF.PI);
-    }
-
     public static long GreatestCommonDivisor(long left, long right)
     {
         return right == 0 ? left : GreatestCommonDivisor(right, left % right);

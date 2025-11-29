@@ -2,6 +2,7 @@
 
 using Beutl.Animation.Easings;
 using Beutl.Serialization;
+using Beutl.Validation;
 
 namespace Beutl.Animation;
 
@@ -42,7 +43,7 @@ public class KeyFrame : Hierarchical
         set => SetAndRaise(KeyTimeProperty, ref _keyTime, value);
     }
 
-    internal virtual CoreProperty? Property { get; set; }
+    public IValidator? Validator { get; set; }
 
     public override void Deserialize(ICoreSerializationContext context)
     {

@@ -89,9 +89,9 @@ public sealed class AddElementDialogViewModel
                 element.Operation.AddChild(op).Do();
 
                 if (!_description.Position.IsDefault
-                    && op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is IPropertyAdapter<ITransform?> transformp)
+                    && op.Properties.FirstOrDefault(v => v.PropertyType == typeof(Transform)) is IPropertyAdapter<Transform?> transformp)
                 {
-                    ITransform? transform = transformp.GetValue();
+                    Transform? transform = transformp.GetValue();
                     var translate = new TranslateTransform(_description.Position);
                     if (transform is TransformGroup group)
                     {

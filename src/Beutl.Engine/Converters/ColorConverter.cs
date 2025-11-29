@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-
+using Beutl.Animation;
 using Beutl.Media;
 
 namespace Beutl.Converters;
@@ -16,9 +16,9 @@ public sealed class ColorConverter : TypeConverter
             || destinationType == typeof(Tuple<byte, byte, byte, byte>)
             || destinationType == typeof(int)
             || destinationType == typeof(uint)
-            || destinationType == typeof(IBrush)
-            || destinationType == typeof(ISolidColorBrush)
+            || destinationType == typeof(Brush)
             || destinationType == typeof(SolidColorBrush)
+            || destinationType == typeof(SolidColorBrush.Resource)
             || base.CanConvertTo(context, destinationType);
     }
 
@@ -56,14 +56,14 @@ public sealed class ColorConverter : TypeConverter
             {
                 return color.ToUint32();
             }
-            else if (destinationType == typeof(IBrush)
-                || destinationType == typeof(ISolidColorBrush))
-            {
-                return color.ToImmutableBrush();
-            }
-            else if (destinationType == typeof(SolidColorBrush))
+            else if (destinationType == typeof(Brush)
+                || destinationType == typeof(SolidColorBrush))
             {
                 return color.ToBrush();
+            }
+            else if (destinationType == typeof(SolidColorBrush.Resource))
+            {
+                return color.ToBrushResource();
             }
         }
 
@@ -78,8 +78,8 @@ public sealed class ColorConverter : TypeConverter
             || sourceType == typeof(Tuple<byte, byte, byte, byte>)
             || sourceType == typeof(int)
             || sourceType == typeof(uint)
-            || sourceType == typeof(ISolidColorBrush)
             || sourceType == typeof(SolidColorBrush)
+            || sourceType == typeof(SolidColorBrush.Resource)
             || sourceType == typeof(string);
     }
 
@@ -109,9 +109,13 @@ public sealed class ColorConverter : TypeConverter
         {
             return Color.FromUInt32(@uint);
         }
-        else if (value is ISolidColorBrush solidColorBrush)
+        else if (value is SolidColorBrush solidColorBrush)
         {
-            return solidColorBrush.Color;
+            return solidColorBrush.Color.GetValue(TimeSpan.Zero);
+        }
+        else if (value is SolidColorBrush.Resource solidColorBrushResource)
+        {
+            return solidColorBrushResource.Color;
         }
         else if (value is string str)
         {

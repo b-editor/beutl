@@ -10,7 +10,6 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     public static readonly CoreProperty<T?> ValueProperty;
     internal static readonly Animator<T> s_animator;
     private T? _value;
-    internal IValidator<T>? _validator;
     private IKeyFrameAnimation? _parent;
 
     public KeyFrame()
@@ -32,10 +31,10 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
         get => _value;
         set
         {
-            if (_validator != null)
+            if (Validator != null)
             {
                 T? coerced = value;
-                if (_validator.TryCoerce(new ValidationContext(null, Property), ref coerced))
+                if (Validator.TryCoerce(default, ref coerced))
                 {
                     value = coerced!;
                 }
@@ -55,35 +54,15 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
         }
     }
 
-    internal override CoreProperty? Property
+    public new IValidator<T>? Validator
     {
-        get => base.Property;
-        set
-        {
-            if (value is CoreProperty<T> t)
-            {
-                _validator = t.GetMetadata<CorePropertyMetadata<T>>(t.OwnerType).Validator;
-                base.Property = t;
-                if (_validator != null)
-                {
-                    T? coerced = Value;
-                    if (_validator.TryCoerce(new ValidationContext(null, Property), ref coerced))
-                    {
-                        Value = coerced!;
-                    }
-                }
-            }
-            else
-            {
-                _validator = null;
-                base.Property = null;
-            }
-        }
+        get => base.Validator as IValidator<T>;
+        set => base.Validator = value;
     }
 
     public event EventHandler? KeyTimeChanged;
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
@@ -91,7 +70,7 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
         if (args is CorePropertyChangedEventArgs args1
             && args.PropertyName is nameof(Value) or nameof(Easing) or nameof(KeyTime))
         {
-            Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this, args1.Property.Name));
+            Edited?.Invoke(this, EventArgs.Empty);
 
             switch (args.PropertyName)
             {
@@ -100,14 +79,14 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
                     break;
                 case nameof(Value):
                     // IAffectsRenderのイベント登録
-                    if (args1.OldValue is IAffectsRender affectsRender1)
+                    if (args1.OldValue is INotifyEdited oldEdited)
                     {
-                        affectsRender1.Invalidated -= AffectsRender_Invalidated;
+                        oldEdited.Edited -= OnPropertyEdited;
                     }
 
-                    if (args1.NewValue is IAffectsRender affectsRender2)
+                    if (args1.NewValue is INotifyEdited newEdited)
                     {
-                        affectsRender2.Invalidated += AffectsRender_Invalidated;
+                        newEdited.Edited += OnPropertyEdited;
                     }
 
                     break;
@@ -115,9 +94,9 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
         }
     }
 
-    private void AffectsRender_Invalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnPropertyEdited(object? sender, EventArgs e)
     {
-        Invalidated?.Invoke(this, e);
+        Edited?.Invoke(this, EventArgs.Empty);
     }
 
     void IKeyFrame.SetParent(IKeyFrameAnimation? parent)

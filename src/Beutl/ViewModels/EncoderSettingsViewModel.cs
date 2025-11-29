@@ -98,11 +98,9 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
 
     private static DisplayAttribute? GetDisplayAttribute(IPropertyEditorContext? context)
     {
-        if (context is BaseEditorViewModel { PropertyAdapter: { } adapter }
-            && adapter.GetCoreProperty() is { } coreProperty
-            && coreProperty.TryGetMetadata(adapter.ImplementedType, out CorePropertyMetadata? metadata))
+        if (context is BaseEditorViewModel { PropertyAdapter: { } adapter })
         {
-            return metadata.DisplayAttribute;
+            return adapter.GetAttributes().FirstOrDefault(i=> i is DisplayAttribute) as DisplayAttribute;
         }
         else
         {

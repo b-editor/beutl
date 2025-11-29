@@ -10,7 +10,7 @@ public interface IRenderer : IDisposable
 
     PixelSize FrameSize { get; }
 
-    IClock Clock { get; }
+    TimeSpan Time { get; }
 
     bool DrawFps { get; set; }
 
@@ -20,7 +20,7 @@ public interface IRenderer : IDisposable
 
     Drawable? HitTest(Point point);
 
-    bool Render(TimeSpan timeSpan);
+    bool Render(TimeSpan time);
 
     Bitmap<Bgra8888> Snapshot();
 }

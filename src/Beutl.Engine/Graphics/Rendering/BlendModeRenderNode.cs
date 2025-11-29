@@ -2,11 +2,18 @@
 
 public sealed class BlendModeRenderNode(BlendMode blendMode) : ContainerRenderNode
 {
-    public BlendMode BlendMode { get; } = blendMode;
+    public BlendMode BlendMode { get; private set; } = blendMode;
 
-    public bool Equals(BlendMode blendMode)
+    public bool Update(BlendMode blendMode)
     {
-        return BlendMode == blendMode;
+        if (BlendMode != blendMode)
+        {
+            BlendMode = blendMode;
+            HasChanges = true;
+            return true;
+        }
+
+        return false;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)

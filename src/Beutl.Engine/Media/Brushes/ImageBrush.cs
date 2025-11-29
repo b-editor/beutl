@@ -1,4 +1,4 @@
-﻿using Beutl.Media.Immutable;
+﻿using Beutl.Engine;
 using Beutl.Media.Source;
 
 namespace Beutl.Media;
@@ -6,48 +6,27 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with an <see cref="IBitmap"/>.
 /// </summary>
-public class ImageBrush : TileBrush, IImageBrush
+public partial class ImageBrush : TileBrush
 {
-    public static readonly CoreProperty<IImageSource?> SourceProperty;
-    private IImageSource? _source;
-
-    static ImageBrush()
-    {
-        SourceProperty = ConfigureProperty<IImageSource?, ImageBrush>(nameof(Source))
-            .Accessor(o => o.Source, (o, v) => o.Source = v)
-            .Register();
-
-        AffectsRender<ImageBrush>(SourceProperty);
-    }
-
     /// <summary>
     /// Initializes a new instance of the <see cref="ImageBrush"/> class.
     /// </summary>
     public ImageBrush()
     {
+        ScanProperties<ImageBrush>();
     }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ImageBrush"/> class.
     /// </summary>
     /// <param name="source">The image to draw.</param>
-    public ImageBrush(IImageSource source)
+    public ImageBrush(IImageSource source) : this()
     {
-        Source = source;
+        Source.CurrentValue = source;
     }
 
     /// <summary>
     /// Gets or sets the image to draw.
     /// </summary>
-    public IImageSource? Source
-    {
-        get => _source;
-        set => SetAndRaise(SourceProperty, ref _source, value);
-    }
-
-    /// <inheritdoc/>
-    public override IBrush ToImmutable()
-    {
-        return new ImmutableImageBrush(this);
-    }
+    public IProperty<IImageSource?> Source { get; } = Property.Create<IImageSource?>();
 }

@@ -1,8 +1,6 @@
 ﻿using System.Collections.Frozen;
 using System.Reflection;
 
-using Beutl.Media.Immutable;
-
 namespace Beutl.Media;
 
 #pragma warning disable CA1069
@@ -11,7 +9,7 @@ internal static class KnownColors
 {
     private static readonly IReadOnlyDictionary<string, KnownColor> s_knownColorNames;
     private static readonly IReadOnlyDictionary<uint, string> s_knownColors;
-    private static readonly Dictionary<KnownColor, ISolidColorBrush> s_knownBrushes;
+    private static readonly Dictionary<KnownColor, SolidColorBrush> s_knownBrushes;
 
     static KnownColors()
     {
@@ -38,7 +36,7 @@ internal static class KnownColors
         s_knownBrushes = [];
     }
 
-    public static ISolidColorBrush? GetKnownBrush(string s)
+    public static SolidColorBrush? GetKnownBrush(string s)
     {
         KnownColor color = GetKnownColor(s);
         return color != KnownColor.None ? color.ToBrush() : null;
@@ -59,17 +57,11 @@ internal static class KnownColors
         return Color.FromUInt32((uint)color);
     }
 
-    public static ISolidColorBrush ToBrush(this KnownColor color)
+    public static SolidColorBrush ToBrush(this KnownColor color)
     {
         lock (s_knownBrushes)
         {
-            if (!s_knownBrushes.TryGetValue(color, out ISolidColorBrush? brush))
-            {
-                brush = new ImmutableSolidColorBrush(color.ToColor(), 100);
-                s_knownBrushes.Add(color, brush);
-            }
-
-            return brush;
+            return new SolidColorBrush(color.ToColor(), 100);
         }
     }
 }

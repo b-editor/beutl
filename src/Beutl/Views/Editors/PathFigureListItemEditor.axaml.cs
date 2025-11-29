@@ -43,12 +43,6 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
             });
     }
 
-    protected override void OnPointerEntered(PointerEventArgs e)
-    {
-        base.OnPointerEntered(e);
-        (DataContext as PathFigureEditorViewModel)?.RecreatePreviewPath();
-    }
-
     private void Tag_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is Button btn)

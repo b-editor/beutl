@@ -1,39 +1,25 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
 [Display(Name = nameof(Strings.GeometryShape), ResourceType = typeof(Strings))]
-public sealed class GeometryShape : Shape
+public sealed partial class GeometryShape : Shape
 {
-    public static readonly CoreProperty<Geometry?> DataProperty;
-    private Geometry? _data;
-
-    static GeometryShape()
+    public GeometryShape()
     {
-        DataProperty = ConfigureProperty<Geometry?, GeometryShape>(nameof(Data))
-            .Accessor(o => o.Data, (o, v) => o.Data = v)
-            .Register();
-
-        AffectsGeometry<GeometryShape>(DataProperty);
+        ScanProperties<GeometryShape>();
     }
 
-    public Geometry? Data
-    {
-        get => _data;
-        set => SetAndRaise(DataProperty, ref _data, value);
-    }
+    public IProperty<Geometry?> Data { get; } = Property.Create<Geometry?>();
 
-    protected override Geometry? CreateGeometry()
+    public partial class Resource
     {
-        return _data;
-    }
-
-    public override void ApplyAnimations(IClock clock)
-    {
-        base.ApplyAnimations(clock);
-        (Data as IAnimatable)?.ApplyAnimations(clock);
+        public override Geometry.Resource? GetGeometry()
+        {
+            return Data;
+        }
     }
 }

@@ -1,6 +1,4 @@
-﻿using System.ComponentModel;
-
-using Beutl.Animation;
+﻿using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
@@ -9,269 +7,107 @@ using SkiaSharp;
 
 namespace Beutl.Media;
 
-public abstract class Geometry : Animatable, IAffectsRender
+public abstract partial class Geometry : EngineObject
 {
-    public static readonly CoreProperty<PathFillType> FillTypeProperty;
-    public static readonly CoreProperty<ITransform?> TransformProperty;
-    private GeometryContext? _context;
-    private PathCache _pathCache;
-    private PathFillType _fillType;
-    private ITransform? _transform;
-    private Rect _bounds;
-    private bool _isDirty = true;
-    private int _version;
-
-    static Geometry()
-    {
-        FillTypeProperty = ConfigureProperty<PathFillType, Geometry>(nameof(FillType))
-            .Accessor(o => o.FillType, (o, v) => o.FillType = v)
-            .Register();
-
-        TransformProperty = ConfigureProperty<ITransform?, Geometry>(nameof(Transform))
-            .Accessor(o => o.Transform, (o, v) => o.Transform = v)
-            .Register();
-
-        AffectsRender<Geometry>(FillTypeProperty, TransformProperty);
-        Hierarchy<Geometry>(TransformProperty);
-    }
-
     public Geometry()
     {
-        Invalidated += OnInvalidated;
-        AnimationInvalidated += (_, e) => RaiseInvalidated(e);
     }
 
-    ~Geometry()
+    public IProperty<PathFillType> FillType { get; } = Property.Create<PathFillType>();
+
+    public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>(null);
+
+    public virtual void ApplyTo(IGeometryContext context, Resource resource)
     {
-        _pathCache.Invalidate();
     }
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
-
-    public PathFillType FillType
+    public partial class Resource
     {
-        get => _fillType;
-        set => SetAndRaise(FillTypeProperty, ref _fillType, value);
-    }
+        private int? _capturedVersion;
+        private GeometryContext? _cachedPath;
+        private (Pen.Resource Resource, int Version)? _cachedPen;
+        private SKPath? _cachedStrokePath;
 
-    public ITransform? Transform
-    {
-        get => _transform;
-        set => SetAndRaise(TransformProperty, ref _transform, value);
-    }
+        public Rect Bounds => GetCachedPath().TightBounds.ToGraphicsRect();
 
-    public Rect Bounds
-    {
-        get
+        internal SKPath GetCachedPath()
         {
-            _ = GetNativeObject();
-            return _bounds;
-        }
-    }
-
-    internal int Version
-    {
-        get
-        {
-            _ = GetNativeObject();
-            return _version;
-        }
-    }
-
-    protected static void AffectsRender<T>(params CoreProperty[] properties)
-        where T : Geometry
-    {
-        foreach (CoreProperty item in properties)
-        {
-            item.Changed.Subscribe(e =>
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            if (_capturedVersion != Version || _cachedPath == null)
             {
-                if (e.Sender is T s)
+                _capturedVersion = Version;
+                _cachedPath?.Dispose();
+                var geometry = GetOriginal();
+
+                _cachedPath = new GeometryContext
                 {
-                    s.Invalidated?.Invoke(s, new RenderInvalidatedEventArgs(s, e.Property.Name));
-
-                    if (e.OldValue is IAffectsRender oldAffectsRender)
-                    {
-                        oldAffectsRender.Invalidated -= s.OnAffectsRenderInvalidated;
-                    }
-
-                    if (e.NewValue is IAffectsRender newAffectsRender)
-                    {
-                        newAffectsRender.Invalidated += s.OnAffectsRenderInvalidated;
-                    }
+                    FillType = FillType
+                };
+                geometry.ApplyTo(_cachedPath, this);
+                if (Transform != null)
+                {
+                    _cachedPath.Transform(Transform.Matrix);
                 }
-            });
-        }
-    }
-
-    private void OnAffectsRenderInvalidated(object? sender, RenderInvalidatedEventArgs e)
-    {
-        RaiseInvalidated(e);
-    }
-
-    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
-    {
-        Invalidated?.Invoke(this, args);
-    }
-
-    public virtual void ApplyTo(IGeometryContext context)
-    {
-    }
-
-    private void OnInvalidated(object? sender, RenderInvalidatedEventArgs e)
-    {
-        _isDirty = true;
-        _context = null;
-        _pathCache.Invalidate();
-    }
-
-    internal SKPath GetNativeObject()
-    {
-        return GetContext().NativeObject;
-    }
-
-    internal GeometryContext GetContext()
-    {
-        if (_isDirty || _context == null)
-        {
-            var context = new GeometryContext
-            {
-                FillType = _fillType
-            };
-            ApplyTo(context);
-            if (Transform?.IsEnabled == true)
-            {
-                context.Transform(Transform.Value);
             }
 
-            _bounds = context.Bounds;
+            return _cachedPath.NativeObject;
+        }
 
-            _isDirty = false;
-            unchecked
+        internal SKPath? GetCachedStrokePath(Pen.Resource pen)
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            if (_cachedPen == null || _cachedPen?.Resource.GetOriginal() != pen.GetOriginal()
+                || _cachedPen?.Version != pen.Version)
             {
-                _version++;
+                _cachedStrokePath?.Dispose();
+                _cachedPen = (pen, pen.Version);
+                _cachedStrokePath = PenHelper.CreateStrokePath(GetCachedPath(), pen, Bounds);
             }
 
-            _context = context;
+            return _cachedStrokePath;
         }
 
-        return _context;
-    }
-
-    public bool FillContains(Point point)
-    {
-        return PathContainsCore(GetNativeObject(), point);
-    }
-
-    public bool StrokeContains(IPen? pen, Point point)
-    {
-        if (pen == null) return false;
-
-        if (!_pathCache.HasCacheFor(pen))
+        public Rect GetRenderBounds(Pen.Resource? pen)
         {
-            UpdatePathCache(pen);
-        }
-
-        return PathContainsCore(_pathCache.CachedStrokePath, point);
-    }
-
-    internal SKPath? GetStrokePath(IPen? pen)
-    {
-        if (pen == null) return null;
-
-        if (!_pathCache.HasCacheFor(pen))
-        {
-            UpdatePathCache(pen);
-        }
-
-        return _pathCache.CachedStrokePath;
-    }
-
-    private void UpdatePathCache(IPen pen)
-    {
-        Rect bounds = Bounds;
-
-        if (Math.Abs(pen.Thickness) < float.Epsilon)
-        {
-            _pathCache.Cache(new SKPath(), pen, bounds);
-        }
-        else
-        {
-            SKPath fillPath = GetNativeObject();
-            SKPath strokePath = PenHelper.CreateStrokePath(fillPath, pen, bounds);
-
-            _pathCache.Cache(strokePath, pen, strokePath.TightBounds.ToGraphicsRect());
-        }
-    }
-
-    private static bool PathContainsCore(SKPath? path, Point point)
-    {
-        return path is not null && path.Contains(point.X, point.Y);
-    }
-
-    public Rect GetRenderBounds(IPen? pen)
-    {
-        if (pen == null)
-        {
-            return Bounds;
-        }
-        else
-        {
-            if (!_pathCache.HasCacheFor(pen))
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            if (pen == null)
             {
-                UpdatePathCache(pen);
+                return Bounds;
             }
-
-            return _pathCache.CachedGeometryRenderBounds;
-        }
-    }
-
-    public override void ApplyAnimations(IClock clock)
-    {
-        base.ApplyAnimations(clock);
-        (Transform as IAnimatable)?.ApplyAnimations(clock);
-    }
-
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public int GetVersion() => Version;
-
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public SKPath GetNativeObjectPublic() => GetNativeObject();
-
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public Rect GetCurrentBounds() => _bounds;
-
-    private struct PathCache
-    {
-        private IPen? _cachedPen;
-
-        public SKPath? CachedStrokePath { get; private set; }
-
-        public Rect CachedGeometryRenderBounds { get; private set; }
-
-        public readonly bool HasCacheFor(IPen pen)
-        {
-            return CachedStrokePath != null
-                && EqualityComparer<IPen?>.Default.Equals(_cachedPen, pen);
-        }
-
-        public void Cache(SKPath path, IPen pen, Rect geometryRenderBounds)
-        {
-            if (CachedStrokePath != path)
+            else
             {
-                CachedStrokePath?.Dispose();
+                var strokePath = GetCachedStrokePath(pen);
+                return strokePath.TightBounds.ToGraphicsRect();
             }
-
-            CachedStrokePath = path;
-            CachedGeometryRenderBounds = geometryRenderBounds;
-            _cachedPen = (pen as IMutablePen)?.ToImmutable() ?? pen;
         }
 
-        public void Invalidate()
+        public bool FillContains(Point point)
         {
-            SKPath? tmp = CachedStrokePath;
-            CachedStrokePath = null;
-            tmp?.Dispose();
-            CachedGeometryRenderBounds = default;
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            return PathContainsCore(GetCachedPath(), point);
+        }
+
+        private static bool PathContainsCore(SKPath? path, Point point)
+        {
+            return path is not null && path.Contains(point.X, point.Y);
+        }
+
+        public bool StrokeContains(Pen.Resource? pen, Point point)
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            if (pen == null) return false;
+
+            SKPath? strokePath = GetCachedStrokePath(pen);
+
+            return PathContainsCore(strokePath, point);
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            _cachedPath?.Dispose();
+
+            _cachedStrokePath?.Dispose();
+
             _cachedPen = null;
         }
     }

@@ -6,7 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
-
+using Beutl.Engine;
 using Beutl.Media;
 using Beutl.ViewModels;
 
@@ -88,7 +88,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
             if (viewModel.SelectedOperation.Value is { } op
                 && viewModel.PathFigure.Value is { } figure)
             {
-                bool isClosed = figure.IsClosed;
+                bool isClosed = viewModel.IsClosed.Value;
                 int index = figure.Segments.IndexOf(op);
                 int nextIndex = (index + 1) % figure.Segments.Count;
 
@@ -131,10 +131,10 @@ public partial class PathEditorView : UserControl, IPathEditorView
                 {
                     if (thumb.DataContext is PathSegment segment)
                     {
-                        CoreProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
+                        IProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
                         if (prop != null)
                         {
-                            Point point = segment.GetValue(prop).ToAvaPoint();
+                            Point point = prop.GetValue(viewModel.EditViewModel.CurrentTime.Value).ToAvaPoint();
                             point = point.Transform(Matrix);
                             point *= Scale;
 
@@ -273,7 +273,8 @@ public partial class PathEditorView : UserControl, IPathEditorView
             && DataContext is PathEditorViewModel
             {
                 PathFigure.Value: { } figure,
-                FigureContext.Value.Group.Value: { } group
+                FigureContext.Value.Group.Value: { } group,
+                EditViewModel: var editViewModel
             })
         {
             int index = figure.Segments.Count;
@@ -281,7 +282,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
             if (index > 0)
             {
                 PathSegment lastOp = figure.Segments[index - 1];
-                lastOp.TryGetEndPoint(out lastPoint);
+                lastPoint = lastOp.GetEndPoint().GetValue(editViewModel.CurrentTime.Value);
             }
 
             BtlPoint point = (_clickPoint / Scale).ToBtlPoint();
@@ -299,7 +300,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
         }
     }
 
-    public Thumb? FindThumb(PathSegment segment, CoreProperty<BtlPoint> property)
+    public Thumb? FindThumb(PathSegment segment, IProperty<BtlPoint> property)
     {
         return canvas.Children.FirstOrDefault(v => ReferenceEquals(v.DataContext, segment) && Equals(v.Tag, property.Name)) as Thumb;
     }

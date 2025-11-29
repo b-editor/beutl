@@ -1,12 +1,17 @@
 ﻿using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Reactive.Subjects;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Threading;
+using FFmpeg.AutoGen;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using SkiaSharp;
@@ -42,27 +47,145 @@ public static class AvaloniaTypeConverter
         return new Media.GradientStop(obj.Color.ToMedia(), (float)obj.Offset);
     }
 
-    public static Media.Immutable.ImmutableGradientStop ToBtlImmutableGradientStop(this Avalonia.Media.IGradientStop obj)
+    public static GradientStop.Resource ToBtlImmutableGradientStop(this Avalonia.Media.IGradientStop obj)
     {
-        return new Media.Immutable.ImmutableGradientStop((float)obj.Offset, obj.Color.ToMedia());
+        return new GradientStop.Resource { Color = obj.Color.ToMedia(), Offset = (float)obj.Offset, };
     }
 
-    public static Avalonia.Media.GradientStop ToAvaGradientStop(this Media.IGradientStop obj)
+    public static IObservable<T> SubscribeEngineProperty<T>(
+        this IProperty<T> property, EngineObject obj, IObservable<TimeSpan> time)
     {
-        return new Avalonia.Media.GradientStop(obj.Color.ToAvalonia(), obj.Offset);
+        return Observable.FromEventPattern(
+                h => obj.Edited += h,
+                h => obj.Edited -= h)
+            .Select(_ => Unit.Default)
+            .Publish(Unit.Default).RefCount()
+            .CombineLatest(time)
+            .Select(t => property.GetValue(t.Second));
     }
 
-    public static (Avalonia.Media.GradientStop, IDisposable) ToAvaGradientStopSync(this Media.GradientStop obj)
+    public static IObservable<TResource> SubscribeEngineResource<T, TResource>(
+        this T obj, IObservable<TimeSpan> time, Func<T, RenderContext, TResource> createResource)
+        where T : EngineObject
+        where TResource : EngineObject.Resource
     {
-        var s = new Avalonia.Media.GradientStop(obj.Color.ToAvalonia(), obj.Offset);
-        var d1 = s.Bind(Avalonia.Media.GradientStop.OffsetProperty, obj.GetObservable(Media.GradientStop.OffsetProperty)
-            .Select(v => (double)v)
-            .ToBinding());
-        var d2 = s.Bind(Avalonia.Media.GradientStop.ColorProperty, obj.GetObservable(Media.GradientStop.ColorProperty)
-            .Select(v => v.ToAvalonia())
-            .ToBinding());
+        var renderContext = new RenderContext(TimeSpan.Zero);
+        TResource? resource = null;
+        return Observable.FromEventPattern(
+                h => obj.Edited += h,
+                h => obj.Edited -= h)
+            .Select(_ => Unit.Default)
+            .Publish(Unit.Default).RefCount()
+            .CombineLatest(time)
+            .Select(t =>
+            {
+                renderContext.Time = t.Second;
+                if (resource == null)
+                {
+                    resource = createResource(obj, renderContext);
+                }
+                else
+                {
+                    bool updateOnly = false;
+                    resource.Update(obj, renderContext, ref updateOnly);
+                }
 
-        return (s, Disposable.Create((d1, d2), t => t.DisposeAll()));
+                return (resource, resource.Version);
+            })
+            .DistinctUntilChanged(t => t.Version)
+            .Select(t => t.resource);
+    }
+
+    public static IObservable<(TResource Resource, int Version)> SubscribeEngineVersionedResource<T, TResource>(
+        this T obj, IObservable<TimeSpan> time, Func<T, RenderContext, TResource> createResource)
+        where T : EngineObject
+        where TResource : EngineObject.Resource
+    {
+        var renderContext = new RenderContext(TimeSpan.Zero);
+        TResource? resource = null;
+        return Observable.FromEventPattern(
+                h => obj.Edited += h,
+                h => obj.Edited -= h)
+            .Select(_ => Unit.Default)
+            .Publish(Unit.Default).RefCount()
+            .CombineLatest(time)
+            .Select(t =>
+            {
+                renderContext.Time = t.Second;
+                if (resource == null)
+                {
+                    resource = createResource(obj, renderContext);
+                }
+                else
+                {
+                    bool updateOnly = false;
+                    resource.Update(obj, renderContext, ref updateOnly);
+                }
+
+                return (resource, resource.Version);
+            })
+            .DistinctUntilChanged(t => t.Version);
+    }
+
+    private static IDisposable AdaptEngineObject<T, TResource>(T obj, IObservable<TimeSpan> time,
+        Func<T, RenderContext, TResource> createResource, Action<TResource> onUpdated)
+        where T : EngineObject
+        where TResource : EngineObject.Resource
+    {
+        return obj.SubscribeEngineVersionedResource(time, createResource)
+            .Subscribe(t => onUpdated(t.Resource));
+    }
+
+    public static (Avalonia.Media.GradientStop, IDisposable) ToAvaGradientStopSync(
+        this Media.GradientStop obj, IObservable<TimeSpan> time)
+    {
+        var s = new Avalonia.Media.GradientStop();
+        var d = AdaptEngineObject(
+            obj, time,
+            (o, rc) => o.ToResource(rc),
+            r =>
+            {
+                s.Color = r.Color.ToAvalonia();
+                s.Offset = r.Offset;
+            });
+
+        return (s, d);
+    }
+
+    public static (IObservable<Avalonia.Media.Geometry>, IDisposable) ToAvaGeometrySync(
+        this Geometry obj, IObservable<TimeSpan> time)
+    {
+        var reactiveProperty = new ReactivePropertySlim<Avalonia.Media.Geometry>();
+        var d = AdaptEngineObject(
+            obj, time,
+            (o, rc) => o.ToResource(rc),
+            r =>
+            {
+                string svgPath = r.GetCachedPath().ToSvgPathData();
+                reactiveProperty.Value = Avalonia.Media.Geometry.Parse(svgPath);
+            });
+
+        return (reactiveProperty, d);
+    }
+
+    public static (IObservable<Avalonia.Media.Geometry>, IDisposable) ToAvaGeometrySync(
+        this PathFigure obj, IObservable<TimeSpan> time)
+    {
+        var reactiveProperty = new ReactivePropertySlim<Avalonia.Media.Geometry>();
+        var d = AdaptEngineObject(
+            obj, time,
+            (o, rc) => o.ToResource(rc),
+            r =>
+            {
+                using var context = new GeometryContext();
+                var original = r.GetOriginal();
+                original.ApplyTo(context, r);
+
+                string svgPath = context.NativeObject.ToSvgPathData();
+                reactiveProperty.Value = Avalonia.Media.Geometry.Parse(svgPath);
+            });
+
+        return (reactiveProperty, d);
     }
 
     public static Matrix ToAvaMatrix(this in Graphics.Matrix matrix)
@@ -151,39 +274,9 @@ public static class AvaloniaTypeConverter
                 : RelativeUnit.Absolute);
     }
 
-    // SolidColorBrush.Color, GradientBrush.GradientStopsのみ
-    public static Avalonia.Media.Brush? ToAvaBrush(this Media.IBrush? brush)
-    {
-        switch (brush)
-        {
-            case Media.ISolidColorBrush s:
-                return new Avalonia.Media.SolidColorBrush { Color = s.Color.ToAvalonia(), };
-            case Media.IGradientBrush g:
-                {
-                    var stops = new Avalonia.Media.GradientStops();
-                    stops.AddRange(g.GradientStops.Select(v => v.ToAvaGradientStop()));
-
-                    switch (g)
-                    {
-                        case Media.ILinearGradientBrush:
-                            return new Avalonia.Media.LinearGradientBrush { GradientStops = stops, };
-
-
-                        case Media.IConicGradientBrush:
-                            return new Avalonia.Media.ConicGradientBrush { GradientStops = stops, };
-
-
-                        case Media.IRadialGradientBrush:
-                            return new Avalonia.Media.RadialGradientBrush { GradientStops = stops, };
-                    }
-                }
-                break;
-        }
-
-        return null;
-    }
-
-    public static (Avalonia.Media.GradientStops, IDisposable) ToAvaGradientStopsSync(this Media.GradientStops obj)
+    public static (Avalonia.Media.GradientStops, IDisposable) ToAvaGradientStopsSync(
+        this ICoreList<Media.GradientStop> obj,
+        IObservable<TimeSpan> time)
     {
         var d = new CompositeDisposable();
         var stops = new Avalonia.Media.GradientStops();
@@ -192,7 +285,7 @@ public static class AvaloniaTypeConverter
         for (int i = 0; i < obj.Count; i++)
         {
             Media.GradientStop item = obj[i];
-            var t = item.ToAvaGradientStopSync();
+            var t = item.ToAvaGradientStopSync(time);
             subscription[item] = t.Item2;
             stops.Insert(i, t.Item1);
         }
@@ -207,7 +300,7 @@ public static class AvaloniaTypeConverter
                         index = e.NewStartingIndex;
                         foreach (Media.GradientStop? item in e.NewItems!)
                         {
-                            var t = item!.ToAvaGradientStopSync();
+                            var t = item!.ToAvaGradientStopSync(time);
                             subscription[item!] = t.Item2;
                             stops.Insert(index++, t.Item1);
                         }
@@ -242,7 +335,7 @@ public static class AvaloniaTypeConverter
                                 subscription.Remove(oldItem);
                             }
 
-                            (Avalonia.Media.GradientStop, IDisposable) t = newItem.ToAvaGradientStopSync();
+                            (Avalonia.Media.GradientStop, IDisposable) t = newItem.ToAvaGradientStopSync(time);
 
                             stops[index] = t.Item1;
                             index++;
@@ -284,34 +377,34 @@ public static class AvaloniaTypeConverter
         return (stops, d);
     }
 
-    public static (Avalonia.Media.Brush?, IDisposable, Action?) ToAvaBrushSync(this Media.IBrush? brush)
+    public static (Avalonia.Media.Brush?, IDisposable, Action?) ToAvaBrushSync(this Media.Brush? brush,
+        IObservable<TimeSpan> time)
     {
         switch (brush)
         {
             case Media.SolidColorBrush s:
                 {
                     var ss = new Avalonia.Media.SolidColorBrush();
-                    var d = ss.Bind(Avalonia.Media.SolidColorBrush.ColorProperty, s
-                        .GetObservable(Media.SolidColorBrush.ColorProperty)
-                        .Select(v => v.ToAvalonia())
-                        .ToBinding());
-
+                    var d = AdaptEngineObject(
+                        s, time,
+                        (o, rc) => o.ToResource(rc),
+                        r => ss.Color = r.Color.ToAvalonia());
                     return (ss, d, null);
                 }
 
             case Media.GradientBrush g:
                 {
-                    (Avalonia.Media.GradientStops stops, IDisposable d) = g.GradientStops.ToAvaGradientStopsSync();
+                    (Avalonia.Media.GradientStops stops, IDisposable d) = g.GradientStops.ToAvaGradientStopsSync(time);
 
                     switch (g)
                     {
-                        case Media.ILinearGradientBrush:
+                        case Media.LinearGradientBrush:
                             return (new Avalonia.Media.LinearGradientBrush { GradientStops = stops, }, d, null);
 
-                        case Media.IConicGradientBrush:
+                        case Media.ConicGradientBrush:
                             return (new Avalonia.Media.ConicGradientBrush { GradientStops = stops, }, d, null);
 
-                        case Media.IRadialGradientBrush:
+                        case Media.RadialGradientBrush:
                             return (new Avalonia.Media.RadialGradientBrush { GradientStops = stops, }, d, null);
                     }
                 }
@@ -320,12 +413,17 @@ public static class AvaloniaTypeConverter
             case Media.DrawableBrush db:
                 {
                     var imageBrush = new ImageBrush();
-                    var prop = db.GetObservable(DrawableBrush.DrawableProperty)
-                        .ObserveOnUIDispatcher()
-                        .Select(i => i != null ? new DrawableImageBrushHandler(db, i, imageBrush) : null)
-                        .DisposePreviousValue()
-                        .ToReadOnlyReactivePropertySlim();
-                    return (imageBrush, prop, () => prop.Value?.Update());
+                    DrawableImageBrushHandler? handler = null;
+                    var d = AdaptEngineObject(
+                        db, time,
+                        (o, rc) => o.ToResource(rc),
+                        r =>
+                        {
+                            handler ??= new DrawableImageBrushHandler(r, imageBrush);
+                            handler.Update();
+                        });
+
+                    return (imageBrush, d, null);
                 }
                 break;
         }
@@ -334,27 +432,32 @@ public static class AvaloniaTypeConverter
     }
 
     // SolidColorBrush.Color, GradientBrush.GradientStopsのみ
-    public static Media.IBrush? ToBtlBrush(this Avalonia.Media.Brush? brush)
+    public static Media.Brush? ToBtlBrush(this Avalonia.Media.Brush? brush)
     {
         switch (brush)
         {
             case Avalonia.Media.ISolidColorBrush s:
-                return new Media.SolidColorBrush { Color = s.Color.ToMedia(), };
+                return new Media.SolidColorBrush { Color = { CurrentValue = s.Color.ToMedia() } };
             case Avalonia.Media.IGradientBrush g:
                 {
-                    var stops = new Media.GradientStops();
-                    stops.AddRange(g.GradientStops.Select(v => v.ToBtlGradientStop()));
+                    var stops = g.GradientStops.Select(v => v.ToBtlGradientStop()).ToArray();
 
                     switch (g)
                     {
                         case Avalonia.Media.ILinearGradientBrush:
-                            return new Media.LinearGradientBrush { GradientStops = stops, };
+                            var lb = new LinearGradientBrush();
+                            lb.GradientStops.Replace(stops);
+                            return lb;
 
                         case Avalonia.Media.IConicGradientBrush:
-                            return new Media.ConicGradientBrush { GradientStops = stops, };
+                            var cb = new ConicGradientBrush();
+                            cb.GradientStops.Replace(stops);
+                            return cb;
 
                         case Avalonia.Media.IRadialGradientBrush:
-                            return new Media.RadialGradientBrush { GradientStops = stops, };
+                            var rb = new RadialGradientBrush();
+                            rb.GradientStops.Replace(stops);
+                            return rb;
                     }
                 }
                 break;
@@ -368,46 +471,17 @@ public static class AvaloniaTypeConverter
         return new Vector(vector.Y, vector.X);
     }
 
-    public sealed class DrawableImageBrushHandler : IDisposable
+    public sealed class DrawableImageBrushHandler
     {
         private WriteableBitmap? _bitmap;
         private CancellationTokenSource? _cts;
-        private readonly Graphics.Drawable _drawable;
         private readonly ImageBrush _imageBrush;
-        private readonly DrawableBrush _drawableBrush;
+        private readonly DrawableBrush.Resource _drawableBrush;
 
-        public DrawableImageBrushHandler(DrawableBrush drawableBrush, Graphics.Drawable drawable, ImageBrush imageBrush)
+        public DrawableImageBrushHandler(DrawableBrush.Resource drawableBrush, ImageBrush imageBrush)
         {
-            _drawable = drawable;
             _imageBrush = imageBrush;
             _drawableBrush = drawableBrush;
-            Update();
-            _drawableBrush.PropertyChanged += OnDrawableBrushPropertyChanged;
-        }
-
-        private void OnDrawableBrushPropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            if (e is not CorePropertyChangedEventArgs ce) return;
-
-            if (ce.Property.Id == TileBrush.StretchProperty.Id)
-            {
-                Dispatcher.UIThread.Post(() =>
-                {
-                    _imageBrush.Stretch = _drawableBrush.Stretch switch
-                    {
-                        Media.Stretch.Fill => Avalonia.Media.Stretch.Fill,
-                        Media.Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
-                        Media.Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
-                        Media.Stretch.None => Avalonia.Media.Stretch.None,
-                        _ => Avalonia.Media.Stretch.Fill,
-                    };
-                }, DispatcherPriority.Background);
-            }
-        }
-
-        public void Dispose()
-        {
-            _drawableBrush.PropertyChanged -= OnDrawableBrushPropertyChanged;
         }
 
         public void Update()
@@ -416,38 +490,43 @@ public static class AvaloniaTypeConverter
             _cts = new CancellationTokenSource();
             var token = _cts.Token;
 
-            Graphics.Rendering.RenderThread.Dispatcher.Dispatch(async () =>
+            RenderThread.Dispatcher.Dispatch(async () =>
             {
-                _drawable.Measure(Graphics.Size.Infinity);
-                var bounds = _drawable.Bounds;
-                using var renderTarget = Graphics.Rendering.RenderTarget.Create(
-                    (int)Math.Ceiling(bounds.Width),
-                    (int)Math.Ceiling(bounds.Height));
-                if (renderTarget is null) return;
-
-                using (var canvas = new Graphics.ImmediateCanvas(renderTarget))
-                using (canvas.PushTransform(Graphics.Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
+                if (_drawableBrush.Drawable == null) return;
+                var node = new DrawableRenderNode(_drawableBrush.Drawable);
+                // TODO: UI側の物理的なサイズをもとに描画するように変更する
+                using (var context = new GraphicsContext2D(node, new Media.PixelSize(1920, 1080)))
                 {
-                    canvas.DrawDrawable(_drawable);
+                    _drawableBrush.Drawable.GetOriginal()!.Render(context, _drawableBrush.Drawable);
                 }
 
+                var processor = new RenderNodeProcessor(node, false);
+                using var bitmap = processor.RasterizeAndConcat();
+
                 var previous = _bitmap;
-                var pixelSize = new PixelSize(renderTarget.Width, renderTarget.Height);
+                var pixelSize = new PixelSize(bitmap.Width, bitmap.Height);
                 _bitmap = new WriteableBitmap(pixelSize, new Vector(96, 96), PixelFormat.Bgra8888,
                     AlphaFormat.Unpremul);
 
                 using (var locked = _bitmap.Lock())
                 {
-                    renderTarget.Value.ReadPixels(
-                        new SKImageInfo(pixelSize.Width, pixelSize.Height, SKColorType.Bgra8888,
-                            SKAlphaType.Unpremul),
-                        locked.Address,
-                        locked.RowBytes,
-                        0, 0);
+                    unsafe
+                    {
+                        Buffer.MemoryCopy((void*)bitmap.Data, (void*)locked.Address, bitmap.ByteCount,
+                            bitmap.ByteCount);
+                    }
                 }
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    _imageBrush.Stretch = _drawableBrush.Stretch switch
+                    {
+                        Stretch.Fill => Avalonia.Media.Stretch.Fill,
+                        Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
+                        Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
+                        Stretch.None => Avalonia.Media.Stretch.None,
+                        _ => Avalonia.Media.Stretch.Fill,
+                    };
                     _imageBrush.Source = _bitmap;
                     previous?.Dispose();
                 }, DispatcherPriority.Background);

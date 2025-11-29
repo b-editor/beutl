@@ -1,44 +1,18 @@
-﻿using Beutl.Logging;
+using Beutl.Engine;
+using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public class ColorShift : FilterEffect
+public partial class ColorShift : FilterEffect
 {
-    public static readonly CoreProperty<PixelPoint> RedOffsetProperty;
-    public static readonly CoreProperty<PixelPoint> GreenOffsetProperty;
-    public static readonly CoreProperty<PixelPoint> BlueOffsetProperty;
-    public static readonly CoreProperty<PixelPoint> AlphaOffsetProperty;
     private static readonly ILogger s_logger = Log.CreateLogger<ColorShift>();
     private static readonly SKRuntimeEffect? s_runtimeEffect;
-    private PixelPoint _redOffset;
-    private PixelPoint _greenOffset;
-    private PixelPoint _blueOffset;
-    private PixelPoint _alphaOffset;
 
     static ColorShift()
     {
-        RedOffsetProperty = ConfigureProperty<PixelPoint, ColorShift>(nameof(RedOffset))
-            .Accessor(o => o.RedOffset, (o, v) => o.RedOffset = v)
-            .Register();
-
-        GreenOffsetProperty = ConfigureProperty<PixelPoint, ColorShift>(nameof(GreenOffset))
-            .Accessor(o => o.GreenOffset, (o, v) => o.GreenOffset = v)
-            .Register();
-
-        BlueOffsetProperty = ConfigureProperty<PixelPoint, ColorShift>(nameof(BlueOffset))
-            .Accessor(o => o.BlueOffset, (o, v) => o.BlueOffset = v)
-            .Register();
-
-        AlphaOffsetProperty = ConfigureProperty<PixelPoint, ColorShift>(nameof(AlphaOffset))
-            .Accessor(o => o.AlphaOffset, (o, v) => o.AlphaOffset = v)
-            .Register();
-
-        AffectsRender<ColorShift>(
-            RedOffsetProperty, GreenOffsetProperty, BlueOffsetProperty, AlphaOffsetProperty);
-
         string sksl =
             """
             uniform shader src;
@@ -74,64 +48,57 @@ public class ColorShift : FilterEffect
         }
     }
 
-    public PixelPoint RedOffset
+    public ColorShift()
     {
-        get => _redOffset;
-        set => SetAndRaise(RedOffsetProperty, ref _redOffset, value);
+        ScanProperties<ColorShift>();
     }
 
-    public PixelPoint GreenOffset
+    public IProperty<PixelPoint> RedOffset { get; } = Property.CreateAnimatable<PixelPoint>();
+
+    public IProperty<PixelPoint> GreenOffset { get; } = Property.CreateAnimatable<PixelPoint>();
+
+    public IProperty<PixelPoint> BlueOffset { get; } = Property.CreateAnimatable<PixelPoint>();
+
+    public IProperty<PixelPoint> AlphaOffset { get; } = Property.CreateAnimatable<PixelPoint>();
+
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        get => _greenOffset;
-        set => SetAndRaise(GreenOffsetProperty, ref _greenOffset, value);
-    }
+        var r = (Resource)resource;
+        if (s_runtimeEffect is null)
+        {
+            throw new InvalidOperationException("Failed to compile SKSL.");
+        }
 
-    public PixelPoint BlueOffset
-    {
-        get => _blueOffset;
-        set => SetAndRaise(BlueOffsetProperty, ref _blueOffset, value);
-    }
-
-    public PixelPoint AlphaOffset
-    {
-        get => _alphaOffset;
-        set => SetAndRaise(AlphaOffsetProperty, ref _alphaOffset, value);
-    }
-
-    public override void ApplyTo(FilterEffectContext context)
-    {
-        context.CustomEffect((RedOffset, GreenOffset, BlueOffset, AlphaOffset), OnApply, TransformBoundsCore);
-
-        if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
-
-        context.CustomEffect((RedOffset, GreenOffset, BlueOffset, AlphaOffset),
-            OnApply, TransformBoundsCore);
+        context.CustomEffect(
+            (r.RedOffset, r.GreenOffset, r.BlueOffset, r.AlphaOffset),
+            OnApply,
+            TransformBoundsCore);
     }
 
     private static Rect TransformBoundsCore(
-        (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) d,
+        (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) data,
         Rect bounds)
     {
-        return bounds.Translate(d.RedOffset.ToPoint(1))
-            .Union(bounds.Translate(d.GreenOffset.ToPoint(1)))
-            .Union(bounds.Translate(d.BlueOffset.ToPoint(1)))
-            .Union(bounds.Translate(d.AlphaOffset.ToPoint(1)));
+        return bounds.Translate(data.RedOffset.ToPoint(1))
+            .Union(bounds.Translate(data.GreenOffset.ToPoint(1)))
+            .Union(bounds.Translate(data.BlueOffset.ToPoint(1)))
+            .Union(bounds.Translate(data.AlphaOffset.ToPoint(1)));
     }
 
     private static void OnApply(
-        (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) d,
-        CustomFilterEffectContext c)
+        (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) data,
+        CustomFilterEffectContext context)
     {
-        for (int i = 0; i < c.Targets.Count; i++)
+        for (int i = 0; i < context.Targets.Count; i++)
         {
-            EffectTarget effectTarget = c.Targets[i];
+            EffectTarget effectTarget = context.Targets[i];
             var renderTarget = effectTarget.RenderTarget!;
-            var bounds = TransformBoundsCore(d, effectTarget.Bounds);
+            var bounds = TransformBoundsCore(data, effectTarget.Bounds);
             var pixelRect = PixelRect.FromRect(bounds);
-            int minOffsetX = Math.Min(d.RedOffset.X,
-                Math.Min(d.GreenOffset.X, Math.Min(d.BlueOffset.X, d.AlphaOffset.X)));
-            int minOffsetY = Math.Min(d.RedOffset.Y,
-                Math.Min(d.GreenOffset.Y, Math.Min(d.BlueOffset.Y, d.AlphaOffset.Y)));
+            int minOffsetX = Math.Min(data.RedOffset.X,
+                Math.Min(data.GreenOffset.X, Math.Min(data.BlueOffset.X, data.AlphaOffset.X)));
+            int minOffsetY = Math.Min(data.RedOffset.Y,
+                Math.Min(data.GreenOffset.Y, Math.Min(data.BlueOffset.Y, data.AlphaOffset.Y)));
 
             using var image = renderTarget.Value.Snapshot();
             using var baseShader = SKShader.CreateImage(
@@ -142,30 +109,25 @@ public class ColorShift : FilterEffect
 
             // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
-            builder.Uniforms["redOffset"] = new SKPoint(d.RedOffset.X, d.RedOffset.Y);
-            builder.Uniforms["greenOffset"] = new SKPoint(d.GreenOffset.X, d.GreenOffset.Y);
-            builder.Uniforms["blueOffset"] = new SKPoint(d.BlueOffset.X, d.BlueOffset.Y);
-            builder.Uniforms["alphaOffset"] = new SKPoint(d.AlphaOffset.X, d.AlphaOffset.Y);
+            builder.Uniforms["redOffset"] = new SKPoint(data.RedOffset.X, data.RedOffset.Y);
+            builder.Uniforms["greenOffset"] = new SKPoint(data.GreenOffset.X, data.GreenOffset.Y);
+            builder.Uniforms["blueOffset"] = new SKPoint(data.BlueOffset.X, data.BlueOffset.Y);
+            builder.Uniforms["alphaOffset"] = new SKPoint(data.AlphaOffset.X, data.AlphaOffset.Y);
             builder.Uniforms["minOffset"] = new SKPoint(minOffsetX, minOffsetY);
 
             // 最終的なシェーダーを生成
             using (SKShader finalShader = builder.Build())
             using (var paint = new SKPaint())
             {
-                var newTarget = c.CreateTarget(bounds);
+                var newTarget = context.CreateTarget(bounds);
                 var canvas = newTarget.RenderTarget!.Value.Canvas;
                 paint.Shader = finalShader;
                 canvas.DrawRect(new SKRect(0, 0, bounds.Width, bounds.Height), paint);
 
-                c.Targets[i] = newTarget;
+                context.Targets[i] = newTarget;
             }
 
             effectTarget.Dispose();
         }
-    }
-
-    public override Rect TransformBounds(Rect bounds)
-    {
-        return TransformBoundsCore((RedOffset, GreenOffset, BlueOffset, AlphaOffset), bounds);
     }
 }

@@ -10,11 +10,11 @@ public class RotationMatrixNode : MatrixNode
 
     public RotationMatrixNode()
     {
-        _rotationSocket = AsInput(RotationTransform.RotationProperty).AcceptNumber();
+        _rotationSocket = AsInput<float>("Rotation").AcceptNumber();
     }
 
     public override Matrix GetMatrix(NodeEvaluationContext context)
     {
-        return Matrix.CreateRotation(MathUtilities.ToRadians(_rotationSocket.Value));
+        return Matrix.CreateRotation(MathUtilities.Deg2Rad(_rotationSocket.Value));
     }
 }

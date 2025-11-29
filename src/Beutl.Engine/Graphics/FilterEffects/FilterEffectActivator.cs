@@ -63,17 +63,17 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
     {
         if (CurrentTargets.Count == 0) return;
 
-        foreach (FEItemWrapper item in context._items)
+        foreach (IFEItem item in context._items)
         {
-            switch (item.Item)
+            switch (item)
             {
                 case IFEItem_Skia skia:
                     {
                         skia.Accepts(this, Builder);
                         foreach (EffectTarget t in CurrentTargets)
                         {
-                            t.Bounds = item.Item.TransformBounds(t.Bounds);
-                            t.OriginalBounds = item.Item.TransformBounds(t.OriginalBounds);
+                            t.Bounds = item.TransformBounds(t.Bounds);
+                            t.OriginalBounds = item.TransformBounds(t.OriginalBounds);
                         }
 
                         break;
@@ -103,17 +103,9 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
         if (CurrentTargets.Count == 0) return;
         using var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds());
 
-        foreach (object item in context._renderTimeItems)
+        foreach (IFEItem item in context._renderTimeItems)
         {
-            switch (item)
-            {
-                case FilterEffect fe:
-                    ctx.Apply(fe);
-                    break;
-                case FEItemWrapper feitem:
-                    ctx._items.Add(feitem);
-                    break;
-            }
+            ctx._items.Add(item);
         }
 
         Apply(ctx);

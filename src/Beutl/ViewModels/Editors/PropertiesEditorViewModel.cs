@@ -1,9 +1,8 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Operation;
 using Beutl.Services;
-
 using DynamicData;
 
 namespace Beutl.ViewModels.Editors;
@@ -13,7 +12,14 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable
     public PropertiesEditorViewModel(ICoreObject obj)
     {
         Target = obj;
-        InitializeCoreObject(obj);
+        if (obj is EngineObject engineObject)
+        {
+            InitializeEngineObject(engineObject);
+        }
+        else
+        {
+            InitializeCoreObject(obj);
+        }
     }
 
     public PropertiesEditorViewModel(ICoreObject obj, Predicate<CorePropertyMetadata> predicate)
@@ -26,6 +32,12 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable
     {
         Target = obj;
         InitializeCoreObject(obj, predicate);
+    }
+
+    public PropertiesEditorViewModel(EngineObject obj, Func<IProperty, bool> predicate)
+    {
+        Target = obj;
+        InitializeEngineObject(obj, predicate);
     }
 
     public ICoreObject Target { get; }
@@ -76,19 +88,48 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable
         json[nameof(Properties)] = array;
     }
 
+    private void InitializeEngineObject(EngineObject obj, Func<IProperty, bool>? predicate = null)
+    {
+        Type adapterType = typeof(EnginePropertyAdapter<>);
+        Type animatableAdapterType = typeof(AnimatablePropertyAdapter<>);
+
+        List<IProperty> cprops = [.. obj.Properties];
+        cprops.RemoveAll(x => !(predicate?.Invoke(x) ?? true));
+        List<IPropertyAdapter> props = cprops.ConvertAll(x =>
+        {
+            Type determinedType = x.IsAnimatable ? animatableAdapterType : adapterType;
+            Type adapterGType = determinedType.MakeGenericType(x.ValueType);
+            return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
+        });
+        Properties.EnsureCapacity(props.Count);
+        IPropertyAdapter[]? foundItems;
+        PropertyEditorExtension? extension;
+
+        do
+        {
+            (foundItems, extension) = PropertyEditorService.MatchProperty(props);
+            if (foundItems != null && extension != null)
+            {
+                if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
+                {
+                    Properties.Add(context);
+                }
+
+                props.RemoveMany(foundItems);
+            }
+        } while (foundItems != null && extension != null);
+    }
+
     private void InitializeCoreObject(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
     {
         Type objType = obj.GetType();
         Type adapterType = typeof(CorePropertyAdapter<>);
-        Type animatableAdapterType = typeof(AnimatablePropertyAdapter<>);
-        bool isAnimatable = obj is IAnimatable;
 
         List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
         cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
         List<IPropertyAdapter> props = cprops.ConvertAll(x =>
         {
-            CorePropertyMetadata metadata = x.GetMetadata<CorePropertyMetadata>(objType);
-            Type determinedType = isAnimatable ? animatableAdapterType : adapterType;
+            Type determinedType = adapterType;
             Type adapterGType = determinedType.MakeGenericType(x.PropertyType);
             return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
         });

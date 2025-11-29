@@ -6,9 +6,9 @@ using Cv = OpenCvSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public class PartsSplitEffect : FilterEffect
+public partial class PartsSplitEffect : FilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         context.CustomEffect(Unit.Default, ApplyCore);
     }

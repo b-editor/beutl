@@ -1,26 +1,23 @@
 ﻿using Beutl.Media;
 using Beutl.Serialization;
+using Beutl.Validation;
 
 namespace Beutl.Animation;
 
-public interface IAnimation : IAffectsRender, ICoreSerializable, IHierarchical
+public interface IAnimation : INotifyEdited, ICoreSerializable, IHierarchical
 {
-    CoreProperty Property { get; }
-
     TimeSpan Duration { get; }
 
     bool UseGlobalClock { get; }
 
-    void ApplyAnimation(Animatable target, IClock clock);
+    Type ValueType { get; }
 }
 
 public interface IAnimation<T> : IAnimation
 {
-    new CoreProperty<T> Property { get; }
+    IValidator<T>? Validator { get; set; }
 
-    CoreProperty IAnimation.Property => Property;
-
-    T? GetAnimatedValue(IClock clock);
+    T? GetAnimatedValue(TimeSpan time);
 
     T? Interpolate(TimeSpan timeSpan);
 }

@@ -38,7 +38,7 @@ public abstract class Node : Hierarchical
     private void OnItemDetached(INodeItem obj)
     {
         obj.NodeTreeInvalidated -= OnItemNodeTreeInvalidated;
-        obj.Invalidated -= OnItemInvalidated;
+        obj.Edited -= OnItemInvalidated;
         if (_nodeTree != null)
         {
             obj.NotifyDetachedFromNodeTree(_nodeTree);
@@ -48,14 +48,14 @@ public abstract class Node : Hierarchical
     private void OnItemAttached(INodeItem obj)
     {
         obj.NodeTreeInvalidated += OnItemNodeTreeInvalidated;
-        obj.Invalidated += OnItemInvalidated;
+        obj.Edited += OnItemInvalidated;
         if (_nodeTree != null)
         {
             obj.NotifyAttachedToNodeTree(_nodeTree);
         }
     }
 
-    private void OnItemInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnItemInvalidated(object? sender, EventArgs e)
     {
         RaiseInvalidated(e);
     }
@@ -90,16 +90,16 @@ public abstract class Node : Hierarchical
 
     public event EventHandler? NodeTreeInvalidated;
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     protected void InvalidateNodeTree()
     {
         NodeTreeInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
+    protected void RaiseInvalidated(EventArgs args)
     {
-        Invalidated?.Invoke(this, args);
+        Edited?.Invoke(this, args);
     }
 
     public virtual void InitializeForContext(NodeEvaluationContext context)
@@ -139,41 +139,7 @@ public abstract class Node : Hierarchical
         }
     }
 
-    protected InputSocket<T> AsInput<T>(CoreProperty<T> property, int localId = -1)
-    {
-        InputSocket<T> socket = CreateInput<T>(property, localId);
-        Items.Add(socket);
-        return socket;
-    }
-
-    protected IInputSocket AsInput(CoreProperty property, int localId = -1)
-    {
-        IInputSocket socket = CreateInput(property, localId);
-        Items.Add(socket);
-        return socket;
-    }
-
-    protected InputSocket<T> AsInput<T, TOwner>(CoreProperty<T> property, int localId = -1)
-    {
-        InputSocket<T> socket = CreateInput<T, TOwner>(property, localId);
-        Items.Add(socket);
-        return socket;
-    }
-
-    protected InputSocket<T> AsInput<T>(CoreProperty<T> property, T value, int localId = -1)
-    {
-        InputSocket<T> socket = CreateInput(property, value, localId);
-        Items.Add(socket);
-        return socket;
-    }
-
-    protected InputSocket<T> AsInput<T, TOwner>(CoreProperty<T> property, T value, int localId = -1)
-    {
-        InputSocket<T> socket = CreateInput<T, TOwner>(property, value, localId);
-        Items.Add(socket);
-        return socket;
-    }
-
+    // TODO: AddInput, AddOutput, AddPropertyに変更する
     protected InputSocket<T> AsInput<T>(string name, int localId = -1)
     {
         InputSocket<T> socket = CreateInput<T>(name, localId);
@@ -202,86 +168,10 @@ public abstract class Node : Hierarchical
         return socket;
     }
 
-    protected NodeItem<T> AsProperty<T>(CoreProperty<T> property, int localId = -1)
+    protected NodeItem<T> AsProperty<T>(string name, int localId = -1)
     {
-        NodeItem<T> socket = CreateProperty(property, localId);
+        NodeItem<T> socket = CreateProperty<T>(name, localId);
         Items.Add(socket);
-        return socket;
-    }
-
-    protected NodeItem<T> AsProperty<T>(CoreProperty<T> property, T value, int localId = -1)
-    {
-        NodeItem<T> socket = CreateProperty(property, value, localId);
-        Items.Add(socket);
-        return socket;
-    }
-
-    protected InputSocket<T> CreateInput<T>(CoreProperty<T> property, int localId = -1)
-    {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
-        var adapter = new NodePropertyAdapter<T>(property, property.OwnerType);
-        var socket = new DefaultInputSocket<T> { LocalId = localId };
-        socket.SetPropertyAdapter(adapter);
-        return socket;
-    }
-
-    protected IInputSocket CreateInput(CoreProperty property, int localId = -1)
-    {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
-        Type propertyType = property.PropertyType;
-        object adapter = Activator.CreateInstance(typeof(NodePropertyAdapter<>).MakeGenericType(propertyType), property, property.OwnerType)!;
-        var socket = (IDefaultInputSocket)Activator.CreateInstance(typeof(DefaultInputSocket<>).MakeGenericType(propertyType))!;
-        socket.LocalId = localId;
-        socket.SetPropertyAdapter(adapter);
-        return socket;
-    }
-
-    protected InputSocket<T> CreateInput<T, TOwner>(CoreProperty<T> property, int localId = -1)
-    {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
-        var adapter = new NodePropertyAdapter<T>(property, typeof(TOwner));
-        var socket = new DefaultInputSocket<T> { LocalId = localId };
-        socket.SetPropertyAdapter(adapter);
-        return socket;
-    }
-
-    protected InputSocket<T> CreateInput<T>(CoreProperty<T> property, T value, int localId = -1)
-    {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
-        var adapter = new NodePropertyAdapter<T>(property, property.OwnerType);
-        adapter.SetValue(value);
-        var socket = new DefaultInputSocket<T> { LocalId = localId };
-        socket.SetPropertyAdapter(adapter);
-        return socket;
-    }
-
-    protected InputSocket<T> CreateInput<T, TOwner>(CoreProperty<T> property, T value, int localId = -1)
-    {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
-        var adapter = new NodePropertyAdapter<T>(property, typeof(TOwner));
-        adapter.SetValue(value);
-        var socket = new DefaultInputSocket<T> { LocalId = localId };
-        socket.SetPropertyAdapter(adapter);
         return socket;
     }
 
@@ -292,11 +182,12 @@ public abstract class Node : Hierarchical
         if (ValidateLocalId(localId))
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
-        return new DefaultInputSocket<T>
-        {
-            Name = name,
-            LocalId = localId
-        };
+        var adapter = new NodePropertyAdapter<T>(name);
+        var socket = new DefaultInputSocket<T>();
+        socket.SetPropertyAdapter(adapter);
+        socket.Name = name;
+        socket.LocalId = localId;
+        return socket;
     }
 
     protected IInputSocket CreateInput(string name, Type type, int localId = -1)
@@ -306,7 +197,9 @@ public abstract class Node : Hierarchical
         if (ValidateLocalId(localId))
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
+        var adapter = Activator.CreateInstance(typeof(NodePropertyAdapter<>).MakeGenericType(type), name)!;
         var socket = (IDefaultInputSocket)Activator.CreateInstance(typeof(DefaultInputSocket<>).MakeGenericType(type))!;
+        socket.SetPropertyAdapter(adapter);
         socket.Name = name;
         socket.LocalId = localId;
         return socket;
@@ -357,31 +250,17 @@ public abstract class Node : Hierarchical
         return socket;
     }
 
-    protected NodeItem<T> CreateProperty<T>(CoreProperty<T> property, int localId = -1)
+    protected NodeItem<T> CreateProperty<T>(string name, int localId = -1)
     {
         localId = GetLocalId(localId);
 
         if (ValidateLocalId(localId))
             throw new InvalidOperationException("An item with the same local-id already exists.");
 
-        var adapter = new NodePropertyAdapter<T>(property, property.OwnerType);
+        var adapter = new NodePropertyAdapter<T>(name);
         var socket = new DefaultNodeItem<T>();
         socket.SetProperty(adapter);
-        socket.LocalId = localId;
-        return socket;
-    }
-
-    protected NodeItem<T> CreateProperty<T>(CoreProperty<T> property, T value, int localId = -1)
-    {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
-        var adapter = new NodePropertyAdapter<T>(property, property.OwnerType);
-        adapter.SetValue(value);
-        var socket = new DefaultNodeItem<T>();
-        socket.SetProperty(adapter);
+        socket.Name = name;
         socket.LocalId = localId;
         return socket;
     }

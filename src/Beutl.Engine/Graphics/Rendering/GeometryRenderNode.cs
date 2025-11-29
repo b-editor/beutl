@@ -1,20 +1,24 @@
-﻿using Beutl.Media;
+﻿using Beutl.Engine;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class GeometryRenderNode(Geometry geometry, IBrush? fill, IPen? pen)
+public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
     : BrushRenderNode(fill, pen)
 {
-    private readonly int _version = geometry.Version;
+    public (Geometry.Resource Resource, int Version)? Geometry { get; private set; } = geometry.Capture();
 
-    public Geometry Geometry { get; private set; } = geometry;
-
-    public bool Equals(Geometry geometry, IBrush? fill, IPen? pen)
+    public bool Update(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
     {
-        return Geometry == geometry
-               && _version == geometry.Version
-               && EqualityComparer<IBrush?>.Default.Equals(Fill, fill)
-               && EqualityComparer<IPen?>.Default.Equals(Pen, pen);
+        bool changed = Update(fill, pen);
+        if (!geometry.Compare(Geometry))
+        {
+            Geometry = geometry.Capture();
+            changed = true;
+        }
+
+        HasChanges = changed;
+        return changed;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
@@ -22,8 +26,8 @@ public sealed class GeometryRenderNode(Geometry geometry, IBrush? fill, IPen? pe
         return
         [
             RenderNodeOperation.CreateLambda(
-                bounds: PenHelper.CalculateBoundsWithStrokeCap(Geometry.GetRenderBounds(Pen), Pen),
-                render: canvas => canvas.DrawGeometry(Geometry, Fill, Pen),
+                bounds: PenHelper.CalculateBoundsWithStrokeCap(Geometry!.Value.Resource.GetRenderBounds(Pen?.Resource), Pen?.Resource),
+                render: canvas => canvas.DrawGeometry(Geometry!.Value.Resource, Fill?.Resource, Pen?.Resource),
                 hitTest: HitTest
             )
         ];
@@ -37,7 +41,7 @@ public sealed class GeometryRenderNode(Geometry geometry, IBrush? fill, IPen? pe
 
     private bool HitTest(Point point)
     {
-        return (Fill != null && Geometry.FillContains(point))
-               || (Pen != null && Geometry.StrokeContains(Pen, point));
+        return (Fill != null && Geometry!.Value.Resource.FillContains(point))
+               || (Pen != null && Geometry!.Value.Resource.StrokeContains(Pen?.Resource, point));
     }
 }

@@ -1,5 +1,8 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Reflection;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -23,7 +26,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
             {
                 if (t.First == null || t.Second == null) return null;
 
-                Type type = t.First.Object.Property.PropertyType;
+                Type type = t.First.Object.ValueType;
                 Type viewModelType = typeof(GraphEditorViewModel<>).MakeGenericType(type);
                 return (GraphEditorViewModel)Activator.CreateInstance(viewModelType, _editViewModel, t.First.Object, t.Second)!;
             })
@@ -71,12 +74,16 @@ public sealed class GraphEditorTabViewModel : IToolContext
         }
 
         var tmp = new List<GraphEditorItemViewModel>();
-        var searcher = new ObjectSearcher(Element.Value, v => v is KeyFrameAnimation);
-        foreach (KeyFrameAnimation anm in searcher.SearchAll().OfType<KeyFrameAnimation>())
+        var searcher = new ObjectSearcher(Element.Value, v => v is IProperty);
+        foreach (IProperty prop in searcher.SearchAll().OfType<IProperty>())
         {
-            var prop = anm.Property;
+            var propInfo = prop.GetPropertyInfo();
+            if (propInfo == null || prop.Animation is not KeyFrameAnimation anm) continue;
+
+            var displayAttribute = propInfo.GetCustomAttribute<DisplayAttribute>();
+            string name = displayAttribute?.GetName() ?? propInfo.Name;
             var item = new GraphEditorItemViewModel(
-                prop.GetMetadata<CorePropertyMetadata>(prop.OwnerType).DisplayAttribute?.GetName() ?? anm.Property.Name,
+                name,
                 anm);
             tmp.Add(item);
         }

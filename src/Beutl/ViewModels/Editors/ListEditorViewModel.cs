@@ -180,9 +180,9 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         {
             ListItemEditorViewModel<TItem> item = Items[index];
             if (this.GetService<ISupportCloseAnimation>() is { } service
-                && item.ItemAccessor.GetValue() is IAnimatable animatable)
+                && item.ItemAccessor.GetValue() is {  } value)
             {
-                service.Close(animatable);
+                service.Close(value);
             }
 
             Items.RemoveAt(index);

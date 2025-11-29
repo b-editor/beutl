@@ -2,6 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
 using Beutl.Collections.Pooled;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
@@ -11,7 +12,7 @@ using Beutl.Serialization;
 
 namespace Beutl.ProjectSystem;
 
-public class Element : ProjectItem, IAffectsRender
+public class Element : ProjectItem, INotifyEdited
 {
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> LengthProperty;
@@ -21,7 +22,6 @@ public class Element : ProjectItem, IAffectsRender
     public static readonly CoreProperty<SourceOperation> OperationProperty;
     public static readonly CoreProperty<ElementNodeTreeModel> NodeTreeProperty;
     public static readonly CoreProperty<bool> UseNodeProperty;
-    private readonly InstanceClock _instanceClock = new();
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -68,16 +68,16 @@ public class Element : ProjectItem, IAffectsRender
     public Element()
     {
         Operation = new SourceOperation();
-        Operation.Invalidated += (_, e) => Invalidated?.Invoke(this, e);
+        Operation.Edited += (s, e) => Edited?.Invoke(s, e);
 
         NodeTree = new ElementNodeTreeModel();
-        NodeTree.Invalidated += (_, e) => Invalidated?.Invoke(this, e);
+        NodeTree.Edited += (s, e) => Edited?.Invoke(s, e);
 
         HierarchicalChildren.Add(Operation);
         HierarchicalChildren.Add(NodeTree);
     }
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     // 0以上
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
@@ -124,8 +124,6 @@ public class Element : ProjectItem, IAffectsRender
         set => SetAndRaise(UseNodeProperty, ref _useNode, value);
     }
 
-    public IClock Clock => _instanceClock;
-
     protected override void SaveCore(string filename)
     {
         this.JsonSave2(filename);
@@ -150,16 +148,10 @@ public class Element : ProjectItem, IAffectsRender
         context.Populate(nameof(NodeTree), NodeTree);
     }
 
-    public PooledList<Renderable> Evaluate(EvaluationTarget target, IClock clock, IRenderer renderer)
+    public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer)
     {
         lock (this)
         {
-            _instanceClock.GlobalClock = clock;
-            _instanceClock.BeginTime = Start;
-            _instanceClock.DurationTime = Length;
-            _instanceClock.CurrentTime = clock.CurrentTime - Start;
-            _instanceClock.AudioStartTime = clock.AudioStartTime - Start;
-            _instanceClock.AudioDurationTime = clock.AudioDurationTime;
             if (UseNode)
             {
                 return NodeTree.Evaluate(target, renderer, this);
@@ -198,7 +190,7 @@ public class Element : ProjectItem, IAffectsRender
                 TimeRange newRange = Range;
                 TimeRange oldRange = GetOldRange();
 
-                Invalidated?.Invoke(this, new TimelineInvalidatedEventArgs(this, nameof(e.PropertyName))
+                Edited?.Invoke(this, new ElementEditedEventArgs
                 {
                     AffectedRange = [newRange, oldRange]
                 });
@@ -207,7 +199,7 @@ public class Element : ProjectItem, IAffectsRender
                 || e.Property == IsEnabledProperty
                 || e.Property == UseNodeProperty)
             {
-                Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this, nameof(e.PropertyName)));
+                Edited?.Invoke(this, EventArgs.Empty);
             }
         }
     }

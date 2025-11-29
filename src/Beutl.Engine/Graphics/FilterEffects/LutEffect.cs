@@ -1,37 +1,22 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Numerics;
+using Beutl.Engine;
 using Beutl.Language;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class LutEffect : FilterEffect
+public sealed partial class LutEffect : FilterEffect
 {
-    public static readonly CoreProperty<FileInfo?> SourceProperty;
-    public static readonly CoreProperty<float> StrengthProperty;
-
     private static readonly ILogger<LutEffect> s_logger =
         BeutlApplication.Current.LoggerFactory.CreateLogger<LutEffect>();
 
     private static readonly SKRuntimeEffect? s_runtimeEffect;
-    private FileInfo? _source;
-    private float _strength = 100;
     private CubeFile? _cube;
 
     static LutEffect()
     {
-        SourceProperty = ConfigureProperty<FileInfo?, LutEffect>(nameof(Source))
-            .Accessor(o => o.Source, (o, v) => o.Source = v)
-            .Register();
-
-        StrengthProperty = ConfigureProperty<float, LutEffect>(nameof(Strength))
-            .Accessor(o => o.Strength, (o, v) => o.Strength = v)
-            .DefaultValue(100)
-            .Register();
-
-        AffectsRender<LutEffect>(SourceProperty, StrengthProperty);
-
         // https://shizenkarasuzon.hatenablog.com/entry/2020/08/13/185223
         string sksl =
             """
@@ -135,26 +120,26 @@ public sealed class LutEffect : FilterEffect
         }
     }
 
-    public FileInfo? Source
+    public LutEffect()
     {
-        get => _source;
-        set
-        {
-            if (SetAndRaise(SourceProperty, ref _source, value))
-            {
-                OnSourceChanged(value);
-            }
-        }
+        ScanProperties<LutEffect>();
+        Source.ValueChanged += (_, args) => UpdateCube(args.NewValue);
     }
 
-    private void OnSourceChanged(FileInfo? value)
+    public IProperty<FileInfo?> Source { get; } = Property.Create<FileInfo?>();
+
+    [Display(Name = nameof(Strings.Strength), ResourceType = typeof(Strings))]
+    [Range(0, 100)]
+    public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
+
+    private void UpdateCube(FileInfo? value)
     {
         _cube = null;
         if (value != null)
         {
-            using FileStream stream = value.OpenRead();
             try
             {
+                using FileStream stream = value.OpenRead();
                 _cube = CubeFile.FromStream(stream);
             }
             catch (Exception ex)
@@ -164,24 +149,19 @@ public sealed class LutEffect : FilterEffect
         }
     }
 
-    [Display(Name = nameof(Strings.Strength), ResourceType = typeof(Strings))]
-    [Range(0, 100)]
-    public float Strength
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        get => _strength;
-        set => SetAndRaise(StrengthProperty, ref _strength, value);
-    }
-
-    public override void ApplyTo(FilterEffectContext context)
-    {
+        var r = (Resource)resource;
         if (_cube != null)
         {
+            float strength = r.Strength / 100f;
+
             if (_cube.Dimention == CubeFileDimension.OneDimension)
             {
                 context.LookupTable(
                     _cube,
-                    _strength / 100,
-                    (CubeFile cube, (byte[] A, byte[] R, byte[] G, byte[] B) data) =>
+                    strength,
+                    static (CubeFile cube, (byte[] A, byte[] R, byte[] G, byte[] B) data) =>
                     {
                         LookupTable.Linear(data.A);
                         cube.ToLUT(1, data.R, data.G, data.B);
@@ -189,12 +169,12 @@ public sealed class LutEffect : FilterEffect
             }
             else
             {
-                context.CustomEffect((_cube, _strength / 100), OnApply3DLUT_GPU, (_, r) => r);
+                context.CustomEffect((_cube, strength), OnApply3DLUT_GPU, static (_, r) => r);
             }
         }
     }
 
-    private void OnApply3DLUT_GPU((CubeFile, float) data, CustomFilterEffectContext c)
+    private void OnApply3DLUT_GPU((CubeFile cube, float strength) data, CustomFilterEffectContext c)
     {
         for (int i = 0; i < c.Targets.Count; i++)
         {
@@ -204,28 +184,25 @@ public sealed class LutEffect : FilterEffect
             using var image = renderTarget.Value.Snapshot();
             using var baseShader = SKShader.CreateImage(image);
 
-            // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
             var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
 
-            using var lutImage = SKImage.Create(new SKImageInfo(data.Item1.Data.Length, 1, SKColorType.RgbaF32));
+            using var lutImage = SKImage.Create(new SKImageInfo(data.cube.Data.Length, 1, SKColorType.RgbaF32));
             using (var pixmap = lutImage.PeekPixels())
             {
                 var span = pixmap.GetPixelSpan<Vector4>();
-                for (int j = 0; j < data.Item1.Data.Length; j++)
+                for (int j = 0; j < data.cube.Data.Length; j++)
                 {
-                    var color = data.Item1.Data[j];
+                    var color = data.cube.Data[j];
                     span[j] = new Vector4(color, 1);
                 }
             }
             using var lutShader = SKShader.CreateImage(lutImage);
 
-            // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
             builder.Children["lut"] = lutShader;
-            builder.Uniforms["lutSize"] = data.Item1.Size;
-            builder.Uniforms["strength"] = data.Item2;
+            builder.Uniforms["lutSize"] = data.cube.Size;
+            builder.Uniforms["strength"] = data.strength;
 
-            // 最終的なシェーダーを生成
             using (SKShader finalShader = builder.Build())
             using (var paint = new SKPaint())
             {

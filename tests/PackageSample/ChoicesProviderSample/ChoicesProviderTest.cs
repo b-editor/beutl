@@ -1,30 +1,20 @@
 ﻿using Beutl;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
 
 namespace PackageSample;
 
-public sealed class ChoicesProviderTest : FilterEffect
+public sealed partial class ChoicesProviderTest : FilterEffect
 {
-    public static readonly CoreProperty<WellKnownSize?> SizeProperty;
-    private WellKnownSize? _size;
-
-    static ChoicesProviderTest()
+    public ChoicesProviderTest()
     {
-        SizeProperty = ConfigureProperty<WellKnownSize?, ChoicesProviderTest>(nameof(Size))
-            .Accessor(o => o.Size, (o, v) => o.Size = v)
-            .Register();
-
-        AffectsRender<ChoicesProviderTest>(SizeProperty);
+        ScanProperties<ChoicesProviderTest>();
     }
 
     [ChoicesProvider(typeof(WellKnownSizesProvider))]
-    public WellKnownSize? Size
-    {
-        get => _size;
-        set => SetAndRaise(SizeProperty, ref _size, value);
-    }
+    public IProperty<WellKnownSize?> Size { get; } = Property.Create<WellKnownSize?>();
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
     }
 }

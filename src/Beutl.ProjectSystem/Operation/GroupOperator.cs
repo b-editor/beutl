@@ -1,36 +1,33 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
-using Beutl.Media;
-using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
-public sealed class GroupOperator() : PublishOperator<DrawableGroup>([
-    (Drawable.TransformProperty, () => new TransformGroup()),
-    (Drawable.TransformOriginProperty, RelativePoint.Center),
-    (Drawable.FilterEffectProperty, () => new FilterEffectGroup()),
-    (Drawable.BlendModeProperty, BlendMode.SrcOver)
-])
+public sealed class GroupOperator : PublishOperator<DrawableGroup>
 {
-    private Element? _element;
+    protected override void FillProperties()
+    {
+        AddProperty(Value.Transform, new TransformGroup());
+        AddProperty(Value.TransformOrigin, RelativePoint.Center);
+        AddProperty(Value.FilterEffect, new FilterEffectGroup());
+        AddProperty(Value.BlendMode, BlendMode.SrcOver);
+    }
 
     public override void Evaluate(OperatorEvaluationContext context)
     {
-        var value = Value;
-        if (!IsEnabled) return;
+        if (!IsEnabled)
+        {
+            Value.Children.Clear();
+            return;
+        }
 
-        var items = context.FlowRenderables.OfType<Drawable>().ToArray();
+        Drawable[] items = context.FlowRenderables.OfType<Drawable>().ToArray();
         context.FlowRenderables.Clear();
-        value.Children.Replace(items);
-        context.AddFlowRenderable(value);
-
-        if (_element == null) return;
-        Value.ZIndex = _element.ZIndex;
-        Value.TimeRange = new TimeRange(_element.Start, _element.Length);
-        Value.ApplyAnimations(_element.Clock);
-        Value.IsVisible = _element.IsEnabled;
+        Value.Children.Replace(items);
+        base.Evaluate(context);
     }
 
     public override void Enter()
@@ -49,17 +46,5 @@ public sealed class GroupOperator() : PublishOperator<DrawableGroup>([
     {
         Value.Children.Clear();
         base.Serialize(context);
-    }
-
-    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnAttachedToHierarchy(in args);
-        _element = this.FindHierarchicalParent<Element>();
-    }
-
-    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnDetachedFromHierarchy(in args);
-        _element = null;
     }
 }

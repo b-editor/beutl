@@ -6,7 +6,6 @@ using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -47,13 +46,23 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Matrix = Drawable
-            .Select(d => d != null
-                ? Observable.FromEventPattern<RenderInvalidatedEventArgs>(h => d.Invalidated += h, h => d.Invalidated -= h)
-                    .Select(_ => CalculateMatrix(d, PathGeometry.Value))
-                    .Publish(CalculateMatrix(d, PathGeometry.Value)).RefCount()
-                : Observable.Return(Graphics.Matrix.Identity))
+        var drawableResource = Drawable
+            .Select(d =>
+                d?.SubscribeEngineVersionedResource(EditViewModel.CurrentTime, (o, c) => o.ToResource(c))
+                    .Select(t => ((Drawable.Resource, int)?)t) ??
+                Observable.Return<(Drawable.Resource, int)?>(null))
             .Switch()
+            .Publish(null).RefCount();
+
+        GeometryResource = drawableResource
+            .Select(t =>
+                t is { Item1: GeometryShape.Resource { Data: PathGeometry.Resource pathGeometry } }
+                    ? (pathGeometry, pathGeometry.Version)
+                    : ((PathGeometry.Resource, int)?)null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        Matrix = drawableResource.Select(r => r != null ? CalculateMatrix(r.Value.Item1) : Graphics.Matrix.Identity)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
         AvaMatrix = Matrix.Select(v => v.ToAvaMatrix())
@@ -72,7 +81,8 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
-        IsClosed = PathFigure.Select(g => g?.GetObservable(Media.PathFigure.IsClosedProperty) ?? Observable.Return(false))
+        IsClosed = PathFigure.Select(g =>
+                g?.IsClosed.SubscribeEngineProperty(g, EditViewModel.CurrentTime) ?? Observable.Return(false))
             .Switch()
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
@@ -81,16 +91,16 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
             .DisposeWith(_disposables);
     }
 
-    private Matrix CalculateMatrix(Drawable drawable, Geometry? geometry)
+    private Matrix CalculateMatrix(Drawable.Resource drawable)
     {
         Size frameSize = EditViewModel.Scene.FrameSize.ToSize(1);
         Matrix matrix = Graphics.Matrix.Identity;
 
         // Shape.cs
-        if (drawable is Shape shape && geometry != null)
+        if (drawable is GeometryShape.Resource { Data: PathGeometry.Resource geometry } shape)
         {
             var requestedSize = new Size(shape.Width, shape.Height);
-            Rect shapeBounds = geometry.GetCurrentBounds();
+            Rect shapeBounds = geometry.Bounds;
             Vector scale = Shape.CalculateScale(requestedSize, shapeBounds, shape.Stretch);
             //matrix = Graphics.Matrix.CreateTranslation(-shapeBounds.Position);
             Size size = shapeBounds.Size * scale;
@@ -105,7 +115,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
 
             matrix *= Graphics.Matrix.CreateScale(scale);
 
-            Matrix mat = drawable.GetTransformMatrix(frameSize, size);
+            Matrix mat = drawable.GetOriginal().GetTransformMatrix(frameSize, size, drawable);
             matrix *= mat;
         }
 
@@ -116,7 +126,8 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
 
     public PlayerViewModel PlayerViewModel { get; }
 
-    public IReactiveProperty<PathFigureEditorViewModel?> FigureContext { get; } = new ReactiveProperty<PathFigureEditorViewModel?>();
+    public IReactiveProperty<PathFigureEditorViewModel?> FigureContext { get; } =
+        new ReactiveProperty<PathFigureEditorViewModel?>();
 
     public ReadOnlyReactivePropertySlim<GeometryEditorViewModel?> Context { get; }
 
@@ -129,6 +140,8 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
     public ReadOnlyReactivePropertySlim<IPublishOperator?> SourceOperator { get; }
 
     public ReadOnlyReactivePropertySlim<Drawable?> Drawable { get; }
+
+    public ReadOnlyReactivePropertySlim<(PathGeometry.Resource Resource, int Version)?> GeometryResource { get; }
 
     public ReadOnlyReactiveProperty<Matrix> Matrix { get; }
 
@@ -156,15 +169,19 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
             context.IsExpanded.Value = true;
         }
 
-        Avalonia.Matrix matrix = CalculateMatrix(shape, context.Value.Value).ToAvaMatrix();
+        var shapeResource = shape.ToResource(new RenderContext(EditViewModel.CurrentTime.Value));
+        Avalonia.Matrix matrix = CalculateMatrix(shapeResource).ToAvaMatrix();
         if (matrix.TryInvert(out Avalonia.Matrix inverted)
+            && shapeResource is GeometryShape.Resource { Data: not null } geometryShapeResource
             && context.Value.Value is PathGeometry geometry
             && context.Group.Value is { } group)
         {
             point = inverted.Transform(point);
-            PathFigure? figure = geometry.HitTestFigure(point.ToBtlPoint(), shape.Pen);
+            PathFigure.Resource? figure = geometry.HitTestFigure(
+                point.ToBtlPoint(), geometryShapeResource.Pen, geometryShapeResource.Data);
             if (figure != null
-                && group.Items.FirstOrDefault(v => v.Context is PathFigureEditorViewModel f && f.Value.Value == figure)
+                && group.Items.FirstOrDefault(v =>
+                        v.Context is PathFigureEditorViewModel f && f.Value.Value == figure.GetOriginal())
                     ?.Context is PathFigureEditorViewModel figContext)
             {
                 StartEdit(figContext);

@@ -1,6 +1,6 @@
 ﻿using System.Reactive.Linq;
-
 using Beutl.Animation;
+using Beutl.Engine;
 
 namespace Beutl.Extensibility;
 
@@ -19,6 +19,26 @@ public interface IPropertyAdapter
     object? GetDefaultValue();
 
     CoreProperty? GetCoreProperty() => null;
+
+    IProperty? GetEngineProperty() => null;
+
+    Attribute[] GetAttributes()
+    {
+        var coreProperty = GetCoreProperty();
+        if (coreProperty != null)
+        {
+            var metadata = coreProperty.GetMetadata<CorePropertyMetadata>(ImplementedType);
+            return metadata.Attributes;
+        }
+
+        var engineProperty = GetEngineProperty();
+        if (engineProperty != null)
+        {
+            return engineProperty.GetPropertyInfo()?.GetCustomAttributes(true).OfType<Attribute>().ToArray() ?? [];
+        }
+
+        return [];
+    }
 
     void SetValue(object? value);
 
@@ -63,8 +83,6 @@ public interface IAnimatablePropertyAdapter : IPropertyAdapter
     IAnimation? Animation { get; set; }
 
     IObservable<IAnimation?> ObserveAnimation { get; }
-
-    internal IPropertyAdapter CreateKeyFrameProperty(IKeyFrameAnimation animation, IKeyFrame keyFrame);
 }
 
 public interface IAnimatablePropertyAdapter<T> : IPropertyAdapter<T>, IAnimatablePropertyAdapter
@@ -80,49 +98,4 @@ public interface IAnimatablePropertyAdapter<T> : IPropertyAdapter<T>, IAnimatabl
     }
 
     IObservable<IAnimation?> IAnimatablePropertyAdapter.ObserveAnimation => ObserveAnimation;
-
-    IPropertyAdapter IAnimatablePropertyAdapter.CreateKeyFrameProperty(IKeyFrameAnimation animation, IKeyFrame keyFrame)
-    {
-        return new KeyFramePropertyAdapter<T>((KeyFrame<T>)keyFrame, (KeyFrameAnimation<T>)animation);
-    }
-}
-
-internal sealed class KeyFramePropertyAdapter<T>(KeyFrame<T> keyFrame, KeyFrameAnimation<T> animation) : IPropertyAdapter<T>
-{
-    public Type ImplementedType => animation.Property.OwnerType;
-
-    public Type PropertyType => animation.Property.PropertyType;
-
-    public string DisplayName => "KeyFrame Value";
-
-    public bool IsReadOnly => false;
-
-    public string? Description => null;
-
-    public IObservable<T?> GetObservable()
-    {
-        return keyFrame.GetObservable(GetProperty());
-    }
-
-    public T? GetValue()
-    {
-        return keyFrame.Value;
-    }
-
-    public void SetValue(T? value)
-    {
-        keyFrame.SetValue(GetProperty(), value);
-    }
-
-    CoreProperty? IPropertyAdapter.GetCoreProperty() => animation.Property;
-
-    private static CoreProperty<T?> GetProperty()
-    {
-        return KeyFrame<T>.ValueProperty;
-    }
-
-    public object? GetDefaultValue()
-    {
-        return animation.Property.GetMetadata<ICorePropertyMetadata>(ImplementedType).GetDefaultValue();
-    }
 }

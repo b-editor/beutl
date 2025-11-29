@@ -41,7 +41,7 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
 
     public NodeTreeModel? NodeTree { get; private set; }
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     public virtual void PreEvaluate(EvaluationContext context)
     {
@@ -49,7 +49,7 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
         {
             if (property is IAnimatablePropertyAdapter<T> { Animation: IAnimation<T> animation })
             {
-                Value = animation.GetAnimatedValue(context.Clock);
+                Value = animation.GetAnimatedValue(context.Renderer.Time);
             }
             else
             {
@@ -68,7 +68,7 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
 
     protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
     {
-        Invalidated?.Invoke(this, args);
+        Edited?.Invoke(this, args);
     }
 
     protected virtual void OnAttachedToNodeTree(NodeTreeModel nodeTree)

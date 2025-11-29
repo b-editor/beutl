@@ -1,12 +1,10 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Media;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -39,7 +37,18 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsClosed = PathFigure.Select(g => g?.GetObservable(Media.PathFigure.IsClosedProperty) ?? Observable.Return(false))
+        GeometryResource = PathGeometry
+            .Select(d =>
+                d?.SubscribeEngineVersionedResource(EditViewModel.CurrentTime, (o, c) => o.ToResource(c))
+                    .Select(t => ((PathGeometry.Resource, int)?)t) ??
+                Observable.Return<(PathGeometry.Resource, int)?>(null))
+            .Switch()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        IsClosed = PathFigure.Select(f => f != null
+                ? f.IsClosed.SubscribeEngineProperty(f, EditViewModel.CurrentTime)
+                : Observable.Return(false))
             .Switch()
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
@@ -50,9 +59,12 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
 
     public EditViewModel EditViewModel { get; }
 
-    public IReactiveProperty<PathFigureEditorViewModel?> FigureContext { get; } = new ReactiveProperty<PathFigureEditorViewModel?>();
+    public IReactiveProperty<PathFigureEditorViewModel?> FigureContext { get; } =
+        new ReactiveProperty<PathFigureEditorViewModel?>();
 
     public ReadOnlyReactivePropertySlim<GeometryEditorViewModel?> Context { get; }
+
+    public ReadOnlyReactivePropertySlim<(PathGeometry.Resource, int)?> GeometryResource { get; }
 
     public IReadOnlyReactiveProperty<PathGeometry?> PathGeometry { get; }
 

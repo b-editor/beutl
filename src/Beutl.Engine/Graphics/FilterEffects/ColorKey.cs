@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
@@ -7,33 +8,13 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public class ColorKey : FilterEffect
+public partial class ColorKey : FilterEffect
 {
-    public static readonly CoreProperty<Color> ColorProperty;
-    public static readonly CoreProperty<float> RangeProperty;
-    private static readonly CoreProperty<float> BoundaryProperty;
     private static readonly ILogger s_logger = Log.CreateLogger<ColorKey>();
     private static readonly SKRuntimeEffect? s_runtimeEffect;
-    private Color _color;
-    private float _range;
-    private float _boundary = 2f;
 
     static ColorKey()
     {
-        ColorProperty = ConfigureProperty<Color, ColorKey>(nameof(Color))
-            .Accessor(o => o.Color, (o, v) => o.Color = v)
-            .Register();
-
-        RangeProperty = ConfigureProperty<float, ColorKey>(nameof(Range))
-            .Accessor(o => o.Range, (o, v) => o.Range = v)
-            .Register();
-
-        BoundaryProperty = ConfigureProperty<float, ColorKey>(nameof(Boundary))
-            .Accessor(o => o.Boundary, (o, v) => o.Boundary = v)
-            .DefaultValue(2f)
-            .Register();
-
-        AffectsRender<ColorKey>(ColorProperty, RangeProperty, BoundaryProperty);
         string sksl =
             """
             uniform shader src;
@@ -70,30 +51,27 @@ public class ColorKey : FilterEffect
         }
     }
 
-    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
-    public Color Color
+    public ColorKey()
     {
-        get => _color;
-        set => SetAndRaise(ColorProperty, ref _color, value);
+        ScanProperties<ColorKey>();
     }
+
+    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
+    public IProperty<Color> Color { get; } = Property.CreateAnimatable<Color>();
 
     [Display(Name = nameof(Strings.BrightnessRange), ResourceType = typeof(Strings))]
-    public float Range
-    {
-        get => _range;
-        set => SetAndRaise(RangeProperty, ref _range, value);
-    }
+    public IProperty<float> Range { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(Strings.BoundaryCorrection), ResourceType = typeof(Strings))]
-    public float Boundary
-    {
-        get => _boundary;
-        set => SetAndRaise(BoundaryProperty, ref _boundary, value);
-    }
+    public IProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.CustomEffect((Color, Range, Boundary), OnApplyTo, (_, r) => r);
+        var r = (Resource)resource;
+        context.CustomEffect(
+            (r.Color, r.Range, r.Boundary),
+            OnApplyTo,
+            static (_, r) => r);
     }
 
     private static void OnApplyTo((Color color, float range, float boundary) data, CustomFilterEffectContext c)

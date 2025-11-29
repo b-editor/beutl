@@ -1,12 +1,20 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
+// TODO: Limitがdefaultの場合、CalculateBoundsを使うようにする
 public class LayerRenderNode(Rect limit) : ContainerRenderNode
 {
-    public Rect Limit { get; } = limit;
+    public Rect Limit { get; private set; } = limit;
 
-    public bool Equals(Rect limit)
+    public bool Update(Rect limit)
     {
-        return Limit == limit;
+        if (Limit != limit)
+        {
+            Limit = limit;
+            HasChanges = true;
+            return true;
+        }
+
+        return false;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)

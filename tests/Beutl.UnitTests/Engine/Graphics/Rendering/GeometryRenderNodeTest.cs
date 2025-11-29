@@ -8,43 +8,55 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 public class GeometryRenderNodeTest
 {
     [Test]
-    public void Equals_ShouldReturnTrue_WhenAllPropertiesMatch()
+    public void Update_ShouldReturnFalse_WhenAllPropertiesMatch()
     {
-        var geometry = new EllipseGeometry { Width = 100, Height = 100 };
-        IBrush fill = new SolidColorBrush(Colors.Red);
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        Brush fill = new SolidColorBrush(Colors.Red);
+        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        var geometryResource = geometry.ToResource(RenderContext.Default);
+        var fillResource = fill.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(RenderContext.Default);
 
-        var node = new GeometryRenderNode(geometry, fill, pen);
+        var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
 
-        Assert.That(node.Equals(geometry, fill, pen), Is.True);
+        Assert.That(node.Update(geometryResource, fillResource, penResource), Is.False);
     }
 
     [Test]
-    public void Equals_ShouldReturnFalse_WhenPropertiesDoNotMatch()
+    public void Update_ShouldReturnTrue_WhenPropertiesDoNotMatch()
     {
-        var geometry1 = new EllipseGeometry { Width = 100, Height = 100 };
-        var geometry2 = new EllipseGeometry { Width = 100, Height = 100 };
-        IBrush fill1 = new SolidColorBrush(Colors.Red);
-        IBrush fill2 = new SolidColorBrush(Colors.Blue);
-        IPen pen1 = new Pen { Brush = Brushes.Black, Thickness = 1 };
-        IPen pen2 = new Pen { Brush = Brushes.Black, Thickness = 2 };
+        var geometry1 = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        var geometry2 = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        Brush fill1 = new SolidColorBrush(Colors.Red);
+        Brush fill2 = new SolidColorBrush(Colors.Blue);
+        Pen pen1 = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen pen2 = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 2 } };
+        var geometryResource1 = geometry1.ToResource(RenderContext.Default);
+        var geometryResource2 = geometry2.ToResource(RenderContext.Default);
+        var fillResource1 = fill1.ToResource(RenderContext.Default);
+        var fillResource2 = fill2.ToResource(RenderContext.Default);
+        var penResource1 = pen1.ToResource(RenderContext.Default);
+        var penResource2 = pen2.ToResource(RenderContext.Default);
 
-        var node = new GeometryRenderNode(geometry1, fill1, pen1);
+        var node = new GeometryRenderNode(geometryResource1, fillResource1, penResource1);
 
-        Assert.That(node.Equals(geometry2, fill1, pen1), Is.False);
-        Assert.That(node.Equals(geometry1, fill2, pen1), Is.False);
-        Assert.That(node.Equals(geometry1, fill1, pen2), Is.False);
+        Assert.That(node.Update(geometryResource2, fillResource1, penResource1), Is.True);
+        Assert.That(node.Update(geometryResource1, fillResource2, penResource1), Is.True);
+        Assert.That(node.Update(geometryResource1, fillResource1, penResource2), Is.True);
     }
 
     [Test]
     public void Process_ShouldReturnCorrectRenderNodeOperation()
     {
-        var geometry = new EllipseGeometry { Width = 100, Height = 100 };
-        IBrush fill = new SolidColorBrush(Colors.Red);
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        Brush fill = new SolidColorBrush(Colors.Red);
+        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        var geometryResource = geometry.ToResource(RenderContext.Default);
+        var fillResource = fill.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(RenderContext.Default);
         var context = new RenderNodeContext([]);
 
-        var node = new GeometryRenderNode(geometry, fill, pen);
+        var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
         var operations = node.Process(context);
 
         Assert.That(operations, Is.Not.Null);
@@ -54,12 +66,15 @@ public class GeometryRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideGeometry()
     {
-        var geometry = new EllipseGeometry { Width = 100, Height = 100 };
-        IBrush fill = new SolidColorBrush(Colors.Red);
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        Brush fill = new SolidColorBrush(Colors.Red);
+        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        var geometryResource = geometry.ToResource(RenderContext.Default);
+        var fillResource = fill.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(RenderContext.Default);
         var context = new RenderNodeContext([]);
 
-        var node = new GeometryRenderNode(geometry, fill, pen);
+        var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
         var operations = node.Process(context);
         var point = new Point(50, 50);
 
@@ -69,12 +84,15 @@ public class GeometryRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnFalse_WhenPointIsOutsideGeometry()
     {
-        var geometry = new EllipseGeometry { Width = 100, Height = 100 };
-        IBrush fill = new SolidColorBrush(Colors.Red);
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 1 };
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        Brush fill = new SolidColorBrush(Colors.Red);
+        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        var geometryResource = geometry.ToResource(RenderContext.Default);
+        var fillResource = fill.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(RenderContext.Default);
         var context = new RenderNodeContext([]);
 
-        var node = new GeometryRenderNode(geometry, fill, pen);
+        var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
         var operations = node.Process(context);
         var point = new Point(150, 150);
 
@@ -84,11 +102,13 @@ public class GeometryRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideGeometryStroke()
     {
-        var geometry = new EllipseGeometry { Width = 100, Height = 100 };
-        IPen pen = new Pen { Brush = Brushes.Black, Thickness = 50 };
+        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 50 } };
+        var geometryResource = geometry.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(RenderContext.Default);
         var context = new RenderNodeContext([]);
 
-        var node = new GeometryRenderNode(geometry, null, pen);
+        var node = new GeometryRenderNode(geometryResource, null, penResource);
         var operations = node.Process(context);
         var point = new Point(0, 50);
 

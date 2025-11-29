@@ -7,23 +7,23 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 public class RectClipRenderNodeTest
 {
     [Test]
-    public void Equals_ShouldReturnTrue_WhenAllPropertiesMatch()
+    public void Update_ShouldReturnFalse_WhenAllPropertiesMatch()
     {
         var rect = new Rect(0, 0, 100, 100);
         var operation = ClipOperation.Intersect;
         var node = new RectClipRenderNode(rect, operation);
 
-        Assert.That(node.Equals(rect, operation), Is.True);
+        Assert.That(node.Update(rect, operation), Is.False);
     }
 
     [Test]
-    public void Equals_ShouldReturnFalse_WhenPropertiesDoNotMatch()
+    public void Update_ShouldReturnTrue_WhenPropertiesDoNotMatch()
     {
         var rect = new Rect(0, 0, 100, 100);
         var operation = ClipOperation.Intersect;
         var node = new RectClipRenderNode(rect, operation);
 
-        Assert.That(node.Equals(default, operation), Is.False);
+        Assert.That(node.Update(default, operation), Is.True);
     }
 
     [Test]

@@ -2,15 +2,12 @@
 using Beutl.Animation;
 using Beutl.Audio.Graph;
 using Beutl.Media;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 
 namespace Beutl.Audio.Composing;
 
 public class Composer : IComposer
 {
     private readonly AnimationSampler _animationSampler = new();
-    private readonly InstanceClock _instanceClock = new();
     private readonly ConditionalWeakTable<Sound, AudioNodeEntry> _audioCache = [];
     private readonly List<Sound> _currentSounds = new();
     private readonly List<AudioNodeEntry> _currentEntry = new();
@@ -20,7 +17,7 @@ public class Composer : IComposer
         public List<AudioNode> Nodes { get; set; } = new();
         public AudioNode[]? OutputNodes { get; set; }
         public bool IsDirty { get; set; } = true;
-        public EventHandler<RenderInvalidatedEventArgs>? InvalidatedHandler { get; set; }
+        public EventHandler? EditedHandler { get; set; }
 
         public void Dispose()
         {
@@ -46,8 +43,6 @@ public class Composer : IComposer
         }
     }
 
-    public IClock Clock => _instanceClock;
-
     public int SampleRate { get; init; }
 
     public bool IsDisposed { get; private set; }
@@ -65,13 +60,13 @@ public class Composer : IComposer
         }
     }
 
-    protected virtual void ComposeCore()
+    protected virtual void ComposeCore(TimeRange timeRange)
     {
         // Default implementation: compose all sounds
         _currentEntry.Clear();
         foreach (var sound in _currentSounds)
         {
-            ComposeSound(sound, Clock);
+            ComposeSound(sound, timeRange);
         }
     }
 
@@ -92,14 +87,12 @@ public class Composer : IComposer
             try
             {
                 IsAudioRendering = true;
-                _instanceClock.AudioStartTime = timeRange.Start;
-                _instanceClock.AudioDurationTime = timeRange.Duration;
 
                 // Clear previous sounds list
                 _currentSounds.Clear();
 
                 // Let subclass populate sounds
-                ComposeCore();
+                ComposeCore(timeRange);
 
                 // Build final audio graph
                 return BuildFinalOutput(timeRange);
@@ -208,7 +201,7 @@ public class Composer : IComposer
     /// <summary>
     /// Composes a sound with caching support and differential updates.
     /// </summary>
-    protected void ComposeSound(Sound sound, IClock clock)
+    protected void ComposeSound(Sound sound, TimeRange timeRange)
     {
         // Get or create cache entry
         if (!_audioCache.TryGetValue(sound, out var entry))
@@ -217,9 +210,9 @@ public class Composer : IComposer
             _audioCache.AddOrUpdate(sound, entry);
 
             // Register invalidation handler
-            var handler = new EventHandler<RenderInvalidatedEventArgs>((s, e) => OnSoundInvalidated(sound, e));
-            sound.Invalidated += handler;
-            entry.InvalidatedHandler = handler;
+            var handler = new EventHandler((s, e) => OnSoundEdited(sound, e));
+            sound.Edited += handler;
+            entry.EditedHandler = handler;
         }
 
         if (entry.IsDirty)
@@ -247,7 +240,7 @@ public class Composer : IComposer
         _currentEntry.Add(entry);
     }
 
-    private void OnSoundInvalidated(Sound sound, RenderInvalidatedEventArgs e)
+    private void OnSoundEdited(Sound sound, EventArgs e)
     {
         if (_audioCache.TryGetValue(sound, out var entry))
         {
@@ -264,9 +257,9 @@ public class Composer : IComposer
         {
             if (_audioCache.TryGetValue(sound, out var entry))
             {
-                if (entry.InvalidatedHandler != null)
+                if (entry.EditedHandler != null)
                 {
-                    sound.Invalidated -= entry.InvalidatedHandler;
+                    sound.Edited -= entry.EditedHandler;
                 }
 
                 _audioCache.Remove(sound);
@@ -281,9 +274,9 @@ public class Composer : IComposer
             // Clean up all contexts and event handlers
             foreach (var kvp in _audioCache)
             {
-                if (kvp.Value.InvalidatedHandler != null)
+                if (kvp.Value.EditedHandler != null)
                 {
-                    kvp.Key.Invalidated -= kvp.Value.InvalidatedHandler;
+                    kvp.Key.Edited -= kvp.Value.EditedHandler;
                 }
 
                 kvp.Value.Dispose();

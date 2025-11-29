@@ -6,27 +6,29 @@ using Beutl.Operation;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceImageOperator() : PublishOperator<SourceImage>(
-[
-    SourceImage.SourceProperty,
-    (Drawable.TransformProperty, () => new TransformGroup()),
-    Drawable.AlignmentXProperty,
-    Drawable.AlignmentYProperty,
-    Drawable.TransformOriginProperty,
-    (Drawable.FilterEffectProperty, () => new FilterEffectGroup()),
-    Drawable.BlendModeProperty,
-    Drawable.OpacityProperty
-])
+public sealed class SourceImageOperator : PublishOperator<SourceImage>
 {
     private string? _sourceName;
+
+    protected override void FillProperties()
+    {
+        AddProperty(Value.Source);
+        AddProperty(Value.Transform, new TransformGroup());
+        AddProperty(Value.AlignmentX);
+        AddProperty(Value.AlignmentY);
+        AddProperty(Value.TransformOrigin);
+        AddProperty(Value.FilterEffect, new FilterEffectGroup());
+        AddProperty(Value.BlendMode);
+        AddProperty(Value.Opacity);
+    }
 
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        if (Value is not { Source: { Name: { } name } source } value) return;
+        if (Value is not { Source.CurrentValue: { Name: { } name } source } value) return;
 
         _sourceName = name;
-        value.Source = null;
+        value.Source.CurrentValue = null;
         source.Dispose();
     }
 
@@ -38,7 +40,7 @@ public sealed class SourceImageOperator() : PublishOperator<SourceImage>(
 
         if (BitmapSource.TryOpen(_sourceName, out BitmapSource? imageSource))
         {
-            value.Source = imageSource;
+            value.Source.CurrentValue = imageSource;
         }
     }
 }

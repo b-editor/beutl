@@ -1,5 +1,4 @@
-﻿using Beutl.Graphics;
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -7,19 +6,22 @@ using Beutl.Operation;
 
 namespace Beutl.Operators.Source;
 
-public sealed class RoundedRectOperator() : PublishOperator<RoundedRectShape>(
-[
-    (Shape.WidthProperty, 100f),
-    (Shape.HeightProperty, 100f),
-    (RoundedRectShape.CornerRadiusProperty, new CornerRadius(25)),
-    (RoundedRectShape.SmoothingProperty, 0f),
-    (Drawable.TransformProperty, () => new TransformGroup()),
-    Drawable.AlignmentXProperty,
-    Drawable.AlignmentYProperty,
-    Drawable.TransformOriginProperty,
-    Shape.PenProperty,
-    (Drawable.FillProperty, () => new SolidColorBrush(Colors.White)),
-    (Drawable.FilterEffectProperty, () => new FilterEffectGroup()),
-    Drawable.BlendModeProperty,
-    Drawable.OpacityProperty
-]);
+public sealed class RoundedRectOperator : PublishOperator<RoundedRectShape>
+{
+    protected override void FillProperties()
+    {
+        AddProperty(Value.Width, 100f);
+        AddProperty(Value.Height, 100f);
+        AddProperty(Value.CornerRadius, new CornerRadius(25));
+        AddProperty(Value.Smoothing, 0f);
+        AddProperty(Value.Transform, new TransformGroup());
+        AddProperty(Value.AlignmentX);
+        AddProperty(Value.AlignmentY);
+        AddProperty(Value.TransformOrigin);
+        AddProperty(Value.Pen);
+        AddProperty(Value.Fill, new SolidColorBrush(Colors.White));
+        AddProperty(Value.FilterEffect, new FilterEffectGroup());
+        AddProperty(Value.BlendMode);
+        AddProperty(Value.Opacity);
+    }
+}

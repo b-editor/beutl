@@ -4,70 +4,49 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
-public sealed class DecorateOperator() : PublishOperator<DrawableDecorator>([
-    (Drawable.TransformProperty, () => new TransformGroup()),
-    (Drawable.TransformOriginProperty, RelativePoint.Center),
-    (Drawable.FilterEffectProperty, () => new FilterEffectGroup()),
-    (Drawable.BlendModeProperty, BlendMode.SrcOver)
-])
+public sealed class DecorateOperator : PublishOperator<DrawableDecorator>
 {
-    private readonly ConditionalWeakTable<Drawable, DrawableDecorator> _bag = [];
-    private Element? _element;
+    protected override void FillProperties()
+    {
+        AddProperty(Value.Transform, new TransformGroup());
+        AddProperty(Value.TransformOrigin, RelativePoint.Center);
+        AddProperty(Value.FilterEffect, new FilterEffectGroup());
+        AddProperty(Value.BlendMode, BlendMode.SrcOver);
+    }
 
     public override void Evaluate(OperatorEvaluationContext context)
     {
-        if (!IsEnabled) return;
-
-        Value.ApplyAnimations(context.Clock);
-        for (int i = 0; i < context.FlowRenderables.Count; i++)
+        if (!IsEnabled)
         {
-            if (context.FlowRenderables[i] is not Drawable drawable) continue;
-            var decorator = _bag.GetValue(drawable, d => new DrawableDecorator { Child = d });
-            decorator.Child = drawable;
-            context.FlowRenderables[i] = decorator;
-
-            decorator.Transform = (Value.Transform as IMutableTransform)?.ToImmutable() ?? Value.Transform;
-            decorator.TransformOrigin = Value.TransformOrigin;
-            decorator.BlendMode = Value.BlendMode;
-            if (Value.FilterEffect is null)
-            {
-                decorator.FilterEffect = null;
-            }
-            else
-            {
-                decorator.FilterEffect ??= Value.FilterEffect.CreateDelegatedInstance();
-            }
-
-
-            if (_element == null) continue;
-            decorator.ZIndex = _element.ZIndex;
-            decorator.TimeRange = new TimeRange(_element.Start, _element.Length);
-            decorator.ApplyAnimations(_element.Clock);
-            decorator.IsVisible = _element.IsEnabled;
+            Value.Children.Clear();
+            return;
         }
+
+        Drawable[] items = context.FlowRenderables.OfType<Drawable>().ToArray();
+        context.FlowRenderables.Clear();
+        Value.Children.Replace(items);
+        base.Evaluate(context);
+    }
+
+    public override void Enter()
+    {
+        base.Enter();
+        Value.Children.Clear();
     }
 
     public override void Exit()
     {
         base.Exit();
-        foreach (var entry in _bag)
-        {
-            entry.Value.Child = null;
-        }
+        Value.Children.Clear();
     }
 
-    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
+    public override void Serialize(ICoreSerializationContext context)
     {
-        base.OnAttachedToHierarchy(in args);
-        _element = this.FindHierarchicalParent<Element>();
-    }
-
-    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnDetachedFromHierarchy(in args);
-        _element = null;
+        Value.Children.Clear();
+        base.Serialize(context);
     }
 }

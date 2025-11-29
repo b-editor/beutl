@@ -38,7 +38,8 @@ public partial class PlayerView
 
             if (drawable != null)
             {
-                int zindex = (drawable as DrawableDecorator)?.OriginalZIndex ?? drawable.ZIndex;
+                // TODO: DrawableGroup以下のDrawableを拾った場合の対応
+                int zindex = drawable.ZIndex;
 
                 Element? element = scene.Children.FirstOrDefault(v =>
                     v.ZIndex == zindex
@@ -55,18 +56,18 @@ public partial class PlayerView
                     && TypeFormat.ToType(feTypeName) is { } feType
                     && Activator.CreateInstance(feType) is FilterEffect newFe)
                 {
-                    FilterEffect? fe = drawable.FilterEffect;
+                    FilterEffect? fe = drawable.FilterEffect.CurrentValue;
                     AddOrSetHelper.AddOrSet(ref fe, newFe, [element], editViewModel.CommandRecorder);
-                    drawable.FilterEffect = fe;
+                    drawable.FilterEffect.CurrentValue = fe;
                 }
                 else if (containsTra
                          && e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is { } traTypeName
-                            && TypeFormat.ToType(traTypeName) is { } traType
-                         && Activator.CreateInstance(traType) is ITransform newTra)
+                         && TypeFormat.ToType(traTypeName) is { } traType
+                         && Activator.CreateInstance(traType) is Transform newTra)
                 {
-                    ITransform? tra = drawable.Transform;
+                    Transform? tra = drawable.Transform.CurrentValue;
                     AddOrSetHelper.AddOrSet(ref tra, newTra, [element], editViewModel.CommandRecorder);
-                    drawable.Transform = tra;
+                    drawable.Transform.CurrentValue = tra;
                 }
 
                 e.Handled = true;

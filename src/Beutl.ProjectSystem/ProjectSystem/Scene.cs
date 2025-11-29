@@ -41,7 +41,7 @@ public enum ElementOverlapHandling
     Allow = 1 << 3
 }
 
-public class Scene : ProjectItem, IAffectsRender
+public class Scene : ProjectItem, INotifyEdited
 {
     public static readonly CoreProperty<PixelSize> FrameSizeProperty;
     public static readonly CoreProperty<Elements> ChildrenProperty;
@@ -64,8 +64,8 @@ public class Scene : ProjectItem, IAffectsRender
         FrameSize = new PixelSize(width, height);
         _children = new Elements(this);
         _children.CollectionChanged += Children_CollectionChanged;
-        _children.Attached += item => item.Invalidated += OnElementInvalidated;
-        _children.Detached += item => item.Invalidated -= OnElementInvalidated;
+        _children.Attached += item => item.Edited += OnElementEdited;
+        _children.Detached += item => item.Edited -= OnElementEdited;
         Name = name;
     }
 
@@ -88,7 +88,7 @@ public class Scene : ProjectItem, IAffectsRender
             .Register();
     }
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     public PixelSize FrameSize
     {
@@ -382,15 +382,15 @@ public class Scene : ProjectItem, IAffectsRender
             }
         }
 
-        Invalidated?.Invoke(this, new TimelineInvalidatedEventArgs(Children)
+        Edited?.Invoke(this, new ElementEditedEventArgs
         {
             AffectedRange = affectedRange.DrainToImmutable()
         });
     }
 
-    private void OnElementInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnElementEdited(object? sender, EventArgs e)
     {
-        Invalidated?.Invoke(this, e);
+        Edited?.Invoke(sender, e);
     }
 
     private int NearestLayerNumber(Element element)

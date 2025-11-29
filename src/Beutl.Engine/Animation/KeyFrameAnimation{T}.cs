@@ -1,39 +1,41 @@
-﻿using Beutl.Serialization;
+﻿using Beutl.Engine;
+using Beutl.Serialization;
+using Beutl.Validation;
 
 namespace Beutl.Animation;
 
 public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 {
-    public KeyFrameAnimation(CoreProperty<T> property)
-        : base(property)
+    private EngineObject? _parent;
+
+    public override Type ValueType => typeof(T);
+
+    public new IValidator<T>? Validator
     {
+        get => base.Validator as IValidator<T>;
+        set => base.Validator = value;
     }
 
-    public KeyFrameAnimation()
+    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
+        base.OnAttachedToHierarchy(in args);
+        _parent = this.FindHierarchicalParent<EngineObject>();
     }
 
-    public new CoreProperty<T> Property
+    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
-        get => (CoreProperty<T>)base.Property;
-        set => base.Property = value;
+        base.OnDetachedFromHierarchy(in args);
+        _parent = null;
     }
 
-    public override void ApplyAnimation(Animatable target, IClock clock)
+    public T? GetAnimatedValue(TimeSpan time)
     {
-        if (UseGlobalClock)
+        if (_parent != null && !UseGlobalClock)
         {
-            target.SetValue(Property, Interpolate(clock.GlobalClock.CurrentTime));
+            return Interpolate(time - _parent.TimeRange.Start);
         }
-        else
-        {
-            target.SetValue(Property, Interpolate(clock.CurrentTime));
-        }
-    }
 
-    public T? GetAnimatedValue(IClock clock)
-    {
-        return Interpolate(UseGlobalClock ? clock.GlobalClock.CurrentTime : clock.CurrentTime);
+        return Interpolate(time);
     }
 
     public T? Interpolate(TimeSpan timeSpan)

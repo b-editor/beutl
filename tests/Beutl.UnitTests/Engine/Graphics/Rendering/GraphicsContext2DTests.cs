@@ -22,32 +22,38 @@ public class GraphicsContext2DTests
     [Test]
     public void ShouldTriggerOnUntrackedEvent()
     {
-        var drawable = new RectShape
+        var drawable = new RectShape();
+        drawable.AlignmentX.CurrentValue = AlignmentX.Center;
+        drawable.AlignmentY.CurrentValue = AlignmentY.Center;
+        drawable.TransformOrigin.CurrentValue = RelativePoint.Center;
+        drawable.Width.CurrentValue = 100;
+        drawable.Height.CurrentValue = 100;
+        drawable.Fill.CurrentValue = Brushes.White;
+        drawable.FilterEffect.CurrentValue = new FilterEffectGroup { Children = { new SplitEffect(), new InnerShadow() } };
+        drawable.Transform.CurrentValue = new TransformGroup { Children = { new RotationTransform(), new ScaleTransform() } };
+        var resource = drawable.ToResource(RenderContext.Default);
+
+        var node = new DrawableRenderNode(resource);
+        using (var context = new GraphicsContext2D(node, new PixelSize(1920, 1080)))
         {
-            AlignmentX = AlignmentX.Center,
-            AlignmentY = AlignmentY.Center,
-            TransformOrigin = RelativePoint.Center,
-            Width = 100,
-            Height = 100,
-            Fill = Brushes.White,
-            FilterEffect = new FilterEffectGroup { Children = { new SplitEffect(), new InnerShadow() } },
-            Transform = new TransformGroup { Children = { new RotationTransform(), new ScaleTransform() } }
-        };
+            drawable.Render(context, resource);
+        }
 
-        var node = new DrawableRenderNode(drawable);
-        var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
-        drawable.Render(context);
+        ((FilterEffectGroup)drawable.FilterEffect.CurrentValue).Children.RemoveAt(0);
+        var updateOnly = false;
+        resource.Update(drawable, RenderContext.Default, ref updateOnly);
 
-        ((FilterEffectGroup)drawable.FilterEffect).Children.RemoveAt(0);
-        context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
         bool triggered = false;
         RenderNode? untrackedNode = null;
-        context.OnUntracked = n =>
+        using (var context2 = new GraphicsContext2D(node, new PixelSize(1920, 1080)))
         {
-            triggered = true;
-            untrackedNode = n;
-        };
-        drawable.Render(context);
+            context2.OnUntracked = n =>
+            {
+                triggered = true;
+                untrackedNode = n;
+            };
+            drawable.Render(context2, resource);
+        }
 
         Assert.That(triggered, Is.True);
         Assert.That(untrackedNode, Is.Not.Null);
@@ -88,7 +94,7 @@ public class GraphicsContext2DTests
         image.Setup(i => i.FrameSize).Returns(new PixelSize(100, 100));
         image.Setup(i => i.Clone()).Returns(() => image.Object);
 
-        context.DrawImageSource(image.Object, Brushes.White, null);
+        context.DrawImageSource(image.Object, Brushes.Resource.White, null);
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<ImageSourceRenderNode>());
@@ -104,7 +110,7 @@ public class GraphicsContext2DTests
         video.Setup(v => v.FrameRate).Returns(new Rational(30));
         video.Setup(v => v.Clone()).Returns(() => video.Object);
 
-        context.DrawVideoSource(video.Object, TimeSpan.Zero, Brushes.White, null);
+        context.DrawVideoSource(video.Object, TimeSpan.Zero, Brushes.Resource.White, null);
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<VideoSourceRenderNode>());
@@ -116,7 +122,7 @@ public class GraphicsContext2DTests
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
 
-        context.DrawEllipse(new Rect(0, 0, 100, 100), Brushes.White, null);
+        context.DrawEllipse(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<EllipseRenderNode>());
@@ -127,9 +133,12 @@ public class GraphicsContext2DTests
     {
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
-        var geometry = new EllipseGeometry { Width = 100, Height = 100 };
+        var geometry = new EllipseGeometry();
+        geometry.Width.CurrentValue = 100;
+        geometry.Height.CurrentValue = 100;
+        var resource = geometry.ToResource(RenderContext.Default);
 
-        context.DrawGeometry(geometry, Brushes.White, null);
+        context.DrawGeometry(resource, Brushes.Resource.White, null);
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<GeometryRenderNode>());
@@ -141,7 +150,7 @@ public class GraphicsContext2DTests
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
 
-        context.DrawRectangle(new Rect(0, 0, 100, 100), Brushes.White, null);
+        context.DrawRectangle(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<RectangleRenderNode>());
@@ -151,10 +160,11 @@ public class GraphicsContext2DTests
     public void DrawDrawable_ShouldCreateDrawableRenderNode()
     {
         var drawable = new RectShape();
+        var resource = drawable.ToResource(RenderContext.Default);
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
 
-        context.DrawDrawable(drawable);
+        context.DrawDrawable(resource);
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<DrawableRenderNode>());
@@ -251,9 +261,12 @@ public class GraphicsContext2DTests
     {
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
-        var geometry = new EllipseGeometry { Width = 100, Height = 100 };
+        var geometry = new EllipseGeometry();
+        geometry.Width.CurrentValue = 100;
+        geometry.Height.CurrentValue = 100;
+        var resource = geometry.ToResource(RenderContext.Default);
 
-        context.PushClip(geometry).Dispose();
+        context.PushClip(resource).Dispose();
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<GeometryClipRenderNode>());
@@ -277,8 +290,9 @@ public class GraphicsContext2DTests
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
         var effect = new Blur();
+        var resource = effect.ToResource(RenderContext.Default);
 
-        context.PushFilterEffect(effect).Dispose();
+        context.PushFilterEffect(resource).Dispose();
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<FilterEffectRenderNode>());
@@ -289,7 +303,7 @@ public class GraphicsContext2DTests
     {
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
-        var mask = Brushes.White;
+        var mask = Brushes.Resource.White;
 
         context.PushOpacityMask(mask, new Rect(0, 0, 100, 100)).Dispose();
 
@@ -303,8 +317,9 @@ public class GraphicsContext2DTests
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
         var transform = new RotationTransform();
+        var resource = transform.ToResource(RenderContext.Default);
 
-        context.PushTransform(transform).Dispose();
+        context.PushTransform(resource).Dispose();
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<TransformRenderNode>());
@@ -316,13 +331,12 @@ public class GraphicsContext2DTests
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
         var transform = new TransformGroup { Children = { new RotationTransform(), new ScaleTransform() } };
+        var resource = transform.ToResource(RenderContext.Default);
 
-        context.PushTransform(transform).Dispose();
+        context.PushTransform(resource).Dispose();
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<TransformRenderNode>());
-        Assert.That(((TransformRenderNode)node.Children[0]).Children, Is.Not.Empty);
-        Assert.That(((TransformRenderNode)node.Children[0]).Children[0], Is.InstanceOf<TransformRenderNode>());
     }
 
     [Test]

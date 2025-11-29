@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Beutl.Animation;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 
@@ -17,8 +18,6 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         public DrawableRenderNode Node { get; } = node;
 
         public Rect Bounds { get; set; }
-
-        public bool IsDirty { get; set; } = true;
 
         public bool IsDisposed { get; private set; }
 
@@ -44,41 +43,37 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         _currentFrame?.Clear();
     }
 
-    public void Add(Drawable drawable)
+    // Drawable
+    public void Add(Drawable drawable, TimeSpan time)
     {
+        var renderContext = new RenderContext(time);
+        Drawable.Resource? resource;
+        bool shouldRender;
         if (!_cache.TryGetValue(drawable, out Entry? entry))
         {
-            entry = new Entry(new DrawableRenderNode(drawable));
+            resource = drawable.ToResource(renderContext);
+            entry = new Entry(new DrawableRenderNode(resource));
             _cache.Add(drawable, entry);
-
-            var weakRef = new WeakReference<Entry>(entry);
-            EventHandler<RenderInvalidatedEventArgs>? handler = null;
-            handler = (_, _) =>
-            {
-                if (weakRef.TryGetTarget(out Entry? obj))
-                {
-                    obj.IsDirty = true;
-                }
-                else
-                {
-                    drawable.Invalidated -= handler;
-                }
-            };
-            drawable.Invalidated += handler;
+            shouldRender = true;
+        }
+        else
+        {
+            resource = entry.Node.Drawable!.Value.Resource;
+            bool updated = false;
+            resource.Update(drawable, renderContext, ref updated);
+            shouldRender = entry.Node.Update(resource);
         }
 
-        if (entry.IsDirty)
+        if (shouldRender)
         {
-            // DeferredCanvasを作成し、記録
             using var canvas = new GraphicsContext2D(entry.Node, renderScene.Size);
-            drawable.Render(canvas);
-            entry.IsDirty = false;
+            drawable.Render(canvas, resource);
         }
 
         CurrentFrame.Add(entry);
     }
 
-    public void UpdateAll(IReadOnlyList<Drawable> elements)
+    public void UpdateAll(IReadOnlyList<Drawable> elements, TimeSpan time)
     {
         _currentFrame?.Clear();
         if (elements.Count == 0)
@@ -90,7 +85,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
 
         foreach (Drawable element in elements)
         {
-            Add(element);
+            Add(element, time);
         }
     }
 
@@ -100,6 +95,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         {
             RenderNodeCacheContext.ClearCache(item.Value.Node);
 
+            item.Value.Node.Drawable?.Resource.Dispose();
             item.Value.Dispose();
         }
 
@@ -111,13 +107,6 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         foreach (Entry? entry in CollectionsMarshal.AsSpan(_currentFrame))
         {
             DrawableRenderNode node = entry.Node;
-            Drawable drawable = node.Drawable;
-            if (entry.IsDirty)
-            {
-                using var context = new GraphicsContext2D(node, renderScene.Size);
-                drawable.Render(context);
-                entry.IsDirty = false;
-            }
 
             var cacheContext = renderScene._cacheContext;
 
@@ -148,16 +137,25 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
                     {
                         RevalidateAll(item);
                     }
-
-                    cache.CaptureChildren();
                 }
 
                 cache.IncrementRenderCount();
+                current.HasChanges = false;
                 if (cache.IsCached && !RenderNodeCacheContext.CanCacheRecursive(current))
                 {
                     cache.Invalidate();
                 }
             }
+
+            /*
+             * - ANode (HasChanges: true)
+             *   - BNode (HasChanges: true)
+             *     - CNode (HasChanges: false) <- この出力をキャッシュしたい
+             * CNodeがキャッシュできるようにするには、少なくともCNodeとその子孫がすべてHasChanges==falseである必要がある。
+             * HasChanges==falseのときに、カウントを増やし、HasChanges==trueのときにカウントを0にリセットする。
+             * そして、カウントが一定数以上になったときにキャッシュ可能とする。
+             *
+             */
         }
     }
 
@@ -165,6 +163,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
     {
         foreach (KeyValuePair<Drawable, Entry> item in _cache)
         {
+            item.Value.Node.Drawable?.Resource.Dispose();
             item.Value.Dispose();
         }
 
@@ -173,6 +172,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         {
             foreach (Entry item in _currentFrame)
             {
+                item.Node.Drawable?.Resource.Dispose();
                 item.Dispose();
             }
 
@@ -194,7 +194,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
             {
                 if (arr.Any(op => op.HitTest(point)))
                 {
-                    return entry.Node.Drawable;
+                    return entry.Node.Drawable?.Resource.GetOriginal();
                 }
             }
             finally

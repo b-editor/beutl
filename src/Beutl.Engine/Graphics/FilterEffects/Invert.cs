@@ -1,55 +1,33 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Reactive;
-
+using Beutl.Engine;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Invert : FilterEffect
+public sealed partial class Invert : FilterEffect
 {
-    public static readonly CoreProperty<float> AmountProperty;
-    public static readonly CoreProperty<bool> ExcludeAlphaChannelProperty;
-    private float _amount = 100;
-    private bool _excludeAlphaChannel = true;
-
-    static Invert()
+    public Invert()
     {
-        AmountProperty = ConfigureProperty<float, Invert>(nameof(Amount))
-            .Accessor(o => o.Amount, (o, v) => o.Amount = v)
-            .DefaultValue(100)
-            .Register();
-
-        ExcludeAlphaChannelProperty = ConfigureProperty<bool, Invert>(nameof(ExcludeAlphaChannel))
-            .Accessor(o => o.ExcludeAlphaChannel, (o, v) => o.ExcludeAlphaChannel = v)
-            .DefaultValue(true)
-            .Register();
-
-        AffectsRender<Invert>(AmountProperty, ExcludeAlphaChannelProperty);
+        ScanProperties<Invert>();
     }
 
     [Range(0, 100)]
     [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
-    public float Amount
-    {
-        get => _amount;
-        set => SetAndRaise(AmountProperty, ref _amount, value);
-    }
+    public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(Strings.ExcludeAlphaChannel), ResourceType = typeof(Strings))]
-    public bool ExcludeAlphaChannel
-    {
-        get => _excludeAlphaChannel;
-        set => SetAndRaise(ExcludeAlphaChannelProperty, ref _excludeAlphaChannel, value);
-    }
+    public IProperty<bool> ExcludeAlphaChannel { get; } = Property.CreateAnimatable(true);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        if (ExcludeAlphaChannel)
+        var r = (Resource)resource;
+        if (r.ExcludeAlphaChannel)
         {
             context.LookupTable(
                 Unit.Default,
-                _amount / 100,
-                (Unit _, (byte[] A, byte[] R, byte[] G, byte[] B) array) =>
+                r.Amount / 100,
+                static (Unit _, (byte[] A, byte[] R, byte[] G, byte[] B) array) =>
                 {
                     LookupTable.Linear(array.A);
                     LookupTable.Invert(array.R);
@@ -61,8 +39,8 @@ public sealed class Invert : FilterEffect
         {
             context.LookupTable(
                 Unit.Default,
-                _amount / 100,
-                (Unit _, byte[] array) => LookupTable.Invert(array));
+                r.Amount / 100,
+                static (Unit _, byte[] array) => LookupTable.Invert(array));
         }
     }
 }

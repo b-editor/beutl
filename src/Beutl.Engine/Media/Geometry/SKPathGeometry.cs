@@ -4,7 +4,7 @@ using SkiaSharp;
 
 namespace Beutl.Media;
 
-internal sealed class SKPathGeometry : Geometry
+internal sealed partial class SKPathGeometry : Geometry
 {
     private SKPath? _path;
     private bool _clone;
@@ -32,12 +32,13 @@ internal sealed class SKPathGeometry : Geometry
             _path = clone ? new SKPath(path) : path;
         }
 
-        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
+        RaiseEdited();
     }
 
-    public override void ApplyTo(IGeometryContext context)
+    public override void ApplyTo(IGeometryContext context, Geometry.Resource resource)
     {
-        base.ApplyTo(context);
+        base.ApplyTo(context, resource);
+        var r = (Resource)resource;
         if (_path == null) return;
 
         if (context is GeometryContext typed)

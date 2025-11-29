@@ -1,31 +1,10 @@
-using System;
-using Beutl.Animation;
+using Beutl.Engine;
 
 namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class GainNode : AudioNode
 {
-    private IAnimatable? _target;
-    private CoreProperty<float>? _gainProperty;
-    private float _staticGain = 1.0f;
-
-    public IAnimatable? Target
-    {
-        get => _target;
-        set => _target = value;
-    }
-
-    public CoreProperty<float>? GainProperty
-    {
-        get => _gainProperty;
-        set => _gainProperty = value;
-    }
-
-    public float StaticGain
-    {
-        get => _staticGain;
-        set => _staticGain = value;
-    }
+    public IProperty<float>? Gain { get; set; }
 
     public override AudioBuffer Process(AudioProcessContext context)
     {
@@ -35,9 +14,9 @@ public sealed class GainNode : AudioNode
         var input = Inputs[0].Process(context);
 
         // If no animation, use static gain
-        if (!context.AnimationSampler.IsAnimated(Target, GainProperty))
+        if (Gain?.IsAnimatable != true)
         {
-            return ProcessStaticGain(input, _staticGain);
+            return ProcessStaticGain(input);
         }
 
         // Create output buffer
@@ -60,8 +39,7 @@ public sealed class GainNode : AudioNode
 
             // Sample animation values
             context.AnimationSampler.SampleBuffer(
-                _target,
-                _gainProperty,
+                Gain,
                 chunkRange,
                 context.SampleRate,
                 chunkGains);
@@ -90,8 +68,9 @@ public sealed class GainNode : AudioNode
         return output;
     }
 
-    private static AudioBuffer ProcessStaticGain(AudioBuffer input, float gain)
+    private AudioBuffer ProcessStaticGain(AudioBuffer input)
     {
+        float gain = (Gain?.CurrentValue ?? 100f) / 100f;
         // If gain is 1.0, return input as-is
         if (System.Math.Abs(gain - 1.0f) < float.Epsilon)
             return input;

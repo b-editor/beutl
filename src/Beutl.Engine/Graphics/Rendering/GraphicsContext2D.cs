@@ -6,12 +6,18 @@ using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize canvasSize = default)
+public sealed class GraphicsContext2D(
+    ContainerRenderNode container,
+    PixelSize canvasSize = default)
     : IDisposable, IPopable
 {
     private readonly Stack<(ContainerRenderNode, int)> _nodes = [];
     private int _drawOperationindex;
+
     private ContainerRenderNode _container = container;
+
+    // 下位のノードで変更があったとき、上位に伝搬するためのフィールド。Pop時に上位ノードのHasChangesを変更する用。
+    private bool _hasChanges;
 
     public PixelSize Size => canvasSize;
 
@@ -33,15 +39,12 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
         {
             _container.AddChild(node);
         }
+
+        _hasChanges = true;
     }
 
-    private void AddAndPush(ContainerRenderNode node, ContainerRenderNode? old)
+    private void AddAndPush(ContainerRenderNode node)
     {
-        if (old != null)
-        {
-            node.BringFrom(old);
-        }
-
         Add(node);
         Push(node);
     }
@@ -75,6 +78,25 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
         _nodes.Clear();
     }
 
+    public MemoryNode<T> UseMemory<T>(T defaultValue)
+    {
+        MemoryNode<T>? next = Next<MemoryNode<T>>();
+
+        if (next == null)
+        {
+            next =  new MemoryNode<T>(defaultValue);
+            Add(next);
+        }
+
+        ++_drawOperationindex;
+        return next;
+    }
+
+    public MemoryNode<T?> UseMemory<T>()
+    {
+        return UseMemory<T?>(default);
+    }
+
     public void Clear()
     {
         ClearRenderNode? next = Next<ClearRenderNode>();
@@ -99,102 +121,161 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
         ++_drawOperationindex;
     }
 
-    public void DrawImageSource(IImageSource source, IBrush? fill, IPen? pen)
+    public void DrawImageSource(IImageSource source, Brush.Resource? fill, Pen.Resource? pen)
     {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ArgumentNullException.ThrowIfNull(source);
+        ObjectDisposedException.ThrowIf(source.IsDisposed, source);
+
         ImageSourceRenderNode? next = Next<ImageSourceRenderNode>();
 
-        if (next == null || !next.Equals(source, fill, pen))
+        if (next == null)
         {
-            Add(new ImageSourceRenderNode(source, ConvertBrush(fill), pen));
+            Add(new ImageSourceRenderNode(source, fill, pen));
+        }
+        else
+        {
+            _hasChanges = next.Update(source, fill, pen);
         }
 
         ++_drawOperationindex;
     }
 
-    public void DrawVideoSource(IVideoSource source, TimeSpan frame, IBrush? fill, IPen? pen)
+    public void DrawVideoSource(IVideoSource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
     {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ArgumentNullException.ThrowIfNull(source);
+        ObjectDisposedException.ThrowIf(source.IsDisposed, source);
+
         Rational rate = source.FrameRate;
         double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
         DrawVideoSource(source, (int)frameNum, fill, pen);
     }
 
-    public void DrawVideoSource(IVideoSource source, int frame, IBrush? fill, IPen? pen)
+    public void DrawVideoSource(IVideoSource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ArgumentNullException.ThrowIfNull(source);
+        ObjectDisposedException.ThrowIf(source.IsDisposed, source);
+
         VideoSourceRenderNode? next = Next<VideoSourceRenderNode>();
 
-        if (next == null || !next.Equals(source, frame, fill, pen))
+        if (next == null)
         {
-            Add(new VideoSourceRenderNode(source, frame, ConvertBrush(fill), pen));
-        }
-
-        ++_drawOperationindex;
-    }
-
-    public void DrawEllipse(Rect rect, IBrush? fill, IPen? pen)
-    {
-        EllipseRenderNode? next = Next<EllipseRenderNode>();
-
-        if (next == null || !next.Equals(rect, fill, pen))
-        {
-            Add(new EllipseRenderNode(rect, ConvertBrush(fill), pen));
-        }
-
-        ++_drawOperationindex;
-    }
-
-    public void DrawGeometry(Geometry geometry, IBrush? fill, IPen? pen)
-    {
-        GeometryRenderNode? next = Next<GeometryRenderNode>();
-
-        if (next == null || !next.Equals(geometry, fill, pen))
-        {
-            Add(new GeometryRenderNode(geometry, ConvertBrush(fill), pen));
-        }
-
-        ++_drawOperationindex;
-    }
-
-    public void DrawRectangle(Rect rect, IBrush? fill, IPen? pen)
-    {
-        RectangleRenderNode? next = Next<RectangleRenderNode>();
-
-        if (next == null || !next.Equals(rect, fill, pen))
-        {
-            Add(new RectangleRenderNode(rect, ConvertBrush(fill), pen));
-        }
-
-        ++_drawOperationindex;
-    }
-
-    public void DrawText(FormattedText text, IBrush? fill, IPen? pen)
-    {
-        TextRenderNode? next = Next<TextRenderNode>();
-
-        if (next == null || !next.Equals(text, fill, pen))
-        {
-            Add(new TextRenderNode(text, ConvertBrush(fill), pen));
-        }
-
-        ++_drawOperationindex;
-    }
-
-    public void DrawDrawable(Drawable drawable)
-    {
-        DrawableRenderNode? next = Next<DrawableRenderNode>();
-
-        if (next == null || !ReferenceEquals(next.Drawable, drawable))
-        {
-            AddAndPush(new DrawableRenderNode(drawable), next);
+            Add(new VideoSourceRenderNode(source, frame, fill, pen));
         }
         else
         {
+            _hasChanges = next.Update(source, frame, fill, pen);
+        }
+
+        ++_drawOperationindex;
+    }
+
+    public void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
+    {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+
+        EllipseRenderNode? next = Next<EllipseRenderNode>();
+
+        if (next == null)
+        {
+            Add(new EllipseRenderNode(rect, fill, pen));
+        }
+        else
+        {
+            _hasChanges = next.Update(rect, fill, pen);
+        }
+
+        ++_drawOperationindex;
+    }
+
+    public void DrawGeometry(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
+    {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ArgumentNullException.ThrowIfNull(geometry);
+        ObjectDisposedException.ThrowIf(geometry.IsDisposed, geometry);
+
+        GeometryRenderNode? next = Next<GeometryRenderNode>();
+
+        if (next == null)
+        {
+            Add(new GeometryRenderNode(geometry, fill, pen));
+        }
+        else
+        {
+            _hasChanges = next.Update(geometry, fill, pen);
+        }
+
+        ++_drawOperationindex;
+    }
+
+    public void DrawRectangle(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
+    {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+
+        RectangleRenderNode? next = Next<RectangleRenderNode>();
+
+        if (next == null)
+        {
+            Add(new RectangleRenderNode(rect, fill, pen));
+        }
+        else
+        {
+            _hasChanges = next.Update(rect, fill, pen);
+        }
+
+        ++_drawOperationindex;
+    }
+
+    public void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
+    {
+        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        ArgumentNullException.ThrowIfNull(text);
+
+        TextRenderNode? next = Next<TextRenderNode>();
+
+        if (next == null)
+        {
+            Add(new TextRenderNode(text, fill, pen));
+        }
+        else
+        {
+            _hasChanges = next.Update(text, fill, pen);
+        }
+
+        ++_drawOperationindex;
+    }
+
+    public void DrawDrawable(Drawable.Resource drawable)
+    {
+        ArgumentNullException.ThrowIfNull(drawable);
+        ObjectDisposedException.ThrowIf(drawable.IsDisposed, drawable);
+
+        DrawableRenderNode? next = Next<DrawableRenderNode>();
+
+        if (next == null)
+        {
+            AddAndPush(new DrawableRenderNode(drawable));
+        }
+        else
+        {
+            _hasChanges = next.Update(drawable);
             Push(next);
         }
 
         int count = _nodes.Count;
         try
         {
-            drawable.Render(this);
+            var obj = drawable.GetOriginal();
+            obj.Render(this, drawable);
         }
         finally
         {
@@ -204,6 +285,9 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
 
     public void DrawNode(RenderNode node)
     {
+        ArgumentNullException.ThrowIfNull(node);
+        ObjectDisposedException.ThrowIf(node.IsDisposed, node);
+
         RenderNode? next = Next();
 
         if (next == null || !node.Equals(next))
@@ -214,14 +298,41 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
         ++_drawOperationindex;
     }
 
+    public void DrawNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode, Func<TNode, TParams, bool> updateNode)
+        where TNode : RenderNode
+    {
+        ArgumentNullException.ThrowIfNull(createNode);
+        ArgumentNullException.ThrowIfNull(updateNode);
+
+        TNode? next = Next<TNode>();
+
+        if (next == null)
+        {
+            TNode node = createNode(parameters);
+            Add(node);
+        }
+        else
+        {
+            _hasChanges = updateNode(next, parameters);
+        }
+
+        ++_drawOperationindex;
+    }
+
     public void DrawBackdrop(IBackdrop backdrop)
     {
+        ArgumentNullException.ThrowIfNull(backdrop);
+
         DrawBackdropRenderNode? next = Next<DrawBackdropRenderNode>();
 
         var b = new Rect(canvasSize.ToSize(1));
-        if (next == null || !next.Equals(backdrop, b))
+        if (next == null)
         {
             Add(new DrawBackdropRenderNode(backdrop, b));
+        }
+        else
+        {
+            _hasChanges = next.Update(backdrop, b);
         }
 
         ++_drawOperationindex;
@@ -249,6 +360,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
             {
                 foreach (RenderNode node in _container.Children.Take(_drawOperationindex..))
                 {
+                    _hasChanges = true;
                     node.Dispose();
                     Untracked(node);
                 }
@@ -256,6 +368,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
                 _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
 
                 _container = state.Item1;
+                _container.HasChanges = _container.HasChanges || _hasChanges;
                 _drawOperationindex = state.Item2;
 
                 count++;
@@ -268,6 +381,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
             {
                 foreach (RenderNode node in _container.Children.Take(_drawOperationindex..))
                 {
+                    _hasChanges = true;
                     node.Dispose();
                     Untracked(node);
                 }
@@ -275,6 +389,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
                 _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
 
                 _container = state.Item1;
+                _container.HasChanges = _container.HasChanges || _hasChanges;
                 _drawOperationindex = state.Item2;
             }
         }
@@ -286,7 +401,7 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
 
         if (next == null)
         {
-            AddAndPush(new PushRenderNode(), next);
+            AddAndPush(new PushRenderNode());
         }
         else
         {
@@ -300,12 +415,13 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
     {
         LayerRenderNode? next = Next<LayerRenderNode>();
 
-        if (next == null || next.Limit != limit)
+        if (next == null)
         {
-            AddAndPush(new LayerRenderNode(limit), next);
+            AddAndPush(new LayerRenderNode(limit));
         }
         else
         {
+            _hasChanges = next.Update(limit);
             Push(next);
         }
 
@@ -316,12 +432,13 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
     {
         BlendModeRenderNode? next = Next<BlendModeRenderNode>();
 
-        if (next == null || !next.Equals(blendMode))
+        if (next == null)
         {
-            AddAndPush(new BlendModeRenderNode(blendMode), next);
+            AddAndPush(new BlendModeRenderNode(blendMode));
         }
         else
         {
+            _hasChanges = next.Update(blendMode);
             Push(next);
         }
 
@@ -332,28 +449,33 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
     {
         RectClipRenderNode? next = Next<RectClipRenderNode>();
 
-        if (next == null || !next.Equals(clip, operation))
+        if (next == null)
         {
-            AddAndPush(new RectClipRenderNode(clip, operation), next);
+            AddAndPush(new RectClipRenderNode(clip, operation));
         }
         else
         {
+            _hasChanges = next.Update(clip, operation);
             Push(next);
         }
 
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushClip(Geometry geometry, ClipOperation operation = ClipOperation.Intersect)
+    public PushedState PushClip(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect)
     {
+        ArgumentNullException.ThrowIfNull(geometry);
+        ObjectDisposedException.ThrowIf(geometry.IsDisposed, geometry);
+
         GeometryClipRenderNode? next = Next<GeometryClipRenderNode>();
 
-        if (next == null || !next.Equals(geometry, operation))
+        if (next == null)
         {
-            AddAndPush(new GeometryClipRenderNode(geometry, operation), next);
+            AddAndPush(new GeometryClipRenderNode(geometry, operation));
         }
         else
         {
+            _hasChanges = next.Update(geometry, operation);
             Push(next);
         }
 
@@ -364,41 +486,33 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
     {
         OpacityRenderNode? next = Next<OpacityRenderNode>();
 
-        if (next == null || !next.Equals(opacity))
+        if (next == null)
         {
-            AddAndPush(new OpacityRenderNode(opacity), next);
+            AddAndPush(new OpacityRenderNode(opacity));
         }
         else
         {
+            _hasChanges = next.Update(opacity);
             Push(next);
         }
 
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushFilterEffect(FilterEffect effect)
+    public PushedState PushFilterEffect(FilterEffect.Resource effect)
     {
+        ArgumentNullException.ThrowIfNull(effect);
+        ObjectDisposedException.ThrowIf(effect.IsDisposed, effect);
+
         switch (effect)
         {
-            case FilterEffectGroup group:
+            case FilterEffectGroup.Resource group:
                 {
                     for (int i = group.Children.Count - 1; i >= 0; i--)
                     {
-                        FilterEffect item = group.Children[i];
+                        FilterEffect.Resource item = group.Children[i];
                         PushFilterEffect(item);
                     }
-
-                    break;
-                }
-#pragma warning disable CS0618
-            case CombinedFilterEffect combined:
-#pragma warning restore CS0618
-                {
-                    if (combined.Second != null)
-                        PushFilterEffect(combined.Second);
-
-                    if (combined.First != null)
-                        PushFilterEffect(combined.First);
 
                     break;
                 }
@@ -406,12 +520,13 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
                 {
                     FilterEffectRenderNode? next = Next<FilterEffectRenderNode>();
 
-                    if (next == null || !next.Equals(effect))
+                    if (next == null)
                     {
-                        AddAndPush(new FilterEffectRenderNode(effect), next);
+                        AddAndPush(new FilterEffectRenderNode(effect));
                     }
                     else
                     {
+                        _hasChanges = next.Update(effect);
                         Push(next);
                     }
 
@@ -422,16 +537,20 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false)
+    public PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false)
     {
+        ArgumentNullException.ThrowIfNull(mask);
+        ObjectDisposedException.ThrowIf(mask.IsDisposed, mask);
+
         OpacityMaskRenderNode? next = Next<OpacityMaskRenderNode>();
 
-        if (next == null || !next.Equals(mask, bounds, invert))
+        if (next == null)
         {
-            AddAndPush(new OpacityMaskRenderNode(mask, bounds, invert), next);
+            AddAndPush(new OpacityMaskRenderNode(mask, bounds, invert));
         }
         else
         {
+            _hasChanges = next.Update(mask, bounds, invert);
             Push(next);
         }
 
@@ -442,86 +561,59 @@ public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize c
     {
         TransformRenderNode? next = Next<TransformRenderNode>();
 
-        if (next == null || !next.Equals(matrix, transformOperator))
+        if (next == null)
         {
-            AddAndPush(new TransformRenderNode(matrix, transformOperator), next);
+            AddAndPush(new TransformRenderNode(matrix, transformOperator));
         }
         else
         {
+            _hasChanges = next.Update(matrix, transformOperator);
             Push(next);
         }
 
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushTransform(ITransform transform,
+    public PushedState PushTransform(Transform.Resource transform,
         TransformOperator transformOperator = TransformOperator.Prepend)
     {
-        switch (transform)
+        ArgumentNullException.ThrowIfNull(transform);
+        ObjectDisposedException.ThrowIf(transform.IsDisposed, transform);
+
+        TransformRenderNode? next = Next<TransformRenderNode>();
+        var matrix = transform.Matrix;
+        if (next == null)
         {
-            case TransformGroup group:
-                {
-                    for (int i = group.Children.Count - 1; i >= 0; i--)
-                    {
-                        ITransform item = group.Children[i];
-                        PushTransform(item, transformOperator);
-                    }
-
-                    break;
-                }
-#pragma warning disable CS0618
-            case MultiTransform multi:
-#pragma warning restore CS0618
-                {
-                    if (multi.Left != null)
-                        PushTransform(multi.Left, transformOperator);
-
-                    if (multi.Right != null)
-                        PushTransform(multi.Right, transformOperator);
-
-                    break;
-                }
-
-            default:
-                {
-                    TransformRenderNode? next = Next<TransformRenderNode>();
-                    var matrix = transform.Value;
-                    if (next == null || !next.Equals(matrix, transformOperator))
-                    {
-                        AddAndPush(new TransformRenderNode(matrix, transformOperator), next);
-                    }
-                    else
-                    {
-                        Push(next);
-                    }
-
-                    break;
-                }
+            AddAndPush(new TransformRenderNode(matrix, transformOperator));
+        }
+        else
+        {
+            _hasChanges = next.Update(matrix, transformOperator);
+            Push(next);
         }
 
         return new(this, _nodes.Count);
     }
 
-    private static IBrush? ConvertBrush(IBrush? brush)
+    public PushedState PushNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode, Func<TNode, TParams, bool> updateNode)
+        where TNode : ContainerRenderNode
     {
-        if (brush is IDrawableBrush drawableBrush)
+        ArgumentNullException.ThrowIfNull(createNode);
+        ArgumentNullException.ThrowIfNull(updateNode);
+
+        TNode? next = Next<TNode>();
+
+        if (next == null)
         {
-            RenderScene? scene = null;
-            Rect bounds = default;
-            if (drawableBrush is { Drawable: { IsVisible: true } drawable })
-            {
-                drawable.Measure(Graphics.Size.Infinity);
-
-                bounds = drawable.Bounds;
-                scene = new RenderScene(bounds.Size.Ceiling());
-                scene[0].UpdateAll([drawable]);
-            }
-
-            return new RenderSceneBrush(drawableBrush, scene, bounds);
+            TNode node = createNode(parameters);
+            AddAndPush(node);
         }
         else
         {
-            return brush;
+            _hasChanges = updateNode(next, parameters);
+            Push(next);
         }
+
+        return new(this, _nodes.Count);
     }
 }

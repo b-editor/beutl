@@ -5,7 +5,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
-using Beutl.NodeTree;
+// using Beutl.NodeTree;
 using Beutl.Operation;
 
 namespace Beutl.Services;
@@ -17,12 +17,12 @@ public static class LibraryServiceExtensions
     {
         return self.Bind<T>(KnownLibraryItemFormats.SourceOperator);
     }
-
-    public static MultipleTypeLibraryItem BindNode<T>(this MultipleTypeLibraryItem self)
-        where T : Node
-    {
-        return self.Bind<T>(KnownLibraryItemFormats.Node);
-    }
+    //
+    // public static MultipleTypeLibraryItem BindNode<T>(this MultipleTypeLibraryItem self)
+    //     where T : Node
+    // {
+    //     return self.Bind<T>(KnownLibraryItemFormats.Node);
+    // }
 
     public static MultipleTypeLibraryItem BindEasing<T>(this MultipleTypeLibraryItem self)
         where T : Easing
@@ -55,7 +55,7 @@ public static class LibraryServiceExtensions
     }
 
     public static MultipleTypeLibraryItem BindAudioEffect<T>(this MultipleTypeLibraryItem self)
-        where T : IAudioEffect
+        where T : AudioEffect
     {
         return self.Bind<T>(KnownLibraryItemFormats.AudioEffect);
     }
@@ -77,12 +77,12 @@ public static class LibraryServiceExtensions
     {
         return self.Add<T>(KnownLibraryItemFormats.SourceOperator, displayName, description);
     }
-
-    public static GroupLibraryItem AddNode<T>(this GroupLibraryItem self, string displayName, string? description = null)
-        where T : Node
-    {
-        return self.Add<T>(KnownLibraryItemFormats.Node, displayName, description);
-    }
+    //
+    // public static GroupLibraryItem AddNode<T>(this GroupLibraryItem self, string displayName, string? description = null)
+    //     where T : Node
+    // {
+    //     return self.Add<T>(KnownLibraryItemFormats.Node, displayName, description);
+    // }
 
     public static GroupLibraryItem AddEasing<T>(this GroupLibraryItem self, string displayName, string? description = null)
         where T : Easing
@@ -115,7 +115,7 @@ public static class LibraryServiceExtensions
     }
 
     public static GroupLibraryItem AddAudioEffect<T>(this GroupLibraryItem self, string displayName, string? description = null)
-        where T : IAudioEffect
+        where T : AudioEffect
     {
         return self.Add<T>(KnownLibraryItemFormats.AudioEffect, displayName, description);
     }

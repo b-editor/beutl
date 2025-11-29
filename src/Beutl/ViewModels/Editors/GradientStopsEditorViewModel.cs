@@ -1,5 +1,4 @@
 ﻿using Beutl.Media;
-using Beutl.Media.Immutable;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
@@ -8,34 +7,28 @@ using AM = Avalonia.Media;
 
 namespace Beutl.ViewModels.Editors;
 
-public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
+public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<GradientStop>>
 {
     private IDisposable? _disposable;
 
-    public GradientStopsEditorViewModel(IPropertyAdapter<GradientStops> property)
+    public GradientStopsEditorViewModel(IPropertyAdapter<ICoreList<GradientStop>> property)
         : base(property)
     {
-        GradientStops? initValue = property.GetValue();
-        if (initValue == null)
-        {
-            property.SetValue(initValue = []);
-        }
-
-        Value = property.GetObservable()
-            .ToReadOnlyReactivePropertySlim(initValue)
+        Value = property.GetObservable()!
+            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables)!;
 
         Value.Subscribe(v =>
         {
             _disposable?.Dispose();
 
-            var t = v.ToAvaGradientStopsSync();
+            var t = v.ToAvaGradientStopsSync(CurrentTime);
             _disposable = t.Item2;
             Stops.Value = t.Item1;
         }).DisposeWith(Disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<GradientStops> Value { get; }
+    public ReadOnlyReactivePropertySlim<ICoreList<GradientStop>> Value { get; }
 
     public ReactivePropertySlim<AM.GradientStops> Stops { get; } = new();
 
@@ -73,7 +66,7 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
 
     public void ConfirmeGradientStop(
         int oldIndex, int newIndex,
-        ImmutableGradientStop oldObject, GradientStop obj)
+        GradientStop.Resource oldObject, GradientStop obj)
     {
         CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         if (Value.Value is { } list)
@@ -82,11 +75,11 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
                 .Move(oldIndex, newIndex)
                 .ToCommand([]);
 
-            IRecordableCommand? offset = obj.Offset != oldObject.Offset
-                ? RecordableCommands.Edit(obj, GradientStop.OffsetProperty, obj.Offset, oldObject.Offset)
+            IRecordableCommand? offset = obj.Offset.CurrentValue != oldObject.Offset
+                ? RecordableCommands.Edit(obj.Offset, obj.Offset.CurrentValue, oldObject.Offset)
                 : null;
-            IRecordableCommand? color = obj.Color != oldObject.Color
-                ? RecordableCommands.Edit(obj, GradientStop.ColorProperty, obj.Color, oldObject.Color)
+            IRecordableCommand? color = obj.Color.CurrentValue != oldObject.Color
+                ? RecordableCommands.Edit(obj.Color, obj.Color.CurrentValue, oldObject.Color)
                 : null;
 
             move.Append(offset)

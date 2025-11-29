@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Media;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
@@ -24,8 +25,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
 
     static PathPointDragBehavior()
     {
-        IsSelectedProperty.Changed.Subscribe(
-            e => (e.Sender as Thumb)?.Classes.Set("selected", e.NewValue.GetValueOrDefault()));
+        IsSelectedProperty.Changed.Subscribe(e =>
+            (e.Sender as Thumb)?.Classes.Set("selected", e.NewValue.GetValueOrDefault()));
     }
 
     public static void SetIsSelected(Thumb owner, bool value)
@@ -263,20 +264,15 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                                 {
                                     if (keyframe == null) return;
 
-                                    TimeSpan localkeyTime = keyframe.KeyTime;
                                     TimeSpan keyTime = keyframe.KeyTime;
 
-                                    if (c.Animation.UseGlobalClock)
-                                    {
-                                        localkeyTime -= element.Start;
-                                    }
-                                    else
+                                    if (!c.Animation.UseGlobalClock)
                                     {
                                         keyTime += element.Start;
                                     }
 
-                                    BtlPoint anchorpoint = anchor.GetEndPoint(localkeyTime, keyTime);
-                                    BtlPoint point = _dragState.GetInterpolatedValue(element, keyTime);
+                                    BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(keyTime);
+                                    BtlPoint point = _dragState.GetInterpolatedValue(keyTime);
                                     BtlPoint d = anchorpoint - point;
                                     float angle = MathF.Atan2(d.X, d.Y);
                                     angle -= MathF.PI / 2;
@@ -300,13 +296,14 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                                 Set(c.Next);
 
                                 UpdateThumbPosition(c.Thumb,
-                                    c.GetInterpolatedValue(element, viewModel.EditViewModel.CurrentTime.Value));
+                                    c.GetInterpolatedValue(viewModel.EditViewModel.CurrentTime.Value));
                             }
                             else
                             {
-                                BtlPoint point = _dragState.GetInterpolatedValue(element,
-                                    viewModel.EditViewModel.CurrentTime.Value);
-                                BtlPoint anchorpoint = anchor.GetEndPoint();
+                                BtlPoint point =
+                                    _dragState.GetInterpolatedValue(viewModel.EditViewModel.CurrentTime.Value);
+                                BtlPoint anchorpoint = anchor.GetEndPoint()
+                                    .GetValue(viewModel.EditViewModel.CurrentTime.Value);
                                 BtlPoint d = anchorpoint - point;
                                 float angle = MathF.Atan2(d.X, d.Y);
                                 angle -= MathF.PI / 2;
@@ -318,7 +315,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                                 }
                                 else
                                 {
-                                    BtlPoint d2 = anchorpoint - c.GetSampleValue();
+                                    BtlPoint d2 = anchorpoint -
+                                                  c.GetSampleValue(viewModel.EditViewModel.CurrentTime.Value);
                                     length = Length(d2);
                                 }
 
@@ -405,7 +403,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         PathFigure figure,
         PathSegment segment)
     {
-        CoreProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
+        IProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
         if (prop != null)
         {
             _dragState = CreateThumbDragState(viewModel, segment, prop);
@@ -419,7 +417,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                 {
                     if (anchor == thumb) continue;
 
-                    CoreProperty<BtlPoint>? prop2 = PathEditorHelper.GetProperty(anchor);
+                    IProperty<BtlPoint>? prop2 = PathEditorHelper.GetProperty(anchor);
                     if (anchor.DataContext is PathSegment s && prop2 != null)
                     {
                         PathPointDragState d = CreateThumbDragState(viewModel, s, prop2);
@@ -454,7 +452,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         PathFigure figure,
         PathSegment segment)
     {
-        CoreProperty<BtlPoint>[] props = PathEditorHelper.GetControlPointProperties(segment);
+        IProperty<BtlPoint>[] props = PathEditorHelper.GetControlPointProperties(segment);
         if (props.Length > 0)
         {
             PathPointDragState state = CreateThumbDragState(viewModel, segment, props[^1]);
@@ -485,25 +483,25 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         PathFigure figure,
         PathSegment segment,
         // [ControlPoint, ControlPoint1, ControlPoint2] のいずれか
-        CoreProperty<BtlPoint> property)
+        IProperty<BtlPoint> property)
     {
         int index = figure.Segments.IndexOf(segment);
         if (index < 0 || figure.Segments.Count == 0) return;
 
-        if (segment is CubicBezierSegment)
+        if (segment is CubicBezierSegment cubicBezierSegment)
         {
             PathSegment? asegment = null;
             PathSegment? anchor = null;
             int apropIndex = -1;
 
-            if (property == CubicBezierSegment.ControlPoint1Property)
+            if (property == cubicBezierSegment.ControlPoint1)
             {
                 int aindex = (index - 1 + figure.Segments.Count) % figure.Segments.Count;
                 asegment = figure.Segments[aindex];
                 apropIndex = 1;
                 anchor = asegment;
             }
-            else if (property == CubicBezierSegment.ControlPoint2Property)
+            else if (property == cubicBezierSegment.ControlPoint2)
             {
                 int aindex = (index + 1) % figure.Segments.Count;
                 asegment = figure.Segments[aindex];
@@ -513,7 +511,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
 
             if (asegment != null)
             {
-                CoreProperty<BtlPoint>? aproperty = PathEditorHelper.GetControlPointProperty(asegment, apropIndex);
+                IProperty<BtlPoint>? aproperty = PathEditorHelper.GetControlPointProperty(asegment, apropIndex);
                 if (aproperty != null)
                 {
                     PathPointDragState state = CreateThumbDragState(viewModel, asegment, aproperty);
@@ -530,7 +528,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                 PathSegment asegment = figure.Segments[aindex];
                 anchor ??= asegment;
 
-                CoreProperty<BtlPoint>? aproperty = PathEditorHelper.GetControlPointProperty(asegment, apropIndex);
+                IProperty<BtlPoint>? aproperty = PathEditorHelper.GetControlPointProperty(asegment, apropIndex);
                 if (aproperty != null)
                 {
                     PathPointDragState state = CreateThumbDragState(viewModel, asegment, aproperty);
@@ -555,7 +553,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     internal static PathPointDragState CreateThumbDragState(
         IPathEditorViewModel viewModel,
         PathSegment segment,
-        CoreProperty<BtlPoint> property)
+        IProperty<BtlPoint> property)
     {
         EditViewModel editViewModel = viewModel.EditViewModel;
         ProjectSystem.Element? element = viewModel.Element.Value;
@@ -563,7 +561,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         TimeSpan globalkeyTime = editViewModel.CurrentTime.Value;
         TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
 
-        if (segment.Animations.FirstOrDefault(v => v.Property == property) is KeyFrameAnimation<BtlPoint> animation)
+        if (property.Animation is KeyFrameAnimation<BtlPoint> animation)
         {
             TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
             keyTime = keyTime.RoundToRate(rate);

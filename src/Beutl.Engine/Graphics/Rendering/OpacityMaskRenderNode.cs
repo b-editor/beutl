@@ -1,20 +1,43 @@
-﻿using Beutl.Media;
+using Beutl.Engine;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class OpacityMaskRenderNode(IBrush mask, Rect maskBounds, bool invert) : ContainerRenderNode
+public sealed class OpacityMaskRenderNode(Brush.Resource mask, Rect maskBounds, bool invert) : ContainerRenderNode
 {
-    public IBrush Mask { get; private set; } = (mask as IMutableBrush)?.ToImmutable() ?? mask;
+    public (Brush.Resource Resource, int Version)? Mask { get; set; } = mask.Capture();
 
-    public Rect MaskBounds { get; } = maskBounds;
+    public Rect MaskBounds { get; set; } = maskBounds;
 
-    public bool Invert { get; } = invert;
+    public bool Invert { get; set; } = invert;
 
-    public bool Equals(IBrush? mask, Rect maskBounds, bool invert)
+    public bool Update(Brush.Resource? mask, Rect maskBounds, bool invert)
     {
-        return EqualityComparer<IBrush?>.Default.Equals(Mask, mask)
-            && MaskBounds == maskBounds
-            && Invert == invert;
+        bool changed = false;
+        if (!mask.Compare(Mask))
+        {
+            Mask = mask.Capture();
+            changed = true;
+        }
+
+        if (MaskBounds != maskBounds)
+        {
+            MaskBounds = maskBounds;
+            changed = true;
+        }
+
+        if (Invert != invert)
+        {
+            Invert = invert;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            HasChanges = true;
+        }
+
+        return changed;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
@@ -23,7 +46,8 @@ public sealed class OpacityMaskRenderNode(IBrush mask, Rect maskBounds, bool inv
         {
             return RenderNodeOperation.CreateDecorator(r, canvas =>
             {
-                using (canvas.PushOpacityMask(Mask, MaskBounds, Invert))
+                if (!Mask.HasValue) return;
+                using (canvas.PushOpacityMask(Mask.Value.Resource, MaskBounds, Invert))
                 {
                     r.Render(canvas);
                 }

@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering.Cache;
+﻿using Beutl.Animation;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;

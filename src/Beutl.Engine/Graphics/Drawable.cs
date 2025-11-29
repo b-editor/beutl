@@ -1,5 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
@@ -10,183 +10,54 @@ using Beutl.Serialization;
 namespace Beutl.Graphics;
 
 [DummyType(typeof(DummyDrawable))]
-public abstract class Drawable : Renderable
+public abstract partial class Drawable : EngineObject
 {
-    public static readonly CoreProperty<ITransform?> TransformProperty;
-    public static readonly CoreProperty<FilterEffect?> FilterEffectProperty;
-    public static readonly CoreProperty<AlignmentX> AlignmentXProperty;
-    public static readonly CoreProperty<AlignmentY> AlignmentYProperty;
-    public static readonly CoreProperty<RelativePoint> TransformOriginProperty;
-    public static readonly CoreProperty<IBrush?> FillProperty;
-    public static readonly CoreProperty<IBrush?> OpacityMaskProperty;
-    public static readonly CoreProperty<BlendMode> BlendModeProperty;
-    public static readonly CoreProperty<float> OpacityProperty;
-    private ITransform? _transform;
-    private FilterEffect? _filterEffect;
-    private AlignmentX _alignX = AlignmentX.Center;
-    private AlignmentY _alignY = AlignmentY.Center;
-    private RelativePoint _transformOrigin = RelativePoint.Center;
-    private IBrush? _fill = null;
-    private IBrush? _opacityMask;
-    private BlendMode _blendMode = BlendMode.SrcOver;
-    private float _opacity = 100;
-
-    static Drawable()
+    public Drawable()
     {
-        TransformProperty = ConfigureProperty<ITransform?, Drawable>(nameof(Transform))
-            .Accessor(o => o.Transform, (o, v) => o.Transform = v)
-            .DefaultValue(null)
-            .Register();
-
-        FilterEffectProperty = ConfigureProperty<FilterEffect?, Drawable>(nameof(FilterEffect))
-            .Accessor(o => o.FilterEffect, (o, v) => o.FilterEffect = v)
-            .DefaultValue(null)
-            .Register();
-
-        AlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(AlignmentX))
-            .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
-            .DefaultValue(AlignmentX.Center)
-            .Register();
-
-        AlignmentYProperty = ConfigureProperty<AlignmentY, Drawable>(nameof(AlignmentY))
-            .Accessor(o => o.AlignmentY, (o, v) => o.AlignmentY = v)
-            .DefaultValue(AlignmentY.Center)
-            .Register();
-
-        TransformOriginProperty = ConfigureProperty<RelativePoint, Drawable>(nameof(TransformOrigin))
-            .Accessor(o => o.TransformOrigin, (o, v) => o.TransformOrigin = v)
-            .DefaultValue(RelativePoint.Center)
-            .Register();
-
-        FillProperty = ConfigureProperty<IBrush?, Drawable>(nameof(Fill))
-            .Accessor(o => o.Fill, (o, v) => o.Fill = v)
-            .Register();
-
-        OpacityMaskProperty = ConfigureProperty<IBrush?, Drawable>(nameof(OpacityMask))
-            .Accessor(o => o.OpacityMask, (o, v) => o.OpacityMask = v)
-            .DefaultValue(null)
-            .Register();
-
-        BlendModeProperty = ConfigureProperty<BlendMode, Drawable>(nameof(BlendMode))
-            .Accessor(o => o.BlendMode, (o, v) => o.BlendMode = v)
-            .DefaultValue(BlendMode.SrcOver)
-            .Register();
-
-        OpacityProperty = ConfigureProperty<float, Drawable>(nameof(Opacity))
-            .Accessor(o => o.Opacity, (o, v) => o.Opacity = v)
-            .DefaultValue(100)
-            .Register();
-
-        AffectsRender<Drawable>(
-            TransformProperty, FilterEffectProperty,
-            AlignmentXProperty, AlignmentYProperty,
-            TransformOriginProperty,
-            FillProperty, OpacityMaskProperty,
-            BlendModeProperty, OpacityProperty);
-        Hierarchy<Drawable>(
-            TransformProperty, FilterEffectProperty,
-            FillProperty, OpacityMaskProperty);
+        ScanProperties<Drawable>();
     }
-
-    // DrawableBrushで使われる
-    public Rect Bounds { get; protected set; }
 
     [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings),
         GroupName = nameof(Strings.ImageFilter))]
-    public FilterEffect? FilterEffect
-    {
-        get => _filterEffect;
-        set => SetAndRaise(FilterEffectProperty, ref _filterEffect, value);
-    }
+    public IProperty<FilterEffect?> FilterEffect { get; } = Property.Create<FilterEffect?>();
 
     [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings), GroupName = nameof(Strings.Transform))]
-    public ITransform? Transform
-    {
-        get => _transform;
-        set => SetAndRaise(TransformProperty, ref _transform, value);
-    }
+    public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>();
 
     [Display(Name = nameof(Strings.AlignmentX), ResourceType = typeof(Strings), GroupName = nameof(Strings.Transform))]
-    public AlignmentX AlignmentX
-    {
-        get => _alignX;
-        set => SetAndRaise(AlignmentXProperty, ref _alignX, value);
-    }
+    public IProperty<AlignmentX> AlignmentX { get; } = Property.CreateAnimatable(Media.AlignmentX.Center);
 
     [Display(Name = nameof(Strings.AlignmentY), ResourceType = typeof(Strings), GroupName = nameof(Strings.Transform))]
-    public AlignmentY AlignmentY
-    {
-        get => _alignY;
-        set => SetAndRaise(AlignmentYProperty, ref _alignY, value);
-    }
+    public IProperty<AlignmentY> AlignmentY { get; } = Property.CreateAnimatable(Media.AlignmentY.Center);
 
     [Display(Name = nameof(Strings.TransformOrigin), ResourceType = typeof(Strings),
         GroupName = nameof(Strings.Transform))]
-    public RelativePoint TransformOrigin
-    {
-        get => _transformOrigin;
-        set => SetAndRaise(TransformOriginProperty, ref _transformOrigin, value);
-    }
+    public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     [Display(Name = nameof(Strings.Fill), ResourceType = typeof(Strings), GroupName = nameof(Strings.Fill))]
-    public IBrush? Fill
-    {
-        get => _fill;
-        set => SetAndRaise(FillProperty, ref _fill, value);
-    }
-
-    [Display(Name = nameof(Strings.OpacityMask), ResourceType = typeof(Strings))]
-    public IBrush? OpacityMask
-    {
-        get => _opacityMask;
-        set => SetAndRaise(OpacityMaskProperty, ref _opacityMask, value);
-    }
+    public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(Strings.BlendMode), ResourceType = typeof(Strings))]
-    public BlendMode BlendMode
-    {
-        get => _blendMode;
-        set => SetAndRaise(BlendModeProperty, ref _blendMode, value);
-    }
+    public IProperty<BlendMode> BlendMode { get; } = Property.CreateAnimatable(Graphics.BlendMode.SrcOver);
 
     [Display(Name = nameof(Strings.Opacity), ResourceType = typeof(Strings))]
     [Range(0, 100)]
-    public float Opacity
+    public IProperty<float> Opacity { get; } = Property.CreateAnimatable(100f);
+
+    protected abstract Size MeasureCore(Size availableSize, Resource resource);
+
+    internal Size MeasureInternal(Size availableSize, Resource resource) => MeasureCore(availableSize, resource);
+
+    internal Matrix GetTransformMatrix(Size availableSize, Size coreBounds, Resource resource)
     {
-        get => _opacity;
-        set => SetAndRaise(OpacityProperty, ref _opacity, value);
-    }
-
-    public virtual void Measure(Size availableSize)
-    {
-        Size size = MeasureCore(availableSize);
-        Matrix transform = GetTransformMatrix(availableSize, size);
-        var rect = new Rect(size);
-
-        if (_filterEffect != null)
-        {
-            rect = _filterEffect.TransformBounds(rect);
-        }
-
-        Bounds = rect.IsInvalid ? rect : rect.TransformToAABB(transform);
-    }
-
-    protected abstract Size MeasureCore(Size availableSize);
-
-    internal Size MeasureCoreInternal(Size availableSize)
-    {
-        return MeasureCore(availableSize);
-    }
-
-    internal Matrix GetTransformMatrix(Size availableSize, Size coreBounds)
-    {
-        Vector pt = CalculateTranslate(coreBounds, availableSize);
-        Vector origin = TransformOrigin.ToPixels(coreBounds);
+        Vector pt = CalculateTranslate(coreBounds, availableSize, resource);
+        var origin = resource.TransformOrigin.ToPixels(coreBounds);
         Matrix offset = Matrix.CreateTranslation(origin);
 
-        if (Transform is { IsEnabled: true })
+        if (resource.Transform != null)
         {
-            return (-offset) * Transform.Value * offset * Matrix.CreateTranslation(pt);
+            Matrix transform = resource.Transform.Matrix;
+            return (-offset) * transform * offset * Matrix.CreateTranslation(pt);
         }
         else
         {
@@ -194,60 +65,42 @@ public abstract class Drawable : Renderable
         }
     }
 
-    public virtual void Render(GraphicsContext2D context)
+    public virtual void Render(GraphicsContext2D context, Resource resource)
     {
-        if (IsVisible)
+        if (resource.IsEnabled)
         {
             Size availableSize = context.Size.ToSize(1);
-            Size size = MeasureCore(availableSize);
-            var rect = new Rect(size);
-            if (_filterEffect != null && !rect.IsInvalid)
-            {
-                rect = _filterEffect.TransformBounds(rect);
-            }
+            Size size = MeasureCore(availableSize, resource);
 
-            Matrix transform = GetTransformMatrix(availableSize, size);
-            Rect transformedBounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
-            using (context.PushBlendMode(BlendMode))
+            Matrix transform = GetTransformMatrix(availableSize, size, resource);
+            using (context.PushBlendMode(resource.BlendMode))
             using (context.PushTransform(transform))
-            using (context.PushOpacity(Opacity / 100f))
-            using (_filterEffect == null ? new() : context.PushFilterEffect(_filterEffect))
-            using (OpacityMask == null ? new() : context.PushOpacityMask(OpacityMask, new Rect(size)))
+            using (context.PushOpacity(resource.Opacity / 100f))
+            using (resource.FilterEffect == null ? new() : context.PushFilterEffect(resource.FilterEffect))
             {
-                OnDraw(context);
+                OnDraw(context, resource);
             }
-
-            Bounds = transformedBounds;
         }
     }
 
-    public override void ApplyAnimations(IClock clock)
-    {
-        base.ApplyAnimations(clock);
-        (Transform as Animatable)?.ApplyAnimations(clock);
-        (FilterEffect as Animatable)?.ApplyAnimations(clock);
-        (Fill as Animatable)?.ApplyAnimations(clock);
-        (OpacityMask as Animatable)?.ApplyAnimations(clock);
-    }
+    protected abstract void OnDraw(GraphicsContext2D context, Resource resource);
 
-    protected abstract void OnDraw(GraphicsContext2D context);
-
-    private Point CalculateTranslate(Size bounds, Size canvasSize)
+    private Point CalculateTranslate(Size bounds, Size canvasSize, Resource resource)
     {
         float x = 0;
         float y = 0;
 
         if (float.IsFinite(canvasSize.Width))
         {
-            switch (AlignmentX)
+            switch (resource.AlignmentX)
             {
-                case AlignmentX.Left:
+                case Media.AlignmentX.Left:
                     x = 0;
                     break;
-                case AlignmentX.Center:
+                case Media.AlignmentX.Center:
                     x = canvasSize.Width / 2 - bounds.Width / 2;
                     break;
-                case AlignmentX.Right:
+                case Media.AlignmentX.Right:
                     x = canvasSize.Width - bounds.Width;
                     break;
             }
@@ -255,15 +108,15 @@ public abstract class Drawable : Renderable
 
         if (float.IsFinite(canvasSize.Height))
         {
-            switch (AlignmentY)
+            switch (resource.AlignmentY)
             {
-                case AlignmentY.Top:
+                case Media.AlignmentY.Top:
                     y = 0;
                     break;
-                case AlignmentY.Center:
+                case Media.AlignmentY.Center:
                     y = canvasSize.Height / 2 - bounds.Height / 2;
                     break;
-                case AlignmentY.Bottom:
+                case Media.AlignmentY.Bottom:
                     y = canvasSize.Height - bounds.Height;
                     break;
             }

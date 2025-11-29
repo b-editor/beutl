@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using Beutl.Media.Immutable;
 using Beutl.Utilities;
 
 namespace Beutl.Media.TextFormatting;
@@ -193,7 +192,7 @@ public static class FormattedTextParser
             return false;
         }
 
-        public bool TryGetStroke([NotNullWhen(true)] out IPen? pen)
+        public bool TryGetStroke([NotNullWhen(true)] out Pen.Resource? pen)
         {
             static bool TryReadStrokeCap(ReadOnlySpan<char> s, ref StrokeCap cap)
             {
@@ -302,15 +301,18 @@ public static class FormattedTextParser
 
                         float miterLimit = tokenizer.TryReadSingle(out float _miterLimit) ? _miterLimit : 10;
 
-                        pen = new ImmutablePen(
-                            new ImmutableSolidColorBrush(color),
-                            null,
-                            0,
-                            thickness,
-                            miterLimit,
-                            cap,
-                            join,
-                            align);
+                        var brush = new SolidColorBrush.Resource { Color = color, Opacity = 100 };
+                        pen = new Pen.Resource
+                        {
+                            Brush = brush,
+                            DashArray = null,
+                            DashOffset = 0,
+                            Thickness = thickness,
+                            MiterLimit = miterLimit,
+                            StrokeCap = cap,
+                            StrokeJoin = join,
+                            StrokeAlignment = align
+                        };
 
                         return true;
                     }

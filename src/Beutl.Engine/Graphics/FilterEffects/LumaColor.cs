@@ -1,8 +1,8 @@
 ﻿namespace Beutl.Graphics.Effects;
 
-public sealed class LumaColor : FilterEffect
+public sealed partial class LumaColor : FilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         context.LumaColor();
     }

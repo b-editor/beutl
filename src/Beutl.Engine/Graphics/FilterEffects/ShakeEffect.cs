@@ -1,79 +1,37 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
+using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
+[SuppressResourceClassGeneration]
 public class ShakeEffect : FilterEffect
 {
-    public static readonly CoreProperty<float> StrengthXProperty;
-    public static readonly CoreProperty<float> StrengthYProperty;
-    public static readonly CoreProperty<float> SpeedProperty;
-
-    private readonly RenderInvalidatedEventArgs _invalidatedEventArgs;
-
     private readonly PerlinNoise _random = new();
-    private float _time;
-    private float _strengthX = 50;
-    private float _strengthY = 50;
-    private float _speed = 100;
     private float _offset;
 
     static ShakeEffect()
     {
-        StrengthXProperty = ConfigureProperty<float, ShakeEffect>(nameof(StrengthX))
-            .Accessor(o => o.StrengthX, (o, v) => o.StrengthX = v)
-            .DefaultValue(50)
-            .Register();
-
-        StrengthYProperty = ConfigureProperty<float, ShakeEffect>(nameof(StrengthY))
-            .Accessor(o => o.StrengthY, (o, v) => o.StrengthY = v)
-            .DefaultValue(50)
-            .Register();
-
-        SpeedProperty = ConfigureProperty<float, ShakeEffect>(nameof(Speed))
-            .Accessor(o => o.Speed, (o, v) => o.Speed = v)
-            .DefaultValue(100)
-            .Register();
-
-        AffectsRender<ShakeEffect>(StrengthXProperty, StrengthYProperty, SpeedProperty, IdProperty);
+        AffectsRender<ShakeEffect>(IdProperty);
     }
 
     public ShakeEffect()
     {
-        _invalidatedEventArgs = new RenderInvalidatedEventArgs(this);
+        ScanProperties<ShakeEffect>();
     }
 
     [Display(Name = nameof(Strings.StrengthX), ResourceType = typeof(Strings))]
-    public float StrengthX
-    {
-        get => _strengthX;
-        set => SetAndRaise(StrengthXProperty, ref _strengthX, value);
-    }
+    public IProperty<float> StrengthX { get; } = Property.CreateAnimatable(50f);
 
     [Display(Name = nameof(Strings.StrengthY), ResourceType = typeof(Strings))]
-    public float StrengthY
-    {
-        get => _strengthY;
-        set => SetAndRaise(StrengthYProperty, ref _strengthY, value);
-    }
+    public IProperty<float> StrengthY { get; } = Property.CreateAnimatable(50f);
 
     [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
-    public float Speed
-    {
-        get => _speed;
-        set => SetAndRaise(SpeedProperty, ref _speed, value);
-    }
-
-    public override void ApplyAnimations(IClock clock)
-    {
-        base.ApplyAnimations(clock);
-        _time = (float)clock.CurrentTime.TotalSeconds;
-
-        RaiseInvalidated(_invalidatedEventArgs);
-    }
+    public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
@@ -88,25 +46,64 @@ public class ShakeEffect : FilterEffect
         }
     }
 
-    public override Rect TransformBounds(Rect bounds)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        return Rect.Invalid;
+        var r = (Resource)resource;
+        context.CustomEffect(
+            (time: r.Time, speed: r.Speed, strengthX: r.StrengthX, strengthY: r.StrengthY, random: _random, offset: _offset),
+            static (data, effectContext) =>
+            {
+                effectContext.ForEach((i, target) =>
+                {
+                    float a = data.time * data.speed / 100 + data.offset;
+                    float b = i + data.offset;
+                    float randomX = data.random.Perlin(a, b);
+                    float randomY = data.random.Perlin(b, a);
+                    randomX = (randomX - 0.5F) * 2F * data.strengthX;
+                    randomY = (randomY - 0.5F) * 2F * data.strengthY;
+                    target.Bounds = target.Bounds.Translate(new Vector(randomX, randomY));
+                });
+            });
     }
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override Resource ToResource(RenderContext context)
     {
-        context.CustomEffect((_time, _speed, _strengthX, _strengthY, _random, _offset), (data, effectContext) =>
+        var resource = new Resource();
+        bool updateOnly = true;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new class Resource : FilterEffect.Resource
+    {
+        private float _strengthX;
+        private float _strengthY;
+        private float _speed;
+        private float _time;
+
+        public float StrengthX => _strengthX;
+
+        public float StrengthY => _strengthY;
+
+        public float Speed => _speed;
+
+        public float Time => _time;
+
+        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
         {
-            effectContext.ForEach((i, t) =>
+            base.Update(obj, context, ref updateOnly);
+
+            CompareAndUpdate(context, ((ShakeEffect)obj).StrengthX, ref _strengthX, ref updateOnly);
+            CompareAndUpdate(context, ((ShakeEffect)obj).StrengthY, ref _strengthY, ref updateOnly);
+            CompareAndUpdate(context, ((ShakeEffect)obj).Speed, ref _speed, ref updateOnly);
+
+            float oldTime = _time;
+            _time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;
+            // ReSharper disable once CompareOfFloatsByEqualityOperator
+            if (!updateOnly && oldTime != _time)
             {
-                float a = data._time * data._speed / 100 + data._offset;
-                float b = i + data._offset;
-                float randomX = data._random.Perlin(a, b);
-                float randomY = data._random.Perlin(b, a);
-                randomX = (randomX - 0.5F) * 2F * data._strengthX;
-                randomY = (randomY - 0.5F) * 2F * data._strengthY;
-                t.Bounds = t.Bounds.Translate(new Vector(randomX, randomY));
-            });
-        });
+                Version++;
+            }
+        }
     }
 }

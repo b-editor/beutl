@@ -2,37 +2,25 @@
 
 namespace Beutl.NodeTree.Nodes.Geometry;
 
-public sealed class EllipseGeometryNode : Node
+public sealed class EllipseGeometryNode : GeometryNode<EllipseGeometry, EllipseGeometry.Resource>
 {
-    private readonly OutputSocket<EllipseGeometry> _outputSocket;
-    private readonly InputSocket<float> _widthSocket;
-    private readonly InputSocket<float> _heightSocket;
-
     public EllipseGeometryNode()
     {
-        _outputSocket = AsOutput<EllipseGeometry>("Geometry");
-
-        _widthSocket = AsInput<float, EllipseGeometry>(EllipseGeometry.WidthProperty, value: 100).AcceptNumber();
-        _heightSocket = AsInput<float, EllipseGeometry>(EllipseGeometry.HeightProperty, value: 100).AcceptNumber();
+        WidthSocket = AsInput<float>("Width").AcceptNumber();
+        WidthSocket.Value = 100;
+        HeightSocket = AsInput<float>("Height").AcceptNumber();
+        HeightSocket.Value = 100;
     }
 
-    public override void InitializeForContext(NodeEvaluationContext context)
-    {
-        base.InitializeForContext(context);
-        context.State = new EllipseGeometry();
-    }
+    public InputSocket<float> WidthSocket { get; }
 
-    public override void UninitializeForContext(NodeEvaluationContext context)
-    {
-        base.UninitializeForContext(context);
-        context.State = null;
-    }
+    public InputSocket<float> HeightSocket { get; }
 
     public override void Evaluate(NodeEvaluationContext context)
     {
-        EllipseGeometry ellipse = context.GetOrSetState<EllipseGeometry>();
-        ellipse.Width = _widthSocket.Value;
-        ellipse.Height = _heightSocket.Value;
-        _outputSocket.Value = ellipse;
+        Object.Width.CurrentValue = WidthSocket.Value;
+        Object.Height.CurrentValue = HeightSocket.Value;
+
+        base.Evaluate(context);
     }
 }

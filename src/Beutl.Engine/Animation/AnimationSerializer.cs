@@ -23,12 +23,12 @@ internal static class AnimationSerializer
         return json;
     }
 
-    public static IAnimation? ToAnimation(this JsonNode json, CoreProperty property, ICoreSerializationContext context)
+    public static IAnimation? ToAnimation(this JsonNode json, ICoreSerializationContext context)
     {
         if (json is JsonObject obj)
         {
             if (obj.TryGetDiscriminator(out Type? type)
-                && Activator.CreateInstance(type, property) is IAnimation animation)
+                && Activator.CreateInstance(type) is IAnimation animation)
             {
                 var errorNotifier = new RelaySerializationErrorNotifier(context.ErrorNotifier, "Animation");
                 var innerContext = new JsonSerializationContext(type, errorNotifier, context, obj);

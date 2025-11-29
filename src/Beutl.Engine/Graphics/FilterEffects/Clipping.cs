@@ -1,5 +1,5 @@
-﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -7,136 +7,39 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Clipping : FilterEffect
+public sealed partial class Clipping : FilterEffect
 {
-    [Obsolete("Use separate properties for each side of the thickness.")]
-    public static readonly CoreProperty<Thickness> ThicknessProperty;
-
-    public static readonly CoreProperty<float> LeftProperty;
-    public static readonly CoreProperty<float> TopProperty;
-    public static readonly CoreProperty<float> RightProperty;
-    public static readonly CoreProperty<float> BottomProperty;
-    public static readonly CoreProperty<bool> AutoCenterProperty;
-    public static readonly CoreProperty<bool> AutoClipProperty;
-    private float _left;
-    private float _top;
-    private float _right;
-    private float _bottom;
-    private bool _autoCenter;
-    private bool _autoClip;
-
-    static Clipping()
+    public Clipping()
     {
-#pragma warning disable CS0618
-        ThicknessProperty = ConfigureProperty<Thickness, Clipping>(nameof(Thickness))
-            .Accessor(o => o.Thickness, (o, v) => o.Thickness = v)
-            .Register();
-
-        LeftProperty = ConfigureProperty<float, Clipping>(nameof(Left))
-            .Accessor(o => o.Thickness.Left, (o, v) => o.Thickness = o.Thickness.WithLeft(v))
-            .Register();
-
-        TopProperty = ConfigureProperty<float, Clipping>(nameof(Top))
-            .Accessor(o => o.Thickness.Top, (o, v) => o.Thickness = o.Thickness.WithTop(v))
-            .Register();
-
-        RightProperty = ConfigureProperty<float, Clipping>(nameof(Right))
-            .Accessor(o => o.Thickness.Right, (o, v) => o.Thickness = o.Thickness.WithRight(v))
-            .Register();
-
-        BottomProperty = ConfigureProperty<float, Clipping>(nameof(Bottom))
-            .Accessor(o => o.Thickness.Bottom, (o, v) => o.Thickness = o.Thickness.WithBottom(v))
-            .Register();
-
-        AutoCenterProperty = ConfigureProperty<bool, Clipping>(nameof(AutoCenter))
-            .Accessor(o => o.AutoCenter, (o, v) => o.AutoCenter = v)
-            .DefaultValue(false)
-            .Register();
-
-        AutoClipProperty = ConfigureProperty<bool, Clipping>(nameof(AutoClip))
-            .Accessor(o => o.AutoClip, (o, v) => o.AutoClip = v)
-            .DefaultValue(false)
-            .Register();
-
-        AffectsRender<Clipping>(
-            ThicknessProperty,
-            LeftProperty,
-            TopProperty,
-            RightProperty,
-            BottomProperty,
-            AutoCenterProperty,
-            AutoClipProperty);
-#pragma warning restore CS0618
-    }
-
-    [Obsolete("Use separate properties for each side of the thickness.")]
-    [Display(Name = nameof(Strings.Thickness), ResourceType = typeof(Strings))]
-    [NotAutoSerialized]
-    [Browsable(false)]
-    public Thickness Thickness
-    {
-        get => new(_left, _top, _right, _bottom);
-        set
-        {
-            var thickness = Thickness;
-            SetAndRaise(ThicknessProperty, ref thickness, value);
-            (Left, Top, Right, Bottom) = (thickness.Left, thickness.Top, thickness.Right, thickness.Bottom);
-        }
+        ScanProperties<Clipping>();
     }
 
     [Display(Name = nameof(Strings.Left), ResourceType = typeof(Strings))]
-    public float Left
-    {
-        get => _left;
-        set => SetAndRaise(LeftProperty, ref _left, value);
-    }
+    public IProperty<float> Left { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(Strings.Top), ResourceType = typeof(Strings))]
-    public float Top
-    {
-        get => _top;
-        set => SetAndRaise(TopProperty, ref _top, value);
-    }
+    public IProperty<float> Top { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(Strings.Right), ResourceType = typeof(Strings))]
-    public float Right
-    {
-        get => _right;
-        set => SetAndRaise(RightProperty, ref _right, value);
-    }
+    public IProperty<float> Right { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(Strings.Bottom), ResourceType = typeof(Strings))]
-    public float Bottom
-    {
-        get => _bottom;
-        set => SetAndRaise(BottomProperty, ref _bottom, value);
-    }
+    public IProperty<float> Bottom { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(Strings.AutomaticCentering), ResourceType = typeof(Strings))]
-    public bool AutoCenter
-    {
-        get => _autoCenter;
-        set => SetAndRaise(AutoCenterProperty, ref _autoCenter, value);
-    }
+    public IProperty<bool> AutoCenter { get; } = Property.CreateAnimatable(false);
 
     [Display(Name = nameof(Strings.ClipTransparentArea), ResourceType = typeof(Strings))]
-    public bool AutoClip
+    public IProperty<bool> AutoClip { get; } = Property.CreateAnimatable(false);
+
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        get => _autoClip;
-        set => SetAndRaise(AutoClipProperty, ref _autoClip, value);
+        var r = (Resource)resource;
+        var thickness = new Thickness(r.Left, r.Top, r.Right, r.Bottom);
+        context.CustomEffect((thickness, r.AutoCenter, r.AutoClip), Apply, TransformBounds);
     }
 
-    public override void ApplyTo(FilterEffectContext context)
-    {
-        context.CustomEffect((new Thickness(Left, Top, Right, Bottom), AutoCenter, AutoClip), Apply, TransformBounds);
-    }
-
-    public override Rect TransformBounds(Rect bounds)
-    {
-        return TransformBounds((new Thickness(Left, Top, Right, Bottom), AutoCenter, AutoClip), bounds);
-    }
-
-    private Rect TransformBounds((Thickness thickness, bool autoCenter, bool autoClip) data, Rect rect)
+    private static Rect TransformBounds((Thickness thickness, bool autoCenter, bool autoClip) data, Rect rect)
     {
         if (data.autoClip) return Rect.Invalid;
 
@@ -152,7 +55,6 @@ public sealed class Clipping : FilterEffect
     private static Thickness FindRectAndReturnThickness(SKSurface surface)
     {
         using var image = surface.Snapshot();
-        // 透明度のみ
         using var bitmap = new Bitmap<Grayscale8>(image.Width, image.Height);
         image.ReadPixels(
             new SKImageInfo(bitmap.Width, bitmap.Height, SKColorType.Alpha8),
@@ -165,7 +67,6 @@ public sealed class Clipping : FilterEffect
         int x1 = 0;
         int y1 = 0;
 
-        // 透明でないピクセルを探す
         for (int y = 0; y < bitmap.Height; y++)
         {
             for (int x = 0; x < bitmap.Width; x++)
@@ -197,11 +98,8 @@ public sealed class Clipping : FilterEffect
                 thickness += FindRectAndReturnThickness(surface);
             }
 
-
             Rect originalRect = target.Bounds.WithX(0).WithY(0);
-            // 結果的なrect (originalRect内)
             Rect clipRect = originalRect.Deflate(thickness).Normalize();
-            // 特にクリッピングの部分、領域拡張ではなく
             Rect intersect = originalRect.Intersect(clipRect);
 
             if (intersect.IsEmpty || clipRect.Width == 0 || clipRect.Height == 0)
@@ -212,13 +110,9 @@ public sealed class Clipping : FilterEffect
             }
             else
             {
-                // クリッピング機能と領域展開機能をつけたらコードが汚くなりました。
-                // 誰かリファクタリングしてください。移項するだけで十分です。
-                // pointX = 1 - leftの小数点部分
                 float pointX = MathF.CopySign(MathF.Ceiling(thickness.Left) - thickness.Left, thickness.Left);
                 float pointY = MathF.CopySign(MathF.Ceiling(thickness.Top) - thickness.Top, thickness.Top);
 
-                // 新しいBounds
                 var newBounds = clipRect
                     .WithX(target.Bounds.X + thickness.Left - pointX)
                     .WithY(target.Bounds.Y + thickness.Top - pointY);
@@ -235,20 +129,29 @@ public sealed class Clipping : FilterEffect
                 }
 
                 EffectTarget newTarget;
-                // センタリング
                 if (autoCenter)
                 {
-                    newTarget = context.CreateTarget(target.Bounds.CenterRect(newBounds));
+                    Rect centeredRect = originalRect.CenterRect(clipRect);
+                    newTarget = context.CreateTarget(centeredRect.Translate(target.Bounds.Position));
+                    using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                    {
+                        using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX, pointY)))
+                        {
+                            newCanvas.DrawRenderTarget(target.RenderTarget!, new(centeredRect.X, centeredRect.Y));
+                        }
+                    }
                 }
                 else
                 {
                     newTarget = context.CreateTarget(newBounds);
+                    using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                    {
+                        using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX, pointY)))
+                        {
+                            newCanvas.DrawRenderTarget(target.RenderTarget!, new(target.Bounds.X - newBounds.X, target.Bounds.Y - newBounds.Y));
+                        }
+                    }
                 }
-
-                newTarget.RenderTarget?.Value?.Canvas?.DrawSurface(
-                    surface,
-                    -clipRect.X + pointX,
-                    -clipRect.Y + pointY);
 
                 target.Dispose();
                 context.Targets[i] = newTarget;

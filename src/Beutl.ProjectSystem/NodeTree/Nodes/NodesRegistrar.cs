@@ -3,7 +3,6 @@ using Beutl.NodeTree.Nodes.Brushes;
 using Beutl.NodeTree.Nodes.Effects;
 using Beutl.NodeTree.Nodes.Geometry;
 using Beutl.NodeTree.Nodes.Group;
-using Beutl.NodeTree.Nodes.Transform;
 
 namespace Beutl.NodeTree.Nodes;
 
@@ -12,8 +11,9 @@ public static class NodesRegistrar
     public static void RegisterAll()
     {
         NodeRegistry.RegisterNode<LayerInputNode>("Layer input");
-        NodeRegistry.RegisterNode<LayerOutputNode>("Layer output");
+        NodeRegistry.RegisterNode<OutputNode>("Layer output");
         NodeRegistry.RegisterNode<GeometryShapeNode>("GeometryShape");
+        NodeRegistry.RegisterNode<TransformNode>(Strings.Transform);
 
         NodeRegistry.RegisterNodes("Geometry")
             .Add<RectGeometryNode>(Strings.Rectangle)
@@ -32,21 +32,12 @@ public static class NodesRegistrar
             .Register();
 
         NodeRegistry.RegisterNodes("Brush")
-            .Add<FillNode>("Set Fill Brush")
+            // .Add<FillNode>("Set Fill Brush")
             .Add<SolidColorBrushNode>("Solid Color Brush")
-            .Add<LinearGradientBrushNode>("Linear Gradient Brush")
-            .Add<RadialGradientBrushNode>("Radial Gradient Brush")
-            .Add<ConicGradientBrushNode>("Conic Gradient Brush")
-            .Add<DrawableBrushNode>("Drawable Gradient Brush")
-            .Register();
-
-        NodeRegistry.RegisterNodes(Strings.Transform)
-            .Add<MatrixTransformNode>(Strings.Transform)
-            .Add<TranslateTransformNode>(Strings.Translate)
-            .Add<RotationTransformNode>(Strings.Rotation)
-            .Add<Rotation3DTransformNode>(Strings.Rotation3D)
-            .Add<ScaleTransformNode>(Strings.Scale)
-            .Add<SkewTransformNode>(Strings.Skew)
+            // .Add<LinearGradientBrushNode>("Linear Gradient Brush")
+            // .Add<RadialGradientBrushNode>("Radial Gradient Brush")
+            // .Add<ConicGradientBrushNode>("Conic Gradient Brush")
+            // .Add<DrawableBrushNode>("Drawable Gradient Brush")
             .Register();
 
         NodeRegistry.RegisterNodes("Utilities")

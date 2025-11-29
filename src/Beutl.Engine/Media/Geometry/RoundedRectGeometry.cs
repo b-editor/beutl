@@ -1,67 +1,23 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Utilities;
 
 namespace Beutl.Media;
 
-public sealed class RoundedRectGeometry : Geometry
+public sealed partial class RoundedRectGeometry : Geometry
 {
-    public static readonly CoreProperty<float> WidthProperty;
-    public static readonly CoreProperty<float> HeightProperty;
-    public static readonly CoreProperty<CornerRadius> CornerRadiusProperty;
-    public static readonly CoreProperty<float> SmoothingProperty;
-    private float _width = 0;
-    private float _height = 0;
-    private CornerRadius _cornerRadius;
-    private float _smoothing;
-
-    static RoundedRectGeometry()
+    public RoundedRectGeometry()
     {
-        WidthProperty = ConfigureProperty<float, RoundedRectGeometry>(nameof(Width))
-            .Accessor(o => o.Width, (o, v) => o.Width = v)
-            .DefaultValue(0)
-            .Register();
-
-        HeightProperty = ConfigureProperty<float, RoundedRectGeometry>(nameof(Height))
-            .Accessor(o => o.Height, (o, v) => o.Height = v)
-            .DefaultValue(0)
-            .Register();
-
-        CornerRadiusProperty = ConfigureProperty<CornerRadius, RoundedRectGeometry>(nameof(CornerRadius))
-            .Accessor(o => o.CornerRadius, (o, v) => o.CornerRadius = v)
-            .DefaultValue(new CornerRadius())
-            .Register();
-
-        SmoothingProperty = ConfigureProperty<float, RoundedRectGeometry>(nameof(Smoothing))
-            .Accessor(o => o.Smoothing, (o, v) => o.Smoothing = v)
-            .DefaultValue(0)
-            .Register();
-
-        AffectsRender<RoundedRectGeometry>(WidthProperty, HeightProperty, CornerRadiusProperty, SmoothingProperty);
+        ScanProperties<RoundedRectGeometry>();
     }
 
-    public float Width
-    {
-        get => _width;
-        set => SetAndRaise(WidthProperty, ref _width, value);
-    }
+    public IProperty<float> Width { get; } = Property.CreateAnimatable<float>();
 
-    public float Height
-    {
-        get => _height;
-        set => SetAndRaise(HeightProperty, ref _height, value);
-    }
+    public IProperty<float> Height { get; } = Property.CreateAnimatable<float>();
 
-    public CornerRadius CornerRadius
-    {
-        get => _cornerRadius;
-        set => SetAndRaise(CornerRadiusProperty, ref _cornerRadius, value);
-    }
+    public IProperty<CornerRadius> CornerRadius { get; } = Property.CreateAnimatable<CornerRadius>();
 
-    public float Smoothing
-    {
-        get => _smoothing;
-        set => SetAndRaise(SmoothingProperty, ref _smoothing, value);
-    }
+    public IProperty<float> Smoothing { get; } = Property.CreateAnimatable<float>();
 
     // https://github.com/yjb94/react-native-squircle-skia
     private static void GetPathParams(
@@ -230,11 +186,12 @@ public sealed class RoundedRectGeometry : Geometry
         context.Close();
     }
 
-    public override void ApplyTo(IGeometryContext context)
+    public override void ApplyTo(IGeometryContext context, Geometry.Resource resource)
     {
-        base.ApplyTo(context);
-        float width = _width;
-        float height = _height;
+        base.ApplyTo(context, resource);
+        var r = (Resource)resource;
+        float width = r.Width;
+        float height = r.Height;
         if (float.IsInfinity(width))
             width = 0;
 
@@ -243,12 +200,12 @@ public sealed class RoundedRectGeometry : Geometry
 
         (float radiusX, float radiusY) = (width / 2, height / 2);
         float maxRadius = Math.Max(radiusX, radiusY);
-        CornerRadius cornerRadius = _cornerRadius;
+        CornerRadius cornerRadius = r.CornerRadius;
         float topLeft = Math.Clamp(cornerRadius.TopLeft, 0, maxRadius);
         float topRight = Math.Clamp(cornerRadius.TopRight, 0, maxRadius);
         float bottomRight = Math.Clamp(cornerRadius.BottomRight, 0, maxRadius);
         float bottomLeft = Math.Clamp(cornerRadius.BottomLeft, 0, maxRadius);
-        float smoothing = _smoothing / 100;
+        float smoothing = r.Smoothing / 100;
 
         ApplyTopRightCorner(
             width, height, topRight, smoothing, context);

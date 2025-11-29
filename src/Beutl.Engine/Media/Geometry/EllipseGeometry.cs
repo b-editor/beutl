@@ -1,46 +1,25 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Engine;
+using Beutl.Graphics;
 
 namespace Beutl.Media;
 
-public sealed class EllipseGeometry : Geometry
+public sealed partial class EllipseGeometry : Geometry
 {
-    public static readonly CoreProperty<float> WidthProperty;
-    public static readonly CoreProperty<float> HeightProperty;
-    private float _width = 0;
-    private float _height = 0;
-
-    static EllipseGeometry()
+    public EllipseGeometry()
     {
-        WidthProperty = ConfigureProperty<float, EllipseGeometry>(nameof(Width))
-            .Accessor(o => o.Width, (o, v) => o.Width = v)
-            .DefaultValue(0)
-            .Register();
-
-        HeightProperty = ConfigureProperty<float, EllipseGeometry>(nameof(Height))
-            .Accessor(o => o.Height, (o, v) => o.Height = v)
-            .DefaultValue(0)
-            .Register();
-
-        AffectsRender<EllipseGeometry>(WidthProperty, HeightProperty);
+        ScanProperties<EllipseGeometry>();
     }
 
-    public float Width
-    {
-        get => _width;
-        set => SetAndRaise(WidthProperty, ref _width, value);
-    }
+    public IProperty<float> Width { get; } = Property.CreateAnimatable<float>();
 
-    public float Height
-    {
-        get => _height;
-        set => SetAndRaise(HeightProperty, ref _height, value);
-    }
+    public IProperty<float> Height { get; } = Property.CreateAnimatable<float>();
 
-    public override void ApplyTo(IGeometryContext context)
+    public override void ApplyTo(IGeometryContext context, Geometry.Resource resource)
     {
-        base.ApplyTo(context);
-        float width = Width;
-        float height = Height;
+        base.ApplyTo(context, resource);
+        var r = (Resource)resource;
+        float width = r.Width;
+        float height = r.Height;
         if (float.IsInfinity(width))
             width = 0;
 

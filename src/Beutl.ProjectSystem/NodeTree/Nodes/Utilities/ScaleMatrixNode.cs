@@ -11,9 +11,9 @@ public class ScaleMatrixNode : MatrixNode
 
     public ScaleMatrixNode()
     {
-        _scaleSocket = AsInput(ScaleTransform.ScaleProperty).AcceptNumber();
-        _scaleXSocket = AsInput(ScaleTransform.ScaleXProperty).AcceptNumber();
-        _scaleYSocket = AsInput(ScaleTransform.ScaleYProperty).AcceptNumber();
+        _scaleSocket = AsInput<float>("Scale").AcceptNumber();
+        _scaleXSocket = AsInput<float>("ScaleX").AcceptNumber();
+        _scaleYSocket = AsInput<float>("ScaleY").AcceptNumber();
     }
 
     public override Matrix GetMatrix(NodeEvaluationContext context)

@@ -26,7 +26,7 @@ public static class PropertyEditorService
         return (IPropertyAdapter<T>)pi;
     }
 
-    public static (IPropertyAdapter[] Properties, PropertyEditorExtension Extension) MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
+    public static (IPropertyAdapter[]? Properties, PropertyEditorExtension? Extension) MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
     {
         PropertyEditorExtension[] items = ExtensionProvider.Current.GetExtensions<PropertyEditorExtension>();
         for (int i = items.Length - 1; i >= 0; i--)
@@ -142,8 +142,8 @@ public static class PropertyEditorService
             { typeof(FilterEffect), new(_ => new FilterEffectListItemEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>())) },
             { typeof(PathSegment), new(_ => new PathOperationListItemEditor(), s => new PathOperationEditorViewModel(s.ToTyped<PathSegment?>())) },
             { typeof(PathFigure), new(_ => new PathFigureListItemEditor(), s => new PathFigureEditorViewModel(s.ToTyped<PathFigure>())) },
-            { typeof(IAudioEffect), new(_ => new AudioEffectListItemEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<IAudioEffect?>())) },
-            { typeof(ITransform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>())) },
+            { typeof(AudioEffect), new(_ => new AudioEffectListItemEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<AudioEffect?>())) },
+            { typeof(Transform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<Transform?>())) },
             { typeof(ICoreObject), new(CreateCoreObjectListItemEditor, CreateCoreObjectEditorViewModel) }
         };
 
@@ -201,13 +201,13 @@ public static class PropertyEditorService
             new(typeof(IVideoSource), new(_ => new VideoSourceEditor(), s => new VideoSourceEditorViewModel(s.ToTyped<IVideoSource?>()))),
             new(typeof(ISoundSource), new(_ => new SoundSourceEditor(), s => new SoundSourceEditorViewModel(s.ToTyped<ISoundSource?>()))),
 
-            new(typeof(IBrush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s))),
-            new(typeof(IPen), new(_ => new PenEditor(), s => new PenEditorViewModel(s))),
+            new(typeof(Brush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s.ToTyped<Brush?>()))),
+            new(typeof(Pen), new(_ => new PenEditor(), s => new PenEditorViewModel(s.ToTyped<Pen?>()))),
             new(typeof(FilterEffect), new(_ => new FilterEffectEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>()))),
             new(typeof(Geometry), new(_ => new GeometryEditor(), s => new GeometryEditorViewModel(s.ToTyped<Geometry?>()))),
-            new(typeof(IAudioEffect), new(_ => new AudioEffectEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<IAudioEffect?>()))),
-            new(typeof(ITransform), new(_ => new TransformEditor(), s => new TransformEditorViewModel(s.ToTyped<ITransform?>()))),
-            new(typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>()))),
+            new(typeof(AudioEffect), new(_ => new AudioEffectEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<AudioEffect?>()))),
+            new(typeof(Transform), new(_ => new TransformEditor(), s => new TransformEditorViewModel(s.ToTyped<Transform?>()))),
+            new(typeof(ICoreList<GradientStop>), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<ICoreList<GradientStop>>()))),
             new(typeof(DisplacementMapTransform), new(_ => new DisplacementMapTransformEditor(), s => new DisplacementMapTransformEditorViewModel(s.ToTyped<DisplacementMapTransform?>()))),
             new(typeof(IList), new(CreateListEditor, CreateListEditorViewModel)),
             new(typeof(ICoreObject), new(CreateCoreObjectEditor, CreateCoreObjectEditorViewModel)),
@@ -219,18 +219,15 @@ public static class PropertyEditorService
             for (int i = 0; i < properties.Count; i++)
             {
                 IPropertyAdapter item = properties[i];
-                if (item.GetCoreProperty() is { Id: int id } coreProp)
+                var attrs = item.GetAttributes();
+                // 特殊処理
+                if (attrs.OfType<ChoicesProviderAttribute>().Any())
                 {
-                    if (coreProp.TryGetMetadata(item.ImplementedType, out CorePropertyMetadata? metadata))
-                    {
-                        // 特殊処理
-                        if (metadata.Attributes.OfType<ChoicesProviderAttribute>().Any())
-                        {
-                            yield return item;
-                            yield break;
-                        }
-                    }
-
+                    yield return item;
+                    yield break;
+                }
+                if (item.GetCoreProperty() is { Id: var id })
+                {
                     if (s_editorsOverride.ContainsKey(id))
                     {
                         yield return item;
@@ -320,24 +317,19 @@ public static class PropertyEditorService
 
             if (properties.Count > 0 && properties[0] is { } property)
             {
-                if (property.GetCoreProperty() is { Id: int propId } coreProp)
+                var attrs = property.GetAttributes();
+                if (attrs.OfType<ChoicesProviderAttribute>().FirstOrDefault() is { } choiceAtt)
                 {
-                    // 特殊処理
-                    if (coreProp.TryGetMetadata(property.ImplementedType, out CorePropertyMetadata? metadata))
+                    viewModel = CreateChoiceViewModel(property, choiceAtt.ProviderType);
+                    if (viewModel != null)
                     {
-                        ChoicesProviderAttribute? choiceAtt = metadata.Attributes.OfType<ChoicesProviderAttribute>().FirstOrDefault();
-                        if (choiceAtt != null)
-                        {
-                            viewModel = CreateChoiceViewModel(property, choiceAtt.ProviderType);
-                            if (viewModel != null)
-                            {
-                                viewModel.Extension = extension;
-                                result = true;
-                                goto Return;
-                            }
-                        }
+                        viewModel.Extension = extension;
+                        result = true;
+                        goto Return;
                     }
-
+                }
+                if (property.GetCoreProperty() is { Id: var propId })
+                {
                     if (s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
                     {
                         viewModel = editorOverrided.CreateViewModel(property);
@@ -509,18 +501,15 @@ public static class PropertyEditorService
             {
                 if (context is BaseEditorViewModel { PropertyAdapter: { } property })
                 {
-                    if (property.GetCoreProperty() is { Id: int propId } coreProp)
+                    var attrs = property.GetAttributes();
+                    // 特殊処理
+                    if (attrs.OfType<ChoicesProviderAttribute>().Any())
                     {
-                        if (coreProp.TryGetMetadata(property.ImplementedType, out CorePropertyMetadata? metadata))
-                        {
-                            // 特殊処理
-                            if (metadata.Attributes.OfType<ChoicesProviderAttribute>().Any())
-                            {
-                                control = new EnumEditor();
-                                return true;
-                            }
-                        }
-
+                        control = new EnumEditor();
+                        return true;
+                    }
+                    if (property.GetCoreProperty() is { Id: var propId } )
+                    {
                         if (s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
                         {
                             control = editorOverrided.CreateEditor(property);

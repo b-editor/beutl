@@ -5,7 +5,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
-public interface ISourceOperator : IAffectsRender
+public interface ISourceOperator : INotifyEdited
 {
     bool IsEnabled { get; }
 
@@ -38,7 +38,7 @@ public class SourceOperator : Hierarchical, ISourceOperator
         {
             if (SetAndRaise(IsEnabledProperty, ref _isEnabled, value))
             {
-                Invalidated?.Invoke(this, new RenderInvalidatedEventArgs(this, nameof(IsEnabled)));
+                Edited?.Invoke(this, EventArgs.Empty);
             }
         }
     }
@@ -46,7 +46,7 @@ public class SourceOperator : Hierarchical, ISourceOperator
     [NotAutoSerialized]
     public ICoreList<IPropertyAdapter> Properties { get; } = new CoreList<IPropertyAdapter>();
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     public virtual EvaluationTarget GetEvaluationTarget()
     {
@@ -89,8 +89,8 @@ public class SourceOperator : Hierarchical, ISourceOperator
         return null;
     }
 
-    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
+    protected void RaiseEdited(object? sender, EventArgs e)
     {
-        Invalidated?.Invoke(this, args);
+        Edited?.Invoke(sender, e);
     }
 }

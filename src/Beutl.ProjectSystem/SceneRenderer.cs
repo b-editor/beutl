@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using Beutl.Collections.Pooled;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -18,7 +19,7 @@ public sealed class SceneRenderer(Scene scene) : Renderer(scene.FrameSize.Width,
 
     public void Evaluate(TimeSpan timeSpan)
     {
-        InternalClock.CurrentTime = timeSpan;
+        Time = timeSpan;
         SortLayers(timeSpan, out _);
         Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
         Span<Element> exited = CollectionsMarshal.AsSpan(_exited);
@@ -36,14 +37,14 @@ public sealed class SceneRenderer(Scene scene) : Renderer(scene.FrameSize.Width,
         for (int i = 0; i < CurrentElements.Count; i++)
         {
             Element element = CurrentElements[i];
-            using (PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Graphics, Clock, this))
+            using (PooledList<EngineObject> list = element.Evaluate(EvaluationTarget.Graphics, this))
             {
-                foreach (Renderable item in list.Span)
+                foreach (EngineObject item in list.Span)
                 {
                     if (item is Drawable drawable)
                     {
-                        int actualIndex = (drawable as DrawableDecorator)?.OriginalZIndex ?? item.ZIndex;
-                        RenderScene[actualIndex].Add(drawable);
+                        int actualIndex = item.ZIndex;
+                        RenderScene[actualIndex].Add(drawable, Time);
                     }
                 }
             }
@@ -116,7 +117,7 @@ public sealed class SceneRenderer(Scene scene) : Renderer(scene.FrameSize.Width,
 
     protected override void RenderGraphicsCore()
     {
-        Evaluate(Clock.CurrentTime);
+        Evaluate(Time);
         base.RenderGraphicsCore();
     }
 

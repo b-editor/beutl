@@ -1,4 +1,4 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Engine;
 
 namespace Beutl.Operation;
 
@@ -15,11 +15,11 @@ public sealed class OperatorEvaluationContext : EvaluationContext
         Operator = sourceOperator;
     }
 
-    public IList<Renderable> FlowRenderables { get; internal set; } = null!;
+    public IList<EngineObject> FlowRenderables { get; internal set; } = null!;
 
     public SourceOperator Operator { get; }
 
-    public void AddFlowRenderable(Renderable renderable)
+    public void AddFlowRenderable(EngineObject renderable)
     {
         FlowRenderables?.Add(renderable);
     }

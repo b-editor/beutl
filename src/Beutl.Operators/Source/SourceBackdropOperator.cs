@@ -5,14 +5,17 @@ using Beutl.Operation;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceBackdropOperator() : PublishOperator<SourceBackdrop>(
-[
-    SourceBackdrop.ClearProperty,
-    (Drawable.TransformProperty, () => new TransformGroup()),
-    Drawable.AlignmentXProperty,
-    Drawable.AlignmentYProperty,
-    Drawable.TransformOriginProperty,
-    (Drawable.FilterEffectProperty, () => new FilterEffectGroup()),
-    Drawable.BlendModeProperty,
-    Drawable.OpacityProperty
-]);
+public sealed class SourceBackdropOperator : PublishOperator<SourceBackdrop>
+{
+    protected override void FillProperties()
+    {
+        AddProperty(Value.Clear);
+        AddProperty(Value.Transform, new TransformGroup());
+        AddProperty(Value.AlignmentX);
+        AddProperty(Value.AlignmentY);
+        AddProperty(Value.TransformOrigin);
+        AddProperty(Value.FilterEffect, new FilterEffectGroup());
+        AddProperty(Value.BlendMode);
+        AddProperty(Value.Opacity);
+    }
+}

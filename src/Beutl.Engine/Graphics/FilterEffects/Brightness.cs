@@ -1,35 +1,25 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
+using Beutl.Engine;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Brightness : FilterEffect
+public sealed partial class Brightness : FilterEffect
 {
-    public static readonly CoreProperty<float> AmountProperty;
-    private float _amount = 100;
-
-    static Brightness()
+    public Brightness()
     {
-        AmountProperty = ConfigureProperty<float, Brightness>(nameof(Amount))
-            .Accessor(o => o.Amount, (o, v) => o.Amount = v)
-            .DefaultValue(100)
-            .Register();
-
-        AffectsRender<Brightness>(AmountProperty);
+        ScanProperties<Brightness>();
     }
 
     [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
     [Range(0, float.MaxValue)]
-    public float Amount
-    {
-        get => _amount;
-        set => SetAndRaise(AmountProperty, ref _amount, value);
-    }
+    public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        float amount = _amount / 100f;
+        var r = (Resource)resource;
+        float amount = r.Amount / 100f;
 
         context.Brightness(amount);
     }

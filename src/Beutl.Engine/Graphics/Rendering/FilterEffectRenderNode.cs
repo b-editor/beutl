@@ -1,16 +1,34 @@
-﻿using Beutl.Graphics.Effects;
+﻿using Beutl.Engine;
+using Beutl.Graphics.Effects;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class FilterEffectRenderNode(FilterEffect filterEffect) : ContainerRenderNode
+public sealed class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : ContainerRenderNode
 {
-    private readonly int _version = filterEffect.Version;
+    public (FilterEffect.Resource Resource, int Version)? FilterEffect { get; private set; } = filterEffect.Capture();
+
+    public bool Update(FilterEffect.Resource? fe)
+    {
+        if (!fe.Compare(FilterEffect))
+        {
+            FilterEffect = fe.Capture();
+            HasChanges = true;
+            return true;
+        }
+
+        return false;
+    }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
+        if (FilterEffect == null || !FilterEffect.Value.Resource.IsEnabled)
+        {
+            return context.Input;
+        }
+
         using var feContext = new FilterEffectContext(context.CalculateBounds());
-        feContext.Apply(FilterEffect);
+        FilterEffect.Value.Resource.GetOriginal().ApplyTo(feContext, FilterEffect.Value.Resource);
         var effectTargets = new EffectTargets();
         effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));
 
@@ -56,12 +74,5 @@ public sealed class FilterEffectRenderNode(FilterEffect filterEffect) : Containe
                     .ToArray();
             }
         }
-    }
-
-    public FilterEffect FilterEffect { get; } = filterEffect;
-
-    public bool Equals(FilterEffect filterEffect)
-    {
-        return FilterEffect == filterEffect && _version == filterEffect.Version;
     }
 }

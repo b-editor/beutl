@@ -1,32 +1,23 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
+using Beutl.Engine;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class HueRotate : FilterEffect
+public sealed partial class HueRotate : FilterEffect
 {
-    public static readonly CoreProperty<float> AngleProperty;
-    private float _angle;
-
-    static HueRotate()
+    public HueRotate()
     {
-        AngleProperty = ConfigureProperty<float, HueRotate>(nameof(Angle))
-            .Accessor(o => o.Angle, (o, v) => o.Angle = v)
-            .Register();
-
-        AffectsRender<HueRotate>(AngleProperty);
+        ScanProperties<HueRotate>();
     }
 
     [Display(Name = nameof(Strings.Angle), ResourceType = typeof(Strings))]
-    public float Angle
-    {
-        get => _angle;
-        set => SetAndRaise(AngleProperty, ref _angle, value);
-    }
+    public IProperty<float> Angle { get; } = Property.CreateAnimatable<float>();
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.HueRotate(Angle);
+        var r = (Resource)resource;
+        context.HueRotate(r.Angle);
     }
 }

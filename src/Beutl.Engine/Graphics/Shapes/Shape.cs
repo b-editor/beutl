@@ -1,130 +1,31 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
-public abstract class Shape : Drawable
+public abstract partial class Shape : Drawable
 {
-    public static readonly CoreProperty<float> WidthProperty;
-    public static readonly CoreProperty<float> HeightProperty;
-    public static readonly CoreProperty<Stretch> StretchProperty;
-    public static readonly CoreProperty<IPen?> PenProperty;
-    public static readonly CoreProperty<Geometry?> CreatedGeometryProperty;
-    private float _width = -1;
-    private float _height = -1;
-    private Stretch _stretch = Stretch.None;
-    private IPen? _pen = null;
-    private Geometry? _createdGeometry;
-
-    static Shape()
+    public Shape()
     {
-        WidthProperty = ConfigureProperty<float, Shape>(nameof(Width))
-            .Accessor(o => o.Width, (o, v) => o.Width = v)
-            .DefaultValue(float.PositiveInfinity)
-            .Register();
-
-        HeightProperty = ConfigureProperty<float, Shape>(nameof(Height))
-            .Accessor(o => o.Height, (o, v) => o.Height = v)
-            .DefaultValue(float.PositiveInfinity)
-            .Register();
-
-        StretchProperty = ConfigureProperty<Stretch, Shape>(nameof(Stretch))
-            .Accessor(o => o.Stretch, (o, v) => o.Stretch = v)
-            .Register();
-
-        PenProperty = ConfigureProperty<IPen?, Shape>(nameof(Pen))
-            .Accessor(o => o.Pen, (o, v) => o.Pen = v)
-            .Register();
-
-        CreatedGeometryProperty = ConfigureProperty<Geometry?, Shape>(nameof(CreatedGeometry))
-            .Accessor(o => o.CreatedGeometry, (o, v) => o.CreatedGeometry = v)
-            .Register();
-
-        AffectsRender<Shape>(
-            WidthProperty, HeightProperty,
-            StretchProperty, PenProperty, CreatedGeometryProperty);
+        ScanProperties<Shape>();
     }
 
     [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
     [Range(0, float.MaxValue)]
-    public float Width
-    {
-        get => _width;
-        set => SetAndRaise(WidthProperty, ref _width, value);
-    }
+    public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(-1);
 
     [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
     [Range(0, float.MaxValue)]
-    public float Height
-    {
-        get => _height;
-        set => SetAndRaise(HeightProperty, ref _height, value);
-    }
+    public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(-1);
 
-    public Stretch Stretch
-    {
-        get => _stretch;
-        set => SetAndRaise(StretchProperty, ref _stretch, value);
-    }
+    public IProperty<Stretch> Stretch { get; } = Property.CreateAnimatable(Media.Stretch.None);
 
     [Display(Name = nameof(Strings.Stroke), GroupName = nameof(Strings.Stroke), ResourceType = typeof(Strings))]
-    public IPen? Pen
-    {
-        get => _pen;
-        set => SetAndRaise(PenProperty, ref _pen, value);
-    }
-
-    public Geometry? CreatedGeometry
-    {
-        get => _createdGeometry;
-        private set => SetAndRaise(CreatedGeometryProperty, ref _createdGeometry, value);
-    }
-
-    protected static void AffectsGeometry<T>(params CoreProperty[] properties)
-        where T : Shape
-    {
-        foreach (CoreProperty item in properties)
-        {
-            item.Changed.Subscribe(e =>
-            {
-                if (e.Sender is T s)
-                {
-                    s.InvalidateGeometry();
-
-                    if (e.OldValue is IAffectsRender oldAffectsRender)
-                    {
-                        oldAffectsRender.Invalidated -= s.OnAffectsRenderGeometryInvalidated;
-                    }
-
-                    if (e.NewValue is IAffectsRender newAffectsRender)
-                    {
-                        newAffectsRender.Invalidated += s.OnAffectsRenderGeometryInvalidated;
-                    }
-                }
-            });
-        }
-    }
-
-    private void OnAffectsRenderGeometryInvalidated(object? sender, RenderInvalidatedEventArgs e)
-    {
-        InvalidateGeometry();
-    }
-
-    private Geometry? GetOrCreateGeometry()
-    {
-        CreatedGeometry ??= CreateGeometry();
-
-        return CreatedGeometry;
-    }
-
-    public void InvalidateGeometry()
-    {
-        CreatedGeometry = null;
-        RaiseInvalidated(new RenderInvalidatedEventArgs(this, nameof(CreatedGeometry)));
-    }
+    public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
 
     internal static Vector CalculateScale(Size requestedSize, Rect shapeBounds, Stretch stretch)
     {
@@ -169,13 +70,13 @@ public abstract class Shape : Drawable
 
         switch (stretch)
         {
-            case Stretch.Uniform:
+            case Media.Stretch.Uniform:
                 sx = sy = Math.Min(sx, sy);
                 break;
-            case Stretch.UniformToFill:
+            case Media.Stretch.UniformToFill:
                 sx = sy = Math.Max(sx, sy);
                 break;
-            case Stretch.Fill:
+            case Media.Stretch.Fill:
                 if (widthInfinityOrNegative)
                 {
                     sx = 1.0f;
@@ -195,60 +96,46 @@ public abstract class Shape : Drawable
         return new Vector(sx, sy);
     }
 
-    public override void Measure(Size availableSize)
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
-        Size size = MeasureCore(availableSize);
-        var rect = new Rect(size).Translate(CreatedGeometry?.Bounds.Position ?? default);
-        Matrix transform = GetTransformMatrix(availableSize, size);
-
-        if (FilterEffect != null)
-        {
-            rect = FilterEffect.TransformBounds(rect);
-        }
-
-        Bounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
-    }
-
-    protected override Size MeasureCore(Size availableSize)
-    {
-        Geometry? geometry = GetOrCreateGeometry();
+        var r = (Resource)resource;
+        Geometry.Resource? geometry = r.GetGeometry();
         if (geometry == null)
         {
             return default;
         }
 
-        Vector scale = CalculateScale(new Size(Width, Height), geometry.Bounds, Stretch);
+        Vector scale = CalculateScale(new Size(r.Width, r.Height), geometry.Bounds, r.Stretch);
         Size size = geometry.Bounds.Size * scale;
-        if (Pen != null)
+        if (r.Pen != null)
         {
-            size = size.Inflate(ActualThickness(Pen));
+            size = size.Inflate(ActualThickness(r.Pen));
         }
 
         return size;
     }
 
-    private static float ActualThickness(IPen pen)
+    private static float ActualThickness(Pen.Resource pen)
     {
         return PenHelper.GetRealThickness(pen.StrokeAlignment, pen.Thickness);
     }
 
-    protected abstract Geometry? CreateGeometry();
-
-    protected override void OnDraw(GraphicsContext2D context)
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
-        Geometry? geometry = GetOrCreateGeometry();
+        var r = (Resource)resource;
+        Geometry.Resource? geometry = r.GetGeometry();
         if (geometry == null)
             return;
 
-        var requestedSize = new Size(Width, Height);
+        var requestedSize = new Size(r.Width, r.Height);
         Rect shapeBounds = geometry.Bounds;
-        Vector scale = CalculateScale(requestedSize, shapeBounds, Stretch);
+        Vector scale = CalculateScale(requestedSize, shapeBounds, r.Stretch);
         Matrix matrix = Matrix.Identity;
         //Matrix matrix = Matrix.CreateTranslation(-shapeBounds.Position);
 
-        if (Pen != null)
+        if (r.Pen != null)
         {
-            float thickness = ActualThickness(Pen);
+            float thickness = ActualThickness(r.Pen);
 
             matrix *= Matrix.CreateTranslation(thickness, thickness);
         }
@@ -257,40 +144,31 @@ public abstract class Shape : Drawable
 
         using (context.PushTransform(matrix))
         {
-            context.DrawGeometry(geometry, Fill, Pen);
+            context.DrawGeometry(geometry, r.Fill, r.Pen);
         }
     }
 
-    public override void Render(GraphicsContext2D context)
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
-        if (IsVisible)
+        var r = (Resource)resource;
+        if (r.IsEnabled)
         {
             Size availableSize = context.Size.ToSize(1);
-            Size size = MeasureCore(availableSize);
-            var rect = new Rect(size).Translate(CreatedGeometry?.Bounds.Position ?? default);
-            if (FilterEffect != null && !rect.IsInvalid)
-            {
-                rect = FilterEffect.TransformBounds(rect);
-            }
+            Size size = MeasureCore(availableSize, resource);
 
-            Matrix transform = GetTransformMatrix(availableSize, size);
-            Rect transformedBounds = rect.IsInvalid ? Rect.Invalid : rect.TransformToAABB(transform);
-            using (context.PushBlendMode(BlendMode))
+            Matrix transform = GetTransformMatrix(availableSize, size, resource);
+            using (context.PushBlendMode(r.BlendMode))
             using (context.PushTransform(transform))
-            using (context.PushOpacity(Opacity / 100f))
-            using (FilterEffect == null ? new() : context.PushFilterEffect(FilterEffect))
-            using (OpacityMask == null ? new() : context.PushOpacityMask(OpacityMask, new Rect(size)))
+            using (context.PushOpacity(r.Opacity / 100f))
+            using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
             {
-                OnDraw(context);
+                OnDraw(context, resource);
             }
-
-            Bounds = transformedBounds;
         }
     }
 
-    public override void ApplyAnimations(IClock clock)
+    public abstract partial class Resource
     {
-        base.ApplyAnimations(clock);
-        (Pen as IAnimatable)?.ApplyAnimations(clock);
+        public abstract Geometry.Resource? GetGeometry();
     }
 }

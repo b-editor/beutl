@@ -1,5 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
@@ -9,74 +9,20 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public abstract class DisplacementMapTransform : Animatable, IAffectsRender
+public abstract partial class DisplacementMapTransform : EngineObject
 {
-    protected DisplacementMapTransform()
-    {
-        AnimationInvalidated += (_, e) => RaiseInvalidated(e);
-    }
-
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
-
-    private void OnAffectsRenderInvalidated(object? sender, RenderInvalidatedEventArgs e)
-    {
-        Invalidated?.Invoke(this, e);
-    }
-
-    protected static void AffectsRender<T>(params CoreProperty[] properties)
-        where T : DisplacementMapTransform
-    {
-        foreach (CoreProperty? item in properties)
-        {
-            item.Changed.Subscribe(e =>
-            {
-                if (e.Sender is T s)
-                {
-                    s.RaiseInvalidated(new RenderInvalidatedEventArgs(s, e.Property.Name));
-
-                    if (e.OldValue is IAffectsRender oldAffectsRender)
-                        oldAffectsRender.Invalidated -= s.OnAffectsRenderInvalidated;
-
-                    if (e.NewValue is IAffectsRender newAffectsRender)
-                        newAffectsRender.Invalidated += s.OnAffectsRenderInvalidated;
-                }
-            });
-        }
-    }
-
-    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
-    {
-        Invalidated?.Invoke(this, args);
-    }
-
     internal abstract void ApplyTo(
-        IBrush displacementMap, GradientSpreadMethod spreadMethod, FilterEffectContext context);
+        Brush.Resource displacementMap, Resource resource, GradientSpreadMethod spreadMethod, FilterEffectContext context);
 }
 
 [Display(Name = nameof(Strings.Translate), ResourceType = typeof(Strings))]
-public class DisplacementMapTranslateTransform : DisplacementMapTransform
+public partial class DisplacementMapTranslateTransform : DisplacementMapTransform
 {
-    public static readonly CoreProperty<float> XProperty;
-    public static readonly CoreProperty<float> YProperty;
-    private float _x;
-    private float _y;
     private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapTranslateTransform>();
     private static readonly SKRuntimeEffect? s_runtimeEffect;
 
     static DisplacementMapTranslateTransform()
     {
-        XProperty = ConfigureProperty<float, DisplacementMapTranslateTransform>(nameof(X))
-            .Accessor(o => o.X, (o, v) => o.X = v)
-            .DefaultValue(0)
-            .Register();
-
-        YProperty = ConfigureProperty<float, DisplacementMapTranslateTransform>(nameof(Y))
-            .Accessor(o => o.Y, (o, v) => o.Y = v)
-            .DefaultValue(0)
-            .Register();
-
-        AffectsRender<DisplacementMapTranslateTransform>(XProperty, YProperty);
-
         // SKSLコード（child shaderとして uBaseTexture と uDisplacementMap を使用）
         string sksl =
             """
@@ -103,27 +49,26 @@ public class DisplacementMapTranslateTransform : DisplacementMapTransform
         }
     }
 
-    public float X
+    public DisplacementMapTranslateTransform()
     {
-        get => _x;
-        set => SetAndRaise(XProperty, ref _x, value);
+        ScanProperties<DisplacementMapTranslateTransform>();
     }
 
-    public float Y
-    {
-        get => _y;
-        set => SetAndRaise(YProperty, ref _y, value);
-    }
+    public IProperty<float> X { get; } = Property.CreateAnimatable<float>();
 
-    internal override void ApplyTo(IBrush displacementMap, GradientSpreadMethod spreadMethod,
-        FilterEffectContext context)
+    public IProperty<float> Y { get; } = Property.CreateAnimatable<float>();
+
+    internal override void ApplyTo(
+        Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
+        GradientSpreadMethod spreadMethod, FilterEffectContext context)
     {
         if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
+        var r = (Resource)resource;
 
-        context.CustomEffect((displacementMap, spreadMethod, X, Y),
+        context.CustomEffect((displacementMap, r, spreadMethod, X, Y),
             (d, c) =>
             {
-                var (map, sm, x, y) = d;
+                var (map, r, sm, x, y) = d;
                 for (int i = 0; i < c.Targets.Count; i++)
                 {
                     EffectTarget effectTarget = c.Targets[i];
@@ -143,7 +88,7 @@ public class DisplacementMapTranslateTransform : DisplacementMapTransform
                     builder.Children["uBaseTexture"] = baseShader;
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
-                    builder.Uniforms["uTranslation"] = new SKPoint(x, y);
+                    builder.Uniforms["uTranslation"] = new SKPoint(r.X, r.Y);
 
                     // 最終的なシェーダーを生成
                     using (SKShader finalShader = builder.Build())
@@ -164,55 +109,13 @@ public class DisplacementMapTranslateTransform : DisplacementMapTransform
 }
 
 [Display(Name = nameof(Strings.Scale), ResourceType = typeof(Strings))]
-public class DisplacementMapScaleTransform : DisplacementMapTransform
+public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 {
-    public static readonly CoreProperty<float> ScaleProperty;
-    public static readonly CoreProperty<float> ScaleXProperty;
-    public static readonly CoreProperty<float> ScaleYProperty;
-    public static readonly CoreProperty<float> CenterXProperty;
-    public static readonly CoreProperty<float> CenterYProperty;
-    private float _scale = 100;
-    private float _scaleX = 100;
-    private float _scaleY = 100;
-    private float _centerX;
-    private float _centerY;
     private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapScaleTransform>();
     private static readonly SKRuntimeEffect? s_runtimeEffect;
 
     static DisplacementMapScaleTransform()
     {
-        ScaleProperty = ConfigureProperty<float, DisplacementMapScaleTransform>(nameof(Scale))
-            .Accessor(o => o.Scale, (o, v) => o.Scale = v)
-            .DefaultValue(100)
-            .Register();
-
-        ScaleXProperty = ConfigureProperty<float, DisplacementMapScaleTransform>(nameof(ScaleX))
-            .Accessor(o => o.ScaleX, (o, v) => o.ScaleX = v)
-            .DefaultValue(100)
-            .Register();
-
-        ScaleYProperty = ConfigureProperty<float, DisplacementMapScaleTransform>(nameof(ScaleY))
-            .Accessor(o => o.ScaleY, (o, v) => o.ScaleY = v)
-            .DefaultValue(100)
-            .Register();
-
-        CenterXProperty = ConfigureProperty<float, DisplacementMapScaleTransform>(nameof(CenterX))
-            .Accessor(o => o.CenterX, (o, v) => o.CenterX = v)
-            .DefaultValue(0)
-            .Register();
-
-        CenterYProperty = ConfigureProperty<float, DisplacementMapScaleTransform>(nameof(CenterY))
-            .Accessor(o => o.CenterY, (o, v) => o.CenterY = v)
-            .DefaultValue(0)
-            .Register();
-
-        AffectsRender<DisplacementMapScaleTransform>(
-            ScaleProperty,
-            ScaleXProperty,
-            ScaleYProperty,
-            CenterXProperty,
-            CenterYProperty);
-
         string sksl =
             """
             uniform shader uBaseTexture;
@@ -238,44 +141,31 @@ public class DisplacementMapScaleTransform : DisplacementMapTransform
         }
     }
 
-    public float Scale
+    public DisplacementMapScaleTransform()
     {
-        get => _scale;
-        set => SetAndRaise(ScaleProperty, ref _scale, value);
+        ScanProperties<DisplacementMapScaleTransform>();
     }
 
-    public float ScaleX
-    {
-        get => _scaleX;
-        set => SetAndRaise(ScaleXProperty, ref _scaleX, value);
-    }
+    public IProperty<float> Scale { get; } = Property.CreateAnimatable<float>(100);
 
-    public float ScaleY
-    {
-        get => _scaleY;
-        set => SetAndRaise(ScaleYProperty, ref _scaleY, value);
-    }
+    public IProperty<float> ScaleX { get; } = Property.CreateAnimatable<float>(100);
 
-    public float CenterX
-    {
-        get => _centerX;
-        set => SetAndRaise(CenterXProperty, ref _centerX, value);
-    }
+    public IProperty<float> ScaleY { get; } = Property.CreateAnimatable<float>(100);
 
-    public float CenterY
-    {
-        get => _centerY;
-        set => SetAndRaise(CenterYProperty, ref _centerY, value);
-    }
+    public IProperty<float> CenterX { get; } = Property.CreateAnimatable<float>();
 
-    internal override void ApplyTo(IBrush displacementMap, GradientSpreadMethod spreadMethod,
-        FilterEffectContext context)
+    public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>();
+
+    internal override void ApplyTo(
+        Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
+        GradientSpreadMethod spreadMethod, FilterEffectContext context)
     {
         if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
+        var r = (Resource)resource;
 
         context.CustomEffect(
-            (displacementMap, spreadMethod, x: Scale * ScaleX / 10000, y: Scale * ScaleY / 10000,
-                center: new Point(CenterX, CenterY)),
+            (displacementMap, spreadMethod, x: r.Scale * r.ScaleX / 10000, y: r.Scale * r.ScaleY / 10000,
+                center: new Point(r.CenterX, r.CenterY)),
             (d, c) =>
             {
                 var (map, sm, scaleX, scaleY, center) = d;
@@ -322,36 +212,13 @@ public class DisplacementMapScaleTransform : DisplacementMapTransform
 }
 
 [Display(Name = nameof(Strings.Rotation), ResourceType = typeof(Strings))]
-public class DisplacementMapRotationTransform : DisplacementMapTransform
+public partial class DisplacementMapRotationTransform : DisplacementMapTransform
 {
-    public static readonly CoreProperty<float> RotationProperty;
-    public static readonly CoreProperty<float> CenterXProperty;
-    public static readonly CoreProperty<float> CenterYProperty;
-    private float _rotation;
-    private float _centerX;
-    private float _centerY;
     private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapRotationTransform>();
     private static readonly SKRuntimeEffect s_runtimeEffect;
 
     static DisplacementMapRotationTransform()
     {
-        RotationProperty = ConfigureProperty<float, DisplacementMapRotationTransform>(nameof(Rotation))
-            .Accessor(o => o.Rotation, (o, v) => o.Rotation = v)
-            .DefaultValue(0)
-            .Register();
-
-        CenterXProperty = ConfigureProperty<float, DisplacementMapRotationTransform>(nameof(CenterX))
-            .Accessor(o => o.CenterX, (o, v) => o.CenterX = v)
-            .DefaultValue(0)
-            .Register();
-
-        CenterYProperty = ConfigureProperty<float, DisplacementMapRotationTransform>(nameof(CenterY))
-            .Accessor(o => o.CenterY, (o, v) => o.CenterY = v)
-            .DefaultValue(0)
-            .Register();
-
-        AffectsRender<DisplacementMapRotationTransform>(RotationProperty, CenterXProperty, CenterYProperty);
-
         string sksl =
             """
             uniform shader uBaseTexture;
@@ -378,31 +245,26 @@ public class DisplacementMapRotationTransform : DisplacementMapTransform
         }
     }
 
-    public float Rotation
+    public DisplacementMapRotationTransform()
     {
-        get => _rotation;
-        set => SetAndRaise(RotationProperty, ref _rotation, value);
+        ScanProperties<DisplacementMapRotationTransform>();
     }
 
-    public float CenterX
-    {
-        get => _centerX;
-        set => SetAndRaise(CenterXProperty, ref _centerX, value);
-    }
+    public IProperty<float> Rotation { get; } = Property.CreateAnimatable<float>(0);
 
-    public float CenterY
-    {
-        get => _centerY;
-        set => SetAndRaise(CenterYProperty, ref _centerY, value);
-    }
+    public IProperty<float> CenterX { get; } = Property.CreateAnimatable<float>(0);
 
-    internal override void ApplyTo(IBrush displacementMap, GradientSpreadMethod spreadMethod,
-        FilterEffectContext context)
+    public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>(0);
+
+    internal override void ApplyTo(
+        Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
+        GradientSpreadMethod spreadMethod, FilterEffectContext context)
     {
         if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
+        var r = (Resource)resource;
 
         context.CustomEffect(
-            (displacementMap, spreadMethod, Rotation, new Point(CenterX, CenterY)),
+            (displacementMap, spreadMethod, r.Rotation, new Point(r.CenterX, r.CenterY)),
             (d, c) =>
             {
                 var (map, sm, rotation, center) = d;

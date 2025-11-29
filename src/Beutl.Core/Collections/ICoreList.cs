@@ -19,6 +19,8 @@ public interface ICoreList : IList
 
 public interface ICoreList<T> : IObservableList<T>, ICoreReadOnlyList<T>, ICoreList
 {
+    new bool IsReadOnly { get; }
+
     new int Count { get; }
 
     new T this[int index] { get; set; }
@@ -47,4 +49,6 @@ public interface ICoreList<T> : IObservableList<T>, ICoreReadOnlyList<T>, ICoreL
     new void RemoveAt(int index);
 
     new void Clear();
+
+    void EnsureCapacity(int capacity);
 }

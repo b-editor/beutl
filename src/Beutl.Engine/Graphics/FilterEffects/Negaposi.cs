@@ -1,71 +1,34 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+
+using Beutl.Engine;
 
 namespace Beutl.Graphics.Effects;
 
-public class Negaposi : FilterEffect
+public partial class Negaposi : FilterEffect
 {
-    public static readonly CoreProperty<byte> RedProperty;
-    public static readonly CoreProperty<byte> GreenProperty;
-    public static readonly CoreProperty<byte> BlueProperty;
-    public static readonly CoreProperty<float> StrengthProperty;
-    private byte _red;
-    private byte _green;
-    private byte _blue;
-    private float _strength = 100;
-
-    static Negaposi()
+    public Negaposi()
     {
-        RedProperty = ConfigureProperty<byte, Negaposi>(nameof(Red))
-            .Accessor(o => o.Red, (o, v) => o.Red = v)
-            .Register();
-
-        GreenProperty = ConfigureProperty<byte, Negaposi>(nameof(Green))
-            .Accessor(o => o.Green, (o, v) => o.Green = v)
-            .Register();
-
-        BlueProperty = ConfigureProperty<byte, Negaposi>(nameof(Blue))
-            .Accessor(o => o.Blue, (o, v) => o.Blue = v)
-            .Register();
-
-        StrengthProperty = ConfigureProperty<float, Negaposi>(nameof(Strength))
-            .Accessor(o => o.Strength, (o, v) => o.Strength = v)
-            .DefaultValue(100)
-            .Register();
-
-        AffectsRender<Negaposi>(RedProperty, GreenProperty, BlueProperty, StrengthProperty);
+        ScanProperties<Negaposi>();
     }
 
-    public byte Red
-    {
-        get => _red;
-        set => SetAndRaise(RedProperty, ref _red, value);
-    }
+    public IProperty<byte> Red { get; } = Property.CreateAnimatable<byte>();
 
-    public byte Green
-    {
-        get => _green;
-        set => SetAndRaise(GreenProperty, ref _green, value);
-    }
+    public IProperty<byte> Green { get; } = Property.CreateAnimatable<byte>();
 
-    public byte Blue
-    {
-        get => _blue;
-        set => SetAndRaise(BlueProperty, ref _blue, value);
-    }
+    public IProperty<byte> Blue { get; } = Property.CreateAnimatable<byte>();
 
     [Range(0, 100)]
-    public float Strength
-    {
-        get => _strength;
-        set => SetAndRaise(StrengthProperty, ref _strength, value);
-    }
+    public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
+        var r = (Resource)resource;
+        var color = (r.Red, r.Green, r.Blue);
+
         context.LookupTable(
-            (_red, _green, _blue),
-            _strength / 100,
-            ((byte r, byte g, byte b) data, (byte[] A, byte[] R, byte[] G, byte[] B) array) =>
+            color,
+            r.Strength / 100,
+            static ((byte r, byte g, byte b) data, (byte[] A, byte[] R, byte[] G, byte[] B) array) =>
             {
                 LookupTable.Linear(array.A);
                 LookupTable.Negaposi((array.R, array.G, array.B), data.r, data.g, data.b);

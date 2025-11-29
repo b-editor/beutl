@@ -2,6 +2,7 @@
 
 using Beutl.Animation;
 using Beutl.Collections.Pooled;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -26,7 +27,7 @@ public class ElementNodeTreeModel : NodeTreeModel
         RaiseInvalidated(new RenderInvalidatedEventArgs(this));
     }
 
-    private void OnNodeInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnNodeEdited(object? sender, EventArgs e)
     {
         RaiseInvalidated(e);
     }
@@ -35,22 +36,22 @@ public class ElementNodeTreeModel : NodeTreeModel
     {
         _isDirty = true;
         obj.NodeTreeInvalidated += OnNodeTreeInvalidated;
-        obj.Invalidated += OnNodeInvalidated;
+        obj.Edited += OnNodeEdited;
     }
 
     private void OnNodeDetached(Node obj)
     {
         _isDirty = true;
         obj.NodeTreeInvalidated -= OnNodeTreeInvalidated;
-        obj.Invalidated -= OnNodeInvalidated;
+        obj.Edited -= OnNodeEdited;
     }
 
-    public PooledList<Renderable> Evaluate(EvaluationTarget target, IRenderer renderer, Element element)
+    public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer, Element element)
     {
         _ = target;
-        Build(renderer, element.Clock);
+        Build(renderer);
 
-        var list = new PooledList<Renderable>();
+        var list = new PooledList<EngineObject>();
         try
         {
             foreach (NodeEvaluationContext[]? item in CollectionsMarshal.AsSpan(_evalContexts))
@@ -67,7 +68,7 @@ public class ElementNodeTreeModel : NodeTreeModel
             }
 
             // Todo: LayerOutputNodeに移動
-            foreach (Renderable item in list.Span)
+            foreach (EngineObject item in list.Span)
             {
                 item.ZIndex = element.ZIndex;
                 item.TimeRange = new TimeRange(element.Start, element.Length);
@@ -95,7 +96,7 @@ public class ElementNodeTreeModel : NodeTreeModel
         _evalContexts.Clear();
     }
 
-    private void Build(IRenderer renderer, IClock clock)
+    private void Build(IRenderer renderer)
     {
         if (_isDirty)
         {
@@ -112,7 +113,6 @@ public class ElementNodeTreeModel : NodeTreeModel
                 _evalContexts.Add(array);
                 foreach (NodeEvaluationContext item in array)
                 {
-                    item.Clock = clock;
                     item.Renderer = renderer;
                     item.List = array;
                     item.Node.InitializeForContext(item);
@@ -130,7 +130,7 @@ public class ElementNodeTreeModel : NodeTreeModel
     {
         if (stack.FirstOrDefault(x => x.Node == node) is { } context)
         {
-            // 
+            //
             stack.Remove(context);
             stack.Add(context);
         }

@@ -15,7 +15,7 @@ public class NodeItemViewModel : IDisposable
             Name = coreObject.GetPropertyChangedObservable(CoreObject.NameProperty)
                 .Select(e => (INodeItem)e.Sender)
                 .Publish(nodeItem).RefCount()
-                .Select(obj => NodeDisplayNameHelper.GetDisplayName(obj))
+                .Select(obj => obj.Name)
                 .ToReadOnlyReactiveProperty()!;
         }
         else

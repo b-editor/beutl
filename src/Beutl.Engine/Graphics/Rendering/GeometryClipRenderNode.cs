@@ -1,29 +1,45 @@
-﻿using Beutl.Media;
+﻿using Beutl.Engine;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class GeometryClipRenderNode(Geometry clip, ClipOperation operation) : ContainerRenderNode
+public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation operation) : ContainerRenderNode
 {
-    private readonly int _version = clip.Version;
+    public (Geometry.Resource Resource, int Version)? Clip { get; private set; } = clip.Capture();
 
-    public Geometry Clip { get; private set; } = clip;
+    public ClipOperation Operation { get; private set; } = operation;
 
-    public ClipOperation Operation { get; } = operation;
-
-    public bool Equals(Geometry clip, ClipOperation operation)
+    public bool Update(Geometry.Resource clip, ClipOperation operation)
     {
-        return Clip == clip
-            && _version == clip.Version
-            && Operation == operation;
+        bool changed = false;
+        if (!clip.Compare(Clip))
+        {
+            Clip = clip.Capture();
+            changed = true;
+        }
+
+        if (Operation != operation)
+        {
+            Operation = operation;
+            changed = true;
+        }
+
+        HasChanges = true;
+        return changed;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
+        if (Clip == null)
+        {
+            return context.Input;
+        }
+
         return context.Input.Select(r =>
         {
             return RenderNodeOperation.CreateDecorator(r, canvas =>
             {
-                using (canvas.PushClip(Clip, Operation))
+                using (canvas.PushClip(Clip.Value.Resource, Operation))
                 {
                     r.Render(canvas);
                 }

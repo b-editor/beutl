@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Audio.Effects;
+using Beutl.Engine;
 using Beutl.Operation;
 using Beutl.Services;
 
@@ -10,9 +11,9 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<IAudioEffect?>
+public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffect?>
 {
-    public AudioEffectEditorViewModel(IPropertyAdapter<IAudioEffect?> property)
+    public AudioEffectEditorViewModel(IPropertyAdapter<AudioEffect?> property)
         : base(property)
     {
         FilterName = Value.Select(v =>
@@ -50,15 +51,15 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<IAudioEffe
 
                     if (v is AudioEffectGroup group)
                     {
-                        var prop = new CorePropertyAdapter<AudioEffects>(AudioEffectGroup.ChildrenProperty, group);
-                        Group.Value = new ListEditorViewModel<IAudioEffect>(prop)
+                        var prop = new EnginePropertyAdapter<ICoreList<AudioEffect>>(group.Children, group);
+                        Group.Value = new ListEditorViewModel<AudioEffect>(prop)
                         {
                             IsExpanded = { Value = true }
                         };
                     }
-                    else if (v is AudioEffect effect)
+                    else if (v != null)
                     {
-                        Properties.Value = new PropertiesEditorViewModel(effect, (p, m) => m.Browsable && p != AudioEffect.IsEnabledProperty);
+                        Properties.Value = new PropertiesEditorViewModel(v);
                     }
 
                     AcceptChild();
@@ -66,7 +67,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<IAudioEffe
                 .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        IsEnabled = Value.Select(x => (x as CoreObject)?.GetObservable(AudioEffect.IsEnabledProperty) ?? Observable.Return(x?.IsEnabled ?? false))
+        IsEnabled = Value.Select(x => x?.GetObservable(EngineObject.IsEnabledProperty) ?? Observable.Return(x?.IsEnabled ?? false))
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(Disposables);
@@ -74,10 +75,10 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<IAudioEffe
         IsEnabled.Skip(1)
             .Subscribe(v =>
             {
-                if (Value.Value is AudioEffect effect)
+                if (Value.Value is { } effect)
                 {
                     CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-                    RecordableCommands.Edit(effect, AudioEffect.IsEnabledProperty, v, !v)
+                    RecordableCommands.Edit(effect, EngineObject.IsEnabledProperty, v, !v)
                         .WithStoables(GetStorables())
                         .DoAndRecord(recorder);
                 }
@@ -103,7 +104,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<IAudioEffe
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
-    public ReactivePropertySlim<ListEditorViewModel<IAudioEffect>?> Group { get; } = new();
+    public ReactivePropertySlim<ListEditorViewModel<AudioEffect>?> Group { get; } = new();
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -127,7 +128,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<IAudioEffe
 
     public void ChangeFilterType(Type type)
     {
-        if (Activator.CreateInstance(type) is IAudioEffect instance)
+        if (Activator.CreateInstance(type) is AudioEffect instance)
         {
             SetValue(Value.Value, instance);
         }
@@ -136,10 +137,10 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<IAudioEffe
     public void AddItem(Type type)
     {
         if (Value.Value is AudioEffectGroup group
-            && Activator.CreateInstance(type) is IAudioEffect instance)
+            && Activator.CreateInstance(type) is AudioEffect instance)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            group.Children.BeginRecord<IAudioEffect>()
+            group.Children.BeginRecord<AudioEffect>()
                 .Add(instance)
                 .ToCommand(GetStorables())
                 .DoAndRecord(recorder);

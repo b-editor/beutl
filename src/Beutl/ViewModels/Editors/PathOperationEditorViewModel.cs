@@ -1,14 +1,12 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Media;
 using Beutl.Services;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
+// TODO: PathSegmentEditorViewModel に改名
 public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegment?>
 {
     public PathOperationEditorViewModel(IPropertyAdapter<PathSegment?> property)
@@ -20,10 +18,6 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
                 {
                     var name = v switch
                     {
-#pragma warning disable CS0618 // Type or member is obsolete
-                        CloseOperation => Strings.Close,
-                        MoveOperation => Strings.Move,
-#pragma warning restore CS0618 // Type or member is obsolete
                         ArcSegment => Strings.EllipticalArc,
                         ConicSegment => Strings.Conic,
                         CubicBezierSegment => Strings.CubicBezierCurve,
@@ -55,18 +49,18 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
             .Take(1)
             .Subscribe(_ =>
                 Value.Subscribe(v =>
-                {
-                    Properties.Value?.Dispose();
-                    Properties.Value = null;
-
-                    if (v is PathSegment obj)
                     {
-                        Properties.Value = new PropertiesEditorViewModel(obj, (p, m) => m.Browsable);
-                    }
+                        Properties.Value?.Dispose();
+                        Properties.Value = null;
 
-                    AcceptProperties();
-                })
-                .DisposeWith(Disposables))
+                        if (v != null)
+                        {
+                            Properties.Value = new PropertiesEditorViewModel(v);
+                        }
+
+                        AcceptProperties();
+                    })
+                    .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
         Value.CombineWithPrevious()
@@ -126,6 +120,7 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
             {
                 IsExpanded.Value = (bool)isExpanded;
             }
+
             if (json.TryGetPropertyValue(nameof(ProgrammaticallyExpanded), out var pExpandedNode)
                 && isExpandedNode is JsonValue pExpanded)
             {

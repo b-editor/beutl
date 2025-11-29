@@ -1,8 +1,8 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Engine;
 
 namespace Beutl.Operation;
 
 public interface IPublishOperator
 {
-    Renderable Value { get; }
+    EngineObject Value { get; }
 }

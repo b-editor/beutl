@@ -503,10 +503,10 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 _logger.LogDebug(
                     "Setting transform for operation: {Operation}, operator: {Operator}, position: {Position}",
                     operation, op, desc.Position);
-                if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(ITransform)) is
-                    IPropertyAdapter<ITransform?> transformp)
+                if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(Transform)) is
+                    IPropertyAdapter<Transform?> transformp)
                 {
-                    ITransform? transform = transformp.GetValue();
+                    Transform? transform = transformp.GetValue();
                     AddOrSetHelper.AddOrSet(
                         ref transform,
                         new TranslateTransform(desc.Position),
@@ -547,7 +547,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 _logger.LogDebug("File is an image.");
                 Element element = CreateElementFor(out SourceImageOperator t);
                 BitmapSource.TryOpen(desc.FileName, out BitmapSource? image);
-                t.Value.Source = image;
+                t.Value.Source.CurrentValue = image;
 
                 element.Save(element.FileName);
                 list.Add(Scene.AddChild(element));
@@ -560,12 +560,12 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 Element element2 = CreateElementFor(out SourceSoundOperator t2);
                 element2.ZIndex++;
                 VideoSource.TryOpen(desc.FileName, out VideoSource? video);
-                t1.Value.Source = video;
+                t1.Value.Source.CurrentValue = video;
                 if (video != null)
                     element1.Length = video.Duration;
 
                 SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
-                t2.Value.Source = sound;
+                t2.Value.Source.CurrentValue = sound;
                 if (sound != null)
                     element2.Length = sound.Duration;
 
@@ -580,7 +580,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 _logger.LogDebug("File is an audio.");
                 Element element = CreateElementFor(out SourceSoundOperator t);
                 SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
-                t.Value.Source = sound;
+                t.Value.Source.CurrentValue = sound;
                 if (sound != null)
                 {
                     element.Length = sound.Duration;

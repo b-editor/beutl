@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
@@ -7,32 +8,21 @@ using Beutl.Media.Source;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(Strings.Image), ResourceType = typeof(Strings))]
-public class SourceImage : Drawable
+public partial class SourceImage : Drawable
 {
-    public static readonly CoreProperty<IImageSource?> SourceProperty;
-    private IImageSource? _source;
-
-    static SourceImage()
+    public SourceImage()
     {
-        SourceProperty = ConfigureProperty<IImageSource?, SourceImage>(nameof(Source))
-            .Accessor(o => o.Source, (o, v) => o.Source = v)
-            .DefaultValue(null)
-            .Register();
-
-        AffectsRender<SourceImage>(SourceProperty);
+        ScanProperties<SourceImage>();
     }
 
-    public IImageSource? Source
-    {
-        get => _source;
-        set => SetAndRaise(SourceProperty, ref _source, value);
-    }
+    public IProperty<IImageSource?> Source { get; } = Property.Create<IImageSource?>();
 
-    protected override Size MeasureCore(Size availableSize)
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
-        if (_source != null)
+        var r = (Resource)resource;
+        if (r.Source != null)
         {
-            return _source.FrameSize.ToSize(1);
+            return r.Source.FrameSize.ToSize(1);
         }
         else
         {
@@ -40,11 +30,12 @@ public class SourceImage : Drawable
         }
     }
 
-    protected override void OnDraw(GraphicsContext2D context)
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
-        if (_source != null)
+        var r = (Resource)resource;
+        if (r.Source != null)
         {
-            context.DrawImageSource(_source, Brushes.White, null);
+            context.DrawImageSource(r.Source, Brushes.Resource.White, null);
         }
     }
 }

@@ -1,61 +1,71 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
 [Display(Name = nameof(Strings.RoundedRect), ResourceType = typeof(Strings))]
-public sealed class RoundedRectShape : Shape
+public sealed partial class RoundedRectShape : Shape
 {
-    public static readonly CoreProperty<CornerRadius> CornerRadiusProperty;
-    public static readonly CoreProperty<float> SmoothingProperty;
-    private CornerRadius _cornerRadius;
-    private float _smoothing;
-    private RoundedRectGeometry? _geometry;
-
-    static RoundedRectShape()
+    public RoundedRectShape()
     {
-        WidthProperty.OverrideDefaultValue<RoundedRectShape>(0f);
-        HeightProperty.OverrideDefaultValue<RoundedRectShape>(0f);
-
-        CornerRadiusProperty = ConfigureProperty<CornerRadius, RoundedRectShape>(nameof(CornerRadius))
-            .Accessor(o => o.CornerRadius, (o, v) => o.CornerRadius = v)
-            .DefaultValue(new CornerRadius())
-            .Register();
-
-        SmoothingProperty = ConfigureProperty<float, RoundedRectShape>(nameof(Smoothing))
-            .Accessor(o => o.Smoothing, (o, v) => o.Smoothing = v)
-            .DefaultValue(0)
-            .Register();
-
-        AffectsGeometry<RoundedRectShape>(
-            WidthProperty, HeightProperty,
-            CornerRadiusProperty, SmoothingProperty);
+        ScanProperties<RoundedRectShape>();
     }
 
     [Display(Name = nameof(Strings.CornerRadius), ResourceType = typeof(Strings))]
     [Range(typeof(CornerRadius), "0", "max")]
-    public CornerRadius CornerRadius
-    {
-        get => _cornerRadius;
-        set => SetAndRaise(CornerRadiusProperty, ref _cornerRadius, value);
-    }
+    public IProperty<CornerRadius> CornerRadius { get; } = Property.CreateAnimatable<CornerRadius>();
 
     [Range(0, 100)]
     [Display(Name = nameof(Strings.Smoothing), ResourceType = typeof(Strings))]
-    public float Smoothing
-    {
-        get => _smoothing;
-        set => SetAndRaise(SmoothingProperty, ref _smoothing, value);
-    }
+    public IProperty<float> Smoothing { get; } = Property.CreateAnimatable<float>();
 
-    protected override Geometry CreateGeometry()
+    public partial class Resource
     {
-        _geometry ??= new RoundedRectGeometry();
-        _geometry.Width = Math.Max(Width, 0);
-        _geometry.Height = Math.Max(Height, 0);
-        _geometry.CornerRadius = CornerRadius;
-        _geometry.Smoothing = Smoothing;
-        return _geometry;
+        private readonly RoundedRectGeometry _geometry = new();
+        private RoundedRectGeometry.Resource? _geometryResource;
+
+        partial void PostUpdate(RoundedRectShape obj, RenderContext context)
+        {
+            _geometry.Width.CurrentValue = Math.Max(Width, 0);
+            _geometry.Height.CurrentValue = Math.Max(Height, 0);
+            _geometry.CornerRadius.CurrentValue = CornerRadius;
+            _geometry.Smoothing.CurrentValue = Math.Clamp(Smoothing, 0, 100);
+
+            if (_geometryResource is null)
+            {
+                _geometryResource = _geometry.ToResource(context);
+                Version++;
+            }
+            else
+            {
+                if (_geometryResource.GetOriginal() != _geometry)
+                {
+                    var oldGeometry = _geometryResource;
+                    _geometryResource = _geometry.ToResource(context);
+                    oldGeometry.Dispose();
+                    Version++;
+                }
+                else
+                {
+                    var oldVersion = _geometryResource.Version;
+                    var _ = false;
+                    _geometryResource.Update(_geometry, context, ref _);
+                    if (oldVersion != _geometryResource.Version)
+                    {
+                        Version++;
+                    }
+                }
+            }
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            _geometryResource?.Dispose();
+        }
+
+        public override Geometry.Resource? GetGeometry() => _geometryResource;
     }
 }

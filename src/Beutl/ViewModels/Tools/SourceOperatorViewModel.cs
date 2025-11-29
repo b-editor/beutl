@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Nodes;
 using Beutl.Helpers;
 using Beutl.Operation;
@@ -152,11 +153,10 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
         foreach ((string? Key, IPropertyEditorContext?[] Value) group in tempItems.GroupBy(x =>
                      {
-                         if (x is BaseEditorViewModel { PropertyAdapter: { } adapter }
-                             && adapter.GetCoreProperty() is { } coreProperty
-                             && coreProperty.TryGetMetadata(adapter.ImplementedType, out CorePropertyMetadata? metadata))
+                         if (x is BaseEditorViewModel { PropertyAdapter: { } adapter })
                          {
-                             return metadata.DisplayAttribute?.GetGroupName();
+                             return (adapter.GetAttributes().FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute)
+                                 ?.GetGroupName();
                          }
                          else
                          {

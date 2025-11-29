@@ -20,6 +20,7 @@ using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using OpenTK.Audio.OpenAL;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 using Vortice.Multimedia;
 
 namespace Beutl.ViewModels;
@@ -102,7 +103,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
             })
             .DisposeWith(_disposables);
 
-        Scene.Invalidated += OnSceneInvalidated;
+        Scene.Edited += OnSceneEdited;
 
         _isEnabled.Subscribe(async v =>
             {
@@ -136,12 +137,12 @@ public sealed class PlayerViewModel : IAsyncDisposable
             .DisposeWith(_disposables);
     }
 
-    private void OnSceneInvalidated(object? sender, RenderInvalidatedEventArgs e)
+    private void OnSceneEdited(object? sender, EventArgs e)
     {
-        if (e is TimelineInvalidatedEventArgs timelineInvalidated)
+        if (e is ElementEditedEventArgs elementEdited)
         {
             TimeSpan time = EditViewModel.CurrentTime.Value;
-            if (!timelineInvalidated.AffectedRange.Any(v => v.Contains(time)))
+            if (!elementEdited.AffectedRange.Any(v => v.Contains(time)))
             {
                 return;
             }
@@ -235,7 +236,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
             BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
             FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
-            Scene.Invalidated -= OnSceneInvalidated;
+            Scene.Edited -= OnSceneEdited;
             _currentFrameSubscription?.Dispose();
 
             IsPlaying.Value = true;
@@ -330,7 +331,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
             };
 
             _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
-            Scene.Invalidated += OnSceneInvalidated;
+            Scene.Edited += OnSceneEdited;
             _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
         });
     }
@@ -630,7 +631,12 @@ public sealed class PlayerViewModel : IAsyncDisposable
             Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
             if (boundary.Length > 0)
             {
-                var pen = new Media.Immutable.ImmutablePen(Brushes.White, null, 0, 1 / scale);
+                var pen = new Pen.Resource()
+                {
+                    Brush = Brushes.Resource.White,
+                    Thickness = scale,
+                    MiterLimit = 10
+                };
                 bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries;
 
                 foreach (Rect item in boundary)
@@ -686,7 +692,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
                                        Matrix.CreateScale(canvas.Size.Width / (float)cache.Value.Width,
                                            canvas.Size.Height / (float)cache.Value.Height)))
                             {
-                                canvas.DrawBitmap(cache.Value, Brushes.White, null);
+                                canvas.DrawBitmap(cache.Value, Brushes.Resource.White, null);
                             }
 
                             DrawBoundaries(renderer, canvas);
@@ -764,7 +770,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
     {
         _logger.LogInformation("Disposing PlayerViewModel. ({SceneId})", _editViewModel.SceneId);
         await Pause();
-        Scene!.Invalidated -= OnSceneInvalidated;
+        Scene!.Edited -= OnSceneEdited;
         _disposables.Dispose();
         _currentFrameSubscription?.Dispose();
         AfterRendered.Dispose();
@@ -794,11 +800,12 @@ public sealed class PlayerViewModel : IAsyncDisposable
             if (Scene == null) throw new Exception("Scene is null.");
             // TODO: Rendererに特定のDrawableのみを描画するクラスを追加する
             SceneRenderer renderer = EditViewModel.Renderer.Value;
+            var resource = drawable.ToResource(new RenderContext(CurrentFrame.Value));
             PixelSize frameSize = renderer.FrameSize;
-            using var root = new DrawableRenderNode(drawable);
+            using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, frameSize))
             {
-                drawable.Render(context);
+                drawable.Render(context, resource);
             }
 
             var processor = new RenderNodeProcessor(root, false);

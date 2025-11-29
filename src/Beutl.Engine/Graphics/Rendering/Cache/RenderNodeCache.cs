@@ -26,8 +26,6 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     public bool IsDisposed { get; private set; }
 
-    public List<WeakReference<RenderNode>>? Children { get; private set; }
-
     public void ReportRenderCount(int count)
     {
         _count = count;
@@ -35,68 +33,13 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     public void IncrementRenderCount()
     {
-        _count++;
-    }
-
-    public void CaptureChildren()
-    {
-        if (_node.TryGetTarget(out RenderNode? node)
-            && node is ContainerRenderNode container)
+        if (_node.TryGetTarget(out RenderNode? node) && !node.HasChanges)
         {
-            if (Children == null)
-            {
-                Children = new List<WeakReference<RenderNode>>(container.Children.Count);
-            }
-            else
-            {
-                Children.EnsureCapacity(container.Children.Count);
-            }
-
-            CollectionsMarshal.SetCount(Children, container.Children.Count);
-            Span<WeakReference<RenderNode>> span = CollectionsMarshal.AsSpan(Children);
-
-            for (int i = 0; i < container.Children.Count; i++)
-            {
-                RenderNode item = container.Children[i];
-                ref WeakReference<RenderNode> refrence = ref span[i];
-
-                if (refrence == null)
-                {
-                    refrence = new WeakReference<RenderNode>(item);
-                }
-                else
-                {
-                    refrence.SetTarget(item);
-                }
-            }
-        }
-    }
-
-    public bool SameChildren()
-    {
-        if (Children != null
-            && _node.TryGetTarget(out RenderNode? node)
-            && node is ContainerRenderNode container)
-        {
-            if (Children.Count != container.Children.Count)
-                return false;
-
-            for (int i = 0; i < Children.Count; i++)
-            {
-                WeakReference<RenderNode> capturedRef = Children[i];
-                RenderNode current = container.Children[i];
-                if (!capturedRef.TryGetTarget(out RenderNode? captured)
-                    || !ReferenceEquals(captured, current))
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            _count++;
         }
         else
         {
-            return true;
+            _count = 0;
         }
     }
 
@@ -109,7 +52,8 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
     {
         if (_cache.Count != 0)
         {
-            RenderNodeCacheContext._logger.LogInformation("Invalidating Cache for {Node}", _node.TryGetTarget(out RenderNode? node) ? node : null);
+            RenderNodeCacheContext._logger.LogInformation("Invalidating Cache for {Node}",
+                _node.TryGetTarget(out RenderNode? node) ? node : null);
         }
 
         foreach ((RenderTarget, Rect) item in _cache)

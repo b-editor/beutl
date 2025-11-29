@@ -8,7 +8,7 @@ public sealed class DefaultNodeItem<T> : NodeItem<T>
     public void SetProperty(NodePropertyAdapter<T> property)
     {
         Property = property;
-        property.Invalidated += OnAdapterInvalidated;
+        property.Edited += OnAdapterInvalidated;
     }
 
     private void OnAdapterInvalidated(object? sender, EventArgs e)

@@ -4,6 +4,7 @@ using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Collections.Pooled;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Operation;
@@ -18,10 +19,8 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
     private readonly List<Element> _current = [];
     private TimeRange _lastTime = new(TimeSpan.MinValue, default);
 
-    protected override void ComposeCore()
+    protected override void ComposeCore(TimeRange timeRange)
     {
-        IClock clock = Clock;
-        var timeRange = new TimeRange(clock.AudioStartTime, clock.AudioDurationTime);
         SortLayers(timeRange, out _);
         Span<Element> elements = CollectionsMarshal.AsSpan(_current);
         Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
@@ -39,8 +38,8 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
 
         foreach (Element element in elements)
         {
-            using PooledList<Renderable> list = element.Evaluate(EvaluationTarget.Audio, clock, renderer);
-            foreach (Renderable item in list.Span)
+            using PooledList<EngineObject> list = element.Evaluate(EvaluationTarget.Audio, renderer);
+            foreach (EngineObject item in list.Span)
             {
                 if (item is Sound sound)
                 {
@@ -50,7 +49,7 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
         }
 
         _lastTime = timeRange;
-        base.ComposeCore();
+        base.ComposeCore(timeRange);
     }
 
     private static void EnterSourceOperators(Element element)

@@ -38,27 +38,26 @@ public class TextBlockTests
     public void ParseAndDraw(string str, int id)
     {
         Typeface typeface = TypefaceProvider.Typeface();
-        var tb = new TextBlock()
+        var tb = new TextBlock();
+        tb.FontFamily.CurrentValue = typeface.FontFamily;
+        tb.FontStyle.CurrentValue = typeface.Style;
+        tb.FontWeight.CurrentValue = typeface.Weight;
+        tb.Size.CurrentValue = 100;
+        tb.Fill.CurrentValue = Brushes.Black;
+        tb.Spacing.CurrentValue = 0;
+        tb.Text.CurrentValue = str;
+
+        var resource = tb.ToResource(RenderContext.Default);
+
+        var node = new DrawableRenderNode(resource);
+        using (var context = new GraphicsContext2D(node, new(1920, 1080)))
         {
-            FontFamily = typeface.FontFamily,
-            FontStyle = typeface.Style,
-            FontWeight = typeface.Weight,
-            Size = 100,
-            Fill = Brushes.Black,
-            Spacing = 0,
-            Text = str
-        };
+            context.Clear(Colors.White);
+            tb.Render(context, resource);
+        }
 
-        tb.Measure(Size.Infinity);
-        Rect bounds = tb.Bounds;
-        using var renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)!;
-        using var canvas = new ImmediateCanvas(renderTarget);
-
-        canvas.Clear(Colors.White);
-
-        canvas.DrawDrawable(tb);
-
-        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
+        var processor = new RenderNodeProcessor(node, false);
+        using Bitmap<Bgra8888> bmp = processor.RasterizeAndConcat();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png));
     }
@@ -67,33 +66,30 @@ public class TextBlockTests
     public void ToSKPath()
     {
         Typeface typeface = TypefaceProvider.Typeface();
-        var tb = new TextBlock()
-        {
-            FontFamily = typeface.FontFamily,
-            FontStyle = typeface.Style,
-            FontWeight = typeface.Weight,
-            Size = 100,
-            Fill = Brushes.White,
-            Spacing = 0,
-            Text = Case1
-        };
+        var tb = new TextBlock();
+        tb.FontFamily.CurrentValue = typeface.FontFamily;
+        tb.FontStyle.CurrentValue = typeface.Style;
+        tb.FontWeight.CurrentValue = typeface.Weight;
+        tb.Size.CurrentValue = 100;
+        tb.Fill.CurrentValue = Brushes.White;
+        tb.Spacing.CurrentValue = 0;
+        tb.Text.CurrentValue = Case1;
+        var resource = tb.ToResource(RenderContext.Default);
 
-        tb.Measure(Size.Infinity);
-        Rect bounds = tb.Bounds;
-        using var skpath = TextBlock.ToSKPath(tb.Elements!);
+        var pen = new Pen();
+        pen.Brush.CurrentValue = Brushes.Black;
+        pen.Thickness.CurrentValue = 5;
+        pen.StrokeAlignment.CurrentValue = StrokeAlignment.Outside;
+        var penResource = pen.ToResource(RenderContext.Default);
+
+        using var skpath = TextBlock.ToSKPath(resource.GetTextElements());
+        var bounds = PenHelper.GetBounds(skpath.Bounds.ToGraphicsRect(), penResource);
 
         using var renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height)!;
         using var graphics = new ImmediateCanvas(renderTarget);
 
         graphics.Clear(Colors.White);
-
-        var pen = new Pen
-        {
-            Brush = Brushes.Black,
-            Thickness = 5,
-            StrokeAlignment = StrokeAlignment.Outside
-        };
-        graphics.DrawSKPath(skpath, false, null, pen);
+        graphics.DrawSKPath(skpath, true, null, penResource);
 
         using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 

@@ -2,9 +2,28 @@
 
 public sealed class TransformRenderNode(Matrix transform, TransformOperator transformOperator) : ContainerRenderNode
 {
-    public Matrix Transform { get; } = transform;
+    public Matrix Transform { get; private set; } = transform;
 
-    public TransformOperator TransformOperator { get; } = transformOperator;
+    public TransformOperator TransformOperator { get; private set; } = transformOperator;
+
+    public bool Update(Matrix transform, TransformOperator transformOperator)
+    {
+        bool changed = false;
+        if (Transform != transform)
+        {
+            Transform = transform;
+            changed = true;
+        }
+
+        if (TransformOperator != transformOperator)
+        {
+            TransformOperator = transformOperator;
+            changed = true;
+        }
+
+        HasChanges = changed;
+        return changed;
+    }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
@@ -26,11 +45,5 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
                 },
                 onDispose: r.Dispose))
             .ToArray();
-    }
-
-    public bool Equals(Matrix transform, TransformOperator transformOperator)
-    {
-        return Transform == transform
-               && TransformOperator == transformOperator;
     }
 }

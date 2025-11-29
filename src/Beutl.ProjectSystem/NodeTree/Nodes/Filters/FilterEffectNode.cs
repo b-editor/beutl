@@ -1,47 +1,33 @@
 ﻿using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Effects;
 
-public sealed class FilterEffectNodeEvaluationState(FilterEffect? created)
-{
-    public FilterEffect? Created { get; set; } = created;
-
-    public CombinedFilterEffect? AddtionalState { get; set; }
-}
-
-public abstract class FilterEffectNode : Node
+public abstract class FilterEffectNode<T> : ConfigureNode
+    where T : FilterEffect, new()
 {
     public FilterEffectNode()
     {
-        OutputSocket = AsOutput<FilterEffect?>("FilterEffect");
-        InputSocket = AsInput<FilterEffect?>("FilterEffect");
+        Object = new T();
     }
 
-    protected OutputSocket<FilterEffect?> OutputSocket { get; }
+    public T Object { get; set; }
 
-    protected InputSocket<FilterEffect?> InputSocket { get; }
-
-    public override void Evaluate(NodeEvaluationContext context)
+    protected override void EvaluateCore()
     {
-        FilterEffect? input = InputSocket.Value;
-        if (context.State is not FilterEffectNodeEvaluationState state)
-        {
-            context.State = state = new FilterEffectNodeEvaluationState(null);
-        }
+        FilterEffect.Resource? resource;
 
-        EvaluateCore(state.Created);
-        if (input != null)
+        if (OutputSocket.Value == null)
         {
-            state.AddtionalState ??= new CombinedFilterEffect();
-            state.AddtionalState.Second = state.Created;
-            state.AddtionalState.First = input;
-            OutputSocket.Value = state.AddtionalState;
+            resource = Object.ToResource(RenderContext.Default);
+            OutputSocket.Value = new FilterEffectRenderNode(resource);
         }
-        else
+        else if (OutputSocket.Value is FilterEffectRenderNode { FilterEffect.Resource: { } filterEffect } node)
         {
-            OutputSocket.Value = state.Created;
+            resource = filterEffect;
+            bool updateOnly = false;
+            resource.Update(Object, RenderContext.Default, ref updateOnly);
+            node.Update(resource);
         }
     }
-
-    protected abstract void EvaluateCore(FilterEffect? state);
 }

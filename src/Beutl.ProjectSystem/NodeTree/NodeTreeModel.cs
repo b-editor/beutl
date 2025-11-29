@@ -4,11 +4,11 @@ using Beutl.Serialization;
 
 namespace Beutl.NodeTree;
 
-public abstract class NodeTreeModel : Hierarchical, IAffectsRender
+public abstract class NodeTreeModel : Hierarchical, INotifyEdited
 {
     private readonly HierarchicalList<Node> _nodes;
 
-    public event EventHandler<RenderInvalidatedEventArgs>? Invalidated;
+    public event EventHandler? Edited;
 
     public NodeTreeModel()
     {
@@ -17,9 +17,9 @@ public abstract class NodeTreeModel : Hierarchical, IAffectsRender
 
     public ICoreList<Node> Nodes => _nodes;
 
-    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
+    protected void RaiseInvalidated(EventArgs args)
     {
-        Invalidated?.Invoke(this, args);
+        Edited?.Invoke(this, args);
     }
 
     public ISocket? FindSocket(Guid id)

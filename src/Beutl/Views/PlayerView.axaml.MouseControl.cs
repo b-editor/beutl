@@ -6,6 +6,7 @@ using Avalonia.Platform.Storage;
 
 using Beutl.Animation;
 using Beutl.Controls;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
@@ -162,18 +163,18 @@ public partial class PlayerView
 
         private (TranslateTransform?, Matrix) FindOrCreateTranslation(Drawable drawable)
         {
-            switch (drawable.Transform)
+            switch (drawable.Transform.CurrentValue)
             {
                 case TranslateTransform translateTransform:
                     return (translateTransform, Matrix.Identity);
 
                 case TransformGroup transformGroup:
-                    Transforms list = transformGroup.Children;
+                    var list = transformGroup.Children;
                     TranslateTransform? obj = null;
                     int i;
                     for (i = 0; i < list.Count; i++)
                     {
-                        ITransform item = list[i];
+                        Transform item = list[i];
                         if (item is TranslateTransform translate)
                         {
                             obj = translate;
@@ -184,7 +185,7 @@ public partial class PlayerView
                     if (obj == null)
                     {
                         obj = new TranslateTransform();
-                        transformGroup.Children.BeginRecord<ITransform>()
+                        transformGroup.Children.BeginRecord<Transform>()
                             .Insert(0, obj)
                             .ToCommand([Element])
                             .DoAndRecord(EditViewModel.CommandRecorder);
@@ -193,28 +194,22 @@ public partial class PlayerView
                     }
                     else
                     {
-                        Matrix matrix = Matrix.Identity;
-                        for (int j = 0; j < i; j++)
-                        {
-                            ITransform item = list[j];
-                            if (item.IsEnabled)
-                                matrix = list[j].Value * matrix;
-                        }
+                        var res = transformGroup.ToResource(new RenderContext(EditViewModel.CurrentTime.Value));
 
-                        return (obj, matrix);
+                        return (obj, res.Matrix);
                     }
             }
 
             return (null, Matrix.Identity);
         }
 
-        private KeyFrameState? FindKeyFramePairOrNull(CoreProperty<float> property)
+        private KeyFrameState? FindKeyFramePairOrNull(IProperty<float> property)
         {
             int rate = EditViewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
             TimeSpan globalkeyTime = EditViewModel.CurrentTime.Value;
             TimeSpan localKeyTime = Element != null ? globalkeyTime - Element.Start : globalkeyTime;
 
-            if (_translateTransform!.Animations.FirstOrDefault(v => v.Property == property) is KeyFrameAnimation<float> animation)
+            if (property.Animation is KeyFrameAnimation<float> animation)
             {
                 TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
                 keyTime = keyTime.RoundToRate(rate);
@@ -249,9 +244,10 @@ public partial class PlayerView
                     // 最初の一回だけ、キーフレームを探す
                     if (_translateTransform != null)
                     {
-                        _oldTranslation = new(_translateTransform.X, _translateTransform.Y);
-                        _xKeyFrame = FindKeyFramePairOrNull(TranslateTransform.XProperty);
-                        _yKeyFrame = FindKeyFramePairOrNull(TranslateTransform.YProperty);
+                        // アニメーションが設定されていない場合の編集コマンドの復元に使うのでCurrentValueで良い
+                        _oldTranslation = new(_translateTransform.X.CurrentValue, _translateTransform.Y.CurrentValue);
+                        _xKeyFrame = FindKeyFramePairOrNull(_translateTransform.X);
+                        _yKeyFrame = FindKeyFramePairOrNull(_translateTransform.Y);
                     }
                 }
                 if (_preMatrix.TryInvert(out Matrix inverted))
@@ -266,12 +262,12 @@ public partial class PlayerView
                 {
                     if (!SetKeyFrameValue(_xKeyFrame, (float)delta.X))
                     {
-                        _translateTransform.X += (float)delta.X;
+                        _translateTransform.X.CurrentValue += (float)delta.X;
                     }
 
                     if (!SetKeyFrameValue(_yKeyFrame, (float)delta.Y))
                     {
-                        _translateTransform.Y += (float)delta.Y;
+                        _translateTransform.Y.CurrentValue += (float)delta.Y;
                     }
                 }
 
@@ -318,11 +314,11 @@ public partial class PlayerView
             if (_translateTransform != null)
             {
                 return RecordableCommands.Append(
-                    _translateTransform.X != _oldTranslation.X
-                        ? RecordableCommands.Edit(_translateTransform, TranslateTransform.XProperty, _translateTransform.X, _oldTranslation.X).WithStoables(storables)
+                    _translateTransform.X.CurrentValue != _oldTranslation.X
+                        ? RecordableCommands.Edit(_translateTransform.X, _translateTransform.X.CurrentValue, _oldTranslation.X).WithStoables(storables)
                         : null,
-                    _translateTransform.Y != _oldTranslation.Y
-                        ? RecordableCommands.Edit(_translateTransform, TranslateTransform.YProperty, _translateTransform.Y, _oldTranslation.Y).WithStoables(storables)
+                    _translateTransform.Y.CurrentValue != _oldTranslation.Y
+                        ? RecordableCommands.Edit(_translateTransform.Y, _translateTransform.Y.CurrentValue, _oldTranslation.Y).WithStoables(storables)
                         : null);
             }
 
@@ -364,7 +360,8 @@ public partial class PlayerView
 
             if (Drawable != null)
             {
-                int zindex = (Drawable as DrawableDecorator)?.OriginalZIndex ?? Drawable.ZIndex;
+                // TODO: DrawableGroup以下のDrawableを拾った場合の対応
+                int zindex = Drawable.ZIndex;
                 TimeSpan time = EditViewModel.CurrentTime.Value;
 
                 Element = scene.Children.FirstOrDefault(v =>

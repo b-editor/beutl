@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Helpers;
 using Beutl.Operation;
@@ -57,12 +58,12 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
                         if (v is FilterEffectGroup group)
                         {
-                            var prop = new CorePropertyAdapter<FilterEffects>(FilterEffectGroup.ChildrenProperty, group);
+                            var prop = new EnginePropertyAdapter<ICoreList<FilterEffect>>(group.Children, group);
                             Group.Value = new ListEditorViewModel<FilterEffect>(prop) { IsExpanded = { Value = true } };
                         }
-                        else if (v is FilterEffect filter)
+                        else if (v != null)
                         {
-                            Properties.Value = new PropertiesEditorViewModel(filter, (p, m) => m.Browsable && p != FilterEffect.IsEnabledProperty);
+                            Properties.Value = new PropertiesEditorViewModel(v);
                         }
 
                         AcceptChild();
@@ -78,10 +79,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         IsEnabled.Skip(1)
             .Subscribe(v =>
             {
-                if (Value.Value is FilterEffect filter && filter.IsEnabled != v)
+                if (Value.Value is { } filter && filter.IsEnabled != v)
                 {
                     CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-                    RecordableCommands.Edit(filter, FilterEffect.IsEnabledProperty, v)
+                    RecordableCommands.Edit(filter, EngineObject.IsEnabledProperty, v)
                         .WithStoables(GetStorables())
                         .DoAndRecord(recorder);
                 }

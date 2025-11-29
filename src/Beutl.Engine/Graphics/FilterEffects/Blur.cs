@@ -1,38 +1,23 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class Blur : FilterEffect
+public sealed partial class Blur : FilterEffect
 {
-    public static readonly CoreProperty<Size> SigmaProperty;
-    private Size _sigma;
-
-    static Blur()
+    public Blur()
     {
-        SigmaProperty = ConfigureProperty<Size, Blur>(nameof(Sigma))
-            .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
-            .DefaultValue(Size.Empty)
-            .Register();
-
-        AffectsRender<Blur>(SigmaProperty);
+        ScanProperties<Blur>();
     }
 
     [Display(Name = nameof(Strings.Sigma), ResourceType = typeof(Strings))]
     [Range(typeof(Size), "0,0", "max,max")]
-    public Size Sigma
-    {
-        get => _sigma;
-        set => SetAndRaise(SigmaProperty, ref _sigma, value);
-    }
+    public IProperty<Size> Sigma { get; } = Property.CreateAnimatable(Size.Empty);
 
-    public override void ApplyTo(FilterEffectContext context)
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.Blur(_sigma);
-    }
-
-    public override Rect TransformBounds(Rect bounds)
-    {
-        return bounds.Inflate(new Thickness(_sigma.Width * 3, _sigma.Height * 3));
+        var r = (Resource)resource;
+        context.Blur(r.Sigma);
     }
 }

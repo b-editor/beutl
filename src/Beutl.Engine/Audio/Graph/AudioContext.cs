@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using Beutl.Animation;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph.Nodes;
+using Beutl.Engine;
 using Beutl.Media.Source;
 
 namespace Beutl.Audio.Graph;
@@ -115,29 +111,27 @@ public sealed class AudioContext : IDisposable
     /// <param name="target">The target object for animation binding (optional).</param>
     /// <param name="gainProperty">The property to bind for animated gain (optional).</param>
     /// <returns>The created gain node.</returns>
-    public GainNode CreateGainNode(float gain = 1.0f, IAnimatable? target = null, CoreProperty<float>? gainProperty = null)
+    public GainNode CreateGainNode(IProperty<float> gain)
     {
         ThrowIfDisposed();
-        ArgumentOutOfRangeException.ThrowIfNegative(gain, nameof(gain));
+        ArgumentNullException.ThrowIfNull(gain);
 
         // Try to reuse from previous nodes
         if (_previousNodes != null)
         {
             var existing = _previousNodes.OfType<GainNode>()
-                .FirstOrDefault(n => n.Target == target && n.GainProperty == gainProperty);
+                .FirstOrDefault(n => n.Gain == gain);
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
-                existing.StaticGain = gain;
+                existing.Gain = gain;
                 return AddNode(existing);
             }
         }
 
         var node = new GainNode
         {
-            StaticGain = gain,
-            Target = target,
-            GainProperty = gainProperty
+            Gain = gain
         };
         return AddNode(node);
     }
@@ -232,7 +226,7 @@ public sealed class AudioContext : IDisposable
     /// </summary>
     /// <param name="effect">The audio effect.</param>
     /// <returns>The created effect node.</returns>
-    public EffectNode CreateEffectNode(IAudioEffect effect)
+    public EffectNode CreateEffectNode(AudioEffect effect)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(effect, nameof(effect));
@@ -282,35 +276,31 @@ public sealed class AudioContext : IDisposable
     /// <summary>
     /// Creates and adds a speed node to the context.
     /// </summary>
-    /// <param name="speed">The playback speed multiplier (1.0 = normal speed).</param>
+    /// <param name="speed">The playback speed multiplier (100.0 = normal speed).</param>
     /// <param name="target">The target object for animation binding (optional).</param>
     /// <param name="speedProperty">The property to bind for animated speed (optional).</param>
     /// <returns>The created speed node.</returns>
-    public SpeedNode CreateSpeedNode(float speed = 1.0f, IAnimatable? target = null,
-        CoreProperty<float>? speedProperty = null)
+    public SpeedNode CreateSpeedNode(IProperty<float> speed)
     {
         ThrowIfDisposed();
-        if (speed <= 0)
-            throw new ArgumentOutOfRangeException(nameof(speed), "Speed must be positive.");
+        ArgumentNullException.ThrowIfNull(speed);
 
         // Try to reuse from previous nodes
         if (_previousNodes != null)
         {
             var existing = _previousNodes.OfType<SpeedNode>()
-                .FirstOrDefault(n => n.Target == target && n.SpeedProperty == speedProperty);
+                .FirstOrDefault(n => n.Speed == speed);
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
-                existing.StaticSpeed = speed;
+                existing.Speed = speed;
                 return AddNode(existing);
             }
         }
 
         var node = new SpeedNode
         {
-            StaticSpeed = speed,
-            Target = target,
-            SpeedProperty = speedProperty
+            Speed = speed
         };
         return AddNode(node);
     }

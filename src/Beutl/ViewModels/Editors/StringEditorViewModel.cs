@@ -14,13 +14,8 @@ public sealed class StringEditorViewModel(IPropertyAdapter<string?> property) : 
         base.Accept(visitor);
         if (visitor is StringEditor editor && !Disposables.IsDisposed)
         {
-            CoreProperty? prop = PropertyAdapter.GetCoreProperty();
-            bool multiline = false;
-            if (prop != null)
-            {
-                CorePropertyMetadata metadata = prop.GetMetadata<CorePropertyMetadata>(PropertyAdapter.ImplementedType);
-                multiline = metadata.Attributes.Any(v => v is DataTypeAttribute { DataType: DataType.MultilineText });
-            }
+            var attrs = PropertyAdapter.GetAttributes();
+            bool multiline = attrs.Any(v => v is DataTypeAttribute { DataType: DataType.MultilineText });
 
             editor.Bind(StringEditor.TextProperty, Value.ToBinding())
                 .DisposeWith(Disposables);
