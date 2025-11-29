@@ -225,22 +225,30 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         {
             Dispatcher.UIThread.Invoke(() =>
             {
-                foreach (CoreObject item in e.Storables)
+                var objects = e.Storables
+                    .Select(item =>
+                    {
+                        if (item is Hierarchical hierarchical)
+                        {
+                            return hierarchical.EnumerateAncestors<CoreObject>().Where(o => o.Uri != null);
+                        }
+
+                        if (item.Uri != null)
+                        {
+                            return [item];
+                        }
+
+                        return [];
+                    })
+                    .SelectMany(e => e)
+                    .ToHashSet();
+
+                foreach (CoreObject item in objects)
                 {
                     try
                     {
-                        if (item.Uri != null)
-                        {
-                            CoreSerializer.StoreToUri(item, item.Uri);
-                        }
-                        else if (item is IStorable storable)
-                        {
-                            storable.Save(storable.FileName);
-                        }
-                        else if (item is Hierarchical hierarchical && hierarchical.EnumerateAncestors<CoreObject>().FirstOrDefault(o => o.Uri != null) is { } obj)
-                        {
-                            CoreSerializer.StoreToUri(obj, obj.Uri!);
-                        }
+                        _logger.LogTrace("Auto-saving object ({TypeName}, {ObjectId}).", TypeFormat.ToString(item.GetType()), item.Id);
+                        CoreSerializer.StoreToUri(item, item.Uri!, CoreSerializationMode.Write);
                     }
                     catch (Exception ex)
                     {
@@ -320,6 +328,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         {
             element.PropertyChanged -= OnElementPropertyChanged;
         }
+
         Scene.Children.Attached -= OnElementAttached;
         Scene.Children.Detached -= OnElementDetached;
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
@@ -386,10 +395,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             ["selected-object"] = SelectedObject.Value?.Id,
             ["max-layer-count"] = Options.Value.MaxLayerCount,
             ["scale"] = Options.Value.Scale,
-            ["offset"] = new JsonObject
-            {
-                ["x"] = Options.Value.Offset.X, ["y"] = Options.Value.Offset.Y,
-            }
+            ["offset"] = new JsonObject { ["x"] = Options.Value.Offset.X, ["y"] = Options.Value.Offset.Y, }
         };
 
         DockHost.WriteToJson(json);
@@ -402,7 +408,8 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
     private void RestoreState()
     {
         string viewStateDir = ViewStateDirectory();
-        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath)}.config");
+        string viewStateFile =
+            Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath)}.config");
 
         if (File.Exists(viewStateFile))
         {
