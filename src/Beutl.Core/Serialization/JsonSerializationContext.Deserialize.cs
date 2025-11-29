@@ -68,7 +68,8 @@ public partial class JsonSerializationContext
                     var context = new JsonSerializationContext(
                         ownerType: actualType,
                         parent: parent,
-                        json: obj);
+                        json: obj,
+                        options: options);
 
                     using (ThreadLocalSerializationContext.Enter(context))
                     {

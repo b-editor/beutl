@@ -87,8 +87,8 @@ public class JsonSerializationTest
     {
         var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
         var projPath = Path.Combine(basePath, "0.bproj");
-        var scenePath = Path.Combine(basePath, "0.scene");
-        var layerPath = Path.Combine(basePath, "0.layer");
+        var scenePath = Path.Combine(basePath, "0", "0.scene");
+        var layerPath = Path.Combine(basePath, "0", "1", "0.layer");
 
         // 既存のファイルを削除
         if (File.Exists(projPath)) File.Delete(projPath);
@@ -138,8 +138,8 @@ public class JsonSerializationTest
     {
         var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
         var projPath = Path.Combine(basePath, "0.bproj");
-        var scenePath = Path.Combine(basePath, "0.scene");
-        var layerPath = Path.Combine(basePath, "0.layer");
+        var scenePath = Path.Combine(basePath, "0", "0.scene");
+        var layerPath = Path.Combine(basePath, "0", "1", "0.layer");
         // 既存のファイルを削除
         if (File.Exists(projPath)) File.Delete(projPath);
         if (File.Exists(scenePath)) File.Delete(scenePath);

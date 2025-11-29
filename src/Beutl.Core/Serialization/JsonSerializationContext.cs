@@ -22,7 +22,7 @@ public partial class JsonSerializationContext(
 
     public CoreSerializationMode Mode => options?.Mode ?? Parent?.Mode ?? CoreSerializationMode.ReadWrite;
 
-    public Uri? BaseUri => options?.BaseUri ?? (!IsRoot ? Root.BaseUri : null);
+    public Uri? BaseUri => options?.BaseUri ?? Parent?.BaseUri;
 
     public Type OwnerType { get; } = ownerType;
 
