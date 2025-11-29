@@ -113,7 +113,7 @@ public sealed class ProjectService
             location = Path.Combine(location, name);
             var scene = new Scene(width, height, name)
             {
-                Uri = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{Constants.SceneFileExtension}")),
+                Uri = UriHelper.CreateFromPath(Path.Combine(location, name, $"{name}.{Constants.SceneFileExtension}")),
             };
             var project = new Project()
             {
