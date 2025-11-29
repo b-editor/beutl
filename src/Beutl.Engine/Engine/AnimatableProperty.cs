@@ -4,6 +4,7 @@ using System.Reflection;
 using Beutl.Animation;
 using Beutl.Serialization;
 using Beutl.Validation;
+using ValidationContext = Beutl.Validation.ValidationContext;
 
 namespace Beutl.Engine;
 
@@ -207,7 +208,14 @@ public class AnimatableProperty<T> : IProperty<T>
         if (_validator == null)
             return value;
 
-        if (_validator.TryCoerce(new(this, null), ref value!))
+        var context = new ValidationContext(this, null);
+        if (_validator.TryCoerce(context, ref value!))
+        {
+            return value;
+        }
+
+        // Coerceできなかった場合、Validateを試みる
+        if (_validator.Validate(context, value) == null)
         {
             return value;
         }

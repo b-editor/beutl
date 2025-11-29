@@ -81,6 +81,14 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
 
                 goto default;
 
+            case DataTypeAttribute dataTypeAttribute:
+                if (dataTypeAttribute.DataType == DataType.MultilineText)
+                {
+                    // MultilineTextの場合はバリデーションを行わない
+                    return new DataAnnotationValidater<T>(null);
+                }
+                goto default;
+
             default:
                 return new DataAnnotationValidater<T>(att);
         }
