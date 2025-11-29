@@ -26,7 +26,7 @@ public partial class OutputTab : UserControl
     {
         if (DataContext is not OutputTabViewModel viewModel) return;
 
-        var ext = OutputService.GetExtensions(viewModel.EditViewModel.Scene.FileName);
+        var ext = OutputService.GetExtensions(viewModel.EditViewModel.Scene.GetType());
         if (ext.Length == 1)
         {
             viewModel.AddItem(ext[0]);

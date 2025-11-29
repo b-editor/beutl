@@ -46,15 +46,6 @@ public sealed class GlobalConfiguration
     {
         try
         {
-            static void Serialize(ICoreSerializable serializable, JsonObject obj)
-            {
-                var context = new JsonSerializationContext(serializable.GetType(), NullSerializationErrorNotifier.Instance, json: obj);
-                using (ThreadLocalSerializationContext.Enter(context))
-                {
-                    serializable.Serialize(context);
-                }
-            }
-
             _filePath = file;
             RemoveHandlers();
             string dir = Path.GetDirectoryName(file)!;
@@ -68,29 +59,17 @@ public sealed class GlobalConfiguration
                 ["Version"] = BeutlApplication.Version
             };
 
-            var fontNode = new JsonObject();
-            Serialize(FontConfig, fontNode);
-            json["Font"] = fontNode;
+            json["Font"] = CoreSerializer.SerializeToJsonObject(FontConfig);
 
-            var viewNode = new JsonObject();
-            Serialize(ViewConfig, viewNode);
-            json["View"] = viewNode;
+            json["View"] = CoreSerializer.SerializeToJsonObject(ViewConfig);
 
-            var extensionNode = new JsonObject();
-            Serialize(ExtensionConfig, extensionNode);
-            json["Extension"] = extensionNode;
+            json["Extension"] = CoreSerializer.SerializeToJsonObject(ExtensionConfig);
 
-            var backupNode = new JsonObject();
-            Serialize(BackupConfig, backupNode);
-            json["Backup"] = backupNode;
+            json["Backup"] = CoreSerializer.SerializeToJsonObject(BackupConfig);
 
-            var telemetryNode = new JsonObject();
-            Serialize(TelemetryConfig, telemetryNode);
-            json["Telemetry"] = telemetryNode;
+            json["Telemetry"] = CoreSerializer.SerializeToJsonObject(TelemetryConfig);
 
-            var editorNode = new JsonObject();
-            Serialize(EditorConfig, editorNode);
-            json["Editor"] = editorNode;
+            json["Editor"] = CoreSerializer.SerializeToJsonObject(EditorConfig);
 
             json.JsonSave(file);
         }
@@ -118,12 +97,7 @@ public sealed class GlobalConfiguration
                 }
                 static void Deserialize(ICoreSerializable serializable, JsonObject obj)
                 {
-                    var context = new JsonSerializationContext(
-                        serializable.GetType(), NullSerializationErrorNotifier.Instance, json: obj);
-                    using (ThreadLocalSerializationContext.Enter(context))
-                    {
-                        serializable.Deserialize(context);
-                    }
+                    CoreSerializer.PopulateFromJsonObject(serializable, obj);
                 }
 
                 if (GetNode("font", "Font") is JsonObject font)

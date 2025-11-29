@@ -1,21 +1,18 @@
-﻿using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿using Beutl.IO;
 
 namespace Beutl.Media.Source;
 
-public sealed class SoundSourceJsonConverter : JsonConverter<ISoundSource?>
+public sealed class SoundSourceJsonConverter : FileSourceJsonConverter
 {
-    public override ISoundSource? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override bool CanConvert(Type typeToConvert)
     {
-        string? s = reader.GetString();
-
-        return s != null && SoundSource.TryOpen(s, out var soundSource)
-            ? soundSource
-            : null;
+        return typeToConvert.IsAssignableTo(typeof(ISoundSource));
     }
 
-    public override void Write(Utf8JsonWriter writer, ISoundSource? value, JsonSerializerOptions options)
+    public override IFileSource? CreateInstance(Type typeToConvert)
     {
-        writer.WriteStringValue(value?.Name);
+        return typeToConvert == typeof(ISoundSource)
+            ? new SoundSource()
+            : Activator.CreateInstance(typeToConvert) as ISoundSource;
     }
 }

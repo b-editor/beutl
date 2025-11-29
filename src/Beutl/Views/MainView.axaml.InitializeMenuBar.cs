@@ -8,6 +8,7 @@ using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
@@ -111,7 +112,7 @@ public partial class MainView
             && viewModel.Scene is Scene scene
             && viewModel.SelectedObject.Value is Element element)
         {
-            string name = Path.GetFileName(element.FileName);
+            string name = Path.GetFileName(element.Uri!.LocalPath);
             var dialog = new ContentDialog
             {
                 CloseButtonText = Strings.Cancel,
@@ -123,9 +124,9 @@ public partial class MainView
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 scene.RemoveChild(element).Do();
-                if (File.Exists(element.FileName))
+                if (File.Exists(element.Uri!.LocalPath))
                 {
-                    File.Delete(element.FileName);
+                    File.Delete(element.Uri!.LocalPath);
                 }
             }
         }
@@ -155,7 +156,7 @@ public partial class MainView
         if (project != null && selectedTabItem != null)
         {
             string filePath = selectedTabItem.FilePath.Value;
-            ProjectItem? projItem = project.Items.FirstOrDefault(i => i.FileName == filePath);
+            ProjectItem? projItem = project.Items.FirstOrDefault(i => i == selectedTabItem.Context.Value.Object);
             if (projItem == null)
                 return;
 
@@ -170,6 +171,7 @@ public partial class MainView
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 project.Items.Remove(projItem);
+                CoreSerializer.StoreToUri(project, project.Uri!);
             }
         }
     }

@@ -2,7 +2,6 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
-
 using SkiaSharp;
 
 namespace Beutl.Media;
@@ -39,10 +38,7 @@ public abstract partial class Geometry : EngineObject
                 _cachedPath?.Dispose();
                 var geometry = GetOriginal();
 
-                _cachedPath = new GeometryContext
-                {
-                    FillType = FillType
-                };
+                _cachedPath = new GeometryContext { FillType = FillType };
                 geometry.ApplyTo(_cachedPath, this);
                 if (Transform != null)
                 {
@@ -53,10 +49,12 @@ public abstract partial class Geometry : EngineObject
             return _cachedPath.NativeObject;
         }
 
-        internal SKPath? GetCachedStrokePath(Pen.Resource pen)
+        internal SKPath GetCachedStrokePath(Pen.Resource pen)
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
-            if (_cachedPen == null || _cachedPen?.Resource.GetOriginal() != pen.GetOriginal()
+            if (_cachedStrokePath == null
+                || _cachedPen == null
+                || _cachedPen?.Resource.GetOriginal() != pen.GetOriginal()
                 || _cachedPen?.Version != pen.Version)
             {
                 _cachedStrokePath?.Dispose();

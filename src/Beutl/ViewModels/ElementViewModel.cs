@@ -6,6 +6,7 @@ using Beutl.Animation;
 using Beutl.Helpers;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using FluentAvalonia.UI.Media;
 using Reactive.Bindings;
@@ -274,10 +275,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         var skipMulti = selected.Count == 1 && selected.First() == this;
 
-        string singleJson = CoreSerializerHelper.SerializeToJsonString(Model);
+        string singleJson = CoreSerializer.SerializeToJsonString(Model);
         string? multiJson = !skipMulti
             ? new JsonArray(selected
-                    .Select(JsonNode (i) => CoreSerializerHelper.SerializeToJsonObject(i.Model))
+                    .Select(JsonNode (i) => CoreSerializer.SerializeToJsonObject(i.Model))
                     .ToArray())
                 .ToJsonString()
             : null;
@@ -411,8 +412,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         }
 
-        backward.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!,
-            Constants.ElementFileExtension));
+        CoreSerializer.StoreToUri(
+            backward,
+            RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
         IRecordableCommand command2 = Scene.AddChild(backward);
         IRecordableCommand command3 = backward.Operation.OnSplit(true, forwardLength, -forwardLength);
         IRecordableCommand command4 = Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);

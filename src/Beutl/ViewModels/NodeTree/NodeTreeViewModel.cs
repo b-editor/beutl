@@ -84,7 +84,7 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
         CommandRecorder recorder = _editViewModel.CommandRecorder;
         NodeTree.Nodes.BeginRecord<Node>()
             .Add(node)
-            .ToCommand([NodeTree.FindHierarchicalParent<IStorable>()])
+            .ToCommand([NodeTree])
             .DoAndRecord(recorder);
     }
 

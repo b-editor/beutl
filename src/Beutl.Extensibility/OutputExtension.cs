@@ -13,7 +13,7 @@ public interface IOutputContext : IDisposable, IJsonSerializable
 {
     OutputExtension Extension { get; }
 
-    string TargetFile { get; }
+    CoreObject Object { get; }
 
     IReactiveProperty<string> Name { get; }
 
@@ -45,11 +45,5 @@ public abstract class OutputExtension : Extension
 
     public abstract bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IOutputContext? context);
 
-    public virtual bool IsSupported(string file)
-    {
-        return MatchFileExtension(Path.GetExtension(file));
-    }
-
-    // extはピリオドを含む
-    public abstract bool MatchFileExtension(string ext);
+    public abstract bool IsSupported(Type type);
 }

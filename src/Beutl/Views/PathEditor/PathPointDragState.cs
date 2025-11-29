@@ -101,7 +101,7 @@ public sealed class PathPointDragState
         }
     }
 
-    public IRecordableCommand? CreateCommand(ImmutableArray<IStorable?> storables)
+    public IRecordableCommand? CreateCommand(ImmutableArray<CoreObject?> storables)
     {
         if (Previous == null && Next == null)
         {

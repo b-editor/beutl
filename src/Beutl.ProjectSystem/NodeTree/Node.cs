@@ -313,18 +313,7 @@ public abstract class Node : Hierarchical
 
                     if (nodeItem is ICoreSerializable serializable)
                     {
-                        if (LocalSerializationErrorNotifier.Current is not { } notifier)
-                        {
-                            notifier = NullSerializationErrorNotifier.Instance;
-                        }
-                        ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
-
-                        var innerContext = new JsonSerializationContext(nodeItem.GetType(), notifier, parent, itemObj);
-                        using (ThreadLocalSerializationContext.Enter(innerContext))
-                        {
-                            serializable.Deserialize(innerContext);
-                            innerContext.AfterDeserialized(serializable);
-                        }
+                        CoreSerializer.PopulateFromJsonObject(serializable, itemObj);
                     }
                 }
 

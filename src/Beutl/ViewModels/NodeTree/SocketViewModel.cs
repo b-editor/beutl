@@ -199,9 +199,9 @@ public class SocketViewModel : NodeItemViewModel
     {
     }
 
-    private static ImmutableArray<IStorable?> GetStorables(ISocket socket)
+    private static ImmutableArray<CoreObject?> GetStorables(ISocket socket)
     {
-        return [(socket as IHierarchical)?.FindHierarchicalParent<IStorable>()];
+        return [socket as CoreObject];
     }
 
     private sealed class ConnectGeneratedSocketCommand : IRecordableCommand
@@ -230,7 +230,7 @@ public class SocketViewModel : NodeItemViewModel
             }
         }
 
-        public ImmutableArray<IStorable?> GetStorables()
+        public ImmutableArray<CoreObject?> GetStorables()
         {
             return SocketViewModel.GetStorables(_socket);
         }

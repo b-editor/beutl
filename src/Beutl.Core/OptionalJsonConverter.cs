@@ -29,30 +29,8 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
             object? instance;
             if (jsonNode is JsonObject jsonObject)
             {
-                Type? actualType = jsonObject.GetDiscriminator(valueType);
-                if (actualType != null)
-                {
-                    if (LocalSerializationErrorNotifier.Current is not { } notifier)
-                    {
-                        notifier = NullSerializationErrorNotifier.Instance;
-                    }
-                    ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
-
-                    var context = new JsonSerializationContext(actualType, notifier, parent, jsonObject);
-
-                    if (actualType?.IsAssignableTo(valueType) == true
-                        && Activator.CreateInstance(actualType) is ICoreSerializable serializable)
-                    {
-                        using (ThreadLocalSerializationContext.Enter(context))
-                        {
-                            serializable.Deserialize(context);
-                            context.AfterDeserialized(serializable);
-                        }
-
-                        instance = serializable;
-                        goto Return;
-                    }
-                }
+                instance = CoreSerializer.DeserializeFromJsonObject(jsonObject, valueType);
+                goto Return;
             }
 
             instance = JsonSerializer.Deserialize(jsonNode, valueType, options);
@@ -74,24 +52,7 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
 
             if (optionalValue is ICoreSerializable serializable)
             {
-                if (LocalSerializationErrorNotifier.Current is not { } notifier)
-                {
-                    notifier = NullSerializationErrorNotifier.Instance;
-                }
-
-                ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
-                Type valueType = value.GetType();
-                var context = new JsonSerializationContext(valueType, notifier, parent);
-                using (ThreadLocalSerializationContext.Enter(context))
-                {
-                    serializable.Serialize(context);
-                }
-
-                JsonObject obj = context.GetJsonObject();
-                if (valueType != optionalType)
-                {
-                    obj.WriteDiscriminator(valueType);
-                }
+                JsonObject obj = CoreSerializer.SerializeToJsonObject(serializable);
                 obj.WriteTo(writer, options);
             }
             else

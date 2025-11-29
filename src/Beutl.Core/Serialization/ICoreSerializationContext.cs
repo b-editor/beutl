@@ -4,9 +4,9 @@ public interface ICoreSerializationContext
 {
     CoreSerializationMode Mode { get; }
 
-    Type OwnerType { get; }
+    Uri? BaseUri { get; }
 
-    ISerializationErrorNotifier ErrorNotifier { get; }
+    Type OwnerType { get; }
 
     void SetValue<T>(string name, T? value);
 

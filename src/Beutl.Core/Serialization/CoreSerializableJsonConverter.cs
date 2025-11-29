@@ -11,26 +11,28 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
         var jsonNode = JsonNode.Parse(ref reader);
         if (jsonNode is JsonObject jsonObject)
         {
-            if (LocalSerializationErrorNotifier.Current is not { } notifier)
+            return CoreSerializer.DeserializeFromJsonObject(jsonObject, typeToConvert) as ICoreSerializable;
+        }
+        else if (jsonNode is JsonValue jsonValue && jsonValue.TryGetValue(out string? uriString))
+        {
+            var parentContext = ThreadLocalSerializationContext.Current;
+            if (!Uri.TryCreate(uriString, UriKind.RelativeOrAbsolute, out Uri? uri))
             {
-                notifier = NullSerializationErrorNotifier.Instance;
+                throw new JsonException($"Invalid URI: {uriString}");
             }
-            ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
 
-            var context = new JsonSerializationContext(typeToConvert, notifier, parent, jsonObject);
-
-            Type? actualType = typeToConvert.IsSealed ? typeToConvert : jsonObject.GetDiscriminator(typeToConvert);
-            if (actualType?.IsAssignableTo(typeToConvert) == true
-                && Activator.CreateInstance(actualType) is ICoreSerializable instance)
+            if (!uri.IsAbsoluteUri)
             {
-                using (ThreadLocalSerializationContext.Enter(context))
+                if (parentContext == null)
+                    throw new JsonException("Cannot resolve relative URI without a parent context.");
+
+                if (!Uri.TryCreate(parentContext.BaseUri, uriString, out uri))
                 {
-                    instance.Deserialize(context);
-                    context.AfterDeserialized(instance);
+                    throw new JsonException($"Invalid relative URI: {uriString}");
                 }
-
-                return instance;
             }
+
+            return CoreSerializer.RestoreFromUri(uri, typeToConvert) as ICoreSerializable;
         }
 
         throw new JsonException();
@@ -38,21 +40,42 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
 
     public override void Write(Utf8JsonWriter writer, ICoreSerializable value, JsonSerializerOptions options)
     {
-        if (LocalSerializationErrorNotifier.Current is not { } notifier)
+        var parentContext = ThreadLocalSerializationContext.Current;
+        if (value is CoreObject { Uri: not null } coreObj && parentContext != null)
         {
-            notifier = NullSerializationErrorNotifier.Instance;
+            if (parentContext.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
+            {
+                var node = CoreSerializer.SerializeToJsonObject(value,
+                    new CoreSerializerOptions { BaseUri = coreObj.Uri });
+
+                using var stream = File.Create(coreObj.Uri.LocalPath);
+                using var innerWriter = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
+                node.WriteTo(innerWriter);
+            }
+
+            var serializedUri = coreObj.Uri;
+            if (parentContext.BaseUri?.Scheme == coreObj.Uri.Scheme)
+            {
+                serializedUri = parentContext.BaseUri.MakeRelativeUri(coreObj.Uri);
+            }
+
+            if (parentContext.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects))
+            {
+                var node = CoreSerializer.SerializeToJsonObject(value,
+                    new CoreSerializerOptions { BaseUri = coreObj.Uri });
+
+                node["Uri"] = serializedUri.ToString();
+                node.WriteTo(writer, options);
+            }
+            else
+            {
+                writer.WriteStringValue(serializedUri.ToString());
+            }
+
+            return;
         }
 
-        ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
-        Type valueType = value.GetType();
-        var context = new JsonSerializationContext(value.GetType(), notifier, parent);
-        using (ThreadLocalSerializationContext.Enter(context))
-        {
-            value.Serialize(context);
-        }
-
-        JsonObject obj = context.GetJsonObject();
-        obj.WriteDiscriminator(valueType);
+        JsonObject obj = CoreSerializer.SerializeToJsonObject(value);
         obj.WriteTo(writer, options);
     }
 }

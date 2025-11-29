@@ -8,6 +8,7 @@ using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.Reactive;
+using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -241,13 +242,13 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                 return;
             }
 
-            JsonObject oldJson = CoreSerializerHelper.SerializeToJsonObject(animation);
+            JsonObject oldJson = CoreSerializer.SerializeToJsonObject(animation);
             Guid id = animation.Id;
 
             RecordableCommands.Create(
                     () =>
                     {
-                        CoreSerializerHelper.PopulateFromJsonObject(animation, newJson);
+                        CoreSerializer.PopulateFromJsonObject(animation, newJson);
                         animation.Id = id;
                         foreach (IKeyFrame item in animation.KeyFrames)
                         {
@@ -256,7 +257,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                     },
                     () =>
                     {
-                        CoreSerializerHelper.PopulateFromJsonObject(animation, oldJson);
+                        CoreSerializer.PopulateFromJsonObject(animation, oldJson);
                         animation.Id = id;
                     },
                     [Element.Model])
@@ -299,7 +300,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             KeyFrameAnimation animation = (KeyFrameAnimation)Property.Animation!;
 
             KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(discriminator)!;
-            CoreSerializerHelper.PopulateFromJsonObject(newKeyFrame, newJson);
+            CoreSerializer.PopulateFromJsonObject(newKeyFrame, newJson);
 
             if (discriminator.GenericTypeArguments[0] != animation.ValueType)
             {

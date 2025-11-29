@@ -7,8 +7,7 @@ namespace Beutl.Serialization;
 public partial class JsonSerializationContext
 {
     private static void DeserializeArray(
-        List<object?> output, JsonArray jarray, Type elementType,
-        ISerializationErrorNotifier errorNotifier, ICoreSerializationContext? parent)
+        List<object?> output, JsonArray jarray, Type elementType, ICoreSerializationContext? parent)
     {
         int index = 0;
         foreach (JsonNode? item in jarray)
@@ -20,8 +19,7 @@ public partial class JsonSerializationContext
             else
             {
                 string name = index.ToString();
-                output.Add(Deserialize(item, elementType, name,
-                    new RelaySerializationErrorNotifier(errorNotifier, name), parent));
+                output.Add(Deserialize(item, elementType, name, parent));
             }
 
             index++;
@@ -29,8 +27,7 @@ public partial class JsonSerializationContext
     }
 
     private static object? Deserialize(
-        JsonNode node, Type baseType, string propertyName,
-        ISerializationErrorNotifier errorNotifier, ICoreSerializationContext? parent)
+        JsonNode node, Type baseType, string propertyName, ICoreSerializationContext? parent)
     {
         if (!baseType.IsAssignableTo(typeof(JsonNode)))
         {
@@ -51,8 +48,7 @@ public partial class JsonSerializationContext
                         else
                         {
                             object? valueNode = Deserialize(
-                                item.Value, valueType, name,
-                                new RelaySerializationErrorNotifier(errorNotifier, name), parent);
+                                item.Value, valueType, name, parent);
                             output.Add(new(name, valueNode));
                         }
                     }
@@ -63,21 +59,24 @@ public partial class JsonSerializationContext
                 Type? actualType = baseType.IsSealed ? baseType : obj.GetDiscriminator(baseType);
                 if (actualType?.IsAssignableTo(typeof(ICoreSerializable)) == true)
                 {
+                    var instance = Activator.CreateInstance(actualType) as ICoreSerializable
+                                   ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
+
+                    CoreSerializerOptions? options = null;
+                    CoreSerializer.ReflectUri(obj, instance, parent, ref options);
+
                     var context = new JsonSerializationContext(
                         ownerType: actualType,
-                        errorNotifier: new RelaySerializationErrorNotifier(errorNotifier, propertyName),
                         parent: parent,
-                        json: obj);
+                        json: obj,
+                        options: options);
 
                     using (ThreadLocalSerializationContext.Enter(context))
                     {
-                        if (Activator.CreateInstance(actualType) is ICoreSerializable instance)
-                        {
-                            instance.Deserialize(context);
-                            context.AfterDeserialized(instance);
+                        instance.Deserialize(context);
+                        context.AfterDeserialized(instance);
 
-                            return instance;
-                        }
+                        return instance;
                     }
                 }
             }
@@ -90,30 +89,48 @@ public partial class JsonSerializationContext
                 {
                     var output = new List<object?>(jarray.Count);
                     DeserializeArray(
-                        output, jarray, elementType,
-                        new RelaySerializationErrorNotifier(errorNotifier, propertyName), parent);
+                        output, jarray, elementType, parent);
 
                     return ArrayTypeHelpers.ConvertArrayType(output, baseType, elementType);
                 }
             }
-            else if (node is JsonValue jsonValue
-                     && jsonValue.TryGetValue(out Guid id)
-                     && baseType.IsAssignableTo(typeof(IReference)))
+            else if (node is JsonValue jsonValue)
             {
-                return Activator.CreateInstance(baseType, id);
+                if (jsonValue.TryGetValue(out Guid id)
+                    && baseType.IsAssignableTo(typeof(IReference)))
+                {
+                    return Activator.CreateInstance(baseType, id);
+                }
+                if (jsonValue.TryGetValue(out string? uriString)
+                    && typeof(ICoreSerializable).IsAssignableFrom(baseType))
+                {
+                    return DeserializeObjectFile(uriString, baseType, parent);
+                }
             }
         }
 
-        ISerializationErrorNotifier? captured = LocalSerializationErrorNotifier.Current;
-        try
+        return JsonSerializer.Deserialize(node, baseType, JsonHelper.SerializerOptions);
+    }
+
+    private static object? DeserializeObjectFile(string? uriString, Type type, ICoreSerializationContext? parent)
+    {
+        if (!Uri.TryCreate(uriString, UriKind.RelativeOrAbsolute, out Uri? uri))
         {
-            LocalSerializationErrorNotifier.Current = new RelaySerializationErrorNotifier(errorNotifier, propertyName);
-            return JsonSerializer.Deserialize(node, baseType, JsonHelper.SerializerOptions);
+            throw new JsonException($"Invalid URI: {uriString}");
         }
-        finally
+
+        if (!uri.IsAbsoluteUri)
         {
-            LocalSerializationErrorNotifier.Current = captured;
+            if (parent == null)
+                throw new JsonException("Cannot resolve relative URI without a parent context.");
+
+            if (!Uri.TryCreate(parent.BaseUri, uriString, out uri))
+            {
+                throw new JsonException($"Invalid relative URI: {uriString}");
+            }
         }
+
+        return CoreSerializer.RestoreFromUri(uri, type);
     }
 
     public T? GetValue<T>(string name)
@@ -128,7 +145,7 @@ public partial class JsonSerializationContext
             }
             else
             {
-                return (T?)Deserialize(node, baseType, name, ErrorNotifier, this);
+                return (T?)Deserialize(node, baseType, name, this);
             }
         }
         else
@@ -149,7 +166,7 @@ public partial class JsonSerializationContext
             }
             else
             {
-                return Deserialize(node, type, name, ErrorNotifier, this);
+                return Deserialize(node, type, name, this);
             }
         }
         else

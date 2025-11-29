@@ -11,11 +11,11 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
     public VideoSourceEditorViewModel(IPropertyAdapter<IVideoSource?> property)
         : base(property)
     {
-        FullName = Value.Select(x => x?.Name)
+        FullName = Value.Select(x => x?.Uri.LocalPath)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        FileInfo = Value.Select(x => x != null ? new FileInfo(x.Name) : null)
+        FileInfo = Value.Select(x => x != null ? new FileInfo(x.Uri.LocalPath) : null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -46,20 +46,20 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
         KeyFrame<IVideoSource?> setter,
         IVideoSource? oldValue,
         IVideoSource? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
+        ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
-        private readonly string? _oldName = oldValue?.Name;
-        private readonly string? _newName = newValue?.Name;
+        private readonly Uri? _oldUri = oldValue?.Uri;
+        private readonly Uri? _newUri = newValue?.Uri;
         private IVideoSource? _oldValue = oldValue;
         private IVideoSource? _newValue = newValue;
 
-        public ImmutableArray<IStorable?> GetStorables() => storables;
+        public ImmutableArray<CoreObject?> GetStorables() => storables;
 
         public void Do()
         {
-            if (_newValue == null && _newName != null)
+            if (_newValue == null && _newUri != null)
             {
-                VideoSource.TryOpen(_newName, out VideoSource? newValue);
+                VideoSource.TryOpen(_newUri, out VideoSource? newValue);
                 _newValue = newValue;
             }
 
@@ -75,9 +75,9 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
 
         public void Undo()
         {
-            if (_oldValue == null && _oldName != null)
+            if (_oldValue == null && _oldUri != null)
             {
-                VideoSource.TryOpen(_oldName, out VideoSource? oldValue);
+                VideoSource.TryOpen(_oldUri, out VideoSource? oldValue);
                 _oldValue = oldValue;
             }
 
@@ -91,20 +91,20 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
         IPropertyAdapter<IVideoSource?> setter,
         IVideoSource? oldValue,
         IVideoSource? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
+        ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
-        private readonly string? _oldName = oldValue?.Name;
-        private readonly string? _newName = newValue?.Name;
+        private readonly Uri? _oldUri = oldValue?.Uri;
+        private readonly Uri? _newUri = newValue?.Uri;
         private IVideoSource? _oldValue = oldValue;
         private IVideoSource? _newValue = newValue;
 
-        public ImmutableArray<IStorable?> GetStorables() => storables;
+        public ImmutableArray<CoreObject?> GetStorables() => storables;
 
         public void Do()
         {
-            if (_newValue == null && _newName != null)
+            if (_newValue == null && _newUri != null)
             {
-                VideoSource.TryOpen(_newName, out VideoSource? newValue);
+                VideoSource.TryOpen(_newUri, out VideoSource? newValue);
                 _newValue = newValue;
             }
 
@@ -120,9 +120,9 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
 
         public void Undo()
         {
-            if (_oldValue == null && _oldName != null)
+            if (_oldValue == null && _oldUri != null)
             {
-                VideoSource.TryOpen(_oldName, out VideoSource? oldValue);
+                VideoSource.TryOpen(_oldUri, out VideoSource? oldValue);
                 _oldValue = oldValue;
             }
 

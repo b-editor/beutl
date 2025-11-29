@@ -8,7 +8,7 @@ namespace Beutl.Operators.Source;
 
 public sealed class SourceImageOperator : PublishOperator<SourceImage>
 {
-    private string? _sourceName;
+    private Uri? _uri;
 
     protected override void FillProperties()
     {
@@ -25,9 +25,9 @@ public sealed class SourceImageOperator : PublishOperator<SourceImage>
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        if (Value is not { Source.CurrentValue: { Name: { } name } source } value) return;
+        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } value) return;
 
-        _sourceName = name;
+        _uri = uri;
         value.Source.CurrentValue = null;
         source.Dispose();
     }
@@ -35,10 +35,10 @@ public sealed class SourceImageOperator : PublishOperator<SourceImage>
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
-        if (_sourceName is null) return;
+        if (_uri is null) return;
         if (Value is not { } value) return;
 
-        if (BitmapSource.TryOpen(_sourceName, out BitmapSource? imageSource))
+        if (BitmapSource.TryOpen(_uri, out BitmapSource? imageSource))
         {
             value.Source.CurrentValue = imageSource;
         }

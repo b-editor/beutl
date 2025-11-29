@@ -47,9 +47,9 @@ public sealed class SceneEditorExtension : EditorExtension
         ]),
     ];
 
-    public override bool TryCreateEditor(string file, [NotNullWhen(true)] out Control? editor)
+    public override bool TryCreateEditor(CoreObject obj, [NotNullWhen(true)] out Control? editor)
     {
-        if (file.EndsWith($".{Constants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase))
+        if (obj is Scene)
         {
             editor = new EditView();
             return true;
@@ -61,12 +61,11 @@ public sealed class SceneEditorExtension : EditorExtension
         }
     }
 
-    public override bool TryCreateContext(string file, [NotNullWhen(true)] out IEditorContext? context)
+    public override bool TryCreateContext(CoreObject obj, [NotNullWhen(true)] out IEditorContext? context)
     {
-        if (file.EndsWith($".{Constants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase)
-            && ProjectItemContainer.Current.TryGetOrCreateItem(file, out Scene? model))
+        if (obj is Scene scene)
         {
-            context = new EditViewModel(model);
+            context = new EditViewModel(scene);
             return true;
         }
         else

@@ -325,20 +325,8 @@ public class GroupNode : Node
             {
                 if (index < Items.Count)
                 {
-                    INodeItem? nodeItem = Items[index];
-                    if (LocalSerializationErrorNotifier.Current is not { } notifier)
-                    {
-                        notifier = NullSerializationErrorNotifier.Instance;
-                    }
-                    ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
-
-                    var innerContext = new JsonSerializationContext(nodeItem.GetType(), notifier, parent, itemJson);
-                    using (ThreadLocalSerializationContext.Enter(innerContext))
-                    {
-                        nodeItem.Deserialize(innerContext);
-                        innerContext.AfterDeserialized(nodeItem);
-                    }
-
+                    INodeItem nodeItem = Items[index];
+                    CoreSerializer.PopulateFromJsonObject(nodeItem, itemJson);
                     ((NodeItem)nodeItem).LocalId = index;
                 }
 

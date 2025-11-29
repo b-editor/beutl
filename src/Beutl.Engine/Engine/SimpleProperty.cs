@@ -152,6 +152,11 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
             return value;
         }
 
+        if (_validator.Validate(new(this, null), value) == null)
+        {
+            return value;
+        }
+
         return DefaultValue;
     }
 

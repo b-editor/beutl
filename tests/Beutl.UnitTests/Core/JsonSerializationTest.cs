@@ -53,21 +53,22 @@ public class JsonSerializationTest
     {
         BeutlApplication app = BeutlApplication.Current;
         var proj = new Project();
-    
-        proj.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.bproj"));
+        var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
+
+        CoreSerializer.StoreToUri(proj, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.bproj")));
         app.Project = proj;
-    
+
         var scene = new Scene();
-        scene.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.scene"));
+        CoreSerializer.StoreToUri(scene, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.scene")));
         proj.Items.Add(scene);
         var elm1 = new Element();
-        elm1.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.layer"));
+        CoreSerializer.StoreToUri(elm1, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.layer")));
         scene.AddChild(elm1).Do();
         elm1.Operation.Children.Add(new EllipseOperator());
         elm1.Operation.Children.Add(new DecorateOperator());
-    
+
         var elm2 = new Element { ZIndex = 2 };
-        elm2.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"1.layer"));
+        CoreSerializer.StoreToUri(elm2, UriHelper.CreateFromPath(Path.Combine(basePath, $"1.layer")));
         scene.AddChild(elm2).Do();
         var rectNode = new RectGeometryNode();
         var shapeNode = new GeometryShapeNode();
@@ -75,9 +76,110 @@ public class JsonSerializationTest
         elm2.NodeTree.Nodes.Add(rectNode);
         elm2.NodeTree.Nodes.Add(shapeNode);
         elm2.NodeTree.Nodes.Add(outNode);
-    
+
         Assert.That(((OutputSocket<Geometry.Resource>)rectNode.Items[0]).TryConnect((InputSocket<Geometry.Resource?>)shapeNode.Items[1]));
         Assert.That(((OutputSocket<GeometryRenderNode>)shapeNode.Items[0]).TryConnect((InputSocket<RenderNode?>)outNode.Items[0]));
+    }
+
+    // SaveReferencedObjectsのテスト
+    [Test]
+    public void SerializeWithSaveReferencedObjects()
+    {
+        var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
+        var projPath = Path.Combine(basePath, "0.bproj");
+        var scenePath = Path.Combine(basePath, "0", "0.scene");
+        var layerPath = Path.Combine(basePath, "0", "1", "0.layer");
+
+        // 既存のファイルを削除
+        if (File.Exists(projPath)) File.Delete(projPath);
+        if (File.Exists(scenePath)) File.Delete(scenePath);
+        if (File.Exists(layerPath)) File.Delete(layerPath);
+
+        BeutlApplication app = BeutlApplication.Current;
+        var proj = new Project { Uri = UriHelper.CreateFromPath(projPath) };
+        var scene = new Scene { Uri = UriHelper.CreateFromPath(scenePath) };
+        var elm1 = new Element { Uri = UriHelper.CreateFromPath(layerPath) };
+        scene.AddChild(elm1).Do();
+        proj.Items.Add(scene);
+        app.Project = proj;
+
+        CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
+
+        // ファイルが存在することを確認
+        Assert.That(File.Exists(projPath), Is.True);
+        Assert.That(File.Exists(scenePath), Is.True);
+        Assert.That(File.Exists(layerPath), Is.True);
+    }
+
+    [Test]
+    public void DeserializeWithSaveReferencedObjects()
+    {
+        SerializeWithSaveReferencedObjects();
+
+        var basePath = Path.GetFullPath(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "../SerializeWithSaveReferencedObjects"));
+        var projPath = Path.Combine(basePath, "0.bproj");
+
+        BeutlApplication app = BeutlApplication.Current;
+
+        var proj = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(projPath));
+        app.Project = proj;
+
+        Assert.That(proj.Items.Count, Is.EqualTo(1));
+        var scene = proj.Items[0] as Scene;
+        Assert.That(scene, Is.Not.Null);
+        Assert.That(scene!.Children.Count, Is.EqualTo(1));
+        var elm1 = scene.Children[0] as Element;
+        Assert.That(elm1, Is.Not.Null);
+    }
+
+    // EmbedReferencedObjectsのテスト
+    [Test]
+    public void SerializeWithEmbedReferencedObjects()
+    {
+        var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
+        var projPath = Path.Combine(basePath, "0.bproj");
+        var scenePath = Path.Combine(basePath, "0", "0.scene");
+        var layerPath = Path.Combine(basePath, "0", "1", "0.layer");
+        // 既存のファイルを削除
+        if (File.Exists(projPath)) File.Delete(projPath);
+        if (File.Exists(scenePath)) File.Delete(scenePath);
+        if (File.Exists(layerPath)) File.Delete(layerPath);
+
+        BeutlApplication app = BeutlApplication.Current;
+        var proj = new Project { Uri = UriHelper.CreateFromPath(projPath) };
+        var scene = new Scene { Uri = UriHelper.CreateFromPath(scenePath) };
+        var elm1 = new Element { Uri = UriHelper.CreateFromPath(layerPath) };
+        scene.AddChild(elm1).Do();
+        proj.Items.Add(scene);
+        app.Project = proj;
+
+        CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects);
+
+        // ファイルが存在することを確認
+        Assert.That(File.Exists(projPath), Is.True);
+        Assert.That(File.Exists(scenePath), Is.False);
+        Assert.That(File.Exists(layerPath), Is.False);
+    }
+
+    [Test]
+    public void DeserializeWithEmbedReferencedObjects()
+    {
+        SerializeWithEmbedReferencedObjects();
+
+        var basePath = Path.GetFullPath(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "../SerializeWithEmbedReferencedObjects"));
+        var projPath = Path.Combine(basePath, "0.bproj");
+
+        BeutlApplication app = BeutlApplication.Current;
+
+        var proj = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(projPath));
+        app.Project = proj;
+
+        Assert.That(proj.Items.Count, Is.EqualTo(1));
+        var scene = proj.Items[0] as Scene;
+        Assert.That(scene, Is.Not.Null);
+        Assert.That(scene!.Children.Count, Is.EqualTo(1));
+        var elm1 = scene.Children[0] as Element;
+        Assert.That(elm1, Is.Not.Null);
     }
 
     [Test]
@@ -91,14 +193,14 @@ public class JsonSerializationTest
         original3.Instance = original1;
         var json = new JsonObject();
 
-        var context1 = new JsonSerializationContext(original3.GetType(), NullSerializationErrorNotifier.Instance, json: json);
+        var context1 = new JsonSerializationContext(original3.GetType(), json: json);
         using (ThreadLocalSerializationContext.Enter(context1))
         {
             original3.Serialize(context1);
         }
 
         var restored = new TestSerializable();
-        var context2 = new JsonSerializationContext(original3.GetType(), NullSerializationErrorNotifier.Instance, json: json);
+        var context2 = new JsonSerializationContext(original3.GetType(), json: json);
         using (ThreadLocalSerializationContext.Enter(context2))
         {
             restored.Deserialize(context2);

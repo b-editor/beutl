@@ -5,9 +5,9 @@ namespace Beutl.Serialization;
 
 public partial class JsonSerializationContext(
     Type ownerType,
-    ISerializationErrorNotifier errorNotifier,
     ICoreSerializationContext? parent = null,
-    JsonObject? json = null)
+    JsonObject? json = null,
+    CoreSerializerOptions? options = null)
     : IJsonSerializationContext
 {
     public readonly Dictionary<string, (Type DefinedType, Type ActualType)> _knownTypes = [];
@@ -20,14 +20,14 @@ public partial class JsonSerializationContext(
 
     public JsonSerializationContext Root => IsRoot ? this : (Parent as JsonSerializationContext)!.Root;
 
-    public CoreSerializationMode Mode => CoreSerializationMode.ReadWrite;
+    public CoreSerializationMode Mode => options?.Mode ?? Parent?.Mode ?? CoreSerializationMode.ReadWrite;
+
+    public Uri? BaseUri => options?.BaseUri ?? Parent?.BaseUri;
 
     public Type OwnerType { get; } = ownerType;
 
     [MemberNotNullWhen(false, nameof(Parent))]
     public bool IsRoot => Parent == null;
-
-    public ISerializationErrorNotifier ErrorNotifier { get; } = errorNotifier;
 
     public JsonObject GetJsonObject()
     {
@@ -57,7 +57,6 @@ public partial class JsonSerializationContext(
         {
             var context = new JsonSerializationContext(
                 ownerType: obj.GetType(),
-                errorNotifier: new RelaySerializationErrorNotifier(ErrorNotifier, name),
                 parent: this,
                 json: jobj);
 

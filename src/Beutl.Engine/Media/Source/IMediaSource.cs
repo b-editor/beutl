@@ -1,10 +1,13 @@
-﻿namespace Beutl.Media.Source;
+﻿using Beutl.IO;
 
-public interface IMediaSource : IDisposable
+namespace Beutl.Media.Source;
+
+public interface IMediaSource : IDisposable, IFileSource
 {
     bool IsDisposed { get; }
 
-    string Name { get; }
+    [Obsolete("Use Uri property.")]
+    string Name => Uri.LocalPath;
 
     IMediaSource Clone();
 }

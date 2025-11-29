@@ -6,7 +6,7 @@ namespace Beutl.Helpers;
 
 public static class AddOrSetHelper
 {
-    public static void AddOrSet(ref FilterEffect? fe, FilterEffect toBeAdded, ImmutableArray<IStorable?> storables, CommandRecorder recorder)
+    public static void AddOrSet(ref FilterEffect? fe, FilterEffect toBeAdded, ImmutableArray<CoreObject?> storables, CommandRecorder recorder)
     {
         if (fe is FilterEffectGroup feGroup)
         {
@@ -28,7 +28,7 @@ public static class AddOrSetHelper
         }
     }
 
-    public static void AddOrSet(ref Transform? tra, Transform toBeAdded, ImmutableArray<IStorable?> storables, CommandRecorder recorder)
+    public static void AddOrSet(ref Transform? tra, Transform toBeAdded, ImmutableArray<CoreObject?> storables, CommandRecorder recorder)
     {
         if (tra is TransformGroup group)
         {

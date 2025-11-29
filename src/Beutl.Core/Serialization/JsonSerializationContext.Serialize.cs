@@ -9,8 +9,7 @@ namespace Beutl.Serialization;
 public partial class JsonSerializationContext
 {
     private static JsonNode? Serialize(
-        string name, object value, Type actualType, Type baseType,
-        ISerializationErrorNotifier errorNotifier, ICoreSerializationContext? parent)
+        string name, object value, Type actualType, Type baseType, ICoreSerializationContext? parent)
     {
         if (value is string)
         {
@@ -18,9 +17,13 @@ public partial class JsonSerializationContext
         }
         else if (value is ICoreSerializable coreSerializable)
         {
+            if (coreSerializable is CoreObject { Uri: not null } coreObject && parent != null)
+            {
+                return SerializeObjectFile(coreObject, parent);
+            }
+
             var innerContext = new JsonSerializationContext(
                 actualType,
-                new RelaySerializationErrorNotifier(errorNotifier, name),
                 parent);
 
             using (ThreadLocalSerializationContext.Enter(innerContext))
@@ -62,8 +65,7 @@ public partial class JsonSerializationContext
                         string innerName = typed.Key;
 
                         jobj[innerName] = Serialize(
-                            innerName, typed.Value, typed.Value.GetType(), valueType,
-                            new RelaySerializationErrorNotifier(errorNotifier, innerName), parent);
+                            innerName, typed.Value, typed.Value.GetType(), valueType, parent);
                     }
 
                     return jobj;
@@ -81,8 +83,7 @@ public partial class JsonSerializationContext
                 {
                     string innerName = index.ToString();
                     jarray.Add(Serialize(
-                        innerName, item, item.GetType(), elementType,
-                        new RelaySerializationErrorNotifier(errorNotifier, innerName), parent));
+                        innerName, item, item.GetType(), elementType, parent));
 
                     index++;
                 }
@@ -91,16 +92,39 @@ public partial class JsonSerializationContext
             }
         }
 
-    UseJsonSerializer:
-        ISerializationErrorNotifier? captured = LocalSerializationErrorNotifier.Current;
-        try
+        UseJsonSerializer:
+        return JsonSerializer.SerializeToNode(value, baseType, JsonHelper.SerializerOptions);
+    }
+
+    private static JsonNode SerializeObjectFile(
+        CoreObject value, ICoreSerializationContext parent)
+    {
+        if (parent.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
         {
-            LocalSerializationErrorNotifier.Current = new RelaySerializationErrorNotifier(errorNotifier, name);
-            return JsonSerializer.SerializeToNode(value, baseType, JsonHelper.SerializerOptions);
+            var node = CoreSerializer.SerializeToJsonObject(value,
+                new CoreSerializerOptions { BaseUri = value.Uri });
+
+            using var stream = File.Create(value.Uri!.LocalPath);
+            using var innerWriter = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
+            node.WriteTo(innerWriter);
         }
-        finally
+
+        var serializedUri = value.Uri!;
+        if (parent.BaseUri?.Scheme == value.Uri!.Scheme)
         {
-            LocalSerializationErrorNotifier.Current = captured;
+            serializedUri = parent.BaseUri.MakeRelativeUri(value.Uri);
+        }
+
+        if (parent.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects))
+        {
+            var node = CoreSerializer.SerializeToJsonObject(value,
+                new CoreSerializerOptions { BaseUri = value.Uri });
+            node["Uri"] = serializedUri.ToString();
+            return node;
+        }
+        else
+        {
+            return (JsonValue)serializedUri.ToString();
         }
     }
 
@@ -121,7 +145,7 @@ public partial class JsonSerializationContext
             Type actualType = value.GetType();
             if (value is ICoreSerializable or IEnumerable or IReference)
             {
-                _json[name] = Serialize(name, value, actualType, typeof(T), ErrorNotifier, this);
+                _json[name] = Serialize(name, value, actualType, typeof(T), this);
             }
             else if (value is JsonNode jsonNode)
             {
@@ -129,16 +153,7 @@ public partial class JsonSerializationContext
             }
             else
             {
-                ISerializationErrorNotifier? captured = LocalSerializationErrorNotifier.Current;
-                try
-                {
-                    LocalSerializationErrorNotifier.Current = new RelaySerializationErrorNotifier(ErrorNotifier, name);
-                    _json[name] = JsonSerializer.SerializeToNode(value, JsonHelper.SerializerOptions);
-                }
-                finally
-                {
-                    LocalSerializationErrorNotifier.Current = captured;
-                }
+                _json[name] = JsonSerializer.SerializeToNode(value, JsonHelper.SerializerOptions);
             }
 
             _knownTypes[name] = (typeof(T), actualType);
@@ -162,7 +177,7 @@ public partial class JsonSerializationContext
             Type actualType = value.GetType();
             if (value is ICoreSerializable or IEnumerable or IReference)
             {
-                _json[name] = Serialize(name, value, actualType, type, ErrorNotifier, this);
+                _json[name] = Serialize(name, value, actualType, type, this);
             }
             else if (value is JsonNode jsonNode)
             {
@@ -170,16 +185,7 @@ public partial class JsonSerializationContext
             }
             else
             {
-                ISerializationErrorNotifier? captured = LocalSerializationErrorNotifier.Current;
-                try
-                {
-                    LocalSerializationErrorNotifier.Current = new RelaySerializationErrorNotifier(ErrorNotifier, name);
-                    _json[name] = JsonSerializer.SerializeToNode(value, type, JsonHelper.SerializerOptions);
-                }
-                finally
-                {
-                    LocalSerializationErrorNotifier.Current = captured;
-                }
+                _json[name] = JsonSerializer.SerializeToNode(value, type, JsonHelper.SerializerOptions);
             }
 
             _knownTypes[name] = (type, actualType);

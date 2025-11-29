@@ -90,7 +90,6 @@ public sealed class App : Application
         base.RegisterServices();
 
         PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
-        ProjectItemContainer.Current.Generator = new ProjectItemGenerator();
         NotificationService.Handler = new NotificationServiceHandler();
 
         // 以下三つの処理は意外と重い

@@ -19,6 +19,7 @@ using Beutl.Operation;
 using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Reactive;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using DynamicData;
@@ -501,7 +502,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         var oldElements = jsonArray
             .Select(node => (node, element: new Element()))
-            .Do(t => CoreSerializerHelper.PopulateFromJsonObject(t.element, t.node!.AsObject()))
+            .Do(t => CoreSerializer.PopulateFromJsonObject(t.element, t.node!.AsObject()))
             .Select(t => t.element)
             .ToArray();
 
@@ -525,9 +526,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             newElement.Start = newElement.Start - minStart + newStart;
             newElement.ZIndex = newElement.ZIndex - minZIndex + newZIndex;
 
-            newElement.Save(RandomFileNameGenerator.Generate(
-                Path.GetDirectoryName(Scene.FileName)!,
-                Constants.ElementFileExtension));
+            CoreSerializer.StoreToUri(newElement,
+                RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
         }
 
         CommandRecorder recorder = EditorContext.CommandRecorder;
@@ -545,15 +545,15 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         var oldElement = new Element();
 
-        CoreSerializerHelper.PopulateFromJsonObject(oldElement, jsonObject);
+        CoreSerializer.PopulateFromJsonObject(oldElement, jsonObject);
 
         ObjectRegenerator.Regenerate(oldElement, out Element newElement);
 
         newElement.Start = ClickedFrame;
         newElement.ZIndex = CalculateClickedLayer();
 
-        newElement.Save(RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!,
-            Constants.ElementFileExtension));
+        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
+            Scene.Uri!, Constants.ElementFileExtension));
 
         CommandRecorder recorder = EditorContext.CommandRecorder;
         Scene.AddChild(newElement).DoAndRecord(recorder);
@@ -566,7 +566,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         var imageData = await clipboard.TryGetBitmapAsync();
         if (imageData == null) return;
 
-        string dir = Path.GetDirectoryName(Scene.FileName)!;
+        string dir = Path.GetDirectoryName(Scene.Uri!.LocalPath)!;
         // 画像を保存
         string resDir = Path.Combine(dir, "resources");
         if (!Directory.Exists(resDir))
@@ -589,7 +589,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             Name = Path.GetFileName(imageFile)
         };
 
-        newElement.Save(RandomFileNameGenerator.Generate(dir, Constants.ElementFileExtension));
+        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
+            dir, Constants.ElementFileExtension));
 
         CommandRecorder recorder = EditorContext.CommandRecorder;
         Scene.AddChild(newElement).DoAndRecord(recorder);

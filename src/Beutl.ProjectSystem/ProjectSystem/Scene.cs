@@ -209,14 +209,29 @@ public class Scene : ProjectItem, INotifyEdited
         context.SetValue("Width", FrameSize.Width);
         context.SetValue("Height", FrameSize.Height);
 
-        var elementsNode = new JsonObject();
+        if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
+        {
+            foreach (Element item in Children)
+            {
+                CoreSerializer.StoreToUri(item, item.Uri!);
+            }
+        }
 
-        UpdateInclude();
+        if (context.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects))
+        {
+            context.SetValue("Elements", Children);
+        }
+        else
+        {
+            var elementsNode = new JsonObject();
 
-        Process(elementsNode, "Include", _includeElements);
-        Process(elementsNode, "Exclude", _excludeElements);
+            UpdateInclude();
 
-        context.SetValue("Elements", elementsNode);
+            Process(elementsNode, "Include", _includeElements);
+            Process(elementsNode, "Exclude", _excludeElements);
+
+            context.SetValue("Elements", elementsNode);
+        }
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -250,25 +265,32 @@ public class Scene : ProjectItem, INotifyEdited
             FrameSize = new PixelSize(context.GetValue<int>("Width"), context.GetValue<int>("Height"));
         }
 
-        if (context.GetValue<JsonObject>(nameof(Elements)) is JsonObject elementsJson)
+        if (context.GetValue<JsonNode>(nameof(Elements)) is {  } elementsJson)
         {
-            var matcher = new Matcher();
-            var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(FileName)!));
-
-            // 含めるクリップ
-            if (elementsJson.TryGetPropertyValue("Include", out JsonNode? includeNode))
+            if (elementsJson is JsonObject elementsObject)
             {
-                Process(matcher.AddInclude, includeNode!, _includeElements);
-            }
+                var matcher = new Matcher();
+                var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(Uri!.LocalPath)!));
 
-            // 除外するクリップ
-            if (elementsJson.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
+                // 含めるクリップ
+                if (elementsObject.TryGetPropertyValue("Include", out JsonNode? includeNode))
+                {
+                    Process(matcher.AddInclude, includeNode!, _includeElements);
+                }
+
+                // 除外するクリップ
+                if (elementsObject.TryGetPropertyValue("Exclude", out JsonNode? excludeNode))
+                {
+                    Process(matcher.AddExclude, excludeNode!, _excludeElements);
+                }
+
+                PatternMatchingResult result = matcher.Execute(directory);
+                SyncronizeFiles(result.Files.Select(x => x.Path));
+            }
+            else
             {
-                Process(matcher.AddExclude, excludeNode!, _excludeElements);
+                Children.Replace(context.GetValue<Elements>(nameof(Elements))!);
             }
-
-            PatternMatchingResult result = matcher.Execute(directory);
-            SyncronizeFiles(result.Files.Select(x => x.Path));
         }
         else
         {
@@ -276,55 +298,32 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
-    protected override void SaveCore(string filename)
-    {
-        string? directory = Path.GetDirectoryName(filename);
-
-        if (directory != null && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        this.JsonSave2(filename);
-    }
-
-    protected override void RestoreCore(string filename)
-    {
-        this.JsonRestore2(filename);
-    }
-
     private void SyncronizeFiles(IEnumerable<string> pathToElement)
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Scene.SyncronizeFiles");
 
-        string baseDir = Path.GetDirectoryName(FileName)!;
-        pathToElement = pathToElement.Select(x => Path.GetFullPath(x, baseDir)).ToArray();
+        var uriToElement = pathToElement.Select(x => new Uri(Uri!, x)).ToArray();
 
         // 削除するElements
-        Element[] toBeRemoved = Children.ExceptBy(pathToElement, x => x.FileName).ToArray();
+        Element[] elementsRemove = Children.ExceptBy(uriToElement, x => x.Uri).ToArray();
         // 追加するElements
-        string[] toBeAdded = pathToElement.Except(Children.Select(x => x.FileName)).ToArray();
+        Uri[] urisAdd = uriToElement.Except(Children.Select(x => x.Uri).Where(u => u != null)).ToArray()!;
 
-        foreach (Element item in toBeRemoved)
+        foreach (Element item in elementsRemove)
         {
             Children.Remove(item);
         }
 
-        Children.AddRange(toBeAdded.AsParallel().Select(item =>
-        {
-            var element = new Element();
-            element.Restore(item);
-            return element;
-        }));
+        Children.AddRange(urisAdd.AsParallel().Select(CoreSerializer.RestoreFromUri<Element>));
 
-        activity?.SetTag("addCount", toBeAdded.Length);
-        activity?.SetTag("removeCount", toBeRemoved.Length);
+        activity?.SetTag("addCount", urisAdd.Length);
+        activity?.SetTag("removeCount", elementsRemove.Length);
         activity?.SetTag("childrenCount", Children.Count);
     }
 
     private void UpdateInclude()
     {
-        string dirPath = Path.GetDirectoryName(FileName)!;
+        string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
         var directory = new DirectoryInfoWrapper(new DirectoryInfo(dirPath));
 
         var matcher = new Matcher();
@@ -332,9 +331,9 @@ public class Scene : ProjectItem, INotifyEdited
         matcher.AddExcludePatterns(_excludeElements);
 
         string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
-        foreach (Element item in Children.GetMarshal().Value)
+        foreach (Element item in Children)
         {
-            string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
+            string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
 
             // 含まれていない場合追加
             if (!files.Contains(rel))
@@ -352,12 +351,12 @@ public class Scene : ProjectItem, INotifyEdited
         if (e.Action == NotifyCollectionChangedAction.Remove
             && e.OldItems != null)
         {
-            string dirPath = Path.GetDirectoryName(FileName)!;
+            string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
             foreach (Element item in e.OldItems.OfType<Element>())
             {
-                string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
+                string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
 
-                if (!_excludeElements.Contains(rel) && File.Exists(item.FileName))
+                if (!_excludeElements.Contains(rel) && File.Exists(item.Uri!.LocalPath))
                 {
                     _excludeElements.Add(rel);
                 }
@@ -366,14 +365,14 @@ public class Scene : ProjectItem, INotifyEdited
             }
         }
         else if (e.Action == NotifyCollectionChangedAction.Add
-            && e.NewItems != null)
+                 && e.NewItems != null)
         {
-            string dirPath = Path.GetDirectoryName(FileName)!;
+            string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
             foreach (Element item in e.NewItems.OfType<Element>())
             {
-                string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
+                string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
 
-                if (_excludeElements.Contains(rel) && File.Exists(item.FileName))
+                if (_excludeElements.Contains(rel) && File.Exists(item.Uri!.LocalPath))
                 {
                     _excludeElements.Remove(rel);
                 }
@@ -585,7 +584,7 @@ public class Scene : ProjectItem, INotifyEdited
         private int _zIndex;
         private TimeRange _range;
 
-        public ImmutableArray<IStorable?> GetStorables() => [scene, element];
+        public ImmutableArray<CoreObject?> GetStorables() => [scene, element];
 
         public void Do()
         {
@@ -621,7 +620,7 @@ public class Scene : ProjectItem, INotifyEdited
     {
         private int _zIndex;
 
-        public ImmutableArray<IStorable?> GetStorables() => [scene, element];
+        public ImmutableArray<CoreObject?> GetStorables() => [scene, element];
 
         public void Do()
         {
@@ -646,28 +645,23 @@ public class Scene : ProjectItem, INotifyEdited
     {
         private readonly Scene _scene;
         private readonly TimeRange _timeRange;
-        private readonly byte[] _jsonBytes;
-        private string _fileName;
+        private readonly JsonObject _jsonObject;
+        private Uri _uri;
         private Element? _element;
 
         public DeleteCommand(Scene scene, Element element)
         {
             _scene = scene;
             _element = element;
-            _fileName = element.FileName;
+            _uri = element.Uri!;
             _timeRange = element.Range;
 
-            var jsonObject = new JsonObject();
-            var context = new JsonSerializationContext(typeof(Element), NullSerializationErrorNotifier.Instance, json: jsonObject);
-            using (ThreadLocalSerializationContext.Enter(context))
-            {
-                element.Serialize(context);
-            }
-
-            _jsonBytes = JsonSerializer.SerializeToUtf8Bytes(jsonObject);
+            _jsonObject = CoreSerializer.SerializeToJsonObject(
+                element,
+                new CoreSerializerOptions { BaseUri = element.Uri });
         }
 
-        public ImmutableArray<IStorable?> GetStorables() => [_scene];
+        public ImmutableArray<CoreObject?> GetStorables() => [_scene];
 
         public ImmutableArray<TimeRange> GetAffectedRange() => [_timeRange];
 
@@ -675,7 +669,7 @@ public class Scene : ProjectItem, INotifyEdited
         {
             if (_element != null)
             {
-                string fileName = _element.FileName;
+                string fileName = _element.Uri!.LocalPath;
                 if (File.Exists(fileName))
                 {
                     File.Delete(fileName);
@@ -693,22 +687,15 @@ public class Scene : ProjectItem, INotifyEdited
 
         public void Undo()
         {
-            if (File.Exists(_fileName))
+            if (File.Exists(_uri.LocalPath))
             {
-                _fileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(_scene.FileName)!, "belm");
+                _uri = RandomFileNameGenerator.GenerateUri(Path.GetDirectoryName(_uri.LocalPath)!, "belm");
             }
 
-            _element = new Element();
+            _element = (Element)CoreSerializer.DeserializeFromJsonObject(_jsonObject, typeof(Element),
+                new CoreSerializerOptions { BaseUri = _uri });
 
-            JsonObject? jsonObject = JsonSerializer.Deserialize<JsonObject>(_jsonBytes);
-            var context = new JsonSerializationContext(typeof(Element), NullSerializationErrorNotifier.Instance, json: jsonObject);
-            using (ThreadLocalSerializationContext.Enter(context))
-            {
-                _element.Deserialize(context);
-                context.AfterDeserialized(_element);
-            }
-
-            _element.Save(_fileName);
+            CoreSerializer.StoreToUri(_element, _uri);
 
             _scene.Children.Add(_element);
         }
@@ -727,7 +714,7 @@ public class Scene : ProjectItem, INotifyEdited
 
         public bool Nothing => newStart == oldStart && newLength == oldLength && zIndex == _oldZIndex;
 
-        public ImmutableArray<IStorable?> GetStorables() => [scene, element];
+        public ImmutableArray<CoreObject?> GetStorables() => [scene, element];
 
         public ImmutableArray<TimeRange> GetAffectedRange()
             => [new TimeRange(newStart, newLength), new TimeRange(oldStart, oldLength)];
@@ -735,7 +722,8 @@ public class Scene : ProjectItem, INotifyEdited
         public void Do()
         {
             TimeSpan newEnd = newStart + newLength;
-            (Element? before, Element? after, Element? cover) = element.GetBeforeAndAfterAndCover(zIndex, newStart, newEnd);
+            (Element? before, Element? after, Element? cover) =
+                element.GetBeforeAndAfterAndCover(zIndex, newStart, newEnd);
 
             if (before != null && before.Range.End >= newStart)
             {
@@ -889,7 +877,8 @@ public class Scene : ProjectItem, INotifyEdited
 
             TimeSpan newEnd = newStart + element.Length;
             int newIndex = element.ZIndex + _deltaZIndex;
-            (Element? before, Element? after, Element? _) = element.GetBeforeAndAfterAndCover(newIndex, newStart, _elements);
+            (Element? before, Element? after, Element? _) =
+                element.GetBeforeAndAfterAndCover(newIndex, newStart, _elements);
 
             if (before != null && before.Range.End >= newStart)
             {
@@ -914,7 +903,7 @@ public class Scene : ProjectItem, INotifyEdited
             return null;
         }
 
-        public ImmutableArray<IStorable?> GetStorables()
+        public ImmutableArray<CoreObject?> GetStorables()
         {
             if (_conflict)
                 return [];

@@ -15,6 +15,7 @@ using Beutl.Models;
 using Beutl.Operation;
 using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.Tools;
@@ -224,11 +225,30 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         {
             Dispatcher.UIThread.Invoke(() =>
             {
-                foreach (IStorable item in e.Storables)
+                var objects = e.Storables
+                    .Select(item =>
+                    {
+                        if (item is Hierarchical hierarchical)
+                        {
+                            return hierarchical.EnumerateAncestors<CoreObject>().Where(o => o.Uri != null);
+                        }
+
+                        if (item.Uri != null)
+                        {
+                            return [item];
+                        }
+
+                        return [];
+                    })
+                    .SelectMany(e => e)
+                    .ToHashSet();
+
+                foreach (CoreObject item in objects)
                 {
                     try
                     {
-                        item.Save(item.FileName);
+                        _logger.LogTrace("Auto-saving object ({TypeName}, {ObjectId}).", TypeFormat.ToString(item.GetType()), item.Id);
+                        CoreSerializer.StoreToUri(item, item.Uri!, CoreSerializationMode.Write);
                     }
                     catch (Exception ex)
                     {
@@ -286,7 +306,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     public EditorExtension Extension => SceneEditorExtension.Instance;
 
-    public string EdittingFile => Scene.FileName;
+    public CoreObject Object => Scene;
 
     public IKnownEditorCommands? Commands { get; private set; }
 
@@ -308,6 +328,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         {
             element.PropertyChanged -= OnElementPropertyChanged;
         }
+
         Scene.Children.Attached -= OnElementAttached;
         Scene.Children.Detached -= OnElementDetached;
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
@@ -355,7 +376,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     private string ViewStateDirectory()
     {
-        string directory = Path.GetDirectoryName(EdittingFile)!;
+        string directory = Path.GetDirectoryName(Scene.Uri!.LocalPath)!;
 
         directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
         if (!Directory.Exists(directory))
@@ -374,23 +395,21 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             ["selected-object"] = SelectedObject.Value?.Id,
             ["max-layer-count"] = Options.Value.MaxLayerCount,
             ["scale"] = Options.Value.Scale,
-            ["offset"] = new JsonObject
-            {
-                ["x"] = Options.Value.Offset.X, ["y"] = Options.Value.Offset.Y,
-            }
+            ["offset"] = new JsonObject { ["x"] = Options.Value.Offset.X, ["y"] = Options.Value.Offset.Y, }
         };
 
         DockHost.WriteToJson(json);
 
         json["current-time"] = JsonValue.Create(CurrentTime.Value);
 
-        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(EdittingFile)}.config"));
+        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath)}.config"));
     }
 
     private void RestoreState()
     {
         string viewStateDir = ViewStateDirectory();
-        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(EdittingFile)}.config");
+        string viewStateFile =
+            Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath)}.config");
 
         if (File.Exists(viewStateFile))
         {
@@ -485,8 +504,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 Start = desc.Start,
                 Length = desc.Length,
                 ZIndex = desc.Layer,
-                FileName = RandomFileNameGenerator.Generate(Path.GetDirectoryName(Scene.FileName)!,
-                    Constants.ElementFileExtension)
+                Uri = RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension)
             };
         }
 
@@ -510,7 +528,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                     AddOrSetHelper.AddOrSet(
                         ref transform,
                         new TranslateTransform(desc.Position),
-                        [operation.FindHierarchicalParent<IStorable>()],
+                        [operation],
                         CommandRecorder);
                     transformp.SetValue(transform);
                 }
@@ -549,7 +567,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 BitmapSource.TryOpen(desc.FileName, out BitmapSource? image);
                 t.Value.Source.CurrentValue = image;
 
-                element.Save(element.FileName);
+                CoreSerializer.StoreToUri(element, element.Uri!);
                 list.Add(Scene.AddChild(element));
                 scrollPos = (element.Range, element.ZIndex);
             }
@@ -569,8 +587,8 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 if (sound != null)
                     element2.Length = sound.Duration;
 
-                element1.Save(element1.FileName);
-                element2.Save(element2.FileName);
+                CoreSerializer.StoreToUri(element1, element1.Uri!);
+                CoreSerializer.StoreToUri(element2, element2.Uri!);
                 list.Add(Scene.AddChild(element1));
                 list.Add(Scene.AddChild(element2));
                 scrollPos = (element1.Range, element1.ZIndex);
@@ -586,7 +604,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                     element.Length = sound.Duration;
                 }
 
-                element.Save(element.FileName);
+                CoreSerializer.StoreToUri(element, element.Uri!);
                 list.Add(Scene.AddChild(element));
                 scrollPos = (element.Range, element.ZIndex);
             }
@@ -622,7 +640,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 SetTransform(element.Operation, operatour);
             }
 
-            element.Save(element.FileName);
+            CoreSerializer.StoreToUri(element, element.Uri!);
             Scene.AddChild(element).DoAndRecord(CommandRecorder);
 
             timeline?.ScrollTo.Execute((element.Range, element.ZIndex));
@@ -737,8 +755,8 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         public ValueTask<bool> OnSave()
         {
             viewModel._logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
-            scene.Save(scene.FileName);
-            Parallel.ForEach(scene.Children, item => item.Save(item.FileName));
+            CoreSerializer.StoreToUri(scene, scene.Uri!);
+            Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
             viewModel.SaveState();
             viewModel._logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
 

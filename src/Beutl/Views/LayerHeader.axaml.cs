@@ -176,7 +176,7 @@ public sealed partial class LayerHeader : UserControl
             }
         }
 
-        public ImmutableArray<IStorable?> GetStorables()
+        public ImmutableArray<CoreObject?> GetStorables()
         {
             return [.. _items1.Select(v => v.Model), .. _items2.Select(v => v.Model)];
         }

@@ -2,9 +2,9 @@
 
 namespace Beutl;
 
-public sealed class RecordableCommandBuilder(ImmutableArray<IStorable?> storables)
+public sealed class RecordableCommandBuilder(ImmutableArray<CoreObject?> storables)
 {
-    private readonly ImmutableArray<IStorable?> _storables = storables;
+    private readonly ImmutableArray<CoreObject?> _storables = storables;
     private Action? _do;
     private Action? _undo;
     private Action? _redo;
@@ -31,7 +31,7 @@ public sealed class RecordableCommandBuilder(ImmutableArray<IStorable?> storable
         return this;
     }
 
-    public IRecordableCommand ToCommand(ImmutableArray<IStorable?> storables)
+    public IRecordableCommand ToCommand(ImmutableArray<CoreObject?> storables)
     {
         Action empty = () => { };
         return RecordableCommands.Create(_do ?? empty, _undo ?? empty, [.. _storables, .. storables], _redo);

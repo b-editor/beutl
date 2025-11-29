@@ -33,7 +33,7 @@ public class EditorHostViewModel
             @new.Items.CollectionChanged += Project_Items_CollectionChanged;
             foreach (ProjectItem item in @new.Items)
             {
-                _editorService.ActivateTabItem(item.FileName);
+                _editorService.ActivateTabItem(item);
             }
         }
 
@@ -50,7 +50,7 @@ public class EditorHostViewModel
         {
             foreach (ProjectItem item in e.NewItems.OfType<ProjectItem>())
             {
-                _editorService.ActivateTabItem(item.FileName);
+                _editorService.ActivateTabItem(item);
             }
         }
         else if (e.Action == NotifyCollectionChangedAction.Remove &&
@@ -58,7 +58,7 @@ public class EditorHostViewModel
         {
             foreach (ProjectItem item in e.OldItems.OfType<ProjectItem>())
             {
-                await _editorService.CloseTabItem(item.FileName);
+                await _editorService.CloseTabItem(item);
             }
         }
     }

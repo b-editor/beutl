@@ -28,7 +28,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         MenuBar = new MenuBarViewModel();
 
         IsProjectOpened = ProjectService.Current.IsOpened;
-        NameOfOpenProject = ProjectService.Current.CurrentProject.Select(v => Path.GetFileName(v?.FileName))
+        NameOfOpenProject = ProjectService.Current.CurrentProject.Select(v => Path.GetFileName(v?.Uri?.LocalPath))
             .ToReadOnlyReactivePropertySlim();
         WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");

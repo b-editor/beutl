@@ -6,7 +6,7 @@ namespace Beutl;
 
 public static partial class RecordableCommands
 {
-    public static IRecordableCommand Create(Action action, Action undo, ImmutableArray<IStorable?> storables, Action? redo = null)
+    public static IRecordableCommand Create(Action action, Action undo, ImmutableArray<CoreObject?> storables, Action? redo = null)
     {
         return new DelegateCommand(
             action,
@@ -15,7 +15,7 @@ public static partial class RecordableCommands
             storables);
     }
 
-    public static RecordableCommandBuilder Create(ImmutableArray<IStorable?> storables)
+    public static RecordableCommandBuilder Create(ImmutableArray<CoreObject?> storables)
     {
         return new RecordableCommandBuilder(storables);
     }
@@ -39,9 +39,9 @@ public static partial class RecordableCommands
             []);
     }
 
-    private sealed class DelegateCommand(Action action, Action undo, Action redo, ImmutableArray<IStorable?> storables) : IRecordableCommand
+    private sealed class DelegateCommand(Action action, Action undo, Action redo, ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
-        public ImmutableArray<IStorable?> GetStorables() => storables;
+        public ImmutableArray<CoreObject?> GetStorables() => storables;
 
         public void Do() => action();
 

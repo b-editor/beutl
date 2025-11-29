@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
-
 using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.NodeTree.Nodes.Group;
@@ -139,25 +138,9 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             int index = 0;
             foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
             {
-                if (itemJson.TryGetDiscriminator(out Type? type)
-                    && Activator.CreateInstance(type) is ILayerInputSocket socket)
+                if (CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(ILayerInputSocket)) is ILayerInputSocket
+                    socket)
                 {
-                    if (socket is ICoreSerializable serializable)
-                    {
-                        if (LocalSerializationErrorNotifier.Current is not { } notifier)
-                        {
-                            notifier = NullSerializationErrorNotifier.Instance;
-                        }
-                        ICoreSerializationContext? parent = ThreadLocalSerializationContext.Current;
-
-                        var innerContext = new JsonSerializationContext(type, notifier, parent, itemJson);
-                        using (ThreadLocalSerializationContext.Enter(innerContext))
-                        {
-                            serializable.Deserialize(innerContext);
-                            innerContext.AfterDeserialized(serializable);
-                        }
-                    }
-
                     Items.Add(socket);
                     ((NodeItem)socket).LocalId = index;
                 }

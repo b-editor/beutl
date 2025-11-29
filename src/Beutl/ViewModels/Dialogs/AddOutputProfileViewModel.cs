@@ -11,7 +11,7 @@ public sealed class AddOutputProfileViewModel
     public AddOutputProfileViewModel(OutputTabViewModel outputTabViewModel)
     {
         _outputTabViewModel = outputTabViewModel;
-        AvailableExtensions = OutputService.GetExtensions(outputTabViewModel.EditViewModel.Scene.FileName);
+        AvailableExtensions = OutputService.GetExtensions(outputTabViewModel.EditViewModel.Scene.GetType());
 
         CanAdd = SelectedExtension.Select(x => x != null)
             .ToReadOnlyReactivePropertySlim();

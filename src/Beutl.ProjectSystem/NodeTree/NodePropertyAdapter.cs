@@ -14,7 +14,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
 
     public NodePropertyAdapter(string name, T? value, IAnimation<T>? animation)
     {
-        Name = name;    
+        Name = name;
         Animation = animation;
         ObserveAnimation = new AnimationObservable(this);
         _rxProperty.Value = value;
@@ -145,7 +145,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
         context.SetValue("Property", Name);
         context.SetValue("Target", TypeFormat.ToString(ImplementedType));
 
-        context.SetValue("Setter", PropertyEntrySerializer.ToJson(Name, _rxProperty.Value, Animation, PropertyType, ImplementedType, context).Item2);
+        context.SetValue("Setter", PropertyEntrySerializer.ToJson(_rxProperty.Value, Animation, PropertyType));
     }
 
     public void Deserialize(ICoreSerializationContext context)
@@ -154,7 +154,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
             return;
 
         (Optional<object?> value, IAnimation? animation) =
-            PropertyEntrySerializer.ToTuple(setterNode, Name, PropertyType, ImplementedType, context);
+            PropertyEntrySerializer.ToTuple(setterNode, PropertyType);
 
         if (animation != null)
         {

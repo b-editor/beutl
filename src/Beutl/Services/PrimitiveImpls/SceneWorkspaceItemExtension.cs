@@ -1,15 +1,11 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Platform.Storage;
-
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-
+using Beutl.Serialization;
 using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.Logging;
-
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
@@ -38,10 +34,7 @@ public sealed class SceneProjectItemExtension : ProjectItemExtension
 
     public override IconSource? GetIcon()
     {
-        return new SymbolIconSource
-        {
-            Symbol = Symbol.Document
-        };
+        return new SymbolIconSource { Symbol = Symbol.Document };
     }
 
     public override bool IsSupported(string file)
@@ -57,8 +50,7 @@ public sealed class SceneProjectItemExtension : ProjectItemExtension
             Scene? scene;
             try
             {
-                scene = new Scene();
-                scene.Restore(file);
+                scene = CoreSerializer.RestoreFromUri<Scene>(UriHelper.CreateFromPath(file));
                 _logger.LogInformation("Successfully restored the scene from file: {File}", file);
             }
             catch (Exception ex)
@@ -66,6 +58,7 @@ public sealed class SceneProjectItemExtension : ProjectItemExtension
                 _logger.LogError(ex, "Unable to restore the scene from file: {File}", file);
                 return false;
             }
+
             result = scene;
             return true;
         }

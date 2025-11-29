@@ -7,7 +7,7 @@ internal sealed class ChangePropertyCommand<T>(
     CoreProperty<T> property,
     T? newValue,
     T? oldValue,
-    ImmutableArray<IStorable?> storables) : IRecordableCommand
+    ImmutableArray<CoreObject?> storables) : IRecordableCommand
 {
     public ICoreObject Object { get; } = obj;
 
@@ -17,7 +17,7 @@ internal sealed class ChangePropertyCommand<T>(
 
     public T? OldValue { get; } = oldValue;
 
-    public ImmutableArray<IStorable?> GetStorables() => storables;
+    public ImmutableArray<CoreObject?> GetStorables() => storables;
 
     public void Do()
     {

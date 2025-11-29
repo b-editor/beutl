@@ -14,11 +14,11 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
     public SoundSourceEditorViewModel(IPropertyAdapter<ISoundSource?> property)
         : base(property)
     {
-        FullName = Value.Select(x => x?.Name)
+        FullName = Value.Select(x => x?.Uri.LocalPath)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        FileInfo = Value.Select(x => x != null ? new FileInfo(x.Name) : null)
+        FileInfo = Value.Select(x => x != null ? new FileInfo(x.Uri.LocalPath) : null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -47,20 +47,20 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
 
     private sealed class SetKeyFrameValueCommand(
         KeyFrame<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
+        ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
-        private readonly string? _oldName = oldValue?.Name;
-        private readonly string? _newName = newValue?.Name;
+        private readonly Uri? _oldUri = oldValue?.Uri;
+        private readonly Uri? _newUri = newValue?.Uri;
         private ISoundSource? _oldValue = oldValue;
         private ISoundSource? _newValue = newValue;
 
-        public ImmutableArray<IStorable?> GetStorables() => storables;
+        public ImmutableArray<CoreObject?> GetStorables() => storables;
 
         public void Do()
         {
-            if (_newValue == null && _newName != null)
+            if (_newValue == null && _newUri != null)
             {
-                SoundSource.TryOpen(_newName, out SoundSource? newValue);
+                SoundSource.TryOpen(_newUri, out SoundSource? newValue);
                 _newValue = newValue;
             }
 
@@ -76,9 +76,9 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
 
         public void Undo()
         {
-            if (_oldValue == null && _oldName != null)
+            if (_oldValue == null && _oldUri != null)
             {
-                SoundSource.TryOpen(_oldName, out SoundSource? oldValue);
+                SoundSource.TryOpen(_oldUri, out SoundSource? oldValue);
                 _oldValue = oldValue;
             }
 
@@ -90,20 +90,20 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
 
     private sealed class SetCommand(
         IPropertyAdapter<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue,
-        ImmutableArray<IStorable?> storables) : IRecordableCommand
+        ImmutableArray<CoreObject?> storables) : IRecordableCommand
     {
-        private readonly string? _oldName = oldValue?.Name;
-        private readonly string? _newName = newValue?.Name;
+        private readonly Uri? _oldUri = oldValue?.Uri;
+        private readonly Uri? _newUri = newValue?.Uri;
         private ISoundSource? _oldValue = oldValue;
         private ISoundSource? _newValue = newValue;
 
-        public ImmutableArray<IStorable?> GetStorables() => storables;
+        public ImmutableArray<CoreObject?> GetStorables() => storables;
 
         public void Do()
         {
-            if (_newValue == null && _newName != null)
+            if (_newValue == null && _newUri != null)
             {
-                SoundSource.TryOpen(_newName, out SoundSource? newValue);
+                SoundSource.TryOpen(_newUri, out SoundSource? newValue);
                 _newValue = newValue;
             }
 
@@ -119,9 +119,9 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
 
         public void Undo()
         {
-            if (_oldValue == null && _oldName != null)
+            if (_oldValue == null && _oldUri != null)
             {
-                SoundSource.TryOpen(_oldName, out SoundSource? oldValue);
+                SoundSource.TryOpen(_oldUri, out SoundSource? oldValue);
                 _oldValue = oldValue;
             }
 

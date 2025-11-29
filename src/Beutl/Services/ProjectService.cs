@@ -4,6 +4,7 @@ using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using NuGet.Versioning;
@@ -70,8 +71,7 @@ public sealed class ProjectService
                 return;
             }
 
-            var project = new Project();
-            project.Restore(file);
+            var project = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(file));
 
             _app.Project = project;
             // 値を発行
@@ -94,9 +94,8 @@ public sealed class ProjectService
         {
             // 値を発行
             _projectObservable.OnNext((New: null, project));
-            project.Dispose();
             _app.Project = null;
-            _logger.LogInformation("Closed project. Project: {Project}", project.FileName);
+            _logger.LogInformation("Closed project. Project: {Project}", project.Uri);
         }
     }
 
@@ -112,11 +111,14 @@ public sealed class ProjectService
             CloseProject();
 
             location = Path.Combine(location, name);
-            var scene = new Scene(width, height, name);
-            ProjectItemContainer.Current.Add(scene);
+            var scene = new Scene(width, height, name)
+            {
+                Uri = UriHelper.CreateFromPath(Path.Combine(location, name, $"{name}.{Constants.SceneFileExtension}")),
+            };
             var project = new Project()
             {
                 Items = { scene },
+                Uri  = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{Constants.ProjectFileExtension}")),
                 Variables =
                 {
                     [ProjectVariableKeys.FrameRate] = framerate.ToString(),
@@ -124,15 +126,14 @@ public sealed class ProjectService
                 }
             };
 
-            scene.Save(Path.Combine(location, name, $"{name}.{Constants.SceneFileExtension}"));
-            string projectFile = Path.Combine(location, $"{name}.{Constants.ProjectFileExtension}");
-            project.Save(projectFile);
+            CoreSerializer.StoreToUri(scene, scene.Uri);
+            CoreSerializer.StoreToUri(project, project.Uri);
 
             // 値を発行
             _projectObservable.OnNext((New: project, null));
             _app.Project = project;
 
-            AddToRecentProjects(projectFile);
+            AddToRecentProjects(project.Uri.LocalPath);
             _logger.LogInformation("Created new project. Name: {Name}, Location: {Location}, Width: {Width}, Height: {Height}, Framerate: {Framerate}, Samplerate: {Samplerate}", name, location, width, height, framerate, samplerate);
 
             return project;

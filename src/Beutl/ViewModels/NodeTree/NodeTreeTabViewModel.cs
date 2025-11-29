@@ -89,14 +89,13 @@ public sealed class NodeTreeTabViewModel : IToolContext
             {
                 NodeTree.Value = new NodeTreeViewModel(v.NodeTree, editViewModel);
                 IObservable<string> name = v.GetObservable(CoreObject.NameProperty);
-                IObservable<string> fileName = v.GetObservable(ProjectItem.FileNameProperty)
-                    .Select(x => Path.GetFileNameWithoutExtension(x));
+                var fileName = Path.GetFileNameWithoutExtension(v.Uri!.LocalPath);
 
                 Items.Add(new NodeTreeNavigationItem(
                     viewModel: NodeTree.Value,
                     nodeTree: v.NodeTree,
-                    name: name.CombineLatest(fileName)
-                        .Select(x => string.IsNullOrWhiteSpace(x.First) ? x.Second : x.First)
+                    name: name
+                        .Select(x => string.IsNullOrWhiteSpace(x) ? fileName : x)
                         .ToReadOnlyReactivePropertySlim()!));
 
                 RestoreState(v);
@@ -226,7 +225,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     private static string ViewStateDirectory(Element element)
     {
-        string directory = Path.GetDirectoryName(element.FileName)!;
+        string directory = Path.GetDirectoryName(element.Uri!.LocalPath)!;
 
         directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
         if (!Directory.Exists(directory))
@@ -258,13 +257,13 @@ public sealed class NodeTreeTabViewModel : IToolContext
             json["Selected"] = NodeTree.Value.NodeTree.Id;
         }
 
-        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.FileName)}.nodetree.config"));
+        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.Uri!.LocalPath)}.nodetree.config"));
     }
 
     private void RestoreState(Element element)
     {
         string viewStateDir = ViewStateDirectory(element);
-        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.FileName)}.nodetree.config");
+        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.Uri!.LocalPath)}.nodetree.config");
 
         if (File.Exists(viewStateFile))
         {
@@ -296,15 +295,15 @@ public sealed class NodeTreeTabViewModel : IToolContext
             && (filenameNode as JsonValue)?.TryGetValue(out string? filename) == true
             && filename != null)
         {
-            Element.Value = _editViewModel.Scene.Children.FirstOrDefault(x => x.FileName == filename);
+            Element.Value = _editViewModel.Scene.Children.FirstOrDefault(x => x.Uri!.LocalPath == filename);
         }
     }
 
     public void WriteToJson(JsonObject json)
     {
-        if (Element.Value is { FileName: { } filename })
+        if (Element.Value is { Uri: { } uri })
         {
-            json["layer-filename"] = filename;
+            json["layer-filename"] = uri.LocalPath;
         }
     }
 

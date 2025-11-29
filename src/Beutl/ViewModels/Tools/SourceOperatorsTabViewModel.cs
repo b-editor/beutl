@@ -152,7 +152,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
     private static string ViewStateDirectory(Element element)
     {
-        string directory = Path.GetDirectoryName(element.FileName)!;
+        string directory = Path.GetDirectoryName(element.Uri!.LocalPath)!;
 
         directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
         if (!Directory.Exists(directory))
@@ -167,18 +167,18 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
     {
         string viewStateDir = ViewStateDirectory(element);
         var json = new JsonArray();
-        foreach (SourceOperatorViewModel? item in Items.GetMarshal().Value)
+        foreach (SourceOperatorViewModel? item in Items)
         {
             json.Add(item?.SaveState());
         }
 
-        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.FileName)}.operators.config"));
+        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.Uri!.LocalPath)}.operators.config"));
     }
 
     private void RestoreState(Element element)
     {
         string viewStateDir = ViewStateDirectory(element);
-        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.FileName)}.operators.config");
+        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.Uri!.LocalPath)}.operators.config");
 
         if (File.Exists(viewStateFile))
         {

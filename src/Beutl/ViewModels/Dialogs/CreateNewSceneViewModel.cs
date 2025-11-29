@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Reactive.Bindings;
 
@@ -62,12 +63,17 @@ public sealed class CreateNewSceneViewModel
         Create.Subscribe(() =>
         {
             var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
-            ProjectItemContainer.Current.Add(scene);
-            scene.Save(Path.Combine(Location.Value, Name.Value, $"{Name.Value}.{Constants.SceneFileExtension}"));
+            CoreSerializer.StoreToUri(scene,
+                UriHelper.CreateFromPath(Path.Combine(Location.Value, Name.Value,
+                    $"{Name.Value}.{Constants.SceneFileExtension}")));
 
-            _proj?.Items.Add(scene);
+            if (_proj != null)
+            {
+                _proj.Items.Add(scene);
+                CoreSerializer.StoreToUri(_proj, _proj.Uri!);
+            }
 
-            EditorService.Current.ActivateTabItem(scene.FileName);
+            EditorService.Current.ActivateTabItem(scene);
         });
     }
 
@@ -85,7 +91,7 @@ public sealed class CreateNewSceneViewModel
     {
         if (_proj != null)
         {
-            return _proj.RootDirectory;
+            return Path.GetDirectoryName(_proj.Uri!.LocalPath)!;
         }
 
         return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);

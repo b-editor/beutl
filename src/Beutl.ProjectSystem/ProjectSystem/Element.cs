@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using Beutl.Animation;
 using Beutl.Collections.Pooled;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
@@ -12,7 +11,7 @@ using Beutl.Serialization;
 
 namespace Beutl.ProjectSystem;
 
-public class Element : ProjectItem, INotifyEdited
+public class Element : Hierarchical, INotifyEdited
 {
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> LengthProperty;
@@ -122,16 +121,6 @@ public class Element : ProjectItem, INotifyEdited
     {
         get => _useNode;
         set => SetAndRaise(UseNodeProperty, ref _useNode, value);
-    }
-
-    protected override void SaveCore(string filename)
-    {
-        this.JsonSave2(filename);
-    }
-
-    protected override void RestoreCore(string filename)
-    {
-        this.JsonRestore2(filename);
     }
 
     public override void Serialize(ICoreSerializationContext context)

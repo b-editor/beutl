@@ -16,6 +16,16 @@ public static class RandomFileNameGenerator
         return filename;
     }
 
+    public static Uri GenerateUri(string baseDir, string ext)
+    {
+        return new Uri(Generate(baseDir, ext));
+    }
+
+    public static Uri GenerateUri(Uri baseDir, string ext)
+    {
+        return new Uri(Generate(Path.GetDirectoryName(baseDir.LocalPath)!, ext));
+    }
+
     private static string RandomString()
     {
         const string characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";

@@ -8,6 +8,7 @@ using Beutl.Animation;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Models;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Views;
 using Microsoft.Extensions.Logging;
@@ -397,7 +398,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         return command;
     }
 
-    private ImmutableArray<IStorable?> GetStorables()
+    private ImmutableArray<CoreObject?> GetStorables()
     {
         return [Parent.Parent.Element];
     }
@@ -446,7 +447,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 }
 
                 KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(type)!;
-                CoreSerializerHelper.PopulateFromJsonObject(newKeyFrame, jsonObj);
+                CoreSerializer.PopulateFromJsonObject(newKeyFrame, jsonObj);
                 CommandRecorder recorder = Parent.Parent.EditorContext.CommandRecorder;
 
                 if (type.GenericTypeArguments[0] != Parent.Parent.Animation.ValueType)

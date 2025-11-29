@@ -4,9 +4,9 @@ namespace Beutl.Extensibility;
 
 public interface IEditorContext : IDisposable, IAsyncDisposable, IServiceProvider
 {
-    EditorExtension Extension { get; }
+    CoreObject Object { get; }
 
-    string EdittingFile { get; }
+    EditorExtension Extension { get; }
 
     IReactiveProperty<bool> IsEnabled { get; }
 

@@ -11,6 +11,7 @@ using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using DynamicData;
@@ -29,7 +30,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private readonly ReactivePropertySlim<double> _progress = new();
     private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
     private readonly CompositeDisposable _disposable = [];
-    private readonly ProjectItemContainer _itemContainer = ProjectItemContainer.Current;
     private CancellationTokenSource? _lastCts;
 
     public OutputViewModel(EditViewModel editViewModel)
@@ -50,10 +50,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     && Controller?.Value != null)
                 {
                     var newController = newEncoder.CreateController(newFile);
-                    var videoSettings = CoreSerializerHelper.SerializeToJsonObject(Controller.Value.VideoSettings);
-                    CoreSerializerHelper.PopulateFromJsonObject(newController.VideoSettings, videoSettings);
-                    var audioSettings = CoreSerializerHelper.SerializeToJsonObject(Controller.Value.AudioSettings);
-                    CoreSerializerHelper.PopulateFromJsonObject(Controller.Value.AudioSettings, audioSettings);
+                    var videoSettings = CoreSerializer.SerializeToJsonObject(Controller.Value.VideoSettings);
+                    CoreSerializer.PopulateFromJsonObject(newController.VideoSettings, videoSettings);
+                    var audioSettings = CoreSerializer.SerializeToJsonObject(Controller.Value.AudioSettings);
+                    CoreSerializer.PopulateFromJsonObject(Controller.Value.AudioSettings, audioSettings);
                     return newController;
                 }
 
@@ -103,7 +103,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public Scene Model { get; }
 
-    public string TargetFile => Model.FileName;
+    public CoreObject Object => Model;
 
     public IReactiveProperty<string> Name { get; } = new ReactiveProperty<string>("");
 
@@ -182,62 +182,52 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
             await RenderThread.Dispatcher.InvokeAsync(async () =>
             {
-                _isIndeterminate.Value = true;
-                if (!_itemContainer.TryGetOrCreateItem(TargetFile, out Scene? scene))
+                _isIndeterminate.Value = false;
+                if (VideoSettings.Value?.Settings is not VideoEncoderSettings videoSettings
+                    || AudioSettings.Value?.Settings is not AudioEncoderSettings audioSettings)
                 {
-                    // シーンの読み込みに失敗。
-                    ProgressText.Value = Message.Could_not_load_scene;
-                    _logger.LogError("Failed to load scene: {TargetFile}", TargetFile);
+                    ProgressText.Value = Message.AnUnexpectedErrorHasOccurred;
+                    _logger.LogWarning("Encoder settings are null. (Encoder: {Encoder})", SelectedEncoder.Value);
+                    return;
+                }
+
+                videoSettings.SourceSize = Model.FrameSize;
+
+                ProgressMax.Value = Model.Duration.TotalSeconds * 2;
+
+                EncodingController? controller = Controller.Value;
+                if (controller == null)
+                {
+                    _logger.LogWarning("Encoding controller is null.");
+                    return;
                 }
                 else
                 {
-                    _isIndeterminate.Value = false;
-                    if (VideoSettings.Value?.Settings is not VideoEncoderSettings videoSettings
-                        || AudioSettings.Value?.Settings is not AudioEncoderSettings audioSettings)
-                    {
-                        ProgressText.Value = Message.AnUnexpectedErrorHasOccurred;
-                        _logger.LogWarning("Encoder settings are null. (Encoder: {Encoder})", SelectedEncoder.Value);
-                        return;
-                    }
+                    _logger.LogInformation("Using encoding controller: {Controller}", controller);
+                }
 
-                    videoSettings.SourceSize = scene.FrameSize;
+                // キャッシュ無効化
+                DisableAllCache();
 
-                    ProgressMax.Value = scene.Duration.TotalSeconds * 2;
+                // Rendererを新しく作成しない理由:
+                // エンコード時のRenderInvalidatedがプレビューを更新しようとしてしまうため
 
-                    EncodingController? controller = Controller.Value;
-                    if (controller == null)
-                    {
-                        _logger.LogWarning("Encoding controller is null.");
-                        return;
-                    }
-                    else
-                    {
-                        _logger.LogInformation("Using encoding controller: {Controller}", controller);
-                    }
+                // フレームプロバイダー作成
+                // using var renderer = new SceneRenderer(scene);
+                var renderer = _editViewModel.Renderer.Value;
+                var frameProgress = new Subject<TimeSpan>();
+                var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
+                // サンプルプロバイダー作成
+                using var composer = new SceneComposer(Model, renderer) { SampleRate = audioSettings.SampleRate };
+                // var composer = _editViewModel.Composer.Value;
+                var sampleProgress = new Subject<TimeSpan>();
+                var sampleProvider = new SampleProviderImpl(
+                    Model, composer, audioSettings.SampleRate, sampleProgress);
 
-                    // キャッシュ無効化
-                    DisableAllCache();
-
-                    // Rendererを新しく作成しない理由:
-                    // エンコード時のRenderInvalidatedがプレビューを更新しようとしてしまうため
-
-                    // フレームプロバイダー作成
-                    // using var renderer = new SceneRenderer(scene);
-                    var renderer = _editViewModel.Renderer.Value;
-                    var frameProgress = new Subject<TimeSpan>();
-                    var frameProvider = new FrameProviderImpl(scene, videoSettings.FrameRate, renderer, frameProgress);
-                    // サンプルプロバイダー作成
-                    using var composer = new SceneComposer(scene, renderer) { SampleRate = audioSettings.SampleRate };
-                    // var composer = _editViewModel.Composer.Value;
-                    var sampleProgress = new Subject<TimeSpan>();
-                    var sampleProvider = new SampleProviderImpl(
-                        scene, composer, audioSettings.SampleRate, sampleProgress);
-
-                    using (frameProgress.CombineLatest(sampleProgress)
-                               .Subscribe(t => ProgressValue.Value = t.Item1.TotalSeconds + t.Item2.TotalSeconds))
-                    {
-                        await controller.Encode(frameProvider, sampleProvider, _lastCts.Token);
-                    }
+                using (frameProgress.CombineLatest(sampleProgress)
+                           .Subscribe(t => ProgressValue.Value = t.Item1.TotalSeconds + t.Item2.TotalSeconds))
+                {
+                    await controller.Encode(frameProvider, sampleProvider, _lastCts.Token);
                 }
             });
 
@@ -315,7 +305,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         if (settings == null) return null;
         try
         {
-            return CoreSerializerHelper.SerializeToJsonObject(settings, settings.GetType());
+            return CoreSerializer.SerializeToJsonObject(settings);
         }
         catch (Exception e)
         {
@@ -351,7 +341,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             if (settings == null) return;
             try
             {
-                CoreSerializerHelper.PopulateFromJsonObject(settings, settings.GetType(), json);
+                CoreSerializer.PopulateFromJsonObject(settings, settings.GetType(), json);
             }
             catch (Exception e)
             {
@@ -362,8 +352,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         if (DestinationFile.Value == null && applyingPreset)
         {
             DestinationFile.Value = Path.Combine(
-                Path.GetDirectoryName(TargetFile)!,
-                $"{Path.GetFileNameWithoutExtension(TargetFile)}.mp4");
+                Path.GetDirectoryName(Model.Uri!.LocalPath)!,
+                $"{Path.GetFileNameWithoutExtension(Model.Uri!.LocalPath)}.mp4");
         }
 
         if (!applyingPreset)

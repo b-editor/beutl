@@ -8,7 +8,7 @@ namespace Beutl.Operators.Source;
 
 public sealed class SourceVideoOperator : PublishOperator<SourceVideo>
 {
-    private string? _sourceName;
+    private Uri? _uri;
 
     protected override void FillProperties()
     {
@@ -26,9 +26,9 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        if (Value is not { Source.CurrentValue: { Name: { } name } source } value) return;
+        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } value) return;
 
-        _sourceName = name;
+        _uri = uri;
         value.Source.CurrentValue = null;
         source.Dispose();
     }
@@ -36,10 +36,10 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
-        if (_sourceName is null) return;
+        if (_uri is null) return;
         if (Value is not { } value) return;
 
-        if (VideoSource.TryOpen(_sourceName, out VideoSource? source))
+        if (VideoSource.TryOpen(_uri, out VideoSource? source))
         {
             value.Source.CurrentValue = source;
         }
@@ -71,11 +71,10 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>
 
         if (backward)
         {
-            IStorable? storable = this.FindHierarchicalParent<IStorable>();
             TimeSpan newValue = Value.OffsetPosition.CurrentValue + startDelta;
             TimeSpan oldValue = Value.OffsetPosition.CurrentValue;
 
-            return RecordableCommands.Create([storable])
+            return RecordableCommands.Create([this])
                 .OnDo(() => Value.OffsetPosition.CurrentValue = newValue)
                 .OnUndo(() => Value.OffsetPosition.CurrentValue = oldValue)
                 .ToCommand();

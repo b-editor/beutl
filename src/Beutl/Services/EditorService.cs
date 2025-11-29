@@ -17,9 +17,9 @@ public sealed class EditorTabItem : IAsyncDisposable
     public EditorTabItem(IEditorContext context)
     {
         Context = new ReactiveProperty<IEditorContext>(context);
-        FilePath = Context.Select(ctxt => ctxt?.EdittingFile!)
+        FilePath = Context.Select(ctxt => ctxt?.Object.Uri?.LocalPath!)
             .ToReadOnlyReactivePropertySlim()!;
-        FileName = Context.Select(ctxt => Path.GetFileName(ctxt?.EdittingFile)!)
+        FileName = Context.Select(ctxt => Path.GetFileName(ctxt?.Object.Uri?.LocalPath)!)
             .Do(_ => _hash = null)
             .ToReadOnlyReactivePropertySlim()!;
         Extension = Context.Select(ctxt => ctxt?.Extension!)
@@ -88,51 +88,54 @@ public sealed class EditorService
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
 
-    public bool TryGetTabItem(string? file, [NotNullWhen(true)] out EditorTabItem? result)
+    public bool TryGetTabItem(CoreObject obj, [NotNullWhen(true)] out EditorTabItem? result)
     {
-        result = TabItems.FirstOrDefault(i => i.FilePath.Value == file);
+        result = TabItems.FirstOrDefault(i => i.Context.Value?.Object == obj);
 
         return result != null;
     }
 
-    public void ActivateTabItem(string? file)
+    public void ActivateTabItem(CoreObject obj)
     {
-        if (File.Exists(file))
+        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        viewConfig.UpdateRecentFile(obj.Uri!.LocalPath);
+
+        if (TryGetTabItem(obj, out EditorTabItem? tabItem))
         {
-            ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-            viewConfig.UpdateRecentFile(file);
+            tabItem.IsSelected.Value = true;
+            SelectedTabItem.Value = tabItem;
+        }
+        else
+        {
+            EditorExtension? ext = ExtensionProvider.Current.MatchEditorExtension(obj.Uri!.LocalPath);
 
-            if (TryGetTabItem(file, out EditorTabItem? tabItem))
+            if (ext?.TryCreateContext(obj, out IEditorContext? context) == true)
             {
-                tabItem.IsSelected.Value = true;
-                SelectedTabItem.Value = tabItem;
-            }
-            else
-            {
-                EditorExtension? ext = ExtensionProvider.Current.MatchEditorExtension(file);
-
-                if (ext?.TryCreateContext(file, out IEditorContext? context) == true)
+                var tabItem2 = new EditorTabItem(context)
                 {
-                    var tabItem2 = new EditorTabItem(context)
+                    IsSelected =
                     {
-                        IsSelected =
-                        {
-                            Value = true
-                        }
-                    };
-                    TabItems.Add(tabItem2);
-                    SelectedTabItem.Value = tabItem2;
-                }
+                        Value = true
+                    }
+                };
+                TabItems.Add(tabItem2);
+                SelectedTabItem.Value = tabItem2;
             }
         }
     }
 
-    public async ValueTask CloseTabItem(string? file)
+    public async ValueTask CloseTabItem(CoreObject obj)
     {
-        if (TryGetTabItem(file, out EditorTabItem? item))
+        if (TryGetTabItem(obj, out EditorTabItem? item))
         {
             TabItems.Remove(item);
             await item.DisposeAsync();
         }
+    }
+
+    public async ValueTask CloseTabItem(EditorTabItem item)
+    {
+        TabItems.Remove(item);
+        await item.DisposeAsync();
     }
 }
