@@ -1410,4 +1410,16 @@
   <data name="Convert_to_preset" xml:space="preserve">
     <value>Convert to preset</value>
   </data>
+  <data name="Geometry" xml:space="preserve">
+    <value>Geometry</value>
+  </data>
+  <data name="Progress" xml:space="preserve">
+    <value>Progress</value>
+  </data>
+  <data name="FollowRotation" xml:space="preserve">
+    <value>Follow Rotation</value>
+  </data>
+  <data name="PathFollowEffect" xml:space="preserve">
+    <value>Path Follow</value>
+  </data>
 </root>

@@ -145,6 +145,7 @@ public static class LibraryRegistrar
                 .AddFilterEffect<ColorShift>(Strings.ColorShift)
                 .AddFilterEffect<ShakeEffect>(Strings.ShakeEffect)
                 .AddFilterEffect<DisplacementMapEffect>(Strings.DisplacementMap)
+                .AddFilterEffect<PathFollowEffect>(Strings.PathFollowEffect)
                 .AddFilterEffect<LayerEffect>("Layer")
                 .AddGroup("OpenCV", gg => gg
                     .AddFilterEffect<Graphics.Effects.OpenCv.Blur>("CvBlur")

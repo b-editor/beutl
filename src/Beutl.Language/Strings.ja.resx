@@ -1415,4 +1415,16 @@
   <data name="Convert_to_preset" xml:space="preserve">
     <value>プリセットに変換</value>
   </data>
+  <data name="Geometry" xml:space="preserve">
+    <value>ジオメトリ</value>
+  </data>
+  <data name="Progress" xml:space="preserve">
+    <value>進捗</value>
+  </data>
+  <data name="FollowRotation" xml:space="preserve">
+    <value>回転に追従</value>
+  </data>
+  <data name="PathFollowEffect" xml:space="preserve">
+    <value>パス追従</value>
+  </data>
 </root>
