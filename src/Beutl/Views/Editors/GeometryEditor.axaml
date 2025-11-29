@@ -24,6 +24,9 @@
                     <ui:MenuFlyoutItem Click="SetNullClick"
                                        FontWeight="Normal"
                                        Text="Null" />
+                    <ui:MenuFlyoutItem Click="InitializeClick"
+                                       FontWeight="Normal"
+                                       Text="{x:Static lang:Strings.Initialize}" />
                     <ui:MenuFlyoutItem Click="ImportFromSvgPathClick"
                                        FontWeight="Normal"
                                        Text="{x:Static lang:Strings.ImportSvgPath}" />

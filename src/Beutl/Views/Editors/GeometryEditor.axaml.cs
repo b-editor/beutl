@@ -60,7 +60,7 @@ public partial class GeometryEditor : UserControl
         else
         {
             _logger.LogInformation("Group is not selected, showing context flyout.");
-            //expandToggle.ContextFlyout?.ShowAt(expandToggle);
+            expandToggle.ContextFlyout?.ShowAt(expandToggle);
         }
     }
 
@@ -113,30 +113,19 @@ public partial class GeometryEditor : UserControl
         }
     }
 
-    private void AddClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is GeometryEditorViewModel { IsDisposed: false } viewModel
-            && sender is MenuFlyoutItem item
-            && viewModel.IsGroup.Value)
-        {
-            try
-            {
-                _logger.LogInformation("Adding item from menu flyout.");
-                viewModel.AddItem();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while adding item from menu flyout.");
-                NotificationService.ShowError("Error", ex.Message);
-            }
-        }
-    }
-
     private void SetNullClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
 
         _logger.LogInformation("Setting value to null.");
         viewModel.SetNull();
+    }
+
+    private void InitializeClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
+
+        _logger.LogInformation("Initializing geometry type.");
+        viewModel.ChangeGeometryType(typeof(PathGeometry));
     }
 }
