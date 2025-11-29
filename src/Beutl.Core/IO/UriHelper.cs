@@ -69,6 +69,6 @@ internal static class UriHelper
 
     public static Uri CreateFromPath(string path)
     {
-        return new Uri(new Uri("file://"), path);
+        return new Uri(path);
     }
 }
