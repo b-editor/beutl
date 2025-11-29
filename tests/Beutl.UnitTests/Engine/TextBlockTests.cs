@@ -89,7 +89,7 @@ public class TextBlockTests
         using var graphics = new ImmediateCanvas(renderTarget);
 
         graphics.Clear(Colors.White);
-        graphics.DrawSKPath(skpath, false, null, penResource);
+        graphics.DrawSKPath(skpath, true, null, penResource);
 
         using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
 
