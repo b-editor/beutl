@@ -62,9 +62,8 @@ public sealed partial class PathFollowEffect : FilterEffect
             effectContext.ForEach((_, target) =>
             {
 
-                Matrix m1;
-                Matrix m2;
                 var translate = Matrix.CreateTranslation(data.offsetX, data.offsetY);
+                Matrix m1, m2;
                 if (data.rotationAngle != 0)
                 {
                     var center = new Vector(target.Bounds.Width / 2, target.Bounds.Height / 2);
