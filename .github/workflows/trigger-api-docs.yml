@@ -1,0 +1,17 @@
+name: Trigger API Docs Update
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  trigger-api-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger beutl-api-data update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.REPO_DISPATCH_TOKEN }}
+          repository: b-editor/beutl-api-data
+          event-type: beutl-release
+          client-payload: '{"ref": "${{ github.ref }}", "version": "${{ github.event.release.tag_name }}"}'
