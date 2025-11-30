@@ -28,7 +28,7 @@ jobs:
         run: dotnet restore Beutl.slnx
 
       - name: Build
-        run: dotnet build Beutl.slnx --no-restore -f net10.0
+        run: dotnet build Beutl.slnx --no-restore
 
       - name: Test
         run: dotnet test Beutl.slnx --no-build --verbosity normal -f net10.0 --collect:"XPlat Code Coverage" --settings coverlet.runsettings
