@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Reflection;
 using Beutl.Animation;
+using Beutl.Engine.Expressions;
 using Beutl.Serialization;
 using Beutl.Validation;
 using ValidationContext = Beutl.Validation.ValidationContext;
@@ -12,10 +13,12 @@ public class AnimatableProperty<T> : IProperty<T>
 {
     private T _currentValue;
     private IAnimation<T>? _animation;
+    private IExpression<T>? _expression;
     private IValidator<T>? _validator;
     private PropertyInfo? _propertyInfo;
     private string _name;
     private EngineObject? _owner;
+    private PropertyLookup? _propertyLookup;
 
     public AnimatableProperty(T defaultValue, IValidator<T>? validator = null)
     {
@@ -101,11 +104,29 @@ public class AnimatableProperty<T> : IProperty<T>
 
     public bool HasLocalValue { get; private set; }
 
+    public bool HasExpression => _expression != null;
+
+    public IExpression<T>? Expression
+    {
+        get => _expression;
+        set
+        {
+            if (_expression != value)
+            {
+                _expression = value;
+                ExpressionChanged?.Invoke(_expression);
+                Edited?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
     public event EventHandler? Edited;
 
     public event Action<IAnimation<T>?>? AnimationChanged;
+
+    public event Action<IExpression<T>?>? ExpressionChanged;
 
     public void operator <<= (T value)
     {
@@ -123,8 +144,21 @@ public class AnimatableProperty<T> : IProperty<T>
         {
             T value;
 
-            // アニメーション値を優先
-            if (_animation != null)
+            // 式を最優先
+            if (_expression != null)
+            {
+                _propertyLookup ??= new PropertyLookup(_owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
+                var expressionContext = new ExpressionContext
+                {
+                    Time = time,
+                    CurrentProperty = this,
+                    PropertyLookup = _propertyLookup
+                };
+                value = _expression.Evaluate(expressionContext);
+                value = ValidateAndCoerce(value);
+            }
+            // アニメーション値を次に優先
+            else if (_animation != null)
             {
                 value = _animation.GetAnimatedValue(time) ?? _currentValue;
 
@@ -177,6 +211,7 @@ public class AnimatableProperty<T> : IProperty<T>
     public void SetOwnerObject(EngineObject? owner)
     {
         if (_owner == owner) return;
+        _propertyLookup = null;
 
         if (owner is IModifiableHierarchical ownerHierarchical)
         {
@@ -228,6 +263,7 @@ public class AnimatableProperty<T> : IProperty<T>
         CurrentValue = DefaultValue;
         HasLocalValue = false;
         Animation = null;
+        Expression = null;
     }
 
     public void DeserializeValue(ICoreSerializationContext context)

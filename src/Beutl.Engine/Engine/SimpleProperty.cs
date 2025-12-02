@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using Beutl.Animation;
+using Beutl.Engine.Expressions;
 using Beutl.Serialization;
 using Beutl.Validation;
 using ValidationContext = Beutl.Validation.ValidationContext;
@@ -67,11 +68,28 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
         }
     }
 
+    public IExpression<T>? Expression
+    {
+        get => null;
+        set
+        {
+            if (value != null)
+            {
+                throw new InvalidOperationException(
+                    $"Property '{Name}' does not support expressions. Use Property.CreateAnimatable<T>() to create animatable properties.");
+            }
+        }
+    }
+
     public bool HasLocalValue { get; private set; }
+
+    public bool HasExpression => false;
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
     public event EventHandler? Edited;
+
+    public event Action<IExpression<T>?>? ExpressionChanged;
 
     public void operator <<= (T value)
     {
@@ -85,6 +103,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
 
     public T GetValue(TimeSpan time)
     {
+        // SimplePropertyは式をサポートしないため、常に現在値を返す
         return _currentValue;
     }
 

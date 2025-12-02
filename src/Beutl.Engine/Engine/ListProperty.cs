@@ -1,10 +1,10 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Collections;
+using Beutl.Engine.Expressions;
 using Beutl.Serialization;
 using Beutl.Validation;
 
@@ -69,9 +69,23 @@ public class ListProperty<T> : IListProperty<T>
         set { }
     }
 
+    public IExpression<ICoreList<T>>? Expression
+    {
+        get => null;
+        set { }
+    }
+
     public bool HasLocalValue => true;
 
+    public bool HasExpression => false;
+
     public event EventHandler<PropertyValueChangedEventArgs<ICoreList<T>>>? ValueChanged
+    {
+        add { }
+        remove { }
+    }
+
+    public event Action<IExpression<ICoreList<T>>?>? ExpressionChanged
     {
         add { }
         remove { }
