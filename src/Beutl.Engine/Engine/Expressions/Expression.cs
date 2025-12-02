@@ -11,6 +11,7 @@ public class Expression<T>(string expression) : IExpression<T>
     private ScriptRunner<object>? _scriptRunner;
     private string? _parseError;
     private bool _isParsed = false;
+    private bool _isEvaluating = false;
 
     public string ExpressionString { get; } = expression ?? throw new ArgumentNullException(nameof(expression));
 
@@ -18,6 +19,12 @@ public class Expression<T>(string expression) : IExpression<T>
 
     public T Evaluate(ExpressionContext context)
     {
+        // 循環参照チェック
+        if (_isEvaluating)
+        {
+            throw new ExpressionException($"Circular reference detected while evaluating property: {ExpressionString}");
+        }
+
         EnsureParsed();
 
         if (_scriptRunner == null)
@@ -25,6 +32,7 @@ public class Expression<T>(string expression) : IExpression<T>
             throw new ExpressionException($"Expression parse error: {_parseError}");
         }
 
+        _isEvaluating = true;
         try
         {
             var globals = new ExpressionGlobals(context);
@@ -34,6 +42,10 @@ public class Expression<T>(string expression) : IExpression<T>
         catch (Exception ex) when (ex is not ExpressionException)
         {
             throw new ExpressionException($"Expression evaluation error: {ex.Message}", ex);
+        }
+        finally
+        {
+            _isEvaluating = false;
         }
     }
 
