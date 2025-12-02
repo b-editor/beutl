@@ -55,7 +55,7 @@ public static class CoreObjectExtensions
         foreach (CoreProperty prop in props)
         {
             object? inner = obj.GetValue(prop);
-            if (inner != null && hashSet.Add(inner))
+            if (inner != null && !hashSet.Contains(inner))
             {
                 if (predicate(inner))
                 {
@@ -65,6 +65,8 @@ public static class CoreObjectExtensions
                 {
                     return match;
                 }
+
+                hashSet.Add(inner);
             }
         }
 
@@ -75,7 +77,7 @@ public static class CoreObjectExtensions
     {
         foreach (IHierarchical item in hierarchical.HierarchicalChildren)
         {
-            if (hashSet.Add(item))
+            if (!hashSet.Contains(item))
             {
                 if (predicate(item))
                 {
@@ -85,6 +87,8 @@ public static class CoreObjectExtensions
                 {
                     return match;
                 }
+
+                hashSet.Add(item);
             }
         }
 
