@@ -5,6 +5,7 @@ using System.Reflection;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Engine.Expressions;
+using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 using Beutl.Validation;
 
@@ -103,7 +104,7 @@ public class ListProperty<T> : IListProperty<T>
         Edited?.Invoke(sender, e);
     }
 
-    public ICoreList<T> GetValue(TimeSpan time)
+    public ICoreList<T> GetValue(RenderContext context)
     {
         return CurrentValue;
     }

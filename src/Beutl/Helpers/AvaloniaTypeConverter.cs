@@ -61,7 +61,7 @@ public static class AvaloniaTypeConverter
             .Select(_ => Unit.Default)
             .Publish(Unit.Default).RefCount()
             .CombineLatest(time)
-            .Select(t => property.GetValue(t.Second));
+            .Select(t => property.GetValue(new RenderContext(t.Second)));
     }
 
     public static IObservable<TResource> SubscribeEngineResource<T, TResource>(

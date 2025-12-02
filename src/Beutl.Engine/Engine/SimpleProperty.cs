@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Engine.Expressions;
+using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 using Beutl.Validation;
 using ValidationContext = Beutl.Validation.ValidationContext;
@@ -101,7 +102,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
         Edited?.Invoke(sender, e);
     }
 
-    public T GetValue(TimeSpan time)
+    public T GetValue(RenderContext context)
     {
         // SimplePropertyは式をサポートしないため、常に現在値を返す
         return _currentValue;

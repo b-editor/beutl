@@ -9,6 +9,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
@@ -214,7 +215,7 @@ public partial class PathEditorTab : UserControl, IPathEditorView
                         if (prop != null)
                         {
                             TimeSpan currentTime = viewModel.EditViewModel.CurrentTime.Value;
-                            Point point = prop.GetValue(currentTime).ToAvaPoint();
+                            Point point = prop.GetValue(new RenderContext(currentTime)).ToAvaPoint();
                             point = point.Transform(Matrix);
                             point *= Scale;
 
@@ -545,7 +546,7 @@ public partial class PathEditorTab : UserControl, IPathEditorView
             if (index > 0)
             {
                 PathSegment lastOp = figure.Segments[index - 1];
-                lastPoint = lastOp.GetEndPoint().GetValue(editViewModel.CurrentTime.Value);
+                lastPoint = lastOp.GetEndPoint().GetValue(new RenderContext(editViewModel.CurrentTime.Value));
             }
 
             BtlPoint point = (_clickPoint / Scale).ToBtlPoint();

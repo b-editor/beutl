@@ -138,7 +138,7 @@ public class AnimatableProperty<T> : IProperty<T>
         Edited?.Invoke(sender, e);
     }
 
-    public T GetValue(TimeSpan time)
+    public T GetValue(RenderContext context)
     {
         try
         {
@@ -160,7 +160,7 @@ public class AnimatableProperty<T> : IProperty<T>
             // アニメーション値を次に優先
             else if (_animation != null)
             {
-                value = _animation.GetAnimatedValue(time) ?? _currentValue;
+                value = _animation.GetAnimatedValue(context.Time) ?? _currentValue;
 
                 // アニメーション値もバリデーション
                 value = ValidateAndCoerce(value);

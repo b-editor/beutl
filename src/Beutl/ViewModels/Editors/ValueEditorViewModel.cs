@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Graphics.Rendering;
 using Beutl.Operation;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -17,7 +18,7 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
             {
                 if (hasExpression && PropertyAdapter is EnginePropertyAdapter<T> { Property: var engineProperty })
                 {
-                    return CurrentTime.Select(t => engineProperty.GetValue(t));
+                    return CurrentTime.Select(t => engineProperty.GetValue(new RenderContext(t)));
                 }
                 else
                 {

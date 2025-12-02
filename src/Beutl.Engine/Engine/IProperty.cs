@@ -2,6 +2,7 @@ using System.Reflection;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Engine.Expressions;
+using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 using Beutl.Validation;
 
@@ -98,7 +99,7 @@ public interface IProperty<T> : IProperty
         }
     }
 
-    T GetValue(TimeSpan time);
+    T GetValue(RenderContext context);
 
     event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
