@@ -38,7 +38,7 @@ public class PropertyLookup(ICoreObject root)
 
             if (property is IProperty<T> typedProperty)
             {
-                value = typedProperty.GetValue(context.Time);
+                value = typedProperty.GetValue(context);
                 return true;
             }
         }

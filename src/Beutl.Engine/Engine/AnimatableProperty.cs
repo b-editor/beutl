@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Engine.Expressions;
+using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 using Beutl.Validation;
 using ValidationContext = Beutl.Validation.ValidationContext;
@@ -148,14 +149,26 @@ public class AnimatableProperty<T> : IProperty<T>
             if (_expression != null)
             {
                 _propertyLookup ??= new PropertyLookup(_owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
-                var expressionContext = new ExpressionContext
+                if (context is ExpressionContext expressionContext)
                 {
-                    Time = time,
-                    CurrentProperty = this,
-                    PropertyLookup = _propertyLookup
-                };
-                value = _expression.Evaluate(expressionContext);
-                value = ValidateAndCoerce(value);
+                    if (expressionContext.IsEvaluating(this))
+                        return DefaultValue;
+                }
+                else
+                {
+                    expressionContext = new ExpressionContext(context.Time, this, _propertyLookup);
+                }
+
+                expressionContext.BeginEvaluation(this);
+                try
+                {
+                    value = _expression.Evaluate(expressionContext);
+                    value = ValidateAndCoerce(value);
+                }
+                finally
+                {
+                    expressionContext.EndEvaluation(this);
+                }
             }
             // アニメーション値を次に優先
             else if (_animation != null)

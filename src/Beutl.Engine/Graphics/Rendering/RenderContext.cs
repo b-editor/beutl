@@ -12,6 +12,6 @@ public class RenderContext(TimeSpan time)
     {
         if (property == null)
             throw new ArgumentNullException(nameof(property));
-        return property.GetValue(Time);
+        return property.GetValue(this);
     }
 }

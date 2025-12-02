@@ -1,12 +1,14 @@
+using Beutl.Graphics.Rendering;
+
 namespace Beutl.Engine.Expressions;
 
-public class ExpressionContext
+public class ExpressionContext(TimeSpan time, IProperty currentProperty, PropertyLookup propertyLookup) : RenderContext(time)
 {
-    public required TimeSpan Time { get; init; }
+    private readonly HashSet<IProperty> _evaluationStack = [];
 
-    public required IProperty CurrentProperty { get; init; }
+    public IProperty CurrentProperty { get; set; } = currentProperty;
 
-    public required PropertyLookup PropertyLookup { get; init; }
+    public PropertyLookup PropertyLookup { get; init; } = propertyLookup;
 
     public bool TryGetPropertyValue<T>(string path, out T? value)
     {
@@ -16,5 +18,20 @@ public class ExpressionContext
     public bool TryGetPropertyValue<T>(Guid objectId, string propertyName, out T? value)
     {
         return PropertyLookup.TryGetPropertyValue(objectId, propertyName, this, out value);
+    }
+
+    public bool IsEvaluating(IProperty property)
+    {
+        return _evaluationStack.Contains(property);
+    }
+
+    public void BeginEvaluation(IProperty property)
+    {
+        _evaluationStack.Add(property);
+    }
+
+    public void EndEvaluation(IProperty property)
+    {
+        _evaluationStack.Remove(property);
     }
 }
