@@ -103,50 +103,25 @@ public sealed partial class PropertyEditorMenu : UserControl
         }
     }
 
-    private async void EditExpression_Click(object? sender, RoutedEventArgs e)
+    private void EditExpression_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
         {
             string? currentExpression = viewModel.GetExpressionString();
 
-            var dialog = new ContentDialog
-            {
-                Title = Strings.EditExpression,
-                PrimaryButtonText = Strings.OK,
-                CloseButtonText = Strings.Cancel,
-                DefaultButton = ContentDialogButton.Primary
-            };
+            var flyout = new ExpressionEditorFlyout();
+            flyout.Placement = PlacementMode.Bottom;
 
-            var textBox = new TextBox
+            flyout.Confirmed += (_, _) =>
             {
-                Text = currentExpression ?? "",
-                Watermark = "Sin(Time * 2 * PI) * 100",
-                AcceptsReturn = true,
-                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-                MinHeight = 100,
-                MaxHeight = 200
-            };
-
-            dialog.Content = new StackPanel
-            {
-                Spacing = 8,
-                Children =
+                if (!string.IsNullOrWhiteSpace(flyout.ExpressionText))
                 {
-                    new TextBlock
-                    {
-                        Text = Strings.ExpressionHelp,
-                        TextWrapping = Avalonia.Media.TextWrapping.Wrap
-                    },
-                    textBox
+                    viewModel.SetExpression(flyout.ExpressionText);
                 }
             };
 
-            var result = await dialog.ShowAsync();
-
-            if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(textBox.Text))
-            {
-                viewModel.SetExpression(textBox.Text);
-            }
+            flyout.ShowAt(this);
+            flyout.ExpressionText = currentExpression ?? "";
         }
     }
 
