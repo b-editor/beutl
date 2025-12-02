@@ -17,9 +17,18 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         InitializeComponent();
         Bind(ToolTip.TipProperty, this.GetObservable(DataContextProperty)
-            .Select(v => (v as BaseEditorViewModel)?.HasAnimation ?? Observable.ReturnThenNever(false))
-            .Switch()
-            .Select(v => v ? $"- {Message.RightClickToShowMenu}\n- {Message.AnimationIsEnabled}" : null));
+            .Select(v => v is BaseEditorViewModel viewModel
+                ? viewModel.HasAnimation
+                    .CombineLatest(viewModel.HasExpression)
+                    .Select(t => t switch
+                    {
+                        (true, _) =>
+                            $"- {Message.RightClickToShowMenu}\n- {Message.AnimationIsEnabled}",
+                        (_, true) => $"- {Message.RightClickToShowMenu}\n- {Message.ExpressionIsSet}",
+                        _ => null
+                    })
+                : Observable.ReturnThenNever<string?>(null))
+            .Switch());
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -39,11 +48,11 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
         {
-            if (!viewModel.HasAnimation.Value && sender is Button button)
+            if (viewModel.HasExpression.Value)
             {
-                button.ContextFlyout?.ShowAt(button);
+                EditExpression_Click(sender, e);
             }
-            else if (viewModel.GetService<EditViewModel>() is { } editViewModel)
+            else if (viewModel.HasAnimation.Value && viewModel.GetService<EditViewModel>() is { } editViewModel)
             {
                 TimeSpan keyTime = editViewModel.CurrentTime.Value;
                 if (symbolIcon.IsFilled)
@@ -54,6 +63,10 @@ public sealed partial class PropertyEditorMenu : UserControl
                 {
                     viewModel.InsertKeyFrame(keyTime);
                 }
+            }
+            else if (sender is Button button)
+            {
+                button.ContextFlyout?.ShowAt(button);
             }
         }
     }

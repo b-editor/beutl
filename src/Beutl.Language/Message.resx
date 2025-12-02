@@ -398,4 +398,7 @@ Do you want to restart the application?</value>
     <value>Do you want to install?
 (The update function is an experimental feature.)</value>
   </data>
+  <data name="ExpressionIsSet" xml:space="preserve">
+    <value>Expression is set</value>
+  </data>
 </root>

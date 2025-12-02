@@ -590,5 +590,11 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Do_you_want_to_install", resourceCulture);
             }
         }
+        
+        public static string ExpressionIsSet {
+            get {
+                return ResourceManager.GetString("ExpressionIsSet", resourceCulture);
+            }
+        }
     }
 }

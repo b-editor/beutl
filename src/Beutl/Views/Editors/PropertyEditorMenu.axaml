@@ -55,6 +55,7 @@
         </Button.ContextFlyout>
         <icons:SymbolIcon x:Name="symbolIcon"
                           Classes.hasAnimation="{Binding HasAnimation.Value}"
+                          Classes.hasExpression="{Binding HasExpression.Value}"
                           IsFilled="{Binding IsSymbolIconFilled.Value}">
             <icons:SymbolIcon.Styles>
                 <Style Selector="icons|SymbolIcon">
@@ -63,6 +64,10 @@
                 <Style Selector="icons|SymbolIcon.hasAnimation">
                     <Setter Property="Symbol" Value="Diamond" />
                     <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
+                </Style>
+                <Style Selector="icons|SymbolIcon.hasExpression">
+                    <Setter Property="Symbol" Value="MathFormula" />
+                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
                 </Style>
             </icons:SymbolIcon.Styles>
         </icons:SymbolIcon>
