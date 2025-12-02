@@ -35,6 +35,7 @@
     <PackageVersion Include="ILGPU" Version="1.5.2" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.12.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.3" />
     <PackageVersion Include="Microsoft.Extensions.DependencyModel" Version="9.0.3" />
     <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="9.0.3" />
