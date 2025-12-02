@@ -8,7 +8,7 @@ using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Media;
 using Beutl.Helpers;
 using Beutl.Logging;
@@ -46,6 +46,10 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             ? anm.ObserveAnimation.Select(x => x != null)
             : Observable.Return(false);
 
+        IObservable<bool> hasExpression = property is IExpressionPropertyAdapter expr
+            ? expr.ObserveExpression.Select(x => x != null)
+            : Observable.Return(false);
+
         IObservable<bool>? isReadOnly = Observable.Return(property.IsReadOnly);
 
         CanEdit = isReadOnly
@@ -58,6 +62,10 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             .AddTo(Disposables);
 
         HasAnimation = hasAnimation
+            .ToReadOnlyReactiveProperty()
+            .AddTo(Disposables);
+
+        HasExpression = hasExpression
             .ToReadOnlyReactiveProperty()
             .AddTo(Disposables);
 
@@ -147,6 +155,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     public ReadOnlyReactivePropertySlim<bool> IsReadOnly { get; }
 
     public ReadOnlyReactiveProperty<bool> HasAnimation { get; }
+
+    public ReadOnlyReactiveProperty<bool> HasExpression { get; }
 
     public ReactivePropertySlim<bool> IsSymbolIconFilled { get; } = new();
 
@@ -291,6 +301,19 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public virtual void RemoveAnimation()
     {
+    }
+
+    public virtual void SetExpression(string expressionString)
+    {
+    }
+
+    public virtual void RemoveExpression()
+    {
+    }
+
+    public virtual string? GetExpressionString()
+    {
+        return null;
     }
 
     public virtual object? GetService(Type serviceType)
@@ -459,5 +482,50 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 .ToCommand()
                 .DoAndRecord(recorder);
         }
+    }
+
+    public override void SetExpression(string expressionString)
+    {
+        if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
+        {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+            IExpression<T>? oldExpression = expressionProperty.Expression;
+
+            if (!Expression.TryParse<T>(expressionString, out var newExpression, out _))
+            {
+                // パース失敗の場合は何もしない
+                return;
+            }
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => expressionProperty.Expression = newExpression)
+                .OnUndo(() => expressionProperty.Expression = oldExpression)
+                .ToCommand()
+                .DoAndRecord(recorder);
+        }
+    }
+
+    public override void RemoveExpression()
+    {
+        if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
+        {
+            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+            IExpression<T>? oldExpression = expressionProperty.Expression;
+
+            RecordableCommands.Create(GetStorables())
+                .OnDo(() => expressionProperty.Expression = null)
+                .OnUndo(() => expressionProperty.Expression = oldExpression)
+                .ToCommand()
+                .DoAndRecord(recorder);
+        }
+    }
+
+    public override string? GetExpressionString()
+    {
+        if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
+        {
+            return expressionProperty.Expression?.ExpressionString;
+        }
+        return null;
     }
 }

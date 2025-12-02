@@ -1382,7 +1382,25 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("RemoveAnimation", resourceCulture);
             }
         }
-        
+
+        public static string EditExpression {
+            get {
+                return ResourceManager.GetString("EditExpression", resourceCulture);
+            }
+        }
+
+        public static string RemoveExpression {
+            get {
+                return ResourceManager.GetString("RemoveExpression", resourceCulture);
+            }
+        }
+
+        public static string ExpressionHelp {
+            get {
+                return ResourceManager.GetString("ExpressionHelp", resourceCulture);
+            }
+        }
+
         public static string ColorPalette {
             get {
                 return ResourceManager.GetString("ColorPalette", resourceCulture);

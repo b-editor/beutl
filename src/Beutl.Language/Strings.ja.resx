@@ -791,6 +791,15 @@
   <data name="RemoveAnimation" xml:space="preserve">
     <value>アニメーションを削除</value>
   </data>
+  <data name="EditExpression" xml:space="preserve">
+    <value>式を編集</value>
+  </data>
+  <data name="RemoveExpression" xml:space="preserve">
+    <value>式を削除</value>
+  </data>
+  <data name="ExpressionHelp" xml:space="preserve">
+    <value>数式を入力してください。利用可能な変数: Time, Start, Duration, Progress。GetProperty&lt;T&gt;("{GUID}.Property")形式で他のプロパティを参照できます。</value>
+  </data>
   <data name="ColorPalette" xml:space="preserve">
     <value>カラーパレット</value>
   </data>

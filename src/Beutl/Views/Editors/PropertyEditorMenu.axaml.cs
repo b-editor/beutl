@@ -6,6 +6,7 @@ using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.ViewModels.Tools;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
@@ -26,6 +27,12 @@ public sealed partial class PropertyEditorMenu : UserControl
         base.OnDataContextChanged(e);
         toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
         uniformEditorToggle.IsVisible = DataContext is IConfigureUniformEditor;
+
+        // 式の編集メニューはIExpressionPropertyAdapterをサポートするプロパティでのみ表示
+        bool supportsExpression = DataContext is BaseEditorViewModel { PropertyAdapter: IExpressionPropertyAdapter };
+        expressionSeparator.IsVisible = supportsExpression;
+        editExpressionItem.IsVisible = supportsExpression;
+        removeExpressionItem.IsVisible = supportsExpression;
     }
 
     private void Button_Click(object? sender, RoutedEventArgs e)
@@ -93,6 +100,61 @@ public sealed partial class PropertyEditorMenu : UserControl
                 // タイムラインのタブを開く
                 timeline.AttachInline(animatableProperty, element);
             }
+        }
+    }
+
+    private async void EditExpression_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
+        {
+            string? currentExpression = viewModel.GetExpressionString();
+
+            var dialog = new ContentDialog
+            {
+                Title = Strings.EditExpression,
+                PrimaryButtonText = Strings.OK,
+                CloseButtonText = Strings.Cancel,
+                DefaultButton = ContentDialogButton.Primary
+            };
+
+            var textBox = new TextBox
+            {
+                Text = currentExpression ?? "",
+                Watermark = "Sin(Time * 2 * PI) * 100",
+                AcceptsReturn = true,
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                MinHeight = 100,
+                MaxHeight = 200
+            };
+
+            dialog.Content = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = Strings.ExpressionHelp,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                    },
+                    textBox
+                }
+            };
+
+            var result = await dialog.ShowAsync();
+
+            if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(textBox.Text))
+            {
+                viewModel.SetExpression(textBox.Text);
+            }
+        }
+    }
+
+    private void RemoveExpression_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
+        {
+            viewModel.RemoveExpression();
         }
     }
 }

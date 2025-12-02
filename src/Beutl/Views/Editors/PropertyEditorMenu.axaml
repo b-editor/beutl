@@ -41,6 +41,16 @@
                                                                        Mode=TwoWay}"
                                          IsVisible="False"
                                          Text="一定な値" />
+                <ui:MenuFlyoutSeparator x:Name="expressionSeparator" IsVisible="False" />
+                <ui:MenuFlyoutItem x:Name="editExpressionItem"
+                                   Click="EditExpression_Click"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.EditExpression}" />
+                <ui:MenuFlyoutItem x:Name="removeExpressionItem"
+                                   Click="RemoveExpression_Click"
+                                   IsEnabled="{Binding HasExpression.Value}"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.RemoveExpression}" />
             </ui:FAMenuFlyout>
         </Button.ContextFlyout>
         <icons:SymbolIcon x:Name="symbolIcon"
