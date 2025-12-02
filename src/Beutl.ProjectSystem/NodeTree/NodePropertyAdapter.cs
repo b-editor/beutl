@@ -1,5 +1,7 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Reactive.Linq;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Reactive;
 using Beutl.Serialization;
@@ -81,6 +83,13 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
     }
 
     public IObservable<IAnimation<T>?> ObserveAnimation { get; }
+
+    // NodeTreeでは式をサポートしない
+    public IExpression<T>? Expression { get; set; }
+
+    public bool HasExpression => false;
+
+    public IObservable<IExpression<T>?> ObserveExpression { get; } = Observable.Return<IExpression<T>?>(null);
 
     public Type ImplementedType => typeof(NodePropertyAdapter<T>);
 

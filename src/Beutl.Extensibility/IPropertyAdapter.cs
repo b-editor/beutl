@@ -1,6 +1,7 @@
 ﻿using System.Reactive.Linq;
 using Beutl.Animation;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 
 namespace Beutl.Extensibility;
 
@@ -85,7 +86,7 @@ public interface IAnimatablePropertyAdapter : IPropertyAdapter
     IObservable<IAnimation?> ObserveAnimation { get; }
 }
 
-public interface IAnimatablePropertyAdapter<T> : IPropertyAdapter<T>, IAnimatablePropertyAdapter
+public interface IAnimatablePropertyAdapter<T> : IPropertyAdapter<T>, IAnimatablePropertyAdapter, IExpressionPropertyAdapter<T>
 {
     new IAnimation<T>? Animation { get; set; }
 
@@ -98,4 +99,29 @@ public interface IAnimatablePropertyAdapter<T> : IPropertyAdapter<T>, IAnimatabl
     }
 
     IObservable<IAnimation?> IAnimatablePropertyAdapter.ObserveAnimation => ObserveAnimation;
+}
+
+public interface IExpressionPropertyAdapter : IPropertyAdapter
+{
+    IExpression? Expression { get; set; }
+
+    bool HasExpression { get; }
+
+    IObservable<IExpression?> ObserveExpression { get; }
+}
+
+public interface IExpressionPropertyAdapter<T> : IPropertyAdapter<T>, IExpressionPropertyAdapter
+{
+    new IExpression<T>? Expression { get; set; }
+
+    new IObservable<IExpression<T>?> ObserveExpression { get; }
+
+    IExpression? IExpressionPropertyAdapter.Expression
+    {
+        get => Expression;
+        set => Expression = value as IExpression<T>;
+    }
+
+    IObservable<IExpression?> IExpressionPropertyAdapter.ObserveExpression =>
+        ObserveExpression.Select(e => (IExpression?)e);
 }
