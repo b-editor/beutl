@@ -85,7 +85,15 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
     public IObservable<IAnimation<T>?> ObserveAnimation { get; }
 
     // NodeTreeでは式をサポートしない
-    public IExpression<T>? Expression { get; set; }
+    public IExpression<T>? Expression
+    {
+        get => null;
+        set
+        {
+            if (value != null)
+                throw new NotSupportedException("Expressions are not supported in NodeTree.");
+        }
+    }
 
     public bool HasExpression => false;
 
