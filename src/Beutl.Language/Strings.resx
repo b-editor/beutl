@@ -795,6 +795,12 @@
   <data name="ExpressionHelp" xml:space="preserve">
     <value>Enter a mathematical expression. Available variables: Time, Start, Duration, Progress. Use GetProperty&lt;T&gt;("{GUID}.Property") to reference other properties.</value>
   </data>
+  <data name="CopyPropertyPath" xml:space="preserve">
+    <value>Copy property path</value>
+  </data>
+  <data name="CopyGetPropertyCode" xml:space="preserve">
+    <value>Copy GetProperty code</value>
+  </data>
   <data name="ColorPalette" xml:space="preserve">
     <value>Color Palette</value>
   </data>

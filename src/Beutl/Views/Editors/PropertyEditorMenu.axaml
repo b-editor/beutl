@@ -51,6 +51,15 @@
                                    IsEnabled="{Binding HasExpression.Value}"
                                    IsVisible="False"
                                    Text="{x:Static lang:Strings.RemoveExpression}" />
+                <ui:MenuFlyoutSeparator x:Name="copyPropertyPathSeparator" IsVisible="False" />
+                <ui:MenuFlyoutItem x:Name="copyPropertyPathItem"
+                                   Click="CopyPropertyPath_Click"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.CopyPropertyPath}" />
+                <ui:MenuFlyoutItem x:Name="copyGetPropertyCodeItem"
+                                   Click="CopyGetPropertyCode_Click"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.CopyGetPropertyCode}" />
             </ui:FAMenuFlyout>
         </Button.ContextFlyout>
         <icons:SymbolIcon x:Name="symbolIcon"

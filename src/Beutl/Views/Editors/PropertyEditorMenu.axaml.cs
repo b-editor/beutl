@@ -42,6 +42,12 @@ public sealed partial class PropertyEditorMenu : UserControl
         expressionSeparator.IsVisible = supportsExpression;
         editExpressionItem.IsVisible = supportsExpression;
         removeExpressionItem.IsVisible = supportsExpression;
+
+        // プロパティパスのコピーはEnginePropertyの場合のみ表示
+        bool isEngineProperty = (DataContext as BaseEditorViewModel)?.PropertyAdapter.GetEngineProperty() != null;
+        copyPropertyPathSeparator.IsVisible = isEngineProperty;
+        copyPropertyPathItem.IsVisible = isEngineProperty;
+        copyGetPropertyCodeItem.IsVisible = isEngineProperty;
     }
 
     private void Button_Click(object? sender, RoutedEventArgs e)
@@ -144,5 +150,54 @@ public sealed partial class PropertyEditorMenu : UserControl
         {
             viewModel.RemoveExpression();
         }
+    }
+
+    private async void CopyPropertyPath_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
+            && viewModel.PropertyAdapter.GetEngineProperty() is { } engineProperty
+            && engineProperty.GetOwnerObject() is { } engineObject
+            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            string propertyPath = $"{{{engineObject.Id}}}.{engineProperty.Name}";
+            await clipboard.SetTextAsync(propertyPath);
+        }
+    }
+
+    private async void CopyGetPropertyCode_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
+            && viewModel.PropertyAdapter.GetEngineProperty() is { } engineProperty
+            && engineProperty.GetOwnerObject() is { } engineObject
+            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            string typeName = GetTypeAlias(engineProperty.ValueType);
+            string code = $"GetProperty<{typeName}>(\"{{{engineObject.Id}}}.{engineProperty.Name}\")";
+            await clipboard.SetTextAsync(code);
+        }
+    }
+
+    private static string GetTypeAlias(Type type)
+    {
+        // プリミティブ型のエイリアス
+        return type switch
+        {
+            _ when type == typeof(bool) => "bool",
+            _ when type == typeof(byte) => "byte",
+            _ when type == typeof(sbyte) => "sbyte",
+            _ when type == typeof(char) => "char",
+            _ when type == typeof(short) => "short",
+            _ when type == typeof(ushort) => "ushort",
+            _ when type == typeof(int) => "int",
+            _ when type == typeof(uint) => "uint",
+            _ when type == typeof(long) => "long",
+            _ when type == typeof(ulong) => "ulong",
+            _ when type == typeof(float) => "float",
+            _ when type == typeof(double) => "double",
+            _ when type == typeof(decimal) => "decimal",
+            _ when type == typeof(string) => "string",
+            _ when type == typeof(object) => "object",
+            _ => type.FullName ?? type.Name
+        };
     }
 }

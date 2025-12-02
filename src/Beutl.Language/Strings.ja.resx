@@ -800,6 +800,12 @@
   <data name="ExpressionHelp" xml:space="preserve">
     <value>数式を入力してください。利用可能な変数: Time, Start, Duration, Progress。GetProperty&lt;T&gt;("{GUID}.Property")形式で他のプロパティを参照できます。</value>
   </data>
+  <data name="CopyPropertyPath" xml:space="preserve">
+    <value>プロパティパスをコピー</value>
+  </data>
+  <data name="CopyGetPropertyCode" xml:space="preserve">
+    <value>GetPropertyコードをコピー</value>
+  </data>
   <data name="ColorPalette" xml:space="preserve">
     <value>カラーパレット</value>
   </data>

@@ -2672,5 +2672,17 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("PathFollowEffect", resourceCulture);
             }
         }
+
+        public static string CopyPropertyPath {
+            get {
+                return ResourceManager.GetString("CopyPropertyPath", resourceCulture);
+            }
+        }
+
+        public static string CopyGetPropertyCode {
+            get {
+                return ResourceManager.GetString("CopyGetPropertyCode", resourceCulture);
+            }
+        }
     }
 }
