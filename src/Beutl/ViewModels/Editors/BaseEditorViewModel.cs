@@ -44,20 +44,22 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
         IObservable<bool> hasAnimation = property is IAnimatablePropertyAdapter anm
             ? anm.ObserveAnimation.Select(x => x != null)
-            : Observable.Return(false);
+            : Observable.ReturnThenNever(false);
 
         IObservable<bool> hasExpression = property is IExpressionPropertyAdapter expr
             ? expr.ObserveExpression.Select(x => x != null)
-            : Observable.Return(false);
+            : Observable.ReturnThenNever(false);
 
-        IObservable<bool>? isReadOnly = Observable.Return(property.IsReadOnly);
+        IObservable<bool>? isReadOnly = Observable.ReturnThenNever(property.IsReadOnly);
 
+        // TODO: CanEditとIsReadOnlyどちらかだけにしたい
         CanEdit = isReadOnly
             .Not()
+            .CombineLatest(hasExpression, (canEdit, hasExpr) => canEdit && !hasExpr)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        IsReadOnly = isReadOnly
+        IsReadOnly = CanEdit.Not()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
@@ -72,7 +74,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         if (property is IAnimatablePropertyAdapter animatableProperty)
         {
             KeyFrameCount = animatableProperty.ObserveAnimation
-                .Select(x => (x as IKeyFrameAnimation)?.KeyFrames.ObserveProperty(y => y.Count) ?? Observable.Return(0))
+                .Select(x => (x as IKeyFrameAnimation)?.KeyFrames.ObserveProperty(y => y.Count) ?? Observable.ReturnThenNever(0))
                 .Switch()
                 .ToReadOnlyReactiveProperty()
                 .DisposeWith(Disposables);
@@ -85,7 +87,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                         .Select(_ => x)
                         .Publish(x)
                         .RefCount())
-                    .Select(x => x ?? Observable.Return<KeyFrames?>(default))
+                    .Select(x => x ?? Observable.ReturnThenNever<KeyFrames?>(default))
                     .Switch())
                 .CombineWithPrevious()
                 .Subscribe(t =>
@@ -124,7 +126,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         }
         else
         {
-            KeyFrameCount = new ReadOnlyReactiveProperty<int>(Observable.Return(0));
+            KeyFrameCount = new ReadOnlyReactiveProperty<int>(Observable.ReturnThenNever(0));
         }
     }
 
@@ -223,7 +225,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                                 .Select(_ => x)
                                 .Publish(x)
                                 .RefCount())
-                            .Select(x => x ?? Observable.Return<KeyFrames?>(default))
+                            .Select(x => x ?? Observable.ReturnThenNever<KeyFrames?>(default))
                             .Switch())
                         .Subscribe(t =>
                         {
@@ -461,9 +463,30 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 Value = initialValue, Easing = new SplineEasing(), KeyTime = TimeSpan.Zero
             });
 
+            // Expressionを保存してnullに設定する
+            IExpression<T>? oldExpression = null;
+            if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
+            {
+                oldExpression = expressionProperty.Expression;
+            }
+
             RecordableCommands.Create(GetStorables())
-                .OnDo(() => animatableProperty.Animation = newAnimation)
-                .OnUndo(() => animatableProperty.Animation = oldAnimation)
+                .OnDo(() =>
+                {
+                    animatableProperty.Animation = newAnimation;
+                    if (PropertyAdapter is IExpressionPropertyAdapter<T> ep)
+                    {
+                        ep.Expression = null;
+                    }
+                })
+                .OnUndo(() =>
+                {
+                    animatableProperty.Animation = oldAnimation;
+                    if (PropertyAdapter is IExpressionPropertyAdapter<T> ep)
+                    {
+                        ep.Expression = oldExpression;
+                    }
+                })
                 .ToCommand()
                 .DoAndRecord(recorder);
         }
@@ -497,9 +520,30 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 return;
             }
 
+            // Animationを保存してnullに設定する
+            IAnimation<T>? oldAnimation = null;
+            if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty)
+            {
+                oldAnimation = animatableProperty.Animation;
+            }
+
             RecordableCommands.Create(GetStorables())
-                .OnDo(() => expressionProperty.Expression = newExpression)
-                .OnUndo(() => expressionProperty.Expression = oldExpression)
+                .OnDo(() =>
+                {
+                    expressionProperty.Expression = newExpression;
+                    if (PropertyAdapter is IAnimatablePropertyAdapter<T> ap)
+                    {
+                        ap.Animation = null;
+                    }
+                })
+                .OnUndo(() =>
+                {
+                    expressionProperty.Expression = oldExpression;
+                    if (PropertyAdapter is IAnimatablePropertyAdapter<T> ap)
+                    {
+                        ap.Animation = oldAnimation;
+                    }
+                })
                 .ToCommand()
                 .DoAndRecord(recorder);
         }
