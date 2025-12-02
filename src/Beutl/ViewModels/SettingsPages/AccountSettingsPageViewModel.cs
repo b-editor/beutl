@@ -44,7 +44,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             .DisposeWith(_disposables);
 
         ProfileImage = _clients.AuthorizedUser
-            .SelectMany(x => x?.Profile?.AvatarUrl ?? Observable.Return<string?>(null))
+            .SelectMany(x => x?.Profile?.AvatarUrl ?? Observable.ReturnThenNever<string?>(null))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -54,7 +54,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             .DisposeWith(_disposables);
 
         DisplayName = _clients.AuthorizedUser
-            .SelectMany(x => x?.Profile?.DisplayName ?? Observable.Return<string?>(null))
+            .SelectMany(x => x?.Profile?.DisplayName ?? Observable.ReturnThenNever<string?>(null))
             .Zip(Name, (x, y) => string.IsNullOrEmpty(x) ? y : x)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);

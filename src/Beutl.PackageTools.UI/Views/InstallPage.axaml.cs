@@ -9,7 +9,7 @@ using Avalonia.VisualTree;
 
 using Beutl.PackageTools.UI.Models;
 using Beutl.PackageTools.UI.ViewModels;
-
+using Beutl.Reactive;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Controls.Primitives;
 using FluentAvalonia.UI.Navigation;
@@ -73,7 +73,7 @@ public partial class InstallPage : PackageToolPage
 
         // 現在のタスクに応じて、スクロールする
         this.GetObservable(DataContextProperty)
-            .Select(v => (v as InstallViewModel)?.CurrentRunningTask ?? Observable.Return((object?)null))
+            .Select(v => (v as InstallViewModel)?.CurrentRunningTask ?? Observable.ReturnThenNever<object?>(null))
             .Switch()
             .Select(obj => obj switch
             {

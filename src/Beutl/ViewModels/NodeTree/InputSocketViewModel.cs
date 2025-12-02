@@ -12,7 +12,7 @@ public class InputSocketViewModel : SocketViewModel
         : base(socket, propertyEditorContext, node, editViewModel)
     {
         Status = _statusSource
-            .Select(o => o ?? Observable.Return(ConnectionStatus.Disconnected))
+            .Select(o => o ?? Observable.ReturnThenNever(ConnectionStatus.Disconnected))
             .Switch()
             .ToReadOnlyReactivePropertySlim();
     }

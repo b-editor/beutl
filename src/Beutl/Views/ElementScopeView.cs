@@ -28,11 +28,11 @@ public sealed class ElementScopeView : Rectangle
         IObservable<ElementScopeViewModel?> dataContext = this.GetObservable(DataContextProperty)
             .Select(v => v as ElementScopeViewModel);
 
-        Bind(MarginProperty, dataContext.Select(v => v?.Margin ?? Observable.Return((Thickness)default)).Switch());
-        Bind(WidthProperty, dataContext.Select(v => v?.Width ?? Observable.Return(0d)).Switch());
-        Bind(HeightProperty, dataContext.Select(v => v?.Height ?? Observable.Return(0d)).Switch());
+        Bind(MarginProperty, dataContext.Select(v => v?.Margin ?? Observable.ReturnThenNever((Thickness)default)).Switch());
+        Bind(WidthProperty, dataContext.Select(v => v?.Width ?? Observable.ReturnThenNever(0d)).Switch());
+        Bind(HeightProperty, dataContext.Select(v => v?.Height ?? Observable.ReturnThenNever(0d)).Switch());
 
-        Bind(FillProperty, dataContext.Select(v => v?.Parent?.Color ?? Observable.Return(Colors.Transparent))
+        Bind(FillProperty, dataContext.Select(v => v?.Parent?.Color ?? Observable.ReturnThenNever(Colors.Transparent))
             .Switch()
             .Select(v => new ImmutableSolidColorBrush(v, 0.1)));
     }

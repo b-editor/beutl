@@ -67,7 +67,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
                 .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        IsEnabled = Value.Select(x => x?.GetObservable(EngineObject.IsEnabledProperty) ?? Observable.Return(x?.IsEnabled ?? false))
+        IsEnabled = Value.Select(x => x?.GetObservable(EngineObject.IsEnabledProperty) ?? Observable.ReturnThenNever(x?.IsEnabled ?? false))
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(Disposables);

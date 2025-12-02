@@ -89,7 +89,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
 
     public bool HasExpression => false;
 
-    public IObservable<IExpression<T>?> ObserveExpression { get; } = Observable.Return<IExpression<T>?>(null);
+    public IObservable<IExpression<T>?> ObserveExpression { get; } = Observable.ReturnThenNever<IExpression<T>?>(null);
 
     public Type ImplementedType => typeof(NodePropertyAdapter<T>);
 

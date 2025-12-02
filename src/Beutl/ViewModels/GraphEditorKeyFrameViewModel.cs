@@ -108,7 +108,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 }
                 else
                 {
-                    return Observable.Return<(Vector, Vector)>(default);
+                    return Observable.ReturnThenNever<(Vector, Vector)>(default);
                 }
             })
             .Switch();

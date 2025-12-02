@@ -85,20 +85,20 @@ public abstract class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementMargin = (Element?.GetObservable(Element.StartProperty) ?? Observable.Return<TimeSpan>(default))
+        ElementMargin = (Element?.GetObservable(Element.StartProperty) ?? Observable.ReturnThenNever<TimeSpan>(default))
             .CombineLatest(editViewModel.Scale)
             .Select(t => new Thickness(t.First.ToPixel(t.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementWidth = (Element?.GetObservable(Element.LengthProperty) ?? Observable.Return<TimeSpan>(default))
+        ElementWidth = (Element?.GetObservable(Element.LengthProperty) ?? Observable.ReturnThenNever<TimeSpan>(default))
             .CombineLatest(editViewModel.Scale)
             .Select(t => t.First.ToPixel(t.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         ElementColor = (Element?.GetObservable(Element.AccentColorProperty) ??
-                        Observable.Return(Beutl.Media.Colors.Transparent))
+                        Observable.ReturnThenNever(Beutl.Media.Colors.Transparent))
             .Select(v => (IBrush)new ImmutableSolidColorBrush(v.ToAvalonia()))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -108,7 +108,7 @@ public abstract class GraphEditorViewModel : IDisposable
                     .CombineLatest(Options)
                     .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
                 : null)
-            .Select(v => v ?? Observable.Return<Thickness>(default))
+            .Select(v => v ?? Observable.ReturnThenNever<Thickness>(default))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);

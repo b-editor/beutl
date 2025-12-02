@@ -60,7 +60,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorViewModel)
             .Select(v => v?.SelectedOperation.CombineLatest(v.IsClosed).ToUnit()
-                ?? Observable.Return<Unit>(default))
+                ?? Observable.ReturnThenNever<Unit>(default))
             .Switch()
             .ObserveOnUIDispatcher()
             .Subscribe(_ => UpdateControlPointVisibility());
@@ -69,7 +69,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
         // TODO: Scale, Matrixが変わった時に位置がずれる
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorViewModel)
-            .Select(v => v?.PlayerViewModel?.AfterRendered ?? Observable.Return(Unit.Default))
+            .Select(v => v?.PlayerViewModel?.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
             .Switch()
             .CombineLatest(this.GetObservable(ScaleProperty), this.GetObservable(MatrixProperty))
             .Subscribe(_ => UpdateThumbPosition());

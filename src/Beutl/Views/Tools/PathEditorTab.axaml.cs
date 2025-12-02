@@ -71,7 +71,7 @@ public partial class PathEditorTab : UserControl, IPathEditorView
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorTabViewModel)
             .Select(v => v?.SelectedOperation.CombineLatest(v.IsClosed).ToUnit()
-                         ?? Observable.Return<Unit>(default))
+                         ?? Observable.ReturnThenNever<Unit>(default))
             .Switch()
             .ObserveOnUIDispatcher()
             .Subscribe(_ => UpdateControlPointVisibility());
@@ -79,14 +79,14 @@ public partial class PathEditorTab : UserControl, IPathEditorView
         // 個別にBindingするのではなく、一括で位置を変更する
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorTabViewModel)
-            .Select(v => v?.EditViewModel.Player.AfterRendered ?? Observable.Return(Unit.Default))
+            .Select(v => v?.EditViewModel.Player.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
             .Switch()
             .CombineLatest(this.GetObservable(ScaleProperty), this.GetObservable(MatrixProperty))
             .Subscribe(_ => UpdateThumbPosition());
 
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorTabViewModel)
-            .Select(v => v?.EditViewModel.Player.AfterRendered ?? Observable.Return(Unit.Default))
+            .Select(v => v?.EditViewModel.Player.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
             .Switch()
             .CombineLatest(view.GetObservable(PathGeometryControl.FigureProperty))
             .Subscribe(_ => UpdateBackgroundGeometry());

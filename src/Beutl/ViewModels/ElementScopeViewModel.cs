@@ -49,7 +49,7 @@ public sealed class ElementScopeViewModel : IDisposable
                 // CountがZero
                 if (t.EndZIndex - 1 == t.ZIndex)
                 {
-                    return Observable.Return(0d);
+                    return Observable.ReturnThenNever(0d);
                 }
                 else
                 {

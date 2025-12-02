@@ -17,7 +17,7 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         InitializeComponent();
         Bind(ToolTip.TipProperty, this.GetObservable(DataContextProperty)
-            .Select(v => (v as BaseEditorViewModel)?.HasAnimation ?? Observable.Return(false))
+            .Select(v => (v as BaseEditorViewModel)?.HasAnimation ?? Observable.ReturnThenNever(false))
             .Switch()
             .Select(v => v ? $"- {Message.RightClickToShowMenu}\n- {Message.AnimationIsEnabled}" : null));
     }

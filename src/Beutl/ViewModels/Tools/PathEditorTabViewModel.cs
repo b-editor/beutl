@@ -16,17 +16,17 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
     public PathEditorTabViewModel(EditViewModel editViewModel)
     {
         EditViewModel = editViewModel;
-        Context = FigureContext.Select(v => v?.ParentContext ?? Observable.Return<GeometryEditorViewModel?>(null))
+        Context = FigureContext.Select(v => v?.ParentContext ?? Observable.ReturnThenNever<GeometryEditorViewModel?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        PathGeometry = Context.Select(v => v?.Value ?? Observable.Return<Geometry?>(null))
+        PathGeometry = Context.Select(v => v?.Value ?? Observable.ReturnThenNever<Geometry?>(null))
             .Switch()
             .Select(v => v as PathGeometry)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        PathFigure = FigureContext.Select(v => v?.Value ?? Observable.Return<PathFigure?>(null))
+        PathFigure = FigureContext.Select(v => v?.Value ?? Observable.ReturnThenNever<PathFigure?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -41,14 +41,14 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
             .Select(d =>
                 d?.SubscribeEngineVersionedResource(EditViewModel.CurrentTime, (o, c) => o.ToResource(c))
                     .Select(t => ((PathGeometry.Resource, int)?)t) ??
-                Observable.Return<(PathGeometry.Resource, int)?>(null))
+                Observable.ReturnThenNever<(PathGeometry.Resource, int)?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         IsClosed = PathFigure.Select(f => f != null
                 ? f.IsClosed.SubscribeEngineProperty(f, EditViewModel.CurrentTime)
-                : Observable.Return(false))
+                : Observable.ReturnThenNever(false))
             .Switch()
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);

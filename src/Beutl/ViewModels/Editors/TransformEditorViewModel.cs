@@ -111,7 +111,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
                 .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        IsEnabled = Value.Select(x => (x as Transform)?.GetObservable(Transform.IsEnabledProperty) ?? Observable.Return(x?.IsEnabled ?? false))
+        IsEnabled = Value.Select(x => (x as Transform)?.GetObservable(Transform.IsEnabledProperty) ?? Observable.ReturnThenNever(x?.IsEnabled ?? false))
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(Disposables);
