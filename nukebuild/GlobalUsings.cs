@@ -10,8 +10,6 @@ global using Nuke.Common.Tools.GitVersion;
 global using Nuke.Common.Tools.MSBuild;
 global using Nuke.Common.Utilities.Collections;
 global using static Nuke.Common.EnvironmentInfo;
-global using static Nuke.Common.IO.CompressionTasks;
-global using static Nuke.Common.IO.FileSystemTasks;
 global using static Nuke.Common.IO.PathConstruction;
 global using static Nuke.Common.Tooling.ProcessTasks;
 global using static Nuke.Common.Tools.DotNet.DotNetTasks;

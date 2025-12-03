@@ -23,7 +23,6 @@ class Build : NukeBuild
 
     [Parameter] string InformationalVersion = "1.0.0.0";
 
-    [Solution] readonly Solution Solution;
     [GitRepository] readonly GitRepository GitRepository;
 
 
@@ -45,7 +44,7 @@ class Build : NukeBuild
         .DependsOn(Clean)
         .Executes(() =>
         {
-            DotNetRestore(s => s.SetProjectFile(Solution)
+            DotNetRestore(s => s
                 .When(_ => Runtime != null, s => s.SetRuntime(Runtime)));
         });
 
@@ -54,7 +53,6 @@ class Build : NukeBuild
         .Executes(() =>
         {
             DotNetBuild(s => s
-                .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
                 .SetVersions(Version, AssemblyVersion, InformationalVersion)
                 .EnableNoRestore());

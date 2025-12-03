@@ -36,7 +36,7 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.3" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyModel" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyModel" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="9.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.3" />
@@ -47,7 +47,7 @@
     <PackageVersion Include="NuGet.ProjectModel" Version="6.12.1" />
     <PackageVersion Include="NuGet.Protocol" Version="6.13.2" />
     <PackageVersion Include="NuGet.Resolver" Version="6.13.2" />
-    <PackageVersion Include="Nuke.Common" Version="9.0.3" />
+    <PackageVersion Include="Nuke.Common" Version="10.1.0" />
     <PackageVersion Include="NUnit" Version="4.3.2" />
     <PackageVersion Include="NUnit3TestAdapter" Version="5.0.0" />
     <PackageVersion Include="OpenCvSharp4" Version="4.10.0.20241108" />
@@ -67,7 +67,7 @@
     <PackageVersion Include="Serilog.Extensions.Logging" Version="8.0.0" />
     <PackageVersion Include="Serilog.Sinks.Async" Version="2.1.0" />
     <PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
-    <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="Serilog.Sinks.OpenTelemetry" Version="1.2.0" />
     <PackageVersion Include="SkiaSharp" Version="3.116.1" />
     <PackageVersion Include="SkiaSharp.HarfBuzz" Version="3.116.1" />
