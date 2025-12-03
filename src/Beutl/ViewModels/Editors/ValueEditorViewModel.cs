@@ -15,20 +15,13 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
         // Expressionが設定されていない場合は、EditingKeyFrameまたはPropertyAdapterの値を表示
         Value = HasExpression
             .Select(hasExpression =>
-            {
-                if (hasExpression && PropertyAdapter is EnginePropertyAdapter<T> { Property: var engineProperty })
-                {
-                    return CurrentTime.Select(t => engineProperty.GetValue(new RenderContext(t)));
-                }
-                else
-                {
+                hasExpression && PropertyAdapter is EnginePropertyAdapter<T> { Property: var engineProperty }
+                    ? CurrentTime.Select(t => engineProperty.GetValue(new RenderContext(t)))
                     // Expressionが設定されていない場合は通常の動作
-                    return EditingKeyFrame
+                    : EditingKeyFrame
                         .Select(x => x?.GetObservable(KeyFrame<T>.ValueProperty))
                         .Select(x => x ?? PropertyAdapter.GetObservable())
-                        .Switch();
-                }
-            })
+                        .Switch())
             .Switch()
             .ToReadOnlyReactiveProperty()
             .AddTo(Disposables)!;
