@@ -130,7 +130,7 @@ public sealed partial class PropertyEditorMenu : UserControl
 
             var flyout = new ExpressionEditorFlyout();
             flyout.Placement = PlacementMode.Bottom;
-
+            flyout.ExpressionText = currentExpression ?? "";
             flyout.Confirmed += (_, _) =>
             {
                 if (!string.IsNullOrWhiteSpace(flyout.ExpressionText))
@@ -140,7 +140,6 @@ public sealed partial class PropertyEditorMenu : UserControl
             };
 
             flyout.ShowAt(this);
-            flyout.ExpressionText = currentExpression ?? "";
         }
     }
 
