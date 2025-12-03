@@ -4,6 +4,7 @@
     <NeutralLanguage>en</NeutralLanguage>
     <SelfContained>false</SelfContained>
     <DefineConstants>$(DefineConstants);Beutl_ExceptionHandler</DefineConstants>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />

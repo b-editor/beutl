@@ -44,8 +44,7 @@ class Build : NukeBuild
         .DependsOn(Clean)
         .Executes(() =>
         {
-            DotNetRestore(s => s
-                .When(_ => Runtime != null, s => s.SetRuntime(Runtime)));
+            DotNetRestore();
         });
 
     Target Compile => _ => _
@@ -80,8 +79,7 @@ class Build : NukeBuild
                 .EnableNoRestore()
                 .When(_ => Runtime != null, s => s
                     .SetRuntime(Runtime)
-                    .SetSelfContained(SelfContained)
-                    .SetProperty("RuntimeIdentifiers", Runtime.ToString()))
+                    .SetSelfContained(SelfContained))
                 .When(_ => Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
                 .When(_ => Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
                 .SetConfiguration(Configuration)
@@ -102,8 +100,7 @@ class Build : NukeBuild
                 DotNetPublish(s => s
                     .When(_ => Runtime != null, s => s
                         .SetRuntime(Runtime)
-                        .SetSelfContained(SelfContained)
-                        .SetProperty("RuntimeIdentifiers", Runtime.ToString()))
+                        .SetSelfContained(SelfContained))
                     .When(_ => Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
                     .When(_ => Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
                     .EnableNoRestore()
