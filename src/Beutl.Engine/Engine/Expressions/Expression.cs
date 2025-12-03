@@ -4,63 +4,52 @@ using Microsoft.CodeAnalysis.Scripting;
 
 namespace Beutl.Engine.Expressions;
 
-public class Expression<T>(string expression) : IExpression<T>
+public class Expression<T> : IExpression<T>
 {
     private static readonly ScriptOptions s_scriptOptions = CreateScriptOptions();
 
-    private ScriptRunner<object>? _scriptRunner;
-    private string? _parseError;
-    private bool _isParsed = false;
-    private bool _isEvaluating = false;
+    private readonly Lazy<ParseResult> _parseResult;
 
-    public string ExpressionString { get; } = expression ?? throw new ArgumentNullException(nameof(expression));
+    public Expression(string expression)
+    {
+        ExpressionString = expression ?? throw new ArgumentNullException(nameof(expression));
+        _parseResult = new Lazy<ParseResult>(Parse, LazyThreadSafetyMode.ExecutionAndPublication);
+    }
+
+    public string ExpressionString { get; }
 
     public Type ResultType => typeof(T);
 
     public T Evaluate(ExpressionContext context)
     {
-        // 循環参照チェック
-        if (_isEvaluating)
+        var result = _parseResult.Value;
+
+        if (result.ScriptRunner == null)
         {
-            throw new ExpressionException($"Circular reference detected while evaluating property: {ExpressionString}");
+            throw new ExpressionException($"Expression parse error: {result.ParseError}");
         }
 
-        EnsureParsed();
-
-        if (_scriptRunner == null)
-        {
-            throw new ExpressionException($"Expression parse error: {_parseError}");
-        }
-
-        _isEvaluating = true;
         try
         {
             var globals = new ExpressionGlobals(context);
-            var result = _scriptRunner(globals).GetAwaiter().GetResult();
-            return ConvertResult(result);
+            var evalResult = result.ScriptRunner(globals).GetAwaiter().GetResult();
+            return ConvertResult(evalResult);
         }
         catch (Exception ex) when (ex is not ExpressionException)
         {
             throw new ExpressionException($"Expression evaluation error: {ex.Message}", ex);
         }
-        finally
-        {
-            _isEvaluating = false;
-        }
     }
 
     public bool Validate([NotNullWhen(false)] out string? error)
     {
-        EnsureParsed();
-        error = _parseError;
-        return _parseError == null;
+        var result = _parseResult.Value;
+        error = result.ParseError;
+        return result.ParseError == null;
     }
 
-    private void EnsureParsed()
+    private ParseResult Parse()
     {
-        if (_isParsed)
-            return;
-
         try
         {
             var script = CSharpScript.Create<object>(
@@ -73,22 +62,17 @@ public class Expression<T>(string expression) : IExpression<T>
 
             if (errors.Count > 0)
             {
-                _parseError = string.Join(Environment.NewLine, errors.Select(e => e.GetMessage()));
-                _scriptRunner = null;
+                return new ParseResult(null, string.Join(Environment.NewLine, errors.Select(e => e.GetMessage())));
             }
             else
             {
-                _scriptRunner = script.CreateDelegate();
-                _parseError = null;
+                return new ParseResult(script.CreateDelegate(), null);
             }
         }
         catch (Exception ex)
         {
-            _scriptRunner = null;
-            _parseError = $"Compilation error: {ex.Message}";
+            return new ParseResult(null, $"Compilation error: {ex.Message}");
         }
-
-        _isParsed = true;
     }
 
     private static ScriptOptions CreateScriptOptions()
@@ -132,13 +116,10 @@ public class Expression<T>(string expression) : IExpression<T>
         }
 
         // Special handling for bool
-        if (targetType == typeof(bool))
+        if (targetType == typeof(bool) && IsNumericType(sourceType))
         {
-            if (IsNumericType(sourceType))
-            {
-                double numValue = Convert.ToDouble(value);
-                return (T)(object)(numValue != 0);
-            }
+            double numValue = Convert.ToDouble(value);
+            return (T)(object)(numValue != 0);
         }
 
         throw new ExpressionException($"Cannot convert expression result from {sourceType.Name} to {targetType.Name}");
@@ -155,6 +136,8 @@ public class Expression<T>(string expression) : IExpression<T>
     }
 
     public override string ToString() => ExpressionString;
+
+    private sealed record ParseResult(ScriptRunner<object>? ScriptRunner, string? ParseError);
 }
 
 public static class Expression
