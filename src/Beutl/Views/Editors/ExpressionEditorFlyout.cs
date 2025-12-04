@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Beutl.Controls.PropertyEditors;
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
@@ -11,6 +12,7 @@ namespace Beutl.Views.Editors;
 public sealed class ExpressionEditorFlyout : PickerFlyoutBase
 {
     private TextBox? _textBox;
+    private TextBlock? _errorTextBlock;
 
     public string? ExpressionText
     {
@@ -23,6 +25,21 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
             }
         }
     }
+
+    public string? ErrorMessage
+    {
+        get => _errorTextBlock?.Text;
+        set
+        {
+            if (_errorTextBlock != null)
+            {
+                _errorTextBlock.Text = value;
+                _errorTextBlock.IsVisible = !string.IsNullOrWhiteSpace(value);
+            }
+        }
+    }
+
+    public Func<string, (bool IsValid, string? Error)>? Validator { get; set; }
 
     public event TypedEventHandler<ExpressionEditorFlyout, EventArgs>? Confirmed;
 
@@ -40,6 +57,13 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
             VerticalContentAlignment = VerticalAlignment.Top
         };
 
+        _errorTextBlock = new TextBlock
+        {
+            Foreground = Brushes.Red,
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            IsVisible = false
+        };
+
         var content = new StackPanel
         {
             Width = 300,
@@ -52,7 +76,8 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
                     Text = Language.Strings.ExpressionHelp,
                     TextWrapping = Avalonia.Media.TextWrapping.Wrap
                 },
-                _textBox
+                _textBox,
+                _errorTextBlock
             }
         };
 
@@ -73,7 +98,7 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
     {
         if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.Control)
         {
-            OnConfirmed();
+            TryConfirm();
             e.Handled = true;
         }
         else if (e.Key == Key.Escape)
@@ -82,6 +107,25 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
             Hide();
             e.Handled = true;
         }
+    }
+
+    private bool TryConfirm()
+    {
+        string expressionText = ExpressionText ?? "";
+
+        if (!string.IsNullOrWhiteSpace(expressionText) && Validator != null)
+        {
+            var (isValid, error) = Validator(expressionText);
+            if (!isValid)
+            {
+                ErrorMessage = error;
+                return false;
+            }
+        }
+
+        ErrorMessage = null;
+        OnConfirmed();
+        return true;
     }
 
     protected override void OnConfirmed()
@@ -118,6 +162,6 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
 
     private void OnFlyoutConfirmed(DraggablePickerFlyoutPresenter sender, EventArgs args)
     {
-        OnConfirmed();
+        TryConfirm();
     }
 }

@@ -309,6 +309,12 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     {
     }
 
+    public virtual bool ValidateExpression(string expressionString, [NotNullWhen(false)] out string? error)
+    {
+        error = null;
+        return true;
+    }
+
     public virtual void RemoveExpression()
     {
     }
@@ -547,6 +553,16 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 .ToCommand()
                 .DoAndRecord(recorder);
         }
+    }
+
+    public override bool ValidateExpression(string expressionString, [NotNullWhen(false)] out string? error)
+    {
+        if (PropertyAdapter is IExpressionPropertyAdapter<T>)
+        {
+            return Expression.TryParse<T>(expressionString, out _, out error);
+        }
+        error = null;
+        return true;
     }
 
     public override void RemoveExpression()
