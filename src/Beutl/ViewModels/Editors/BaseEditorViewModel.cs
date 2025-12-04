@@ -548,7 +548,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 .ToCommand()
                 .DoAndRecord(recorder);
         }
-        
+
         error = null;
         return true;
     }
