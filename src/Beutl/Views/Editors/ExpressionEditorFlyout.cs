@@ -49,7 +49,7 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
         {
             Watermark = "Sin(Time * 2 * PI) * 100",
             AcceptsReturn = true,
-            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            TextWrapping = TextWrapping.Wrap,
             MinHeight = 100,
             MaxHeight = 200,
             VerticalContentAlignment = VerticalAlignment.Top
@@ -58,7 +58,7 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
         _errorTextBlock = new TextBlock
         {
             Foreground = Avalonia.Application.Current!.FindResource("SystemFillColorCriticalBrush") as IBrush,
-            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            TextWrapping = TextWrapping.Wrap,
             IsVisible = false
         };
 
@@ -71,8 +71,8 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
             {
                 new TextBlock
                 {
-                    Text = Language.Strings.ExpressionHelp,
-                    TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                    Text = Strings.ExpressionHelp,
+                    TextWrapping = TextWrapping.Wrap
                 },
                 _textBox,
                 _errorTextBlock
@@ -96,7 +96,7 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
     {
         if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.Control)
         {
-            TryConfirm();
+            OnConfirmed();
             e.Handled = true;
         }
         else if (e.Key == Key.Escape)
@@ -107,7 +107,7 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
         }
     }
 
-    private void TryConfirm()
+    protected override void OnConfirmed()
     {
         string expressionText = ExpressionText ?? "";
 
@@ -115,7 +115,7 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
         {
             var args = new ExpressionConfirmedEventArgs(expressionText);
             Confirmed?.Invoke(this, args);
-            
+
             if (!args.IsValid)
             {
                 ErrorMessage = args.Error;
@@ -125,11 +125,6 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
 
         ErrorMessage = null;
         Hide();
-    }
-
-    protected override void OnConfirmed()
-    {
-        TryConfirm();
     }
 
     protected override void OnOpening(CancelEventArgs args)
@@ -160,7 +155,7 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
 
     private void OnFlyoutConfirmed(DraggablePickerFlyoutPresenter sender, EventArgs args)
     {
-        TryConfirm();
+        OnConfirmed();
     }
 }
 
