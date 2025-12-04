@@ -305,11 +305,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     {
     }
 
-    public virtual void SetExpression(string expressionString)
-    {
-    }
-
-    public virtual bool ValidateExpression(string expressionString, [NotNullWhen(false)] out string? error)
+    public virtual bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
     {
         error = null;
         return true;
@@ -513,17 +509,16 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         }
     }
 
-    public override void SetExpression(string expressionString)
+    public override bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
     {
         if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
         {
             CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             IExpression<T>? oldExpression = expressionProperty.Expression;
 
-            if (!Expression.TryParse<T>(expressionString, out var newExpression, out _))
+            if (!Expression.TryParse<T>(expressionString, out var newExpression, out error))
             {
-                // パース失敗の場合は何もしない
-                return;
+                return false;
             }
 
             // Animationを保存してnullに設定する
@@ -553,14 +548,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 .ToCommand()
                 .DoAndRecord(recorder);
         }
-    }
-
-    public override bool ValidateExpression(string expressionString, [NotNullWhen(false)] out string? error)
-    {
-        if (PropertyAdapter is IExpressionPropertyAdapter<T>)
-        {
-            return Expression.TryParse<T>(expressionString, out _, out error);
-        }
+        
         error = null;
         return true;
     }

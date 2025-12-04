@@ -59,7 +59,7 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
 
         _errorTextBlock = new TextBlock
         {
-            Foreground = Brushes.Red,
+            Foreground = Avalonia.Application.Current!.FindResource("SystemFillColorCriticalBrush") as IBrush,
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
             IsVisible = false
         };
