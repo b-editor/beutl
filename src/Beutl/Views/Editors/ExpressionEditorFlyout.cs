@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Beutl.Controls.PropertyEditors;
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
@@ -11,6 +12,7 @@ namespace Beutl.Views.Editors;
 public sealed class ExpressionEditorFlyout : PickerFlyoutBase
 {
     private TextBox? _textBox;
+    private TextBlock? _errorTextBlock;
 
     public string? ExpressionText
     {
@@ -24,7 +26,20 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
         }
     }
 
-    public event TypedEventHandler<ExpressionEditorFlyout, EventArgs>? Confirmed;
+    public string? ErrorMessage
+    {
+        get => _errorTextBlock?.Text;
+        set
+        {
+            if (_errorTextBlock != null)
+            {
+                _errorTextBlock.Text = value;
+                _errorTextBlock.IsVisible = !string.IsNullOrWhiteSpace(value);
+            }
+        }
+    }
+
+    public event TypedEventHandler<ExpressionEditorFlyout, ExpressionConfirmedEventArgs>? Confirmed;
 
     public event TypedEventHandler<ExpressionEditorFlyout, EventArgs>? Dismissed;
 
@@ -34,10 +49,17 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
         {
             Watermark = "Sin(Time * 2 * PI) * 100",
             AcceptsReturn = true,
-            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            TextWrapping = TextWrapping.Wrap,
             MinHeight = 100,
             MaxHeight = 200,
             VerticalContentAlignment = VerticalAlignment.Top
+        };
+
+        _errorTextBlock = new TextBlock
+        {
+            Foreground = Avalonia.Application.Current!.FindResource("SystemFillColorCriticalBrush") as IBrush,
+            TextWrapping = TextWrapping.Wrap,
+            IsVisible = false
         };
 
         var content = new StackPanel
@@ -49,10 +71,11 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
             {
                 new TextBlock
                 {
-                    Text = Language.Strings.ExpressionHelp,
-                    TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                    Text = Strings.ExpressionHelp,
+                    TextWrapping = TextWrapping.Wrap
                 },
-                _textBox
+                _textBox,
+                _errorTextBlock
             }
         };
 
@@ -86,7 +109,21 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
 
     protected override void OnConfirmed()
     {
-        Confirmed?.Invoke(this, EventArgs.Empty);
+        string expressionText = ExpressionText ?? "";
+
+        if (!string.IsNullOrWhiteSpace(expressionText))
+        {
+            var args = new ExpressionConfirmedEventArgs(expressionText);
+            Confirmed?.Invoke(this, args);
+
+            if (!args.IsValid)
+            {
+                ErrorMessage = args.Error;
+                return;
+            }
+        }
+
+        ErrorMessage = null;
         Hide();
     }
 
@@ -120,4 +157,18 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
     {
         OnConfirmed();
     }
+}
+
+public sealed class ExpressionConfirmedEventArgs : EventArgs
+{
+    public ExpressionConfirmedEventArgs(string expressionText)
+    {
+        ExpressionText = expressionText;
+    }
+
+    public string ExpressionText { get; }
+
+    public bool IsValid { get; set; } = true;
+
+    public string? Error { get; set; }
 }
