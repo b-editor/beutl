@@ -141,57 +141,48 @@ public class AnimatableProperty<T> : IProperty<T>
 
     public T GetValue(RenderContext context)
     {
-        try
+        T value;
+
+        // 式を最優先
+        if (_expression != null)
         {
-            T value;
-
-            // 式を最優先
-            if (_expression != null)
+            _propertyLookup ??= new PropertyLookup(_owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
+            if (context is ExpressionContext expressionContext)
             {
-                _propertyLookup ??= new PropertyLookup(_owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
-                if (context is ExpressionContext expressionContext)
-                {
-                    if (expressionContext.IsEvaluating(this))
-                        return DefaultValue;
-                }
-                else
-                {
-                    expressionContext = new ExpressionContext(context.Time, this, _propertyLookup);
-                }
-
-                expressionContext.BeginEvaluation(this);
-                try
-                {
-                    value = _expression.Evaluate(expressionContext);
-                    value = ValidateAndCoerce(value);
-                }
-                finally
-                {
-                    expressionContext.EndEvaluation(this);
-                }
-            }
-            // アニメーション値を次に優先
-            else if (_animation != null)
-            {
-                value = _animation.GetAnimatedValue(context.Time) ?? _currentValue;
-
-                // アニメーション値もバリデーション
-                value = ValidateAndCoerce(value);
+                if (expressionContext.IsEvaluating(this))
+                    return DefaultValue;
             }
             else
             {
-                // アニメーションがない場合は現在値
-                value = _currentValue;
+                expressionContext = new ExpressionContext(context.Time, this, _propertyLookup);
             }
 
-            return value;
+            expressionContext.BeginEvaluation(this);
+            try
+            {
+                value = _expression.Evaluate(expressionContext);
+                value = ValidateAndCoerce(value);
+            }
+            finally
+            {
+                expressionContext.EndEvaluation(this);
+            }
         }
-        catch (Exception ex)
+        // アニメーション値を次に優先
+        else if (_animation != null)
         {
-            // エラー時は安全なデフォルト値を返す
-            Debug.WriteLine($"Error getting value for property '{Name}': {ex.Message}");
-            return DefaultValue;
+            value = _animation.GetAnimatedValue(context.Time) ?? _currentValue;
+
+            // アニメーション値もバリデーション
+            value = ValidateAndCoerce(value);
         }
+        else
+        {
+            // アニメーションがない場合は現在値
+            value = _currentValue;
+        }
+
+        return value;
     }
 
     public void SetPropertyInfo(PropertyInfo propertyInfo)
