@@ -39,9 +39,7 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
         }
     }
 
-    public Func<string, (bool IsValid, string? Error)>? Validator { get; set; }
-
-    public event TypedEventHandler<ExpressionEditorFlyout, EventArgs>? Confirmed;
+    public event TypedEventHandler<ExpressionEditorFlyout, ExpressionConfirmedEventArgs>? Confirmed;
 
     public event TypedEventHandler<ExpressionEditorFlyout, EventArgs>? Dismissed;
 
@@ -109,29 +107,29 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
         }
     }
 
-    private bool TryConfirm()
+    private void TryConfirm()
     {
         string expressionText = ExpressionText ?? "";
 
-        if (!string.IsNullOrWhiteSpace(expressionText) && Validator != null)
+        if (!string.IsNullOrWhiteSpace(expressionText))
         {
-            var (isValid, error) = Validator(expressionText);
-            if (!isValid)
+            var args = new ExpressionConfirmedEventArgs(expressionText);
+            Confirmed?.Invoke(this, args);
+            
+            if (!args.IsValid)
             {
-                ErrorMessage = error;
-                return false;
+                ErrorMessage = args.Error;
+                return;
             }
         }
 
         ErrorMessage = null;
-        OnConfirmed();
-        return true;
+        Hide();
     }
 
     protected override void OnConfirmed()
     {
-        Confirmed?.Invoke(this, EventArgs.Empty);
-        Hide();
+        TryConfirm();
     }
 
     protected override void OnOpening(CancelEventArgs args)
@@ -164,4 +162,18 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
     {
         TryConfirm();
     }
+}
+
+public sealed class ExpressionConfirmedEventArgs : EventArgs
+{
+    public ExpressionConfirmedEventArgs(string expressionText)
+    {
+        ExpressionText = expressionText;
+    }
+
+    public string ExpressionText { get; }
+
+    public bool IsValid { get; set; } = true;
+
+    public string? Error { get; set; }
 }

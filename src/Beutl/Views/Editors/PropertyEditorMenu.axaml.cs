@@ -131,10 +131,11 @@ public sealed partial class PropertyEditorMenu : UserControl
             var flyout = new ExpressionEditorFlyout();
             flyout.Placement = PlacementMode.Bottom;
             flyout.ExpressionText = currentExpression ?? "";
-            flyout.Validator = expression =>
+            flyout.Confirmed += (_, args) =>
             {
-                bool isValid = viewModel.SetExpression(expression, out var error);
-                return (isValid, error);
+                bool isValid = viewModel.SetExpression(args.ExpressionText, out var error);
+                args.IsValid = isValid;
+                args.Error = error;
             };
 
             flyout.ShowAt(this);
