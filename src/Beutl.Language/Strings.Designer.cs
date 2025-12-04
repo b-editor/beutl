@@ -2684,5 +2684,65 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("CopyGetPropertyCode", resourceCulture);
             }
         }
+
+        public static string Expression_Input {
+            get {
+                return ResourceManager.GetString("Expression_Input", resourceCulture);
+            }
+        }
+
+        public static string Expression_Help {
+            get {
+                return ResourceManager.GetString("Expression_Help", resourceCulture);
+            }
+        }
+
+        public static string Expression_Variables {
+            get {
+                return ResourceManager.GetString("Expression_Variables", resourceCulture);
+            }
+        }
+
+        public static string Expression_Functions {
+            get {
+                return ResourceManager.GetString("Expression_Functions", resourceCulture);
+            }
+        }
+
+        public static string Expression_Variables_Description {
+            get {
+                return ResourceManager.GetString("Expression_Variables_Description", resourceCulture);
+            }
+        }
+
+        public static string Expression_Functions_Trigonometric {
+            get {
+                return ResourceManager.GetString("Expression_Functions_Trigonometric", resourceCulture);
+            }
+        }
+
+        public static string Expression_Functions_Math {
+            get {
+                return ResourceManager.GetString("Expression_Functions_Math", resourceCulture);
+            }
+        }
+
+        public static string Expression_Functions_Interpolation {
+            get {
+                return ResourceManager.GetString("Expression_Functions_Interpolation", resourceCulture);
+            }
+        }
+
+        public static string Expression_Functions_Utility {
+            get {
+                return ResourceManager.GetString("Expression_Functions_Utility", resourceCulture);
+            }
+        }
+
+        public static string Expression_GetProperty_Description {
+            get {
+                return ResourceManager.GetString("Expression_GetProperty_Description", resourceCulture);
+            }
+        }
     }
 }

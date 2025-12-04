@@ -1,0 +1,198 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:lang="using:Beutl.Language"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+                    x:CompileBindings="True">
+
+    <ControlTheme x:Key="{x:Type local:ExpressionEditorFlyoutPresenter}" TargetType="local:ExpressionEditorFlyoutPresenter">
+        <Setter Property="Width" Value="360" />
+        <Setter Property="ShowHideButtons" Value="True" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Background" Value="{DynamicResource FlyoutPresenterBackground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource FlyoutBorderThemeBrush}" />
+        <Setter Property="BorderThickness" Value="{StaticResource FlyoutBorderThemeThickness}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
+        <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{DynamicResource FlyoutBorderThemePadding}"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid RowDefinitions="Auto,*,Auto">
+                        <!-- Tab Header and Close Button -->
+                        <Grid Name="DragArea"
+                              Height="40"
+                              VerticalAlignment="Top"
+                              Background="Transparent"
+                              ColumnDefinitions="*,Auto">
+                            <WrapPanel Name="TabLayout" Margin="4,4,0,4">
+                                <RadioButton Name="InputTabButton"
+                                             IsChecked="True"
+                                             ToolTip.Tip="{x:Static lang:Strings.Expression_Input}">
+                                    <ui:SymbolIcon Symbol="Edit" />
+                                </RadioButton>
+                                <RadioButton Name="HelpTabButton"
+                                             ToolTip.Tip="{x:Static lang:Strings.Expression_Help}">
+                                    <ui:SymbolIcon Symbol="Help" />
+                                </RadioButton>
+                            </WrapPanel>
+
+                            <Button Name="CloseButton"
+                                    Grid.Column="1"
+                                    Width="32"
+                                    Height="32"
+                                    Margin="4"
+                                    Padding="0"
+                                    HorizontalAlignment="Right"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    Theme="{StaticResource TransparentButton}">
+                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
+                            </Button>
+                        </Grid>
+
+                        <!-- Content Area -->
+                        <Grid Name="ContentArea" Grid.Row="1" Margin="8,0,8,8">
+                            <!-- Input Tab -->
+                            <StackPanel Name="InputPanel" Spacing="8">
+                                <TextBlock Text="{x:Static lang:Strings.ExpressionHelp}"
+                                           TextWrapping="Wrap"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <TextBox Name="ExpressionTextBox"
+                                         AcceptsReturn="True"
+                                         MinHeight="100"
+                                         MaxHeight="200"
+                                         TextWrapping="Wrap"
+                                         Watermark="Sin(Time * 2 * PI) * 100"
+                                         Text="{TemplateBinding ExpressionText, Mode=TwoWay}"
+                                         VerticalContentAlignment="Top" />
+                                <TextBlock Name="ErrorTextBlock"
+                                           Text="{TemplateBinding ErrorMessage}"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                                           IsVisible="False" />
+                            </StackPanel>
+
+                            <!-- Help Tab -->
+                            <ScrollViewer Name="HelpPanel" MaxHeight="300" IsVisible="False">
+                                <StackPanel Spacing="12">
+                                    <!-- Variables Section -->
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{x:Static lang:Strings.Expression_Variables}"
+                                                   FontWeight="Bold" />
+                                        <TextBlock Text="{x:Static lang:Strings.Expression_Variables_Description}"
+                                                   TextWrapping="Wrap"
+                                                   FontFamily="Consolas, Menlo, monospace"
+                                                   FontSize="11" />
+                                    </StackPanel>
+
+                                    <!-- Functions Section -->
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{x:Static lang:Strings.Expression_Functions}"
+                                                   FontWeight="Bold" />
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{x:Static lang:Strings.Expression_Functions_Trigonometric}"
+                                                       TextWrapping="Wrap"
+                                                       FontFamily="Consolas, Menlo, monospace"
+                                                       FontSize="11" />
+                                            <TextBlock Text="{x:Static lang:Strings.Expression_Functions_Math}"
+                                                       TextWrapping="Wrap"
+                                                       FontFamily="Consolas, Menlo, monospace"
+                                                       FontSize="11" />
+                                            <TextBlock Text="{x:Static lang:Strings.Expression_Functions_Interpolation}"
+                                                       TextWrapping="Wrap"
+                                                       FontFamily="Consolas, Menlo, monospace"
+                                                       FontSize="11" />
+                                            <TextBlock Text="{x:Static lang:Strings.Expression_Functions_Utility}"
+                                                       TextWrapping="Wrap"
+                                                       FontFamily="Consolas, Menlo, monospace"
+                                                       FontSize="11" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- GetProperty Section -->
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="GetProperty" FontWeight="Bold" />
+                                        <TextBlock Text="{x:Static lang:Strings.Expression_GetProperty_Description}"
+                                                   TextWrapping="Wrap"
+                                                   FontFamily="Consolas, Menlo, monospace"
+                                                   FontSize="11" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+
+                        <!-- Accept/Dismiss Buttons -->
+                        <Border Grid.Row="2"
+                                BorderBrush="{DynamicResource PickerFlyoutPresenterDivider}"
+                                BorderThickness="0,1,0,0">
+                            <Panel Name="AcceptDismissContainer"
+                                   Height="{DynamicResource PickerAcceptDismissRegionHeight}"
+                                   IsVisible="False">
+                                <Grid ColumnDefinitions="*,*">
+                                    <Button Name="AcceptButton"
+                                            Margin="4,4,2,4"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            Theme="{StaticResource FlyoutAcceptDismiss}">
+                                        <ui:SymbolIcon FontSize="18" Symbol="Checkmark" />
+                                    </Button>
+                                    <Button Name="DismissButton"
+                                            Grid.Column="1"
+                                            Margin="2,4,4,4"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"
+                                            Theme="{StaticResource FlyoutAcceptDismiss}">
+                                        <ui:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                    </Button>
+                                </Grid>
+                            </Panel>
+                        </Border>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:acceptdismiss /template/ Panel#AcceptDismissContainer">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:acceptdismiss /template/ Button#CloseButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <Style Selector="^:has-error /template/ TextBlock#ErrorTextBlock">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- Help tab visibility -->
+        <Style Selector="^:help-tab /template/ StackPanel#InputPanel">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:help-tab /template/ ScrollViewer#HelpPanel">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- Tab button styles -->
+        <Style Selector="^ /template/ WrapPanel#TabLayout">
+            <Style Selector="^ > RadioButton">
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="Margin" Value="0,0,4,0" />
+                <Setter Property="Theme" Value="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" />
+
+                <Style Selector="^ > ui|FontIcon">
+                    <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
+                </Style>
+            </Style>
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

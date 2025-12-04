@@ -129,7 +129,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             string? currentExpression = viewModel.GetExpressionString();
 
             var flyout = new ExpressionEditorFlyout();
-            flyout.Placement = PlacementMode.Bottom;
+            flyout.Placement = PlacementMode.BottomEdgeAlignedRight;
             flyout.ExpressionText = currentExpression ?? "";
             flyout.Confirmed += (_, args) =>
             {

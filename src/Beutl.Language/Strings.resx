@@ -1437,4 +1437,44 @@
   <data name="PathFollowEffect" xml:space="preserve">
     <value>Path Follow</value>
   </data>
+  <data name="Expression_Input" xml:space="preserve">
+    <value>Input</value>
+  </data>
+  <data name="Expression_Help" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="Expression_Variables" xml:space="preserve">
+    <value>Variables</value>
+  </data>
+  <data name="Expression_Functions" xml:space="preserve">
+    <value>Functions</value>
+  </data>
+  <data name="Expression_Variables_Description" xml:space="preserve">
+    <value>Time: Current time relative to the element start (seconds)
+Start: Element start time (seconds)
+Duration: Element duration (seconds)
+Progress: Normalized progress (0.0 to 1.0)
+PI: Mathematical constant π (3.14159...)</value>
+  </data>
+  <data name="Expression_Functions_Trigonometric" xml:space="preserve">
+    <value>Trigonometric: Sin, Cos, Tan, Asin, Acos, Atan, Atan2
+Hyperbolic: Sinh, Cosh, Tanh</value>
+  </data>
+  <data name="Expression_Functions_Math" xml:space="preserve">
+    <value>Math: Sqrt, Pow, Exp, Log, Log10, Log2
+Rounding: Abs, Floor, Ceil, Round, Truncate, Sign
+Range: Min, Max, Clamp</value>
+  </data>
+  <data name="Expression_Functions_Interpolation" xml:space="preserve">
+    <value>Interpolation: Lerp, InverseLerp, Remap, Smoothstep</value>
+  </data>
+  <data name="Expression_Functions_Utility" xml:space="preserve">
+    <value>Utility: Radians, Degrees, Mod, Frac
+Random: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, max)</value>
+  </data>
+  <data name="Expression_GetProperty_Description" xml:space="preserve">
+    <value>Reference other properties:
+GetProperty&lt;T&gt;("path") or GetProperty&lt;T&gt;(guid, "propertyName")
+Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
+  </data>
 </root>

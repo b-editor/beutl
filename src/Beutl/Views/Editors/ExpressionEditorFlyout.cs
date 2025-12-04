@@ -1,8 +1,6 @@
 using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Layout;
-using Avalonia.Media;
 using Beutl.Controls.PropertyEditors;
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
@@ -11,30 +9,30 @@ namespace Beutl.Views.Editors;
 
 public sealed class ExpressionEditorFlyout : PickerFlyoutBase
 {
-    private TextBox? _textBox;
-    private TextBlock? _errorTextBlock;
+    private ExpressionEditorFlyoutPresenter? _presenter;
 
     public string? ExpressionText
     {
-        get => _textBox?.Text;
+        get => _presenter?.ExpressionText?? field;
         set
         {
-            if (_textBox != null)
+            field = value;
+            if (_presenter != null)
             {
-                _textBox.Text = value;
+                _presenter.ExpressionText = value;
             }
         }
     }
 
     public string? ErrorMessage
     {
-        get => _errorTextBlock?.Text;
+        get => _presenter?.ErrorMessage ?? field;
         set
         {
-            if (_errorTextBlock != null)
+            field = value;
+            if (_presenter != null)
             {
-                _errorTextBlock.Text = value;
-                _errorTextBlock.IsVisible = !string.IsNullOrWhiteSpace(value);
+                _presenter.ErrorMessage = value;
             }
         }
     }
@@ -45,51 +43,15 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
 
     protected override Control CreatePresenter()
     {
-        _textBox = new TextBox
-        {
-            Watermark = "Sin(Time * 2 * PI) * 100",
-            AcceptsReturn = true,
-            TextWrapping = TextWrapping.Wrap,
-            MinHeight = 100,
-            MaxHeight = 200,
-            VerticalContentAlignment = VerticalAlignment.Top
-        };
+        _presenter = new ExpressionEditorFlyoutPresenter();
+        _presenter.ExpressionText = ExpressionText;
+        _presenter.ErrorMessage = ErrorMessage;
+        _presenter.Confirmed += OnFlyoutConfirmed;
+        _presenter.Dismissed += OnFlyoutDismissed;
+        _presenter.CloseClicked += OnFlyoutCloseClicked;
+        _presenter.KeyDown += OnFlyoutKeyDown;
 
-        _errorTextBlock = new TextBlock
-        {
-            Foreground = Avalonia.Application.Current!.FindResource("SystemFillColorCriticalBrush") as IBrush,
-            TextWrapping = TextWrapping.Wrap,
-            IsVisible = false
-        };
-
-        var content = new StackPanel
-        {
-            Width = 300,
-            Spacing = 8,
-            Margin = new Avalonia.Thickness(8, 40, 8, 8),
-            Children =
-            {
-                new TextBlock
-                {
-                    Text = Strings.ExpressionHelp,
-                    TextWrapping = TextWrapping.Wrap
-                },
-                _textBox,
-                _errorTextBlock
-            }
-        };
-
-        var presenter = new DraggablePickerFlyoutPresenter
-        {
-            Content = content
-        };
-
-        presenter.Confirmed += OnFlyoutConfirmed;
-        presenter.Dismissed += OnFlyoutDismissed;
-        presenter.CloseClicked += OnFlyoutCloseClicked;
-        presenter.KeyDown += OnFlyoutKeyDown;
-
-        return presenter;
+        return _presenter;
     }
 
     private void OnFlyoutKeyDown(object? sender, KeyEventArgs e)
@@ -131,7 +93,7 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
     {
         base.OnOpening(args);
 
-        if (Popup.Child is DraggablePickerFlyoutPresenter pfp)
+        if (Popup.Child is ExpressionEditorFlyoutPresenter pfp)
         {
             pfp.ShowHideButtons = ShouldShowConfirmationButtons();
         }
