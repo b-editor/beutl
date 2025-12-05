@@ -54,9 +54,7 @@ public abstract class Sound : EngineObject
         // Add effect if present
         if (Effect.CurrentValue != null && Effect.CurrentValue.IsEnabled)
         {
-            var effectNode = context.CreateEffectNode(Effect.CurrentValue);
-            context.Connect(currentNode, effectNode);
-            currentNode = effectNode;
+            currentNode = Effect.CurrentValue.CreateNode(context, currentNode);
         }
 
         var clipNode = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
