@@ -92,11 +92,6 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
         }
     }
 
-    public Task<IBitmap?> GetPreviewBitmapAsync(int maxWidth, int maxHeight, CancellationToken cancellationToken = default)
-    {
-        return Task.FromResult<IBitmap?>(null);
-    }
-
     public async IAsyncEnumerable<(int Index, IBitmap Thumbnail)> GetThumbnailStripAsync(
         int count,
         int maxHeight,

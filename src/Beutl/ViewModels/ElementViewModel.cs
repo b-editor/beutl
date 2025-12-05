@@ -137,9 +137,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         IsPreviewKindAudio = PreviewKind.Select(k => k == ElementPreviewKind.Audio)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
-        IsPreviewKindImage = PreviewKind.Select(k => k == ElementPreviewKind.Image)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
         IsPreviewKindVideo = PreviewKind.Select(k => k == ElementPreviewKind.Video)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -237,13 +234,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReadOnlyReactivePropertySlim<bool> IsPreviewKindAudio { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> IsPreviewKindImage { get; }
-
-    public ReactivePropertySlim<Bitmap?> PreviewImage { get; } = new();
-
     public ReactivePropertySlim<int> VideoThumbnailCount { get; } = new();
 
-    public ReactivePropertySlim<float[]?> WaveformData { get; } = new();
+    public ReactivePropertySlim<int> WaveformChunkCount { get; } = new();
 
     public event Action<int, Bitmap?>? ThumbnailReady;
 
@@ -297,10 +290,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         LayerHeader.Dispose();
         Scope.Dispose();
 
-        PreviewImage.Value?.Dispose();
-        PreviewImage.Value = null;
         PreviewKind.Dispose();
-        PreviewImage.Dispose();
         VideoThumbnailCount.Dispose();
         WaveformChunkCount.Dispose();
 
@@ -768,9 +758,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         {
             switch (provider.PreviewKind)
             {
-                case ElementPreviewKind.Image:
-                    await UpdateImagePreviewAsync(provider, ct);
-                    break;
                 case ElementPreviewKind.Video:
                     await UpdateVideoPreviewAsync(provider, ct);
                     break;
@@ -799,32 +786,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
 
         return null;
-    }
-
-    private async Task UpdateImagePreviewAsync(IElementPreviewProvider provider, CancellationToken ct)
-    {
-        const int MaxPreviewHeight = 48;
-        const int MaxPreviewWidth = 200;
-
-        var bitmap = await provider.GetPreviewBitmapAsync(MaxPreviewWidth, MaxPreviewHeight, ct);
-        if (bitmap == null || ct.IsCancellationRequested)
-            return;
-
-        try
-        {
-            var avaloniaBitmap = ConvertToAvaloniaBitmap(bitmap);
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (!ct.IsCancellationRequested)
-                {
-                    PreviewImage.Value = avaloniaBitmap;
-                }
-            });
-        }
-        finally
-        {
-            bitmap.Dispose();
-        }
     }
 
     private async Task UpdateVideoPreviewAsync(IElementPreviewProvider provider, CancellationToken ct)
