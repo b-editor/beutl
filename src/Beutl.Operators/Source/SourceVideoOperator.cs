@@ -97,66 +97,83 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
         int maxHeight,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (Value?.Source.CurrentValue is not { IsDisposed: false } source)
+        if (Value.Source.CurrentValue is not { IsDisposed: false } source)
             yield break;
 
         if (count <= 0)
             yield break;
 
-        var duration = source.Duration;
-        if (duration <= TimeSpan.Zero)
+        if (source.Duration <= TimeSpan.Zero)
             yield break;
+        var duration = Value.TimeRange.Duration;
 
         var interval = duration.TotalSeconds / count;
 
         var frameSize = source.FrameSize;
         float aspectRatio = (float)frameSize.Width / frameSize.Height;
         int thumbWidth = (int)(maxHeight * aspectRatio);
+        SourceVideo.Resource? resource = null;
+        DrawableRenderNode? node = null;
+        RenderNodeProcessor? processor = null;
 
-        for (int i = 0; i < count; i++)
+        try
         {
-            if (cancellationToken.IsCancellationRequested)
-                yield break;
-
-            var time = TimeSpan.FromSeconds(i * interval);
-
-            var thumbnail = await RenderThread.Dispatcher.InvokeAsync(() =>
+            for (int i = 0; i < count; i++)
             {
                 if (cancellationToken.IsCancellationRequested)
-                    return null;
+                    yield break;
 
-                if (!source.Read(time, out IBitmap? frame))
-                    return null;
+                var time = TimeSpan.FromSeconds(i * interval);
 
-                if (frame.Height != maxHeight)
+                var thumbnail = await RenderThread.Dispatcher.InvokeAsync(() =>
                 {
-                    using var original = frame;
-                    return ScaleBitmap(original, thumbWidth, maxHeight);
+                    if (cancellationToken.IsCancellationRequested)
+                        return null;
+
+                    var ctx = new RenderContext(time + Value.TimeRange.Start);
+                    if (resource == null)
+                    {
+                        resource = Value.ToResource(ctx);
+                        node = new DrawableRenderNode(resource);
+                        processor = new RenderNodeProcessor(node, false);
+                    }
+                    else
+                    {
+                        bool updateOnly = false;
+                        resource.Update(Value, ctx, ref updateOnly);
+                    }
+
+                    using (var gctx = new GraphicsContext2D(node!, new PixelSize(thumbWidth, maxHeight)))
+                    using (gctx.PushTransform(Matrix.CreateScale((float)thumbWidth / frameSize.Width, (float)maxHeight / frameSize.Height)))
+                    {
+                        Value.DrawInternal(gctx, resource);
+                    }
+
+                    return processor!.RasterizeAndConcat();
+                }, DispatchPriority.Medium, cancellationToken);
+
+                if (thumbnail != null)
+                {
+                    yield return (i, thumbnail);
                 }
-
-                return frame;
-            }, DispatchPriority.Medium, cancellationToken);
-
-            if (thumbnail != null)
-            {
-                yield return (i, thumbnail);
             }
+        }
+        finally
+        {
+            RenderThread.Dispatcher.Dispatch(() =>
+            {
+                node?.Dispose();
+                resource?.Dispose();
+            }, ct: CancellationToken.None);
         }
     }
 
-    public static IBitmap? ScaleBitmap(IBitmap source, int width, int height)
+    public async IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
+        int chunkCount,
+        int samplesPerChunk,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (width <= 0 || height <= 0)
-            return null;
-
-        using var scaledImage = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
-        using var canvas = new SKCanvas(scaledImage);
-        using var bitmap = source.ToSKBitmap();
-
-        canvas.DrawBitmap(
-            bitmap,
-            new SKRect(0, 0, width, height));
-
-        return scaledImage.ToBitmap();
+        await Task.CompletedTask;
+        yield break;
     }
 }

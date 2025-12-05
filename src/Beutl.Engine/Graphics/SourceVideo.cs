@@ -169,6 +169,11 @@ public partial class SourceVideo : Drawable
         }
     }
 
+    internal void DrawInternal(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        OnDraw(context, resource);
+    }
+
     public partial class Resource
     {
         public TimeSpan RenderedPosition { get; internal set; }
