@@ -15,6 +15,8 @@ public abstract class Sound : EngineObject
         ScanProperties<Sound>();
     }
 
+    public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
+
     [Range(0, float.MaxValue)]
     public IProperty<float> Gain { get; } = Property.CreateAnimatable(100f);
 
@@ -39,8 +41,11 @@ public abstract class Sound : EngineObject
         // Create source node
         var sourceNode = context.CreateSourceNode(soundSource);
 
+        var shiftNode = context.CreateShiftNode(OffsetPosition.CurrentValue);
+        context.Connect(sourceNode, shiftNode);
+
         var resampleNode = context.CreateResampleNode(soundSource.SampleRate);
-        context.Connect(sourceNode, resampleNode);
+        context.Connect(shiftNode, resampleNode);
 
         var speedNode = context.CreateSpeedNode(Speed);
         context.Connect(resampleNode, speedNode);
