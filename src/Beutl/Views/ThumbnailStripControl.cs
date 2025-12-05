@@ -94,7 +94,8 @@ public sealed class ThumbnailStripControl : Control
 
                 double slotX = i * slotWidth;
 
-                var dstSize = new Size(slotWidth, height);
+                // 背景が見えてしまうので微調整
+                var dstSize = new Size(slotWidth + 1, height);
                 var srcSize = img.Size;
                 var viewPort = new Rect(dstSize);
 

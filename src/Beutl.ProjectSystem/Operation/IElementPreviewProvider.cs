@@ -8,8 +8,8 @@ public interface IElementPreviewProvider
 
     event EventHandler? PreviewInvalidated;
 
-    IAsyncEnumerable<(int Index, IBitmap Thumbnail)> GetThumbnailStripAsync(
-        int count,
+    IAsyncEnumerable<(int Index, int Count, IBitmap Thumbnail)> GetThumbnailStripAsync(
+        int maxWidth,
         int maxHeight,
         CancellationToken cancellationToken = default);
 

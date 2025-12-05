@@ -463,7 +463,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             Scope: Scope.PrepareAnimation());
     }
 
-
     private void OnPreviewDisabledElementsAttached(Guid id)
     {
         if (id == Model.Id && !IsPreviewDisabled.Value)
@@ -889,23 +888,20 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private async Task UpdateVideoPreviewAsync(IElementPreviewProvider provider, CancellationToken ct)
     {
-        const int MaxThumbnailHeight = 48;
+        const int MaxThumbnailHeight = 25;
         double width = Width.Value;
         if (width <= 0)
             return;
-
-        int count = Math.Max(1, (int)(width / 50));
 
         await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (!ct.IsCancellationRequested)
             {
                 ThumbnailsClear?.Invoke();
-                VideoThumbnailCount.Value = count;
             }
         });
 
-        await foreach (var (index, thumbnail) in provider.GetThumbnailStripAsync(count, MaxThumbnailHeight, ct))
+        await foreach (var (index, count, thumbnail) in provider.GetThumbnailStripAsync((int)width, MaxThumbnailHeight, ct))
         {
             if (ct.IsCancellationRequested)
             {
@@ -919,6 +915,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 {
                     if (!ct.IsCancellationRequested)
                     {
+                        VideoThumbnailCount.Value = count;
                         ThumbnailReady?.Invoke(index, ConvertToAvaloniaBitmap(thumbnail));
                     }
                 }

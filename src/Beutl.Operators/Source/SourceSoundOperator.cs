@@ -101,8 +101,8 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
         }
     }
 
-    public async IAsyncEnumerable<(int Index, IBitmap Thumbnail)> GetThumbnailStripAsync(
-        int count,
+    public async IAsyncEnumerable<(int Index, int Count, IBitmap Thumbnail)> GetThumbnailStripAsync(
+        int maxWidth,
         int maxHeight,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {

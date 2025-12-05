@@ -120,26 +120,23 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
         }
     }
 
-    public async IAsyncEnumerable<(int Index, IBitmap Thumbnail)> GetThumbnailStripAsync(
-        int count,
+    public async IAsyncEnumerable<(int Index, int Count, IBitmap Thumbnail)> GetThumbnailStripAsync(
+        int maxWidth,
         int maxHeight,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (Value.Source.CurrentValue is not { IsDisposed: false } source)
             yield break;
 
-        if (count <= 0)
-            yield break;
-
         if (source.Duration <= TimeSpan.Zero)
             yield break;
         var duration = Value.TimeRange.Duration;
 
-        var interval = duration.TotalSeconds / count;
-
         var frameSize = source.FrameSize;
         float aspectRatio = (float)frameSize.Width / frameSize.Height;
-        int thumbWidth = (int)(maxHeight * aspectRatio);
+        float thumbWidth = maxHeight * aspectRatio;
+        int count = (int)MathF.Ceiling(maxWidth / thumbWidth);
+        double interval = duration.TotalSeconds / count;
         SourceVideo.Resource? resource = null;
         DrawableRenderNode? node = null;
         RenderNodeProcessor? processor = null;
@@ -171,8 +168,8 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
                         resource.Update(Value, ctx, ref updateOnly);
                     }
 
-                    using (var gctx = new GraphicsContext2D(node!, new PixelSize(thumbWidth, maxHeight)))
-                    using (gctx.PushTransform(Matrix.CreateScale((float)thumbWidth / frameSize.Width, (float)maxHeight / frameSize.Height)))
+                    using (var gctx = new GraphicsContext2D(node!, new PixelSize((int)thumbWidth, maxHeight)))
+                    using (gctx.PushTransform(Matrix.CreateScale(thumbWidth / frameSize.Width, (float)maxHeight / frameSize.Height)))
                     {
                         Value.DrawInternal(gctx, resource);
                     }
@@ -182,7 +179,7 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
 
                 if (thumbnail != null)
                 {
-                    yield return (i, thumbnail);
+                    yield return (i, count, thumbnail);
                 }
             }
         }

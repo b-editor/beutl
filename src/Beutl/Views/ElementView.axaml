@@ -119,8 +119,7 @@
                                    Command="{Binding ChangeToOriginalLength}"
                                    Text="{x:Static lang:Strings.ChangeToOriginalLength}" />
                 <ui:MenuFlyoutItem Click="ChangeColor_Click" Text="{x:Static lang:Strings.ChangeColor}" />
-                <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsPreviewDisabled.Value}"
-                                         Text="{x:Static lang:Strings.DisablePreview}">
+                <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsPreviewDisabled.Value}" Text="{x:Static lang:Strings.DisablePreview}">
                     <ui:ToggleMenuFlyoutItem.Styles>
                         <Style Selector="ui|ToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
                             <Setter Property="Width" Value="0" />
