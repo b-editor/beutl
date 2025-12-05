@@ -91,7 +91,7 @@ public sealed class CreateNewSceneViewModel
     {
         if (_proj != null)
         {
-            return Path.GetDirectoryName(_proj.Uri!.LocalPath)!;
+            return Path.GetDirectoryName(Uri.UnescapeDataString(_proj.Uri!.LocalPath))!;
         }
 
         return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);

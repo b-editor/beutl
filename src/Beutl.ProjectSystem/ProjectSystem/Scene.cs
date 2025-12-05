@@ -270,7 +270,8 @@ public class Scene : ProjectItem, INotifyEdited
             if (elementsJson is JsonObject elementsObject)
             {
                 var matcher = new Matcher();
-                var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(Uri!.LocalPath)!));
+                var directoryName = Path.GetDirectoryName(Uri.UnescapeDataString(Uri!.LocalPath))!;
+                var directory = new DirectoryInfoWrapper(new DirectoryInfo(directoryName));
 
                 // 含めるクリップ
                 if (elementsObject.TryGetPropertyValue("Include", out JsonNode? includeNode))
@@ -323,7 +324,7 @@ public class Scene : ProjectItem, INotifyEdited
 
     private void UpdateInclude()
     {
-        string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
+        string dirPath = Path.GetDirectoryName(Uri.UnescapeDataString(Uri!.LocalPath))!;
         var directory = new DirectoryInfoWrapper(new DirectoryInfo(dirPath));
 
         var matcher = new Matcher();
@@ -333,7 +334,7 @@ public class Scene : ProjectItem, INotifyEdited
         string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
         foreach (Element item in Children)
         {
-            string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
+            string rel = Path.GetRelativePath(dirPath, Uri.UnescapeDataString(item.Uri!.LocalPath));
 
             // 含まれていない場合追加
             if (!files.Contains(rel))
@@ -348,15 +349,16 @@ public class Scene : ProjectItem, INotifyEdited
         ImmutableArray<TimeRange>.Builder affectedRange
             = ImmutableArray.CreateBuilder<TimeRange>(Math.Max(e.OldItems?.Count ?? 0, e.NewItems?.Count ?? 0));
 
+        string dirPath = Uri.UnescapeDataString(Uri!.LocalPath);
         if (e.Action == NotifyCollectionChangedAction.Remove
             && e.OldItems != null)
         {
-            string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
             foreach (Element item in e.OldItems.OfType<Element>())
             {
-                string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
+                string itemPath = Uri.UnescapeDataString(item.Uri!.LocalPath);
+                string rel = Path.GetRelativePath(dirPath, itemPath);
 
-                if (!_excludeElements.Contains(rel) && File.Exists(item.Uri!.LocalPath))
+                if (!_excludeElements.Contains(rel) && File.Exists(itemPath))
                 {
                     _excludeElements.Add(rel);
                 }
@@ -367,12 +369,12 @@ public class Scene : ProjectItem, INotifyEdited
         else if (e.Action == NotifyCollectionChangedAction.Add
                  && e.NewItems != null)
         {
-            string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
             foreach (Element item in e.NewItems.OfType<Element>())
             {
-                string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
+                string itemPath = Uri.UnescapeDataString(item.Uri!.LocalPath);
+                string rel = Path.GetRelativePath(dirPath, itemPath);
 
-                if (_excludeElements.Contains(rel) && File.Exists(item.Uri!.LocalPath))
+                if (_excludeElements.Contains(rel) && File.Exists(itemPath))
                 {
                     _excludeElements.Remove(rel);
                 }
@@ -669,7 +671,7 @@ public class Scene : ProjectItem, INotifyEdited
         {
             if (_element != null)
             {
-                string fileName = _element.Uri!.LocalPath;
+                string fileName = Uri.UnescapeDataString(_element.Uri!.LocalPath);
                 if (File.Exists(fileName))
                 {
                     File.Delete(fileName);
@@ -687,9 +689,10 @@ public class Scene : ProjectItem, INotifyEdited
 
         public void Undo()
         {
-            if (File.Exists(_uri.LocalPath))
+            var path = Uri.UnescapeDataString(_uri.LocalPath);
+            if (File.Exists(path))
             {
-                _uri = RandomFileNameGenerator.GenerateUri(Path.GetDirectoryName(_uri.LocalPath)!, "belm");
+                _uri = RandomFileNameGenerator.GenerateUri(Path.GetDirectoryName(path)!, "belm");
             }
 
             _element = (Element)CoreSerializer.DeserializeFromJsonObject(_jsonObject, typeof(Element),

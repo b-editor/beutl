@@ -89,7 +89,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
             {
                 NodeTree.Value = new NodeTreeViewModel(v.NodeTree, editViewModel);
                 IObservable<string> name = v.GetObservable(CoreObject.NameProperty);
-                var fileName = Path.GetFileNameWithoutExtension(v.Uri!.LocalPath);
+                var fileName = Path.GetFileNameWithoutExtension(Uri.UnescapeDataString(v.Uri!.LocalPath));
 
                 Items.Add(new NodeTreeNavigationItem(
                     viewModel: NodeTree.Value,
@@ -225,7 +225,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     private static string ViewStateDirectory(Element element)
     {
-        string directory = Path.GetDirectoryName(element.Uri!.LocalPath)!;
+        string directory = Path.GetDirectoryName(Uri.UnescapeDataString(element.Uri!.LocalPath))!;
 
         directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
         if (!Directory.Exists(directory))
@@ -257,13 +257,15 @@ public sealed class NodeTreeTabViewModel : IToolContext
             json["Selected"] = NodeTree.Value.NodeTree.Id;
         }
 
-        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.Uri!.LocalPath)}.nodetree.config"));
+        string name = Path.GetFileNameWithoutExtension(Uri.UnescapeDataString(element.Uri!.LocalPath));
+        json.JsonSave(Path.Combine(viewStateDir, $"{name}.nodetree.config"));
     }
 
     private void RestoreState(Element element)
     {
         string viewStateDir = ViewStateDirectory(element);
-        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(element.Uri!.LocalPath)}.nodetree.config");
+        string name = Path.GetFileNameWithoutExtension(Uri.UnescapeDataString(element.Uri!.LocalPath));
+        string viewStateFile = Path.Combine(viewStateDir, $"{name}.nodetree.config");
 
         if (File.Exists(viewStateFile))
         {
@@ -295,7 +297,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
             && (filenameNode as JsonValue)?.TryGetValue(out string? filename) == true
             && filename != null)
         {
-            Element.Value = _editViewModel.Scene.Children.FirstOrDefault(x => x.Uri!.LocalPath == filename);
+            Element.Value = _editViewModel.Scene.Children.FirstOrDefault(x => Uri.UnescapeDataString(x.Uri!.LocalPath) == filename);
         }
     }
 
@@ -303,7 +305,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
     {
         if (Element.Value is { Uri: { } uri })
         {
-            json["layer-filename"] = uri.LocalPath;
+            json["layer-filename"] = Uri.UnescapeDataString(uri.LocalPath);
         }
     }
 

@@ -376,7 +376,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     private string ViewStateDirectory()
     {
-        string directory = Path.GetDirectoryName(Scene.Uri!.LocalPath)!;
+        string directory = Path.GetDirectoryName(Uri.UnescapeDataString(Scene.Uri!.LocalPath))!;
 
         directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
         if (!Directory.Exists(directory))
@@ -402,14 +402,15 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         json["current-time"] = JsonValue.Create(CurrentTime.Value);
 
-        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath)}.config"));
+        string name = Path.GetFileNameWithoutExtension(Uri.UnescapeDataString(Scene.Uri!.LocalPath));
+        json.JsonSave(Path.Combine(viewStateDir, $"{name}.config"));
     }
 
     private void RestoreState()
     {
         string viewStateDir = ViewStateDirectory();
-        string viewStateFile =
-            Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath)}.config");
+        string name = Path.GetFileNameWithoutExtension(Uri.UnescapeDataString(Scene.Uri!.LocalPath));
+        string viewStateFile = Path.Combine(viewStateDir, $"{name}.config");
 
         if (File.Exists(viewStateFile))
         {

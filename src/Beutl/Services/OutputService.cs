@@ -73,7 +73,7 @@ public sealed class OutputProfileItem : IDisposable
         return new JsonObject
         {
             ["Extension"] = TypeFormat.ToString(item.Context.Extension.GetType()),
-            ["File"] = item.Context.Object.Uri!.LocalPath,
+            ["File"] = Uri.UnescapeDataString(item.Context.Object.Uri!.LocalPath),
             [nameof(Context)] = ctxJson
         };
     }
@@ -124,7 +124,8 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
     private readonly ReactivePropertySlim<OutputProfileItem?> _selectedItem = new();
 
     private readonly string _filePath = Path.Combine(
-        Path.GetDirectoryName(editViewModel.Scene.Uri!.LocalPath)!, Constants.BeutlFolder, "output-profile.json");
+        Path.GetDirectoryName(Uri.UnescapeDataString(editViewModel.Scene.Uri!.LocalPath))!,
+        Constants.BeutlFolder, "output-profile.json");
 
     private readonly ILogger _logger = Log.CreateLogger<OutputService>();
     private bool _isRestored;

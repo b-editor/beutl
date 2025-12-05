@@ -198,13 +198,14 @@ public static class CoreSerializer
                 coreObj.Uri = uri;
             }
 
-            var directory = Path.GetDirectoryName(uri.LocalPath);
+            var path = Uri.UnescapeDataString(uri.LocalPath);
+            var directory = Path.GetDirectoryName(path);
             if (directory != null)
             {
                 Directory.CreateDirectory(directory);
             }
 
-            using var stream = new FileStream(uri.LocalPath, FileMode.Create, FileAccess.Write, FileShare.Write);
+            using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Write);
             using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
 
             var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects  };

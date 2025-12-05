@@ -104,7 +104,7 @@ public partial class JsonSerializationContext
             var node = CoreSerializer.SerializeToJsonObject(value,
                 new CoreSerializerOptions { BaseUri = value.Uri });
 
-            using var stream = File.Create(value.Uri!.LocalPath);
+            using var stream = File.Create(Uri.UnescapeDataString(value.Uri!.LocalPath));
             using var innerWriter = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
             node.WriteTo(innerWriter);
         }
