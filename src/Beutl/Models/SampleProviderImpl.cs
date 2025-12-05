@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Subjects;
+using Beutl.Audio.Composing;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.ProjectSystem;
@@ -15,21 +16,26 @@ public class SampleProviderImpl(Scene scene, SceneComposer composer, long sample
 
     public long SampleRate => sampleRate;
 
-    private Pcm<Stereo32BitFloat> ComposeCore(long offset)
+    public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
     {
-        _lastPcm?.Dispose();
-        _lastPcm = null;
-        var buffer = composer.Compose(new (TimeSpan.FromTicks(TimeSpan.TicksPerSecond * offset / sampleRate) + scene.Start,
-                      TimeSpan.FromSeconds(1)))
-                  ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
-        var pcm = buffer.ToPcm();
-        _lastPcm = pcm;
-        _lastOffset = offset;
-
-        return pcm;
+        try
+        {
+            if (ComposeThread.Dispatcher.CheckAccess())
+            {
+                return ComposeCore(offset, length);
+            }
+            else
+            {
+                return await ComposeThread.Dispatcher.InvokeAsync(() => ComposeCore(offset, length));
+            }
+        }
+        finally
+        {
+            progress.OnNext(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * (offset + length) / sampleRate));
+        }
     }
 
-    public ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
+    private Pcm<Stereo32BitFloat> ComposeCore(long offset, long length)
     {
         int lengthInt = (int)length;
         var pcm = new Pcm<Stereo32BitFloat>((int)sampleRate, lengthInt);
@@ -57,7 +63,20 @@ public class SampleProviderImpl(Scene scene, SceneComposer composer, long sample
             written += lengthToCopy;
         }
 
-        progress.OnNext(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * (offset + length) / sampleRate));
-        return ValueTask.FromResult(pcm);
+        return pcm;
+    }
+
+    private Pcm<Stereo32BitFloat> ComposeCore(long offset)
+    {
+        _lastPcm?.Dispose();
+        _lastPcm = null;
+        var buffer = composer.Compose(new (TimeSpan.FromTicks(TimeSpan.TicksPerSecond * offset / sampleRate) + scene.Start,
+                         TimeSpan.FromSeconds(1)))
+                     ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
+        var pcm = buffer.ToPcm();
+        _lastPcm = pcm;
+        _lastOffset = offset;
+
+        return pcm;
     }
 }

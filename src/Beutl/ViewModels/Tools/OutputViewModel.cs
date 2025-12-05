@@ -180,7 +180,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             ProgressText.Value = "";
             Started?.Invoke(this, EventArgs.Empty);
 
-            await RenderThread.Dispatcher.InvokeAsync(async () =>
+            await Task.Run(async () =>
             {
                 _isIndeterminate.Value = false;
                 if (VideoSettings.Value?.Settings is not VideoEncoderSettings videoSettings

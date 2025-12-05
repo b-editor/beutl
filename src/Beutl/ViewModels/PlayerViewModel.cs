@@ -376,16 +376,19 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
     private static Pcm<Stereo32BitFloat>? FillAudioData(TimeSpan f, IComposer composer)
     {
-        if (composer.Compose(new TimeRange(f, TimeSpan.FromSeconds(1))) is { } audio)
+        return ComposeThread.Dispatcher.Invoke(() =>
         {
-            var pcm = audio.ToPcm();
-            audio.Dispose();
-            return pcm;
-        }
-        else
-        {
-            return null;
-        }
+            if (composer.Compose(new TimeRange(f, TimeSpan.FromSeconds(1))) is { } audio)
+            {
+                var pcm = audio.ToPcm();
+                audio.Dispose();
+                return pcm;
+            }
+            else
+            {
+                return null;
+            }
+        });
     }
 
     private static void Swap<T>(ref T x, ref T y)
