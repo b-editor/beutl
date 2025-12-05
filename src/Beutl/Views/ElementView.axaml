@@ -8,6 +8,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:p="using:Beutl.Services.PrimitiveImpls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:v="using:Beutl.Views"
              xmlns:vm="using:Beutl.ViewModels"
              x:Name="root"
              Height="{DynamicResource LayerHeight}"
@@ -141,6 +142,19 @@
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>
         <Panel>
+            <Image x:Name="imagePreview"
+                   HorizontalAlignment="Stretch"
+                   VerticalAlignment="Stretch"
+                   IsVisible="{Binding IsPreviewKindImage.Value}"
+                   Source="{Binding PreviewImage.Value}"
+                   Stretch="Uniform" />
+
+            <v:ThumbnailStripControl x:Name="thumbnailStrip"
+                                     HorizontalAlignment="Stretch"
+                                     VerticalAlignment="Stretch"
+                                     IsVisible="{Binding IsPreviewKindVideo.Value}"
+                                     ThumbnailCount="{Binding VideoThumbnailCount.Value}" />
+
             <TextBlock x:Name="textBlock"
                        VerticalAlignment="Center"
                        ClipToBounds="True"

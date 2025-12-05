@@ -1,13 +1,14 @@
-﻿using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Avalonia.Media.Imaging;
 using Beutl.Animation;
 using Beutl.Helpers;
+using Beutl.Media;
 using Beutl.Models;
+using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -21,6 +22,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 {
     private readonly CompositeDisposable _disposables = [];
     private ImmutableHashSet<Guid>? _elementGroup;
+    private CancellationTokenSource? _previewCts;
 
     public ElementViewModel(Element element, TimelineViewModel timeline)
     {
@@ -127,6 +129,20 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .AddTo(_disposables);
 
         Scope = new ElementScopeViewModel(Model, this);
+
+        Width.Throttle(TimeSpan.FromMilliseconds(500))
+            .Subscribe(_ => UpdatePreviewAsync())
+            .AddTo(_disposables);
+
+        IsPreviewKindAudio = PreviewKind.Select(k => k == ElementPreviewKind.Audio)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+        IsPreviewKindImage = PreviewKind.Select(k => k == ElementPreviewKind.Image)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+        IsPreviewKindVideo = PreviewKind.Select(k => k == ElementPreviewKind.Video)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
     }
 
     private void InitializeElementGroup()
@@ -215,6 +231,26 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReactiveCommand ChangeToOriginalLength { get; } = new();
 
+    public ReactivePropertySlim<ElementPreviewKind> PreviewKind { get; } = new(ElementPreviewKind.None);
+
+    public ReadOnlyReactivePropertySlim<bool> IsPreviewKindVideo { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsPreviewKindAudio { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsPreviewKindImage { get; }
+
+    public ReactivePropertySlim<Bitmap?> PreviewImage { get; } = new();
+
+    public ReactivePropertySlim<int> VideoThumbnailCount { get; } = new();
+
+    public ReactivePropertySlim<float[]?> WaveformData { get; } = new();
+
+    public event Action<int, Bitmap?>? ThumbnailReady;
+
+    public event Action? ThumbnailsClear;
+
+    public event Action<int, float[]>? WaveformChunkReady;
+
     public IReadOnlyList<ElementViewModel> GetGroupOrSelectedElements()
     {
         var ids = new HashSet<Guid>();
@@ -253,9 +289,18 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public void Dispose()
     {
+        CancelPreviewLoading();
+
         _disposables.Dispose();
         LayerHeader.Dispose();
         Scope.Dispose();
+
+        PreviewImage.Value?.Dispose();
+        PreviewImage.Value = null;
+        PreviewKind.Dispose();
+        PreviewImage.Dispose();
+        VideoThumbnailCount.Dispose();
+        WaveformData.Dispose();
 
         LayerHeader.Value = null!;
         Timeline = null!;
@@ -694,4 +739,144 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         (InlineAnimationLayerViewModel ViewModel, InlineAnimationLayerViewModel.PrepareAnimationContext Context)[]
             Inlines,
         ElementScopeViewModel.PrepareAnimationContext Scope);
+
+    private void CancelPreviewLoading()
+    {
+        _previewCts?.Cancel();
+        _previewCts?.Dispose();
+        _previewCts = null;
+    }
+
+    private async void UpdatePreviewAsync()
+    {
+        var provider = FindPreviewProvider();
+        if (provider == null)
+        {
+            PreviewKind.Value = ElementPreviewKind.None;
+            return;
+        }
+
+        PreviewKind.Value = provider.PreviewKind;
+
+        CancelPreviewLoading();
+        _previewCts = new CancellationTokenSource();
+        var ct = _previewCts.Token;
+
+        try
+        {
+            switch (provider.PreviewKind)
+            {
+                case ElementPreviewKind.Image:
+                    await UpdateImagePreviewAsync(provider, ct);
+                    break;
+                case ElementPreviewKind.Video:
+                    await UpdateVideoPreviewAsync(provider, ct);
+                    break;
+                case ElementPreviewKind.Audio:
+                    break;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch
+        {
+        }
+    }
+
+    private IElementPreviewProvider? FindPreviewProvider()
+    {
+        if (Model.UseNode)
+            return null;
+
+        foreach (var child in Model.Operation.Children)
+        {
+            if (child is IElementPreviewProvider provider)
+                return provider;
+        }
+
+        return null;
+    }
+
+    private async Task UpdateImagePreviewAsync(IElementPreviewProvider provider, CancellationToken ct)
+    {
+        const int MaxPreviewHeight = 48;
+        const int MaxPreviewWidth = 200;
+
+        var bitmap = await provider.GetPreviewBitmapAsync(MaxPreviewWidth, MaxPreviewHeight, ct);
+        if (bitmap == null || ct.IsCancellationRequested)
+            return;
+
+        try
+        {
+            var avaloniaBitmap = ConvertToAvaloniaBitmap(bitmap);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!ct.IsCancellationRequested)
+                {
+                    PreviewImage.Value = avaloniaBitmap;
+                }
+            });
+        }
+        finally
+        {
+            bitmap.Dispose();
+        }
+    }
+
+    private async Task UpdateVideoPreviewAsync(IElementPreviewProvider provider, CancellationToken ct)
+    {
+        const int MaxThumbnailHeight = 48;
+        double width = Width.Value;
+        if (width <= 0)
+            return;
+
+        int count = Math.Max(1, (int)(width / 50));
+
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                ThumbnailsClear?.Invoke();
+                VideoThumbnailCount.Value = count;
+            }
+        });
+
+        await foreach (var (index, thumbnail) in provider.GetThumbnailStripAsync(count, MaxThumbnailHeight, ct))
+        {
+            if (ct.IsCancellationRequested)
+            {
+                thumbnail.Dispose();
+                break;
+            }
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                using (thumbnail)
+                {
+                    if (!ct.IsCancellationRequested)
+                    {
+                        ThumbnailReady?.Invoke(index, ConvertToAvaloniaBitmap(thumbnail));
+                    }
+                }
+            });
+        }
+    }
+
+    private static Bitmap? ConvertToAvaloniaBitmap(IBitmap source)
+    {
+        if (source.IsDisposed)
+            return null;
+
+        var width = source.Width;
+        var height = source.Height;
+
+        return new Bitmap(
+            Avalonia.Platform.PixelFormat.Bgra8888,
+            Avalonia.Platform.AlphaFormat.Premul,
+            source.Data,
+            new Avalonia.PixelSize(width, height),
+            new Vector(96, 96),
+            width * 4);
+    }
 }

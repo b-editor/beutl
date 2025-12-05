@@ -1,13 +1,19 @@
-﻿using Beutl.Audio;
+using System.Runtime.CompilerServices;
+using Beutl.Audio;
 using Beutl.Audio.Effects;
+using Beutl.Media;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.Operation;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceSoundOperator : PublishOperator<SourceSound>
+public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElementPreviewProvider
 {
     private Uri? _uri;
+
+    public ElementPreviewKind PreviewKind => ElementPreviewKind.Audio;
 
     public override bool HasOriginalLength()
     {
@@ -77,5 +83,19 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>
         {
             return base.OnSplit(backward, startDelta, lengthDelta);
         }
+    }
+
+    public Task<IBitmap?> GetPreviewBitmapAsync(int maxWidth, int maxHeight, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<IBitmap?>(null);
+    }
+
+    public async IAsyncEnumerable<(int Index, IBitmap Thumbnail)> GetThumbnailStripAsync(
+        int count,
+        int maxHeight,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await Task.CompletedTask;
+        yield break;
     }
 }

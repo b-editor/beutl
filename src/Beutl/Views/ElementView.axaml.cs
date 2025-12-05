@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 using Beutl.ProjectSystem;
@@ -70,6 +71,10 @@ public sealed partial class ElementView : UserControl
         obj.AnimationRequested = (_, _) => Task.CompletedTask;
         obj.RenameRequested = () => { };
         obj.GetClickedTime = null;
+
+        obj.ThumbnailReady -= OnThumbnailReady;
+        obj.ThumbnailsClear -= OnThumbnailsClear;
+
         _disposables.Clear();
     }
 
@@ -94,6 +99,19 @@ public sealed partial class ElementView : UserControl
             .ObserveOnUIDispatcher()
             .Subscribe(v => ZIndex = v ? 5 : 0)
             .DisposeWith(_disposables);
+
+        obj.ThumbnailReady += OnThumbnailReady;
+        obj.ThumbnailsClear += OnThumbnailsClear;
+    }
+
+    private void OnThumbnailReady(int index, Bitmap? thumbnail)
+    {
+        thumbnailStrip.SetThumbnail(index, thumbnail);
+    }
+
+    private void OnThumbnailsClear()
+    {
+        thumbnailStrip.ClearThumbnails();
     }
 
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)

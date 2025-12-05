@@ -1,14 +1,21 @@
-﻿using Beutl.Graphics;
+using System.Runtime.CompilerServices;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
+using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Operation;
+using Beutl.Threading;
+using SkiaSharp;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceVideoOperator : PublishOperator<SourceVideo>
+public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElementPreviewProvider
 {
     private Uri? _uri;
+
+    public ElementPreviewKind PreviewKind => ElementPreviewKind.Video;
 
     protected override void FillProperties()
     {
@@ -83,5 +90,78 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>
         {
             return base.OnSplit(backward, startDelta, lengthDelta);
         }
+    }
+
+    public Task<IBitmap?> GetPreviewBitmapAsync(int maxWidth, int maxHeight, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<IBitmap?>(null);
+    }
+
+    public async IAsyncEnumerable<(int Index, IBitmap Thumbnail)> GetThumbnailStripAsync(
+        int count,
+        int maxHeight,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (Value?.Source.CurrentValue is not { IsDisposed: false } source)
+            yield break;
+
+        if (count <= 0)
+            yield break;
+
+        var duration = source.Duration;
+        if (duration <= TimeSpan.Zero)
+            yield break;
+
+        var interval = duration.TotalSeconds / count;
+
+        var frameSize = source.FrameSize;
+        float aspectRatio = (float)frameSize.Width / frameSize.Height;
+        int thumbWidth = (int)(maxHeight * aspectRatio);
+
+        for (int i = 0; i < count; i++)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                yield break;
+
+            var time = TimeSpan.FromSeconds(i * interval);
+
+            var thumbnail = await RenderThread.Dispatcher.InvokeAsync(() =>
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    return null;
+
+                if (!source.Read(time, out IBitmap? frame))
+                    return null;
+
+                if (frame.Height != maxHeight)
+                {
+                    using var original = frame;
+                    return ScaleBitmap(original, thumbWidth, maxHeight);
+                }
+
+                return frame;
+            }, DispatchPriority.Medium, cancellationToken);
+
+            if (thumbnail != null)
+            {
+                yield return (i, thumbnail);
+            }
+        }
+    }
+
+    public static IBitmap? ScaleBitmap(IBitmap source, int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+            return null;
+
+        using var scaledImage = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
+        using var canvas = new SKCanvas(scaledImage);
+        using var bitmap = source.ToSKBitmap();
+
+        canvas.DrawBitmap(
+            bitmap,
+            new SKRect(0, 0, width, height));
+
+        return scaledImage.ToBitmap();
     }
 }
