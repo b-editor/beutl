@@ -24,7 +24,9 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
     protected override void FillProperties()
     {
         AddProperty(Value.OffsetPosition, TimeSpan.Zero);
+        AddProperty(Value.Speed, 100f);
         AddProperty(Value.Source);
+        AddProperty(Value.IsLoop);
         AddProperty(Value.Transform, new TransformGroup());
         AddProperty(Value.AlignmentX);
         AddProperty(Value.AlignmentY);
