@@ -36,7 +36,7 @@ public partial class FilterEffectListItemEditor : UserControl, IListItemEditor
 
         this.GetObservable(DataContextProperty)
             .Select(x => x as FilterEffectEditorViewModel)
-            .Select(x => x?.IsDummy.Select(_ => x) ?? Observable.Return<FilterEffectEditorViewModel?>(null))
+            .Select(x => x?.IsDummy.Select(_ => x) ?? Observable.ReturnThenNever<FilterEffectEditorViewModel?>(null))
             .Switch()
             .Where(v => v?.IsDummy.Value == true)
             .Take(1)

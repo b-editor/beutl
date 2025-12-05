@@ -70,6 +70,11 @@ public sealed class App : Application
             }, DispatcherPriority.Send);
         });
 
+        if (!OperatingSystem.IsWindows())
+        {
+            _theme.RemoveRange(1, _theme.Count - 1);
+        }
+
         if (view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor))
         {
             activity?.SetTag("CustomAccentColor", customColor.ToString());

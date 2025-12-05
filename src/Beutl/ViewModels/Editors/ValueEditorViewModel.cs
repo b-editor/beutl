@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
-
+using Beutl.Graphics.Rendering;
+using Beutl.Operation;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -10,10 +11,17 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
     public ValueEditorViewModel(IPropertyAdapter<T> property)
         : base(property)
     {
-        Value = EditingKeyFrame
-            .Select(x => x?.GetObservable(KeyFrame<T>.ValueProperty))
-            .Select(x => x ?? PropertyAdapter.GetObservable())
-            //https://qiita.com/hiki_neet_p/items/4a8873920b566568d63b
+        // Expressionが設定されている場合は、PropertyAdapterの値を直接表示（実際の評価値）
+        // Expressionが設定されていない場合は、EditingKeyFrameまたはPropertyAdapterの値を表示
+        Value = HasExpression
+            .Select(hasExpression =>
+                hasExpression && PropertyAdapter is EnginePropertyAdapter<T> { Property: var engineProperty }
+                    ? CurrentTime.Select(t => engineProperty.GetValue(new RenderContext(t)))
+                    // Expressionが設定されていない場合は通常の動作
+                    : EditingKeyFrame
+                        .Select(x => x?.GetObservable(KeyFrame<T>.ValueProperty))
+                        .Select(x => x ?? PropertyAdapter.GetObservable())
+                        .Switch())
             .Switch()
             .ToReadOnlyReactiveProperty()
             .AddTo(Disposables)!;

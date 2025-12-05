@@ -37,10 +37,10 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
         model.Properties.CollectionChanged += Properties_CollectionChanged;
 
-        IsDummy = Observable.Return(model is IDummy)
+        IsDummy = Observable.ReturnThenNever(model is IDummy)
             .ToReadOnlyReactivePropertySlim();
 
-        ActualTypeName = Observable.Return(DummyHelper.GetTypeName(model))
+        ActualTypeName = Observable.ReturnThenNever(DummyHelper.GetTypeName(model))
             .ToReadOnlyReactivePropertySlim()!;
     }
 
@@ -197,10 +197,10 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
     {
         if (Model is DummySourceOperator { Json: JsonObject json })
         {
-            return Observable.Return(json.ToJsonString(JsonHelper.SerializerOptions));
+            return Observable.ReturnThenNever(json.ToJsonString(JsonHelper.SerializerOptions));
         }
 
-        return Observable.Return((string?)null);
+        return Observable.ReturnThenNever<string?>(null);
     }
 
     public void SetJsonString(string? str)

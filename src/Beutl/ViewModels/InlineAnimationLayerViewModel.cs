@@ -84,7 +84,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
         Element.LayerHeader.Subscribe(OnLayerHeaderChanged).DisposeWith(_disposables);
 
-        LeftMargin = _useGlobalClock.Select(v => !v ? element.BorderMargin : Observable.Return<Thickness>(default))
+        LeftMargin = _useGlobalClock.Select(v => !v ? element.BorderMargin : Observable.ReturnThenNever<Thickness>(default))
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(_disposables);

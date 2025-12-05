@@ -2,6 +2,8 @@ using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Reflection;
 using Beutl.Animation;
+using Beutl.Engine.Expressions;
+using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 using Beutl.Validation;
 using ValidationContext = Beutl.Validation.ValidationContext;
@@ -12,10 +14,12 @@ public class AnimatableProperty<T> : IProperty<T>
 {
     private T _currentValue;
     private IAnimation<T>? _animation;
+    private IExpression<T>? _expression;
     private IValidator<T>? _validator;
     private PropertyInfo? _propertyInfo;
     private string _name;
     private EngineObject? _owner;
+    private PropertyLookup? _propertyLookup;
 
     public AnimatableProperty(T defaultValue, IValidator<T>? validator = null)
     {
@@ -101,11 +105,29 @@ public class AnimatableProperty<T> : IProperty<T>
 
     public bool HasLocalValue { get; private set; }
 
+    public bool HasExpression => _expression != null;
+
+    public IExpression<T>? Expression
+    {
+        get => _expression;
+        set
+        {
+            if (_expression != value)
+            {
+                _expression = value;
+                ExpressionChanged?.Invoke(_expression);
+                Edited?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
     public event EventHandler? Edited;
 
     public event Action<IAnimation<T>?>? AnimationChanged;
+
+    public event Action<IExpression<T>?>? ExpressionChanged;
 
     public void operator <<= (T value)
     {
@@ -117,34 +139,50 @@ public class AnimatableProperty<T> : IProperty<T>
         Edited?.Invoke(sender, e);
     }
 
-    public T GetValue(TimeSpan time)
+    public T GetValue(RenderContext context)
     {
-        try
+        T value;
+
+        // 式を最優先
+        if (_expression != null)
         {
-            T value;
-
-            // アニメーション値を優先
-            if (_animation != null)
+            _propertyLookup ??= new PropertyLookup(_owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
+            if (context is ExpressionContext expressionContext)
             {
-                value = _animation.GetAnimatedValue(time) ?? _currentValue;
-
-                // アニメーション値もバリデーション
-                value = ValidateAndCoerce(value);
+                if (expressionContext.IsEvaluating(this))
+                    return DefaultValue;
             }
             else
             {
-                // アニメーションがない場合は現在値
-                value = _currentValue;
+                expressionContext = new ExpressionContext(context.Time, this, _propertyLookup);
             }
 
-            return value;
+            expressionContext.BeginEvaluation(this);
+            try
+            {
+                value = _expression.Evaluate(expressionContext);
+                value = ValidateAndCoerce(value);
+            }
+            finally
+            {
+                expressionContext.EndEvaluation(this);
+            }
         }
-        catch (Exception ex)
+        // アニメーション値を次に優先
+        else if (_animation != null)
         {
-            // エラー時は安全なデフォルト値を返す
-            Debug.WriteLine($"Error getting value for property '{Name}': {ex.Message}");
-            return DefaultValue;
+            value = _animation.GetAnimatedValue(context.Time) ?? _currentValue;
+
+            // アニメーション値もバリデーション
+            value = ValidateAndCoerce(value);
         }
+        else
+        {
+            // アニメーションがない場合は現在値
+            value = _currentValue;
+        }
+
+        return value;
     }
 
     public void SetPropertyInfo(PropertyInfo propertyInfo)
@@ -177,6 +215,7 @@ public class AnimatableProperty<T> : IProperty<T>
     public void SetOwnerObject(EngineObject? owner)
     {
         if (_owner == owner) return;
+        _propertyLookup = null;
 
         if (owner is IModifiableHierarchical ownerHierarchical)
         {
@@ -228,6 +267,7 @@ public class AnimatableProperty<T> : IProperty<T>
         CurrentValue = DefaultValue;
         HasLocalValue = false;
         Animation = null;
+        Expression = null;
     }
 
     public void DeserializeValue(ICoreSerializationContext context)

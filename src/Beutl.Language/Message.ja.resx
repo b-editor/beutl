@@ -398,4 +398,7 @@
     <value>インストールしますか？
 (アップデート機能は実験的な機能です)</value>
   </data>
+  <data name="ExpressionIsSet" xml:space="preserve">
+    <value>式が設定されています</value>
+  </data>
 </root>

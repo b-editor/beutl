@@ -6,6 +6,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Animation;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
@@ -271,7 +272,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                                         keyTime += element.Start;
                                     }
 
-                                    BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(keyTime);
+                                    var ctx = new RenderContext(keyTime);
+                                    BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(ctx);
                                     BtlPoint point = _dragState.GetInterpolatedValue(keyTime);
                                     BtlPoint d = anchorpoint - point;
                                     float angle = MathF.Atan2(d.X, d.Y);
@@ -300,10 +302,10 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                             }
                             else
                             {
+                                var ctx = new RenderContext(viewModel.EditViewModel.CurrentTime.Value);
                                 BtlPoint point =
                                     _dragState.GetInterpolatedValue(viewModel.EditViewModel.CurrentTime.Value);
-                                BtlPoint anchorpoint = anchor.GetEndPoint()
-                                    .GetValue(viewModel.EditViewModel.CurrentTime.Value);
+                                BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(ctx);
                                 BtlPoint d = anchorpoint - point;
                                 float angle = MathF.Atan2(d.X, d.Y);
                                 angle -= MathF.PI / 2;

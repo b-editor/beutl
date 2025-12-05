@@ -56,7 +56,7 @@ public sealed class ConnectionLine : Line
                 this.GetResourceObservable("SystemFillColorCautionBrush"),
                 this.GetResourceObservable("SystemFillColorCriticalBrush"),
                 this.GetObservable(InputSocketProperty)
-                    .Select(o => o?.Status ?? Observable.Return(ConnectionStatus.Disconnected))
+                    .Select(o => o?.Status ?? Observable.ReturnThenNever(ConnectionStatus.Disconnected))
                     .Switch())
             .ObserveOnUIDispatcher()
             .Subscribe(x =>

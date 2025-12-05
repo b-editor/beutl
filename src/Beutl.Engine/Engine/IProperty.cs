@@ -1,6 +1,8 @@
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Collections;
+using Beutl.Engine.Expressions;
+using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 using Beutl.Validation;
 
@@ -28,9 +30,13 @@ public interface IProperty : INotifyEdited
 
     IAnimation? Animation { get; set; }
 
+    IExpression? Expression { get; set; }
+
     bool IsAnimatable { get; }
 
     bool HasLocalValue { get; }
+
+    bool HasExpression { get; }
 
     void SetPropertyInfo(PropertyInfo propertyInfo);
 
@@ -57,12 +63,20 @@ public interface IProperty<T> : IProperty
 
     new IAnimation<T>? Animation { get; set; }
 
+    new IExpression<T>? Expression { get; set; }
+
     object? IProperty.DefaultValue => DefaultValue;
 
     IAnimation? IProperty.Animation
     {
         get => Animation;
         set => Animation = (IAnimation<T>?)value;
+    }
+
+    IExpression? IProperty.Expression
+    {
+        get => Expression;
+        set => Expression = (IExpression<T>?)value;
     }
 
     object? IProperty.CurrentValue
@@ -85,9 +99,11 @@ public interface IProperty<T> : IProperty
         }
     }
 
-    T GetValue(TimeSpan time);
+    T GetValue(RenderContext context);
 
     event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
+
+    event Action<IExpression<T>?>? ExpressionChanged;
 
     void operator <<=(T value);
 }

@@ -41,10 +41,30 @@
                                                                        Mode=TwoWay}"
                                          IsVisible="False"
                                          Text="一定な値" />
+                <ui:MenuFlyoutSeparator x:Name="expressionSeparator" IsVisible="False" />
+                <ui:MenuFlyoutItem x:Name="editExpressionItem"
+                                   Click="EditExpression_Click"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.EditExpression}" />
+                <ui:MenuFlyoutItem x:Name="removeExpressionItem"
+                                   Click="RemoveExpression_Click"
+                                   IsEnabled="{Binding HasExpression.Value}"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.RemoveExpression}" />
+                <ui:MenuFlyoutSeparator x:Name="copyPropertyPathSeparator" IsVisible="False" />
+                <ui:MenuFlyoutItem x:Name="copyPropertyPathItem"
+                                   Click="CopyPropertyPath_Click"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.CopyPropertyPath}" />
+                <ui:MenuFlyoutItem x:Name="copyGetPropertyCodeItem"
+                                   Click="CopyGetPropertyCode_Click"
+                                   IsVisible="False"
+                                   Text="{x:Static lang:Strings.CopyGetPropertyCode}" />
             </ui:FAMenuFlyout>
         </Button.ContextFlyout>
         <icons:SymbolIcon x:Name="symbolIcon"
                           Classes.hasAnimation="{Binding HasAnimation.Value}"
+                          Classes.hasExpression="{Binding HasExpression.Value}"
                           IsFilled="{Binding IsSymbolIconFilled.Value}">
             <icons:SymbolIcon.Styles>
                 <Style Selector="icons|SymbolIcon">
@@ -53,6 +73,10 @@
                 <Style Selector="icons|SymbolIcon.hasAnimation">
                     <Setter Property="Symbol" Value="Diamond" />
                     <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCaution}" />
+                </Style>
+                <Style Selector="icons|SymbolIcon.hasExpression">
+                    <Setter Property="Symbol" Value="MathFormula" />
+                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccess}" />
                 </Style>
             </icons:SymbolIcon.Styles>
         </icons:SymbolIcon>

@@ -47,7 +47,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
             .DisposeWith(Disposables);
 
         EditingPath = _editViewModel
-            .Select(v => v?.Player.PathEditor.PathFigure ?? Observable.Return<PathFigure?>(null))
+            .Select(v => v?.Player.PathEditor.PathFigure ?? Observable.ReturnThenNever<PathFigure?>(null))
             .Switch()
             .CombineLatest(Value)
             .Select(t => t.First == t.Second && t.First != null)

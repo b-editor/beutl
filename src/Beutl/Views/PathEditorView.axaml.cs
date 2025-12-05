@@ -7,6 +7,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ViewModels;
 
@@ -60,7 +61,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorViewModel)
             .Select(v => v?.SelectedOperation.CombineLatest(v.IsClosed).ToUnit()
-                ?? Observable.Return<Unit>(default))
+                ?? Observable.ReturnThenNever<Unit>(default))
             .Switch()
             .ObserveOnUIDispatcher()
             .Subscribe(_ => UpdateControlPointVisibility());
@@ -69,7 +70,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
         // TODO: Scale, Matrixが変わった時に位置がずれる
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorViewModel)
-            .Select(v => v?.PlayerViewModel?.AfterRendered ?? Observable.Return(Unit.Default))
+            .Select(v => v?.PlayerViewModel?.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
             .Switch()
             .CombineLatest(this.GetObservable(ScaleProperty), this.GetObservable(MatrixProperty))
             .Subscribe(_ => UpdateThumbPosition());
@@ -134,7 +135,8 @@ public partial class PathEditorView : UserControl, IPathEditorView
                         IProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
                         if (prop != null)
                         {
-                            Point point = prop.GetValue(viewModel.EditViewModel.CurrentTime.Value).ToAvaPoint();
+                            var ctx = new RenderContext(viewModel.EditViewModel.CurrentTime.Value);
+                            Point point = prop.GetValue(ctx).ToAvaPoint();
                             point = point.Transform(Matrix);
                             point *= Scale;
 
@@ -282,7 +284,8 @@ public partial class PathEditorView : UserControl, IPathEditorView
             if (index > 0)
             {
                 PathSegment lastOp = figure.Segments[index - 1];
-                lastPoint = lastOp.GetEndPoint().GetValue(editViewModel.CurrentTime.Value);
+                var ctx = new RenderContext(editViewModel.CurrentTime.Value);
+                lastPoint = lastOp.GetEndPoint().GetValue(ctx);
             }
 
             BtlPoint point = (_clickPoint / Scale).ToBtlPoint();

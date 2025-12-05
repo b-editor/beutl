@@ -22,17 +22,17 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
             .Select(v => v.Width)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        Context = FigureContext.Select(v => v?.ParentContext ?? Observable.Return<GeometryEditorViewModel?>(null))
+        Context = FigureContext.Select(v => v?.ParentContext ?? Observable.ReturnThenNever<GeometryEditorViewModel?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        PathGeometry = Context.Select(v => v?.Value ?? Observable.Return<Geometry?>(null))
+        PathGeometry = Context.Select(v => v?.Value ?? Observable.ReturnThenNever<Geometry?>(null))
             .Switch()
             .Select(v => v as PathGeometry)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        PathFigure = FigureContext.Select(v => v?.Value ?? Observable.Return<PathFigure?>(null))
+        PathFigure = FigureContext.Select(v => v?.Value ?? Observable.ReturnThenNever<PathFigure?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -50,7 +50,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
             .Select(d =>
                 d?.SubscribeEngineVersionedResource(EditViewModel.CurrentTime, (o, c) => o.ToResource(c))
                     .Select(t => ((Drawable.Resource, int)?)t) ??
-                Observable.Return<(Drawable.Resource, int)?>(null))
+                Observable.ReturnThenNever<(Drawable.Resource, int)?>(null))
             .Switch()
             .Publish(null).RefCount();
 
@@ -73,7 +73,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
             .CombineLatest(Element
                 .Select(e => e?.GetObservable(ProjectSystem.Element.StartProperty)
                     .CombineLatest(e.GetObservable(ProjectSystem.Element.LengthProperty))
-                    .Select(t => new TimeRange(t.First, t.Second)) ?? Observable.Return<TimeRange>(default))
+                    .Select(t => new TimeRange(t.First, t.Second)) ?? Observable.ReturnThenNever<TimeRange>(default))
                 .Switch())
             .Select(t => t.Second.Contains(t.First))
             .CombineLatest(PlayerViewModel.IsPlaying, Context)
@@ -82,7 +82,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
             .DisposeWith(_disposables);
 
         IsClosed = PathFigure.Select(g =>
-                g?.IsClosed.SubscribeEngineProperty(g, EditViewModel.CurrentTime) ?? Observable.Return(false))
+                g?.IsClosed.SubscribeEngineProperty(g, EditViewModel.CurrentTime) ?? Observable.ReturnThenNever(false))
             .Switch()
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);

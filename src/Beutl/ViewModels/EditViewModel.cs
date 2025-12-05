@@ -82,7 +82,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         SelectedLayerNumber = SelectedObject.Select(v =>
                 (v as Element)?.GetObservable(Element.ZIndexProperty).Select(i => (int?)i) ??
-                Observable.Return<int?>(null))
+                Observable.ReturnThenNever<int?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim();
 

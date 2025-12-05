@@ -15,7 +15,7 @@ public sealed partial class AccountSettingsPage : UserControl
             .Select(v => v as AccountSettingsPageViewModel);
 
         IObservable<bool?> signedIn = viewModel
-            .Select(v => v?.SignedIn.Select(v => (bool?)v) ?? Observable.Return<bool?>(null))
+            .Select(v => v?.SignedIn.Select(v => (bool?)v) ?? Observable.ReturnThenNever<bool?>(null))
             .Switch();
 
         signedIn

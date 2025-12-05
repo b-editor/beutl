@@ -92,7 +92,7 @@ public partial class GraphEditorView : UserControl
     {
         if (e.Container is { } container)
         {
-            container.Bind(ZIndexProperty, Observable.Return(BindingValue<int>.Unset));
+            container.Bind(ZIndexProperty, Observable.ReturnThenNever(BindingValue<int>.Unset));
         }
     }
 

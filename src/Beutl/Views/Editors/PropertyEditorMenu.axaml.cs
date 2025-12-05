@@ -6,6 +6,7 @@ using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.ViewModels.Tools;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
@@ -16,9 +17,18 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         InitializeComponent();
         Bind(ToolTip.TipProperty, this.GetObservable(DataContextProperty)
-            .Select(v => (v as BaseEditorViewModel)?.HasAnimation ?? Observable.Return(false))
-            .Switch()
-            .Select(v => v ? $"- {Message.RightClickToShowMenu}\n- {Message.AnimationIsEnabled}" : null));
+            .Select(v => v is BaseEditorViewModel viewModel
+                ? viewModel.HasAnimation
+                    .CombineLatest(viewModel.HasExpression)
+                    .Select(t => t switch
+                    {
+                        (true, _) =>
+                            $"- {Message.RightClickToShowMenu}\n- {Message.AnimationIsEnabled}",
+                        (_, true) => $"- {Message.RightClickToShowMenu}\n- {Message.ExpressionIsSet}",
+                        _ => null
+                    })
+                : Observable.ReturnThenNever<string?>(null))
+            .Switch());
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -26,17 +36,29 @@ public sealed partial class PropertyEditorMenu : UserControl
         base.OnDataContextChanged(e);
         toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
         uniformEditorToggle.IsVisible = DataContext is IConfigureUniformEditor;
+
+        // 式の編集メニューはIExpressionPropertyAdapterをサポートするプロパティでのみ表示
+        bool supportsExpression = DataContext is BaseEditorViewModel { PropertyAdapter: IExpressionPropertyAdapter };
+        expressionSeparator.IsVisible = supportsExpression;
+        editExpressionItem.IsVisible = supportsExpression;
+        removeExpressionItem.IsVisible = supportsExpression;
+
+        // プロパティパスのコピーはEnginePropertyの場合のみ表示
+        bool isEngineProperty = (DataContext as BaseEditorViewModel)?.PropertyAdapter.GetEngineProperty() != null;
+        copyPropertyPathSeparator.IsVisible = isEngineProperty;
+        copyPropertyPathItem.IsVisible = isEngineProperty;
+        copyGetPropertyCodeItem.IsVisible = isEngineProperty;
     }
 
     private void Button_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
         {
-            if (!viewModel.HasAnimation.Value && sender is Button button)
+            if (viewModel.HasExpression.Value)
             {
-                button.ContextFlyout?.ShowAt(button);
+                EditExpression_Click(sender, e);
             }
-            else if (viewModel.GetService<EditViewModel>() is { } editViewModel)
+            else if (viewModel.HasAnimation.Value && viewModel.GetService<EditViewModel>() is { } editViewModel)
             {
                 TimeSpan keyTime = editViewModel.CurrentTime.Value;
                 if (symbolIcon.IsFilled)
@@ -47,6 +69,10 @@ public sealed partial class PropertyEditorMenu : UserControl
                 {
                     viewModel.InsertKeyFrame(keyTime);
                 }
+            }
+            else if (sender is Button button)
+            {
+                button.ContextFlyout?.ShowAt(button);
             }
         }
     }
@@ -94,5 +120,82 @@ public sealed partial class PropertyEditorMenu : UserControl
                 timeline.AttachInline(animatableProperty, element);
             }
         }
+    }
+
+    private void EditExpression_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
+        {
+            string? currentExpression = viewModel.GetExpressionString();
+
+            var flyout = new ExpressionEditorFlyout();
+            flyout.Placement = PlacementMode.BottomEdgeAlignedRight;
+            flyout.ExpressionText = currentExpression ?? "";
+            flyout.Confirmed += (_, args) =>
+            {
+                bool isValid = viewModel.SetExpression(args.ExpressionText, out var error);
+                args.IsValid = isValid;
+                args.Error = error;
+            };
+
+            flyout.ShowAt(this);
+        }
+    }
+
+    private void RemoveExpression_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
+        {
+            viewModel.RemoveExpression();
+        }
+    }
+
+    private async void CopyPropertyPath_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
+            && viewModel.PropertyAdapter.GetEngineProperty() is { } engineProperty
+            && engineProperty.GetOwnerObject() is { } engineObject
+            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            string propertyPath = $"{{{engineObject.Id}}}.{engineProperty.Name}";
+            await clipboard.SetTextAsync(propertyPath);
+        }
+    }
+
+    private async void CopyGetPropertyCode_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
+            && viewModel.PropertyAdapter.GetEngineProperty() is { } engineProperty
+            && engineProperty.GetOwnerObject() is { } engineObject
+            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            string typeName = GetTypeAlias(engineProperty.ValueType);
+            string code = $"GetProperty<{typeName}>(\"{{{engineObject.Id}}}.{engineProperty.Name}\")";
+            await clipboard.SetTextAsync(code);
+        }
+    }
+
+    private static string GetTypeAlias(Type type)
+    {
+        // プリミティブ型のエイリアス
+        return type switch
+        {
+            _ when type == typeof(bool) => "bool",
+            _ when type == typeof(byte) => "byte",
+            _ when type == typeof(sbyte) => "sbyte",
+            _ when type == typeof(char) => "char",
+            _ when type == typeof(short) => "short",
+            _ when type == typeof(ushort) => "ushort",
+            _ when type == typeof(int) => "int",
+            _ when type == typeof(uint) => "uint",
+            _ when type == typeof(long) => "long",
+            _ when type == typeof(ulong) => "ulong",
+            _ when type == typeof(float) => "float",
+            _ when type == typeof(double) => "double",
+            _ when type == typeof(decimal) => "decimal",
+            _ when type == typeof(string) => "string",
+            _ when type == typeof(object) => "object",
+            _ => type.FullName ?? type.Name
+        };
     }
 }

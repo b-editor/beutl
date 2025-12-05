@@ -50,6 +50,7 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/GradientStopsSlider.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/LibraryItemPickerFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyPickerFlyoutPresenter.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/ExpressionEditorFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/ColorPicker/ColorPickerStyles.axaml" />
                 <ResourceInclude Source="/ColorPicker/ColorPickerButtonStyles.axaml" />
             </ResourceDictionary.MergedDictionaries>

@@ -1,14 +1,15 @@
 using System.ComponentModel;
-using System.Linq.Expressions;
 using System.Reactive.Disposables;
 using System.Reflection;
 using Beutl;
 using Beutl.Animation;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Serialization;
 using Beutl.Validation;
+using LinqExpression = System.Linq.Expressions.Expression;
 
 namespace Beutl.Engine;
 
@@ -139,14 +140,28 @@ public class EngineObject : Hierarchical, INotifyEdited
         Dictionary<string, IAnimation>? animations
             = context.GetValue<Dictionary<string, IAnimation>>("Animations");
 
+        Dictionary<string, string>? expressions
+            = context.GetValue<Dictionary<string, string>>("Expressions");
+
         foreach (IProperty property in _properties)
         {
             property.DeserializeValue(context);
-            if (property.IsAnimatable && animations?.TryGetValue(property.Name, out IAnimation? value) == true)
+            if (property.IsAnimatable && animations?.TryGetValue(property.Name, out IAnimation? animation) == true)
             {
-                property.Animation = value;
+                property.Animation = animation;
+            }
+
+            if (expressions?.TryGetValue(property.Name, out string? expressionString) == true)
+            {
+                property.Expression = CreateExpression(property.ValueType, expressionString);
             }
         }
+    }
+
+    private static IExpression? CreateExpression(Type valueType, string expressionString)
+    {
+        var expressionType = typeof(Expression<>).MakeGenericType(valueType);
+        return Activator.CreateInstance(expressionType, expressionString) as IExpression;
     }
 
     public override void Serialize(ICoreSerializationContext context)
@@ -157,6 +172,13 @@ public class EngineObject : Hierarchical, INotifyEdited
             .ToDictionary(p => p.Name, p => p.Animation!);
 
         context.SetValue("Animations", animations);
+
+        Dictionary<string, string> expressions = _properties
+            .Where(p => p.Expression is not null)
+            .ToDictionary(p => p.Name, p => p.Expression!.ExpressionString);
+
+        context.SetValue("Expressions", expressions);
+
         foreach (IProperty property in _properties)
         {
             property.SerializeValue(context);
@@ -201,11 +223,11 @@ public class EngineObject : Hierarchical, INotifyEdited
             var func = ReflectionCache<T>.Properties.FirstOrDefault(x => x.Item1 == propertyInfo).Item2;
             if (func == null)
             {
-                var param = Expression.Parameter(typeof(object), "o");
-                var cast = Expression.Convert(param, type);
-                var propertyAccess = Expression.Property(cast, propertyInfo);
-                var convertResult = Expression.Convert(propertyAccess, typeof(IProperty));
-                var lambda = Expression.Lambda<Func<object, IProperty?>>(convertResult, param);
+                var param = LinqExpression.Parameter(typeof(object), "o");
+                var cast = LinqExpression.Convert(param, type);
+                var propertyAccess = LinqExpression.Property(cast, propertyInfo);
+                var convertResult = LinqExpression.Convert(propertyAccess, typeof(IProperty));
+                var lambda = LinqExpression.Lambda<Func<object, IProperty?>>(convertResult, param);
                 func = lambda.Compile();
                 ReflectionCache<T>.Properties.Add((propertyInfo, func));
             }

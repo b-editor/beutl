@@ -20,7 +20,7 @@ public class NodeItemViewModel : IDisposable
         }
         else
         {
-            Name = Observable.Return(string.Empty).ToReadOnlyReactiveProperty()!;
+            Name = Observable.ReturnThenNever(string.Empty).ToReadOnlyReactiveProperty()!;
         }
 
         Model = nodeItem;

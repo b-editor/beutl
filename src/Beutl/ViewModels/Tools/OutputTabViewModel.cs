@@ -18,7 +18,7 @@ public class OutputTabViewModel : IToolContext
         EditViewModel = editViewModel;
         _outputService = new OutputService(editViewModel);
         CanRemove = SelectedItem
-            .Select(x => x?.Context?.IsEncoding?.Not() ?? Observable.Return(false))
+            .Select(x => x?.Context?.IsEncoding?.Not() ?? Observable.ReturnThenNever(false))
             .Switch()
             .ToReadOnlyReactivePropertySlim();
         ReadFromJson(null);
