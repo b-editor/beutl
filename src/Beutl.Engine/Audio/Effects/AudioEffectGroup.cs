@@ -1,5 +1,5 @@
-﻿using Beutl.Engine;
-using Beutl.Serialization;
+﻿using Beutl.Audio.Graph;
+using Beutl.Engine;
 
 namespace Beutl.Audio.Effects;
 
@@ -12,35 +12,9 @@ public sealed partial class AudioEffectGroup : AudioEffect
 
     public IListProperty<AudioEffect> Children { get; } = Property.CreateList<AudioEffect>();
 
-    private int ValidEffectCount()
+    public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {
-        int count = 0;
-        foreach (AudioEffect item in Children)
-        {
-            if (item.IsEnabled)
-            {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    public override IAudioEffectProcessor CreateProcessor()
-    {
-        IAudioEffectProcessor[] array = new IAudioEffectProcessor[ValidEffectCount()];
-        int index = 0;
-        foreach (AudioEffect item in Children)
-        {
-            if (item.IsEnabled)
-            {
-                array[index] = item.CreateProcessor();
-                index++;
-            }
-        }
-
-        return new AudioEffectProcessorGroup
-        {
-            Processors = array
-        };
+        return Children.Where(item => item.IsEnabled)
+            .Aggregate(inputNode, (current, item) => item.CreateNode(context, current));
     }
 }

@@ -222,32 +222,6 @@ public sealed class AudioContext : IDisposable
     }
 
     /// <summary>
-    /// Creates and adds an effect node to the context.
-    /// </summary>
-    /// <param name="effect">The audio effect.</param>
-    /// <returns>The created effect node.</returns>
-    public EffectNode CreateEffectNode(AudioEffect effect)
-    {
-        ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(effect, nameof(effect));
-
-        // Try to reuse from previous nodes
-        if (_previousNodes != null)
-        {
-            var existing = _previousNodes.OfType<EffectNode>()
-                .FirstOrDefault(n => n.Effect == effect);
-            if (existing != null)
-            {
-                _previousNodes.Remove(existing);
-                return AddNode(existing);
-            }
-        }
-
-        var node = new EffectNode { Effect = effect };
-        return AddNode(node);
-    }
-
-    /// <summary>
     /// Creates and adds a resample node to the context.
     /// </summary>
     /// <param name="sourceSampleRate">The source sample rate for resampling.</param>

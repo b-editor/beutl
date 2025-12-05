@@ -1,10 +1,9 @@
-﻿using Beutl.Animation;
+﻿using Beutl.Audio.Graph;
 using Beutl.Engine;
-using Beutl.Media;
 
 namespace Beutl.Audio.Effects;
 
 public abstract partial class AudioEffect : EngineObject
 {
-    public abstract IAudioEffectProcessor CreateProcessor();
+    public abstract AudioNode CreateNode(AudioContext context, AudioNode inputNode);
 }
