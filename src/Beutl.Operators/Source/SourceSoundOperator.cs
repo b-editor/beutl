@@ -1,10 +1,9 @@
 using System.Runtime.CompilerServices;
 using Beutl.Audio;
+using Beutl.Audio.Composing;
 using Beutl.Audio.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.Operation;
 using Beutl.Threading;
@@ -42,6 +41,7 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
         {
             value.Edited -= _handler;
         }
+
         _handler = null;
 
         if (Value is not { Source.CurrentValue: { Uri: { } uri } source } v) return;
@@ -128,6 +128,9 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
         int sampleRate = source.SampleRate;
         int totalSamples = (int)(duration.TotalSeconds * sampleRate);
 
+        using var composer = new Composer { SampleRate = sampleRate };
+        composer.AddSound(Value);
+
         for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
         {
             if (cancellationToken.IsCancellationRequested)
@@ -136,6 +139,8 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
             int startSample = (int)((long)chunkIndex * totalSamples / chunkCount);
             int endSample = (int)((long)(chunkIndex + 1) * totalSamples / chunkCount);
             int sampleCount = Math.Min(endSample - startSample, samplesPerChunk);
+            TimeSpan startTime = Value.TimeRange.Start + TimeSpan.FromSeconds((double)startSample / sampleRate);
+            TimeSpan durationTime = TimeSpan.FromSeconds((double)sampleCount / sampleRate);
 
             if (sampleCount <= 0)
                 continue;
@@ -145,26 +150,27 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
                 if (cancellationToken.IsCancellationRequested)
                     return (WaveformChunk?)null;
 
-                if (!source.Read(startSample, sampleCount, out IPcm? pcm))
+                using var buffer = composer.Compose(new TimeRange(startTime, durationTime));
+                if (buffer == null)
                     return null;
 
-                using (pcm)
+                var firstChannel = buffer.GetChannelData(0);
+                var secondChannel = buffer.GetChannelData(1);
+
+                float minValue = float.MaxValue;
+                float maxValue = float.MinValue;
+
+                for (int i = 0; i < buffer.SampleCount; i++)
                 {
-                    using var floatPcm = pcm.Convert<Stereo32BitFloat>();
-                    var span = floatPcm.DataSpan;
+                    float left = firstChannel[i];
+                    float right = secondChannel[i];
 
-                    float minValue = float.MaxValue;
-                    float maxValue = float.MinValue;
-
-                    foreach (var sample in span)
-                    {
-                        float monoValue = (sample.Left + sample.Right) * 0.5f;
-                        minValue = Math.Min(minValue, monoValue);
-                        maxValue = Math.Max(maxValue, monoValue);
-                    }
-
-                    return new WaveformChunk(chunkIndex, minValue, maxValue);
+                    float monoValue = (left + right) * 0.5f;
+                    minValue = Math.Min(minValue, monoValue);
+                    maxValue = Math.Max(maxValue, monoValue);
                 }
+
+                return new WaveformChunk(chunkIndex, minValue, maxValue);
             }, DispatchPriority.Low, cancellationToken);
 
             if (chunk.HasValue)
