@@ -12,8 +12,6 @@ public sealed class SourceSound : Sound
 
     public IProperty<ISoundSource?> Source { get; } = Property.Create<ISoundSource?>();
 
-    public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
-
     protected override ISoundSource? GetSoundSource()
     {
         return Source.CurrentValue;

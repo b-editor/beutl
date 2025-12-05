@@ -144,8 +144,6 @@ public sealed class AudioContext : IDisposable
     public ShiftNode CreateShiftNode(TimeSpan shift)
     {
         ThrowIfDisposed();
-        if(shift < TimeSpan.Zero)
-            throw new ArgumentOutOfRangeException(nameof(shift), "Shift must be non-negative.");
 
         // Try to reuse from previous nodes
         if (_previousNodes != null)
@@ -474,12 +472,16 @@ public sealed class AudioContext : IDisposable
         ThrowIfDisposed();
 
         // Dispose unused nodes from previous state
-        if (_previousNodes != null)
+        if (_previousNodes is { Count: > 0 })
         {
             foreach (var prevNode in _previousNodes)
             {
                 if (!_nodes.Contains(prevNode))
                 {
+                    foreach (AudioNode node in _nodes)
+                    {
+                        node.RemoveInput(prevNode);
+                    }
                     prevNode.Dispose();
                 }
             }
