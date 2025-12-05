@@ -1,11 +1,13 @@
 using System.Runtime.CompilerServices;
 using Beutl.Audio;
 using Beutl.Audio.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 using Beutl.Operation;
+using Beutl.Threading;
 
 namespace Beutl.Operators.Source;
 
@@ -85,11 +87,6 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
         }
     }
 
-    public Task<IBitmap?> GetPreviewBitmapAsync(int maxWidth, int maxHeight, CancellationToken cancellationToken = default)
-    {
-        return Task.FromResult<IBitmap?>(null);
-    }
-
     public async IAsyncEnumerable<(int Index, IBitmap Thumbnail)> GetThumbnailStripAsync(
         int count,
         int maxHeight,
@@ -97,5 +94,69 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
     {
         await Task.CompletedTask;
         yield break;
+    }
+
+    public async IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
+        int chunkCount,
+        int samplesPerChunk,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (Value?.Source.CurrentValue is not { IsDisposed: false } source)
+            yield break;
+
+        if (chunkCount <= 0 || samplesPerChunk <= 0)
+            yield break;
+
+        var duration = source.Duration;
+        if (duration <= TimeSpan.Zero)
+            yield break;
+
+        int sampleRate = source.SampleRate;
+        int totalSamples = (int)(duration.TotalSeconds * sampleRate);
+
+        for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                yield break;
+
+            int startSample = (int)((long)chunkIndex * totalSamples / chunkCount);
+            int endSample = (int)((long)(chunkIndex + 1) * totalSamples / chunkCount);
+            int sampleCount = Math.Min(endSample - startSample, samplesPerChunk);
+
+            if (sampleCount <= 0)
+                continue;
+
+            var chunk = await RenderThread.Dispatcher.InvokeAsync(() =>
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    return (WaveformChunk?)null;
+
+                if (!source.Read(startSample, sampleCount, out IPcm? pcm))
+                    return null;
+
+                using (pcm)
+                {
+                    using var floatPcm = pcm.Convert<Stereo32BitFloat>();
+                    var span = floatPcm.DataSpan;
+
+                    float minValue = float.MaxValue;
+                    float maxValue = float.MinValue;
+
+                    foreach (var sample in span)
+                    {
+                        float monoValue = (sample.Left + sample.Right) * 0.5f;
+                        minValue = Math.Min(minValue, monoValue);
+                        maxValue = Math.Max(maxValue, monoValue);
+                    }
+
+                    return new WaveformChunk(chunkIndex, minValue, maxValue);
+                }
+            }, DispatchPriority.Low, cancellationToken);
+
+            if (chunk.HasValue)
+            {
+                yield return chunk.Value;
+            }
+        }
     }
 }

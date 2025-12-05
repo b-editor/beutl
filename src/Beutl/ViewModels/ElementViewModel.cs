@@ -249,7 +249,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public event Action? ThumbnailsClear;
 
-    public event Action<int, float[]>? WaveformChunkReady;
+    public event Action<WaveformChunk>? WaveformChunkReady;
+
+    public event Action? WaveformClear;
 
     public IReadOnlyList<ElementViewModel> GetGroupOrSelectedElements()
     {
@@ -300,7 +302,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         PreviewKind.Dispose();
         PreviewImage.Dispose();
         VideoThumbnailCount.Dispose();
-        WaveformData.Dispose();
+        WaveformChunkCount.Dispose();
 
         LayerHeader.Value = null!;
         Timeline = null!;
@@ -773,6 +775,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                     await UpdateVideoPreviewAsync(provider, ct);
                     break;
                 case ElementPreviewKind.Audio:
+                    await UpdateAudioPreviewAsync(provider, ct);
                     break;
             }
         }
@@ -858,6 +861,39 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                     {
                         ThumbnailReady?.Invoke(index, ConvertToAvaloniaBitmap(thumbnail));
                     }
+                }
+            });
+        }
+    }
+
+    private async Task UpdateAudioPreviewAsync(IElementPreviewProvider provider, CancellationToken ct)
+    {
+        const int MaxSamplesPerChunk = 4096;
+        double width = Width.Value;
+        if (width <= 0)
+            return;
+
+        int chunkCount = Math.Max(1, (int)width);
+
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                WaveformClear?.Invoke();
+                WaveformChunkCount.Value = chunkCount;
+            }
+        });
+
+        await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxSamplesPerChunk, ct))
+        {
+            if (ct.IsCancellationRequested)
+                break;
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!ct.IsCancellationRequested)
+                {
+                    WaveformChunkReady?.Invoke(chunk);
                 }
             });
         }

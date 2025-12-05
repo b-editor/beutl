@@ -12,7 +12,14 @@ public interface IElementPreviewProvider
         int count,
         int maxHeight,
         CancellationToken cancellationToken = default);
+
+    IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
+        int chunkCount,
+        int samplesPerChunk,
+        CancellationToken cancellationToken = default);
 }
+
+public readonly record struct WaveformChunk(int Index, float MinValue, float MaxValue);
 
 public enum ElementPreviewKind
 {

@@ -142,18 +142,18 @@
             </ui:FAMenuFlyout>
         </Border.ContextFlyout>
         <Panel>
-            <Image x:Name="imagePreview"
-                   HorizontalAlignment="Stretch"
-                   VerticalAlignment="Stretch"
-                   IsVisible="{Binding IsPreviewKindImage.Value}"
-                   Source="{Binding PreviewImage.Value}"
-                   Stretch="Uniform" />
-
             <v:ThumbnailStripControl x:Name="thumbnailStrip"
                                      HorizontalAlignment="Stretch"
                                      VerticalAlignment="Stretch"
                                      IsVisible="{Binding IsPreviewKindVideo.Value}"
                                      ThumbnailCount="{Binding VideoThumbnailCount.Value}" />
+
+            <v:WaveformControl x:Name="waveformControl"
+                               HorizontalAlignment="Stretch"
+                               VerticalAlignment="Stretch"
+                               ChunkCount="{Binding WaveformChunkCount.Value}"
+                               IsVisible="{Binding IsPreviewKindAudio.Value}"
+                               WaveformBrush="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}" />
 
             <TextBlock x:Name="textBlock"
                        VerticalAlignment="Center"
