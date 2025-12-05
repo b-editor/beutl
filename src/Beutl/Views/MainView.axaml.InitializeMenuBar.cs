@@ -112,7 +112,8 @@ public partial class MainView
             && viewModel.Scene is Scene scene
             && viewModel.SelectedObject.Value is Element element)
         {
-            string name = Path.GetFileName(element.Uri!.LocalPath);
+            string path = Uri.UnescapeDataString(element.Uri!.LocalPath);
+            string name = Path.GetFileName(path);
             var dialog = new ContentDialog
             {
                 CloseButtonText = Strings.Cancel,
@@ -124,9 +125,9 @@ public partial class MainView
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 scene.RemoveChild(element).Do();
-                if (File.Exists(element.Uri!.LocalPath))
+                if (File.Exists(path))
                 {
-                    File.Delete(element.Uri!.LocalPath);
+                    File.Delete(path);
                 }
             }
         }

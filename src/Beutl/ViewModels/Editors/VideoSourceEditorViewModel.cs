@@ -11,11 +11,11 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<IVideoSour
     public VideoSourceEditorViewModel(IPropertyAdapter<IVideoSource?> property)
         : base(property)
     {
-        FullName = Value.Select(x => x?.Uri.LocalPath)
+        FullName = Value.Select(x => x != null ? Uri.UnescapeDataString(x.Uri.LocalPath) : null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        FileInfo = Value.Select(x => x != null ? new FileInfo(x.Uri.LocalPath) : null)
+        FileInfo = FullName.Select(p => p != null ? new FileInfo(p) : null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }

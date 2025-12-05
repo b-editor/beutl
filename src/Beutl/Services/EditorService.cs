@@ -1,11 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-
 using Beutl.Api.Services;
-
 using Beutl.Configuration;
-
 using Reactive.Bindings;
 
 namespace Beutl.Services;
@@ -17,9 +14,10 @@ public sealed class EditorTabItem : IAsyncDisposable
     public EditorTabItem(IEditorContext context)
     {
         Context = new ReactiveProperty<IEditorContext>(context);
-        FilePath = Context.Select(ctxt => ctxt?.Object.Uri?.LocalPath!)
+        FilePath = Context.Select(ctxt =>
+                ctxt?.Object.Uri is { LocalPath: { } localPath } ? Uri.UnescapeDataString(localPath) : null)
             .ToReadOnlyReactivePropertySlim()!;
-        FileName = Context.Select(ctxt => Path.GetFileName(ctxt?.Object.Uri?.LocalPath)!)
+        FileName = FilePath.Select(Path.GetFileName)
             .Do(_ => _hash = null)
             .ToReadOnlyReactivePropertySlim()!;
         Extension = Context.Select(ctxt => ctxt?.Extension!)
@@ -76,10 +74,7 @@ public sealed class EditorService
 
     public EditorService()
     {
-        _tabItems = new()
-        {
-            ResetBehavior = ResetBehavior.Remove
-        };
+        _tabItems = new() { ResetBehavior = ResetBehavior.Remove };
     }
 
     public static EditorService Current { get; } = new();
@@ -98,7 +93,8 @@ public sealed class EditorService
     public void ActivateTabItem(CoreObject obj)
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        viewConfig.UpdateRecentFile(obj.Uri!.LocalPath);
+        string path = Uri.UnescapeDataString(obj.Uri!.LocalPath);
+        viewConfig.UpdateRecentFile(path);
 
         if (TryGetTabItem(obj, out EditorTabItem? tabItem))
         {
@@ -107,17 +103,11 @@ public sealed class EditorService
         }
         else
         {
-            EditorExtension? ext = ExtensionProvider.Current.MatchEditorExtension(obj.Uri!.LocalPath);
+            EditorExtension? ext = ExtensionProvider.Current.MatchEditorExtension(path);
 
             if (ext?.TryCreateContext(obj, out IEditorContext? context) == true)
             {
-                var tabItem2 = new EditorTabItem(context)
-                {
-                    IsSelected =
-                    {
-                        Value = true
-                    }
-                };
+                var tabItem2 = new EditorTabItem(context) { IsSelected = { Value = true } };
                 TabItems.Add(tabItem2);
                 SelectedTabItem.Value = tabItem2;
             }

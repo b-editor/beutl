@@ -84,7 +84,7 @@ public sealed class VideoSource : IVideoSource
 
         _mediaReader?.Dispose();
         _mediaReader = null;
-        var reader = MediaReader.Open(uri.LocalPath, new(MediaMode.Video));
+        var reader = MediaReader.Open(Uri.UnescapeDataString(uri.LocalPath), new(MediaMode.Video));
         _mediaReader = Ref<MediaReader>.Create(reader);
         _uri = uri;
     }

@@ -11,7 +11,7 @@ internal static class UriHelper
         }
         else if (uri.Scheme == "file")
         {
-            return File.ReadAllBytes(uri.LocalPath);
+            return File.ReadAllBytes(Uri.UnescapeDataString(uri.LocalPath));
         }
         else
         {
@@ -28,7 +28,7 @@ internal static class UriHelper
         }
         else if (uri.Scheme == "file")
         {
-            return File.OpenRead(uri.LocalPath);
+            return File.OpenRead(Uri.UnescapeDataString(uri.LocalPath));
         }
         else
         {

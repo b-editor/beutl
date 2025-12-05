@@ -351,9 +351,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         if (DestinationFile.Value == null && applyingPreset)
         {
+            string path = Uri.UnescapeDataString(Model.Uri!.LocalPath);
             DestinationFile.Value = Path.Combine(
-                Path.GetDirectoryName(Model.Uri!.LocalPath)!,
-                $"{Path.GetFileNameWithoutExtension(Model.Uri!.LocalPath)}.mp4");
+                Path.GetDirectoryName(path)!,
+                $"{Path.GetFileNameWithoutExtension(path)}.mp4");
         }
 
         if (!applyingPreset)

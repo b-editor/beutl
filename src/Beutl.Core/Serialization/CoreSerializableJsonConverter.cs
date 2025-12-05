@@ -48,7 +48,8 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
                 var node = CoreSerializer.SerializeToJsonObject(value,
                     new CoreSerializerOptions { BaseUri = coreObj.Uri });
 
-                using var stream = File.Create(coreObj.Uri.LocalPath);
+                var path = Uri.UnescapeDataString(coreObj.Uri.LocalPath);
+                using var stream = File.Create(path);
                 using var innerWriter = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
                 node.WriteTo(innerWriter);
             }

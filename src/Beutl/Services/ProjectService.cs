@@ -133,7 +133,7 @@ public sealed class ProjectService
             _projectObservable.OnNext((New: project, null));
             _app.Project = project;
 
-            AddToRecentProjects(project.Uri.LocalPath);
+            AddToRecentProjects(Uri.UnescapeDataString(project.Uri.LocalPath));
             _logger.LogInformation("Created new project. Name: {Name}, Location: {Location}, Width: {Width}, Height: {Height}, Framerate: {Framerate}, Samplerate: {Samplerate}", name, location, width, height, framerate, samplerate);
 
             return project;
