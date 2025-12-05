@@ -134,19 +134,52 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         Scope = new ElementScopeViewModel(Model, this);
 
+        // プレビュー関連の初期化
+        IsPreviewKindAudio = PreviewKind.Select(k => k == ElementPreviewKind.Audio)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+        IsPreviewKindVideo = PreviewKind.Select(k => k == ElementPreviewKind.Video)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
+        InitializePreview();
+    }
+
+    private void InitializePreview()
+    {
+        // プレビュー無効化の初期値を設定
+        IsPreviewDisabled.Value = Timeline.PreviewDisabledElements.Contains(Model.Id);
+
+        // PreviewDisabledElementsの変更を購読
+        Timeline.PreviewDisabledElements.Attached += OnPreviewDisabledElementsAttached;
+        Timeline.PreviewDisabledElements.Detached += OnPreviewDisabledElementsDetached;
+
+        // IsPreviewDisabledが変更されたらPreviewDisabledElementsを更新し、プレビューを再読み込み
+        IsPreviewDisabled.Skip(1)
+            .Subscribe(isDisabled =>
+            {
+                if (isDisabled)
+                {
+                    if (!Timeline.PreviewDisabledElements.Contains(Model.Id))
+                    {
+                        Timeline.PreviewDisabledElements.Add(Model.Id);
+                    }
+                }
+                else
+                {
+                    Timeline.PreviewDisabledElements.Remove(Model.Id);
+                }
+
+                UpdatePreviewAsync();
+            })
+            .AddTo(_disposables);
+
         // Width変更とPreviewInvalidatedイベントをマージして、いずれかが発生してから500ms後に更新
         Observable.Merge(
                 Width.Select(_ => Unit.Default),
                 _previewInvalidatedSubject.AsObservable())
             .Throttle(TimeSpan.FromMilliseconds(500))
             .Subscribe(_ => UpdatePreviewAsync())
-            .AddTo(_disposables);
-
-        IsPreviewKindAudio = PreviewKind.Select(k => k == ElementPreviewKind.Audio)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
-        IsPreviewKindVideo = PreviewKind.Select(k => k == ElementPreviewKind.Video)
-            .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
     }
 
@@ -242,6 +275,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReadOnlyReactivePropertySlim<bool> IsPreviewKindAudio { get; }
 
+    public ReactivePropertySlim<bool> IsPreviewDisabled { get; } = new();
+
     public ReactivePropertySlim<int> VideoThumbnailCount { get; } = new();
 
     public ReactivePropertySlim<int> WaveformChunkCount { get; } = new();
@@ -300,6 +335,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             _currentPreviewProvider.PreviewInvalidated -= _previewInvalidatedHandler;
         }
         _previewInvalidatedSubject.Dispose();
+
+        // PreviewDisabledElementsイベントの購読を解除
+        Timeline.PreviewDisabledElements.Attached -= OnPreviewDisabledElementsAttached;
+        Timeline.PreviewDisabledElements.Detached -= OnPreviewDisabledElementsDetached;
 
         _disposables.Dispose();
         LayerHeader.Dispose();
@@ -422,6 +461,23 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                 .ToArray(),
             Scope: Scope.PrepareAnimation());
+    }
+
+
+    private void OnPreviewDisabledElementsAttached(Guid id)
+    {
+        if (id == Model.Id && !IsPreviewDisabled.Value)
+        {
+            IsPreviewDisabled.Value = true;
+        }
+    }
+
+    private void OnPreviewDisabledElementsDetached(Guid id)
+    {
+        if (id == Model.Id && IsPreviewDisabled.Value)
+        {
+            IsPreviewDisabled.Value = false;
+        }
     }
 
     private void OnExclude()
@@ -756,6 +812,16 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private async void UpdatePreviewAsync()
     {
+        // プレビューが無効化されている場合は何もしない
+        if (IsPreviewDisabled.Value)
+        {
+            CancelPreviewLoading();
+            PreviewKind.Value = ElementPreviewKind.None;
+            ThumbnailsClear?.Invoke();
+            WaveformClear?.Invoke();
+            return;
+        }
+
         var provider = FindPreviewProvider();
 
         // プロバイダーが変更された場合、イベント購読を更新

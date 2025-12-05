@@ -741,6 +741,9 @@
   <data name="UseNode" xml:space="preserve">
     <value>UseNode</value>
   </data>
+  <data name="DisablePreview" xml:space="preserve">
+    <value>Disable Thumbnails</value>
+  </data>
   <data name="Unsupported" xml:space="preserve">
     <value>Unsupported</value>
   </data>

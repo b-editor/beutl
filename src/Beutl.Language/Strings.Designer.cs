@@ -1293,6 +1293,12 @@ namespace Beutl.Language {
             }
         }
         
+        public static string DisablePreview {
+            get {
+                return ResourceManager.GetString("DisablePreview", resourceCulture);
+            }
+        }
+        
         public static string Unsupported {
             get {
                 return ResourceManager.GetString("Unsupported", resourceCulture);
@@ -2660,25 +2666,25 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Convert_to_preset", resourceCulture);
             }
         }
-
+        
         public static string Geometry {
             get {
                 return ResourceManager.GetString("Geometry", resourceCulture);
             }
         }
-
+        
         public static string Progress {
             get {
                 return ResourceManager.GetString("Progress", resourceCulture);
             }
         }
-
+        
         public static string FollowRotation {
             get {
                 return ResourceManager.GetString("FollowRotation", resourceCulture);
             }
         }
-
+        
         public static string PathFollowEffect {
             get {
                 return ResourceManager.GetString("PathFollowEffect", resourceCulture);
