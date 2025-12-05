@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
@@ -22,7 +23,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 {
     private readonly CompositeDisposable _disposables = [];
     private ImmutableHashSet<Guid>? _elementGroup;
+    private readonly Subject<Unit> _previewInvalidatedSubject = new();
     private CancellationTokenSource? _previewCts;
+    private IElementPreviewProvider? _currentPreviewProvider;
+    private EventHandler? _previewInvalidatedHandler;
 
     public ElementViewModel(Element element, TimelineViewModel timeline)
     {
@@ -130,7 +134,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         Scope = new ElementScopeViewModel(Model, this);
 
-        Width.Throttle(TimeSpan.FromMilliseconds(500))
+        // Width変更とPreviewInvalidatedイベントをマージして、いずれかが発生してから500ms後に更新
+        Observable.Merge(
+                Width.Select(_ => Unit.Default),
+                _previewInvalidatedSubject.AsObservable())
+            .Throttle(TimeSpan.FromMilliseconds(500))
             .Subscribe(_ => UpdatePreviewAsync())
             .AddTo(_disposables);
 
@@ -285,6 +293,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     public void Dispose()
     {
         CancelPreviewLoading();
+
+        // PreviewInvalidatedイベントの購読を解除
+        if (_currentPreviewProvider != null && _previewInvalidatedHandler != null)
+        {
+            _currentPreviewProvider.PreviewInvalidated -= _previewInvalidatedHandler;
+        }
+        _previewInvalidatedSubject.Dispose();
 
         _disposables.Dispose();
         LayerHeader.Dispose();
@@ -742,6 +757,24 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private async void UpdatePreviewAsync()
     {
         var provider = FindPreviewProvider();
+
+        // プロバイダーが変更された場合、イベント購読を更新
+        if (_currentPreviewProvider != provider)
+        {
+            if (_currentPreviewProvider != null && _previewInvalidatedHandler != null)
+            {
+                _currentPreviewProvider.PreviewInvalidated -= _previewInvalidatedHandler;
+            }
+
+            _currentPreviewProvider = provider;
+
+            if (provider != null)
+            {
+                _previewInvalidatedHandler = (_, _) => _previewInvalidatedSubject.OnNext(Unit.Default);
+                provider.PreviewInvalidated += _previewInvalidatedHandler;
+            }
+        }
+
         if (provider == null)
         {
             PreviewKind.Value = ElementPreviewKind.None;

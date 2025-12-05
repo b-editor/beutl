@@ -6,6 +6,8 @@ public interface IElementPreviewProvider
 {
     ElementPreviewKind PreviewKind { get; }
 
+    event EventHandler? PreviewInvalidated;
+
     IAsyncEnumerable<(int Index, IBitmap Thumbnail)> GetThumbnailStripAsync(
         int count,
         int maxHeight,

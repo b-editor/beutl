@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -14,8 +15,11 @@ namespace Beutl.Operators.Source;
 public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElementPreviewProvider
 {
     private Uri? _uri;
+    private EventHandler? _handler;
 
     public ElementPreviewKind PreviewKind => ElementPreviewKind.Video;
+
+    public event EventHandler? PreviewInvalidated;
 
     protected override void FillProperties()
     {
@@ -33,18 +37,40 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } value) return;
+
+        if (Value is { } value)
+        {
+            if (_handler != null)
+            {
+                value.Source.Edited -= _handler;
+                value.OffsetPosition.Edited -= _handler;
+                value.Speed.Edited -= _handler;
+                value.IsLoop.Edited -= _handler;
+            }
+        }
+
+        _handler = null;
+
+        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } v) return;
 
         _uri = uri;
-        value.Source.CurrentValue = null;
+        v.Source.CurrentValue = null;
         source.Dispose();
     }
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
-        if (_uri is null) return;
         if (Value is not { } value) return;
+
+        _handler = (_, _) => PreviewInvalidated?.Invoke(this, EventArgs.Empty);
+
+        value.Source.Edited += _handler;
+        value.OffsetPosition.Edited += _handler;
+        value.Speed.Edited += _handler;
+        value.IsLoop.Edited += _handler;
+
+        if (_uri is null) return;
 
         if (VideoSource.TryOpen(_uri, out VideoSource? source))
         {

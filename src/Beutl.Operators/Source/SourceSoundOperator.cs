@@ -14,8 +14,11 @@ namespace Beutl.Operators.Source;
 public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElementPreviewProvider
 {
     private Uri? _uri;
+    private EventHandler? _handler;
 
     public ElementPreviewKind PreviewKind => ElementPreviewKind.Audio;
+
+    public event EventHandler? PreviewInvalidated;
 
     public override bool HasOriginalLength()
     {
@@ -34,18 +37,29 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } value) return;
+
+        if (Value is { } value && _handler != null)
+        {
+            value.Edited -= _handler;
+        }
+        _handler = null;
+
+        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } v) return;
 
         _uri = uri;
-        value.Source.CurrentValue = null;
+        v.Source.CurrentValue = null;
         source.Dispose();
     }
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
-        if (_uri is null) return;
         if (Value is not { } value) return;
+
+        _handler = (_, _) => PreviewInvalidated?.Invoke(this, EventArgs.Empty);
+        value.Edited += _handler;
+
+        if (_uri is null) return;
 
         if (SoundSource.TryOpen(_uri, out SoundSource? source))
         {
