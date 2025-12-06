@@ -40,15 +40,12 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
     {
         base.OnDetachedFromHierarchy(args);
 
-        if (Value is { } value)
+        if (Value is { } value && _handler != null)
         {
-            if (_handler != null)
-            {
-                value.Source.Edited -= _handler;
-                value.OffsetPosition.Edited -= _handler;
-                value.Speed.Edited -= _handler;
-                value.IsLoop.Edited -= _handler;
-            }
+            value.Source.Edited -= _handler;
+            value.OffsetPosition.Edited -= _handler;
+            value.Speed.Edited -= _handler;
+            value.IsLoop.Edited -= _handler;
         }
 
         _handler = null;
