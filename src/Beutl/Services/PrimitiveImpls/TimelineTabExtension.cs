@@ -67,6 +67,11 @@ public sealed class TimelineTabExtension : ToolTabExtension
         [
             new ContextCommandKeyGesture("OemCloseBrackets")
         ]),
+        new ContextCommandDefinition("ToggleGroup", Strings.Group, "",
+        [
+            new ContextCommandKeyGesture("Ctrl+G"),
+            new ContextCommandKeyGesture("Cmd+G", OSPlatform.OSX),
+        ]),
     ];
 
     public override IconSource GetIcon()
