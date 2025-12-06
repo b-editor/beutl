@@ -320,8 +320,8 @@ public class Scene : ProjectItem, INotifyEdited
             foreach (string group in groups ?? [])
             {
                 var ids = group.Split(':')
-                    .Select(Guid.Parse)
-                    .Where(i => Children.Any(e => e.Id == i))
+                    .Select(s => Guid.TryParse(s, out Guid id) ? id : Guid.Empty)
+                    .Where(i => i != Guid.Empty && Children.Any(e => e.Id == i))
                     .ToImmutableHashSet();
                 if (ids.Count >= 2)
                 {
