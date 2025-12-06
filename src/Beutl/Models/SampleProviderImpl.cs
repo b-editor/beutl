@@ -2,14 +2,17 @@
 using System.Reactive.Subjects;
 using System.Threading.Channels;
 using Beutl.Audio.Composing;
+using Beutl.Logging;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.ProjectSystem;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Models;
 
 public sealed class SampleProviderImpl : ISampleProvider, IDisposable
 {
+    private readonly ILogger _logger = Log.CreateLogger<SampleProviderImpl>();
     private readonly Scene _scene;
     private readonly SceneComposer _composer;
     private readonly long _sampleRate;
@@ -49,6 +52,8 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        _progress.OnNext(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * Math.Min(offset + length, SampleCount) / _sampleRate));
 
         int lengthInt = (int)length;
         var pcm = new Pcm<Stereo32BitFloat>((int)_sampleRate, lengthInt);
@@ -109,7 +114,8 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
             }
         }
 
-        throw new InvalidOperationException($"The requested chunk at offset {chunkOffset} could not be composed.");
+        _logger.LogWarning("Requested chunk at offset {ChunkOffset} was not found in the channel.", chunkOffset);
+        return await ComposeChunk(chunkOffset, _cts.Token);
     }
 
     private async Task ComposeSamplesAsync()
@@ -128,36 +134,32 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while composing samples.");
             _channel.Writer.TryComplete(ex);
             return;
         }
 
+        _logger.LogDebug("Sample composing completed.");
         _channel.Writer.TryComplete();
     }
 
     private async ValueTask<Pcm<Stereo32BitFloat>> ComposeChunk(long offset, CancellationToken cancellationToken)
     {
         int length = (int)Math.Min(_chunkSize, SampleCount - offset);
-        try
+
+        if (ComposeThread.Dispatcher.CheckAccess())
         {
-            if (ComposeThread.Dispatcher.CheckAccess())
-            {
-                return ComposeCore(offset, length);
-            }
-            else
-            {
-                return await ComposeThread.Dispatcher.InvokeAsync(() => ComposeCore(offset, length), ct: cancellationToken);
-            }
+            return ComposeCore(offset, length);
         }
-        finally
+        else
         {
-            _progress.OnNext(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * Math.Min(offset + length, SampleCount) / _sampleRate));
+            return await ComposeThread.Dispatcher.InvokeAsync(() => ComposeCore(offset, length), ct: cancellationToken);
         }
     }
 
     private Pcm<Stereo32BitFloat> ComposeCore(long offset, int length)
     {
-        var buffer = _composer.Compose(new(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * offset / _sampleRate) + _scene.Start,
+        using var buffer = _composer.Compose(new(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * offset / _sampleRate) + _scene.Start,
             TimeSpan.FromSeconds(1)))
                      ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
         var pcm = buffer.ToPcm();

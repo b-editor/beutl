@@ -91,6 +91,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while rendering frames.");
             _channel.Writer.TryComplete(ex);
             return;
         }
