@@ -151,7 +151,7 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
                     return (WaveformChunk?)null;
 
                 using var buffer = composer.Compose(new TimeRange(startTime, durationTime));
-                if (buffer == null)
+                if (buffer == null || buffer.SampleCount == 0)
                     return null;
 
                 var firstChannel = buffer.GetChannelData(0);
