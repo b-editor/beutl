@@ -169,7 +169,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ElementScopeViewModel Scope { get; private set; }
 
-    public Scene Scene => (Scene)Model.HierarchicalParent!;
+    public Scene Scene => Model.HierarchicalParent as Scene ?? Timeline.Scene;
 
     public ReadOnlyReactivePropertySlim<bool> IsEnabled { get; }
 
