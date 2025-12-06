@@ -322,7 +322,10 @@ public class Scene : ProjectItem, INotifyEdited
                     .Select(Guid.Parse)
                     .Where(i => Children.Any(e => e.Id == i))
                     .ToImmutableHashSet();
-                Groups.Add(ids);
+                if (ids.Count >= 2)
+                {
+                    Groups.Add(ids);
+                }
             }
         }
     }
