@@ -7,6 +7,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Beutl.Animation;
 using Beutl.Helpers;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Models;
 using Beutl.Operation;
@@ -14,6 +15,7 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using FluentAvalonia.UI.Media;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -21,6 +23,7 @@ namespace Beutl.ViewModels;
 
 public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 {
+    private readonly ILogger _logger = Log.CreateLogger<ElementViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private ImmutableHashSet<Guid>? _elementGroup;
     private readonly Subject<Unit> _previewInvalidatedSubject = new();
@@ -867,8 +870,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         catch (OperationCanceledException)
         {
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to update preview.");
         }
     }
 
