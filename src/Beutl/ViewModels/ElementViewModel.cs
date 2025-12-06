@@ -26,10 +26,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private readonly ILogger _logger = Log.CreateLogger<ElementViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private ImmutableHashSet<Guid>? _elementGroup;
-    private readonly Subject<Unit> _previewInvalidatedSubject = new();
-    private CancellationTokenSource? _previewCts;
-    private IElementPreviewProvider? _currentPreviewProvider;
-    private EventHandler? _previewInvalidatedHandler;
+    private readonly Subject<Unit> _thumbnailsInvalidatedSubject = new();
+    private CancellationTokenSource? _thumbnailsCts;
+    private IElementThumbnailsProvider? _currentThumbnailsProvider;
+    private EventHandler? _thumbnailsInvalidatedHandler;
 
     public ElementViewModel(Element element, TimelineViewModel timeline)
     {
@@ -138,51 +138,51 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Scope = new ElementScopeViewModel(Model, this);
 
         // プレビュー関連の初期化
-        IsPreviewKindAudio = PreviewKind.Select(k => k == ElementPreviewKind.Audio)
+        IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == ElementThumbnailsKind.Audio)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
-        IsPreviewKindVideo = PreviewKind.Select(k => k == ElementPreviewKind.Video)
+        IsThumbnailsKindVideo = ThumbnailsKind.Select(k => k == ElementThumbnailsKind.Video)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        InitializePreview();
+        InitializeThumbnails();
     }
 
-    private void InitializePreview()
+    private void InitializeThumbnails()
     {
         // プレビュー無効化の初期値を設定
-        IsPreviewDisabled.Value = Timeline.PreviewDisabledElements.Contains(Model.Id);
+        IsThumbnailsDisabled.Value = Timeline.ThumbnailsDisabledElements.Contains(Model.Id);
 
-        // PreviewDisabledElementsの変更を購読
-        Timeline.PreviewDisabledElements.Attached += OnPreviewDisabledElementsAttached;
-        Timeline.PreviewDisabledElements.Detached += OnPreviewDisabledElementsDetached;
+        // ThumbnailsDisabledElementsの変更を購読
+        Timeline.ThumbnailsDisabledElements.Attached += OnThumbnailsDisabledElementsAttached;
+        Timeline.ThumbnailsDisabledElements.Detached += OnThumbnailsDisabledElementsDetached;
 
-        // IsPreviewDisabledが変更されたらPreviewDisabledElementsを更新し、プレビューを再読み込み
-        IsPreviewDisabled.Skip(1)
+        // IsThumbnailsDisabledが変更されたらThumbnailsDisabledElementsを更新し、プレビューを再読み込み
+        IsThumbnailsDisabled.Skip(1)
             .Subscribe(isDisabled =>
             {
                 if (isDisabled)
                 {
-                    if (!Timeline.PreviewDisabledElements.Contains(Model.Id))
+                    if (!Timeline.ThumbnailsDisabledElements.Contains(Model.Id))
                     {
-                        Timeline.PreviewDisabledElements.Add(Model.Id);
+                        Timeline.ThumbnailsDisabledElements.Add(Model.Id);
                     }
                 }
                 else
                 {
-                    Timeline.PreviewDisabledElements.Remove(Model.Id);
+                    Timeline.ThumbnailsDisabledElements.Remove(Model.Id);
                 }
 
-                UpdatePreviewAsync();
+                UpdateThumbnailsAsync();
             })
             .AddTo(_disposables);
 
-        // Width変更とPreviewInvalidatedイベントをマージして、いずれかが発生してから500ms後に更新
+        // Width変更とThumbnailsInvalidatedイベントをマージして、いずれかが発生してから500ms後に更新
         Observable.Merge(
                 Width.Select(_ => Unit.Default),
-                _previewInvalidatedSubject.AsObservable())
+                _thumbnailsInvalidatedSubject.AsObservable())
             .Throttle(TimeSpan.FromMilliseconds(500))
-            .Subscribe(_ => UpdatePreviewAsync())
+            .Subscribe(_ => UpdateThumbnailsAsync())
             .AddTo(_disposables);
     }
 
@@ -272,13 +272,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReactiveCommand ChangeToOriginalLength { get; } = new();
 
-    public ReactivePropertySlim<ElementPreviewKind> PreviewKind { get; } = new(ElementPreviewKind.None);
+    public ReactivePropertySlim<ElementThumbnailsKind> ThumbnailsKind { get; } = new(ElementThumbnailsKind.None);
 
-    public ReadOnlyReactivePropertySlim<bool> IsPreviewKindVideo { get; }
+    public ReadOnlyReactivePropertySlim<bool> IsThumbnailsKindVideo { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> IsPreviewKindAudio { get; }
+    public ReadOnlyReactivePropertySlim<bool> IsThumbnailsKindAudio { get; }
 
-    public ReactivePropertySlim<bool> IsPreviewDisabled { get; } = new();
+    public ReactivePropertySlim<bool> IsThumbnailsDisabled { get; } = new();
 
     public ReactivePropertySlim<int> VideoThumbnailCount { get; } = new();
 
@@ -330,24 +330,24 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public void Dispose()
     {
-        CancelPreviewLoading();
+        CancelThumbnailsLoading();
 
-        // PreviewInvalidatedイベントの購読を解除
-        if (_currentPreviewProvider != null && _previewInvalidatedHandler != null)
+        // ThumbnailsInvalidatedイベントの購読を解除
+        if (_currentThumbnailsProvider != null && _thumbnailsInvalidatedHandler != null)
         {
-            _currentPreviewProvider.PreviewInvalidated -= _previewInvalidatedHandler;
+            _currentThumbnailsProvider.ThumbnailsInvalidated -= _thumbnailsInvalidatedHandler;
         }
-        _previewInvalidatedSubject.Dispose();
+        _thumbnailsInvalidatedSubject.Dispose();
 
-        // PreviewDisabledElementsイベントの購読を解除
-        Timeline.PreviewDisabledElements.Attached -= OnPreviewDisabledElementsAttached;
-        Timeline.PreviewDisabledElements.Detached -= OnPreviewDisabledElementsDetached;
+        // ThumbnailsDisabledElementsイベントの購読を解除
+        Timeline.ThumbnailsDisabledElements.Attached -= OnThumbnailsDisabledElementsAttached;
+        Timeline.ThumbnailsDisabledElements.Detached -= OnThumbnailsDisabledElementsDetached;
 
         _disposables.Dispose();
         LayerHeader.Dispose();
         Scope.Dispose();
 
-        PreviewKind.Dispose();
+        ThumbnailsKind.Dispose();
         VideoThumbnailCount.Dispose();
         WaveformChunkCount.Dispose();
 
@@ -466,19 +466,19 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             Scope: Scope.PrepareAnimation());
     }
 
-    private void OnPreviewDisabledElementsAttached(Guid id)
+    private void OnThumbnailsDisabledElementsAttached(Guid id)
     {
-        if (id == Model.Id && !IsPreviewDisabled.Value)
+        if (id == Model.Id && !IsThumbnailsDisabled.Value)
         {
-            IsPreviewDisabled.Value = true;
+            IsThumbnailsDisabled.Value = true;
         }
     }
 
-    private void OnPreviewDisabledElementsDetached(Guid id)
+    private void OnThumbnailsDisabledElementsDetached(Guid id)
     {
-        if (id == Model.Id && IsPreviewDisabled.Value)
+        if (id == Model.Id && IsThumbnailsDisabled.Value)
         {
-            IsPreviewDisabled.Value = false;
+            IsThumbnailsDisabled.Value = false;
         }
     }
 
@@ -642,7 +642,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
         else
         {
-            if (await SetClipboard([..targets]))
+            if (await SetClipboard([.. targets]))
             {
                 CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
                 targets
@@ -805,65 +805,65 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             Inlines,
         ElementScopeViewModel.PrepareAnimationContext Scope);
 
-    private void CancelPreviewLoading()
+    private void CancelThumbnailsLoading()
     {
-        _previewCts?.Cancel();
-        _previewCts?.Dispose();
-        _previewCts = null;
+        _thumbnailsCts?.Cancel();
+        _thumbnailsCts?.Dispose();
+        _thumbnailsCts = null;
     }
 
-    private async void UpdatePreviewAsync()
+    private async void UpdateThumbnailsAsync()
     {
         // プレビューが無効化されている場合は何もしない
-        if (IsPreviewDisabled.Value)
+        if (IsThumbnailsDisabled.Value)
         {
-            CancelPreviewLoading();
-            PreviewKind.Value = ElementPreviewKind.None;
+            CancelThumbnailsLoading();
+            ThumbnailsKind.Value = ElementThumbnailsKind.None;
             ThumbnailsClear?.Invoke();
             WaveformClear?.Invoke();
             return;
         }
 
-        var provider = FindPreviewProvider();
+        var provider = FindThumbnailsProvider();
 
         // プロバイダーが変更された場合、イベント購読を更新
-        if (_currentPreviewProvider != provider)
+        if (_currentThumbnailsProvider != provider)
         {
-            if (_currentPreviewProvider != null && _previewInvalidatedHandler != null)
+            if (_currentThumbnailsProvider != null && _thumbnailsInvalidatedHandler != null)
             {
-                _currentPreviewProvider.PreviewInvalidated -= _previewInvalidatedHandler;
+                _currentThumbnailsProvider.ThumbnailsInvalidated -= _thumbnailsInvalidatedHandler;
             }
 
-            _currentPreviewProvider = provider;
+            _currentThumbnailsProvider = provider;
 
             if (provider != null)
             {
-                _previewInvalidatedHandler = (_, _) => _previewInvalidatedSubject.OnNext(Unit.Default);
-                provider.PreviewInvalidated += _previewInvalidatedHandler;
+                _thumbnailsInvalidatedHandler = (_, _) => _thumbnailsInvalidatedSubject.OnNext(Unit.Default);
+                provider.ThumbnailsInvalidated += _thumbnailsInvalidatedHandler;
             }
         }
 
         if (provider == null)
         {
-            PreviewKind.Value = ElementPreviewKind.None;
+            ThumbnailsKind.Value = ElementThumbnailsKind.None;
             return;
         }
 
-        PreviewKind.Value = provider.PreviewKind;
+        ThumbnailsKind.Value = provider.ThumbnailsKind;
 
-        CancelPreviewLoading();
-        _previewCts = new CancellationTokenSource();
-        var ct = _previewCts.Token;
+        CancelThumbnailsLoading();
+        _thumbnailsCts = new CancellationTokenSource();
+        var ct = _thumbnailsCts.Token;
 
         try
         {
-            switch (provider.PreviewKind)
+            switch (provider.ThumbnailsKind)
             {
-                case ElementPreviewKind.Video:
-                    await UpdateVideoPreviewAsync(provider, ct);
+                case ElementThumbnailsKind.Video:
+                    await UpdateVideoThumbnailsAsync(provider, ct);
                     break;
-                case ElementPreviewKind.Audio:
-                    await UpdateAudioPreviewAsync(provider, ct);
+                case ElementThumbnailsKind.Audio:
+                    await UpdateAudioThumbnailsAsync(provider, ct);
                     break;
             }
         }
@@ -872,25 +872,25 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to update preview.");
+            _logger.LogError(ex, "Failed to update thumbnails.");
         }
     }
 
-    private IElementPreviewProvider? FindPreviewProvider()
+    private IElementThumbnailsProvider? FindThumbnailsProvider()
     {
         if (Model.UseNode)
             return null;
 
         foreach (var child in Model.Operation.Children)
         {
-            if (child is IElementPreviewProvider provider)
+            if (child is IElementThumbnailsProvider provider)
                 return provider;
         }
 
         return null;
     }
 
-    private async Task UpdateVideoPreviewAsync(IElementPreviewProvider provider, CancellationToken ct)
+    private async Task UpdateVideoThumbnailsAsync(IElementThumbnailsProvider provider, CancellationToken ct)
     {
         const int MaxThumbnailHeight = 25;
         double width = Width.Value;
@@ -927,7 +927,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
     }
 
-    private async Task UpdateAudioPreviewAsync(IElementPreviewProvider provider, CancellationToken ct)
+    private async Task UpdateAudioThumbnailsAsync(IElementThumbnailsProvider provider, CancellationToken ct)
     {
         const int MaxSamplesPerChunk = 4096;
         double width = Width.Value;

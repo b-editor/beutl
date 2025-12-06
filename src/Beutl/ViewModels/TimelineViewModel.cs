@@ -336,7 +336,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public CoreList<ElementViewModel> Elements { get; } = [];
 
-    public CoreList<Guid> PreviewDisabledElements { get; } = [];
+    public CoreList<Guid> ThumbnailsDisabledElements { get; } = [];
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = [];
 
@@ -765,18 +765,18 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             RestoreInlineAnimation(inlinesArray);
         }
 
-        if (json.TryGetPropertyValue(nameof(PreviewDisabledElements), out JsonNode? previewDisabledNode)
-            && previewDisabledNode is JsonArray previewDisabledArray)
+        if (json.TryGetPropertyValue(nameof(ThumbnailsDisabledElements), out JsonNode? ThumbnailsDisabledNode)
+            && ThumbnailsDisabledNode is JsonArray thumbnailsDisabledArray)
         {
-            PreviewDisabledElements.Clear();
-            foreach (JsonNode? item in previewDisabledArray)
+            ThumbnailsDisabledElements.Clear();
+            foreach (JsonNode? item in thumbnailsDisabledArray)
             {
                 if (item is JsonValue value
                     && value.TryGetValue(out string? guidStr)
                     && Guid.TryParse(guidStr, out Guid id)
                     && Scene.Children.Any(e => e.Id == id))
                 {
-                    PreviewDisabledElements.Add(id);
+                    ThumbnailsDisabledElements.Add(id);
                 }
             }
         }
@@ -909,13 +909,13 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         json[nameof(Inlines)] = inlines;
 
-        var previewDisabledArray = new JsonArray();
-        foreach (Guid id in PreviewDisabledElements)
+        var thumbnailsDisabledArray = new JsonArray();
+        foreach (Guid id in ThumbnailsDisabledElements)
         {
-            previewDisabledArray.Add(id.ToString());
+            thumbnailsDisabledArray.Add(id.ToString());
         }
 
-        json[nameof(PreviewDisabledElements)] = previewDisabledArray;
+        json[nameof(ThumbnailsDisabledElements)] = thumbnailsDisabledArray;
 
         _logger.LogInformation("TimelineViewModel state written to JSON successfully.");
     }

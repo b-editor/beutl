@@ -2,11 +2,11 @@ using Beutl.Media;
 
 namespace Beutl.Operation;
 
-public interface IElementPreviewProvider
+public interface IElementThumbnailsProvider
 {
-    ElementPreviewKind PreviewKind { get; }
+    ElementThumbnailsKind ThumbnailsKind { get; }
 
-    event EventHandler? PreviewInvalidated;
+    event EventHandler? ThumbnailsInvalidated;
 
     IAsyncEnumerable<(int Index, int Count, IBitmap Thumbnail)> GetThumbnailStripAsync(
         int maxWidth,
@@ -21,7 +21,7 @@ public interface IElementPreviewProvider
 
 public readonly record struct WaveformChunk(int Index, float MinValue, float MaxValue);
 
-public enum ElementPreviewKind
+public enum ElementThumbnailsKind
 {
     None = 0,
     Video = 2,

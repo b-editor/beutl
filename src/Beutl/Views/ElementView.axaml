@@ -119,7 +119,7 @@
                                    Command="{Binding ChangeToOriginalLength}"
                                    Text="{x:Static lang:Strings.ChangeToOriginalLength}" />
                 <ui:MenuFlyoutItem Click="ChangeColor_Click" Text="{x:Static lang:Strings.ChangeColor}" />
-                <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsPreviewDisabled.Value}" Text="{x:Static lang:Strings.DisablePreview}">
+                <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsThumbnailsDisabled.Value}" Text="{x:Static lang:Strings.DisableThumbnails}">
                     <ui:ToggleMenuFlyoutItem.Styles>
                         <Style Selector="ui|ToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
                             <Setter Property="Width" Value="0" />
@@ -152,14 +152,14 @@
             <v:ThumbnailStripControl x:Name="thumbnailStrip"
                                      HorizontalAlignment="Stretch"
                                      VerticalAlignment="Stretch"
-                                     IsVisible="{Binding IsPreviewKindVideo.Value}"
+                                     IsVisible="{Binding IsThumbnailsKindVideo.Value}"
                                      ThumbnailCount="{Binding VideoThumbnailCount.Value}" />
 
             <v:WaveformControl x:Name="waveformControl"
                                HorizontalAlignment="Stretch"
                                VerticalAlignment="Stretch"
                                ChunkCount="{Binding WaveformChunkCount.Value}"
-                               IsVisible="{Binding IsPreviewKindAudio.Value}"
+                               IsVisible="{Binding IsThumbnailsKindAudio.Value}"
                                WaveformBrush="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}" />
 
             <TextBlock x:Name="textBlock"

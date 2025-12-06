@@ -1293,9 +1293,9 @@ namespace Beutl.Language {
             }
         }
         
-        public static string DisablePreview {
+        public static string DisableThumbnails {
             get {
-                return ResourceManager.GetString("DisablePreview", resourceCulture);
+                return ResourceManager.GetString("DisableThumbnails", resourceCulture);
             }
         }
         

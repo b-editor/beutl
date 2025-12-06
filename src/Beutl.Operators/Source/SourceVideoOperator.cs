@@ -12,14 +12,14 @@ using SkiaSharp;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElementPreviewProvider
+public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElementThumbnailsProvider
 {
     private Uri? _uri;
     private EventHandler? _handler;
 
-    public ElementPreviewKind PreviewKind => ElementPreviewKind.Video;
+    public ElementThumbnailsKind ThumbnailsKind => ElementThumbnailsKind.Video;
 
-    public event EventHandler? PreviewInvalidated;
+    public event EventHandler? ThumbnailsInvalidated;
 
     protected override void FillProperties()
     {
@@ -65,7 +65,7 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
         base.OnAttachedToHierarchy(args);
         if (Value is not { } value) return;
 
-        _handler = (_, _) => PreviewInvalidated?.Invoke(this, EventArgs.Empty);
+        _handler = (_, _) => ThumbnailsInvalidated?.Invoke(this, EventArgs.Empty);
 
         value.Source.Edited += _handler;
         value.OffsetPosition.Edited += _handler;

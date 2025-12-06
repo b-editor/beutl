@@ -10,14 +10,14 @@ using Beutl.Threading;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElementPreviewProvider
+public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElementThumbnailsProvider
 {
     private Uri? _uri;
     private EventHandler? _handler;
 
-    public ElementPreviewKind PreviewKind => ElementPreviewKind.Audio;
+    public ElementThumbnailsKind ThumbnailsKind => ElementThumbnailsKind.Audio;
 
-    public event EventHandler? PreviewInvalidated;
+    public event EventHandler? ThumbnailsInvalidated;
 
     public override bool HasOriginalLength()
     {
@@ -56,7 +56,7 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
         base.OnAttachedToHierarchy(args);
         if (Value is not { } value) return;
 
-        _handler = (_, _) => PreviewInvalidated?.Invoke(this, EventArgs.Empty);
+        _handler = (_, _) => ThumbnailsInvalidated?.Invoke(this, EventArgs.Empty);
         value.Edited += _handler;
 
         if (_uri is null) return;
