@@ -145,7 +145,7 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
             if (sampleCount <= 0)
                 continue;
 
-            var chunk = await RenderThread.Dispatcher.InvokeAsync(() =>
+            var chunk = await ComposeThread.Dispatcher.InvokeAsync(() =>
             {
                 if (cancellationToken.IsCancellationRequested)
                     return (WaveformChunk?)null;
