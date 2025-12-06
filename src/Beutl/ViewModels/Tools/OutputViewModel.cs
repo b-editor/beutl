@@ -216,12 +216,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 // using var renderer = new SceneRenderer(scene);
                 var renderer = _editViewModel.Renderer.Value;
                 var frameProgress = new Subject<TimeSpan>();
-                var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
+                using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
                 // サンプルプロバイダー作成
                 using var composer = new SceneComposer(Model, renderer) { SampleRate = audioSettings.SampleRate };
                 // var composer = _editViewModel.Composer.Value;
                 var sampleProgress = new Subject<TimeSpan>();
-                var sampleProvider = new SampleProviderImpl(
+                using var sampleProvider = new SampleProviderImpl(
                     Model, composer, audioSettings.SampleRate, sampleProgress);
 
                 using (frameProgress.CombineLatest(sampleProgress)
