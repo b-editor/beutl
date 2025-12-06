@@ -67,3 +67,9 @@ jobs:
         with:
           name: beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup
           path: ./artifacts/beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup.exe
+
+      - name: Save Metadata
+        uses: actions/upload-artifact@v5
+        with:
+          name: metadata-beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup
+          path: ./output/Beutl/asset_metadata.json

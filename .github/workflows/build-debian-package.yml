@@ -92,3 +92,9 @@ jobs:
         with:
           name: ubuntu22.04_amd64
           path: ./packages/beutl_${{ inputs.simpleVer }}-${{ inputs.revision }}ubuntu22.04_amd64.deb
+
+      - name: Save Metadata
+        uses: actions/upload-artifact@v5
+        with:
+          name: metadata-ubuntu22.04_amd64
+          path: ./packages/ubuntu22.04_amd64/usr/lib/beutl/asset_metadata.json
