@@ -131,14 +131,14 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void InitializeElementGroup()
     {
-        _elementGroup = Timeline.ElementGroups.FirstOrDefault(x => x.Contains(Model.Id));
+        _elementGroup = Scene.Groups.FirstOrDefault(x => x.Contains(Model.Id));
 
-        Timeline.ElementGroups.Attached += OnSetAttached;
-        Timeline.ElementGroups.Detached += OnSetDetached;
+        Scene.Groups.Attached += OnSetAttached;
+        Scene.Groups.Detached += OnSetDetached;
         _disposables.Add(Disposable.Create(() =>
         {
-            Timeline.ElementGroups.Attached -= OnSetAttached;
-            Timeline.ElementGroups.Detached -= OnSetDetached;
+            Scene.Groups.Attached -= OnSetAttached;
+            Scene.Groups.Detached -= OnSetDetached;
         }));
 
         GroupSelectedElements.Subscribe(_ => OnGroupSelectedElements())
@@ -242,13 +242,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     public bool CanGroupSelectedElements()
     {
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
-        return ids.Count >= 2 && !Timeline.ElementGroups.Any(x => x.SetEquals(ids));
+        return ids.Count >= 2 && !Scene.Groups.Any(x => x.SetEquals(ids));
     }
 
     public bool CanUngroupSelectedElements()
     {
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
-        return Timeline.ElementGroups.Any(x => x.Overlaps(ids));
+        return Scene.Groups.Any(x => x.Overlaps(ids));
     }
 
     public void Dispose()
@@ -434,47 +434,73 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         return ids;
     }
 
-    private void RemoveIdsFromElementSets(IReadOnlyCollection<Guid> ids)
+    private List<IRecordableCommand> RemoveIdsFromElementSets(IReadOnlyCollection<Guid> ids)
     {
-        for (int i = Timeline.ElementGroups.Count - 1; i >= 0; i--)
+        var list = new List<IRecordableCommand>();
+        for (int i = Scene.Groups.Count - 1; i >= 0; i--)
         {
-            ImmutableHashSet<Guid> group = Timeline.ElementGroups[i];
+            ImmutableHashSet<Guid> group = Scene.Groups[i];
 
             if (!group.Overlaps(ids))
                 continue;
 
             ImmutableHashSet<Guid> updatedGroup = group.Except(ids);
+            var index = i;
+            var scene = Scene;
             if (updatedGroup.Count >= 2)
             {
-                Timeline.ElementGroups[i] = updatedGroup;
+                list.Add(RecordableCommands.Create()
+                    .OnDo(() => scene.Groups[index] = updatedGroup)
+                    .OnUndo(() => scene.Groups[index] = group)
+                    .ToCommand([Scene]));
             }
             else
             {
-                Timeline.ElementGroups.RemoveAt(i);
+                list.Add(RecordableCommands.Create()
+                    .OnDo(() => scene.Groups.RemoveAt(index))
+                    .OnUndo(() => scene.Groups.Insert(index, group))
+                    .ToCommand([Scene]));
             }
         }
+
+        return list;
     }
 
     private void OnGroupSelectedElements()
     {
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
 
-        RemoveIdsFromElementSets(ids);
+        var list = RemoveIdsFromElementSets(ids);
 
         ImmutableHashSet<Guid> newGroup = [.. ids];
-        if (newGroup.Count == 0)
-            return;
-
-        if (!Timeline.ElementGroups.Any(x => x.SetEquals(newGroup)))
+        if (newGroup.Count > 0)
         {
-            Timeline.ElementGroups.Add(newGroup);
+            var scene = Scene;
+            list.Add(RecordableCommands.Create()
+                .OnDo(() =>
+                {
+                    if (!scene.Groups.Any(x => x.SetEquals(newGroup)))
+                    {
+                        scene.Groups.Add(newGroup);
+                    }
+                })
+                .OnUndo(() => scene.Groups.Remove(newGroup))
+                .ToCommand([Scene]));
         }
+
+        list.ToArray()
+            .ToCommand()
+            .DoAndRecord(Timeline.EditorContext.CommandRecorder);
     }
 
     private void OnUngroupSelectedElements()
     {
+        var recorder = Timeline.EditorContext.CommandRecorder;
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
-        RemoveIdsFromElementSets(ids);
+        RemoveIdsFromElementSets(ids)
+            .ToArray()
+            .ToCommand()
+            .DoAndRecord(recorder);
     }
 
     private void OnSetAttached(ImmutableHashSet<Guid> group)
@@ -573,7 +599,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
             if (target._elementGroup is { } set)
             {
-                int index = target.Timeline.ElementGroups.IndexOf(set);
+                int index = target.Scene.Groups.IndexOf(set);
                 if (index >= 0)
                 {
                     if (!groupUpdates.TryGetValue(index, out List<Guid>? newIds))
@@ -587,21 +613,25 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         }
 
+        foreach ((int index, List<Guid> value) in groupUpdates.OrderByDescending(x => x.Key))
+        {
+            ImmutableHashSet<Guid> newGroup = value.ToImmutableHashSet();
+            if (newGroup.Count >= 2)
+            {
+                var scene = Scene;
+                commands.Add(RecordableCommands.Create()
+                    .OnDo(() => scene.Groups.Insert(index + 1, newGroup))
+                    .OnUndo(() => scene.Groups.Remove(newGroup))
+                    .ToCommand([Scene]));
+            }
+        }
+
         if (commands.Count == 0)
             return;
 
         commands.ToArray()
             .ToCommand()
             .DoAndRecord(recorder);
-
-        foreach ((int index, List<Guid> value) in groupUpdates.OrderByDescending(x => x.Key))
-        {
-            ImmutableHashSet<Guid> newGroup = value.ToImmutableHashSet();
-            if (newGroup.Count >= 2)
-            {
-                Timeline.ElementGroups.Insert(index + 1, newGroup);
-            }
-        }
     }
 
     private async void OnChangeToOriginalLength()
@@ -659,6 +689,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 {
                     GroupSelectedElements.Execute();
                 }
+
                 break;
             default:
                 if (execution.KeyEventArgs != null)

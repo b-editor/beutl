@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-
+using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Language;
 using Beutl.Media;
@@ -47,6 +47,7 @@ public class Scene : ProjectItem, INotifyEdited
     public static readonly CoreProperty<Elements> ChildrenProperty;
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
+    public static readonly CoreProperty<CoreList<ImmutableHashSet<Guid>>> ElementGroupsProperty;
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly List<string> _excludeElements = [];
     private readonly Elements _children;
@@ -85,6 +86,10 @@ public class Scene : ProjectItem, INotifyEdited
 
         DurationProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
+            .Register();
+
+        ElementGroupsProperty = ConfigureProperty<CoreList<ImmutableHashSet<Guid>>, Scene>(nameof(Groups))
+            .Accessor(o => o.Groups, (o, v) => o.Groups = v)
             .Register();
     }
 
@@ -129,8 +134,16 @@ public class Scene : ProjectItem, INotifyEdited
         set => _children.Replace(value);
     }
 
+    [NotAutoSerialized]
+    public CoreList<ImmutableHashSet<Guid>> Groups
+    {
+        get;
+        set => field.Replace(value);
+    } = [];
+
     // element.FileNameが既に設定されている状態
-    public IRecordableCommand AddChild(Element element, ElementOverlapHandling overlapHandling = ElementOverlapHandling.Auto)
+    public IRecordableCommand AddChild(Element element,
+        ElementOverlapHandling overlapHandling = ElementOverlapHandling.Auto)
     {
         ArgumentNullException.ThrowIfNull(element);
 
@@ -184,6 +197,7 @@ public class Scene : ProjectItem, INotifyEdited
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
+
         static void Process(JsonObject jobject, string jsonName, List<string> list)
         {
             if (list.Count == 1)
@@ -208,6 +222,7 @@ public class Scene : ProjectItem, INotifyEdited
 
         context.SetValue("Width", FrameSize.Width);
         context.SetValue("Height", FrameSize.Height);
+        context.SetValue("Groups", Groups.Select(ids => string.Join(':', ids)).ToArray());
 
         if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
         {
@@ -265,7 +280,7 @@ public class Scene : ProjectItem, INotifyEdited
             FrameSize = new PixelSize(context.GetValue<int>("Width"), context.GetValue<int>("Height"));
         }
 
-        if (context.GetValue<JsonNode>(nameof(Elements)) is {  } elementsJson)
+        if (context.GetValue<JsonNode>(nameof(Elements)) is { } elementsJson)
         {
             if (elementsJson is JsonObject elementsObject)
             {
@@ -295,6 +310,20 @@ public class Scene : ProjectItem, INotifyEdited
         else
         {
             Children.Clear();
+        }
+
+        if (context.Contains("Groups"))
+        {
+            string[]? groups = context.GetValue<string[]>("Groups");
+            Groups.Clear();
+            foreach (string group in groups ?? [])
+            {
+                var ids = group.Split(':')
+                    .Select(Guid.Parse)
+                    .Where(i => Children.Any(e => e.Id == i))
+                    .ToImmutableHashSet();
+                Groups.Add(ids);
+            }
         }
     }
 
@@ -381,10 +410,7 @@ public class Scene : ProjectItem, INotifyEdited
             }
         }
 
-        Edited?.Invoke(this, new ElementEditedEventArgs
-        {
-            AffectedRange = affectedRange.DrainToImmutable()
-        });
+        Edited?.Invoke(this, new ElementEditedEventArgs { AffectedRange = affectedRange.DrainToImmutable() });
     }
 
     private void OnElementEdited(object? sender, EventArgs e)
@@ -433,6 +459,7 @@ public class Scene : ProjectItem, INotifyEdited
                 }
             }
         }
+
         return tmp;
     }
 
@@ -523,6 +550,7 @@ public class Scene : ProjectItem, INotifyEdited
             candidateEnd.Add(cover.Start);
             candidateStart.Add(cover.Range.End);
         }
+
         if (after != null) candidateEnd.Add(after.Start);
         if (before != null) candidateStart.Add(before.Range.End);
 
@@ -577,7 +605,8 @@ public class Scene : ProjectItem, INotifyEdited
         return (element.Range, NearestLayerNumber(element));
     }
 
-    private sealed class AddCommand(Scene scene, Element element, ElementOverlapHandling overlapHandling) : IRecordableCommand
+    private sealed class AddCommand(Scene scene, Element element, ElementOverlapHandling overlapHandling)
+        : IRecordableCommand
     {
         private readonly TimeSpan _oldSceneDuration = scene.Duration;
         private readonly bool _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
@@ -704,8 +733,10 @@ public class Scene : ProjectItem, INotifyEdited
     private sealed class MoveCommand(
         int zIndex,
         Element element,
-        TimeSpan newStart, TimeSpan oldStart,
-        TimeSpan newLength, TimeSpan oldLength,
+        TimeSpan newStart,
+        TimeSpan oldStart,
+        TimeSpan newLength,
+        TimeSpan oldLength,
         Scene scene) : IRecordableCommand, IAffectsTimelineCommand
     {
         private readonly int _oldZIndex = element.ZIndex;
@@ -741,7 +772,8 @@ public class Scene : ProjectItem, INotifyEdited
             else if (after != null && after.Start < newEnd)
             {
                 TimeSpan ns = after.Start - newLength;
-                if (((before != null && (after.Start - before.Range.End) >= newLength) || before == null) && ns >= TimeSpan.Zero)
+                if (((before != null && (after.Start - before.Range.End) >= newLength) || before == null) &&
+                    ns >= TimeSpan.Zero)
                 {
                     element.Start = ns;
                     element.Length = newLength;
@@ -890,7 +922,8 @@ public class Scene : ProjectItem, INotifyEdited
             else if (after != null && after.Start < newEnd)
             {
                 TimeSpan ns = after.Start - element.Length;
-                if (((before != null && (after.Start - before.Range.End) >= element.Length) || before == null) && ns >= TimeSpan.Zero)
+                if (((before != null && (after.Start - before.Range.End) >= element.Length) || before == null) &&
+                    ns >= TimeSpan.Zero)
                 {
                     return ns - element.Start;
                 }

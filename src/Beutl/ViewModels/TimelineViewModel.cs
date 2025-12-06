@@ -333,8 +333,6 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public ReactiveCommand<ElementDescription> AddElement { get; } = new();
 
-    public CoreList<ImmutableHashSet<Guid>> ElementGroups { get; } = [];
-
     public CoreList<ElementViewModel> Elements { get; } = [];
 
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = [];
@@ -736,21 +734,6 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             RestoreInlineAnimation(inlinesArray);
         }
 
-        if (json.TryGetPropertyValue(nameof(ElementGroups), out JsonNode? groupsNode)
-            && groupsNode is JsonArray groupsArray)
-        {
-            ImmutableHashSet<Guid>[] groups = [.. groupsArray
-                .OfType<JsonArray>()
-                .Select(setArray => setArray
-                    .OfType<JsonValue>()
-                    .Select(val => val.TryGetValue(out Guid id) ? id : (Guid?)null)
-                    .Where(id => id.HasValue)
-                    .Select(id => id!.Value)
-                    .ToImmutableHashSet())];
-
-            ElementGroups.Replace(groups);
-        }
-
         _logger.LogInformation("TimelineViewModel state read from JSON successfully.");
     }
 
@@ -878,14 +861,6 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         }
 
         json[nameof(Inlines)] = inlines;
-
-        var sets = new JsonArray();
-        foreach (ImmutableHashSet<Guid> group in ElementGroups)
-        {
-            sets.Add(new JsonArray([.. group.Select(id => (JsonNode?)id)]));
-        }
-
-        json[nameof(ElementGroups)] = sets;
 
         _logger.LogInformation("TimelineViewModel state written to JSON successfully.");
     }
