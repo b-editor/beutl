@@ -473,7 +473,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         var list = RemoveIdsFromElementSets(ids);
 
         ImmutableHashSet<Guid> newGroup = [.. ids];
-        if (newGroup.Count > 0)
+        if (newGroup.Count >= 2)
         {
             var scene = Scene;
             list.Add(RecordableCommands.Create()
