@@ -2,6 +2,7 @@
 using System.Reactive.Subjects;
 using System.Threading.Channels;
 using Beutl.Audio.Composing;
+using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
@@ -34,8 +35,9 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         _progress = progress;
         _chunkSize = checked((int)sampleRate);
 
+        int bufferSize = Preferences.Default.Get("Output.SampleBufferSize", 3);
         _channel = Channel.CreateBounded<(long Offset, Pcm<Stereo32BitFloat> Pcm)>(
-            new BoundedChannelOptions(3)
+            new BoundedChannelOptions(bufferSize)
             {
                 FullMode = BoundedChannelFullMode.Wait,
                 SingleReader = true,

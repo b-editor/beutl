@@ -1,5 +1,6 @@
 ﻿using System.Reactive.Subjects;
 using System.Threading.Channels;
+using Beutl.Configuration;
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media;
@@ -28,8 +29,9 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         _renderer = renderer;
         _progress = progress;
 
+        int bufferSize = Preferences.Default.Get("Output.FrameBufferSize", 100);
         _channel = Channel.CreateBounded<(long Frame, Bitmap<Bgra8888> Bitmap)>(
-            new BoundedChannelOptions(100)
+            new BoundedChannelOptions(bufferSize)
             {
                 FullMode = BoundedChannelFullMode.Wait,
                 SingleReader = true,
