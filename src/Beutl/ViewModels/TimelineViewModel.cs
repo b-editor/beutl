@@ -1,6 +1,8 @@
+using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.Numerics;
 using System.Reactive.Subjects;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
@@ -531,10 +533,38 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         }
 
         CommandRecorder recorder = EditorContext.CommandRecorder;
-        newElements.Select(i => Scene.AddChild(i))
+
+        var idMapping = new Dictionary<Guid, Guid>();
+        for (int i = 0; i < oldElements.Length; i++)
+        {
+            idMapping[oldElements[i].Id] = newElements[i].Id;
+        }
+
+        // コピーする要素が含まれるグループを取得
+        var scene = Scene;
+        List<ImmutableHashSet<Guid>> newGroups = Scene.Groups
+            .Select(g => g.Where(id => idMapping.ContainsKey(id))
+                .Select(id => idMapping[id])
+                .ToImmutableHashSet())
+            .Where(g => g.Count >= 2)
+            .ToList();
+        IRecordableCommand? command = null;
+        if (newGroups.Count > 0)
+        {
+            command = RecordableCommands.Create()
+                .OnDo(() => scene.Groups.AddRange(newGroups))
+                .OnUndo(() => scene.Groups.RemoveAll(newGroups))
+                .ToCommand([scene]);
+        }
+
+        var commands = newElements.Select(i => Scene.AddChild(i));
+        if (command != null) commands = commands.Append(command);
+
+        commands
             .ToArray()
             .ToCommand()
             .DoAndRecord(recorder);
+
         ScrollTo.Execute((new TimeRange(newStart, maxStart - minStart), newZIndex));
     }
 
@@ -1066,6 +1096,18 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 if (execution.KeyEventArgs != null)
                 {
                     execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "ToggleGroup":
+                var first = SelectedElements.FirstOrDefault();
+                if (first?.CanUngroupSelectedElements() == true)
+                {
+                    first.UngroupSelectedElements.Execute();
+                }
+                else if (first?.CanGroupSelectedElements() == true)
+                {
+                    first.GroupSelectedElements.Execute();
                 }
 
                 break;

@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Numerics;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
@@ -592,6 +593,10 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 CoreSerializer.StoreToUri(element2, element2.Uri!);
                 list.Add(Scene.AddChild(element1));
                 list.Add(Scene.AddChild(element2));
+                // グループ化
+                list.Add(Scene.Groups.BeginRecord<ImmutableHashSet<Guid>>()
+                    .Add([element1.Id, element2.Id])
+                    .ToCommand([Scene]));
                 scrollPos = (element1.Range, element1.ZIndex);
             }
             else if (MatchFileAudioOnly(desc.FileName))
