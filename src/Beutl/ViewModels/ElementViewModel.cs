@@ -680,17 +680,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             case "Split":
                 SplitByCurrentFrame.Execute();
                 break;
-            case "ToggleGroup":
-                if (CanUngroupSelectedElements())
-                {
-                    UngroupSelectedElements.Execute();
-                }
-                else if (CanGroupSelectedElements())
-                {
-                    GroupSelectedElements.Execute();
-                }
-
-                break;
             default:
                 if (execution.KeyEventArgs != null)
                     execution.KeyEventArgs.Handled = false;

@@ -1070,6 +1070,18 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 }
 
                 break;
+            case "ToggleGroup":
+                var first = SelectedElements.FirstOrDefault();
+                if (first?.CanUngroupSelectedElements() == true)
+                {
+                    first.UngroupSelectedElements.Execute();
+                }
+                else if (first?.CanGroupSelectedElements() == true)
+                {
+                    first.GroupSelectedElements.Execute();
+                }
+
+                break;
         }
     }
 
