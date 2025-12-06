@@ -6,8 +6,10 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
@@ -70,6 +72,12 @@ public sealed partial class ElementView : UserControl
         obj.AnimationRequested = (_, _) => Task.CompletedTask;
         obj.RenameRequested = () => { };
         obj.GetClickedTime = null;
+
+        obj.ThumbnailReady -= OnThumbnailReady;
+        obj.ThumbnailsClear -= OnThumbnailsClear;
+        obj.WaveformChunkReady -= OnWaveformChunkReady;
+        obj.WaveformClear -= OnWaveformClear;
+
         _disposables.Clear();
     }
 
@@ -94,6 +102,31 @@ public sealed partial class ElementView : UserControl
             .ObserveOnUIDispatcher()
             .Subscribe(v => ZIndex = v ? 5 : 0)
             .DisposeWith(_disposables);
+
+        obj.ThumbnailReady += OnThumbnailReady;
+        obj.ThumbnailsClear += OnThumbnailsClear;
+        obj.WaveformChunkReady += OnWaveformChunkReady;
+        obj.WaveformClear += OnWaveformClear;
+    }
+
+    private void OnThumbnailReady(int index, Bitmap? thumbnail)
+    {
+        thumbnailStrip.SetThumbnail(index, thumbnail);
+    }
+
+    private void OnThumbnailsClear()
+    {
+        thumbnailStrip.ClearThumbnails();
+    }
+
+    private void OnWaveformChunkReady(WaveformChunk chunk)
+    {
+        waveformControl.SetChunk(chunk);
+    }
+
+    private void OnWaveformClear()
+    {
+        waveformControl.ClearChunks();
     }
 
     protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)

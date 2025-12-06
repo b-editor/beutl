@@ -1,13 +1,23 @@
-﻿using Beutl.Audio;
+using System.Runtime.CompilerServices;
+using Beutl.Audio;
+using Beutl.Audio.Composing;
 using Beutl.Audio.Effects;
+using Beutl.Graphics.Rendering;
+using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Operation;
+using Beutl.Threading;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceSoundOperator : PublishOperator<SourceSound>
+public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElementThumbnailsProvider
 {
     private Uri? _uri;
+    private EventHandler? _handler;
+
+    public ElementThumbnailsKind ThumbnailsKind => ElementThumbnailsKind.Audio;
+
+    public event EventHandler? ThumbnailsInvalidated;
 
     public override bool HasOriginalLength()
     {
@@ -26,18 +36,30 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } value) return;
+
+        if (Value is { } value && _handler != null)
+        {
+            value.Edited -= _handler;
+        }
+
+        _handler = null;
+
+        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } v) return;
 
         _uri = uri;
-        value.Source.CurrentValue = null;
+        v.Source.CurrentValue = null;
         source.Dispose();
     }
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
-        if (_uri is null) return;
         if (Value is not { } value) return;
+
+        _handler = (_, _) => ThumbnailsInvalidated?.Invoke(this, EventArgs.Empty);
+        value.Edited += _handler;
+
+        if (_uri is null) return;
 
         if (SoundSource.TryOpen(_uri, out SoundSource? source))
         {
@@ -76,6 +98,85 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>
         else
         {
             return base.OnSplit(backward, startDelta, lengthDelta);
+        }
+    }
+
+    public async IAsyncEnumerable<(int Index, int Count, IBitmap Thumbnail)> GetThumbnailStripAsync(
+        int maxWidth,
+        int maxHeight,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await Task.CompletedTask;
+        yield break;
+    }
+
+    public async IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
+        int chunkCount,
+        int samplesPerChunk,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (Value?.Source.CurrentValue is not { IsDisposed: false } source)
+            yield break;
+
+        if (chunkCount <= 0 || samplesPerChunk <= 0)
+            yield break;
+
+        var duration = source.Duration;
+        if (duration <= TimeSpan.Zero)
+            yield break;
+
+        int sampleRate = source.SampleRate;
+        int totalSamples = (int)(duration.TotalSeconds * sampleRate);
+
+        using var composer = new Composer { SampleRate = sampleRate };
+        composer.AddSound(Value);
+
+        for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                yield break;
+
+            int startSample = (int)((long)chunkIndex * totalSamples / chunkCount);
+            int endSample = (int)((long)(chunkIndex + 1) * totalSamples / chunkCount);
+            int sampleCount = Math.Min(endSample - startSample, samplesPerChunk);
+            TimeSpan startTime = Value.TimeRange.Start + TimeSpan.FromSeconds((double)startSample / sampleRate);
+            TimeSpan durationTime = TimeSpan.FromSeconds((double)sampleCount / sampleRate);
+
+            if (sampleCount <= 0)
+                continue;
+
+            var chunk = await ComposeThread.Dispatcher.InvokeAsync(() =>
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    return (WaveformChunk?)null;
+
+                using var buffer = composer.Compose(new TimeRange(startTime, durationTime));
+                if (buffer == null || buffer.SampleCount == 0)
+                    return null;
+
+                var firstChannel = buffer.GetChannelData(0);
+                var secondChannel = buffer.GetChannelData(1);
+
+                float minValue = float.MaxValue;
+                float maxValue = float.MinValue;
+
+                for (int i = 0; i < buffer.SampleCount; i++)
+                {
+                    float left = firstChannel[i];
+                    float right = secondChannel[i];
+
+                    float monoValue = (left + right) * 0.5f;
+                    minValue = Math.Min(minValue, monoValue);
+                    maxValue = Math.Max(maxValue, monoValue);
+                }
+
+                return new WaveformChunk(chunkIndex, minValue, maxValue);
+            }, DispatchPriority.Low, cancellationToken);
+
+            if (chunk.HasValue)
+            {
+                yield return chunk.Value;
+            }
         }
     }
 }

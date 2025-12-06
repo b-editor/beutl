@@ -21,6 +21,7 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
 
     protected override void ComposeCore(TimeRange timeRange)
     {
+        ClearSounds();
         SortLayers(timeRange, out _);
         Span<Element> elements = CollectionsMarshal.AsSpan(_current);
         Span<Element> entered = CollectionsMarshal.AsSpan(_entered);

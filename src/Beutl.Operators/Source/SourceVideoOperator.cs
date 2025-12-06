@@ -1,19 +1,32 @@
-﻿using Beutl.Graphics;
+using System.Runtime.CompilerServices;
+using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
+using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Operation;
+using Beutl.Threading;
+using SkiaSharp;
 
 namespace Beutl.Operators.Source;
 
-public sealed class SourceVideoOperator : PublishOperator<SourceVideo>
+public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElementThumbnailsProvider
 {
     private Uri? _uri;
+    private EventHandler? _handler;
+
+    public ElementThumbnailsKind ThumbnailsKind => ElementThumbnailsKind.Video;
+
+    public event EventHandler? ThumbnailsInvalidated;
 
     protected override void FillProperties()
     {
         AddProperty(Value.OffsetPosition, TimeSpan.Zero);
+        AddProperty(Value.Speed, 100f);
         AddProperty(Value.Source);
+        AddProperty(Value.IsLoop);
         AddProperty(Value.Transform, new TransformGroup());
         AddProperty(Value.AlignmentX);
         AddProperty(Value.AlignmentY);
@@ -26,18 +39,37 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>
     protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnDetachedFromHierarchy(args);
-        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } value) return;
+
+        if (Value is { } value && _handler != null)
+        {
+            value.Source.Edited -= _handler;
+            value.OffsetPosition.Edited -= _handler;
+            value.Speed.Edited -= _handler;
+            value.IsLoop.Edited -= _handler;
+        }
+
+        _handler = null;
+
+        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } v) return;
 
         _uri = uri;
-        value.Source.CurrentValue = null;
+        v.Source.CurrentValue = null;
         source.Dispose();
     }
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
-        if (_uri is null) return;
         if (Value is not { } value) return;
+
+        _handler = (_, _) => ThumbnailsInvalidated?.Invoke(this, EventArgs.Empty);
+
+        value.Source.Edited += _handler;
+        value.OffsetPosition.Edited += _handler;
+        value.Speed.Edited += _handler;
+        value.IsLoop.Edited += _handler;
+
+        if (_uri is null) return;
 
         if (VideoSource.TryOpen(_uri, out VideoSource? source))
         {
@@ -83,5 +115,87 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>
         {
             return base.OnSplit(backward, startDelta, lengthDelta);
         }
+    }
+
+    public async IAsyncEnumerable<(int Index, int Count, IBitmap Thumbnail)> GetThumbnailStripAsync(
+        int maxWidth,
+        int maxHeight,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (Value.Source.CurrentValue is not { IsDisposed: false } source)
+            yield break;
+
+        if (source.Duration <= TimeSpan.Zero)
+            yield break;
+        var duration = Value.TimeRange.Duration;
+
+        var frameSize = source.FrameSize;
+        float aspectRatio = (float)frameSize.Width / frameSize.Height;
+        float thumbWidth = maxHeight * aspectRatio;
+        int count = (int)MathF.Ceiling(maxWidth / thumbWidth);
+        double interval = duration.TotalSeconds / count;
+        SourceVideo.Resource? resource = null;
+        DrawableRenderNode? node = null;
+        RenderNodeProcessor? processor = null;
+
+        try
+        {
+            for (int i = 0; i < count; i++)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    yield break;
+
+                var time = TimeSpan.FromSeconds(i * interval);
+
+                var thumbnail = await RenderThread.Dispatcher.InvokeAsync(() =>
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                        return null;
+
+                    var ctx = new RenderContext(time + Value.TimeRange.Start);
+                    if (resource == null)
+                    {
+                        resource = Value.ToResource(ctx);
+                        node = new DrawableRenderNode(resource);
+                        processor = new RenderNodeProcessor(node, false);
+                    }
+                    else
+                    {
+                        bool updateOnly = false;
+                        resource.Update(Value, ctx, ref updateOnly);
+                    }
+
+                    using (var gctx = new GraphicsContext2D(node!, new PixelSize((int)thumbWidth, maxHeight)))
+                    using (gctx.PushTransform(Matrix.CreateScale(thumbWidth / frameSize.Width, (float)maxHeight / frameSize.Height)))
+                    {
+                        Value.DrawInternal(gctx, resource);
+                    }
+
+                    return processor!.RasterizeAndConcat();
+                }, DispatchPriority.Medium, cancellationToken);
+
+                if (thumbnail != null)
+                {
+                    yield return (i, count, thumbnail);
+                }
+            }
+        }
+        finally
+        {
+            RenderThread.Dispatcher.Dispatch(() =>
+            {
+                node?.Dispose();
+                resource?.Dispose();
+            }, ct: CancellationToken.None);
+        }
+    }
+
+    public async IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
+        int chunkCount,
+        int samplesPerChunk,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await Task.CompletedTask;
+        yield break;
     }
 }

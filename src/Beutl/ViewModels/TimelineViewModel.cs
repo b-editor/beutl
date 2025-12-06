@@ -336,6 +336,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
     public CoreList<ElementViewModel> Elements { get; } = [];
 
+    public CoreList<Guid> ThumbnailsDisabledElements { get; } = [];
+
     public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = [];
 
     public CoreList<LayerHeaderViewModel> LayerHeaders { get; } = [];
@@ -763,6 +765,22 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             RestoreInlineAnimation(inlinesArray);
         }
 
+        if (json.TryGetPropertyValue(nameof(ThumbnailsDisabledElements), out JsonNode? ThumbnailsDisabledNode)
+            && ThumbnailsDisabledNode is JsonArray thumbnailsDisabledArray)
+        {
+            ThumbnailsDisabledElements.Clear();
+            foreach (JsonNode? item in thumbnailsDisabledArray)
+            {
+                if (item is JsonValue value
+                    && value.TryGetValue(out string? guidStr)
+                    && Guid.TryParse(guidStr, out Guid id)
+                    && Scene.Children.Any(e => e.Id == id))
+                {
+                    ThumbnailsDisabledElements.Add(id);
+                }
+            }
+        }
+
         _logger.LogInformation("TimelineViewModel state read from JSON successfully.");
     }
 
@@ -890,6 +908,14 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         }
 
         json[nameof(Inlines)] = inlines;
+
+        var thumbnailsDisabledArray = new JsonArray();
+        foreach (Guid id in ThumbnailsDisabledElements)
+        {
+            thumbnailsDisabledArray.Add(id.ToString());
+        }
+
+        json[nameof(ThumbnailsDisabledElements)] = thumbnailsDisabledArray;
 
         _logger.LogInformation("TimelineViewModel state written to JSON successfully.");
     }

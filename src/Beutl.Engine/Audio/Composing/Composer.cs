@@ -70,12 +70,12 @@ public class Composer : IComposer
         }
     }
 
-    protected void AddSound(Sound sound)
+    public void AddSound(Sound sound)
     {
         _currentSounds.Add(sound);
     }
 
-    protected void ClearSounds()
+    public void ClearSounds()
     {
         _currentSounds.Clear();
     }
@@ -87,9 +87,6 @@ public class Composer : IComposer
             try
             {
                 IsAudioRendering = true;
-
-                // Clear previous sounds list
-                _currentSounds.Clear();
 
                 // Let subclass populate sounds
                 ComposeCore(timeRange);

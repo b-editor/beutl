@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Reflection;
@@ -220,8 +221,7 @@ public class EngineObject : Hierarchical, INotifyEdited
         {
             if (!typeof(IProperty).IsAssignableFrom(propertyInfo.PropertyType)) continue;
 
-            var func = ReflectionCache<T>.Properties.FirstOrDefault(x => x.Item1 == propertyInfo).Item2;
-            if (func == null)
+            if (!ReflectionCache<T>.Properties.TryGetValue(propertyInfo, out var func))
             {
                 var param = LinqExpression.Parameter(typeof(object), "o");
                 var cast = LinqExpression.Convert(param, type);
@@ -229,7 +229,7 @@ public class EngineObject : Hierarchical, INotifyEdited
                 var convertResult = LinqExpression.Convert(propertyAccess, typeof(IProperty));
                 var lambda = LinqExpression.Lambda<Func<object, IProperty?>>(convertResult, param);
                 func = lambda.Compile();
-                ReflectionCache<T>.Properties.Add((propertyInfo, func));
+                ReflectionCache<T>.Properties[propertyInfo] = func;
             }
 
             var property = func(this);
@@ -451,7 +451,7 @@ public class EngineObject : Hierarchical, INotifyEdited
 
     private static class ReflectionCache<T>
     {
-        public static readonly List<(PropertyInfo, Func<object, IProperty?>)> Properties = new();
-        public static readonly Dictionary<string, IValidator> Validators = new();
+        public static readonly ConcurrentDictionary<PropertyInfo, Func<object, IProperty?>> Properties = new();
+        public static readonly ConcurrentDictionary<string, IValidator> Validators = new();
     }
 }

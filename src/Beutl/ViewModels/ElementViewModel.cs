@@ -1,17 +1,21 @@
-﻿using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Reactive.Disposables;
+using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Avalonia.Media.Imaging;
 using Beutl.Animation;
 using Beutl.Helpers;
+using Beutl.Logging;
+using Beutl.Media;
 using Beutl.Models;
+using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using FluentAvalonia.UI.Media;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -19,8 +23,13 @@ namespace Beutl.ViewModels;
 
 public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 {
+    private readonly ILogger _logger = Log.CreateLogger<ElementViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private ImmutableHashSet<Guid>? _elementGroup;
+    private readonly Subject<Unit> _thumbnailsInvalidatedSubject = new();
+    private CancellationTokenSource? _thumbnailsCts;
+    private IElementThumbnailsProvider? _currentThumbnailsProvider;
+    private EventHandler? _thumbnailsInvalidatedHandler;
 
     public ElementViewModel(Element element, TimelineViewModel timeline)
     {
@@ -127,6 +136,54 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .AddTo(_disposables);
 
         Scope = new ElementScopeViewModel(Model, this);
+
+        // プレビュー関連の初期化
+        IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == ElementThumbnailsKind.Audio)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+        IsThumbnailsKindVideo = ThumbnailsKind.Select(k => k == ElementThumbnailsKind.Video)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
+        InitializeThumbnails();
+    }
+
+    private void InitializeThumbnails()
+    {
+        // プレビュー無効化の初期値を設定
+        IsThumbnailsDisabled.Value = Timeline.ThumbnailsDisabledElements.Contains(Model.Id);
+
+        // ThumbnailsDisabledElementsの変更を購読
+        Timeline.ThumbnailsDisabledElements.Attached += OnThumbnailsDisabledElementsAttached;
+        Timeline.ThumbnailsDisabledElements.Detached += OnThumbnailsDisabledElementsDetached;
+
+        // IsThumbnailsDisabledが変更されたらThumbnailsDisabledElementsを更新し、プレビューを再読み込み
+        IsThumbnailsDisabled.Skip(1)
+            .Subscribe(isDisabled =>
+            {
+                if (isDisabled)
+                {
+                    if (!Timeline.ThumbnailsDisabledElements.Contains(Model.Id))
+                    {
+                        Timeline.ThumbnailsDisabledElements.Add(Model.Id);
+                    }
+                }
+                else
+                {
+                    Timeline.ThumbnailsDisabledElements.Remove(Model.Id);
+                }
+
+                UpdateThumbnailsAsync();
+            })
+            .AddTo(_disposables);
+
+        // Width変更とThumbnailsInvalidatedイベントをマージして、いずれかが発生してから500ms後に更新
+        Observable.Merge(
+                Width.Select(_ => Unit.Default),
+                _thumbnailsInvalidatedSubject.AsObservable())
+            .Throttle(TimeSpan.FromMilliseconds(500))
+            .Subscribe(_ => UpdateThumbnailsAsync())
+            .AddTo(_disposables);
     }
 
     private void InitializeElementGroup()
@@ -215,6 +272,26 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReactiveCommand ChangeToOriginalLength { get; } = new();
 
+    public ReactivePropertySlim<ElementThumbnailsKind> ThumbnailsKind { get; } = new(ElementThumbnailsKind.None);
+
+    public ReadOnlyReactivePropertySlim<bool> IsThumbnailsKindVideo { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsThumbnailsKindAudio { get; }
+
+    public ReactivePropertySlim<bool> IsThumbnailsDisabled { get; } = new();
+
+    public ReactivePropertySlim<int> VideoThumbnailCount { get; } = new();
+
+    public ReactivePropertySlim<int> WaveformChunkCount { get; } = new();
+
+    public event Action<int, Bitmap?>? ThumbnailReady;
+
+    public event Action? ThumbnailsClear;
+
+    public event Action<WaveformChunk>? WaveformChunkReady;
+
+    public event Action? WaveformClear;
+
     public IReadOnlyList<ElementViewModel> GetGroupOrSelectedElements()
     {
         var ids = new HashSet<Guid>();
@@ -253,9 +330,26 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public void Dispose()
     {
+        CancelThumbnailsLoading();
+
+        // ThumbnailsInvalidatedイベントの購読を解除
+        if (_currentThumbnailsProvider != null && _thumbnailsInvalidatedHandler != null)
+        {
+            _currentThumbnailsProvider.ThumbnailsInvalidated -= _thumbnailsInvalidatedHandler;
+        }
+        _thumbnailsInvalidatedSubject.Dispose();
+
+        // ThumbnailsDisabledElementsイベントの購読を解除
+        Timeline.ThumbnailsDisabledElements.Attached -= OnThumbnailsDisabledElementsAttached;
+        Timeline.ThumbnailsDisabledElements.Detached -= OnThumbnailsDisabledElementsDetached;
+
         _disposables.Dispose();
         LayerHeader.Dispose();
         Scope.Dispose();
+
+        ThumbnailsKind.Dispose();
+        VideoThumbnailCount.Dispose();
+        WaveformChunkCount.Dispose();
 
         LayerHeader.Value = null!;
         Timeline = null!;
@@ -370,6 +464,22 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                 .ToArray(),
             Scope: Scope.PrepareAnimation());
+    }
+
+    private void OnThumbnailsDisabledElementsAttached(Guid id)
+    {
+        if (id == Model.Id && !IsThumbnailsDisabled.Value)
+        {
+            IsThumbnailsDisabled.Value = true;
+        }
+    }
+
+    private void OnThumbnailsDisabledElementsDetached(Guid id)
+    {
+        if (id == Model.Id && IsThumbnailsDisabled.Value)
+        {
+            IsThumbnailsDisabled.Value = false;
+        }
     }
 
     private void OnExclude()
@@ -532,7 +642,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
         else
         {
-            if (await SetClipboard([..targets]))
+            if (await SetClipboard([.. targets]))
             {
                 CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
                 targets
@@ -694,4 +804,176 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         (InlineAnimationLayerViewModel ViewModel, InlineAnimationLayerViewModel.PrepareAnimationContext Context)[]
             Inlines,
         ElementScopeViewModel.PrepareAnimationContext Scope);
+
+    private void CancelThumbnailsLoading()
+    {
+        _thumbnailsCts?.Cancel();
+        _thumbnailsCts?.Dispose();
+        _thumbnailsCts = null;
+    }
+
+    private async void UpdateThumbnailsAsync()
+    {
+        // プレビューが無効化されている場合は何もしない
+        if (IsThumbnailsDisabled.Value)
+        {
+            CancelThumbnailsLoading();
+            ThumbnailsKind.Value = ElementThumbnailsKind.None;
+            ThumbnailsClear?.Invoke();
+            WaveformClear?.Invoke();
+            return;
+        }
+
+        var provider = FindThumbnailsProvider();
+
+        // プロバイダーが変更された場合、イベント購読を更新
+        if (_currentThumbnailsProvider != provider)
+        {
+            if (_currentThumbnailsProvider != null && _thumbnailsInvalidatedHandler != null)
+            {
+                _currentThumbnailsProvider.ThumbnailsInvalidated -= _thumbnailsInvalidatedHandler;
+            }
+
+            _currentThumbnailsProvider = provider;
+
+            if (provider != null)
+            {
+                _thumbnailsInvalidatedHandler = (_, _) => _thumbnailsInvalidatedSubject.OnNext(Unit.Default);
+                provider.ThumbnailsInvalidated += _thumbnailsInvalidatedHandler;
+            }
+        }
+
+        if (provider == null)
+        {
+            ThumbnailsKind.Value = ElementThumbnailsKind.None;
+            return;
+        }
+
+        ThumbnailsKind.Value = provider.ThumbnailsKind;
+
+        CancelThumbnailsLoading();
+        _thumbnailsCts = new CancellationTokenSource();
+        var ct = _thumbnailsCts.Token;
+
+        try
+        {
+            switch (provider.ThumbnailsKind)
+            {
+                case ElementThumbnailsKind.Video:
+                    await UpdateVideoThumbnailsAsync(provider, ct);
+                    break;
+                case ElementThumbnailsKind.Audio:
+                    await UpdateAudioThumbnailsAsync(provider, ct);
+                    break;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update thumbnails.");
+        }
+    }
+
+    private IElementThumbnailsProvider? FindThumbnailsProvider()
+    {
+        if (Model.UseNode)
+            return null;
+
+        foreach (var child in Model.Operation.Children)
+        {
+            if (child is IElementThumbnailsProvider provider)
+                return provider;
+        }
+
+        return null;
+    }
+
+    private async Task UpdateVideoThumbnailsAsync(IElementThumbnailsProvider provider, CancellationToken ct)
+    {
+        const int MaxThumbnailHeight = 25;
+        double width = Width.Value;
+        if (width <= 0)
+            return;
+
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                ThumbnailsClear?.Invoke();
+            }
+        });
+
+        await foreach (var (index, count, thumbnail) in provider.GetThumbnailStripAsync((int)width, MaxThumbnailHeight, ct))
+        {
+            if (ct.IsCancellationRequested)
+            {
+                thumbnail.Dispose();
+                break;
+            }
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                using (thumbnail)
+                {
+                    if (!ct.IsCancellationRequested)
+                    {
+                        VideoThumbnailCount.Value = count;
+                        ThumbnailReady?.Invoke(index, ConvertToAvaloniaBitmap(thumbnail));
+                    }
+                }
+            });
+        }
+    }
+
+    private async Task UpdateAudioThumbnailsAsync(IElementThumbnailsProvider provider, CancellationToken ct)
+    {
+        const int MaxSamplesPerChunk = 4096;
+        double width = Width.Value;
+        if (width <= 0)
+            return;
+
+        int chunkCount = Math.Max(1, (int)width);
+
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                WaveformClear?.Invoke();
+                WaveformChunkCount.Value = chunkCount;
+            }
+        });
+
+        await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxSamplesPerChunk, ct))
+        {
+            if (ct.IsCancellationRequested)
+                break;
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!ct.IsCancellationRequested)
+                {
+                    WaveformChunkReady?.Invoke(chunk);
+                }
+            });
+        }
+    }
+
+    private static Bitmap? ConvertToAvaloniaBitmap(IBitmap source)
+    {
+        if (source.IsDisposed)
+            return null;
+
+        var width = source.Width;
+        var height = source.Height;
+
+        return new Bitmap(
+            Avalonia.Platform.PixelFormat.Bgra8888,
+            Avalonia.Platform.AlphaFormat.Premul,
+            source.Data,
+            new Avalonia.PixelSize(width, height),
+            new Vector(96, 96),
+            width * 4);
+    }
 }

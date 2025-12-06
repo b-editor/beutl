@@ -746,6 +746,9 @@
   <data name="UseNode" xml:space="preserve">
     <value>ノードを使う</value>
   </data>
+  <data name="DisableThumbnails" xml:space="preserve">
+    <value>サムネイルを無効化</value>
+  </data>
   <data name="Unsupported" xml:space="preserve">
     <value>非対応</value>
   </data>
