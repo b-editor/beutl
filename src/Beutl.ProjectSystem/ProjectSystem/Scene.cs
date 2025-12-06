@@ -47,7 +47,7 @@ public class Scene : ProjectItem, INotifyEdited
     public static readonly CoreProperty<Elements> ChildrenProperty;
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
-    public static readonly CoreProperty<CoreList<ImmutableHashSet<Guid>>> ElementGroupsProperty;
+    public static readonly CoreProperty<CoreList<ImmutableHashSet<Guid>>> GroupsProperty;
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly List<string> _excludeElements = [];
     private readonly Elements _children;
@@ -88,7 +88,7 @@ public class Scene : ProjectItem, INotifyEdited
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
             .Register();
 
-        ElementGroupsProperty = ConfigureProperty<CoreList<ImmutableHashSet<Guid>>, Scene>(nameof(Groups))
+        GroupsProperty = ConfigureProperty<CoreList<ImmutableHashSet<Guid>>, Scene>(nameof(Groups))
             .Accessor(o => o.Groups, (o, v) => o.Groups = v)
             .Register();
     }
