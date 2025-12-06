@@ -242,11 +242,15 @@ public sealed partial class ElementView : UserControl
 
     private sealed class _ResizeBehavior : Behavior<ElementView>
     {
-        private Element? _before;
-        private Element? _after;
+        private record struct ElementResizeContext(
+            ElementViewModel ViewModel,
+            Element? Before,
+            Element? After,
+            TimeSpan RecordedEndTime);
+
         private bool _pressed;
-        private TimeSpan _recordedEndTime;
         private AlignmentX _resizeType;
+        private ElementResizeContext[] _resizeContexts = [];
 
         public void OnLeftCtrlPressed(KeyEventArgs e)
         {
@@ -297,31 +301,34 @@ public sealed partial class ElementView : UserControl
 
                     if (view.Cursor != Cursors.Arrow && view.Cursor is { })
                     {
-                        double left = viewModel.BorderMargin.Value.Left;
-
-                        if (_resizeType == AlignmentX.Right)
+                        foreach (ElementResizeContext ctx in _resizeContexts)
                         {
-                            // 右
-                            double x = _after == null ? point.X : Math.Min(_after.Start.ToPixel(scale), point.X);
-                            viewModel.Width.Value = Math.Max(x - left, minWidth);
-                        }
-                        else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
-                        {
-                            // 左
-                            double x = _before == null ? point.X : Math.Max(_before.Range.End.ToPixel(scale), point.X);
+                            double left = ctx.ViewModel.BorderMargin.Value.Left;
 
-                            double endPos = _recordedEndTime.ToPixel(scale);
-
-                            double newWidth = endPos - x;
-                            if (minWidth < newWidth)
+                            if (_resizeType == AlignmentX.Right)
                             {
-                                viewModel.Width.Value = newWidth;
-                                viewModel.BorderMargin.Value = new Thickness(x, 0, 0, 0);
+                                // 右
+                                double x = ctx.After == null ? point.X : Math.Min(ctx.After.Start.ToPixel(scale), point.X);
+                                ctx.ViewModel.Width.Value = Math.Max(x - left, minWidth);
                             }
-                            else
+                            else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
                             {
-                                viewModel.Width.Value = minWidth;
-                                viewModel.BorderMargin.Value = new Thickness(endPos - minWidth, 0, 0, 0);
+                                // 左
+                                double x = ctx.Before == null ? point.X : Math.Max(ctx.Before.Range.End.ToPixel(scale), point.X);
+
+                                double endPos = ctx.RecordedEndTime.ToPixel(scale);
+
+                                double newWidth = endPos - x;
+                                if (minWidth < newWidth)
+                                {
+                                    ctx.ViewModel.Width.Value = newWidth;
+                                    ctx.ViewModel.BorderMargin.Value = new Thickness(x, 0, 0, 0);
+                                }
+                                else
+                                {
+                                    ctx.ViewModel.Width.Value = minWidth;
+                                    ctx.ViewModel.BorderMargin.Value = new Thickness(endPos - minWidth, 0, 0, 0);
+                                }
                             }
                         }
 
@@ -339,11 +346,35 @@ public sealed partial class ElementView : UserControl
                 if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
                                                          && view.Cursor != Cursors.Arrow && view.Cursor is not null)
                 {
-                    _before = viewModel.Model.GetBefore(viewModel.Model.ZIndex, viewModel.Model.Start);
-                    _after = viewModel.Model.GetAfter(viewModel.Model.ZIndex, viewModel.Model.Range.End);
-                    _recordedEndTime = viewModel.Model.Range.End;
-                    _pressed = true;
+                    IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
 
+                    // リサイズタイプに応じて、同じ時間の要素のみをフィルタリング
+                    IEnumerable<ElementViewModel> filteredElements;
+                    if (_resizeType == AlignmentX.Right)
+                    {
+                        // 右端リサイズ: 同じEnd時間の要素のみ
+                        TimeSpan targetEndTime = viewModel.Model.Range.End;
+                        filteredElements = relatedElements.Where(elem => elem.Model.Range.End == targetEndTime);
+                    }
+                    else if (_resizeType == AlignmentX.Left)
+                    {
+                        // 左端リサイズ: 同じStart時間の要素のみ
+                        TimeSpan targetStartTime = viewModel.Model.Start;
+                        filteredElements = relatedElements.Where(elem => elem.Model.Start == targetStartTime);
+                    }
+                    else
+                    {
+                        filteredElements = [viewModel];
+                    }
+
+                    _resizeContexts = filteredElements.Select(elem => new ElementResizeContext(
+                        ViewModel: elem,
+                        Before: elem.Model.GetBefore(elem.Model.ZIndex, elem.Model.Start),
+                        After: elem.Model.GetAfter(elem.Model.ZIndex, elem.Model.Range.End),
+                        RecordedEndTime: elem.Model.Range.End
+                    )).ToArray();
+
+                    _pressed = true;
                     e.Handled = true;
                 }
             }
@@ -353,15 +384,48 @@ public sealed partial class ElementView : UserControl
         {
             if (_pressed)
             {
-                _before = null;
-                _after = null;
                 _pressed = false;
 
                 if (AssociatedObject is { ViewModel: { } viewModel })
                 {
-                    await viewModel.SubmitViewModelChanges();
                     e.Handled = true;
+
+                    if (_resizeContexts.Length == 1)
+                    {
+                        await viewModel.SubmitViewModelChanges();
+                    }
+                    else if (_resizeContexts.Length > 1)
+                    {
+                        CommandRecorder recorder = viewModel.Timeline.EditorContext.CommandRecorder;
+                        var animations = _resizeContexts
+                            .Select(x => (ViewModel: x.ViewModel, Context: x.ViewModel.PrepareAnimation()))
+                            .ToArray();
+
+                        float scale = viewModel.Timeline.Options.Value.Scale;
+                        int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+
+                        var commands = new List<IRecordableCommand>();
+                        foreach (ElementResizeContext ctx in _resizeContexts)
+                        {
+                            TimeSpan newStart = ctx.ViewModel.BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
+                            TimeSpan newLength = ctx.ViewModel.Width.Value.ToTimeSpan(scale).RoundToRate(rate);
+                            int zindex = viewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);
+
+                            commands.Add(viewModel.Scene.MoveChild(zindex, newStart, newLength, ctx.ViewModel.Model));
+                        }
+
+                        commands.ToArray()
+                            .ToCommand()
+                            .DoAndRecord(recorder);
+
+                        foreach (var (item, context) in animations)
+                        {
+                            _ = item.AnimationRequest(context);
+                        }
+                    }
                 }
+
+                _resizeContexts = [];
             }
         }
 
