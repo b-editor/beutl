@@ -551,7 +551,7 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         sb.Append(innerIndent).AppendLine("protected override void Dispose(bool disposing)");
         sb.Append(innerIndent).AppendLine("{");
         sb.Append(innerIndent).AppendLine("    this.PreDispose(disposing);");
-        sb.Append(innerIndent).AppendLine("    if (disposing)");;
+        sb.Append(innerIndent).AppendLine("    if (disposing)");
         sb.Append(innerIndent).AppendLine("    {");
         foreach (ObjectPropertyInfo property in info.ObjectProperties)
         {
