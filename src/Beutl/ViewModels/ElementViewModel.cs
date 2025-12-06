@@ -86,7 +86,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Cut.Subscribe(OnCut)
             .AddTo(_disposables);
 
-        Copy.Subscribe(async () => await SetClipboard(Timeline.SelectedElements))
+        Copy.Subscribe(async () => await SetClipboard([.. GetGroupOrSelectedElements()]))
             .AddTo(_disposables);
 
         Exclude.Subscribe(OnExclude)
