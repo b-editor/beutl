@@ -810,6 +810,12 @@
   <data name="SplitByCurrentFrame" xml:space="preserve">
     <value>Split by current frame</value>
   </data>
+  <data name="GroupSelectedElements" xml:space="preserve">
+    <value>Group selected elements</value>
+  </data>
+  <data name="UngroupSelectedElements" xml:space="preserve">
+    <value>Ungroup selected elements</value>
+  </data>
   <data name="Agree" xml:space="preserve">
     <value>Agree</value>
   </data>

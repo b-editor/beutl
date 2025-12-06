@@ -815,6 +815,12 @@
   <data name="SplitByCurrentFrame" xml:space="preserve">
     <value>現在のフレームで分割</value>
   </data>
+  <data name="GroupSelectedElements" xml:space="preserve">
+    <value>選択した要素をグループ化</value>
+  </data>
+  <data name="UngroupSelectedElements" xml:space="preserve">
+    <value>グループ化を解除</value>
+  </data>
   <data name="Agree" xml:space="preserve">
     <value>同意</value>
   </data>

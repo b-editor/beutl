@@ -1418,7 +1418,19 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("SplitByCurrentFrame", resourceCulture);
             }
         }
-        
+
+        public static string GroupSelectedElements {
+            get {
+                return ResourceManager.GetString("GroupSelectedElements", resourceCulture);
+            }
+        }
+
+        public static string UngroupSelectedElements {
+            get {
+                return ResourceManager.GetString("UngroupSelectedElements", resourceCulture);
+            }
+        }
+
         public static string Agree {
             get {
                 return ResourceManager.GetString("Agree", resourceCulture);

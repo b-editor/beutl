@@ -1,4 +1,7 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Reactive.Disposables;
+using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -17,11 +20,14 @@ namespace Beutl.ViewModels;
 public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 {
     private readonly CompositeDisposable _disposables = [];
+    private ImmutableHashSet<Guid>? _elementGroup;
 
     public ElementViewModel(Element element, TimelineViewModel timeline)
     {
         Model = element;
         Timeline = timeline;
+
+        InitializeElementGroup();
 
         // プロパティを構成
         IsEnabled = element.GetObservable(Element.IsEnabledProperty)
@@ -123,6 +129,25 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Scope = new ElementScopeViewModel(Model, this);
     }
 
+    private void InitializeElementGroup()
+    {
+        _elementGroup = Timeline.ElementGroups.FirstOrDefault(x => x.Contains(Model.Id));
+
+        Timeline.ElementGroups.Attached += OnSetAttached;
+        Timeline.ElementGroups.Detached += OnSetDetached;
+        _disposables.Add(Disposable.Create(() =>
+        {
+            Timeline.ElementGroups.Attached -= OnSetAttached;
+            Timeline.ElementGroups.Detached -= OnSetDetached;
+        }));
+
+        GroupSelectedElements.Subscribe(_ => OnGroupSelectedElements())
+            .AddTo(_disposables);
+
+        UngroupSelectedElements.Subscribe(_ => OnUngroupSelectedElements())
+            .AddTo(_disposables);
+    }
+
     ~ElementViewModel()
     {
         _disposables.Dispose();
@@ -180,11 +205,51 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReactiveCommand Delete { get; } = new();
 
+    public ReactiveCommand GroupSelectedElements { get; } = new();
+
+    public ReactiveCommand UngroupSelectedElements { get; } = new();
+
     public ReactiveCommand FinishEditingAnimation { get; } = new();
 
     public ReactiveCommand BringAnimationToTop { get; } = new();
 
     public ReactiveCommand ChangeToOriginalLength { get; } = new();
+
+    public IReadOnlyList<ElementViewModel> GetGroupOrSelectedElements()
+    {
+        var ids = new HashSet<Guid>();
+
+        if (_elementGroup is { } group)
+        {
+            ids.UnionWith(group);
+        }
+
+        foreach (ElementViewModel item in Timeline.SelectedElements)
+        {
+            ids.Add(item.Model.Id);
+        }
+
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        return Timeline.Elements
+            .Where(x => ids.Contains(x.Model.Id))
+            .ToArray();
+    }
+
+    public bool CanGroupSelectedElements()
+    {
+        IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
+        return ids.Count >= 2 && !Timeline.ElementGroups.Any(x => x.SetEquals(ids));
+    }
+
+    public bool CanUngroupSelectedElements()
+    {
+        IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
+        return Timeline.ElementGroups.Any(x => x.Overlaps(ids));
+    }
 
     public void Dispose()
     {
@@ -310,11 +375,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private void OnExclude()
     {
         CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-        // 要素が削除された後、Timelineを参照できないため
-        var timeline = Timeline;
 
         // IsSelectedがtrueのものをまとめて削除する。
-        timeline.SelectedElements.Select(i => Scene.RemoveChild(i.Model))
+        GetGroupOrSelectedElements()
+            .Select(i => Scene.RemoveChild(i.Model))
             .ToArray()
             .ToCommand()
             .DoAndRecord(recorder);
@@ -323,11 +387,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private void OnDelete()
     {
         CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-        // 要素が削除された後、Timelineを参照できないため
-        var timeline = Timeline;
 
-        // Delete all items for which IsSelected is true together.
-        timeline.SelectedElements.Select(i => Scene.DeleteChild(i.Model))
+        GetGroupOrSelectedElements()
+            .Select(i => Scene.DeleteChild(i.Model))
             .ToArray()
             .ToCommand()
             .DoAndRecord(recorder);
@@ -360,10 +422,82 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
     }
 
+    private HashSet<Guid> GetSelectedIdsOrSelf()
+    {
+        var ids = new HashSet<Guid>(Timeline.SelectedElements.Select(x => x.Model.Id));
+
+        if (ids.Count == 0)
+        {
+            ids.Add(Model.Id);
+        }
+
+        return ids;
+    }
+
+    private void RemoveIdsFromElementSets(IReadOnlyCollection<Guid> ids)
+    {
+        for (int i = Timeline.ElementGroups.Count - 1; i >= 0; i--)
+        {
+            ImmutableHashSet<Guid> group = Timeline.ElementGroups[i];
+
+            if (!group.Overlaps(ids))
+                continue;
+
+            ImmutableHashSet<Guid> updatedGroup = group.Except(ids);
+            if (updatedGroup.Count >= 2)
+            {
+                Timeline.ElementGroups[i] = updatedGroup;
+            }
+            else
+            {
+                Timeline.ElementGroups.RemoveAt(i);
+            }
+        }
+    }
+
+    private void OnGroupSelectedElements()
+    {
+        IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
+
+        RemoveIdsFromElementSets(ids);
+
+        ImmutableHashSet<Guid> newGroup = [.. ids];
+        if (newGroup.Count == 0)
+            return;
+
+        if (!Timeline.ElementGroups.Any(x => x.SetEquals(newGroup)))
+        {
+            Timeline.ElementGroups.Add(newGroup);
+        }
+    }
+
+    private void OnUngroupSelectedElements()
+    {
+        IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
+        RemoveIdsFromElementSets(ids);
+    }
+
+    private void OnSetAttached(ImmutableHashSet<Guid> group)
+    {
+        if (group.Contains(Model.Id))
+        {
+            _elementGroup = group;
+        }
+    }
+
+    private void OnSetDetached(ImmutableHashSet<Guid> group)
+    {
+        if (ReferenceEquals(_elementGroup, group))
+        {
+            _elementGroup = null;
+        }
+    }
+
     private async Task OnCut()
     {
-        // Actually, Count == 1 is sufficient, because the caller of Cut invokes the instance of SelectedElements[0].
-        if (Timeline.SelectedElements.Count == 1 && Timeline.SelectedElements.Contains(this))
+        var targets = GetGroupOrSelectedElements();
+
+        if (targets.Count == 1 && ReferenceEquals(targets[0], this))
         {
             if (await SetClipboard([this]))
             {
@@ -372,10 +506,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
         else
         {
-            if (await SetClipboard(Timeline.SelectedElements))
+            if (await SetClipboard([..targets]))
             {
                 CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-                Timeline.SelectedElements
+                targets
                     .Select(i => Scene.RemoveChild(i.Model))
                     .ToArray()
                     .ToCommand()
@@ -386,42 +520,88 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnSplit(TimeSpan timeSpan)
     {
+        IReadOnlyList<ElementViewModel> targets = GetGroupOrSelectedElements();
+        if (targets.Count == 0)
+        {
+            targets = [this];
+        }
+
         CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
         TimeSpan minLength = TimeSpan.FromSeconds(1d / rate);
         TimeSpan absTime = timeSpan.RoundToRate(rate);
-        TimeSpan forwardLength = absTime - Model.Start;
-        TimeSpan backwardLength = Model.Length - forwardLength;
 
-        if (forwardLength < minLength || backwardLength < minLength)
-            return;
+        List<IRecordableCommand> commands = [];
+        var groupUpdates = new Dictionary<int, List<Guid>>();
 
-        ObjectRegenerator.Regenerate(Model, out Element backward);
-
-        IRecordableCommand command1 = Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model);
-        backward.Start = absTime;
-        backward.Length = backwardLength;
-        foreach (KeyFrameAnimation item in new ObjectSearcher(backward,
-                         o => o is KeyFrameAnimation { UseGlobalClock: false })
-                     .SearchAll()
-                     .OfType<KeyFrameAnimation>())
+        foreach (ElementViewModel target in targets)
         {
-            foreach (IKeyFrame keyframe in item.KeyFrames)
+            TimeSpan forwardLength = absTime - target.Model.Start;
+            TimeSpan backwardLength = target.Model.Length - forwardLength;
+
+            if (forwardLength < minLength || backwardLength < minLength)
+                continue;
+
+            ObjectRegenerator.Regenerate(target.Model, out Element backward);
+
+            IRecordableCommand command1 = target.Scene.MoveChild(
+                target.Model.ZIndex,
+                target.Model.Start,
+                forwardLength,
+                target.Model);
+            backward.Start = absTime;
+            backward.Length = backwardLength;
+            foreach (KeyFrameAnimation item in new ObjectSearcher(backward,
+                             o => o is KeyFrameAnimation { UseGlobalClock: false })
+                         .SearchAll()
+                         .OfType<KeyFrameAnimation>())
             {
-                keyframe.KeyTime -= forwardLength;
+                foreach (IKeyFrame keyframe in item.KeyFrames)
+                {
+                    keyframe.KeyTime -= forwardLength;
+                }
+            }
+
+            CoreSerializer.StoreToUri(
+                backward,
+                RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
+            IRecordableCommand command2 = target.Scene.AddChild(backward);
+            IRecordableCommand command3 = backward.Operation.OnSplit(true, forwardLength, -forwardLength);
+            IRecordableCommand command4 = target.Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);
+
+            commands.AddRange([command1, command2, command3, command4]);
+
+            if (target._elementGroup is { } set)
+            {
+                int index = target.Timeline.ElementGroups.IndexOf(set);
+                if (index >= 0)
+                {
+                    if (!groupUpdates.TryGetValue(index, out List<Guid>? newIds))
+                    {
+                        newIds = [];
+                        groupUpdates.Add(index, newIds);
+                    }
+
+                    newIds.Add(backward.Id);
+                }
             }
         }
 
-        CoreSerializer.StoreToUri(
-            backward,
-            RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
-        IRecordableCommand command2 = Scene.AddChild(backward);
-        IRecordableCommand command3 = backward.Operation.OnSplit(true, forwardLength, -forwardLength);
-        IRecordableCommand command4 = Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);
+        if (commands.Count == 0)
+            return;
 
-        IRecordableCommand[] commands = [command1, command2, command3, command4];
-        commands.ToCommand()
+        commands.ToArray()
+            .ToCommand()
             .DoAndRecord(recorder);
+
+        foreach ((int index, List<Guid> value) in groupUpdates.OrderByDescending(x => x.Key))
+        {
+            ImmutableHashSet<Guid> newGroup = value.ToImmutableHashSet();
+            if (newGroup.Count >= 2)
+            {
+                Timeline.ElementGroups.Insert(index + 1, newGroup);
+            }
+        }
     }
 
     private async void OnChangeToOriginalLength()

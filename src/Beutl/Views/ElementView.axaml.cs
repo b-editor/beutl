@@ -61,6 +61,8 @@ public sealed partial class ElementView : UserControl
 
         change2OriginalLength.IsEnabled = viewModel.HasOriginalLength();
         splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.CurrentTime.Value);
+        groupSelectedElements.IsEnabled = viewModel.CanGroupSelectedElements();
+        ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
     }
 
     private void OnDataContextDetached(ElementViewModel obj)
@@ -455,7 +457,9 @@ public sealed partial class ElementView : UserControl
                 viewModel.Margin.Value = new(0, newTop, 0, 0);
                 viewModel.BorderMargin.Value = new Thickness(newLeft, 0, 0, 0);
 
-                foreach (ElementViewModel item in viewModel.Timeline.SelectedElements.Where(i => i != viewModel))
+                IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
+
+                foreach (ElementViewModel item in relatedElements.Where(i => i != viewModel))
                 {
                     item.Margin.Value = new(0, item.Margin.Value.Top + deltaTop, 0, 0);
                     item.BorderMargin.Value = new(item.BorderMargin.Value.Left + deltaLeft, 0, 0, 0);
@@ -490,7 +494,8 @@ public sealed partial class ElementView : UserControl
                 {
                     CommandRecorder recorder = viewModel.Timeline.EditorContext.CommandRecorder;
                     e.Handled = true;
-                    var elems = viewModel.Timeline.SelectedElements.Select(x => x.Model).ToArray();
+                    IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
+                    var elems = relatedElements.Select(x => x.Model).ToArray();
 
                     if (elems.Length == 1)
                     {
@@ -498,7 +503,7 @@ public sealed partial class ElementView : UserControl
                     }
                     else if (elems.Length > 1)
                     {
-                        var animations = viewModel.Timeline.SelectedElements
+                        var animations = relatedElements
                             .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                             .ToArray();
 
@@ -566,6 +571,13 @@ public sealed partial class ElementView : UserControl
             timeline.SelectElement(obj.ViewModel);
         }
 
+        private bool IsSelected(ElementView obj, TimelineViewModel timeline)
+        {
+            EditViewModel editorContext = timeline.EditorContext;
+            return editorContext.SelectedObject.Value == obj.ViewModel.Model
+                || timeline.SelectedElements.Contains(obj.ViewModel);
+        }
+
         private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (AssociatedObject is { _timeline.ViewModel: not null } obj)
@@ -597,7 +609,10 @@ public sealed partial class ElementView : UserControl
                 }
                 else if (point.Properties.IsRightButtonPressed)
                 {
-                    Select(obj, obj._timeline.ViewModel);
+                    if (!IsSelected(obj, obj._timeline.ViewModel))
+                    {
+                        Select(obj, obj._timeline.ViewModel);
+                    }
                 }
             }
         }
