@@ -84,7 +84,7 @@ public class SoundSource : ISoundSource
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
         _mediaReader?.Dispose();
         _mediaReader = null;
-        var reader = MediaReader.Open(Uri.UnescapeDataString(uri.LocalPath), new(MediaMode.Audio));
+        var reader = MediaReader.Open(uri.LocalPath, new(MediaMode.Audio));
         _mediaReader = Ref<MediaReader>.Create(reader);
         _uri = uri;
     }

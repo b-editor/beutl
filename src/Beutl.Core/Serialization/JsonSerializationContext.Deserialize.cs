@@ -114,6 +114,7 @@ public partial class JsonSerializationContext
 
     private static object? DeserializeObjectFile(string? uriString, Type type, ICoreSerializationContext? parent)
     {
+        uriString = uriString != null ? Uri.UnescapeDataString(uriString) : null;
         if (!Uri.TryCreate(uriString, UriKind.RelativeOrAbsolute, out Uri? uri))
         {
             throw new JsonException($"Invalid URI: {uriString}");

@@ -112,7 +112,7 @@ public partial class MainView
             && viewModel.Scene is Scene scene
             && viewModel.SelectedObject.Value is Element element)
         {
-            string path = Uri.UnescapeDataString(element.Uri!.LocalPath);
+            string path = element.Uri!.LocalPath;
             string name = Path.GetFileName(path);
             var dialog = new ContentDialog
             {

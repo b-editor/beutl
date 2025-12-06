@@ -87,6 +87,7 @@ public static class CoreSerializer
         var baseUri = options?.BaseUri ?? parent?.BaseUri;
         if (json["Uri"] is JsonValue uriValue && uriValue.TryGetValue(out string? uriString))
         {
+            uriString = Uri.UnescapeDataString(uriString);
             var uri = baseUri != null
                 ? new Uri(baseUri, uriString)
                 : new Uri(uriString, UriKind.RelativeOrAbsolute);
@@ -198,7 +199,7 @@ public static class CoreSerializer
                 coreObj.Uri = uri;
             }
 
-            var path = Uri.UnescapeDataString(uri.LocalPath);
+            var path = uri.LocalPath;
             var directory = Path.GetDirectoryName(path);
             if (directory != null)
             {

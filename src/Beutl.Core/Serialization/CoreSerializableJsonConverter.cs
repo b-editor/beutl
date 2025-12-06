@@ -16,6 +16,7 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
         else if (jsonNode is JsonValue jsonValue && jsonValue.TryGetValue(out string? uriString))
         {
             var parentContext = ThreadLocalSerializationContext.Current;
+            uriString = Uri.UnescapeDataString(uriString);
             if (!Uri.TryCreate(uriString, UriKind.RelativeOrAbsolute, out Uri? uri))
             {
                 throw new JsonException($"Invalid URI: {uriString}");
@@ -48,7 +49,7 @@ public sealed class CoreSerializableJsonConverter : JsonConverter<ICoreSerializa
                 var node = CoreSerializer.SerializeToJsonObject(value,
                     new CoreSerializerOptions { BaseUri = coreObj.Uri });
 
-                var path = Uri.UnescapeDataString(coreObj.Uri.LocalPath);
+                var path = coreObj.Uri.LocalPath;
                 using var stream = File.Create(path);
                 using var innerWriter = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
                 node.WriteTo(innerWriter);

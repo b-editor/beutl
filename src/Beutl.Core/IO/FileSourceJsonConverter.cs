@@ -25,6 +25,7 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
         var parentContext = ThreadLocalSerializationContext.Current;
         if (jsonNode is JsonValue jsonValue && jsonValue.TryGetValue(out string? uriString))
         {
+            uriString = Uri.UnescapeDataString(uriString);
             if (!Uri.TryCreate(uriString, UriKind.RelativeOrAbsolute, out Uri? uri))
             {
                 throw new JsonException($"Invalid URI: {uriString}");

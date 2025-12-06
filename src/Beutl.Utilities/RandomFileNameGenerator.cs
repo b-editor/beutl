@@ -23,7 +23,7 @@ public static class RandomFileNameGenerator
 
     public static Uri GenerateUri(Uri baseDir, string ext)
     {
-        return new Uri(Generate(Path.GetDirectoryName(Uri.UnescapeDataString(baseDir.LocalPath))!, ext));
+        return new Uri(Generate(Path.GetDirectoryName(baseDir.LocalPath)!, ext));
     }
 
     private static string RandomString()

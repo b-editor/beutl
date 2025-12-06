@@ -14,8 +14,7 @@ public sealed class EditorTabItem : IAsyncDisposable
     public EditorTabItem(IEditorContext context)
     {
         Context = new ReactiveProperty<IEditorContext>(context);
-        FilePath = Context.Select(ctxt =>
-                ctxt?.Object.Uri is { LocalPath: { } localPath } ? Uri.UnescapeDataString(localPath) : null)
+        FilePath = Context.Select(ctxt => ctxt?.Object.Uri?.LocalPath)
             .ToReadOnlyReactivePropertySlim()!;
         FileName = FilePath.Select(Path.GetFileName)
             .Do(_ => _hash = null)

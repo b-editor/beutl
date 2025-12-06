@@ -515,7 +515,7 @@ public partial class PlayerView
                                 Scene scene = ViewModel.Scene!;
                                 Task<Bitmap<Bgra8888>> renderTask = ViewModel.DrawFrame();
 
-                                string addtional = Path.GetFileNameWithoutExtension(Uri.UnescapeDataString(scene.Uri!.LocalPath));
+                                string addtional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
                                 IStorageFile? file = await SaveImageFilePicker(addtional, storage);
 
                                 if (file != null)

@@ -596,7 +596,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         var imageData = await clipboard.TryGetBitmapAsync();
         if (imageData == null) return;
 
-        string dir = Path.GetDirectoryName(Uri.UnescapeDataString(Scene.Uri!.LocalPath))!;
+        string dir = Path.GetDirectoryName(Scene.Uri!.LocalPath)!;
         // 画像を保存
         string resDir = Path.Combine(dir, "resources");
         if (!Directory.Exists(resDir))

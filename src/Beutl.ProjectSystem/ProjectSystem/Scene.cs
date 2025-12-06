@@ -285,7 +285,7 @@ public class Scene : ProjectItem, INotifyEdited
             if (elementsJson is JsonObject elementsObject)
             {
                 var matcher = new Matcher();
-                var directoryName = Path.GetDirectoryName(Uri.UnescapeDataString(Uri!.LocalPath))!;
+                var directoryName = Path.GetDirectoryName(Uri!.LocalPath)!;
                 var directory = new DirectoryInfoWrapper(new DirectoryInfo(directoryName));
 
                 // 含めるクリップ
@@ -335,7 +335,7 @@ public class Scene : ProjectItem, INotifyEdited
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Scene.SyncronizeFiles");
 
-        var uriToElement = pathToElement.Select(x => new Uri(Uri!, x)).ToArray();
+        var uriToElement = pathToElement.Select(x => new Uri(Uri!, Uri.UnescapeDataString(x))).ToArray();
 
         // 削除するElements
         Element[] elementsRemove = Children.ExceptBy(uriToElement, x => x.Uri).ToArray();
@@ -356,7 +356,7 @@ public class Scene : ProjectItem, INotifyEdited
 
     private void UpdateInclude()
     {
-        string dirPath = Path.GetDirectoryName(Uri.UnescapeDataString(Uri!.LocalPath))!;
+        string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
         var directory = new DirectoryInfoWrapper(new DirectoryInfo(dirPath));
 
         var matcher = new Matcher();
@@ -366,7 +366,7 @@ public class Scene : ProjectItem, INotifyEdited
         string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
         foreach (Element item in Children)
         {
-            string rel = Path.GetRelativePath(dirPath, Uri.UnescapeDataString(item.Uri!.LocalPath));
+            string rel = Path.GetRelativePath(dirPath, item.Uri!.LocalPath);
 
             // 含まれていない場合追加
             if (!files.Contains(rel))
@@ -381,13 +381,13 @@ public class Scene : ProjectItem, INotifyEdited
         ImmutableArray<TimeRange>.Builder affectedRange
             = ImmutableArray.CreateBuilder<TimeRange>(Math.Max(e.OldItems?.Count ?? 0, e.NewItems?.Count ?? 0));
 
-        string dirPath = Uri.UnescapeDataString(Uri!.LocalPath);
+        string dirPath = Uri!.LocalPath;
         if (e.Action == NotifyCollectionChangedAction.Remove
             && e.OldItems != null)
         {
             foreach (Element item in e.OldItems.OfType<Element>())
             {
-                string itemPath = Uri.UnescapeDataString(item.Uri!.LocalPath);
+                string itemPath = item.Uri!.LocalPath;
                 string rel = Path.GetRelativePath(dirPath, itemPath);
 
                 if (!_excludeElements.Contains(rel) && File.Exists(itemPath))
@@ -403,7 +403,7 @@ public class Scene : ProjectItem, INotifyEdited
         {
             foreach (Element item in e.NewItems.OfType<Element>())
             {
-                string itemPath = Uri.UnescapeDataString(item.Uri!.LocalPath);
+                string itemPath = item.Uri!.LocalPath;
                 string rel = Path.GetRelativePath(dirPath, itemPath);
 
                 if (_excludeElements.Contains(rel) && File.Exists(itemPath))
@@ -703,7 +703,7 @@ public class Scene : ProjectItem, INotifyEdited
         {
             if (_element != null)
             {
-                string fileName = Uri.UnescapeDataString(_element.Uri!.LocalPath);
+                string fileName = _element.Uri!.LocalPath;
                 if (File.Exists(fileName))
                 {
                     File.Delete(fileName);
@@ -721,7 +721,7 @@ public class Scene : ProjectItem, INotifyEdited
 
         public void Undo()
         {
-            var path = Uri.UnescapeDataString(_uri.LocalPath);
+            var path = _uri.LocalPath;
             if (File.Exists(path))
             {
                 _uri = RandomFileNameGenerator.GenerateUri(Path.GetDirectoryName(path)!, "belm");

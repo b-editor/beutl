@@ -14,7 +14,7 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
     public ImageSourceEditorViewModel(IPropertyAdapter<IImageSource?> property)
         : base(property)
     {
-        FullName = Value.Select(x => x != null ? Uri.UnescapeDataString(x.Uri.LocalPath) : null)
+        FullName = Value.Select(x => x?.Uri.LocalPath)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 

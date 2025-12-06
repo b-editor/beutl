@@ -52,7 +52,7 @@ public class OutputTabViewModel : IToolContext
         try
         {
             _logger.LogInformation("Adding item with extension: {ExtensionName}", extension.Name);
-            string path = Uri.UnescapeDataString(EditViewModel.Scene.Uri!.LocalPath);
+            string path = EditViewModel.Scene.Uri!.LocalPath;
             _outputService.AddItem(path, extension);
             _logger.LogInformation("Item added successfully.");
         }
