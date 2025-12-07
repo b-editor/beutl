@@ -128,7 +128,7 @@ public sealed class HistoryManager : IDisposable
             }
         }
     }
-    
+
     public bool Undo()
     {
         ThrowIfDisposed();
@@ -260,6 +260,28 @@ public sealed class HistoryManager : IDisposable
         {
             return _redoStack.Count > 0 ? _redoStack.Peek() : null;
         }
+    }
+
+    public void Record(Action doAction, Action undoAction, string? description = null)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(doAction);
+        ArgumentNullException.ThrowIfNull(undoAction);
+
+        var operation = CustomOperation.Create(doAction, undoAction, _sequenceGenerator, description);
+        Record(operation);
+    }
+
+    public RecordingScope<TState> BeginRecordingScope<TState>(
+        Func<TState> captureState,
+        Action<TState> applyState,
+        string? description = null)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(captureState);
+        ArgumentNullException.ThrowIfNull(applyState);
+
+        return new RecordingScope<TState>(this, captureState, applyState, _sequenceGenerator, description);
     }
 
     private void NotifyStateChanged()
