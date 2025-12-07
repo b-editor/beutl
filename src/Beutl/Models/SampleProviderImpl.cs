@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Reactive.Subjects;
+﻿using System.Reactive.Subjects;
 using System.Threading.Channels;
 using Beutl.Audio.Composing;
 using Beutl.Configuration;
@@ -19,7 +18,6 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     private readonly long _sampleRate;
     private readonly Subject<TimeSpan> _progress;
     private readonly Channel<(long Offset, Pcm<Stereo32BitFloat> Pcm)> _channel;
-    private readonly ConcurrentDictionary<long, Pcm<Stereo32BitFloat>> _bufferedChunks = new();
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _producerTask;
     private Pcm<Stereo32BitFloat>? _lastChunk;
@@ -33,7 +31,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         _composer = composer;
         _sampleRate = sampleRate;
         _progress = progress;
-        _chunkSize = checked((int)sampleRate);
+        _chunkSize = (int)sampleRate;
 
         int bufferSize = Preferences.Default.Get("Output.SampleBufferSize", 3);
         _channel = Channel.CreateBounded<(long Offset, Pcm<Stereo32BitFloat> Pcm)>(
@@ -98,11 +96,6 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
             return _lastChunk;
         }
 
-        if (_bufferedChunks.TryRemove(chunkOffset, out var buffered))
-        {
-            return buffered;
-        }
-
         while (await _channel.Reader.WaitToReadAsync(_cts.Token))
         {
             if (_channel.Reader.TryRead(out var item))
@@ -112,7 +105,9 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
                     return item.Pcm;
                 }
 
-                _bufferedChunks[item.Offset] = item.Pcm;
+                item.Pcm.Dispose();
+                _logger.LogWarning("This chunk is misaligned. Requested chunk at offset {ChunkOffset}, Received chunk at offset {ReceivedOffset}", chunkOffset, item.Offset);
+                return await ComposeChunk(chunkOffset, _cts.Token);
             }
         }
 
@@ -197,11 +192,6 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         while (_channel.Reader.TryRead(out var item))
         {
             item.Pcm.Dispose();
-        }
-
-        foreach ((_, Pcm<Stereo32BitFloat> pcm) in _bufferedChunks)
-        {
-            pcm.Dispose();
         }
 
         _lastChunk?.Dispose();
