@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Beutl")]
+[assembly: InternalsVisibleTo("Beutl.Editor")]
 [assembly: InternalsVisibleTo("Beutl.UnitTests")]
 [assembly: InternalsVisibleTo("Beutl.Configuration")]
 [assembly: InternalsVisibleTo("Beutl.Engine")]
