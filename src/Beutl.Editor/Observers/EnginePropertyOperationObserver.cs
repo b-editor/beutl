@@ -1,9 +1,11 @@
 using System.Collections;
 using System.Reactive.Subjects;
 using Beutl.Animation;
+using Beutl.Editor.Infrastructure;
+using Beutl.Editor.Operations;
 using Beutl.Engine;
 
-namespace Beutl.Editor;
+namespace Beutl.Editor.Observers;
 
 // TODO: IListProperty対応
 public sealed class EnginePropertyOperationObserver<T> : IOperationObserver

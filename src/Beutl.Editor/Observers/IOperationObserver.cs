@@ -1,4 +1,6 @@
-namespace Beutl.Editor;
+using Beutl.Editor.Operations;
+
+namespace Beutl.Editor.Observers;
 
 public interface IOperationObserver : IDisposable
 {

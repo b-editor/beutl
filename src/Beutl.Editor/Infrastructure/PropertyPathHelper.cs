@@ -1,4 +1,4 @@
-namespace Beutl.Editor;
+namespace Beutl.Editor.Infrastructure;
 
 public class PropertyPathHelper
 {

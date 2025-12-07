@@ -1,9 +1,11 @@
 using System.Collections;
 using System.Collections.Specialized;
 using System.Reactive.Subjects;
+using Beutl.Editor.Infrastructure;
+using Beutl.Editor.Operations;
 using Beutl.Serialization;
 
-namespace Beutl.Editor;
+namespace Beutl.Editor.Observers;
 
 public sealed class CollectionOperationObserver : IOperationObserver
 {

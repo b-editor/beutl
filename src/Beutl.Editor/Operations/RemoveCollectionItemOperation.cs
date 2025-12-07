@@ -1,17 +1,19 @@
 using System.Collections;
+using System.Text.Json.Nodes;
 using Beutl.Engine;
+using Beutl.Serialization;
 
-namespace Beutl.Editor;
+using Beutl.Editor.Infrastructure;
 
-public sealed class MoveCollectionItemOperation : ChangeOperation, IPropertyPathProvider
+namespace Beutl.Editor.Operations;
+
+public sealed class RemoveCollectionItemOperation : ChangeOperation, IPropertyPathProvider
 {
     public required Guid ObjectId { get; set; }
 
     public required string PropertyPath { get; set; }
 
     public required Guid ItemId { get; set; }
-
-    public required int Index { get; set; }
 
     public override void Apply(OperationExecutionContext context)
     {
@@ -45,9 +47,8 @@ public sealed class MoveCollectionItemOperation : ChangeOperation, IPropertyPath
     {
         var item = listProperty.OfType<EngineObject>().FirstOrDefault(x => x.Id == ItemId)
             ?? throw new InvalidOperationException($"Item with ID {ItemId} not found in property {PropertyPath}.");
-        var oldIndex = listProperty.IndexOf(item);
 
-        listProperty.Move(oldIndex, Index);
+        listProperty.Remove(item);
     }
 
     private void ApplyToCoreProperty(ICoreObject obj, CoreProperty coreProperty)
@@ -59,10 +60,8 @@ public sealed class MoveCollectionItemOperation : ChangeOperation, IPropertyPath
 
         var item = list.OfType<CoreObject>().FirstOrDefault(x => x.Id == ItemId)
             ?? throw new InvalidOperationException($"Item with ID {ItemId} not found in property {PropertyPath}.");
-        var oldIndex = list.IndexOf(item);
 
-        list.RemoveAt(oldIndex);
-        list.Insert(Index, item);
+        list.Remove(item);
     }
 
     public override ChangeOperation CreateRevertOperation(OperationExecutionContext context, OperationSequenceGenerator sequenceGenerator)
@@ -71,19 +70,21 @@ public sealed class MoveCollectionItemOperation : ChangeOperation, IPropertyPath
             ?? throw new InvalidOperationException($"Object with ID {ObjectId} not found.");
 
         var name = PropertyPathHelper.GetPropertyNameFromPath(PropertyPath);
-        var currentIndex = GetCurrentIndex(obj, name);
+        var (item, index) = FindItemAndIndex(obj, name);
 
-        return new MoveCollectionItemOperation
+        var itemJson = CoreSerializer.SerializeToJsonNode(item);
+
+        return new InsertCollectionItemOperation
         {
             SequenceNumber = sequenceGenerator.GetNext(),
             ObjectId = ObjectId,
             PropertyPath = PropertyPath,
-            ItemId = ItemId,
-            Index = currentIndex
+            Item = itemJson,
+            Index = index
         };
     }
 
-    private int GetCurrentIndex(ICoreObject obj, string propertyName)
+    private (object item, int index) FindItemAndIndex(ICoreObject obj, string propertyName)
     {
         var coreProperty = PropertyRegistry.FindRegistered(obj.GetType(), propertyName);
 
@@ -93,7 +94,7 @@ public sealed class MoveCollectionItemOperation : ChangeOperation, IPropertyPath
             {
                 var item = list.OfType<CoreObject>().FirstOrDefault(x => x.Id == ItemId)
                     ?? throw new InvalidOperationException($"Item with ID {ItemId} not found in property {PropertyPath}.");
-                return list.IndexOf(item);
+                return (item, list.IndexOf(item));
             }
             throw new InvalidOperationException($"Property {propertyName} is not a list on type {obj.GetType().FullName}.");
         }
@@ -107,7 +108,7 @@ public sealed class MoveCollectionItemOperation : ChangeOperation, IPropertyPath
             {
                 var item = listProperty.OfType<EngineObject>().FirstOrDefault(x => x.Id == ItemId)
                     ?? throw new InvalidOperationException($"Item with ID {ItemId} not found in property {PropertyPath}.");
-                return listProperty.IndexOf(item);
+                return (item, listProperty.IndexOf(item));
             }
             throw new InvalidOperationException($"Engine property {propertyName} is not a list on type {obj.GetType().FullName}.");
         }

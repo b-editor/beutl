@@ -1,5 +1,8 @@
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using Beutl.Editor.Infrastructure;
+using Beutl.Editor.Observers;
+using Beutl.Editor.Operations;
 
 namespace Beutl.Editor;
 

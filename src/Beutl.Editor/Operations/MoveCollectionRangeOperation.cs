@@ -1,7 +1,9 @@
 using System.Collections;
 using Beutl.Engine;
 
-namespace Beutl.Editor;
+using Beutl.Editor.Infrastructure;
+
+namespace Beutl.Editor.Operations;
 
 public sealed class MoveCollectionRangeOperation : ChangeOperation, IPropertyPathProvider
 {

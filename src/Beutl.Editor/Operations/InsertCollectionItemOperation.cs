@@ -3,15 +3,17 @@ using System.Text.Json.Nodes;
 using Beutl.Engine;
 using Beutl.Serialization;
 
-namespace Beutl.Editor;
+using Beutl.Editor.Infrastructure;
 
-public sealed class InsertCollectionRangeOperation : ChangeOperation, IPropertyPathProvider
+namespace Beutl.Editor.Operations;
+
+public sealed class InsertCollectionItemOperation : ChangeOperation, IPropertyPathProvider
 {
     public required Guid ObjectId { get; set; }
 
     public required string PropertyPath { get; set; }
 
-    public required JsonNode[] Items { get; set; }
+    public required JsonNode Item { get; set; }
 
     public required int Index { get; set; }
 
@@ -48,15 +50,15 @@ public sealed class InsertCollectionRangeOperation : ChangeOperation, IPropertyP
     private void ApplyToEngineProperty(IListProperty listProperty)
     {
         var elementType = listProperty.ElementType;
-        var baseUri = listProperty.GetOwnerObject()?.FindBaseUri();
-
-        int insertIndex = Index < 0 || Index > listProperty.Count ? listProperty.Count : Index;
-
-        for (int i = 0; i < Items.Length; i++)
+        var newItem = CoreSerializer.DeserializeFromJsonNode(Item, elementType,
+            new CoreSerializerOptions { BaseUri = listProperty.GetOwnerObject()?.FindBaseUri() });
+        if (Index < 0 || Index > listProperty.Count)
         {
-            var newItem = CoreSerializer.DeserializeFromJsonNode(Items[i], elementType,
-                new CoreSerializerOptions { BaseUri = baseUri });
-            listProperty.Insert(insertIndex + i, newItem);
+            listProperty.Add(newItem);
+        }
+        else
+        {
+            listProperty.Insert(Index, newItem);
         }
     }
 
@@ -71,16 +73,18 @@ public sealed class InsertCollectionRangeOperation : ChangeOperation, IPropertyP
         var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
         if (elementType is null) throw new InvalidOperationException("Could not determine element type of the list.");
 
-        var baseUri = obj?.FindBaseUri();
-        int insertIndex = Index < 0 || Index > list.Count ? list.Count : Index;
-
-        for (int i = 0; i < Items.Length; i++)
+        var newItem = CoreSerializer.DeserializeFromJsonNode(Item, elementType, new CoreSerializerOptions
         {
-            var newItem = CoreSerializer.DeserializeFromJsonNode(Items[i], elementType, new CoreSerializerOptions
-            {
-                BaseUri = baseUri,
-            });
-            list.Insert(insertIndex + i, newItem);
+            BaseUri = obj?.FindBaseUri(),
+        });
+
+        if (Index < 0 || Index > list.Count)
+        {
+            list.Add(newItem);
+        }
+        else
+        {
+            list.Insert(Index, newItem);
         }
     }
 
@@ -92,12 +96,9 @@ public sealed class InsertCollectionRangeOperation : ChangeOperation, IPropertyP
         var name = PropertyPathHelper.GetPropertyNameFromPath(PropertyPath);
         var list = GetList(obj, name);
 
-        // Serialize items at the inserted positions
-        var items = new JsonNode[Items.Length];
-        for (int i = 0; i < Items.Length; i++)
-        {
-            items[i] = CoreSerializer.SerializeToJsonNode(list[Index + i]!);
-        }
+        // Get the item at the index position and serialize it
+        var item = list[Index];
+        var itemJson = CoreSerializer.SerializeToJsonNode(item!);
 
         return new RemoveCollectionRangeOperation
         {
@@ -105,8 +106,8 @@ public sealed class InsertCollectionRangeOperation : ChangeOperation, IPropertyP
             ObjectId = ObjectId,
             PropertyPath = PropertyPath,
             Index = Index,
-            Count = Items.Length,
-            Items = items
+            Count = 1,
+            Items = [itemJson]
         };
     }
 

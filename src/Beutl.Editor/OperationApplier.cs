@@ -1,3 +1,6 @@
+using Beutl.Editor.Infrastructure;
+using Beutl.Editor.Operations;
+
 namespace Beutl.Editor;
 
 public sealed class OperationApplier

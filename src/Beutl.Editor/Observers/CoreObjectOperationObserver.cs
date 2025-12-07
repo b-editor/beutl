@@ -1,9 +1,11 @@
 using System.Collections;
 using System.ComponentModel;
 using System.Reactive.Subjects;
+using Beutl.Editor.Infrastructure;
+using Beutl.Editor.Operations;
 using Beutl.Engine;
 
-namespace Beutl.Editor;
+namespace Beutl.Editor.Observers;
 
 public sealed class CoreObjectOperationObserver : IOperationObserver
 {
