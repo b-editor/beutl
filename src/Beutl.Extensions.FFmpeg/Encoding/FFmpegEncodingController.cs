@@ -253,7 +253,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     private static async ValueTask<MediaFrame?> GetAudioFrame(MediaFrame frame, SampleConverter swr, EncodeState state,
         ISampleProvider sampleProvider)
     {
-        if (state.NextPts > sampleProvider.SampleCount)
+        if (state.NextPts >= sampleProvider.SampleCount)
             return null;
 
         using var pcm = await sampleProvider.Sample(state.NextPts, frame.NbSamples);
@@ -283,7 +283,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         MediaFrame srcFrame, PixelConverter sws, EncodeState state,
         IFrameProvider frameProvider)
     {
-        if (state.NextPts > frameProvider.FrameCount)
+        if (state.NextPts >= frameProvider.FrameCount)
             return null;
 
         using var bitmap = await frameProvider.RenderFrame(state.NextPts);
