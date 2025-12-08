@@ -14,7 +14,7 @@ public sealed class HistoryTransaction
 
     public long Id { get; }
 
-    public string? Name { get; }
+    public string? Name { get; set; }
 
     public IReadOnlyList<ChangeOperation> Operations => _operations;
 

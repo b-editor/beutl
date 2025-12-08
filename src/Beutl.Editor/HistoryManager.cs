@@ -16,7 +16,7 @@ public sealed class HistoryManager : IDisposable
     private readonly List<IDisposable> _subscriptions = new();
     private readonly object _lock = new();
     private long _transactionIdCounter;
-    private HistoryTransaction? _currentTransaction;
+    private HistoryTransaction _currentTransaction;
     private bool _isDisposed;
 
     public HistoryManager(CoreObject root, OperationSequenceGenerator sequenceGenerator)
@@ -24,6 +24,7 @@ public sealed class HistoryManager : IDisposable
         Root = root ?? throw new ArgumentNullException(nameof(root));
         _sequenceGenerator = sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
         _context = new OperationExecutionContext(root);
+        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
     }
 
     public CoreObject Root { get; }
@@ -35,44 +36,21 @@ public sealed class HistoryManager : IDisposable
 
     public int RedoCount => _redoStack.Count;
 
-    public bool IsTransactionInProgress => _currentTransaction != null;
-
     public IObservable<HistoryState> StateChanged => _stateChanged.AsObservable();
 
-    public HistoryTransaction BeginTransaction(string? name = null)
+    public void Commit(string? name = null)
     {
         ThrowIfDisposed();
 
         lock (_lock)
         {
-            if (_currentTransaction != null)
-            {
-                throw new InvalidOperationException("A transaction is already in progress. Commit or rollback the current transaction before starting a new one.");
-            }
-
-            _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter), name);
-            return _currentTransaction;
-        }
-    }
-
-    public void Commit()
-    {
-        ThrowIfDisposed();
-
-        lock (_lock)
-        {
-            if (_currentTransaction == null)
-            {
-                throw new InvalidOperationException("No transaction is in progress.");
-            }
-
             if (_currentTransaction.HasOperations)
             {
+                _currentTransaction.Name = name;
                 _undoStack.Push(_currentTransaction);
                 _redoStack.Clear();
+                _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
             }
-
-            _currentTransaction = null;
         }
 
         NotifyStateChanged();
@@ -84,11 +62,6 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            if (_currentTransaction == null)
-            {
-                throw new InvalidOperationException("No transaction is in progress.");
-            }
-
             if (_currentTransaction.HasOperations)
             {
                 // Create and apply revert operations
@@ -101,7 +74,7 @@ public sealed class HistoryManager : IDisposable
                 }
             }
 
-            _currentTransaction = null;
+            _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
         }
     }
 
@@ -112,20 +85,7 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            if (_currentTransaction != null)
-            {
-                // Add to current transaction
-                _currentTransaction.AddOperation(operation);
-            }
-            else
-            {
-                // Create an implicit single-operation transaction
-                var transaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
-                transaction.AddOperation(operation);
-                _undoStack.Push(transaction);
-                _redoStack.Clear();
-                NotifyStateChanged();
-            }
+            _currentTransaction.AddOperation(operation);
         }
     }
 
@@ -138,10 +98,7 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            if (_currentTransaction != null)
-            {
-                throw new InvalidOperationException("Cannot undo while a transaction is in progress. Commit or rollback first.");
-            }
+            Rollback();
 
             if (_undoStack.Count == 0)
                 return false;
@@ -171,10 +128,7 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            if (_currentTransaction != null)
-            {
-                throw new InvalidOperationException("Cannot redo while a transaction is in progress. Commit or rollback first.");
-            }
+            Rollback();
 
             if (_redoStack.Count == 0)
                 return false;
@@ -201,11 +155,6 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            if (_currentTransaction != null)
-            {
-                throw new InvalidOperationException("Cannot clear history while a transaction is in progress.");
-            }
-
             _undoStack.Clear();
             _redoStack.Clear();
         }
@@ -231,11 +180,10 @@ public sealed class HistoryManager : IDisposable
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(action);
 
-        BeginTransaction(name);
         try
         {
             action();
-            Commit();
+            Commit(name);
         }
         catch
         {
@@ -312,7 +260,6 @@ public sealed class HistoryManager : IDisposable
         _stateChanged.Dispose();
         _undoStack.Clear();
         _redoStack.Clear();
-        _currentTransaction = null;
     }
 }
 
