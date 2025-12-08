@@ -1,118 +1,97 @@
-using System.Collections;
-using System.Text.Json.Nodes;
 using Beutl.Engine;
-using Beutl.Serialization;
-
 using Beutl.Editor.Infrastructure;
 
 namespace Beutl.Editor.Operations;
 
-public sealed class RemoveCollectionItemOperation : ChangeOperation, IPropertyPathProvider
+public sealed class RemoveCollectionItemOperation<T> : ChangeOperation, IPropertyPathProvider
 {
-    public required Guid ObjectId { get; set; }
+    public required CoreObject Object { get; set; }
 
     public required string PropertyPath { get; set; }
 
-    public required Guid ItemId { get; set; }
+    public required T Item { get; set; }
+
+    public required int Index { get; set; }
 
     public override void Apply(OperationExecutionContext context)
     {
-        var obj = context.FindObject(ObjectId)
-            ?? throw new InvalidOperationException($"Object with ID {ObjectId} not found.");
-
+        var type = Object.GetType();
         var name = PropertyPathHelper.GetPropertyNameFromPath(PropertyPath);
-        var coreProperty = PropertyRegistry.FindRegistered(obj.GetType(), name);
+        var coreProperty = PropertyRegistry.FindRegistered(type, name);
 
         if (coreProperty != null)
         {
-            ApplyToCoreProperty(obj, coreProperty);
+            ApplyToCoreProperty(Object, coreProperty);
             return;
         }
 
-        if (obj is EngineObject engineObj)
+        if (Object is EngineObject engineObj)
         {
             var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == name)
-                ?? throw new InvalidOperationException($"Engine property {PropertyPath} not found on type {obj.GetType().FullName}.");
+                ?? throw new InvalidOperationException($"Engine property {PropertyPath} not found on type {type.FullName}.");
 
-            if (engineProperty is not IListProperty listProperty)
+            if (engineProperty is not IListProperty<T> listProperty)
             {
-                throw new InvalidOperationException($"Engine property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
+                throw new InvalidOperationException($"Engine property {PropertyPath} is not a list on type {type.FullName}.");
             }
 
             ApplyToEngineProperty(listProperty);
         }
     }
 
-    private void ApplyToEngineProperty(IListProperty listProperty)
+    private void ApplyToEngineProperty(IListProperty<T> listProperty)
     {
-        var item = listProperty.OfType<EngineObject>().FirstOrDefault(x => x.Id == ItemId)
-            ?? throw new InvalidOperationException($"Item with ID {ItemId} not found in property {PropertyPath}.");
-
-        listProperty.Remove(item);
+        listProperty.RemoveAt(Index);
     }
 
-    private void ApplyToCoreProperty(ICoreObject obj, CoreProperty coreProperty)
+    private void ApplyToCoreProperty(CoreObject obj, CoreProperty coreProperty)
     {
-        if (obj.GetValue(coreProperty) is not IList list)
+        if (obj.GetValue(coreProperty) is not IList<T> list)
         {
             throw new InvalidOperationException($"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
         }
 
-        var item = list.OfType<CoreObject>().FirstOrDefault(x => x.Id == ItemId)
-            ?? throw new InvalidOperationException($"Item with ID {ItemId} not found in property {PropertyPath}.");
-
-        list.Remove(item);
+        list.RemoveAt(Index);
     }
 
-    public override ChangeOperation CreateRevertOperation(OperationExecutionContext context, OperationSequenceGenerator sequenceGenerator)
+    public override void Revert(OperationExecutionContext context)
     {
-        var obj = context.FindObject(ObjectId)
-            ?? throw new InvalidOperationException($"Object with ID {ObjectId} not found.");
-
+        var type = Object.GetType();
         var name = PropertyPathHelper.GetPropertyNameFromPath(PropertyPath);
-        var (item, index) = FindItemAndIndex(obj, name);
-
-        var itemJson = CoreSerializer.SerializeToJsonNode(item);
-
-        return new InsertCollectionItemOperation
-        {
-            SequenceNumber = sequenceGenerator.GetNext(),
-            ObjectId = ObjectId,
-            PropertyPath = PropertyPath,
-            Item = itemJson,
-            Index = index
-        };
-    }
-
-    private (object item, int index) FindItemAndIndex(ICoreObject obj, string propertyName)
-    {
-        var coreProperty = PropertyRegistry.FindRegistered(obj.GetType(), propertyName);
+        var coreProperty = PropertyRegistry.FindRegistered(type, name);
 
         if (coreProperty != null)
         {
-            if (obj.GetValue(coreProperty) is IList list)
-            {
-                var item = list.OfType<CoreObject>().FirstOrDefault(x => x.Id == ItemId)
-                    ?? throw new InvalidOperationException($"Item with ID {ItemId} not found in property {PropertyPath}.");
-                return (item, list.IndexOf(item));
-            }
-            throw new InvalidOperationException($"Property {propertyName} is not a list on type {obj.GetType().FullName}.");
+            RevertToCoreProperty(Object, coreProperty);
+            return;
         }
 
-        if (obj is EngineObject engineObj)
+        if (Object is EngineObject engineObj)
         {
-            var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == propertyName)
-                ?? throw new InvalidOperationException($"Engine property {propertyName} not found on type {obj.GetType().FullName}.");
+            var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == name)
+                ?? throw new InvalidOperationException($"Engine property {PropertyPath} not found on type {type.FullName}.");
 
-            if (engineProperty is IListProperty listProperty)
+            if (engineProperty is not IListProperty<T> listProperty)
             {
-                var item = listProperty.OfType<EngineObject>().FirstOrDefault(x => x.Id == ItemId)
-                    ?? throw new InvalidOperationException($"Item with ID {ItemId} not found in property {PropertyPath}.");
-                return (item, listProperty.IndexOf(item));
+                throw new InvalidOperationException($"Engine property {PropertyPath} is not a list on type {type.FullName}.");
             }
-            throw new InvalidOperationException($"Engine property {propertyName} is not a list on type {obj.GetType().FullName}.");
+
+            RevertToEngineProperty(listProperty);
+        }
+    }
+
+    private void RevertToEngineProperty(IListProperty<T> listProperty)
+    {
+        listProperty.Insert(Index, Item);
+    }
+
+    private void RevertToCoreProperty(CoreObject obj, CoreProperty coreProperty)
+    {
+        if (obj.GetValue(coreProperty) is not IList<T> list)
+        {
+            throw new InvalidOperationException($"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
         }
 
-        throw new InvalidOperationException($"Property {propertyName} not found on type {obj.GetType().FullName}.");
+        list.Insert(Index, Item);
     }
 }

@@ -35,20 +35,11 @@ public sealed class HistoryTransaction
         }
     }
 
-    internal HistoryTransaction CreateRevertTransaction(
-        OperationExecutionContext context,
-        OperationSequenceGenerator sequenceGenerator,
-        long transactionId)
+    internal void Revert(OperationExecutionContext context)
     {
-        var revertTransaction = new HistoryTransaction(transactionId, Name);
-
-        // Create revert operations in reverse order
         for (int i = _operations.Count - 1; i >= 0; i--)
         {
-            var revertOperation = _operations[i].CreateRevertOperation(context, sequenceGenerator);
-            revertTransaction.AddOperation(revertOperation);
+            _operations[i].Revert(context);
         }
-
-        return revertTransaction;
     }
 }

@@ -6,5 +6,5 @@ public abstract class ChangeOperation
 
     public abstract void Apply(OperationExecutionContext context);
 
-    public abstract ChangeOperation CreateRevertOperation(OperationExecutionContext context, OperationSequenceGenerator sequenceGenerator);
+    public abstract void Revert(OperationExecutionContext context);
 }

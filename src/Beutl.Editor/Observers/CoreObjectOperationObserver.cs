@@ -4,6 +4,7 @@ using System.Reactive.Subjects;
 using Beutl.Editor.Infrastructure;
 using Beutl.Editor.Operations;
 using Beutl.Engine;
+using Beutl.Serialization;
 
 namespace Beutl.Editor.Observers;
 
@@ -12,7 +13,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
     private readonly ICoreObject _object;
     private readonly string _propertyPath;
     private readonly Dictionary<int, CoreObjectOperationObserver> _childPublishers = new();
-    private readonly Dictionary<int, CollectionOperationObserver> _collectionPublishers = new();
+    private readonly Dictionary<int, IOperationObserver> _collectionPublishers = new();
     private readonly Dictionary<string, IOperationObserver> _enginePropertyPublishers = new();
     private readonly Subject<ChangeOperation> _operations = new();
     private readonly IDisposable? _subscription;
@@ -61,7 +62,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             child.Dispose();
         }
 
-        foreach (CollectionOperationObserver collection in _collectionPublishers.Values)
+        foreach (IOperationObserver collection in _collectionPublishers.Values)
         {
             collection.Dispose();
         }
@@ -97,14 +98,14 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
             if (value is IList list)
             {
-                var collectionPublisher = new CollectionOperationObserver(
-                    _operations,
-                    list,
-                    _object,
-                    childPath,
-                    _sequenceNumberGenerator,
-                    _propertyPathsToTrack);
-                _collectionPublishers.Add(property.Id, collectionPublisher);
+                var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
+                if (elementType == null) throw new InvalidOperationException("Could not determine the element type of the list.");
+                var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(elementType);
+
+                var collectionPublisher = Activator.CreateInstance(observerType,
+                    _operations, list, _object,
+                    childPath, _sequenceNumberGenerator, _propertyPathsToTrack)!;
+                _collectionPublishers.Add(property.Id, (IOperationObserver)collectionPublisher);
             }
             else if (value is ICoreObject child)
             {
@@ -178,14 +179,14 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
         if (args.NewValue is IList list)
         {
-            var newPublisher = new CollectionOperationObserver(
-                _operations,
-                list,
-                source,
-                childPath,
-                _sequenceNumberGenerator,
-                _propertyPathsToTrack);
-            _collectionPublishers.Add(args.Property.Id, newPublisher);
+            var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
+            if (elementType == null) throw new InvalidOperationException("Could not determine the element type of the list.");
+            var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(elementType);
+
+            var newPublisher = Activator.CreateInstance(observerType,
+                _operations, list, source,
+                childPath, _sequenceNumberGenerator, _propertyPathsToTrack)!;
+            _collectionPublishers.Add(args.Property.Id, (IOperationObserver)newPublisher);
         }
         else if (args.NewValue is ICoreObject newChild)
         {
@@ -198,11 +199,11 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             _childPublishers.Add(args.Property.Id, newPublisher);
         }
 
-        var operation = UpdatePropertyValueOperation.Create(
-            source,
-            childPath,
-            args.NewValue,
-            _sequenceNumberGenerator);
+        var operationType = typeof(UpdatePropertyValueOperation<>).MakeGenericType(args.Property.PropertyType);
+        var operation = (ChangeOperation)Activator.CreateInstance(
+            operationType,
+            source, childPath, args.NewValue, args.OldValue)!;
+        operation.SequenceNumber = _sequenceNumberGenerator.GetNext();
         _operations.OnNext(operation);
     }
 }

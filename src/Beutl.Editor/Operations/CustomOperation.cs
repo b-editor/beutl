@@ -3,15 +3,15 @@ namespace Beutl.Editor.Operations;
 public sealed class CustomOperation : ChangeOperation
 {
     private readonly Action<OperationExecutionContext> _apply;
-    private readonly Func<OperationExecutionContext, OperationSequenceGenerator, ChangeOperation> _createRevert;
+    private readonly Action<OperationExecutionContext> _revert;
 
     public CustomOperation(
         Action<OperationExecutionContext> apply,
-        Func<OperationExecutionContext, OperationSequenceGenerator, ChangeOperation> createRevert,
+        Action<OperationExecutionContext> revert,
         string? description = null)
     {
         _apply = apply ?? throw new ArgumentNullException(nameof(apply));
-        _createRevert = createRevert ?? throw new ArgumentNullException(nameof(createRevert));
+        _revert = revert ?? throw new ArgumentNullException(nameof(revert));
         Description = description;
     }
 
@@ -22,11 +22,9 @@ public sealed class CustomOperation : ChangeOperation
         _apply(context);
     }
 
-    public override ChangeOperation CreateRevertOperation(
-        OperationExecutionContext context,
-        OperationSequenceGenerator sequenceGenerator)
+    public override void Revert(OperationExecutionContext context)
     {
-        return _createRevert(context, sequenceGenerator);
+        _revert(context);
     }
 
     public static CustomOperation Create(
@@ -41,17 +39,8 @@ public sealed class CustomOperation : ChangeOperation
 
         return new CustomOperation(
             _ => doAction(),
-            (_, seq) => new CustomOperation(
-                _ => undoAction(),
-                (_, seq2) => Create(doAction, undoAction, seq2, description),
-                description)
-            {
-                SequenceNumber = seq.GetNext()
-            },
-            description)
-        {
-            SequenceNumber = sequenceGenerator.GetNext()
-        };
+            _ => undoAction(),
+            description) { SequenceNumber = sequenceGenerator.GetNext() };
     }
 
     public static StateCapturingOperationBuilder<TState> CaptureState<TState>(
@@ -103,25 +92,7 @@ public sealed class StateCapturingOperationBuilder<TState>
     {
         return new CustomOperation(
             _ => _applyState(toState),
-            (_, seq) =>
-            {
-                var innerOp = new CustomOperation(
-                    _ => _applyState(fromState),
-                    (_, seq2) =>
-                    {
-                        var op = CreateStateOperation(fromState, toState);
-                        op.SequenceNumber = seq2.GetNext();
-                        return op;
-                    },
-                    _description)
-                {
-                    SequenceNumber = seq.GetNext()
-                };
-                return innerOp;
-            },
-            _description)
-        {
-            SequenceNumber = _sequenceGenerator.GetNext()
-        };
+            _ => _applyState(fromState),
+            _description) { SequenceNumber = _sequenceGenerator.GetNext() };
     }
 }

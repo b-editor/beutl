@@ -7,10 +7,10 @@ using Beutl.Serialization;
 
 namespace Beutl.Editor.Observers;
 
-public sealed class CollectionOperationObserver : IOperationObserver
+public sealed class CollectionOperationObserver<T> : IOperationObserver
 {
-    private readonly IList _list;
-    private readonly ICoreObject _owner;
+    private readonly IList<T> _list;
+    private readonly CoreObject _owner;
     private readonly string _propertyPath;
     private readonly OperationSequenceGenerator _sequenceNumberGenerator;
     private readonly Dictionary<ICoreObject, CoreObjectOperationObserver> _childPublishers = new();
@@ -19,8 +19,8 @@ public sealed class CollectionOperationObserver : IOperationObserver
     private readonly HashSet<string>? _propertyPathsToTrack;
 
     public CollectionOperationObserver(IObserver<ChangeOperation> observer,
-        IList list,
-        ICoreObject owner,
+        IList<T> list,
+        CoreObject owner,
         string propertyPath,
         OperationSequenceGenerator sequenceNumberGenerator,
         HashSet<string>? propertyPathsToTrack = null)
@@ -32,9 +32,9 @@ public sealed class CollectionOperationObserver : IOperationObserver
         _subscription = _operations.Subscribe(observer);
         _propertyPathsToTrack = propertyPathsToTrack;
 
-        foreach (object item in list)
+        foreach (T item in list)
         {
-            if (item is ICoreObject coreObject)
+            if (item is CoreObject coreObject)
             {
                 InitializeChildPublishers(coreObject);
             }
@@ -108,25 +108,24 @@ public sealed class CollectionOperationObserver : IOperationObserver
             return;
         }
 
-        int index = e.NewStartingIndex;
         foreach (object newItem in e.NewItems)
         {
-            if (newItem is ICoreObject coreObject)
+            if (newItem is CoreObject coreObject)
             {
                 InitializeChildPublishers(coreObject);
             }
-
-            var json = CoreSerializer.SerializeToJsonNode(newItem);
-            var operation = new InsertCollectionItemOperation
-            {
-                SequenceNumber = _sequenceNumberGenerator.GetNext(),
-                ObjectId = _owner.Id,
-                PropertyPath = _propertyPath,
-                Item = json,
-                Index = index++
-            };
-            _operations.OnNext(operation);
         }
+
+        int index = e.NewStartingIndex;
+        var operation = new InsertCollectionRangeOperation<T>
+        {
+            SequenceNumber = _sequenceNumberGenerator.GetNext(),
+            Object = _owner,
+            PropertyPath = _propertyPath,
+            Items = e.NewItems.Cast<T>().ToArray(),
+            Index = index
+        };
+        _operations.OnNext(operation);
     }
 
     private void EnqueueRemoveRange(NotifyCollectionChangedEventArgs e)
@@ -138,7 +137,7 @@ public sealed class CollectionOperationObserver : IOperationObserver
 
         foreach (object oldItem in e.OldItems)
         {
-            if (oldItem is ICoreObject coreObject)
+            if (oldItem is CoreObject coreObject)
             {
                 if (_childPublishers.TryGetValue(coreObject, out var childPublisher))
                 {
@@ -148,13 +147,13 @@ public sealed class CollectionOperationObserver : IOperationObserver
             }
         }
 
-        var operation = new RemoveCollectionRangeOperation
+        var operation = new RemoveCollectionRangeOperation<T>
         {
             SequenceNumber = _sequenceNumberGenerator.GetNext(),
-            ObjectId = _owner.Id,
+            Object = _owner,
             PropertyPath = _propertyPath,
             Index = e.OldStartingIndex,
-            Count = e.OldItems.Count
+            Items = e.OldItems.Cast<T>().ToArray()
         };
         _operations.OnNext(operation);
     }
@@ -166,10 +165,10 @@ public sealed class CollectionOperationObserver : IOperationObserver
             return;
         }
 
-        var operation = new MoveCollectionRangeOperation
+        var operation = new MoveCollectionRangeOperation<T>
         {
             SequenceNumber = _sequenceNumberGenerator.GetNext(),
-            ObjectId = _owner.Id,
+            Object = _owner,
             PropertyPath = _propertyPath,
             OldIndex = e.OldStartingIndex,
             NewIndex = e.NewStartingIndex,
@@ -184,7 +183,7 @@ public sealed class CollectionOperationObserver : IOperationObserver
         {
             foreach (object oldItem in e.OldItems)
             {
-                if (oldItem is ICoreObject coreObject)
+                if (oldItem is CoreObject coreObject)
                 {
                     if (_childPublishers.TryGetValue(coreObject, out var childPublisher))
                     {
@@ -194,38 +193,37 @@ public sealed class CollectionOperationObserver : IOperationObserver
                 }
             }
 
-            var operation = new RemoveCollectionRangeOperation
+            var operation = new RemoveCollectionRangeOperation<T>
             {
                 SequenceNumber = _sequenceNumberGenerator.GetNext(),
-                ObjectId = _owner.Id,
+                Object = _owner,
                 PropertyPath = _propertyPath,
                 Index = e.OldStartingIndex,
-                Count = e.OldItems.Count
+                Items = e.OldItems.Cast<T>().ToArray()
             };
             _operations.OnNext(operation);
         }
 
         if (e.NewItems != null)
         {
-            int index = e.NewStartingIndex;
             foreach (var newItem in e.NewItems)
             {
-                if (newItem is ICoreObject coreObject)
+                if (newItem is CoreObject coreObject)
                 {
                     InitializeChildPublishers(coreObject);
                 }
-
-                var json = CoreSerializer.SerializeToJsonNode(newItem);
-                var operation = new InsertCollectionItemOperation
-                {
-                    SequenceNumber = _sequenceNumberGenerator.GetNext(),
-                    ObjectId = _owner.Id,
-                    PropertyPath = _propertyPath,
-                    Item = json,
-                    Index = index++
-                };
-                _operations.OnNext(operation);
             }
+
+            int index = e.NewStartingIndex;
+            var operation = new InsertCollectionRangeOperation<T>
+            {
+                SequenceNumber = _sequenceNumberGenerator.GetNext(),
+                Object = _owner,
+                PropertyPath = _propertyPath,
+                Items = e.NewItems.Cast<T>().ToArray(),
+                Index = index
+            };
+            _operations.OnNext(operation);
         }
     }
 }

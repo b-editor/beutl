@@ -64,13 +64,9 @@ public sealed class HistoryManager : IDisposable
         {
             if (_currentTransaction.HasOperations)
             {
-                // Create and apply revert operations
-                var revertTransaction = _currentTransaction.CreateRevertTransaction(
-                    _context, _sequenceGenerator, Interlocked.Increment(ref _transactionIdCounter));
-
                 using (PublishingSuppression.Enter())
                 {
-                    revertTransaction.Apply(_context);
+                    _currentTransaction.Revert(_context);
                 }
             }
 
@@ -93,9 +89,6 @@ public sealed class HistoryManager : IDisposable
     {
         ThrowIfDisposed();
 
-        HistoryTransaction? transaction;
-        HistoryTransaction? revertTransaction;
-
         lock (_lock)
         {
             Rollback();
@@ -103,16 +96,14 @@ public sealed class HistoryManager : IDisposable
             if (_undoStack.Count == 0)
                 return false;
 
-            transaction = _undoStack.Pop();
-            revertTransaction = transaction.CreateRevertTransaction(
-                _context, _sequenceGenerator, Interlocked.Increment(ref _transactionIdCounter));
+            var transaction = _undoStack.Pop();
 
             using (PublishingSuppression.Enter())
             {
-                revertTransaction.Apply(_context);
+                transaction.Revert(_context);
             }
 
-            _redoStack.Push(revertTransaction);
+            _redoStack.Push(transaction);
         }
 
         NotifyStateChanged();
@@ -123,9 +114,6 @@ public sealed class HistoryManager : IDisposable
     {
         ThrowIfDisposed();
 
-        HistoryTransaction? transaction;
-        HistoryTransaction? revertTransaction;
-
         lock (_lock)
         {
             Rollback();
@@ -133,16 +121,14 @@ public sealed class HistoryManager : IDisposable
             if (_redoStack.Count == 0)
                 return false;
 
-            transaction = _redoStack.Pop();
-            revertTransaction = transaction.CreateRevertTransaction(
-                _context, _sequenceGenerator, Interlocked.Increment(ref _transactionIdCounter));
+            var transaction = _redoStack.Pop();
 
             using (PublishingSuppression.Enter())
             {
-                revertTransaction.Apply(_context);
+                transaction.Apply(_context);
             }
 
-            _undoStack.Push(revertTransaction);
+            _undoStack.Push(transaction);
         }
 
         NotifyStateChanged();

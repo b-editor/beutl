@@ -48,26 +48,8 @@ public sealed class RecordingScope<TState> : IDisposable
     {
         return new CustomOperation(
             _ => _applyState(toState),
-            (_, seq) =>
-            {
-                var innerOp = new CustomOperation(
-                    _ => _applyState(fromState),
-                    (_, seq2) =>
-                    {
-                        var op = CreateStateOperation(fromState, toState);
-                        op.SequenceNumber = seq2.GetNext();
-                        return op;
-                    },
-                    _description)
-                {
-                    SequenceNumber = seq.GetNext()
-                };
-                return innerOp;
-            },
-            _description)
-        {
-            SequenceNumber = _sequenceGenerator.GetNext()
-        };
+            _ => _applyState(fromState),
+            _description) { SequenceNumber = _sequenceGenerator.GetNext() };
     }
 
     public void Dispose()
@@ -77,6 +59,7 @@ public sealed class RecordingScope<TState> : IDisposable
             // Auto-complete on dispose if not cancelled
             Complete();
         }
+
         _disposed = true;
     }
 }
