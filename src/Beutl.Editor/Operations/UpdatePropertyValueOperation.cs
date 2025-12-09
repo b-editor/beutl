@@ -1,5 +1,6 @@
 using Beutl.Animation;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 
 namespace Beutl.Editor.Operations;
 
@@ -18,6 +19,7 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
     {
         string name = PropertyPath;
         bool updateAnimation = false;
+        bool updateExpression = false;
 
         if (PropertyPath.Contains('.'))
         {
@@ -28,10 +30,14 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
                 name = parts[^2];
                 updateAnimation = true;
             }
+            if (parts[^1] == "Expression" && parts.Length >= 2)
+            {
+                name = parts[^2];
+                updateExpression = true;
+            }
             else
             {
                 name = parts[^1];
-                updateAnimation = false;
             }
         }
 
@@ -49,17 +55,24 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
                                  ?? throw new InvalidOperationException(
                                      $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}.");
 
-            ApplyToEngineProperty(engineProperty, updateAnimation);
+            ApplyToEngineProperty(engineProperty, updateAnimation, updateExpression);
         }
     }
 
-    private void ApplyToEngineProperty(IProperty engineProperty, bool updateAnimation)
+    private void ApplyToEngineProperty(IProperty engineProperty, bool updateAnimation, bool updateExpression)
     {
         if (updateAnimation)
         {
             if (engineProperty.IsAnimatable)
             {
                 engineProperty.Animation = NewValue as IAnimation<T>;
+            }
+        }
+        else if (updateExpression)
+        {
+            if (engineProperty.IsAnimatable)
+            {
+                engineProperty.Expression = NewValue as IExpression<T>;
             }
         }
         else
@@ -80,6 +93,7 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
     {
         string name = PropertyPath;
         bool updateAnimation = false;
+        bool updateExpression = false;
 
         if (PropertyPath.Contains('.'))
         {
@@ -90,10 +104,14 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
                 name = parts[^2];
                 updateAnimation = true;
             }
+            else if (parts[^1] == "Expression" && parts.Length >= 2)
+            {
+                name = parts[^2];
+                updateExpression = true;
+            }
             else
             {
                 name = parts[^1];
-                updateAnimation = false;
             }
         }
 
@@ -111,17 +129,24 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
                                  ?? throw new InvalidOperationException(
                                      $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}.");
 
-            RevertToEngineProperty(engineProperty, updateAnimation);
+            RevertToEngineProperty(engineProperty, updateAnimation, updateExpression);
         }
     }
 
-    private void RevertToEngineProperty(IProperty engineProperty, bool updateAnimation)
+    private void RevertToEngineProperty(IProperty engineProperty, bool updateAnimation, bool updateExpression)
     {
         if (updateAnimation)
         {
             if (engineProperty.IsAnimatable)
             {
                 engineProperty.Animation = OldValue as IAnimation<T>;
+            }
+        }
+        else if (updateExpression)
+        {
+            if (engineProperty.IsAnimatable)
+            {
+                engineProperty.Expression = OldValue as IExpression<T>;
             }
         }
         else

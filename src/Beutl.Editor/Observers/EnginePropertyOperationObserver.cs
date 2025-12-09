@@ -4,6 +4,7 @@ using Beutl.Animation;
 using Beutl.Editor.Infrastructure;
 using Beutl.Editor.Operations;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Serialization;
 
 namespace Beutl.Editor.Observers;
@@ -21,6 +22,7 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
     private IOperationObserver? _animationPublisher;
     private readonly HashSet<string>? _propertyPathsToTrack;
     private IAnimation<T>? _animation;
+    private IExpression<T>? _expression;
 
     public EnginePropertyOperationObserver(
         IObserver<ChangeOperation>? observer,
@@ -53,19 +55,28 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
             _property.ValueChanged += OnValueChanged;
         }
 
-        if (_property is AnimatableProperty<T> animatable && propertiesToTrack?.Contains("Animation") != false)
+        if (_property is AnimatableProperty<T> animatable)
         {
-            if (animatable.Animation is ICoreObject animationObject)
+            if (propertiesToTrack?.Contains("Animation") != false)
             {
-                _animationPublisher = new CoreObjectOperationObserver(
-                    _operations,
-                    animationObject,
-                    _sequenceNumberGenerator,
-                    $"{_propertyPath}.Animation");
+                if (animatable.Animation is ICoreObject animationObject)
+                {
+                    _animationPublisher = new CoreObjectOperationObserver(
+                        _operations,
+                        animationObject,
+                        _sequenceNumberGenerator,
+                        $"{_propertyPath}.Animation");
+                }
+
+                _animation = animatable.Animation;
+                animatable.AnimationChanged += OnAnimationChanged;
             }
 
-            _animation = animatable.Animation;
-            animatable.AnimationChanged += OnAnimationChanged;
+            if (propertiesToTrack?.Contains("Expression") != false)
+            {
+                _expression = animatable.Expression;
+                animatable.ExpressionChanged += OnExpressionChanged;
+            }
         }
     }
 
@@ -77,6 +88,8 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
         if (_property is AnimatableProperty<T> animatable)
         {
             _animation = null;
+            _expression = null;
+            animatable.ExpressionChanged -= OnExpressionChanged;
             animatable.AnimationChanged -= OnAnimationChanged;
         }
 
@@ -107,6 +120,23 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
                 _propertyPath,
                 _propertyPathsToTrack);
         }
+    }
+
+    private void OnExpressionChanged(IExpression<T>? obj)
+    {
+        // Suppress publishing during remote operation application to prevent echo-back
+        if (PublishingSuppression.IsSuppressed)
+        {
+            return;
+        }
+
+        var operationType = typeof(UpdatePropertyValueOperation<>).MakeGenericType(typeof(IExpression<T>));
+        var operation = (ChangeOperation)Activator.CreateInstance(
+            operationType,
+            _object, $"{_propertyPath}.Expression", obj, _expression)!;
+        operation.SequenceNumber = _sequenceNumberGenerator.GetNext();
+        _operations.OnNext(operation);
+        _expression = obj;
     }
 
     private void OnAnimationChanged(IAnimation<T>? newAnimation)
