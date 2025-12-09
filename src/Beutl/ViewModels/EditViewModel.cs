@@ -7,6 +7,7 @@ using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
+using Beutl.Editor.Operations;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
@@ -97,13 +98,16 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         HistoryManager = new HistoryManager(Scene, sequenceGenerator);
         HistoryManager.Subscribe(observer)
             .DisposeWith(_disposables);
+
+        observer.Operations
+            .Buffer(HistoryManager.StateChanged)
+            .Subscribe(OnChangeOperations)
+            .DisposeWith(_disposables);
+
         BufferStatus = new BufferStatusViewModel(this)
             .DisposeWith(_disposables);
 
         DockHost = new DockHostViewModel(SceneId, this)
-            .DisposeWith(_disposables);
-
-        HistoryManager.StateChanged.Subscribe(OnHistoryManagerStateChanged)
             .DisposeWith(_disposables);
 
         RestoreState();
@@ -215,69 +219,243 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         }
     }
 
-    private void OnHistoryManagerStateChanged(HistoryState state)
+    private void OnChangeOperations(IList<ChangeOperation> list)
     {
-        // TODO: 自動保存の実装
-        // _logger.LogInformation("Command executed, updating FrameCacheManager and saving state if needed.");
-        // Task.Run(() =>
-        // {
-        //     int rate = Player.GetFrameRate();
-        //     IEnumerable<TimeRange> affectedRange = e.Command is IAffectsTimelineCommand affectsTimeline
-        //         ? affectsTimeline.GetAffectedRange()
-        //         : e.Storables.OfType<Element>().Select(v => v.Range);
-        //
-        //     FrameCacheManager.Value.DeleteAndUpdateBlocks(affectedRange
-        //         .Select(item => (Start: (int)item.Start.ToFrameNumber(rate),
-        //             End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
-        // });
-        //
-        // if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
-        // {
-        //     Dispatcher.UIThread.Invoke(() =>
-        //     {
-        //         var objects = e.Storables
-        //             .Select(item =>
-        //             {
-        //                 if (item is Hierarchical hierarchical)
-        //                 {
-        //                     return hierarchical.EnumerateAncestors<CoreObject>().Where(o => o.Uri != null);
-        //                 }
-        //
-        //                 if (item.Uri != null)
-        //                 {
-        //                     return [item];
-        //                 }
-        //
-        //                 return [];
-        //             })
-        //             .SelectMany(e => e)
-        //             .ToHashSet();
-        //
-        //         foreach (CoreObject item in objects)
-        //         {
-        //             try
-        //             {
-        //                 _logger.LogTrace("Auto-saving object ({TypeName}, {ObjectId}).", TypeFormat.ToString(item.GetType()), item.Id);
-        //                 CoreSerializer.StoreToUri(item, item.Uri!, CoreSerializationMode.Write);
-        //             }
-        //             catch (Exception ex)
-        //             {
-        //                 _logger.LogError(ex, "An exception occurred while saving the file.");
-        //                 NotificationService.ShowError(string.Empty,
-        //                     Message.An_exception_occurred_while_saving_the_file);
-        //             }
-        //         }
-        //
-        //         try
-        //         {
-        //             SaveState();
-        //         }
-        //         catch (Exception ex)
-        //         {
-        //             _logger.LogError(ex, "An exception occurred while saving the view state.");
-        //         }
-        //     });
-        // }
+        if (list.Count == 0)
+        {
+            return;
+        }
+
+        // 影響を受けるタイムレンジを取得
+        List<TimeRange> affectedRanges = GetAffectedTimeRanges(list);
+
+        // フレームキャッシュを更新
+        if (affectedRanges.Count > 0)
+        {
+            Task.Run(() =>
+            {
+                int rate = Player.GetFrameRate();
+                FrameCacheManager.Value.DeleteAndUpdateBlocks(affectedRanges
+                    .Select(item => (Start: (int)item.Start.ToFrameNumber(rate),
+                        End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
+            });
+        }
+
+        // 自動保存
+        if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
+        {
+            AutoSave(list);
+        }
+    }
+
+    private void AutoSave(IList<ChangeOperation> list)
+    {
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            HashSet<CoreObject> objectsToSave = [];
+
+            // ChangeOperationから保存対象のオブジェクトを収集
+            foreach (ChangeOperation operation in list)
+            {
+                CollectObjectsToSave(operation, objectsToSave);
+            }
+
+            // 各オブジェクトを保存
+            foreach (CoreObject obj in objectsToSave)
+            {
+                try
+                {
+                    _logger.LogTrace("Auto-saving object ({TypeName}, {ObjectId}).", TypeFormat.ToString(obj.GetType()), obj.Id);
+                    CoreSerializer.StoreToUri(obj, obj.Uri!, CoreSerializationMode.Write);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "An exception occurred while auto-saving the file.");
+                    NotificationService.ShowError(string.Empty, Message.An_exception_occurred_while_saving_the_file);
+                }
+            }
+
+            // ビューステートを保存
+            try
+            {
+                SaveState();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An exception occurred while saving the view state.");
+            }
+        });
+    }
+
+    private static void CollectObjectsToSave(ChangeOperation operation, HashSet<CoreObject> objectsToSave)
+    {
+        CoreObject? obj = null;
+
+        if (operation is IUpdatePropertyValueOperation updateOp)
+        {
+            obj = updateOp.Object;
+        }
+        else if (operation is ICollectionChangeOperation collectionOp)
+        {
+            obj = collectionOp.Object;
+
+            // コレクション内のアイテムも保存対象に追加
+            foreach (object? item in collectionOp.Items)
+            {
+                if (item is CoreObject itemObj)
+                {
+                    AddObjectWithAncestors(itemObj, objectsToSave);
+                }
+            }
+        }
+
+        if (obj != null)
+        {
+            AddObjectWithAncestors(obj, objectsToSave);
+        }
+    }
+
+    private static void AddObjectWithAncestors(CoreObject obj, HashSet<CoreObject> objectsToSave)
+    {
+        // オブジェクト自体にUriがあれば追加
+        if (obj.Uri != null)
+        {
+            objectsToSave.Add(obj);
+        }
+
+        // 親要素を辿ってUriを持つオブジェクトを探す
+        if (obj is IHierarchical hierarchical)
+        {
+            foreach (CoreObject ancestor in hierarchical.EnumerateAncestors<CoreObject>())
+            {
+                if (ancestor.Uri != null)
+                {
+                    objectsToSave.Add(ancestor);
+                }
+            }
+        }
+    }
+
+    private List<TimeRange> GetAffectedTimeRanges(IList<ChangeOperation> list)
+    {
+        List<TimeRange> affectedRanges = [];
+
+        foreach (ChangeOperation operation in list)
+        {
+            foreach (TimeRange range in GetAffectedTimeRangesFromOperation(operation))
+            {
+                if (!range.IsEmpty)
+                {
+                    affectedRanges.Add(range);
+                }
+            }
+        }
+
+        return affectedRanges;
+    }
+
+    private IEnumerable<TimeRange> GetAffectedTimeRangesFromOperation(ChangeOperation operation)
+    {
+        // IUpdatePropertyValueOperationの場合
+        if (operation is IUpdatePropertyValueOperation updateOp)
+        {
+            TimeRange? range = GetAffectedTimeRangeFromUpdateOperation(updateOp);
+            if (range.HasValue)
+            {
+                yield return range.Value;
+            }
+            yield break;
+        }
+
+        // ICollectionChangeOperationの場合
+        if (operation is ICollectionChangeOperation collectionOp)
+        {
+            // Objectプロパティから影響を受けるElementを探す
+            Element? element = FindElementFromObject(collectionOp.Object);
+            if (element != null)
+            {
+                yield return element.Range;
+            }
+
+            // Itemsから複数のElementを探す
+            foreach (object? item in collectionOp.Items)
+            {
+                if (item is CoreObject coreObj)
+                {
+                    Element? itemElement = FindElementFromObject(coreObj);
+                    if (itemElement != null)
+                    {
+                        yield return itemElement.Range;
+                    }
+                }
+            }
+        }
+    }
+
+    private TimeRange? GetAffectedTimeRangeFromUpdateOperation(IUpdatePropertyValueOperation updateOp)
+    {
+        CoreObject obj = updateOp.Object;
+        string propertyPath = updateOp.PropertyPath;
+
+        // ElementのStartまたはLengthプロパティの変更の場合
+        if (obj is Element element)
+        {
+            string propertyName = GetPropertyNameFromPath(propertyPath);
+            if (propertyName == nameof(Element.Start) || propertyName == nameof(Element.Length))
+            {
+                // 変更前後の両方の範囲を含む
+                TimeRange currentRange = element.Range;
+
+                // OldValueから変更前の範囲を計算
+                if (updateOp.OldValue is TimeSpan oldTimeSpan)
+                {
+                    TimeRange oldRange = propertyName == nameof(Element.Start)
+                        ? currentRange.WithStart(oldTimeSpan)
+                        : currentRange.WithDuration(oldTimeSpan);
+                    return currentRange.Union(oldRange);
+                }
+
+                return currentRange;
+            }
+
+            // その他のElementプロパティの場合
+            return element.Range;
+        }
+
+        // Element以外のオブジェクトの場合、親を辿ってElementを探す
+        Element? parentElement = FindElementFromObject(obj);
+        if (parentElement != null)
+        {
+            return parentElement.Range;
+        }
+
+        return null;
+    }
+
+    private static string GetPropertyNameFromPath(string propertyPath)
+    {
+        if (propertyPath.Contains('.'))
+        {
+            string[] parts = propertyPath.Split('.');
+            return parts[^1];
+        }
+
+        return propertyPath;
+    }
+
+    private static Element? FindElementFromObject(CoreObject obj)
+    {
+        if (obj is Element element)
+        {
+            return element;
+        }
+
+        if (obj is IHierarchical hierarchical)
+        {
+            return hierarchical.EnumerateAncestors<Element>().FirstOrDefault();
+        }
+
+        return null;
     }
 
     private void OnSelectedObjectDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)

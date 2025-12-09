@@ -5,7 +5,7 @@ using Beutl.Engine.Expressions;
 namespace Beutl.Editor.Operations;
 
 public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string propertyPath, T newValue, T oldValue)
-    : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation
+    : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation, IUpdatePropertyValueOperation
 {
     public CoreObject Object { get; set; } = obj;
 
@@ -14,6 +14,10 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
     public T NewValue { get; set; } = newValue;
 
     public T OldValue { get; set; } = oldValue;
+
+    object? IUpdatePropertyValueOperation.NewValue => NewValue;
+
+    object? IUpdatePropertyValueOperation.OldValue => OldValue;
 
     public override void Apply(OperationExecutionContext context)
     {

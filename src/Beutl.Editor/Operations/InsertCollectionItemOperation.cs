@@ -3,7 +3,7 @@ using Beutl.Editor.Infrastructure;
 
 namespace Beutl.Editor.Operations;
 
-public sealed class InsertCollectionItemOperation<T> : ChangeOperation, IPropertyPathProvider
+public sealed class InsertCollectionItemOperation<T> : ChangeOperation, IPropertyPathProvider, ICollectionChangeOperation
 {
     public required CoreObject Object { get; set; }
 
@@ -12,6 +12,8 @@ public sealed class InsertCollectionItemOperation<T> : ChangeOperation, IPropert
     public required T Item { get; set; }
 
     public required int Index { get; set; }
+
+    IEnumerable<object?> ICollectionChangeOperation.Items => [Item];
 
     public override void Apply(OperationExecutionContext context)
     {

@@ -3,7 +3,7 @@ using Beutl.Editor.Infrastructure;
 
 namespace Beutl.Editor.Operations;
 
-public sealed class RemoveCollectionRangeOperation<T> : ChangeOperation, IPropertyPathProvider
+public sealed class RemoveCollectionRangeOperation<T> : ChangeOperation, IPropertyPathProvider, ICollectionChangeOperation
 {
     public required CoreObject Object { get; set; }
 
@@ -12,6 +12,8 @@ public sealed class RemoveCollectionRangeOperation<T> : ChangeOperation, IProper
     public required int Index { get; set; }
 
     public required T[] Items { get; set; }
+
+    IEnumerable<object?> ICollectionChangeOperation.Items => Items.Cast<object?>();
 
     public override void Apply(OperationExecutionContext context)
     {

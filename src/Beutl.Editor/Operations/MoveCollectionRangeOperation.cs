@@ -4,7 +4,7 @@ using Beutl.Editor.Infrastructure;
 
 namespace Beutl.Editor.Operations;
 
-public sealed class MoveCollectionRangeOperation<T> : ChangeOperation, IPropertyPathProvider
+public sealed class MoveCollectionRangeOperation<T> : ChangeOperation, IPropertyPathProvider, ICollectionChangeOperation
 {
     public required CoreObject Object { get; set; }
 
@@ -15,6 +15,9 @@ public sealed class MoveCollectionRangeOperation<T> : ChangeOperation, IProperty
     public required int NewIndex { get; set; }
 
     public required int Count { get; set; }
+
+    // Move操作ではアイテムを直接保持しないため、空のコレクションを返す
+    IEnumerable<object?> ICollectionChangeOperation.Items => [];
 
     public override void Apply(OperationExecutionContext context)
     {
