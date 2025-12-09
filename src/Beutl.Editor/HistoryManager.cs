@@ -1,6 +1,5 @@
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using Beutl.Editor.Infrastructure;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
 
@@ -18,6 +17,7 @@ public sealed class HistoryManager : IDisposable
     private long _transactionIdCounter;
     private HistoryTransaction _currentTransaction;
     private bool _isDisposed;
+    private int _recordingSuppressionCount;
 
     public HistoryManager(CoreObject root, OperationSequenceGenerator sequenceGenerator)
     {
@@ -64,7 +64,7 @@ public sealed class HistoryManager : IDisposable
         {
             if (_currentTransaction.HasOperations)
             {
-                using (PublishingSuppression.Enter())
+                using (SuppressRecording())
                 {
                     _currentTransaction.Revert(_context);
                 }
@@ -81,6 +81,9 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
+            if (_recordingSuppressionCount > 0)
+                return;
+
             _currentTransaction.AddOperation(operation);
         }
     }
@@ -98,7 +101,7 @@ public sealed class HistoryManager : IDisposable
 
             var transaction = _undoStack.Pop();
 
-            using (PublishingSuppression.Enter())
+            using (SuppressRecording())
             {
                 transaction.Revert(_context);
             }
@@ -123,7 +126,7 @@ public sealed class HistoryManager : IDisposable
 
             var transaction = _redoStack.Pop();
 
-            using (PublishingSuppression.Enter())
+            using (SuppressRecording())
             {
                 transaction.Apply(_context);
             }
@@ -223,9 +226,41 @@ public sealed class HistoryManager : IDisposable
         _stateChanged.OnNext(new HistoryState(CanUndo, CanRedo, UndoCount, RedoCount));
     }
 
+    public IDisposable SuppressRecording()
+    {
+        ThrowIfDisposed();
+        lock (_lock)
+        {
+            _recordingSuppressionCount++;
+        }
+        return new RecordingSuppressionScope(this);
+    }
+
+    private void EndRecordingSuppression()
+    {
+        lock (_lock)
+        {
+            _recordingSuppressionCount--;
+        }
+    }
+
     private void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
+    }
+
+    private sealed class RecordingSuppressionScope(HistoryManager manager) : IDisposable
+    {
+        private bool _disposed;
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                manager.EndRecordingSuppression();
+                _disposed = true;
+            }
+        }
     }
 
     public void Dispose()
