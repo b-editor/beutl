@@ -25,6 +25,23 @@ public sealed class HistoryTransaction
     internal void AddOperation(ChangeOperation operation)
     {
         _operations.Add(operation);
+        CompactOperations();
+    }
+
+    private void CompactOperations()
+    {
+        for (int i = _operations.Count - 1; i >= 0; i--)
+        {
+            for (int j = i - 1; j >= 0; j--)
+            {
+                if (_operations[j] is IMergableChangeOperation mergableChangeOperation
+                    && mergableChangeOperation.TryMerge(_operations[i]))
+                {
+                    _operations.RemoveAt(i);
+                    break;
+                }
+            }
+        }
     }
 
     internal void Apply(OperationExecutionContext context)

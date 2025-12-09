@@ -4,7 +4,7 @@ using Beutl.Engine;
 namespace Beutl.Editor.Operations;
 
 public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string propertyPath, T newValue, T oldValue)
-    : ChangeOperation, IPropertyPathProvider
+    : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation
 {
     public CoreObject Object { get; set; } = obj;
 
@@ -136,5 +136,16 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
     private void RevertToCoreProperty(CoreProperty coreProperty)
     {
         Object.SetValue(coreProperty, OldValue);
+    }
+
+    public bool TryMerge(ChangeOperation other)
+    {
+        if (other is not UpdatePropertyValueOperation<T> op) return false;
+        if (op.Object != Object) return false;
+        if (op.PropertyPath != PropertyPath) return false;
+
+        NewValue = op.NewValue;
+        return true;
+
     }
 }
