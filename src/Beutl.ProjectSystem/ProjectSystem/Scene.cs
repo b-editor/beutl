@@ -48,9 +48,11 @@ public class Scene : ProjectItem, INotifyEdited
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
     public static readonly CoreProperty<CoreList<ImmutableHashSet<Guid>>> GroupsProperty;
+    public static readonly CoreProperty<CoreList<TimelineLayer>> LayersProperty;
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly List<string> _excludeElements = [];
     private readonly Elements _children;
+    private readonly HierarchicalList<TimelineLayer> _layers;
     private TimeSpan _start = TimeSpan.FromMinutes(0);
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private PixelSize _frameSize;
@@ -67,6 +69,7 @@ public class Scene : ProjectItem, INotifyEdited
         _children.CollectionChanged += Children_CollectionChanged;
         _children.Attached += item => item.Edited += OnElementEdited;
         _children.Detached += item => item.Edited -= OnElementEdited;
+        _layers = new HierarchicalList<TimelineLayer>(this);
         Name = name;
     }
 
@@ -90,6 +93,10 @@ public class Scene : ProjectItem, INotifyEdited
 
         GroupsProperty = ConfigureProperty<CoreList<ImmutableHashSet<Guid>>, Scene>(nameof(Groups))
             .Accessor(o => o.Groups, (o, v) => o.Groups = v)
+            .Register();
+
+        LayersProperty = ConfigureProperty<CoreList<TimelineLayer>, Scene>(nameof(Layers))
+            .Accessor(o => o.Layers, (o, v) => o.Layers = v)
             .Register();
     }
 
@@ -140,6 +147,12 @@ public class Scene : ProjectItem, INotifyEdited
         get;
         set => field.Replace(value);
     } = [];
+
+    public CoreList<TimelineLayer> Layers
+    {
+        get => _layers;
+        set => _layers.Replace(value);
+    }
 
     // element.FileNameが既に設定されている状態
     public IRecordableCommand AddChild(Element element,
