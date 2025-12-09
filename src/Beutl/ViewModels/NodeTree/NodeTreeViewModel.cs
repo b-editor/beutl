@@ -81,11 +81,8 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
             }
         }
 
-        CommandRecorder recorder = _editViewModel.CommandRecorder;
-        NodeTree.Nodes.BeginRecord<Node>()
-            .Add(node)
-            .ToCommand([NodeTree])
-            .DoAndRecord(recorder);
+        NodeTree.Nodes.Add(node);
+        _editViewModel.HistoryManager.Commit();
     }
 
     public void Dispose()

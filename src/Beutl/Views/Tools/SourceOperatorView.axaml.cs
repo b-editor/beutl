@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls.Behaviors;
+using Beutl.Editor;
 using Beutl.Models;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
@@ -31,21 +32,21 @@ public sealed partial class SourceOperatorView : UserControl
     {
         if (DataContext is SourceOperatorViewModel viewModel2)
         {
-            CommandRecorder recorder = viewModel2.GetRequiredService<CommandRecorder>();
+            HistoryManager history = viewModel2.GetRequiredService<HistoryManager>();
             SourceOperator operation = viewModel2.Model;
             Element element = operation.FindRequiredHierarchicalParent<Element>();
-            element.Operation.RemoveChild(operation)
-                .DoAndRecord(recorder);
+            element.Operation.RemoveChild(operation);
+            history.Commit();
         }
     }
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is {  } typeName
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is { } typeName
             && TypeFormat.ToType(typeName) is { } item2
             && DataContext is SourceOperatorViewModel viewModel2)
         {
-            CommandRecorder recorder = viewModel2.GetRequiredService<CommandRecorder>();
+            HistoryManager history = viewModel2.GetRequiredService<HistoryManager>();
             SourceOperator operation = viewModel2.Model;
             Element element = operation.FindRequiredHierarchicalParent<Element>();
             Rect bounds = Bounds;
@@ -55,14 +56,14 @@ public sealed partial class SourceOperatorView : UserControl
 
             if (half < position.Y)
             {
-                element.Operation.InsertChild(index + 1, (SourceOperator)Activator.CreateInstance(item2)!)
-                    .DoAndRecord(recorder);
+                element.Operation.InsertChild(index + 1, (SourceOperator)Activator.CreateInstance(item2)!);
             }
             else
             {
-                element.Operation.InsertChild(index, (SourceOperator)Activator.CreateInstance(item2)!)
-                    .DoAndRecord(recorder);
+                element.Operation.InsertChild(index, (SourceOperator)Activator.CreateInstance(item2)!);
             }
+
+            history.Commit();
 
             e.Handled = true;
         }
@@ -121,11 +122,9 @@ public sealed partial class SourceOperatorView : UserControl
                     } element
                 } viewModel)
             {
-                CommandRecorder recorder = viewModel.GetRequiredService<CommandRecorder>();
-                list.BeginRecord<SourceOperator>()
-                    .Move(oldIndex, newIndex)
-                    .ToCommand([element])
-                    .DoAndRecord(recorder);
+                HistoryManager history = viewModel.GetRequiredService<HistoryManager>();
+                list.Move(oldIndex, newIndex);
+                history.Commit();
             }
         }
     }

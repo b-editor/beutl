@@ -343,16 +343,11 @@ public sealed partial class Timeline : UserControl
             }
             else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
             {
-                RecordableCommands.Edit(ViewModel.Scene, Scene.DurationProperty, ViewModel.Scene.Duration,
-                        _initialDuration)
-                    .DoAndRecord(ViewModel.EditorContext.CommandRecorder);
+                ViewModel.EditorContext.HistoryManager.Commit();
             }
             else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
             {
-                RecordableCommands.Edit(ViewModel.Scene, Scene.StartProperty, ViewModel.Scene.Start, _initialStart)
-                    .Append(RecordableCommands.Edit(ViewModel.Scene, Scene.DurationProperty, ViewModel.Scene.Duration,
-                        _initialDuration))
-                    .DoAndRecord(ViewModel.EditorContext.CommandRecorder);
+                ViewModel.EditorContext.HistoryManager.Commit();
             }
 
             if (Scale.IsPointerOver && ViewModel.HoveredCacheBlock.Value is { } cache)
@@ -509,7 +504,6 @@ public sealed partial class Timeline : UserControl
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {
-                CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
                 var dialog = new AddElementDialog
                 {
                     DataContext = new AddElementDialogViewModel(
@@ -519,7 +513,7 @@ public sealed partial class Timeline : UserControl
                             TimeSpan.FromSeconds(5),
                             viewModel.CalculateClickedLayer(),
                             InitialOperator: type),
-                        recorder)
+                        ViewModel.EditorContext.HistoryManager)
                 };
                 await dialog.ShowAsync();
             }
@@ -551,13 +545,12 @@ public sealed partial class Timeline : UserControl
     private async void AddElementClick(object? sender, RoutedEventArgs e)
     {
         if (ViewModel == null) return;
-        CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
         var dialog = new AddElementDialog
         {
             DataContext = new AddElementDialogViewModel(ViewModel.Scene,
                 new ElementDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5),
                     ViewModel.CalculateClickedLayer()),
-                recorder)
+                ViewModel.EditorContext.HistoryManager)
         };
         await dialog.ShowAsync();
     }

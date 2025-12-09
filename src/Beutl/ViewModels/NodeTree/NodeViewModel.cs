@@ -66,10 +66,8 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
             NodeTreeModel? tree = Node.FindHierarchicalParent<NodeTreeModel>();
             if (tree != null)
             {
-                tree.Nodes.BeginRecord<Node>()
-                    .Remove(Node)
-                    .ToCommand([node])
-                    .DoAndRecord(EditorContext.CommandRecorder);
+                tree.Nodes.Remove(Node);
+                EditorContext.HistoryManager.Commit();
             }
         });
 
@@ -192,24 +190,20 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
 
     public void UpdatePosition(IEnumerable<NodeViewModel> selection)
     {
-        static IRecordableCommand CreateCommand(NodeViewModel viewModel)
+        foreach (var item in selection)
         {
-            return RecordableCommands.Edit(viewModel.Node, Node.PositionProperty, (viewModel.Position.Value.X, viewModel.Position.Value.Y))
-                .WithStoables([viewModel.Node]);
+            item.Node.Position = (item.Position.Value.X, item.Position.Value.Y);
         }
 
-        selection.Select(CreateCommand)
-            .Append(CreateCommand(this))
-            .ToArray()
-            .ToCommand()
-            .DoAndRecord(EditorContext.CommandRecorder);
+        Node.Position = (Position.Value.X, Position.Value.Y);
+
+        EditorContext.HistoryManager.Commit();
     }
 
     public void UpdateName(string? name)
     {
-        RecordableCommands.Edit(Node, CoreObject.NameProperty, name)
-            .WithStoables([Node])
-            .DoAndRecord(EditorContext.CommandRecorder);
+        Node.Name = name!;
+        EditorContext.HistoryManager.Commit();
     }
 
     public void WriteToJson(JsonObject json)

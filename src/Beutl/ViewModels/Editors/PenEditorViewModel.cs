@@ -110,14 +110,8 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     {
         if (!EqualityComparer<Pen>.Default.Equals(oldValue, newValue))
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            IPropertyAdapter prop = PropertyAdapter;
-
-            RecordableCommands.Create(GetStorables())
-                .OnDo(() => prop.SetValue(newValue))
-                .OnUndo(() => prop.SetValue(oldValue))
-                .ToCommand()
-                .DoAndRecord(recorder);
+            PropertyAdapter.SetValue(newValue);
+            Commit();
         }
     }
 

@@ -165,11 +165,13 @@ public partial class InlineAnimationLayer : UserControl
 
             if (_items != null)
             {
-                _items.Select(i => i.CreateUpdateCommand())
-                    .Append(viewModel.CreateUpdateCommand())
-                    .ToArray()
-                    .ToCommand([viewModel.Parent.Element.Model])
-                    .DoAndRecord(viewModel.Timeline.EditorContext.CommandRecorder);
+                foreach (InlineKeyFrameViewModel item in _items)
+                {
+                    item.ReflectModelKeyTime();
+                }
+                viewModel.ReflectModelKeyTime();
+                var history = viewModel.Timeline.EditorContext.HistoryManager;
+                history.Commit();
             }
             else
             {

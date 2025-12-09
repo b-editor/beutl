@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Transformation;
+﻿using Beutl.Editor;
+using Beutl.Graphics.Transformation;
 using Beutl.Media;
 using Beutl.Models;
 using Beutl.Operation;
@@ -14,13 +15,13 @@ public sealed class AddElementDialogViewModel
 {
     private readonly Scene _scene;
     private readonly ElementDescription _description;
-    private readonly CommandRecorder _recorder;
+    private readonly HistoryManager _history;
 
-    public AddElementDialogViewModel(Scene scene, ElementDescription desc, CommandRecorder recorder)
+    public AddElementDialogViewModel(Scene scene, ElementDescription desc, HistoryManager history)
     {
         _scene = scene;
         _description = desc;
-        _recorder = recorder;
+        _history = history;
         Color.Value = Colors.Teal.ToAvalonia();
         Layer.Value = desc.Layer;
         Start.Value = desc.Start;
@@ -86,7 +87,7 @@ public sealed class AddElementDialogViewModel
             if (_description.InitialOperator != null)
             {
                 var op = (SourceOperator)Activator.CreateInstance(_description.InitialOperator)!;
-                element.Operation.AddChild(op).Do();
+                element.Operation.AddChild(op);
 
                 if (!_description.Position.IsDefault
                     && op.Properties.FirstOrDefault(v => v.PropertyType == typeof(Transform)) is IPropertyAdapter<Transform?> transformp)
@@ -112,7 +113,8 @@ public sealed class AddElementDialogViewModel
             }
 
             CoreSerializer.StoreToUri(element, element.Uri);
-            _scene.AddChild(element).DoAndRecord(_recorder);
+            _scene.AddChild(element);
+            _history.Commit();
         });
     }
 

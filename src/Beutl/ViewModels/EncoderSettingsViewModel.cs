@@ -1,4 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Editor;
+using Beutl.Editor.Observers;
 using Beutl.Media.Encoding;
 using Beutl.Operation;
 using Beutl.Services;
@@ -9,11 +11,13 @@ namespace Beutl.ViewModels;
 
 public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IServiceProvider, IDisposable
 {
-    private readonly CommandRecorder _recorder = new();
+    private readonly HistoryManager _history;
 
     public EncoderSettingsViewModel(MediaEncoderSettings settings)
     {
         Settings = settings;
+        var sequenceGenerator = new OperationSequenceGenerator();
+        _history = new HistoryManager(settings, sequenceGenerator);
         InitializeCoreObject(settings, (_, m) => m.Browsable);
     }
 
@@ -23,9 +27,9 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
 
     public object? GetService(Type serviceType)
     {
-        if (serviceType == typeof(CommandRecorder))
+        if (serviceType == typeof(HistoryManager))
         {
-            return _recorder;
+            return _history;
         }
 
         return null;

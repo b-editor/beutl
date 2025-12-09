@@ -5,6 +5,8 @@ using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Configuration;
+using Beutl.Editor;
+using Beutl.Editor.Observers;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
@@ -89,14 +91,20 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         Player = new PlayerViewModel(this);
         Commands = new KnownCommandsImpl(scene, this);
-        CommandRecorder = new CommandRecorder();
+        var sequenceGenerator = new OperationSequenceGenerator();
+        var observer = new CoreObjectOperationObserver(null, Scene, sequenceGenerator)
+            .DisposeWith(_disposables);
+        HistoryManager = new HistoryManager(Scene, sequenceGenerator);
+        HistoryManager.Subscribe(observer)
+            .DisposeWith(_disposables);
         BufferStatus = new BufferStatusViewModel(this)
             .DisposeWith(_disposables);
 
         DockHost = new DockHostViewModel(SceneId, this)
             .DisposeWith(_disposables);
 
-        CommandRecorder.Executed += OnCommandRecorderExecuted;
+        HistoryManager.StateChanged.Subscribe(OnHistoryManagerStateChanged)
+            .DisposeWith(_disposables);
 
         RestoreState();
 
@@ -207,68 +215,69 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         }
     }
 
-    private void OnCommandRecorderExecuted(object? sender, CommandExecutedEventArgs e)
+    private void OnHistoryManagerStateChanged(HistoryState state)
     {
-        _logger.LogInformation("Command executed, updating FrameCacheManager and saving state if needed.");
-        Task.Run(() =>
-        {
-            int rate = Player.GetFrameRate();
-            IEnumerable<TimeRange> affectedRange = e.Command is IAffectsTimelineCommand affectsTimeline
-                ? affectsTimeline.GetAffectedRange()
-                : e.Storables.OfType<Element>().Select(v => v.Range);
-
-            FrameCacheManager.Value.DeleteAndUpdateBlocks(affectedRange
-                .Select(item => (Start: (int)item.Start.ToFrameNumber(rate),
-                    End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
-        });
-
-        if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
-        {
-            Dispatcher.UIThread.Invoke(() =>
-            {
-                var objects = e.Storables
-                    .Select(item =>
-                    {
-                        if (item is Hierarchical hierarchical)
-                        {
-                            return hierarchical.EnumerateAncestors<CoreObject>().Where(o => o.Uri != null);
-                        }
-
-                        if (item.Uri != null)
-                        {
-                            return [item];
-                        }
-
-                        return [];
-                    })
-                    .SelectMany(e => e)
-                    .ToHashSet();
-
-                foreach (CoreObject item in objects)
-                {
-                    try
-                    {
-                        _logger.LogTrace("Auto-saving object ({TypeName}, {ObjectId}).", TypeFormat.ToString(item.GetType()), item.Id);
-                        CoreSerializer.StoreToUri(item, item.Uri!, CoreSerializationMode.Write);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "An exception occurred while saving the file.");
-                        NotificationService.ShowError(string.Empty,
-                            Message.An_exception_occurred_while_saving_the_file);
-                    }
-                }
-
-                try
-                {
-                    SaveState();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "An exception occurred while saving the view state.");
-                }
-            });
-        }
+        // TODO: 自動保存の実装
+        // _logger.LogInformation("Command executed, updating FrameCacheManager and saving state if needed.");
+        // Task.Run(() =>
+        // {
+        //     int rate = Player.GetFrameRate();
+        //     IEnumerable<TimeRange> affectedRange = e.Command is IAffectsTimelineCommand affectsTimeline
+        //         ? affectsTimeline.GetAffectedRange()
+        //         : e.Storables.OfType<Element>().Select(v => v.Range);
+        //
+        //     FrameCacheManager.Value.DeleteAndUpdateBlocks(affectedRange
+        //         .Select(item => (Start: (int)item.Start.ToFrameNumber(rate),
+        //             End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
+        // });
+        //
+        // if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
+        // {
+        //     Dispatcher.UIThread.Invoke(() =>
+        //     {
+        //         var objects = e.Storables
+        //             .Select(item =>
+        //             {
+        //                 if (item is Hierarchical hierarchical)
+        //                 {
+        //                     return hierarchical.EnumerateAncestors<CoreObject>().Where(o => o.Uri != null);
+        //                 }
+        //
+        //                 if (item.Uri != null)
+        //                 {
+        //                     return [item];
+        //                 }
+        //
+        //                 return [];
+        //             })
+        //             .SelectMany(e => e)
+        //             .ToHashSet();
+        //
+        //         foreach (CoreObject item in objects)
+        //         {
+        //             try
+        //             {
+        //                 _logger.LogTrace("Auto-saving object ({TypeName}, {ObjectId}).", TypeFormat.ToString(item.GetType()), item.Id);
+        //                 CoreSerializer.StoreToUri(item, item.Uri!, CoreSerializationMode.Write);
+        //             }
+        //             catch (Exception ex)
+        //             {
+        //                 _logger.LogError(ex, "An exception occurred while saving the file.");
+        //                 NotificationService.ShowError(string.Empty,
+        //                     Message.An_exception_occurred_while_saving_the_file);
+        //             }
+        //         }
+        //
+        //         try
+        //         {
+        //             SaveState();
+        //         }
+        //         catch (Exception ex)
+        //         {
+        //             _logger.LogError(ex, "An exception occurred while saving the view state.");
+        //         }
+        //     });
+        // }
     }
 
     private void OnSelectedObjectDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
@@ -301,7 +310,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     public BufferStatusViewModel BufferStatus { get; private set; }
 
-    public CommandRecorder CommandRecorder { get; private set; }
+    public HistoryManager HistoryManager { get; private set; }
 
     public ReadOnlyReactivePropertySlim<FrameCacheManager> FrameCacheManager { get; private set; }
 
@@ -345,8 +354,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         Scene = null!;
         Commands = null!;
-        CommandRecorder.Executed -= OnCommandRecorderExecuted;
-        CommandRecorder.Clear();
+        HistoryManager.Clear();
         FrameCacheManager.Value.Dispose();
         FrameCacheManager.Dispose();
 
@@ -487,8 +495,8 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         if (serviceType.IsAssignableTo(typeof(ISupportCloseAnimation)))
             return this;
 
-        if (serviceType == typeof(CommandRecorder))
-            return CommandRecorder;
+        if (serviceType == typeof(HistoryManager))
+            return HistoryManager;
 
         return null;
     }
@@ -529,9 +537,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                     Transform? transform = transformp.GetValue();
                     AddOrSetHelper.AddOrSet(
                         ref transform,
-                        new TranslateTransform(desc.Position),
-                        [operation],
-                        CommandRecorder);
+                        new TranslateTransform(desc.Position));
                     transformp.SetValue(transform);
                 }
                 else
@@ -555,13 +561,12 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 element.Name = Path.GetFileName(desc.FileName);
                 SetAccentColor(element, typeof(T).FullName!);
 
-                element.Operation.AddChild(t = new T()).Do();
+                element.Operation.AddChild(t = new T());
                 SetTransform(element.Operation, t);
 
                 return element;
             }
 
-            var list = new List<IRecordableCommand>();
             if (MatchFileImage(desc.FileName))
             {
                 _logger.LogDebug("File is an image.");
@@ -570,7 +575,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 t.Value.Source.CurrentValue = image;
 
                 CoreSerializer.StoreToUri(element, element.Uri!);
-                list.Add(Scene.AddChild(element));
+                Scene.AddChild(element);
                 scrollPos = (element.Range, element.ZIndex);
             }
             else if (MatchFileVideoOnly(desc.FileName))
@@ -591,12 +596,10 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
                 CoreSerializer.StoreToUri(element1, element1.Uri!);
                 CoreSerializer.StoreToUri(element2, element2.Uri!);
-                list.Add(Scene.AddChild(element1));
-                list.Add(Scene.AddChild(element2));
+                Scene.AddChild(element1);
+                Scene.AddChild(element2);
                 // グループ化
-                list.Add(Scene.Groups.BeginRecord<ImmutableHashSet<Guid>>()
-                    .Add([element1.Id, element2.Id])
-                    .ToCommand([Scene]));
+                Scene.Groups.Add([element1.Id, element2.Id]);
                 scrollPos = (element1.Range, element1.ZIndex);
             }
             else if (MatchFileAudioOnly(desc.FileName))
@@ -611,13 +614,11 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 }
 
                 CoreSerializer.StoreToUri(element, element.Uri!);
-                list.Add(Scene.AddChild(element));
+                Scene.AddChild(element);
                 scrollPos = (element.Range, element.ZIndex);
             }
 
-            list.ToArray()
-                .ToCommand()
-                .DoAndRecord(CommandRecorder);
+            HistoryManager.Commit();
 
             if (scrollPos.HasValue && timeline != null)
             {
@@ -642,12 +643,13 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 element.AccentColor =
                     ColorGenerator.GenerateColor(desc.InitialOperator.FullName ?? desc.InitialOperator.Name);
                 var operatour = (SourceOperator)Activator.CreateInstance(desc.InitialOperator)!;
-                element.Operation.AddChild(operatour).Do();
+                element.Operation.AddChild(operatour);
                 SetTransform(element.Operation, operatour);
             }
 
             CoreSerializer.StoreToUri(element, element.Uri!);
-            Scene.AddChild(element).DoAndRecord(CommandRecorder);
+            Scene.AddChild(element);
+            HistoryManager.Commit();
 
             timeline?.ScrollTo.Execute((element.Range, element.ZIndex));
         }
@@ -772,7 +774,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         public ValueTask<bool> OnUndo()
         {
             viewModel._logger.LogInformation("Undoing last command.");
-            viewModel.CommandRecorder.Undo();
+            viewModel.HistoryManager.Undo();
             viewModel._logger.LogInformation("Undo completed.");
 
             return ValueTask.FromResult(true);
@@ -781,7 +783,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         public ValueTask<bool> OnRedo()
         {
             viewModel._logger.LogInformation("Redoing last undone command.");
-            viewModel.CommandRecorder.Redo();
+            viewModel.HistoryManager.Redo();
             viewModel._logger.LogInformation("Redo completed.");
 
             return ValueTask.FromResult(true);

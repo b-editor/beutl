@@ -1,5 +1,5 @@
 ﻿using System.Text.Json.Nodes;
-
+using Beutl.Editor;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 
@@ -70,12 +70,11 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                         || start != _scene.Start
                         || duration != _scene.Duration)
                     {
-                        CommandRecorder recorder = _editViewModel.CommandRecorder;
-                        RecordableCommands.Edit(_scene, Scene.FrameSizeProperty, new(Width.Value, Height.Value))
-                            .Append(RecordableCommands.Edit(_scene, Scene.StartProperty, start))
-                            .Append(RecordableCommands.Edit(_scene, Scene.DurationProperty, duration))
-                            .WithStoables([_scene])
-                            .DoAndRecord(recorder);
+                        HistoryManager history = _editViewModel.HistoryManager;
+                        _scene.FrameSize = new Media.PixelSize(Width.Value, Height.Value);
+                        _scene.Start = start;
+                        _scene.Duration = duration;
+                        history.Commit();
                     }
 
                     _editViewModel.Options.Value = _editViewModel.Options.Value with

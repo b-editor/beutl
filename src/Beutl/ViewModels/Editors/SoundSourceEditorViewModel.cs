@@ -1,10 +1,4 @@
-﻿using System.Collections.Immutable;
-
-using Beutl.Animation;
-using Beutl.Media.Source;
-
-using Microsoft.Extensions.DependencyInjection;
-
+﻿using Beutl.Media.Source;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -31,103 +25,17 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
     {
         if (!EqualityComparer<ISoundSource?>.Default.Equals(oldValue, newValue))
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            if (EditingKeyFrame.Value != null)
+            if (EditingKeyFrame.Value is { } kf)
             {
-                recorder.DoAndPush(
-                    new SetKeyFrameValueCommand(EditingKeyFrame.Value, oldValue, newValue, GetStorables()));
+                // TODO: MediaSource.Openがされた状態ではUnmanagedなリソースを作成せず，EngineObject.Resourceが作成，更新されたときにリソースの作成などを行う
+                kf.Value = newValue;
             }
             else
             {
-                recorder.DoAndPush(
-                    new SetCommand(PropertyAdapter, oldValue, newValue, GetStorables()));
-            }
-        }
-    }
-
-    private sealed class SetKeyFrameValueCommand(
-        KeyFrame<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue,
-        ImmutableArray<CoreObject?> storables) : IRecordableCommand
-    {
-        private readonly Uri? _oldUri = oldValue?.Uri;
-        private readonly Uri? _newUri = newValue?.Uri;
-        private ISoundSource? _oldValue = oldValue;
-        private ISoundSource? _newValue = newValue;
-
-        public ImmutableArray<CoreObject?> GetStorables() => storables;
-
-        public void Do()
-        {
-            if (_newValue == null && _newUri != null)
-            {
-                SoundSource.TryOpen(_newUri, out SoundSource? newValue);
-                _newValue = newValue;
+                PropertyAdapter.SetValue(newValue);
             }
 
-            setter.SetValue(KeyFrame<ISoundSource?>.ValueProperty, _newValue);
-            _oldValue?.Dispose();
-            _oldValue = null;
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            if (_oldValue == null && _oldUri != null)
-            {
-                SoundSource.TryOpen(_oldUri, out SoundSource? oldValue);
-                _oldValue = oldValue;
-            }
-
-            setter.SetValue(KeyFrame<ISoundSource?>.ValueProperty, _oldValue);
-            _newValue?.Dispose();
-            _newValue = null;
-        }
-    }
-
-    private sealed class SetCommand(
-        IPropertyAdapter<ISoundSource?> setter, ISoundSource? oldValue, ISoundSource? newValue,
-        ImmutableArray<CoreObject?> storables) : IRecordableCommand
-    {
-        private readonly Uri? _oldUri = oldValue?.Uri;
-        private readonly Uri? _newUri = newValue?.Uri;
-        private ISoundSource? _oldValue = oldValue;
-        private ISoundSource? _newValue = newValue;
-
-        public ImmutableArray<CoreObject?> GetStorables() => storables;
-
-        public void Do()
-        {
-            if (_newValue == null && _newUri != null)
-            {
-                SoundSource.TryOpen(_newUri, out SoundSource? newValue);
-                _newValue = newValue;
-            }
-
-            setter.SetValue(_newValue);
-            _oldValue?.Dispose();
-            _oldValue = null;
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            if (_oldValue == null && _oldUri != null)
-            {
-                SoundSource.TryOpen(_oldUri, out SoundSource? oldValue);
-                _oldValue = oldValue;
-            }
-
-            setter.SetValue(_oldValue);
-            _newValue?.Dispose();
-            _newValue = null;
+            Commit();
         }
     }
 }

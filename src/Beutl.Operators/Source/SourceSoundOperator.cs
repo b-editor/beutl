@@ -81,23 +81,17 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
         }
     }
 
-    public override IRecordableCommand? OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
+    public override void OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
     {
-        if (Value is null) return null;
+        if (Value is null) return;
 
         if (backward)
         {
-            TimeSpan newValue = Value.OffsetPosition.CurrentValue + startDelta;
-            TimeSpan oldValue = Value.OffsetPosition.CurrentValue;
-
-            return RecordableCommands.Create([this])
-                .OnDo(() => Value.OffsetPosition.CurrentValue = newValue)
-                .OnUndo(() => Value.OffsetPosition.CurrentValue = oldValue)
-                .ToCommand();
+            Value.OffsetPosition.CurrentValue += startDelta;
         }
         else
         {
-            return base.OnSplit(backward, startDelta, lengthDelta);
+            base.OnSplit(backward, startDelta, lengthDelta);
         }
     }
 

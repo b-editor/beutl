@@ -10,7 +10,6 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.Serialization;
 using Beutl.Utilities;
-
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
@@ -155,29 +154,29 @@ public class Scene : ProjectItem, INotifyEdited
     }
 
     // element.FileNameが既に設定されている状態
-    public IRecordableCommand AddChild(Element element,
+    public void AddChild(Element element,
         ElementOverlapHandling overlapHandling = ElementOverlapHandling.Auto)
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        return new AddCommand(this, element, overlapHandling);
+        new AddCommand(this, element, overlapHandling).Do();
     }
 
-    public IRecordableCommand DeleteChild(Element element)
+    public void DeleteChild(Element element)
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        return new DeleteCommand(this, element);
+        new DeleteCommand(this, element).Do();
     }
 
-    public IRecordableCommand RemoveChild(Element element)
+    public void RemoveChild(Element element)
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        return new RemoveCommand(this, element);
+        new RemoveCommand(this, element).Do();
     }
 
-    public IRecordableCommand MoveChild(int zIndex, TimeSpan start, TimeSpan length, Element element)
+    public void MoveChild(int zIndex, TimeSpan start, TimeSpan length, Element element)
     {
         ArgumentNullException.ThrowIfNull(element);
 
@@ -187,24 +186,25 @@ public class Scene : ProjectItem, INotifyEdited
         if (length <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(length));
 
-        return new MoveCommand(
+        new MoveCommand(
             zIndex: zIndex,
             element: element,
             newStart: start,
             oldStart: element.Start,
             newLength: length,
             oldLength: element.Length,
-            scene: this);
+            scene: this)
+            .Do();
     }
 
-    public IRecordableCommand MoveChildren(int deltaIndex, TimeSpan deltaStart, Element[] elements)
+    public void MoveChildren(int deltaIndex, TimeSpan deltaStart, Element[] elements)
     {
         if (elements.Length < 2)
         {
             throw new ArgumentOutOfRangeException(nameof(elements));
         }
 
-        return new MultipleMoveCommand(this, elements, deltaIndex, deltaStart);
+        new MultipleMoveCommand(this, elements, deltaIndex, deltaStart).Do();
     }
 
     public override void Serialize(ICoreSerializationContext context)
@@ -624,14 +624,10 @@ public class Scene : ProjectItem, INotifyEdited
     }
 
     private sealed class AddCommand(Scene scene, Element element, ElementOverlapHandling overlapHandling)
-        : IRecordableCommand
     {
-        private readonly TimeSpan _oldSceneDuration = scene.Duration;
         private readonly bool _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
         private int _zIndex;
         private TimeRange _range;
-
-        public ImmutableArray<CoreObject?> GetStorables() => [scene, element];
 
         public void Do()
         {
@@ -646,71 +642,27 @@ public class Scene : ProjectItem, INotifyEdited
                 scene.Duration = _range.End;
             }
         }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            scene.Children.Remove(element);
-            element.ZIndex = -1;
-            if (_adjustSceneDuration)
-            {
-                scene.Duration = _oldSceneDuration;
-            }
-        }
     }
 
-    private sealed class RemoveCommand(Scene scene, Element element) : IRecordableCommand
+    private sealed class RemoveCommand(Scene scene, Element element)
     {
-        private int _zIndex;
-
-        public ImmutableArray<CoreObject?> GetStorables() => [scene, element];
-
         public void Do()
         {
-            _zIndex = element.ZIndex;
             scene.Children.Remove(element);
             element.ZIndex = -1;
         }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            element.ZIndex = _zIndex;
-            scene.Children.Add(element);
-        }
     }
 
-    private sealed class DeleteCommand : IRecordableCommand, IAffectsTimelineCommand
+    private sealed class DeleteCommand
     {
         private readonly Scene _scene;
-        private readonly TimeRange _timeRange;
-        private readonly JsonObject _jsonObject;
-        private Uri _uri;
         private Element? _element;
 
         public DeleteCommand(Scene scene, Element element)
         {
             _scene = scene;
             _element = element;
-            _uri = element.Uri!;
-            _timeRange = element.Range;
-
-            _jsonObject = CoreSerializer.SerializeToJsonObject(
-                element,
-                new CoreSerializerOptions { BaseUri = element.Uri });
         }
-
-        public ImmutableArray<CoreObject?> GetStorables() => [_scene];
-
-        public ImmutableArray<TimeRange> GetAffectedRange() => [_timeRange];
 
         public void Do()
         {
@@ -726,27 +678,6 @@ public class Scene : ProjectItem, INotifyEdited
                 _element = null;
             }
         }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            var path = _uri.LocalPath;
-            if (File.Exists(path))
-            {
-                _uri = RandomFileNameGenerator.GenerateUri(Path.GetDirectoryName(path)!, "belm");
-            }
-
-            _element = (Element)CoreSerializer.DeserializeFromJsonObject(_jsonObject, typeof(Element),
-                new CoreSerializerOptions { BaseUri = _uri });
-
-            CoreSerializer.StoreToUri(_element, _uri);
-
-            _scene.Children.Add(_element);
-        }
     }
 
     private sealed class MoveCommand(
@@ -756,18 +687,11 @@ public class Scene : ProjectItem, INotifyEdited
         TimeSpan oldStart,
         TimeSpan newLength,
         TimeSpan oldLength,
-        Scene scene) : IRecordableCommand, IAffectsTimelineCommand
+        Scene scene)
     {
         private readonly int _oldZIndex = element.ZIndex;
         private readonly TimeSpan _oldSceneDuration = scene.Duration;
         private readonly bool _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
-
-        public bool Nothing => newStart == oldStart && newLength == oldLength && zIndex == _oldZIndex;
-
-        public ImmutableArray<CoreObject?> GetStorables() => [scene, element];
-
-        public ImmutableArray<TimeRange> GetAffectedRange()
-            => [new TimeRange(newStart, newLength), new TimeRange(oldStart, oldLength)];
 
         public void Do()
         {
@@ -821,11 +745,6 @@ public class Scene : ProjectItem, INotifyEdited
             }
         }
 
-        public void Redo()
-        {
-            Do();
-        }
-
         public void Undo()
         {
             element.ZIndex = _oldZIndex;
@@ -838,7 +757,7 @@ public class Scene : ProjectItem, INotifyEdited
         }
     }
 
-    private sealed class MultipleMoveCommand : IRecordableCommand
+    private sealed class MultipleMoveCommand
     {
         private readonly Scene _scene;
         private readonly Element[] _elements;
@@ -848,7 +767,6 @@ public class Scene : ProjectItem, INotifyEdited
         private readonly bool _adjustSceneDuration;
         private readonly TimeSpan _oldSceneDuration;
         private readonly TimeSpan _newSceneDuration;
-        private readonly ImmutableArray<TimeRange> _affectedRange;
 
         public MultipleMoveCommand(
             Scene scene,
@@ -890,13 +808,6 @@ public class Scene : ProjectItem, INotifyEdited
                 {
                     _newSceneDuration = maxEndingTime;
                 }
-            }
-
-            if (!_conflict)
-            {
-                _affectedRange = elements
-                    .SelectMany(v => new[] { v.Range, v.Range.AddStart(_deltaTime) })
-                    .ToImmutableArray();
             }
         }
 
@@ -955,16 +866,6 @@ public class Scene : ProjectItem, INotifyEdited
             return null;
         }
 
-        public ImmutableArray<CoreObject?> GetStorables()
-        {
-            if (_conflict)
-                return [];
-
-            return [_scene, .. _elements];
-        }
-
-        public ImmutableArray<TimeRange> GetAffectedRange() => _affectedRange;
-
         public void Do()
         {
             if (!_conflict)
@@ -978,28 +879,6 @@ public class Scene : ProjectItem, INotifyEdited
                 if (_adjustSceneDuration)
                 {
                     _scene.Duration = _newSceneDuration;
-                }
-            }
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            if (!_conflict)
-            {
-                foreach (Element item in _elements)
-                {
-                    item.Start -= _deltaTime;
-                    item.ZIndex -= _deltaZIndex;
-                }
-
-                if (_adjustSceneDuration)
-                {
-                    _scene.Duration = _oldSceneDuration;
                 }
             }
         }

@@ -1,6 +1,4 @@
-﻿using System.Collections.Immutable;
-
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 
@@ -46,17 +44,6 @@ public partial class PlayerView
         public float OldPreviousValue { get; } = previous?.Value ?? 0;
 
         public float OldNextValue { get; } = next?.Value ?? 0;
-
-        public IRecordableCommand? CreateCommand(ImmutableArray<CoreObject?> storables)
-        {
-            return RecordableCommands.Append(
-                Previous != null && Previous.Value != OldPreviousValue
-                    ? RecordableCommands.Edit(Previous, KeyFrame<float>.ValueProperty, Previous.Value, OldPreviousValue).WithStoables(storables)
-                    : null,
-                Next != null && Next.Value != OldNextValue
-                    ? RecordableCommands.Edit(Next, KeyFrame<float>.ValueProperty, Next.Value, OldNextValue).WithStoables(storables)
-                    : null);
-        }
     }
 
     private interface IMouseControlHandler
@@ -185,10 +172,8 @@ public partial class PlayerView
                     if (obj == null)
                     {
                         obj = new TranslateTransform();
-                        transformGroup.Children.BeginRecord<Transform>()
-                            .Insert(0, obj)
-                            .ToCommand([Element])
-                            .DoAndRecord(EditViewModel.CommandRecorder);
+                        transformGroup.Children.Insert(0, obj);
+                        EditViewModel.HistoryManager.Commit();
 
                         return (obj, Matrix.Identity);
                     }
@@ -309,32 +294,13 @@ public partial class PlayerView
             return true;
         }
 
-        private IRecordableCommand? CreateTranslationCommand(ImmutableArray<CoreObject?> storables)
-        {
-            if (_translateTransform != null)
-            {
-                return RecordableCommands.Append(
-                    _translateTransform.X.CurrentValue != _oldTranslation.X
-                        ? RecordableCommands.Edit(_translateTransform.X, _translateTransform.X.CurrentValue, _oldTranslation.X).WithStoables(storables)
-                        : null,
-                    _translateTransform.Y.CurrentValue != _oldTranslation.Y
-                        ? RecordableCommands.Edit(_translateTransform.Y, _translateTransform.Y.CurrentValue, _oldTranslation.Y).WithStoables(storables)
-                        : null);
-            }
-
-            return null;
-        }
-
         public void OnReleased(PointerReleasedEventArgs e)
         {
             if (_imagePressed)
             {
                 _imagePressed = false;
 
-                ImmutableArray<CoreObject?> storables = [Element];
-                IRecordableCommand? command = CreateTranslationCommand(storables)
-                    .Append((_xKeyFrame?.CreateCommand(storables)).Append(_yKeyFrame?.CreateCommand(storables)));
-                command?.DoAndRecord(EditViewModel.CommandRecorder);
+                EditViewModel.HistoryManager.Commit();
 
                 Element = null;
                 _translateTransform = null;

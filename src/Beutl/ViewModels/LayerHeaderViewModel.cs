@@ -1,24 +1,38 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 using Avalonia.Media;
+using Beutl.Editor;
 using Beutl.ProjectSystem;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 
-public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
+public sealed class LayerHeaderViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly List<ElementViewModel> _elements = [];
+    private readonly ReactivePropertySlim<TimelineLayer?> _model = new();
     private IDisposable? _elementsSubscription;
     private bool _skipSubscription;
 
     public LayerHeaderViewModel(int num, TimelineViewModel timeline)
     {
-        Number = new(num);
         Timeline = timeline;
-        Name.Value = num.ToString();
+        _model.Value = timeline.Scene.Layers.FirstOrDefault(i => i.ZIndex == num);
+
+        Number = _model.Select(i => i?.GetObservable(TimelineLayer.ZIndexProperty) ?? Observable.ReturnThenNever(num))
+            .Switch()
+            .ToReactiveProperty();
+        Name = _model.Select(i => i?.GetObservable(CoreObject.NameProperty) ?? Observable.ReturnThenNever($"{num}"))
+            .Switch()
+            .Select(s => string.IsNullOrEmpty(s) ? $"{num}" : s)
+            .ToReactiveProperty($"{num}");
+        Color = _model.Select(i =>
+                i?.GetObservable(TimelineLayer.ColorProperty) ?? Observable.ReturnThenNever(Media.Colors.Transparent))
+            .Switch()
+            .Select(c => c.ToAvalonia())
+            .ToReactiveProperty(Colors.Transparent);
 
         HasItems = ItemsCount.Select(i => i > 0)
             .ToReadOnlyReactivePropertySlim()
@@ -27,16 +41,18 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
         SwitchEnabledCommand = new ReactiveCommand()
             .WithSubscribe(() =>
             {
-                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+                HistoryManager history = Timeline.EditorContext.HistoryManager;
                 try
                 {
                     _skipSubscription = true;
                     IsEnabled.Value = !IsEnabled.Value;
-                    Timeline.Scene.Children.Where(i => i.ZIndex == Number.Value && i.IsEnabled != IsEnabled.Value)
-                        .Select(item => RecordableCommands.Edit(item, Element.IsEnabledProperty, IsEnabled.Value).WithStoables([item]))
-                        .ToArray()
-                        .ToCommand()
-                        .DoAndRecord(recorder);
+                    foreach (Element element in Timeline.Scene.Children.Where(i =>
+                                 i.ZIndex == Number.Value && i.IsEnabled != IsEnabled.Value))
+                    {
+                        element.IsEnabled = IsEnabled.Value;
+                    }
+
+                    history.Commit();
                 }
                 finally
                 {
@@ -112,9 +128,9 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
 
     public ReactivePropertySlim<double> PosY { get; } = new(0);
 
-    public ReactiveProperty<Color> Color { get; } = new();
+    public ReactiveProperty<Color> Color { get; }
 
-    public ReactiveProperty<string> Name { get; } = new();
+    public ReactiveProperty<string> Name { get; }
 
     public ReactiveProperty<bool> IsEnabled { get; } = new(true);
 
@@ -128,12 +144,11 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
 
     public ReactiveCommand SwitchEnabledCommand { get; }
 
-    public void AnimationRequest(int layerNum, bool affectModel = true)
+    public void UpdateZIndex(int layerNum)
     {
-        if (affectModel)
-            Number.Value = layerNum;
+        Number.Value = layerNum;
+        _model.Value?.ZIndex = layerNum;
 
-        //await AnimationRequested(0, cancellationToken);
         PosY.Value = 0;
     }
 
@@ -180,39 +195,37 @@ public sealed class LayerHeaderViewModel : IDisposable, IJsonSerializable
         return FrameNumberHelper.LayerHeight * index;
     }
 
-    public bool ShouldSaveState()
-    {
-        return Number.Value.ToString() != Name.Value;
-    }
-
-    public void WriteToJson(JsonObject obj)
-    {
-        obj[nameof(Name)] = Name.Value;
-        obj[nameof(Color)] = Color.Value.ToString();
-    }
-
     public void ReadFromJson(JsonObject obj)
     {
         if (obj.TryGetPropertyValueAsJsonValue(nameof(Name), out string? name))
         {
-            Name.Value = name;
+            GetOrCreateModel().Name = name;
         }
 
         if (obj.TryGetPropertyValueAsJsonValue(nameof(Color), out string? colorStr)
             && Avalonia.Media.Color.TryParse(colorStr, out Color color))
         {
-            Color.Value = color;
+            GetOrCreateModel().Color = color.ToMedia();
         }
     }
 
     public void SetColor(Color color)
     {
-        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-        var (newValue, oldValue) = (Color.Value, color);
-        RecordableCommands.Create()
-            .OnDo(() => Color.Value = newValue)
-            .OnUndo(() => Color.Value = oldValue)
-            .ToCommand()
-            .DoAndRecord(recorder);
+        HistoryManager history = Timeline.EditorContext.HistoryManager;
+        var model = GetOrCreateModel();
+        model.Color = color.ToMedia();
+        history.Commit();
+    }
+
+    private TimelineLayer GetOrCreateModel()
+    {
+        if (_model.Value != null) return _model.Value;
+
+        _model.Value = new TimelineLayer
+        {
+            Name = Name.Value, Color = Color.Value.ToMedia(), ZIndex = Number.Value
+        };
+        Timeline.Scene.Layers.Add(_model.Value);
+        return _model.Value;
     }
 }

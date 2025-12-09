@@ -1,6 +1,7 @@
 ﻿using System.Collections.Specialized;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Helpers;
 using Beutl.Operation;
 using Beutl.Serialization;
@@ -24,12 +25,11 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             .ToReactiveProperty();
         IsEnabled.Skip(1).Subscribe(v =>
         {
-            CommandRecorder? recorder = this.GetService<CommandRecorder>();
-            if (recorder != null)
+            HistoryManager? history = this.GetService<HistoryManager>();
+            if (history != null)
             {
-                RecordableCommands.Edit(Model, SourceOperator.IsEnabledProperty, v)
-                    .WithStoables([parent.Element.Value])
-                    .DoAndRecord(recorder);
+                Model.IsEnabled = v;
+                history.Commit();
             }
         });
 
@@ -225,13 +225,9 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
         CoreSerializer.PopulateFromJsonObject(@operator, type!, json);
 
-        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
+        HistoryManager history = this.GetRequiredService<HistoryManager>();
 
-        var (newValue, oldValue) = (@operator, Model);
-        RecordableCommands.Create([sourceOperation])
-            .OnDo(() => sourceOperation.Children[index] = newValue)
-            .OnUndo(() => sourceOperation.Children[index] = oldValue)
-            .ToCommand()
-            .DoAndRecord(recorder);
+        sourceOperation.Children[index] = @operator;
+        history.Commit();
     }
 }

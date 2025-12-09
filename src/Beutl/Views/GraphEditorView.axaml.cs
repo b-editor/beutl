@@ -356,18 +356,14 @@ public partial class GraphEditorView : UserControl
 
         if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
         {
+            // TODO: 検証
             if (_mouseFlag == Timeline.MouseFlags.EndingBarMarkerPressed)
             {
-                RecordableCommands.Edit(viewModel.Scene, Scene.DurationProperty, viewModel.Scene.Duration,
-                        _initialDuration)
-                    .DoAndRecord(viewModel.EditorContext.CommandRecorder);
+                viewModel.EditorContext.HistoryManager.Commit();
             }
             else if (_mouseFlag == Timeline.MouseFlags.StartingBarMarkerPressed)
             {
-                RecordableCommands.Edit(viewModel.Scene, Scene.StartProperty, viewModel.Scene.Start, _initialStart)
-                    .Append(RecordableCommands.Edit(viewModel.Scene, Scene.DurationProperty, viewModel.Scene.Duration,
-                        _initialDuration))
-                    .DoAndRecord(viewModel.EditorContext.CommandRecorder);
+                viewModel.EditorContext.HistoryManager.Commit();
             }
 
             _mouseFlag = Timeline.MouseFlags.Free;
@@ -595,31 +591,6 @@ public partial class GraphEditorView : UserControl
             && _cPointPressed
             && sender is Shape { DataContext: GraphEditorKeyFrameViewModel itemViewModel, Tag: string tag })
         {
-            var recorder = viewModel.EditorContext.CommandRecorder;
-            switch (tag)
-            {
-                case "ControlPoint1":
-                    itemViewModel.SubmitControlPoint1(_oldValue.Item1, _oldValue.Item2)?.DoAndRecord(recorder);
-                    break;
-                case "ControlPoint2":
-                    itemViewModel.SubmitControlPoint2(_oldValue.Item1, _oldValue.Item2)?.DoAndRecord(recorder);
-                    break;
-            }
-
-            var oppotite = FindOppositeKeyFrame(itemViewModel, tag);
-            if (oppotite != null)
-            {
-                switch (tag)
-                {
-                    case "ControlPoint2":
-                        oppotite.SubmitControlPoint1(_oldValue2.Item1, _oldValue2.Item2)?.DoAndRecord(recorder);
-                        break;
-                    case "ControlPoint1":
-                        oppotite.SubmitControlPoint2(_oldValue2.Item1, _oldValue2.Item2)?.DoAndRecord(recorder);
-                        break;
-                }
-            }
-
             viewModel.EndEditting();
             _cPointPressed = false;
             e.Handled = true;
@@ -854,11 +825,13 @@ public partial class GraphEditorView : UserControl
         {
             if (_followingKeyFrames != null)
             {
-                _followingKeyFrames.Select(i => i.CreateSubmitKeyTimeAndValueCommand(i.Model.KeyTime))
-                    .Append(_keyframeViewModel.CreateSubmitKeyTimeAndValueCommand(_oldKeyTime))
-                    .ToArray()
-                    .ToCommand()
-                    .DoAndRecord(viewModel.EditorContext.CommandRecorder);
+                foreach (GraphEditorKeyFrameViewModel keyframe in _followingKeyFrames)
+                {
+                    keyframe.CreateSubmitKeyTimeAndValueCommand(keyframe.Model.KeyTime);
+                }
+
+                _keyframeViewModel.CreateSubmitKeyTimeAndValueCommand(_oldKeyTime);
+                viewModel.EditorContext.HistoryManager.Commit();
             }
             else
             {

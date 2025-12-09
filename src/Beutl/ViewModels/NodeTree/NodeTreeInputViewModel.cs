@@ -1,4 +1,5 @@
-﻿using Beutl.NodeTree;
+﻿using Beutl.Editor;
+using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
 using Beutl.ProjectSystem;
 
@@ -25,10 +26,8 @@ public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
         UseNode.Skip(1)
             .Subscribe(v =>
             {
-                CommandRecorder recorder = _parent.GetRequiredService<CommandRecorder>();
-                RecordableCommands.Edit(Model, Element.UseNodeProperty, v, !v)
-                    .WithStoables([element])
-                    .DoAndRecord(recorder);
+                Model.UseNode = v;
+                _parent.GetRequiredService<HistoryManager>().Commit();
             })
             .DisposeWith(_disposables);
 

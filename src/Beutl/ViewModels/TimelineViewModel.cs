@@ -10,6 +10,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
 using Beutl.Animation;
 using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Helpers;
 using Beutl.Logging;
@@ -228,13 +229,13 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         if (time > Scene.Duration + Scene.Start)
         {
             int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-            time -= Scene.Duration + Scene.Start;
+            var endTime = Scene.Duration + Scene.Start;
+            time -= endTime;
             time += TimeSpan.FromSeconds(1d / rate);
 
-            RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
-                .Append(RecordableCommands.Edit(Scene, Scene.StartProperty, Scene.Duration + Scene.Start))
-                .WithStoables([Scene])
-                .DoAndRecord(EditorContext.CommandRecorder);
+            Scene.Duration = time;
+            Scene.Start = endTime;
+            EditorContext.HistoryManager.Commit();
         }
         else
         {
@@ -248,12 +249,11 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 time = Scene.Duration + Scene.Start - TimeSpan.FromSeconds(1d / rate);
             }
 
-            RecordableCommands.Edit(Scene, Scene.StartProperty, time)
-                .Append(RecordableCommands.Edit(Scene, Scene.DurationProperty, TimeSpan.FromTicks(Math.Max(
-                    (Scene.Duration + Scene.Start -
-                     time).Ticks, TimeSpan.FromSeconds(1d / rate).Ticks))))
-                .WithStoables([Scene])
-                .DoAndRecord(EditorContext.CommandRecorder);
+            Scene.Duration = TimeSpan.FromTicks(Math.Max(
+                (Scene.Duration + Scene.Start -
+                 time).Ticks, TimeSpan.FromSeconds(1d / rate).Ticks));
+            Scene.Start = time;
+            EditorContext.HistoryManager.Commit();
         }
 
         _logger.LogInformation("Scene start adjusted to {Time}.", time);
@@ -277,10 +277,9 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 time = TimeSpan.Zero;
             }
 
-            RecordableCommands.Edit(Scene, Scene.StartProperty, time)
-                .Append(RecordableCommands.Edit(Scene, Scene.DurationProperty, Scene.Start - time))
-                .WithStoables([Scene])
-                .DoAndRecord(EditorContext.CommandRecorder);
+            Scene.Duration = Scene.Start - time;
+            Scene.Start = time;
+            EditorContext.HistoryManager.Commit();
         }
         else
         {
@@ -291,9 +290,8 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 time = TimeSpan.FromSeconds(1d / rate);
             }
 
-            RecordableCommands.Edit(Scene, Scene.DurationProperty, time)
-                .WithStoables([Scene])
-                .DoAndRecord(EditorContext.CommandRecorder);
+            Scene.Duration = time;
+            EditorContext.HistoryManager.Commit();
             _logger.LogInformation("Scene duration adjusted to {Time}.", time);
         }
     }
@@ -534,7 +532,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
         }
 
-        CommandRecorder recorder = EditorContext.CommandRecorder;
+        HistoryManager history = EditorContext.HistoryManager;
 
         var idMapping = new Dictionary<Guid, Guid>();
         for (int i = 0; i < oldElements.Length; i++)
@@ -550,22 +548,17 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 .ToImmutableHashSet())
             .Where(g => g.Count >= 2)
             .ToList();
-        IRecordableCommand? command = null;
         if (newGroups.Count > 0)
         {
-            command = RecordableCommands.Create()
-                .OnDo(() => scene.Groups.AddRange(newGroups))
-                .OnUndo(() => scene.Groups.RemoveAll(newGroups))
-                .ToCommand([scene]);
+            scene.Groups.AddRange(newGroups);
         }
 
-        var commands = newElements.Select(i => Scene.AddChild(i));
-        if (command != null) commands = commands.Append(command);
+        foreach (Element newElement in newElements)
+        {
+            Scene.AddChild(newElement);
+        }
 
-        commands
-            .ToArray()
-            .ToCommand()
-            .DoAndRecord(recorder);
+        history.Commit();
 
         ScrollTo.Execute((new TimeRange(newStart, maxStart - minStart), newZIndex));
     }
@@ -587,8 +580,9 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
             Scene.Uri!, Constants.ElementFileExtension));
 
-        CommandRecorder recorder = EditorContext.CommandRecorder;
-        Scene.AddChild(newElement).DoAndRecord(recorder);
+        HistoryManager history = EditorContext.HistoryManager;
+        Scene.AddChild(newElement);
+        history.Commit();
 
         ScrollTo.Execute((newElement.Range, newElement.ZIndex));
     }
@@ -624,8 +618,9 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
             dir, Constants.ElementFileExtension));
 
-        CommandRecorder recorder = EditorContext.CommandRecorder;
-        Scene.AddChild(newElement).DoAndRecord(recorder);
+        HistoryManager history = EditorContext.HistoryManager;
+        Scene.AddChild(newElement);
+        history.Commit();
 
         ScrollTo.Execute((newElement.Range, newElement.ZIndex));
     }
@@ -880,18 +875,6 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
     public void WriteToJson(JsonObject json)
     {
         _logger.LogInformation("Writing TimelineViewModel state to JSON.");
-
-        var array = new JsonArray();
-        array.AddRange(LayerHeaders.Where(v => v.ShouldSaveState())
-            .Select(v =>
-            {
-                var obj = new JsonObject { [nameof(LayerHeaderViewModel.Number)] = v.Number.Value };
-                v.WriteToJson(obj);
-                _logger.LogDebug("LayerHeader {Number} state written to JSON.", v.Number.Value);
-                return obj;
-            }));
-
-        json[nameof(LayerHeaders)] = array;
 
         var inlines = new JsonArray();
         foreach (InlineAnimationLayerViewModel item in Inlines.OrderBy(v => v.Index.Value))

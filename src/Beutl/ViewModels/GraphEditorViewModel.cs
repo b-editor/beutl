@@ -8,6 +8,7 @@ using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Editor;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Models;
@@ -29,7 +30,7 @@ public sealed class GraphEditorViewModel<T>(
     public override void DropEasing(Easing easing, TimeSpan keyTime)
     {
         _logger.LogInformation("Dropping easing at key time {KeyTime}", keyTime);
-        CommandRecorder recorder = EditorContext.CommandRecorder;
+        var history = EditorContext.HistoryManager;
         TimeSpan originalKeyTime = keyTime;
         keyTime = ConvertKeyTime(keyTime);
         Project? proj = Scene.FindHierarchicalParent<Project>();
@@ -42,9 +43,8 @@ public sealed class GraphEditorViewModel<T>(
         if (keyFrame != null)
         {
             _logger.LogInformation("Editing existing key frame at {KeyTime}", keyTime);
-            RecordableCommands.Edit(keyFrame, KeyFrame.EasingProperty, easing)
-                .WithStoables(GetStorables())
-                .DoAndRecord(recorder);
+            keyFrame.Easing = easing;
+            history.Commit();
         }
         else
         {
@@ -56,13 +56,10 @@ public sealed class GraphEditorViewModel<T>(
     {
         AnimationOperations.InsertKeyFrame(
             animation: (KeyFrameAnimation<T>)Animation,
-            scene: Scene,
-            element: Element,
             easing: easing,
             keyTime: keyTime,
-            logger: _logger,
-            cr: EditorContext.CommandRecorder,
-            storables: GetStorables());
+            logger: _logger);
+        EditorContext.HistoryManager.Commit();
     }
 }
 
@@ -241,6 +238,7 @@ public abstract class GraphEditorViewModel : IDisposable
     public void EndEditting()
     {
         _logger.LogInformation("End editing");
+        EditorContext.HistoryManager.Commit();
         _editting = false;
         CalculateMaxHeight();
     }
@@ -248,10 +246,9 @@ public abstract class GraphEditorViewModel : IDisposable
     public void UpdateUseGlobalClock(bool value)
     {
         _logger.LogInformation("Updating UseGlobalClock to {Value}", value);
-        CommandRecorder recorder = EditorContext.CommandRecorder;
-        RecordableCommands.Edit((ICoreObject)Animation, KeyFrameAnimation.UseGlobalClockProperty, value)
-            .WithStoables(GetStorables())
-            .DoAndRecord(recorder);
+        var history = EditorContext.HistoryManager;
+        ((KeyFrameAnimation)Animation).UseGlobalClock = value;
+        history.Commit();
     }
 
     private void OnItemVerticalRangeChanged(object? sender, EventArgs e)
@@ -394,7 +391,7 @@ public abstract class GraphEditorViewModel : IDisposable
 
         try
         {
-            CommandRecorder recorder = EditorContext.CommandRecorder;
+            HistoryManager history = EditorContext.HistoryManager;
             KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
 
             if (discriminator.GenericTypeArguments[0] != animation.ValueType)
@@ -404,26 +401,14 @@ public abstract class GraphEditorViewModel : IDisposable
                 return;
             }
 
-            JsonObject oldJson = CoreSerializer.SerializeToJsonObject(animation);
             Guid id = animation.Id;
-
-            RecordableCommands.Create(
-                    () =>
-                    {
-                        CoreSerializer.PopulateFromJsonObject(animation, newJson);
-                        animation.Id = id;
-                        foreach (IKeyFrame item in animation.KeyFrames)
-                        {
-                            item.Id = Guid.NewGuid();
-                        }
-                    },
-                    () =>
-                    {
-                        CoreSerializer.PopulateFromJsonObject(animation, oldJson);
-                        animation.Id = id;
-                    },
-                    GetStorables())
-                .DoAndRecord(recorder);
+            CoreSerializer.PopulateFromJsonObject(animation, newJson);
+            animation.Id = id;
+            foreach (IKeyFrame item in animation.KeyFrames)
+            {
+                item.Id = Guid.NewGuid();
+            }
+            history.Commit();
         }
         catch (Exception ex)
         {
@@ -458,7 +443,7 @@ public abstract class GraphEditorViewModel : IDisposable
 
         try
         {
-            CommandRecorder recorder = EditorContext.CommandRecorder;
+            HistoryManager history = EditorContext.HistoryManager;
             KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
 
             KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(discriminator)!;
@@ -475,24 +460,16 @@ public abstract class GraphEditorViewModel : IDisposable
             if (animation.KeyFrames.FirstOrDefault(k=>k.KeyTime == keyTime) is { } existingKeyFrame)
             {
                 // イージングと値を変更
-                object? oldValue = existingKeyFrame.Value;
-                var command1 = RecordableCommands.Edit(existingKeyFrame, KeyFrame.EasingProperty, newKeyFrame.Easing);
-                var command2 = RecordableCommands.Create(
-                    () => existingKeyFrame.Value = ((IKeyFrame)newKeyFrame).Value,
-                    () => existingKeyFrame.Value = oldValue, []);
-                command1.Append(command2)
-                    .WithStoables([Element])
-                    .DoAndRecord(recorder);
+                existingKeyFrame.Easing = newKeyFrame.Easing;
+                existingKeyFrame.Value = ((IKeyFrame)newKeyFrame).Value;
+                history.Commit();
                 NotificationService.ShowWarning(Strings.GraphEditor, "A keyframe already exists at the paste position. The easing and value have been updated.");
             }
             else
             {
                 newKeyFrame.KeyTime = keyTime;
-                RecordableCommands.Create(
-                        () => animation.KeyFrames.Add((IKeyFrame)newKeyFrame, out _),
-                        () => animation.KeyFrames.Remove((IKeyFrame)newKeyFrame),
-                        [Element])
-                    .DoAndRecord(recorder);
+                animation.KeyFrames.Add((IKeyFrame)newKeyFrame, out _);
+                history.Commit();
             }
         }
         catch (Exception ex)

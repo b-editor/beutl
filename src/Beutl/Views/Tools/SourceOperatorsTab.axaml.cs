@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
+using Beutl.Editor;
 using Beutl.Models;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
@@ -60,9 +61,9 @@ public sealed partial class SourceOperatorsTab : UserControl
             && DataContext is SourceOperatorsTabViewModel vm
             && vm.Element.Value is Element element)
         {
-            CommandRecorder recorder = vm.GetRequiredService<CommandRecorder>();
-            element.Operation.AddChild((SourceOperator)Activator.CreateInstance(item)!)
-                .DoAndRecord(recorder);
+            HistoryManager history = vm.GetRequiredService<HistoryManager>();
+            element.Operation.AddChild((SourceOperator)Activator.CreateInstance(item)!);
+            history.Commit();
 
             e.Handled = true;
         }

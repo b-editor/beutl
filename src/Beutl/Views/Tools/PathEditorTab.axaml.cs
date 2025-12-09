@@ -350,10 +350,7 @@ public partial class PathEditorTab : UserControl, IPathEditorView
             && DataContext is PathEditorTabViewModel { Element.Value: { } element } viewModel
             && _dragStates?.Count > 0)
         {
-            _dragStates.Select(v => v.CreateCommand([]))
-                .Aggregate((IRecordableCommand?)null, (a, b) => a.Append(b))!
-                .WithStoables([element])
-                .DoAndRecord(viewModel.EditViewModel.CommandRecorder);
+            viewModel.EditViewModel.HistoryManager.Commit();
         }
 
         _dragStates = null;

@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Editor;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Models;
@@ -36,10 +37,9 @@ public sealed class InlineAnimationLayerViewModel<T>(
                 kfAnimation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
             if (keyFrame != null)
             {
-                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-                RecordableCommands.Edit(keyFrame, KeyFrame.EasingProperty, easing)
-                    .WithStoables([Element.Model])
-                    .DoAndRecord(recorder);
+                HistoryManager history = Timeline.EditorContext.HistoryManager;
+                keyFrame.Easing = easing;
+                history.Commit();
             }
             else
             {
@@ -51,16 +51,14 @@ public sealed class InlineAnimationLayerViewModel<T>(
     public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
     {
         if (Property.Animation is not KeyFrameAnimation<T> animation) return;
+        HistoryManager history = Timeline.EditorContext.HistoryManager;
 
         AnimationOperations.InsertKeyFrame(
             animation: animation,
-            scene: Timeline.Scene,
-            element: Element.Model,
             easing: easing,
             keyTime: keyTime,
-            logger: _logger,
-            cr: Timeline.EditorContext.CommandRecorder,
-            storables: [Element.Model]);
+            logger: _logger);
+        history.Commit();
     }
 }
 
@@ -232,7 +230,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
         try
         {
-            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+            HistoryManager history = Timeline.EditorContext.HistoryManager;
             KeyFrameAnimation animation = (KeyFrameAnimation)Property.Animation!;
 
             if (discriminator.GenericTypeArguments[0] != animation.ValueType)
@@ -242,26 +240,15 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                 return;
             }
 
-            JsonObject oldJson = CoreSerializer.SerializeToJsonObject(animation);
             Guid id = animation.Id;
 
-            RecordableCommands.Create(
-                    () =>
-                    {
-                        CoreSerializer.PopulateFromJsonObject(animation, newJson);
-                        animation.Id = id;
-                        foreach (IKeyFrame item in animation.KeyFrames)
-                        {
-                            item.Id = Guid.NewGuid();
-                        }
-                    },
-                    () =>
-                    {
-                        CoreSerializer.PopulateFromJsonObject(animation, oldJson);
-                        animation.Id = id;
-                    },
-                    [Element.Model])
-                .DoAndRecord(recorder);
+            CoreSerializer.PopulateFromJsonObject(animation, newJson);
+            animation.Id = id;
+            foreach (IKeyFrame item in animation.KeyFrames)
+            {
+                item.Id = Guid.NewGuid();
+            }
+            history.Commit();
         }
         catch (Exception ex)
         {
@@ -296,7 +283,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
         try
         {
-            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+            HistoryManager history = Timeline.EditorContext.HistoryManager;
             KeyFrameAnimation animation = (KeyFrameAnimation)Property.Animation!;
 
             KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(discriminator)!;
@@ -314,25 +301,17 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             if (animation.KeyFrames.FirstOrDefault(k => k.KeyTime == keyTime) is { } existingKeyFrame)
             {
                 // イージングと値を変更
-                object? oldValue = existingKeyFrame.Value;
-                var command1 = RecordableCommands.Edit(existingKeyFrame, KeyFrame.EasingProperty, newKeyFrame.Easing);
-                var command2 = RecordableCommands.Create(
-                    () => existingKeyFrame.Value = ((IKeyFrame)newKeyFrame).Value,
-                    () => existingKeyFrame.Value = oldValue, []);
-                command1.Append(command2)
-                    .WithStoables([Element.Model])
-                    .DoAndRecord(recorder);
+                existingKeyFrame.Easing = newKeyFrame.Easing;
+                existingKeyFrame.Value = ((IKeyFrame)newKeyFrame).Value;
+                history.Commit();
                 NotificationService.ShowWarning(Strings.GraphEditor,
                     "A keyframe already exists at the paste position. The easing and value have been updated.");
             }
             else
             {
                 newKeyFrame.KeyTime = keyTime;
-                RecordableCommands.Create(
-                        () => animation.KeyFrames.Add((IKeyFrame)newKeyFrame, out _),
-                        () => animation.KeyFrames.Remove((IKeyFrame)newKeyFrame),
-                        [Element.Model])
-                    .DoAndRecord(recorder);
+                animation.KeyFrames.Add((IKeyFrame)newKeyFrame, out _);
+                history.Commit();
             }
         }
         catch (Exception ex)
@@ -344,14 +323,10 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public void DeleteAnimation()
     {
-        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-        IAnimation? oldAnimation = Property.Animation;
+        HistoryManager history = Timeline.EditorContext.HistoryManager;
 
-        RecordableCommands.Create([Element.Model])
-            .OnDo(() => Property.Animation = null)
-            .OnUndo(() => Property.Animation = oldAnimation)
-            .ToCommand()
-            .DoAndRecord(recorder);
+        Property.Animation = null;
+        history.Commit();
     }
 
     private async Task CopyAllKeyFramesAsync()

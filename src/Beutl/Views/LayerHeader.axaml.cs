@@ -6,7 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
-
+using Beutl.Editor;
 using Beutl.ViewModels;
 
 using FluentAvalonia.UI.Controls;
@@ -96,9 +96,9 @@ public sealed partial class LayerHeader : UserControl
 
         int newLayerNum = _newLayer;
         int oldLayerNum = ViewModel.Number.Value;
-        CommandRecorder recorder = ViewModel.Timeline.EditorContext.CommandRecorder;
-        new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _elements)
-            .DoAndRecord(recorder);
+        HistoryManager history = ViewModel.Timeline.EditorContext.HistoryManager;
+        new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _elements).Do();
+        history.Commit();
         _elements = [];
     }
 
@@ -135,7 +135,7 @@ public sealed partial class LayerHeader : UserControl
         }
     }
 
-    private sealed class MoveLayerCommand : IRecordableCommand
+    private sealed class MoveLayerCommand
     {
         private readonly int _newLayerNum;
         private readonly int _oldLayerNum;
@@ -176,18 +176,13 @@ public sealed partial class LayerHeader : UserControl
             }
         }
 
-        public ImmutableArray<CoreObject?> GetStorables()
-        {
-            return [.. _items1.Select(v => v.Model), .. _items2.Select(v => v.Model)];
-        }
-
         public void Do()
         {
             int x = _newLayerNum > _oldLayerNum ? -1 : 1;
-            _viewModel.AnimationRequest(_newLayerNum);
+            _viewModel.UpdateZIndex(_newLayerNum);
             foreach (LayerHeaderViewModel item in CollectionsMarshal.AsSpan(_viewModels))
             {
-                item.AnimationRequest(item.Number.Value + x);
+                item.UpdateZIndex(item.Number.Value + x);
             }
 
             _viewModel.Timeline.LayerHeaders.Move(_oldLayerNum, _newLayerNum);
@@ -203,18 +198,13 @@ public sealed partial class LayerHeader : UserControl
             }
         }
 
-        public void Redo()
-        {
-            Do();
-        }
-
         public void Undo()
         {
             int x = _oldLayerNum > _newLayerNum ? -1 : 1;
-            _viewModel.AnimationRequest(_oldLayerNum);
+            _viewModel.UpdateZIndex(_oldLayerNum);
             foreach (LayerHeaderViewModel item in CollectionsMarshal.AsSpan(_viewModels))
             {
-                item.AnimationRequest(item.Number.Value + x);
+                item.UpdateZIndex(item.Number.Value + x);
             }
 
             _viewModel.Timeline.LayerHeaders.Move(_newLayerNum, _oldLayerNum);
