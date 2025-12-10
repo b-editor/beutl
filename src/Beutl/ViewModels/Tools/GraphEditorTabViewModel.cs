@@ -74,8 +74,8 @@ public sealed class GraphEditorTabViewModel : IToolContext
         }
 
         var tmp = new List<GraphEditorItemViewModel>();
-        var searcher = new ObjectSearcher(Element.Value, v => v is IProperty);
-        foreach (IProperty prop in searcher.SearchAll().OfType<IProperty>())
+        var searcher = new ObjectSearcher(Element.Value, v => v is EngineObject);
+        foreach (IProperty prop in searcher.SearchAll().OfType<EngineObject>().SelectMany(o => o.Properties))
         {
             var propInfo = prop.GetPropertyInfo();
             if (propInfo == null || prop.Animation is not KeyFrameAnimation anm) continue;
