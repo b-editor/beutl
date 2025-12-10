@@ -197,27 +197,5 @@ public sealed partial class LayerHeader : UserControl
                 item.AnimationRequest(item.Model.ZIndex + x);
             }
         }
-
-        public void Undo()
-        {
-            int x = _oldLayerNum > _newLayerNum ? -1 : 1;
-            _viewModel.UpdateZIndex(_oldLayerNum);
-            foreach (LayerHeaderViewModel item in CollectionsMarshal.AsSpan(_viewModels))
-            {
-                item.UpdateZIndex(item.Number.Value + x);
-            }
-
-            _viewModel.Timeline.LayerHeaders.Move(_newLayerNum, _oldLayerNum);
-
-            foreach (ElementViewModel item in _items1)
-            {
-                item.AnimationRequest(_oldLayerNum);
-            }
-
-            foreach (ElementViewModel item in CollectionsMarshal.AsSpan(_items2))
-            {
-                item.AnimationRequest(item.Model.ZIndex + x);
-            }
-        }
     }
 }

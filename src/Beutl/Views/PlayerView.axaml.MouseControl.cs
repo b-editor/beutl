@@ -40,10 +40,6 @@ public partial class PlayerView
         public KeyFrame<float>? Previous { get; } = previous;
 
         public KeyFrame<float>? Next { get; } = next;
-
-        public float OldPreviousValue { get; } = previous?.Value ?? 0;
-
-        public float OldNextValue { get; } = next?.Value ?? 0;
     }
 
     private interface IMouseControlHandler
@@ -132,7 +128,6 @@ public partial class PlayerView
         private AvaPoint _scaledStartPosition;
         private TranslateTransform? _translateTransform;
         private Matrix _preMatrix = Matrix.Identity;
-        private Point _oldTranslation;
         private KeyFrameState? _xKeyFrame;
         private KeyFrameState? _yKeyFrame;
 
@@ -230,7 +225,6 @@ public partial class PlayerView
                     if (_translateTransform != null)
                     {
                         // アニメーションが設定されていない場合の編集コマンドの復元に使うのでCurrentValueで良い
-                        _oldTranslation = new(_translateTransform.X.CurrentValue, _translateTransform.Y.CurrentValue);
                         _xKeyFrame = FindKeyFramePairOrNull(_translateTransform.X);
                         _yKeyFrame = FindKeyFramePairOrNull(_translateTransform.Y);
                     }
