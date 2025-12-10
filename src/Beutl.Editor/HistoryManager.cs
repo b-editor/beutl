@@ -1,12 +1,16 @@
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Runtime.CompilerServices;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor;
 
 public sealed class HistoryManager : IDisposable
 {
+    private readonly ILogger _logger = Log.CreateLogger<HistoryManager>();
     private readonly Stack<HistoryTransaction> _undoStack = new();
     private readonly Stack<HistoryTransaction> _redoStack = new();
     private readonly OperationExecutionContext _context;
@@ -38,7 +42,7 @@ public sealed class HistoryManager : IDisposable
 
     public IObservable<HistoryState> StateChanged => _stateChanged.AsObservable();
 
-    public void Commit(string? name = null)
+    public void Commit(string? name = null, [CallerArgumentExpression(nameof(name))] string? expression = null)
     {
         ThrowIfDisposed();
 
@@ -46,10 +50,17 @@ public sealed class HistoryManager : IDisposable
         {
             if (_currentTransaction.HasOperations)
             {
-                _currentTransaction.Name = name;
+                _currentTransaction.Name = expression;
+                _currentTransaction.DisplayName = name;
+                _logger.LogDebug("Committing transaction: {TransactionName} (ID: {TransactionId}, Operations: {OperationCount})",
+                    expression, _currentTransaction.Id, _currentTransaction.OperationCount);
                 _undoStack.Push(_currentTransaction);
                 _redoStack.Clear();
                 _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+            }
+            else
+            {
+                _logger.LogDebug("Commit called but no operations to commit");
             }
         }
 
@@ -64,6 +75,8 @@ public sealed class HistoryManager : IDisposable
         {
             if (_currentTransaction.HasOperations)
             {
+                _logger.LogDebug("Rolling back current transaction (ID: {TransactionId}, Operations: {OperationCount})",
+                    _currentTransaction.Id, _currentTransaction.OperationCount);
                 using (SuppressRecording())
                 {
                     _currentTransaction.Revert(_context);
@@ -82,7 +95,10 @@ public sealed class HistoryManager : IDisposable
         lock (_lock)
         {
             if (_recordingSuppressionCount > 0)
+            {
+                _logger.LogDebug("Recording suppressed, ignoring operation: {OperationType}", operation.GetType().Name);
                 return;
+            }
 
             _currentTransaction.AddOperation(operation);
         }
@@ -97,9 +113,13 @@ public sealed class HistoryManager : IDisposable
             Rollback();
 
             if (_undoStack.Count == 0)
+            {
+                _logger.LogDebug("Undo requested but undo stack is empty");
                 return false;
+            }
 
-            var transaction = _undoStack.Pop();
+            HistoryTransaction transaction = _undoStack.Pop();
+            _logger.LogDebug("Undoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
 
             using (SuppressRecording())
             {
@@ -122,9 +142,13 @@ public sealed class HistoryManager : IDisposable
             Rollback();
 
             if (_redoStack.Count == 0)
+            {
+                _logger.LogDebug("Redo requested but redo stack is empty");
                 return false;
+            }
 
-            var transaction = _redoStack.Pop();
+            HistoryTransaction transaction = _redoStack.Pop();
+            _logger.LogDebug("Redoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
 
             using (SuppressRecording())
             {
@@ -144,8 +168,11 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
+            int undoCount = _undoStack.Count;
+            int redoCount = _redoStack.Count;
             _undoStack.Clear();
             _redoStack.Clear();
+            _logger.LogDebug("Cleared history stacks (Undo: {UndoCount}, Redo: {RedoCount})", undoCount, redoCount);
         }
 
         NotifyStateChanged();
@@ -164,7 +191,7 @@ public sealed class HistoryManager : IDisposable
         return subscription;
     }
 
-    public void ExecuteInTransaction(Action action, string? name = null)
+    public void ExecuteInTransaction(Action action, string? name = null, [CallerArgumentExpression(nameof(name))] string? expression = null)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(action);
@@ -172,7 +199,7 @@ public sealed class HistoryManager : IDisposable
         try
         {
             action();
-            Commit(name);
+            Commit(name, expression);
         }
         catch
         {

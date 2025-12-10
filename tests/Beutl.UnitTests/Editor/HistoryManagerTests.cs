@@ -100,7 +100,7 @@ public class HistoryManagerTests
             Assert.That(manager.CanUndo, Is.True);
             Assert.That(manager.CanRedo, Is.False);
             Assert.That(manager.UndoCount, Is.EqualTo(1));
-            Assert.That(manager.PeekUndo()?.Name, Is.EqualTo("Test Operation"));
+            Assert.That(manager.PeekUndo()?.DisplayName, Is.EqualTo("Test Operation"));
         });
     }
 
@@ -292,7 +292,7 @@ public class HistoryManagerTests
         var transaction = manager.PeekUndo();
 
         // Assert
-        Assert.That(transaction?.Name, Is.EqualTo("Second"));
+        Assert.That(transaction?.DisplayName, Is.EqualTo("Second"));
     }
 
     [Test]
@@ -321,7 +321,7 @@ public class HistoryManagerTests
         var transaction = manager.PeekRedo();
 
         // Assert
-        Assert.That(transaction?.Name, Is.EqualTo("First"));
+        Assert.That(transaction?.DisplayName, Is.EqualTo("First"));
     }
 
     [Test]
@@ -360,7 +360,7 @@ public class HistoryManagerTests
         Assert.Multiple(() =>
         {
             Assert.That(manager.CanUndo, Is.True);
-            Assert.That(manager.PeekUndo()?.Name, Is.EqualTo("Transaction"));
+            Assert.That(manager.PeekUndo()?.DisplayName, Is.EqualTo("Transaction"));
         });
     }
 

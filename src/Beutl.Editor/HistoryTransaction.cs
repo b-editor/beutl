@@ -16,6 +16,8 @@ public sealed class HistoryTransaction
 
     public string? Name { get; set; }
 
+    public string? DisplayName { get; set; }
+
     public IReadOnlyList<ChangeOperation> Operations => _operations;
 
     public bool HasOperations => _operations.Count > 0;
