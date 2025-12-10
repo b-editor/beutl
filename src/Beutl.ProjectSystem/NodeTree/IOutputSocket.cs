@@ -4,7 +4,7 @@ namespace Beutl.NodeTree;
 
 public interface IOutputSocket : ISocket
 {
-    ICoreReadOnlyList<Connection> Connections { get; }
+    CoreList<Connection> Connections { get; }
 
     bool TryConnect(IInputSocket socket);
 

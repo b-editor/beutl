@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Beutl.Collections;
+using Beutl.Editor;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree;
@@ -42,31 +43,67 @@ internal struct UnsafeBox<T> : IDisposable
 
 public class OutputSocket<T> : Socket<T>, IOutputSocket
 {
+    public static readonly CoreProperty<CoreList<Connection>> ConnectionsProperty;
     private readonly CoreList<Connection> _connections = [];
     private List<Guid>? _inputIds = null;
     // 型が一致していない、ソケットの数
     private int _unmatchSockets;
     private UnsafeBox<T> _box;
 
+    static OutputSocket()
+    {
+        ConnectionsProperty = ConfigureProperty<CoreList<Connection>, OutputSocket<T>>(nameof(Connections))
+            .Accessor(o => o.Connections, (o, v) => o.Connections = v)
+            .Register();
+    }
+
+    public OutputSocket()
+    {
+        Connections.Attached += OnConnectionsAttached;
+        Connections.Detached += OnConnectionsDetached;
+    }
+
     ~OutputSocket()
     {
         _box.Dispose();
     }
 
-    public ICoreReadOnlyList<Connection> Connections => _connections;
+    [NotAutoSerialized]
+    public CoreList<Connection> Connections
+    {
+        get => _connections;
+        set => _connections.Replace(value);
+    }
+
+    private void OnConnectionsDetached(Connection obj)
+    {
+        using var _ = PublishingSuppression.Enter();
+        RaiseDisconnected(obj);
+        obj.Input.NotifyDisconnected(obj);
+
+        if (obj.Input is not InputSocket<T>)
+        {
+            _unmatchSockets--;
+        }
+    }
+
+    private void OnConnectionsAttached(Connection obj)
+    {
+        using var _ = PublishingSuppression.Enter();
+        RaiseConnected(obj);
+        obj.Input.NotifyConnected(obj);
+
+        if (obj.Input is not InputSocket<T>)
+        {
+            _unmatchSockets++;
+        }
+    }
 
     public void Disconnect(IInputSocket socket)
     {
         if (_connections.FirstOrDefault(x => x.Input == socket) is { } connection)
         {
             _connections.Remove(connection);
-            RaiseDisconnected(connection);
-            socket.NotifyDisconnected(connection);
-
-            if (socket is not InputSocket<T>)
-            {
-                _unmatchSockets--;
-            }
         }
     }
 
@@ -100,13 +137,6 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
 
         var connection = new Connection(socket, this);
         _connections.Add(connection);
-        RaiseConnected(connection);
-        socket.NotifyConnected(connection);
-
-        if (socket is not InputSocket<T>)
-        {
-            _unmatchSockets++;
-        }
 
         return true;
     }
@@ -198,8 +228,6 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
             _inputIds.Add(item.Input.Id);
 
             _connections.RemoveAt(i);
-            RaiseDisconnected(item);
-            item.Input.NotifyDisconnected(item);
         }
     }
 }
