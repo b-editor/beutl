@@ -8,7 +8,9 @@ namespace Beutl.Animation;
 
 public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
 {
+    public static readonly CoreProperty<KeyFrames> KeyFramesProperty;
     public static readonly CoreProperty<bool> UseGlobalClockProperty;
+    private readonly KeyFrames _keyFrames;
     private bool _useGlobalClock;
     private IValidator? _validator;
 
@@ -17,13 +19,17 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         UseGlobalClockProperty = ConfigureProperty<bool, KeyFrameAnimation>(nameof(UseGlobalClock))
             .Accessor(o => o.UseGlobalClock, (o, v) => o.UseGlobalClock = v)
             .Register();
+
+        KeyFramesProperty = ConfigureProperty<KeyFrames, KeyFrameAnimation>(nameof(KeyFrames))
+            .Accessor(o => o.KeyFrames, (o, v) => o.KeyFrames = v)
+            .Register();
     }
 
     public KeyFrameAnimation()
     {
-        KeyFrames = new KeyFrames(this);
-        KeyFrames.Attached += OnKeyFrameAttached;
-        KeyFrames.Detached += OnKeyFrameDetached;
+        _keyFrames = new KeyFrames(this);
+        _keyFrames.Attached += OnKeyFrameAttached;
+        _keyFrames.Detached += OnKeyFrameDetached;
     }
 
     public event EventHandler? Edited;
@@ -109,7 +115,12 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         set => SetAndRaise(UseGlobalClockProperty, ref _useGlobalClock, value);
     }
 
-    public KeyFrames KeyFrames { get; }
+    [NotAutoSerialized]
+    public KeyFrames KeyFrames
+    {
+        get => _keyFrames;
+        set => _keyFrames.Replace(value);
+    }
 
     public IValidator? Validator
     {
