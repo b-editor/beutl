@@ -8,7 +8,6 @@ using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
-using SharpGen.Runtime.Win32;
 
 namespace Beutl.ViewModels.NodeTree;
 
@@ -64,13 +63,13 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
     public void Remove()
     {
         _nodeTree.Nodes.Remove(Node);
-        _parent.GetRequiredService<HistoryManager>().Commit();
+        _parent.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveNode);
     }
 
     public void UpdateName(string? name)
     {
         Node.Name = name!;
-        _parent.GetRequiredService<HistoryManager>().Commit();
+        _parent.GetRequiredService<HistoryManager>().Commit(CommandNames.RenameNode);
     }
 
     public void Dispose()

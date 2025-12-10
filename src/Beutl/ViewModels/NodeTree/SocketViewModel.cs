@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 
 using Avalonia;
 using Avalonia.Media;
@@ -83,7 +82,7 @@ public class SocketViewModel : NodeItemViewModel
                 && groupNode.AddSocket(socket, out _))
             {
                 // TODO: 検証する
-                _editViewModel.HistoryManager.Commit();
+                _editViewModel.HistoryManager.Commit(CommandNames.AddSocket);
             }
 
             return false;
@@ -92,7 +91,7 @@ public class SocketViewModel : NodeItemViewModel
             && SortSocket(Model, target.Model, out IInputSocket? inputSocket, out IOutputSocket? outputSocket))
         {
             bool isConnected = outputSocket.TryConnect(inputSocket);
-            _editViewModel.HistoryManager.Commit();
+            _editViewModel.HistoryManager.Commit(CommandNames.ConnectSocket);
 
             return isConnected;
         }
@@ -108,7 +107,7 @@ public class SocketViewModel : NodeItemViewModel
             && SortSocket(Model, target.Model, out IInputSocket? inputSocket, out IOutputSocket? outputSocket))
         {
             outputSocket.Disconnect(inputSocket);
-            _editViewModel.HistoryManager.Commit();
+            _editViewModel.HistoryManager.Commit(CommandNames.DisconnectSocket);
 
             return true;
         }
@@ -124,7 +123,7 @@ public class SocketViewModel : NodeItemViewModel
         {
             case IInputSocket inputSocket when inputSocket.Connection is { } connection:
                 connection.Output.Disconnect(connection.Input);
-                _editViewModel.HistoryManager.Commit();
+                _editViewModel.HistoryManager.Commit(CommandNames.DisconnectSocket);
                 break;
 
             case IOutputSocket outputSocket when outputSocket.Connections.Count > 0:
@@ -132,7 +131,7 @@ public class SocketViewModel : NodeItemViewModel
                 {
                     connection.Output.Disconnect(connection.Input);
                 }
-                _editViewModel.HistoryManager.Commit();
+                _editViewModel.HistoryManager.Commit(CommandNames.DisconnectSocket);
                 break;
         }
     }
@@ -142,14 +141,14 @@ public class SocketViewModel : NodeItemViewModel
         if (Model is IAutomaticallyGeneratedSocket generatedSocket)
         {
             Node.Items.Remove(generatedSocket);
-            _editViewModel.HistoryManager.Commit();
+            _editViewModel.HistoryManager.Commit(CommandNames.RemoveSocket);
         }
     }
 
     public void UpdateName(string? e)
     {
         Model!.Name = e!;
-        _editViewModel.HistoryManager.Commit();
+        _editViewModel.HistoryManager.Commit(CommandNames.RenameSocket);
     }
 
     protected override void OnDispose()

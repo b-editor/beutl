@@ -108,7 +108,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .Subscribe(c =>
             {
                 Model.AccentColor = c.ToMedia();
-                Timeline.EditorContext.HistoryManager.Commit();
+                Timeline.EditorContext.HistoryManager.Commit(CommandNames.ChangeElementColor);
             })
             .AddTo(_disposables);
 
@@ -419,7 +419,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
         Scene.MoveChild(zindex, start, length, Model);
-        Timeline.EditorContext.HistoryManager.Commit();
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.MoveElement);
 
         await AnimationRequest(context);
     }
@@ -486,7 +486,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         {
             Scene.RemoveChild(element.Model);
         }
-        Timeline.EditorContext.HistoryManager.Commit();
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.RemoveElement);
     }
 
     private void OnDelete()
@@ -495,7 +495,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         {
             Scene.DeleteChild(element.Model);
         }
-        Timeline.EditorContext.HistoryManager.Commit();
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.DeleteElement);
     }
 
     private void OnBringAnimationToTop()
@@ -574,7 +574,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         }
 
-        Timeline.EditorContext.HistoryManager.Commit();
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.GroupElements);
     }
 
     private void OnUngroupSelectedElements()
@@ -582,7 +582,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
         RemoveIdsFromElementSets(ids);
 
-        Timeline.EditorContext.HistoryManager.Commit();
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.UngroupElements);
     }
 
     private void OnSetAttached(ImmutableHashSet<Guid> group)
@@ -621,7 +621,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                     Scene.RemoveChild(target.Model);
                 }
 
-                Timeline.EditorContext.HistoryManager.Commit();
+                Timeline.EditorContext.HistoryManager.Commit(CommandNames.CutElement);
             }
         }
     }
@@ -701,7 +701,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         }
 
-        Timeline.EditorContext.HistoryManager.Commit();
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.SplitElement);
     }
 
     private async void OnChangeToOriginalLength()
@@ -726,7 +726,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
 
             Scene.MoveChild(Model.ZIndex, Model.Start, length, Model);
-            Timeline.EditorContext.HistoryManager.Commit();
+            Timeline.EditorContext.HistoryManager.Commit(CommandNames.MoveElement);
 
             await AnimationRequest(context);
         }

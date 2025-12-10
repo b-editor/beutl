@@ -8,7 +8,6 @@ using Beutl.Editor;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Models;
-using Beutl.Reactive;
 using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -39,7 +38,7 @@ public sealed class InlineAnimationLayerViewModel<T>(
             {
                 HistoryManager history = Timeline.EditorContext.HistoryManager;
                 keyFrame.Easing = easing;
-                history.Commit();
+                history.Commit(CommandNames.ChangeEasing);
             }
             else
             {
@@ -58,7 +57,7 @@ public sealed class InlineAnimationLayerViewModel<T>(
             easing: easing,
             keyTime: keyTime,
             logger: _logger);
-        history.Commit();
+        history.Commit(CommandNames.InsertKeyFrame);
     }
 }
 
@@ -248,7 +247,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             {
                 item.Id = Guid.NewGuid();
             }
-            history.Commit();
+            history.Commit(CommandNames.PasteAnimation);
         }
         catch (Exception ex)
         {
@@ -303,7 +302,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                 // イージングと値を変更
                 existingKeyFrame.Easing = newKeyFrame.Easing;
                 existingKeyFrame.Value = ((IKeyFrame)newKeyFrame).Value;
-                history.Commit();
+                history.Commit(CommandNames.PasteKeyFrame);
                 NotificationService.ShowWarning(Strings.GraphEditor,
                     "A keyframe already exists at the paste position. The easing and value have been updated.");
             }
@@ -311,7 +310,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             {
                 newKeyFrame.KeyTime = keyTime;
                 animation.KeyFrames.Add((IKeyFrame)newKeyFrame, out _);
-                history.Commit();
+                history.Commit(CommandNames.PasteKeyFrame);
             }
         }
         catch (Exception ex)
@@ -326,7 +325,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         HistoryManager history = Timeline.EditorContext.HistoryManager;
 
         Property.Animation = null;
-        history.Commit();
+        history.Commit(CommandNames.DeleteAnimation);
     }
 
     private async Task CopyAllKeyFramesAsync()

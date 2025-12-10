@@ -10,9 +10,9 @@ using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor;
 using Beutl.Engine.Expressions;
-using Beutl.Media;
 using Beutl.Helpers;
 using Beutl.Logging;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -274,9 +274,9 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         }
     }
 
-    public void Commit()
+    public void Commit(string? name = null)
     {
-        this.GetRequiredService<HistoryManager>().Commit();
+        this.GetRequiredService<HistoryManager>().Commit(name ?? CommandNames.EditProperty);
     }
 
     protected object? GetDefaultValue()

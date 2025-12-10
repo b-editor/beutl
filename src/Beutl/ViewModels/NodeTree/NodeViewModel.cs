@@ -67,7 +67,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
             if (tree != null)
             {
                 tree.Nodes.Remove(Node);
-                EditorContext.HistoryManager.Commit();
+                EditorContext.HistoryManager.Commit(CommandNames.RemoveNode);
             }
         });
 
@@ -197,13 +197,13 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
 
         Node.Position = (Position.Value.X, Position.Value.Y);
 
-        EditorContext.HistoryManager.Commit();
+        EditorContext.HistoryManager.Commit(CommandNames.MoveNode);
     }
 
     public void UpdateName(string? name)
     {
         Node.Name = name!;
-        EditorContext.HistoryManager.Commit();
+        EditorContext.HistoryManager.Commit(CommandNames.RenameNode);
     }
 
     public void WriteToJson(JsonObject json)

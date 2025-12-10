@@ -11,7 +11,6 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
-using Splat.ModeDetection;
 
 namespace Beutl.ViewModels;
 
@@ -114,7 +113,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                 {
                     // イージングのみ変更
                     Model.Easing = newKeyFrame.Easing;
-                    history.Commit();
+                    history.Commit(CommandNames.ChangeEasing);
                     NotificationService.ShowWarning(Strings.GraphEditor,
                         "The property type of the pasted keyframe does not match. Only the easing is applied.");
                 }
@@ -124,7 +123,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                     int index = Animation.KeyFrames.IndexOf(Model);
                     Animation.KeyFrames.Remove(Model);
                     Animation.KeyFrames.Insert(index, (IKeyFrame)newKeyFrame);
-                    history.Commit();
+                    history.Commit(CommandNames.PasteKeyFrame);
                 }
 
                 return;
@@ -146,7 +145,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
             animation: Animation,
             keyframe: Model,
             logger: _logger);
-        history.Commit();
+        history.Commit(CommandNames.RemoveKeyFrame);
     }
 
     public void UpdateKeyTime()
@@ -158,7 +157,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
         TimeSpan time = Left.Value.ToTimeSpan(scale).RoundToRate(rate);
         SplineEasingHelper.Move(Animation, Model, time);
-        history.Commit();
+        history.Commit(CommandNames.MoveKeyFrame);
 
         Left.Value = time.ToPixel(scale);
     }

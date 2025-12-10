@@ -52,7 +52,7 @@ public sealed class LayerHeaderViewModel : IDisposable
                         element.IsEnabled = IsEnabled.Value;
                     }
 
-                    history.Commit();
+                    history.Commit(CommandNames.ChangeLayerEnabled);
                 }
                 finally
                 {
@@ -214,7 +214,7 @@ public sealed class LayerHeaderViewModel : IDisposable
         HistoryManager history = Timeline.EditorContext.HistoryManager;
         var model = GetOrCreateModel();
         model.Color = color.ToMedia();
-        history.Commit();
+        history.Commit(CommandNames.ChangeLayerColor);
     }
 
     private TimelineLayer GetOrCreateModel()

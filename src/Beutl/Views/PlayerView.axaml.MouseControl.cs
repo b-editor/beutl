@@ -173,7 +173,7 @@ public partial class PlayerView
                     {
                         obj = new TranslateTransform();
                         transformGroup.Children.Insert(0, obj);
-                        EditViewModel.HistoryManager.Commit();
+                        EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
 
                         return (obj, Matrix.Identity);
                     }
@@ -300,7 +300,7 @@ public partial class PlayerView
             {
                 _imagePressed = false;
 
-                EditViewModel.HistoryManager.Commit();
+                EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
 
                 Element = null;
                 _translateTransform = null;

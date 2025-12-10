@@ -66,7 +66,7 @@ public partial class NodeInputView : UserControl
                 oldIndex = viewModel.ConvertToOriginalIndex(oldIndex);
                 newIndex = viewModel.ConvertToOriginalIndex(newIndex);
                 viewModel.Model.NodeTree.Nodes.Move(oldIndex, newIndex);
-                history.Commit();
+                history.Commit(CommandNames.MoveNode);
             }
         }
     }

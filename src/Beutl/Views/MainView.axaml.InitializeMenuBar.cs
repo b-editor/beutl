@@ -125,7 +125,7 @@ public partial class MainView
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 scene.DeleteChild(element);
-                viewModel.HistoryManager.Commit();
+                viewModel.HistoryManager.Commit(CommandNames.DeleteElement);
             }
         }
     }

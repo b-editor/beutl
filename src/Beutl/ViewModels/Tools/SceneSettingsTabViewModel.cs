@@ -74,7 +74,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                         _scene.FrameSize = new Media.PixelSize(Width.Value, Height.Value);
                         _scene.Start = start;
                         _scene.Duration = duration;
-                        history.Commit();
+                        history.Commit(CommandNames.ChangeSceneSettings);
                     }
 
                     _editViewModel.Options.Value = _editViewModel.Options.Value with

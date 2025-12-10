@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -15,7 +14,6 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
-using ExCSS;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -44,7 +42,7 @@ public sealed class GraphEditorViewModel<T>(
         {
             _logger.LogInformation("Editing existing key frame at {KeyTime}", keyTime);
             keyFrame.Easing = easing;
-            history.Commit();
+            history.Commit(CommandNames.ChangeEasing);
         }
         else
         {
@@ -59,7 +57,7 @@ public sealed class GraphEditorViewModel<T>(
             easing: easing,
             keyTime: keyTime,
             logger: _logger);
-        EditorContext.HistoryManager.Commit();
+        EditorContext.HistoryManager.Commit(CommandNames.InsertKeyFrame);
     }
 }
 
@@ -238,7 +236,7 @@ public abstract class GraphEditorViewModel : IDisposable
     public void EndEditting()
     {
         _logger.LogInformation("End editing");
-        EditorContext.HistoryManager.Commit();
+        EditorContext.HistoryManager.Commit(CommandNames.EditKeyFrame);
         _editting = false;
         CalculateMaxHeight();
     }
@@ -248,7 +246,7 @@ public abstract class GraphEditorViewModel : IDisposable
         _logger.LogInformation("Updating UseGlobalClock to {Value}", value);
         var history = EditorContext.HistoryManager;
         ((KeyFrameAnimation)Animation).UseGlobalClock = value;
-        history.Commit();
+        history.Commit(CommandNames.ChangeUseGlobalClock);
     }
 
     private void OnItemVerticalRangeChanged(object? sender, EventArgs e)
@@ -403,7 +401,7 @@ public abstract class GraphEditorViewModel : IDisposable
             {
                 item.Id = Guid.NewGuid();
             }
-            history.Commit();
+            history.Commit(CommandNames.PasteAnimation);
         }
         catch (Exception ex)
         {
@@ -457,14 +455,14 @@ public abstract class GraphEditorViewModel : IDisposable
                 // イージングと値を変更
                 existingKeyFrame.Easing = newKeyFrame.Easing;
                 existingKeyFrame.Value = ((IKeyFrame)newKeyFrame).Value;
-                history.Commit();
+                history.Commit(CommandNames.PasteKeyFrame);
                 NotificationService.ShowWarning(Strings.GraphEditor, "A keyframe already exists at the paste position. The easing and value have been updated.");
             }
             else
             {
                 newKeyFrame.KeyTime = keyTime;
                 animation.KeyFrames.Add((IKeyFrame)newKeyFrame, out _);
-                history.Commit();
+                history.Commit(CommandNames.PasteKeyFrame);
             }
         }
         catch (Exception ex)

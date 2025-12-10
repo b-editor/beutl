@@ -3,7 +3,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Beutl.Animation;
@@ -11,8 +10,6 @@ using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Helpers;
 using Beutl.Models;
-using Beutl.ProjectSystem;
-using Beutl.Services;
 using Beutl.ViewModels;
 using Reactive.Bindings.Extensions;
 using Path = Avalonia.Controls.Shapes.Path;
@@ -359,11 +356,11 @@ public partial class GraphEditorView : UserControl
             // TODO: 検証
             if (_mouseFlag == Timeline.MouseFlags.EndingBarMarkerPressed)
             {
-                viewModel.EditorContext.HistoryManager.Commit();
+                viewModel.EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
             }
             else if (_mouseFlag == Timeline.MouseFlags.StartingBarMarkerPressed)
             {
-                viewModel.EditorContext.HistoryManager.Commit();
+                viewModel.EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneStart);
             }
 
             _mouseFlag = Timeline.MouseFlags.Free;
@@ -831,7 +828,7 @@ public partial class GraphEditorView : UserControl
                 }
 
                 _keyframeViewModel.UpdateKeyTimeAndValue();
-                viewModel.EditorContext.HistoryManager.Commit();
+                viewModel.EditorContext.HistoryManager.Commit(CommandNames.MoveKeyFrame);
             }
             else
             {

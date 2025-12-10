@@ -73,7 +73,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         if (parent is { DataContext: IPathEditorViewModel { Element.Value: { } element } viewModel })
         {
             parent.SkipUpdatePosition = false;
-            viewModel.EditViewModel.HistoryManager.Commit();
+            viewModel.EditViewModel.HistoryManager.Commit(CommandNames.EditPathPoint);
         }
 
         _coordDragStates = null;

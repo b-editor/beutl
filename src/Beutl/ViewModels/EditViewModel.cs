@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Numerics;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
@@ -796,7 +795,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 scrollPos = (element.Range, element.ZIndex);
             }
 
-            HistoryManager.Commit();
+            HistoryManager.Commit(CommandNames.AddElement);
 
             if (scrollPos.HasValue && timeline != null)
             {
@@ -827,7 +826,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
             CoreSerializer.StoreToUri(element, element.Uri!);
             Scene.AddChild(element);
-            HistoryManager.Commit();
+            HistoryManager.Commit(CommandNames.AddElement);
 
             timeline?.ScrollTo.Execute((element.Range, element.ZIndex));
         }

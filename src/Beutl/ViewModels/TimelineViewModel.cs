@@ -235,7 +235,6 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
             Scene.Duration = time;
             Scene.Start = endTime;
-            EditorContext.HistoryManager.Commit();
         }
         else
         {
@@ -253,8 +252,9 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                 (Scene.Duration + Scene.Start -
                  time).Ticks, TimeSpan.FromSeconds(1d / rate).Ticks));
             Scene.Start = time;
-            EditorContext.HistoryManager.Commit();
         }
+
+        EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneStart);
 
         _logger.LogInformation("Scene start adjusted to {Time}.", time);
     }
@@ -279,7 +279,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
             Scene.Duration = Scene.Start - time;
             Scene.Start = time;
-            EditorContext.HistoryManager.Commit();
+            EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
         }
         else
         {
@@ -291,7 +291,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             }
 
             Scene.Duration = time;
-            EditorContext.HistoryManager.Commit();
+            EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
             _logger.LogInformation("Scene duration adjusted to {Time}.", time);
         }
     }
@@ -558,7 +558,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
             Scene.AddChild(newElement);
         }
 
-        history.Commit();
+        history.Commit(CommandNames.PasteElement);
 
         ScrollTo.Execute((new TimeRange(newStart, maxStart - minStart), newZIndex));
     }
@@ -582,7 +582,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         HistoryManager history = EditorContext.HistoryManager;
         Scene.AddChild(newElement);
-        history.Commit();
+        history.Commit(CommandNames.PasteElement);
 
         ScrollTo.Execute((newElement.Range, newElement.ZIndex));
     }
@@ -620,7 +620,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         HistoryManager history = EditorContext.HistoryManager;
         Scene.AddChild(newElement);
-        history.Commit();
+        history.Commit(CommandNames.PasteElement);
 
         ScrollTo.Execute((newElement.Range, newElement.ZIndex));
     }

@@ -164,7 +164,7 @@ public sealed partial class ElementView : UserControl
         Element model = ViewModel.Model;
         HistoryManager history = ViewModel.Timeline.EditorContext.HistoryManager;
         model.UseNode = !model.UseNode;
-        history.Commit();
+        history.Commit(CommandNames.ChangeElementUseNode);
     }
 
     private void EnableElementClick(object? sender, RoutedEventArgs e)
@@ -172,7 +172,7 @@ public sealed partial class ElementView : UserControl
         Element model = ViewModel.Model;
         HistoryManager history = ViewModel.Timeline.EditorContext.HistoryManager;
         model.IsEnabled = !model.IsEnabled;
-        history.Commit();
+        history.Commit(CommandNames.ChangeElementEnabled);
     }
 
     private void OnTextBoxLostFocus(object? sender, RoutedEventArgs e)
@@ -445,7 +445,7 @@ public sealed partial class ElementView : UserControl
                             viewModel.Scene.MoveChild(zindex, newStart, newLength, ctx.ViewModel.Model);
                         }
 
-                        history.Commit();
+                        history.Commit(CommandNames.MoveElement);
 
                         foreach (var (item, context) in animations)
                         {
@@ -608,7 +608,7 @@ public sealed partial class ElementView : UserControl
                         int deltaIndex = newIndex - viewModel.Model.ZIndex;
 
                         viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems);
-                        history.Commit();
+                        history.Commit(CommandNames.MoveElement);
 
                         foreach (var (item, context) in animations)
                         {

@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -11,11 +10,9 @@ using Beutl.Logging;
 using Beutl.Models;
 using Beutl.Serialization;
 using Beutl.Services;
-using Beutl.Views;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using Splat.ModeDetection;
 using SplineEasing = Beutl.Animation.Easings.SplineEasing;
 
 namespace Beutl.ViewModels;
@@ -298,7 +295,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             Model.KeyTime = Right.Value.ToTimeSpan(scale).RoundToRate(rate);
         }
 
-        history.Commit();
+        history.Commit(CommandNames.EditKeyFrame);
 
         EndY.Value = Parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
         Right.Value = Model.KeyTime.ToPixel(Parent.Parent.Options.Value.Scale);
@@ -379,7 +376,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 {
                     // イージングのみ変更
                     Model.Easing = newKeyFrame.Easing;
-                    history.Commit();
+                    history.Commit(CommandNames.PasteKeyFrame);
                     NotificationService.ShowWarning(Strings.GraphEditor,
                         "The property type of the pasted keyframe does not match. Only the easing is applied.");
                 }
@@ -388,7 +385,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                     newKeyFrame.KeyTime = Model.KeyTime;
                     int index = Parent.Parent.Animation.KeyFrames.IndexOf(Model);
                     Parent.Parent.Animation.KeyFrames.Insert(index, (IKeyFrame)newKeyFrame);
-                    history.Commit();
+                    history.Commit(CommandNames.PasteKeyFrame);
                 }
 
                 return;
@@ -409,6 +406,6 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             animation: Parent.Parent.Animation,
             keyframe: Model,
             logger: _logger);
-        Parent.Parent.EditorContext.HistoryManager.Commit();
+        Parent.Parent.EditorContext.HistoryManager.Commit(CommandNames.RemoveKeyFrame);
     }
 }

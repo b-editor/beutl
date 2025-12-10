@@ -1,10 +1,8 @@
 ﻿using System.Numerics;
-using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
-using Avalonia.Controls.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -14,12 +12,8 @@ using Beutl.Configuration;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Pixel;
-using Beutl.Media.Source;
 using Beutl.Models;
-using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
@@ -343,11 +337,11 @@ public sealed partial class Timeline : UserControl
             }
             else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
             {
-                ViewModel.EditorContext.HistoryManager.Commit();
+                ViewModel.EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
             }
             else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
             {
-                ViewModel.EditorContext.HistoryManager.Commit();
+                ViewModel.EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneStart);
             }
 
             if (Scale.IsPointerOver && ViewModel.HoveredCacheBlock.Value is { } cache)

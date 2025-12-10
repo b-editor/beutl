@@ -4,7 +4,6 @@ using Beutl.Editor;
 using Beutl.Models;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -63,7 +62,7 @@ public sealed partial class SourceOperatorsTab : UserControl
         {
             HistoryManager history = vm.GetRequiredService<HistoryManager>();
             element.Operation.AddChild((SourceOperator)Activator.CreateInstance(item)!);
-            history.Commit();
+            history.Commit(CommandNames.AddSourceOperator);
 
             e.Handled = true;
         }

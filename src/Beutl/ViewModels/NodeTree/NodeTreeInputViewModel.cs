@@ -27,7 +27,7 @@ public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
             .Subscribe(v =>
             {
                 Model.UseNode = v;
-                _parent.GetRequiredService<HistoryManager>().Commit();
+                _parent.GetRequiredService<HistoryManager>().Commit(CommandNames.ChangeUseNode);
             })
             .DisposeWith(_disposables);
 

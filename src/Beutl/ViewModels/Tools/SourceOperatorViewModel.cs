@@ -29,7 +29,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             if (history != null)
             {
                 Model.IsEnabled = v;
-                history.Commit();
+                history.Commit(CommandNames.ChangeSourceOperatorEnabled);
             }
         });
 
@@ -228,6 +228,6 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         HistoryManager history = this.GetRequiredService<HistoryManager>();
 
         sourceOperation.Children[index] = @operator;
-        history.Commit();
+        history.Commit(CommandNames.PasteSourceOperator);
     }
 }

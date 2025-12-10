@@ -114,7 +114,7 @@ public sealed class AddElementDialogViewModel
 
             CoreSerializer.StoreToUri(element, element.Uri);
             _scene.AddChild(element);
-            _history.Commit();
+            _history.Commit(CommandNames.AddElement);
         });
     }
 
