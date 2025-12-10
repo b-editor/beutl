@@ -827,15 +827,15 @@ public partial class GraphEditorView : UserControl
             {
                 foreach (GraphEditorKeyFrameViewModel keyframe in _followingKeyFrames)
                 {
-                    keyframe.CreateSubmitKeyTimeAndValueCommand(keyframe.Model.KeyTime);
+                    keyframe.UpdateKeyTimeAndValue();
                 }
 
-                _keyframeViewModel.CreateSubmitKeyTimeAndValueCommand(_oldKeyTime);
+                _keyframeViewModel.UpdateKeyTimeAndValue();
                 viewModel.EditorContext.HistoryManager.Commit();
             }
             else
             {
-                _keyframeViewModel.SubmitKeyTimeAndValue(_oldKeyTime, _oldControlPoints);
+                _keyframeViewModel.CommitKeyTimeAndValue();
             }
 
             _oldControlPoints.Clear();

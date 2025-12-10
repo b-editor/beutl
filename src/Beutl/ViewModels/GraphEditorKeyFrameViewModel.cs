@@ -278,9 +278,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         Model.KeyTime = timeSpan.RoundToRate(rate);
     }
 
-    public void SubmitKeyTimeAndValue(
-        TimeSpan oldKeyTime,
-        Dictionary<IKeyFrame, (Point ControlPoint1, Point ControlPoint2)> oldControlPoints)
+    public void CommitKeyTimeAndValue()
     {
         GraphEditorViewModel parent2 = Parent.Parent;
         HistoryManager history = parent2.EditorContext.HistoryManager;
@@ -306,7 +304,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         Right.Value = Model.KeyTime.ToPixel(Parent.Parent.Options.Value.Scale);
     }
 
-    public void CreateSubmitKeyTimeAndValueCommand(TimeSpan oldKeyTime)
+    public void UpdateKeyTimeAndValue()
     {
         GraphEditorViewModel parent2 = Parent.Parent;
         IKeyFrameAnimation animation = parent2.Animation;

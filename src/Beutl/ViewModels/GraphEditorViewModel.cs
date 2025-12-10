@@ -311,11 +311,6 @@ public abstract class GraphEditorViewModel : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    protected ImmutableArray<CoreObject?> GetStorables()
-    {
-        return [Element];
-    }
-
     private async Task CopyAllKeyFramesAsync()
     {
         IClipboard? clipboard = App.GetClipboard();
