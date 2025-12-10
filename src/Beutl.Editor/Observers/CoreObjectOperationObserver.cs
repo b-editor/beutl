@@ -1,6 +1,8 @@
 using System.Collections;
 using System.ComponentModel;
 using System.Reactive.Subjects;
+using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Editor.Infrastructure;
 using Beutl.Editor.Operations;
 using Beutl.Engine;
@@ -15,6 +17,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
     private readonly Dictionary<int, CoreObjectOperationObserver> _childPublishers = new();
     private readonly Dictionary<int, IOperationObserver> _collectionPublishers = new();
     private readonly Dictionary<string, IOperationObserver> _enginePropertyPublishers = new();
+    private SplineEasingOperationObserver? _splineEasingPublisher;
     private readonly Subject<ChangeOperation> _operations = new();
     private readonly IDisposable? _subscription;
     private readonly OperationSequenceGenerator _sequenceNumberGenerator;
@@ -72,6 +75,8 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             enginePublisher.Dispose();
         }
 
+        _splineEasingPublisher?.Dispose();
+
         _subscription?.Dispose();
         _operations.OnCompleted();
     }
@@ -117,6 +122,22 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
                     _propertyPathsToTrack);
                 _childPublishers.Add(property.Id, childPublisher);
             }
+        }
+
+        InitializeSplineEasingPublisher();
+    }
+
+    private void InitializeSplineEasingPublisher()
+    {
+        if (_object is KeyFrame keyFrame && keyFrame.Easing is SplineEasing splineEasing)
+        {
+            string easingPath = BuildPropertyPath(nameof(KeyFrame.Easing));
+            _splineEasingPublisher = new SplineEasingOperationObserver(
+                _operations,
+                splineEasing,
+                _sequenceNumberGenerator,
+                easingPath,
+                _propertyPathsToTrack);
         }
     }
 
@@ -197,6 +218,23 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
                 childPath,
                 _propertyPathsToTrack);
             _childPublishers.Add(args.Property.Id, newPublisher);
+        }
+
+        // Handle SplineEasing changes for KeyFrame
+        if (_object is KeyFrame && args.Property.Id == KeyFrame.EasingProperty.Id)
+        {
+            _splineEasingPublisher?.Dispose();
+            _splineEasingPublisher = null;
+
+            if (args.NewValue is SplineEasing newSplineEasing)
+            {
+                _splineEasingPublisher = new SplineEasingOperationObserver(
+                    _operations,
+                    newSplineEasing,
+                    _sequenceNumberGenerator,
+                    childPath,
+                    _propertyPathsToTrack);
+            }
         }
 
         var operationType = typeof(UpdatePropertyValueOperation<>).MakeGenericType(args.Property.PropertyType);
