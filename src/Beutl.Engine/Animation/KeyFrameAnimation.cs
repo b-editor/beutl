@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Serialization;
@@ -36,45 +37,45 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
 
     private void OnKeyTimeChanged(object? sender, EventArgs e)
     {
-        if (sender is IKeyFrame keyframe)
+        if (sender is not IKeyFrame keyframe) return;
+        using var _ = PublishingSuppression.Enter();
+
+        int index = KeyFrames.IndexOf(keyframe);
+        (IKeyFrame? prev, IKeyFrame? next) = GetPreviousAndNextKeyFrame(keyframe);
+
+        bool invalid = false;
+        if (prev != null && prev.KeyTime > keyframe.KeyTime)
         {
-            int index = KeyFrames.IndexOf(keyframe);
-            (IKeyFrame? prev, IKeyFrame? next) = GetPreviousAndNextKeyFrame(keyframe);
+            invalid = true;
+        }
+        else if (next != null && keyframe.KeyTime > next.KeyTime)
+        {
+            invalid = true;
+        }
 
-            bool invalid = false;
-            if (prev != null && prev.KeyTime > keyframe.KeyTime)
+        if (invalid)
+        {
+            for (int i = 0; i < KeyFrames.Count; i++)
             {
-                invalid = true;
-            }
-            else if (next != null && keyframe.KeyTime > next.KeyTime)
-            {
-                invalid = true;
-            }
-
-            if (invalid)
-            {
-                for (int i = 0; i < KeyFrames.Count; i++)
+                IKeyFrame item = KeyFrames[i];
+                if (keyframe != item && keyframe.KeyTime < item.KeyTime)
                 {
-                    IKeyFrame item = KeyFrames[i];
-                    if (keyframe != item && keyframe.KeyTime < item.KeyTime)
+                    if (index < i)
                     {
-                        if (index < i)
-                        {
-                            i--;
-                        }
-                        KeyFrames.Move(index, i);
-                        return;
+                        i--;
                     }
+                    KeyFrames.Move(index, i);
+                    return;
                 }
+            }
 
-                if (KeyFrames.Count > 1)
+            if (KeyFrames.Count > 1)
+            {
+                IKeyFrame last = KeyFrames[^1];
+                if (last.KeyTime < keyframe.KeyTime)
                 {
-                    IKeyFrame last = KeyFrames[^1];
-                    if (last.KeyTime < keyframe.KeyTime)
-                    {
-                        KeyFrames.Move(index, KeyFrames.Count - 1);
-                        return;
-                    }
+                    KeyFrames.Move(index, KeyFrames.Count - 1);
+                    return;
                 }
             }
         }

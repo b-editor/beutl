@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Infrastructure;
+namespace Beutl.Editor;
 
 public static class PublishingSuppression
 {
