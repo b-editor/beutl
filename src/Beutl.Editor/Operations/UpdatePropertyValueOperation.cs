@@ -34,7 +34,7 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
                 name = parts[^2];
                 updateAnimation = true;
             }
-            if (parts[^1] == "Expression" && parts.Length >= 2)
+            else if (parts[^1] == "Expression" && parts.Length >= 2)
             {
                 name = parts[^2];
                 updateExpression = true;
@@ -69,14 +69,14 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
         {
             if (engineProperty.IsAnimatable)
             {
-                engineProperty.Animation = NewValue as IAnimation<T>;
+                engineProperty.Animation = NewValue as IAnimation;
             }
         }
         else if (updateExpression)
         {
             if (engineProperty.IsAnimatable)
             {
-                engineProperty.Expression = NewValue as IExpression<T>;
+                engineProperty.Expression = NewValue as IExpression;
             }
         }
         else
@@ -143,14 +143,14 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
         {
             if (engineProperty.IsAnimatable)
             {
-                engineProperty.Animation = OldValue as IAnimation<T>;
+                engineProperty.Animation = OldValue as IAnimation;
             }
         }
         else if (updateExpression)
         {
             if (engineProperty.IsAnimatable)
             {
-                engineProperty.Expression = OldValue as IExpression<T>;
+                engineProperty.Expression = OldValue as IExpression;
             }
         }
         else
