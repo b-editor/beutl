@@ -1,0 +1,133 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="clr-namespace:FluentIcons.FluentAvalonia;assembly=FluentIcons.FluentAvalonia"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <Design.PreviewWith>
+        <Border Width="320">
+            <StackPanel>
+                <local:ColorWheelEditor Header="Shadows" />
+            </StackPanel>
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:ColorWheelEditor}" TargetType="local:ColorWheelEditor">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{TemplateBinding Padding}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid ColumnDefinitions="2*,3*,Auto,Auto">
+                        <StackPanel Grid.Column="0"
+                                    Margin="4,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Spacing="4">
+                            <TextBlock Name="PART_HeaderTextBlock"
+                                       FontWeight="DemiBold"
+                                       Text="{TemplateBinding Header}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock FontSize="12"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                       Text="{TemplateBinding Description}"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="140" />
+                        </StackPanel>
+
+                        <local:ColorWheelPicker Name="PART_ColorWheelPicker"
+                                                Grid.Column="1"
+                                                Margin="4,2"
+                                                HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Top" />
+
+                        <StackPanel Name="LeftRightButtons"
+                                    Grid.Column="2"
+                                    Margin="0,0,4,0"
+                                    Orientation="Horizontal">
+                            <Button Name="PART_LeftButton"
+                                    Classes="left"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                            <Button Name="PART_RightButton"
+                                    Classes="right"
+                                    Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                        </StackPanel>
+
+                        <ContentPresenter Name="PART_MenuContentPresenter"
+                                          Grid.Column="3"
+                                          Content="{TemplateBinding MenuContent}"
+                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:list-item">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Name="PART_ReorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
+
+                            <local:ColorWheelPicker Name="PART_ColorWheelPicker"
+                                                    Grid.Column="1"
+                                                    Margin="4,2"
+                                                    HorizontalAlignment="Stretch"
+                                                    VerticalAlignment="Top" />
+
+                            <Button Name="PART_DeleteButton"
+                                    Grid.Column="2"
+                                    Margin="4,0"
+                                    Padding="0"
+                                    Classes="size-24x24"
+                                    Theme="{StaticResource TransparentButton}">
+                                <icons:SymbolIcon Symbol="Delete" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:settings">
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <OptionsDisplayItem Padding="{TemplateBinding Padding}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Clickable="False"
+                                        CornerRadius="{TemplateBinding CornerRadius}"
+                                        Description="{TemplateBinding Description}"
+                                        Header="{TemplateBinding Header}">
+                        <OptionsDisplayItem.ActionButton>
+                            <local:ColorWheelPicker Name="PART_ColorWheelPicker"
+                                                    HorizontalAlignment="Stretch"
+                                                    VerticalAlignment="Top" />
+                        </OptionsDisplayItem.ActionButton>
+                    </OptionsDisplayItem>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^[KeyFrameCount=0]">
+            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

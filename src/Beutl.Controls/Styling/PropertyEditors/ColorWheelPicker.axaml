@@ -1,0 +1,44 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors">
+    <Design.PreviewWith>
+        <Border Width="260" Height="300">
+            <local:ColorWheelPicker />
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:ColorWheelPicker}" TargetType="local:ColorWheelPicker">
+        <Setter Property="MinWidth" Value="240" />
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel Name="Root">
+                    <ColorSpectrum Name="RingSpectrum"
+                                   Width="{Binding #Root.Bounds.Width}"
+                                   Height="{Binding #Root.Bounds.Width}"
+                                   BorderBrush="{DynamicResource ColorRampBorderBrush}"
+                                   BorderThickness="1"
+                                   Components="HueSaturation"
+                                   Shape="Ring" />
+
+                    <StackPanel Margin="6,8" Spacing="8">
+                        <ColorSlider Name="ThirdComponentSlider"
+                                     ColorComponent="Component1"
+                                     ColorModel="Hsva" />
+
+                        <ColorSlider Name="SpectrumAlphaSlider" ColorComponent="Alpha" />
+                    </StackPanel>
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ ColorSlider">
+            <Setter Property="Height" Value="{DynamicResource ColorPickerColorRampSize}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorRampBorderBrush}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource ColorRampBorderThickness}" />
+            <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
+            <Setter Property="Orientation" Value="Horizontal" />
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

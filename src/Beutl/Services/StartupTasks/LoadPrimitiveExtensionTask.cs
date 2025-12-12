@@ -18,6 +18,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ObjectPropertyTabExtension.Instance,
         SourceOperatorsTabExtension.Instance,
         PropertyEditorExtension.Instance,
+        ColorGradingPropertyEditorExtension.Instance,
         NodeTreeTabExtension.Instance,
         NodeTreeInputTabExtension.Instance,
         GraphEditorTabExtension.Instance,
