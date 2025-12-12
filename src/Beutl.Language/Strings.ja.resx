@@ -692,6 +692,33 @@
   <data name="Gamma" xml:space="preserve">
     <value>ガンマ</value>
   </data>
+  <data name="ColorGrading" xml:space="preserve">
+    <value>カラーグレーディング</value>
+  </data>
+  <data name="Temperature" xml:space="preserve">
+    <value>色温度</value>
+  </data>
+  <data name="Tint" xml:space="preserve">
+    <value>色かぶり補正</value>
+  </data>
+  <data name="Exposure" xml:space="preserve">
+    <value>露出</value>
+  </data>
+  <data name="Shadows" xml:space="preserve">
+    <value>シャドウ</value>
+  </data>
+  <data name="Midtones" xml:space="preserve">
+    <value>ミッドトーン</value>
+  </data>
+  <data name="Highlights" xml:space="preserve">
+    <value>ハイライト</value>
+  </data>
+  <data name="Lift" xml:space="preserve">
+    <value>リフト</value>
+  </data>
+  <data name="Gain" xml:space="preserve">
+    <value>ゲイン</value>
+  </data>
   <data name="Invert" xml:space="preserve">
     <value>反転</value>
   </data>
@@ -718,6 +745,9 @@
   </data>
   <data name="Contrast" xml:space="preserve">
     <value>コントラスト</value>
+  </data>
+  <data name="ContrastPivot" xml:space="preserve">
+    <value>コントラストのピボット</value>
   </data>
   <data name="Addition" xml:space="preserve">
     <value>加算</value>

@@ -1184,7 +1184,61 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Gamma", resourceCulture);
             }
         }
-        
+
+        public static string ColorGrading {
+            get {
+                return ResourceManager.GetString("ColorGrading", resourceCulture);
+            }
+        }
+
+        public static string Temperature {
+            get {
+                return ResourceManager.GetString("Temperature", resourceCulture);
+            }
+        }
+
+        public static string Tint {
+            get {
+                return ResourceManager.GetString("Tint", resourceCulture);
+            }
+        }
+
+        public static string Exposure {
+            get {
+                return ResourceManager.GetString("Exposure", resourceCulture);
+            }
+        }
+
+        public static string Shadows {
+            get {
+                return ResourceManager.GetString("Shadows", resourceCulture);
+            }
+        }
+
+        public static string Midtones {
+            get {
+                return ResourceManager.GetString("Midtones", resourceCulture);
+            }
+        }
+
+        public static string Highlights {
+            get {
+                return ResourceManager.GetString("Highlights", resourceCulture);
+            }
+        }
+
+        public static string Lift {
+            get {
+                return ResourceManager.GetString("Lift", resourceCulture);
+            }
+        }
+
+        public static string Gain {
+            get {
+                return ResourceManager.GetString("Gain", resourceCulture);
+            }
+        }
+
         public static string Invert {
             get {
                 return ResourceManager.GetString("Invert", resourceCulture);
@@ -1236,6 +1290,12 @@ namespace Beutl.Language {
         public static string Contrast {
             get {
                 return ResourceManager.GetString("Contrast", resourceCulture);
+            }
+        }
+
+        public static string ContrastPivot {
+            get {
+                return ResourceManager.GetString("ContrastPivot", resourceCulture);
             }
         }
         
