@@ -687,6 +687,33 @@
   <data name="Gamma" xml:space="preserve">
     <value>Gamma</value>
   </data>
+  <data name="ColorGrading" xml:space="preserve">
+    <value>Color Grading</value>
+  </data>
+  <data name="Temperature" xml:space="preserve">
+    <value>Temperature</value>
+  </data>
+  <data name="Tint" xml:space="preserve">
+    <value>Tint</value>
+  </data>
+  <data name="Exposure" xml:space="preserve">
+    <value>Exposure</value>
+  </data>
+  <data name="Shadows" xml:space="preserve">
+    <value>Shadows</value>
+  </data>
+  <data name="Midtones" xml:space="preserve">
+    <value>Midtones</value>
+  </data>
+  <data name="Highlights" xml:space="preserve">
+    <value>Highlights</value>
+  </data>
+  <data name="Lift" xml:space="preserve">
+    <value>Lift</value>
+  </data>
+  <data name="Gain" xml:space="preserve">
+    <value>Gain</value>
+  </data>
   <data name="Invert" xml:space="preserve">
     <value>Invert</value>
   </data>
@@ -713,6 +740,9 @@
   </data>
   <data name="Contrast" xml:space="preserve">
     <value>Contrast</value>
+  </data>
+  <data name="ContrastPivot" xml:space="preserve">
+    <value>Contrast Pivot</value>
   </data>
   <data name="Addition" xml:space="preserve">
     <value>Addition</value>
