@@ -37,6 +37,8 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/AlignmentXEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/BooleanEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ColorEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/ColorWheelEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/ColorWheelPicker.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/CornerRadiusEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ThicknessEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/EnumEditor.axaml" />
