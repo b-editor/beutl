@@ -1,3 +1,5 @@
+#nullable enable
+
 using System.Globalization;
 
 using Avalonia.Data.Converters;

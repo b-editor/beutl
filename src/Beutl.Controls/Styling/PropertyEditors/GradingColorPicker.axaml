@@ -89,11 +89,11 @@
                                 </ToggleButton>
                             </StackPanel>
 
-                            <local:ColorComponentsEditor Name="ColorComponentsBox"
-                                                         Grid.Row="2"
-                                                         Grid.Column="0"
-                                                         HorizontalAlignment="Stretch"
-                                                         Theme="{StaticResource ColorComponentsEditorStyle}" />
+                            <local:GradingColorComponentsEditor Name="ColorComponentsBox"
+                                                                Grid.Row="2"
+                                                                Grid.Column="0"
+                                                                HorizontalAlignment="Stretch"
+                                                                Theme="{StaticResource GradingColorComponentsEditorStyle}" />
 
                             <TextBox Name="IntensityBox"
                                      Grid.Row="2"

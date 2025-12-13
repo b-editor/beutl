@@ -37,6 +37,7 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/AlignmentXEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/BooleanEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ColorEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/GradingColorComponentsEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/GradingColorEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/GradingColorPicker.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/CornerRadiusEditor.axaml" />
