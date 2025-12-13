@@ -179,6 +179,7 @@ public static class PropertyEditorService
             new(typeof(FileInfo), new(_ => new StorageFileEditor(), s => new StorageFileEditorViewModel(s.ToTyped<FileInfo>()))),
 
             new(typeof(Color), new(_ => new ColorEditor(), s => new ColorEditorViewModel(s.ToTyped<Color>()))),
+            new(typeof(GradingColor), new(_ => new GradingColorEditor(), s => new GradingColorEditorViewModel(s.ToTyped<GradingColor>()))),
 
             new(typeof(Point), new(_ => new Vector2Editor<float>(), s => new PointEditorViewModel(s.ToTyped<Point>()))),
             new(typeof(Size), new(_ => new Vector2Editor<float>(), s => new SizeEditorViewModel(s.ToTyped<Size>()))),
