@@ -174,13 +174,13 @@ public sealed partial class ColorGrading : FilterEffect
     public IProperty<float> Hue { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(Strings.Shadows), ResourceType = typeof(Strings))]
-    public IProperty<Color> Shadows { get; } = Property.CreateAnimatable(Colors.Black);
+    public IProperty<GradingColor> Shadows { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
     [Display(Name = nameof(Strings.Midtones), ResourceType = typeof(Strings))]
-    public IProperty<Color> Midtones { get; } = Property.CreateAnimatable(Colors.Black);
+    public IProperty<GradingColor> Midtones { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
     [Display(Name = nameof(Strings.Highlights), ResourceType = typeof(Strings))]
-    public IProperty<Color> Highlights { get; } = Property.CreateAnimatable(Colors.Black);
+    public IProperty<GradingColor> Highlights { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
     [Display(Name = nameof(Strings.Lift), ResourceType = typeof(Strings))]
     public IProperty<GradingColor> Lift { get; } = Property.CreateAnimatable(GradingColor.Zero);
@@ -252,15 +252,6 @@ public sealed partial class ColorGrading : FilterEffect
             context.Targets[i] = newTarget;
             target.Dispose();
         }
-    }
-
-    private static SKColorF ToColorVector(Color value, float scale = 1f / 255f, float minValue = 0f)
-    {
-        return new SKColorF(
-            Math.Max(value.R * scale, minValue),
-            Math.Max(value.G * scale, minValue),
-            Math.Max(value.B * scale, minValue),
-            value.A * scale);
     }
 
     private static SKColorF ToColorVector(GradingColor value, float minValue = float.NegativeInfinity)
