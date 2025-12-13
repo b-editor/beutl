@@ -183,16 +183,16 @@ public sealed partial class ColorGrading : FilterEffect
     public IProperty<Color> Highlights { get; } = Property.CreateAnimatable(Colors.Black);
 
     [Display(Name = nameof(Strings.Lift), ResourceType = typeof(Strings))]
-    public IProperty<Color> Lift { get; } = Property.CreateAnimatable(Colors.Black);
+    public IProperty<GradingColor> Lift { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
     [Display(Name = nameof(Strings.Gamma), ResourceType = typeof(Strings))]
-    public IProperty<Color> Gamma { get; } = Property.CreateAnimatable(Colors.White);
+    public IProperty<GradingColor> Gamma { get; } = Property.CreateAnimatable(GradingColor.One);
 
     [Display(Name = nameof(Strings.Gain), ResourceType = typeof(Strings))]
-    public IProperty<Color> Gain { get; } = Property.CreateAnimatable(Colors.White);
+    public IProperty<GradingColor> Gain { get; } = Property.CreateAnimatable(GradingColor.One);
 
     [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
-    public IProperty<Color> Offset { get; } = Property.CreateAnimatable(Colors.Black);
+    public IProperty<GradingColor> Offset { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
@@ -238,8 +238,8 @@ public sealed partial class ColorGrading : FilterEffect
             builder.Uniforms["midtones"] = ToColorVector(data.Midtones);
             builder.Uniforms["highlights"] = ToColorVector(data.Highlights);
             builder.Uniforms["lift"] = ToColorVector(data.Lift);
-            builder.Uniforms["gamma"] = ToColorVector(data.Gamma, 1f / 255f, 0.001f);
-            builder.Uniforms["gain"] = ToColorVector(data.Gain, 1f / 255f, 0.0f);
+            builder.Uniforms["gamma"] = ToColorVector(data.Gamma, 0.001f);
+            builder.Uniforms["gain"] = ToColorVector(data.Gain, 0.0f);
             builder.Uniforms["offset"] = ToColorVector(data.Offset);
 
             using SKShader finalShader = builder.Build();
@@ -261,5 +261,14 @@ public sealed partial class ColorGrading : FilterEffect
             Math.Max(value.G * scale, minValue),
             Math.Max(value.B * scale, minValue),
             value.A * scale);
+    }
+
+    private static SKColorF ToColorVector(GradingColor value, float minValue = float.NegativeInfinity)
+    {
+        return new SKColorF(
+            Math.Max(value.R, minValue),
+            Math.Max(value.G, minValue),
+            Math.Max(value.B, minValue),
+            1f);
     }
 }
