@@ -19,36 +19,50 @@ public sealed partial class ColorGrading : FilterEffect
         const string sksl =
             """
             uniform shader src;
-            uniform float exposure;
-            uniform float contrast;
-            uniform float contrastPivot;
-            uniform float saturation;
-            uniform float hue;
-            uniform float temperature;
-            uniform float tint;
-            uniform float3 shadows;
-            uniform float3 midtones;
-            uniform float3 highlights;
-            uniform float3 lift;
-            uniform float3 gamma;
-            uniform float3 gain;
-            uniform float3 offset;
+            uniform float exposure; // EV stops (-5 to +5)
+            uniform float contrast; // -1 to +1
+            uniform float contrastPivot; // typically 0.18 or 0.5
+            uniform float saturation; // -1 to +1
+            uniform float hue; // degrees (-180 to +180)
+            uniform float temperature; // -1 to +1 (cool to warm)
+            uniform float tint; // -1 to +1 (green to magenta)
+            uniform float3 shadows; // RGB adjustment for shadows
+            uniform float3 midtones; // RGB adjustment for midtones
+            uniform float3 highlights; // RGB adjustment for highlights
+            uniform float3 lift; // Shadow lift (typically -0.5 to +0.5)
+            uniform float3 gamma; // Midtone gamma (typically 0.5 to 2.0, default 1.0)
+            uniform float3 gain; // Highlight gain (typically 0.0 to 2.0, default 1.0)
+            uniform float3 offset; // RGB offset (-1 to +1)
 
-            float3 apply_tonal_balance(float3 color, float3 shadows, float3 midtones, float3 highlights) {
-                const float3 luminance = float3(0.2126, 0.7152, 0.0722);
-                float luma = dot(color, luminance);
+            const float3 LUMINANCE_COEFF = float3(0.2126, 0.7152, 0.0722);
 
-                float shadow_w = 1.0 - smoothstep(0.0, 0.5, luma);
-                float highlight_w = smoothstep(0.5, 1.0, luma);
+            float get_luminance(float3 color) {
+                return dot(color, LUMINANCE_COEFF);
+            }
+
+            float3 apply_lift_gamma_gain(float3 color, float3 l, float3 g, float3 gn) {
+                color = color + l * (1.0 - color);
+
+                float3 safe_gamma = max(g, float3(0.001));
+                color = pow(max(color, float3(0.0)), 1.0 / safe_gamma);
+                color *= gn;
+
+                return color;
+            }
+
+            float3 apply_tonal_balance(float3 color, float3 shd, float3 mid, float3 hlt) {
+                float luma = get_luminance(color);
+                float shadow_w = 1.0 - smoothstep(0.0, 0.4, luma);
+                float highlight_w = smoothstep(0.6, 1.0, luma);
                 float midtone_w = 1.0 - shadow_w - highlight_w;
 
-                return color + shadows * shadow_w + midtones * midtone_w + highlights * highlight_w;
+                midtone_w = max(midtone_w, 0.0);
+                return color + shd * shadow_w + mid * midtone_w + hlt * highlight_w;
             }
 
             float3 apply_saturation(float3 color, float sat) {
-                const float3 luminance = float3(0.2126, 0.7152, 0.0722);
-                float luma = dot(color, luminance);
-                return mix(float3(luma, luma, luma), color, 1.0 + sat);
+                float luma = get_luminance(color);
+                return mix(float3(luma), color, 1.0 + sat);
             }
 
             float3 apply_hue(float3 color, float hue) {
@@ -57,58 +71,66 @@ public sealed partial class ColorGrading : FilterEffect
                 float sin_a = sin(rad);
 
                 const float3x3 rgb_to_yiq = float3x3(
-                    0.299, 0.587, 0.114,
-                    0.596, -0.275, -0.321,
-                    0.212, -0.523, 0.311);
+                    float3(0.299,  0.596,  0.212),   // column 0
+                    float3(0.587, -0.275, -0.523),   // column 1
+                    float3(0.114, -0.321,  0.311)    // column 2
+                );
 
                 const float3x3 yiq_to_rgb = float3x3(
-                    1.0, 0.956, 0.621,
-                    1.0, -0.272, -0.647,
-                    1.0, -1.105, 1.702);
+                    float3(1.0,  1.0,  1.0),         // column 0
+                    float3(0.956, -0.272, -1.105),   // column 1
+                    float3(0.621, -0.647,  1.702)    // column 2
+                );
 
                 float3x3 rotation = float3x3(
-                    1.0, 0.0, 0.0,
-                    0.0, cos_a, -sin_a,
-                    0.0, sin_a, cos_a);
+                    float3(1.0, 0.0, 0.0),
+                    float3(0.0, cos_a, sin_a),
+                    float3(0.0, -sin_a, cos_a)
+                );
 
                 return yiq_to_rgb * (rotation * (rgb_to_yiq * color));
             }
 
             float3 apply_temperature_tint(float3 color, float temperature, float tint) {
-                float warm = temperature * 0.1;
-                float green = tint * 0.1;
-                float magenta = tint * 0.05;
+                float3 temp_adjustment = float3(
+                    1.0 + temperature * 0.1,
+                    1.0,
+                    1.0 - temperature * 0.1
+                );
 
-                color.r += warm - magenta;
-                color.g += green;
-                color.b -= warm + magenta;
+                float3 tint_adjustment = float3(
+                    1.0 + tint * 0.05,
+                    1.0 - tint * 0.1,
+                    1.0 + tint * 0.05
+                );
 
-                return color;
-            }
-
-            float3 apply_lift_gamma_gain(float3 color, float3 lift, float3 gamma, float3 gain) {
-                color = max(color + lift, 0.0);
-                color = pow(color, 1.0 / max(gamma, float3(0.001)));
-                color *= gain;
-                return color;
+                return color * temp_adjustment * tint_adjustment;
             }
 
             half4 main(float2 coord) {
                 half4 srcColor = src.eval(coord);
-                float3 color = srcColor.rgb;
+                float alpha = srcColor.a;
+                float3 color;
+                if (alpha > 0.0001) {
+                    color = srcColor.rgb / alpha;
+                } else {
+                    return half4(0.0);
+                }
 
                 color *= exp2(exposure);
+                color = apply_lift_gamma_gain(color, lift, gamma, gain);
                 color = (color - contrastPivot) * (1.0 + contrast) + contrastPivot;
                 color = apply_tonal_balance(color, shadows, midtones, highlights);
+                color = apply_temperature_tint(color, temperature, tint);
                 color = apply_saturation(color, saturation);
                 color = apply_hue(color, hue);
-                color = apply_temperature_tint(color, temperature, tint);
-                color = apply_lift_gamma_gain(color, lift, gamma, gain);
+
                 color += offset;
 
                 color = clamp(color, 0.0, 1.0);
-                return half4(color, srcColor.a);
+                return half4(color * alpha, alpha);
             }
+
             """;
 
         s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
@@ -152,16 +174,16 @@ public sealed partial class ColorGrading : FilterEffect
     public IProperty<float> Hue { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(Strings.Shadows), ResourceType = typeof(Strings))]
-    public IProperty<Color> Shadows { get; } = Property.CreateAnimatable(Colors.Transparent);
+    public IProperty<Color> Shadows { get; } = Property.CreateAnimatable(Colors.Black);
 
     [Display(Name = nameof(Strings.Midtones), ResourceType = typeof(Strings))]
-    public IProperty<Color> Midtones { get; } = Property.CreateAnimatable(Colors.Transparent);
+    public IProperty<Color> Midtones { get; } = Property.CreateAnimatable(Colors.Black);
 
     [Display(Name = nameof(Strings.Highlights), ResourceType = typeof(Strings))]
-    public IProperty<Color> Highlights { get; } = Property.CreateAnimatable(Colors.Transparent);
+    public IProperty<Color> Highlights { get; } = Property.CreateAnimatable(Colors.Black);
 
     [Display(Name = nameof(Strings.Lift), ResourceType = typeof(Strings))]
-    public IProperty<Color> Lift { get; } = Property.CreateAnimatable(Colors.Transparent);
+    public IProperty<Color> Lift { get; } = Property.CreateAnimatable(Colors.Black);
 
     [Display(Name = nameof(Strings.Gamma), ResourceType = typeof(Strings))]
     public IProperty<Color> Gamma { get; } = Property.CreateAnimatable(Colors.White);
@@ -170,7 +192,7 @@ public sealed partial class ColorGrading : FilterEffect
     public IProperty<Color> Gain { get; } = Property.CreateAnimatable(Colors.White);
 
     [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
-    public IProperty<Color> Offset { get; } = Property.CreateAnimatable(Colors.Transparent);
+    public IProperty<Color> Offset { get; } = Property.CreateAnimatable(Colors.Black);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
@@ -202,7 +224,7 @@ public sealed partial class ColorGrading : FilterEffect
 
             using SKImage image = renderTarget.Value.Snapshot();
             using SKShader baseShader = SKShader.CreateImage(image, SKShaderTileMode.Decal, SKShaderTileMode.Decal);
-            using var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
+            var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
 
             builder.Children["src"] = baseShader;
             builder.Uniforms["exposure"] = data.Exposure;
@@ -224,8 +246,8 @@ public sealed partial class ColorGrading : FilterEffect
             using var paint = new SKPaint { Shader = finalShader };
 
             EffectTarget newTarget = context.CreateTarget(target.Bounds);
-            using ImmediateCanvas canvas = context.Open(newTarget);
-            canvas.Canvas.DrawRect(new SKRect(0, 0, newTarget.Bounds.Width, newTarget.Bounds.Height), paint);
+            var canvas = newTarget.RenderTarget!.Value.Canvas;
+            canvas.DrawRect(new SKRect(0, 0, newTarget.Bounds.Width, newTarget.Bounds.Height), paint);
 
             context.Targets[i] = newTarget;
             target.Dispose();
