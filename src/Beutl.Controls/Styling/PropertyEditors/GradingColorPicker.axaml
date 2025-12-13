@@ -82,7 +82,9 @@
                                 <ToggleButton Name="ToggleDetailsButton" ToolTip.Tip="{x:Static lang:Strings.ShowSliders}">
                                     <ui:FontIcon Glyph="&#xE9E9;" />
                                 </ToggleButton>
-                                <ToggleButton Name="ToggleSpectrumShapeButton" ToolTip.Tip="{x:Static lang:Strings.ShowRing}">
+                                <ToggleButton Name="ToggleSpectrumShapeButton"
+                                              IsChecked="True"
+                                              ToolTip.Tip="{x:Static lang:Strings.ShowRing}">
                                     <ui:FontIcon Glyph="&#xEA3A;" />
                                 </ToggleButton>
                             </StackPanel>
@@ -109,7 +111,7 @@
             </ControlTemplate>
         </Setter>
 
-        <Style Selector="^ /template/ StackPanel#ButtonsLayout > ToggleButton">
+        <Style Selector="^ /template/ StackPanel#ButtonsLayout &gt; ToggleButton">
             <Setter Property="Width" Value="32" />
             <Setter Property="Height" Value="32" />
             <Setter Property="Padding" Value="0" />
@@ -118,7 +120,7 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Theme" Value="{StaticResource TransparentToggleButton}" />
 
-            <Style Selector="^ > ui|FontIcon">
+            <Style Selector="^ &gt; ui|FontIcon">
                 <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
             </Style>
         </Style>
