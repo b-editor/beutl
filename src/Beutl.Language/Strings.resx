@@ -1041,6 +1041,9 @@
   <data name="Hue" xml:space="preserve">
     <value>Hue</value>
   </data>
+  <data name="Intensity" xml:space="preserve">
+    <value>Intensity</value>
+  </data>
   <data name="Saturation" xml:space="preserve">
     <value>Saturation</value>
   </data>

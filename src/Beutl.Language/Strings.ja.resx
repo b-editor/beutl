@@ -1046,6 +1046,9 @@
   <data name="Hue" xml:space="preserve">
     <value>色相</value>
   </data>
+  <data name="Intensity" xml:space="preserve">
+    <value>強度</value>
+  </data>
   <data name="Saturation" xml:space="preserve">
     <value>彩度</value>
   </data>
