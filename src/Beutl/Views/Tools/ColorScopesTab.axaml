@@ -18,13 +18,29 @@
     </UserControl.Resources>
 
     <Grid Margin="8" RowDefinitions="Auto,*">
-        <ComboBox Grid.Row="0"
-                  HorizontalAlignment="Stretch"
-                  SelectedIndex="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}}">
-            <ComboBoxItem Content="{x:Static lang:Strings.Waveform}" />
-            <ComboBoxItem Content="{x:Static lang:Strings.Histogram}" />
-            <ComboBoxItem Content="{x:Static lang:Strings.Vectorscope}" />
-        </ComboBox>
+        <Grid ColumnDefinitions="Auto,Auto">
+            <ComboBox Grid.Column="0"
+                      HorizontalAlignment="Stretch"
+                      SelectedIndex="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}}">
+                <ComboBoxItem Content="{x:Static lang:Strings.Waveform}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.Histogram}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.Vectorscope}" />
+            </ComboBox>
+
+            <!--  Waveform Settings (visible only when Waveform is selected)  -->
+            <Grid Grid.Column="1"
+                  ColumnDefinitions="Auto,Auto,Auto,Auto"
+                  IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}">
+                <ComboBox Grid.Column="1"
+                          Margin="8,0,0,0"
+                          HorizontalAlignment="Stretch"
+                          SelectedIndex="{Binding WaveformMode.Value, Converter={x:Static scopes:WaveformModeConverter.Instance}}">
+                    <ComboBoxItem Content="{x:Static lang:Strings.Luma}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.RgbOverlay}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
+                </ComboBox>
+            </Grid>
+        </Grid>
 
         <Border Grid.Row="1"
                 Margin="0,8,0,0"
@@ -37,9 +53,13 @@
                 <scopes:WaveformControl x:Name="WaveformControl"
                                         AxisBrush="{StaticResource ScopeAxisBrush}"
                                         BackgroundBrush="{StaticResource ScopeBackgroundBrush}"
+                                        Gain="{Binding WaveformGain.Value}"
                                         IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}"
                                         LabelBrush="{StaticResource ScopeLabelBrush}"
-                                        SourceBitmap="{Binding SourceBitmap.Value}" />
+                                        Mode="{Binding WaveformMode.Value}"
+                                        ShowGrid="{Binding WaveformShowGrid.Value}"
+                                        SourceBitmap="{Binding SourceBitmap.Value}"
+                                        Thickness="{Binding WaveformThickness.Value}" />
 
                 <scopes:HistogramControl x:Name="HistogramControl"
                                          AxisBrush="{StaticResource ScopeAxisBrush}"
