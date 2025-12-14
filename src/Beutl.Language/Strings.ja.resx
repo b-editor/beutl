@@ -1536,4 +1536,19 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Waveform" xml:space="preserve">
     <value>ウェーブフォーム</value>
   </data>
+  <data name="Mode" xml:space="preserve">
+    <value>モード</value>
+  </data>
+  <data name="Luma" xml:space="preserve">
+    <value>輝度</value>
+  </data>
+  <data name="RgbOverlay" xml:space="preserve">
+    <value>RGBオーバーレイ</value>
+  </data>
+  <data name="RgbParade" xml:space="preserve">
+    <value>RGBパレード</value>
+  </data>
+  <data name="ShowGrid" xml:space="preserve">
+    <value>グリッドを表示</value>
+  </data>
 </root>

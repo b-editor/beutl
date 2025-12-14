@@ -233,7 +233,13 @@ public abstract class ScopeControlBase : Control
         if (bitmap != null)
         {
             var destRect = new Rect(axisMargin, 0, contentWidth, contentHeight);
-            context.DrawImage(bitmap, destRect);
+            using (context.PushRenderOptions(new RenderOptions
+                   {
+                       BitmapInterpolationMode = BitmapInterpolationMode.HighQuality
+                   }))
+            {
+                context.DrawImage(bitmap, destRect);
+            }
         }
 
         // Draw axes

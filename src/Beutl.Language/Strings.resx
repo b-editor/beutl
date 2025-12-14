@@ -1531,4 +1531,19 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Waveform" xml:space="preserve">
     <value>Waveform</value>
   </data>
+  <data name="Mode" xml:space="preserve">
+    <value>Mode</value>
+  </data>
+  <data name="Luma" xml:space="preserve">
+    <value>Luma</value>
+  </data>
+  <data name="RgbOverlay" xml:space="preserve">
+    <value>RGB Overlay</value>
+  </data>
+  <data name="RgbParade" xml:space="preserve">
+    <value>RGB Parade</value>
+  </data>
+  <data name="ShowGrid" xml:space="preserve">
+    <value>Show Grid</value>
+  </data>
 </root>

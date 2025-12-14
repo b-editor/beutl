@@ -2852,5 +2852,35 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Waveform", resourceCulture);
             }
         }
+        
+        public static string Mode {
+            get {
+                return ResourceManager.GetString("Mode", resourceCulture);
+            }
+        }
+        
+        public static string Luma {
+            get {
+                return ResourceManager.GetString("Luma", resourceCulture);
+            }
+        }
+        
+        public static string RgbOverlay {
+            get {
+                return ResourceManager.GetString("RgbOverlay", resourceCulture);
+            }
+        }
+        
+        public static string RgbParade {
+            get {
+                return ResourceManager.GetString("RgbParade", resourceCulture);
+            }
+        }
+        
+        public static string ShowGrid {
+            get {
+                return ResourceManager.GetString("ShowGrid", resourceCulture);
+            }
+        }
     }
 }

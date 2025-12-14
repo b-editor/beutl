@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Media.Imaging;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.Views.Tools.Scopes;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Tools;
@@ -41,6 +42,15 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
     public ReactivePropertySlim<WriteableBitmap?> SourceBitmap { get; } = new();
 
+    // Waveform settings
+    public ReactivePropertySlim<WaveformMode> WaveformMode { get; } = new(Views.Tools.Scopes.WaveformMode.Luma);
+
+    public ReactivePropertySlim<float> WaveformThickness { get; } = new(1.25f);
+
+    public ReactivePropertySlim<float> WaveformGain { get; } = new(2.0f);
+
+    public ReactivePropertySlim<bool> WaveformShowGrid { get; } = new(true);
+
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
     public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
@@ -68,10 +78,49 @@ public sealed class ColorScopesTabViewModel : IToolContext
                 SelectedScopeType.Value = (ColorScopeType)scopeType;
             }
         }
+
+        // Waveform settings
+        if (json.TryGetPropertyValue("waveformMode", out var modeNode) && modeNode is JsonValue modeValue)
+        {
+            if (modeValue.TryGetValue(out int mode) && Enum.IsDefined(typeof(WaveformMode), mode))
+            {
+                WaveformMode.Value = (WaveformMode)mode;
+            }
+        }
+
+        if (json.TryGetPropertyValue("waveformThickness", out var thicknessNode) && thicknessNode is JsonValue thicknessValue)
+        {
+            if (thicknessValue.TryGetValue(out float thickness))
+            {
+                WaveformThickness.Value = thickness;
+            }
+        }
+
+        if (json.TryGetPropertyValue("waveformGain", out var gainNode) && gainNode is JsonValue gainValue)
+        {
+            if (gainValue.TryGetValue(out float gain))
+            {
+                WaveformGain.Value = gain;
+            }
+        }
+
+        if (json.TryGetPropertyValue("waveformShowGrid", out var showGridNode) && showGridNode is JsonValue showGridValue)
+        {
+            if (showGridValue.TryGetValue(out bool showGrid))
+            {
+                WaveformShowGrid.Value = showGrid;
+            }
+        }
     }
 
     public void WriteToJson(JsonObject json)
     {
         json["scopeType"] = (int)SelectedScopeType.Value;
+
+        // Waveform settings
+        json["waveformMode"] = (int)WaveformMode.Value;
+        json["waveformThickness"] = WaveformThickness.Value;
+        json["waveformGain"] = WaveformGain.Value;
+        json["waveformShowGrid"] = WaveformShowGrid.Value;
     }
 }
