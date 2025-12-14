@@ -128,6 +128,9 @@
   <data name="Close" xml:space="preserve">
     <value>閉じる</value>
   </data>
+  <data name="ColorScopes" xml:space="preserve">
+    <value>スコープ</value>
+  </data>
   <data name="Add" xml:space="preserve">
     <value>追加</value>
   </data>
@@ -1523,5 +1526,14 @@ PI: 数学定数 π（3.14159...）</value>
     <value>他のプロパティを参照:
 GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName")
 例: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
+  </data>
+  <data name="Histogram" xml:space="preserve">
+    <value>ヒストグラム</value>
+  </data>
+  <data name="Vectorscope" xml:space="preserve">
+    <value>ベクトルスコープ</value>
+  </data>
+  <data name="Waveform" xml:space="preserve">
+    <value>ウェーブフォーム</value>
   </data>
 </root>

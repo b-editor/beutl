@@ -141,6 +141,9 @@
   <data name="Close" xml:space="preserve">
     <value>Close</value>
   </data>
+  <data name="ColorScopes" xml:space="preserve">
+    <value>Scopes</value>
+  </data>
   <data name="CloseProject" xml:space="preserve">
     <value>Close Project</value>
   </data>
@@ -1518,5 +1521,14 @@ Random: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, ma
     <value>Reference other properties:
 GetProperty&lt;T&gt;("path") or GetProperty&lt;T&gt;(guid, "propertyName")
 Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
+  </data>
+  <data name="Histogram" xml:space="preserve">
+    <value>Histogram</value>
+  </data>
+  <data name="Vectorscope" xml:space="preserve">
+    <value>Vectorscope</value>
+  </data>
+  <data name="Waveform" xml:space="preserve">
+    <value>Waveform</value>
   </data>
 </root>

@@ -93,6 +93,12 @@ namespace Beutl.Language {
             }
         }
         
+        public static string ColorScopes {
+            get {
+                return ResourceManager.GetString("ColorScopes", resourceCulture);
+            }
+        }
+        
         public static string CloseProject {
             get {
                 return ResourceManager.GetString("CloseProject", resourceCulture);
@@ -1184,61 +1190,61 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Gamma", resourceCulture);
             }
         }
-
+        
         public static string ColorGrading {
             get {
                 return ResourceManager.GetString("ColorGrading", resourceCulture);
             }
         }
-
+        
         public static string Temperature {
             get {
                 return ResourceManager.GetString("Temperature", resourceCulture);
             }
         }
-
+        
         public static string Tint {
             get {
                 return ResourceManager.GetString("Tint", resourceCulture);
             }
         }
-
+        
         public static string Exposure {
             get {
                 return ResourceManager.GetString("Exposure", resourceCulture);
             }
         }
-
+        
         public static string Shadows {
             get {
                 return ResourceManager.GetString("Shadows", resourceCulture);
             }
         }
-
+        
         public static string Midtones {
             get {
                 return ResourceManager.GetString("Midtones", resourceCulture);
             }
         }
-
+        
         public static string Highlights {
             get {
                 return ResourceManager.GetString("Highlights", resourceCulture);
             }
         }
-
+        
         public static string Lift {
             get {
                 return ResourceManager.GetString("Lift", resourceCulture);
             }
         }
-
+        
         public static string Gain {
             get {
                 return ResourceManager.GetString("Gain", resourceCulture);
             }
         }
-
+        
         public static string Invert {
             get {
                 return ResourceManager.GetString("Invert", resourceCulture);
@@ -1292,7 +1298,7 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Contrast", resourceCulture);
             }
         }
-
+        
         public static string ContrastPivot {
             get {
                 return ResourceManager.GetString("ContrastPivot", resourceCulture);
@@ -1448,25 +1454,37 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("RemoveAnimation", resourceCulture);
             }
         }
-
+        
         public static string EditExpression {
             get {
                 return ResourceManager.GetString("EditExpression", resourceCulture);
             }
         }
-
+        
         public static string RemoveExpression {
             get {
                 return ResourceManager.GetString("RemoveExpression", resourceCulture);
             }
         }
-
+        
         public static string ExpressionHelp {
             get {
                 return ResourceManager.GetString("ExpressionHelp", resourceCulture);
             }
         }
-
+        
+        public static string CopyPropertyPath {
+            get {
+                return ResourceManager.GetString("CopyPropertyPath", resourceCulture);
+            }
+        }
+        
+        public static string CopyGetPropertyCode {
+            get {
+                return ResourceManager.GetString("CopyGetPropertyCode", resourceCulture);
+            }
+        }
+        
         public static string ColorPalette {
             get {
                 return ResourceManager.GetString("ColorPalette", resourceCulture);
@@ -1484,19 +1502,19 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("SplitByCurrentFrame", resourceCulture);
             }
         }
-
+        
         public static string GroupSelectedElements {
             get {
                 return ResourceManager.GetString("GroupSelectedElements", resourceCulture);
             }
         }
-
+        
         public static string UngroupSelectedElements {
             get {
                 return ResourceManager.GetString("UngroupSelectedElements", resourceCulture);
             }
         }
-
+        
         public static string Agree {
             get {
                 return ResourceManager.GetString("Agree", resourceCulture);
@@ -1878,6 +1896,12 @@ namespace Beutl.Language {
         public static string Hue {
             get {
                 return ResourceManager.GetString("Hue", resourceCulture);
+            }
+        }
+        
+        public static string Intensity {
+            get {
+                return ResourceManager.GetString("Intensity", resourceCulture);
             }
         }
         
@@ -2750,76 +2774,82 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("PathFollowEffect", resourceCulture);
             }
         }
-
-        public static string CopyPropertyPath {
-            get {
-                return ResourceManager.GetString("CopyPropertyPath", resourceCulture);
-            }
-        }
-
-        public static string CopyGetPropertyCode {
-            get {
-                return ResourceManager.GetString("CopyGetPropertyCode", resourceCulture);
-            }
-        }
-
+        
         public static string Expression_Input {
             get {
                 return ResourceManager.GetString("Expression_Input", resourceCulture);
             }
         }
-
+        
         public static string Expression_Help {
             get {
                 return ResourceManager.GetString("Expression_Help", resourceCulture);
             }
         }
-
+        
         public static string Expression_Variables {
             get {
                 return ResourceManager.GetString("Expression_Variables", resourceCulture);
             }
         }
-
+        
         public static string Expression_Functions {
             get {
                 return ResourceManager.GetString("Expression_Functions", resourceCulture);
             }
         }
-
+        
         public static string Expression_Variables_Description {
             get {
                 return ResourceManager.GetString("Expression_Variables_Description", resourceCulture);
             }
         }
-
+        
         public static string Expression_Functions_Trigonometric {
             get {
                 return ResourceManager.GetString("Expression_Functions_Trigonometric", resourceCulture);
             }
         }
-
+        
         public static string Expression_Functions_Math {
             get {
                 return ResourceManager.GetString("Expression_Functions_Math", resourceCulture);
             }
         }
-
+        
         public static string Expression_Functions_Interpolation {
             get {
                 return ResourceManager.GetString("Expression_Functions_Interpolation", resourceCulture);
             }
         }
-
+        
         public static string Expression_Functions_Utility {
             get {
                 return ResourceManager.GetString("Expression_Functions_Utility", resourceCulture);
             }
         }
-
+        
         public static string Expression_GetProperty_Description {
             get {
                 return ResourceManager.GetString("Expression_GetProperty_Description", resourceCulture);
+            }
+        }
+        
+        public static string Histogram {
+            get {
+                return ResourceManager.GetString("Histogram", resourceCulture);
+            }
+        }
+        
+        public static string Vectorscope {
+            get {
+                return ResourceManager.GetString("Vectorscope", resourceCulture);
+            }
+        }
+        
+        public static string Waveform {
+            get {
+                return ResourceManager.GetString("Waveform", resourceCulture);
             }
         }
     }
