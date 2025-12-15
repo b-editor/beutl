@@ -13,7 +13,7 @@ public sealed class ColorScopesTabExtension : ToolTabExtension
 {
     public static readonly ColorScopesTabExtension Instance = new();
 
-    public override bool CanMultiple => false;
+    public override bool CanMultiple => true;
 
     public override string Name => "Color Scopes Tab";
 
