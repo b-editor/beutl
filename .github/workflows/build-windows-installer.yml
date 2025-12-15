@@ -63,7 +63,7 @@ jobs:
             --assembly-version ${{ inputs.asmVer }}
 
       - name: Save installer
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup
           path: ./artifacts/beutl${{ matrix.standalone == true && '-standalone' || '' }}-setup.exe
