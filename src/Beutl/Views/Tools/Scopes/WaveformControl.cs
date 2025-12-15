@@ -74,7 +74,7 @@ public class WaveformControl : ScopeControlBase
 
     protected override string[]? HorizontalAxisLabels => null;
 
-    protected override unsafe WriteableBitmap RenderScope(
+    protected override unsafe WriteableBitmap? RenderScope(
         byte[] sourceData,
         int sourceWidth,
         int sourceHeight,
@@ -84,7 +84,7 @@ public class WaveformControl : ScopeControlBase
         WriteableBitmap? existingBitmap,
         CancellationToken token)
     {
-        token.ThrowIfCancellationRequested();
+        if (token.IsCancellationRequested) return null;
 
         WriteableBitmap result = existingBitmap?.PixelSize.Width == targetWidth && existingBitmap.PixelSize.Height == targetHeight
             ? existingBitmap
@@ -109,20 +109,19 @@ public class WaveformControl : ScopeControlBase
 
         using ILockedFramebuffer fb = result.Lock();
 
-        var parallelOptions = new ParallelOptions
-        {
-            CancellationToken = token
-        };
-
         fixed (byte* srcPtr = sourceData)
         {
             var safeSrcPtr = (IntPtr)srcPtr;
             byte* destPtr = (byte*)fb.Address;
             int destRowBytes = fb.RowBytes;
 
-            Parallel.For(0, targetWidth, parallelOptions, x =>
+            Parallel.For(0, targetWidth, (x, state) =>
             {
-                parallelOptions.CancellationToken.ThrowIfCancellationRequested();
+                if (token.IsCancellationRequested)
+                {
+                    state.Break();
+                    return;
+                }
 
                 float x01 = (x + 0.5f) / targetWidth;
                 float paradeBand = 0f;
@@ -141,6 +140,12 @@ public class WaveformControl : ScopeControlBase
 
                 for (int i = 0; i < sampleCount; i++)
                 {
+                    if (token.IsCancellationRequested)
+                    {
+                        state.Break();
+                        return;
+                    }
+
                     float sampleY01 = (i + 0.5f) / sampleCount;
                     int srcX = Math.Clamp((int)(x01 * sourceWidth), 0, sourceWidth - 1);
                     int srcY = Math.Clamp((int)(sampleY01 * sourceHeight), 0, sourceHeight - 1);
@@ -192,6 +197,12 @@ public class WaveformControl : ScopeControlBase
 
                 for (int y = 0; y < targetHeight; y++)
                 {
+                    if (token.IsCancellationRequested)
+                    {
+                        state.Break();
+                        return;
+                    }
+
                     float gridVal = showGrid && gridStrength is not null ? gridStrength[y] : 0f;
                     float gridR = gridVal * s_colorGrid.R;
                     float gridG = gridVal * s_colorGrid.G;
