@@ -29,6 +29,7 @@ public abstract class ScopeControlBase : Control
     protected static readonly Typeface DefaultTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Normal);
 
     private static readonly ArrayPool<byte> s_bytePool = ArrayPool<byte>.Shared;
+    private readonly Pen _axisPen = new(Brushes.Gray, 1.5);
     private readonly SemaphoreSlim _renderLock = new(1, 1);
     private CancellationTokenSource? _renderCts;
     private WriteableBitmap? _frontBuffer;
@@ -51,6 +52,8 @@ public abstract class ScopeControlBase : Control
             AxisMarginProperty);
 
         SourceBitmapProperty.Changed.AddClassHandler<ScopeControlBase>((s, e) => s.OnSourceBitmapChanged());
+        AxisBrushProperty.Changed.AddClassHandler<ScopeControlBase>((s, e) =>
+            s._axisPen.Brush = (e.NewValue as IBrush) ?? Brushes.Gray);
     }
 
     public WriteableBitmap? SourceBitmap
@@ -244,15 +247,13 @@ public abstract class ScopeControlBase : Control
     private void DrawAxes(DrawingContext context, Rect bounds, double axisMargin, double contentWidth,
         double contentHeight)
     {
-        var axisBrush = AxisBrush ?? Brushes.Gray;
         var labelBrush = LabelBrush ?? Brushes.Gray;
-        var axisPen = new Pen(axisBrush, 1);
 
         // Draw vertical axis line
-        context.DrawLine(axisPen, new Point(axisMargin, 0), new Point(axisMargin, contentHeight));
+        context.DrawLine(_axisPen, new Point(axisMargin, 0), new Point(axisMargin, contentHeight));
 
         // Draw horizontal axis line
-        context.DrawLine(axisPen, new Point(axisMargin, contentHeight), new Point(bounds.Width, contentHeight));
+        context.DrawLine(_axisPen, new Point(axisMargin, contentHeight), new Point(bounds.Width, contentHeight));
 
         // Draw vertical labels (from top to bottom)
         var verticalLabels = VerticalAxisLabels;
@@ -265,7 +266,7 @@ public abstract class ScopeControlBase : Control
 
                 var formattedText = new FormattedText(
                     verticalLabels[i],
-                    System.Globalization.CultureInfo.CurrentCulture,
+                    CultureInfo.CurrentCulture,
                     FlowDirection.LeftToRight,
                     DefaultTypeface,
                     10,
@@ -273,9 +274,17 @@ public abstract class ScopeControlBase : Control
 
                 double textX = axisMargin - formattedText.Width - 4;
                 double textY = y - formattedText.Height / 2;
+                if (i == 0)
+                {
+                    textY = 4;
+                }
+                else if (i == count - 1)
+                {
+                    textY = contentHeight - formattedText.Height;
+                }
 
                 context.DrawText(formattedText, new Point(Math.Max(0, textX), textY));
-                context.DrawLine(axisPen, new Point(axisMargin - 3, y), new Point(axisMargin, y));
+                context.DrawLine(_axisPen, new Point(axisMargin - 3, y), new Point(axisMargin, y));
             }
         }
 
@@ -290,7 +299,7 @@ public abstract class ScopeControlBase : Control
 
                 var formattedText = new FormattedText(
                     horizontalLabels[i],
-                    System.Globalization.CultureInfo.CurrentCulture,
+                    CultureInfo.CurrentCulture,
                     FlowDirection.LeftToRight,
                     DefaultTypeface,
                     10,
@@ -298,9 +307,17 @@ public abstract class ScopeControlBase : Control
 
                 double textX = x - formattedText.Width / 2;
                 double textY = contentHeight + 4;
+                if (i == 0)
+                {
+                    textX = axisMargin;
+                }
+                else if (i == count - 1)
+                {
+                    textX = bounds.Width - formattedText.Width;
+                }
 
                 context.DrawText(formattedText, new Point(textX, textY));
-                context.DrawLine(axisPen, new Point(x, contentHeight), new Point(x, contentHeight + 3));
+                context.DrawLine(_axisPen, new Point(x, contentHeight), new Point(x, contentHeight + 3));
             }
         }
     }
