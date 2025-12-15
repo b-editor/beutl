@@ -10,13 +10,14 @@ namespace Beutl.Views.Tools.Scopes;
 /// </summary>
 public class VectorscopeControl : ScopeControlBase
 {
-    public static readonly StyledProperty<bool> ShowColorTargetsProperty =
-        AvaloniaProperty.Register<VectorscopeControl, bool>(nameof(ShowColorTargets), true);
+    public static readonly DirectProperty<VectorscopeControl, bool> ShowColorTargetsProperty =
+        AvaloniaProperty.RegisterDirect<VectorscopeControl, bool>(nameof(ShowColorTargets), o => o.ShowColorTargets,
+            (o, v) => o.ShowColorTargets = v, true);
 
     public bool ShowColorTargets
     {
-        get => GetValue(ShowColorTargetsProperty);
-        set => SetValue(ShowColorTargetsProperty, value);
+        get;
+        set => SetAndRaise(ShowColorTargetsProperty, ref field, value);
     }
 
     // Vectorscope uses circular display, no standard axis labels
@@ -24,7 +25,7 @@ public class VectorscopeControl : ScopeControlBase
 
     protected override string[]? HorizontalAxisLabels => null;
 
-    protected override unsafe WriteableBitmap RenderScope(
+    protected override unsafe WriteableBitmap? RenderScope(
         byte[] sourceData,
         int sourceWidth,
         int sourceHeight,
@@ -34,8 +35,11 @@ public class VectorscopeControl : ScopeControlBase
         WriteableBitmap? existingBitmap,
         CancellationToken token)
     {
+        if (token.IsCancellationRequested) return null;
+
         // Use square size for vectorscope
         int size = Math.Min(targetWidth, targetHeight);
+        if (size <= 0) return null;
 
         // Reuse existing bitmap if size matches
         WriteableBitmap bitmap = existingBitmap?.PixelSize.Width == size && existingBitmap.PixelSize.Height == size
@@ -48,7 +52,7 @@ public class VectorscopeControl : ScopeControlBase
 
         using ILockedFramebuffer fb = bitmap.Lock();
         var dest = new Span<uint>((void*)fb.Address, (fb.RowBytes * fb.Size.Height) / sizeof(uint));
-        dest.Fill(PackColor(8, 8, 8));
+        dest.Fill(PackColor(0, 0, 0, 0));
         int stridePixels = fb.RowBytes / sizeof(uint);
 
         // Draw grid and color targets
@@ -85,7 +89,7 @@ public class VectorscopeControl : ScopeControlBase
                 int vx = cb * (size - 1) / 255;
                 int vy = (255 - cr) * (size - 1) / 255;
 
-                PlotPoint(dest, stridePixels, vx, vy, PackColor(b, g, r, 180));
+                PlotPoint(dest, stridePixels, vx, vy, PackColor(r, g, b, 180));
             }
         }
 
@@ -142,11 +146,11 @@ public class VectorscopeControl : ScopeControlBase
         // These are approximate positions for 75% color bars
         var targets = new[]
         {
-            (name: "R", cb: 90, cr: 240, color: PackColor(180, 60, 60, 200)),   // Red
-            (name: "Y", cb: 16, cr: 210, color: PackColor(180, 180, 60, 200)),  // Yellow
-            (name: "G", cb: 54, cr: 34, color: PackColor(60, 180, 60, 200)),    // Green
-            (name: "C", cb: 166, cr: 16, color: PackColor(60, 180, 180, 200)),  // Cyan
-            (name: "B", cb: 240, cr: 110, color: PackColor(60, 60, 180, 200)),  // Blue
+            (name: "R", cb: 90, cr: 240, color: PackColor(180, 60, 60, 200)), // Red
+            (name: "Y", cb: 16, cr: 210, color: PackColor(180, 180, 60, 200)), // Yellow
+            (name: "G", cb: 54, cr: 34, color: PackColor(60, 180, 60, 200)), // Green
+            (name: "C", cb: 166, cr: 16, color: PackColor(60, 180, 180, 200)), // Cyan
+            (name: "B", cb: 240, cr: 110, color: PackColor(60, 60, 180, 200)), // Blue
             (name: "M", cb: 202, cr: 222, color: PackColor(180, 60, 180, 200)), // Magenta
         };
 
@@ -209,7 +213,8 @@ public class VectorscopeControl : ScopeControlBase
         DrawVectorscopeAxes(context, bounds, axisMargin, offsetX, offsetY, squareSize);
     }
 
-    private void DrawVectorscopeAxes(DrawingContext context, Rect bounds, double axisMargin, double offsetX, double offsetY, double squareSize)
+    private void DrawVectorscopeAxes(DrawingContext context, Rect bounds, double axisMargin, double offsetX,
+        double offsetY, double squareSize)
     {
         var axisBrush = AxisBrush ?? Brushes.Gray;
         var labelBrush = LabelBrush ?? Brushes.Gray;
@@ -232,6 +237,7 @@ public class VectorscopeControl : ScopeControlBase
             DefaultTypeface,
             10,
             labelBrush);
-        context.DrawText(crLabel, new Point(axisMargin - crLabel.Width - 4, offsetY + squareSize / 2 - crLabel.Height / 2));
+        context.DrawText(crLabel,
+            new Point(axisMargin - crLabel.Width - 4, offsetY + squareSize / 2 - crLabel.Height / 2));
     }
 }

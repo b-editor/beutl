@@ -83,7 +83,7 @@ public class HistogramControl : ScopeControlBase
 
         using ILockedFramebuffer fb = bitmap.Lock();
         var dest = new Span<uint>((void*)fb.Address, (fb.RowBytes * fb.Size.Height) / sizeof(uint));
-        dest.Fill(PackColor(10, 10, 10));
+        dest.Fill(PackColor(0, 0, 0, 0));
         int stridePixels = fb.RowBytes / sizeof(uint);
 
         if (mode == HistogramMode.Overlay)
