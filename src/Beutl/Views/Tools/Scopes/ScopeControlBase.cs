@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -27,15 +28,11 @@ public abstract class ScopeControlBase : Control
 
     protected static readonly Typeface DefaultTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Normal);
 
-    private static readonly ArrayPool<byte> s_bytePool = ArrayPool<byte>.Create(4096 * 2048, 5);
-    private readonly Lock _renderLock = new();
+    private static readonly ArrayPool<byte> s_bytePool = ArrayPool<byte>.Shared;
+    private readonly SemaphoreSlim _renderLock = new(1, 1);
     private CancellationTokenSource? _renderCts;
     private WriteableBitmap? _frontBuffer;
     private WriteableBitmap? _backBuffer;
-    private byte[]? _cachedSourceData;
-    private int _cachedWidth;
-    private int _cachedHeight;
-    private int _cachedStride;
 
     protected WriteableBitmap? RenderedBitmap => _frontBuffer;
 
@@ -97,15 +94,18 @@ public abstract class ScopeControlBase : Control
         int sourceStride,
         int targetWidth,
         int targetHeight,
-        WriteableBitmap? existingBitmap,
-        CancellationToken token);
+        WriteableBitmap? existingBitmap);
 
     private void OnSourceBitmapChanged()
+    {
+        StartBackgroundRender();
+    }
+
+    private async void StartBackgroundRender()
     {
         var bitmap = SourceBitmap;
         if (bitmap == null)
         {
-            _cachedSourceData = null;
             _frontBuffer?.Dispose();
             _frontBuffer = null;
             _backBuffer?.Dispose();
@@ -114,50 +114,29 @@ public abstract class ScopeControlBase : Control
             return;
         }
 
-        // Copy source data for background processing
+        _renderCts?.Cancel();
+        _renderCts?.Dispose();
+        _renderCts = new CancellationTokenSource();
+        CancellationToken ct = _renderCts.Token;
+
         byte[] sourceData;
-        int width, height, stride;
+        int sourceWidth, sourceHeight, sourceStride;
         unsafe
         {
             using ILockedFramebuffer frame = bitmap.Lock();
-            width = frame.Size.Width;
-            height = frame.Size.Height;
-            stride = frame.RowBytes;
-            int dataLength = stride * height;
+            (sourceWidth, sourceHeight, sourceStride) = (frame.Size.Width, frame.Size.Height, frame.RowBytes);
+            int dataLength = sourceStride * sourceHeight;
             sourceData = s_bytePool.Rent(dataLength);
             new ReadOnlySpan<byte>((void*)frame.Address, dataLength).CopyTo(sourceData);
         }
 
-        _cachedSourceData = sourceData;
-        _cachedWidth = width;
-        _cachedHeight = height;
-        _cachedStride = stride;
-
-        StartBackgroundRender();
-    }
-
-    private async void StartBackgroundRender()
-    {
-        // Cancel previous render
-        CancellationTokenSource newCts;
-        lock (_renderLock)
-        {
-            _renderCts?.Cancel();
-            _renderCts?.Dispose();
-            _renderCts = newCts = new CancellationTokenSource();
-        }
-
-        var token = newCts.Token;
-        var sourceData = _cachedSourceData;
-        int sourceWidth = _cachedWidth;
-        int sourceHeight = _cachedHeight;
-        int sourceStride = _cachedStride;
         var backBuffer = _backBuffer;
 
+        bool lockTaken = false;
         try
         {
-            if (sourceData == null) return;
-
+            await _renderLock.WaitAsync(ct);
+            lockTaken = true;
             var bounds = Bounds;
             double axisMargin = AxisMargin;
             int targetWidth = (int)Math.Max(1, bounds.Width - axisMargin);
@@ -169,7 +148,7 @@ public abstract class ScopeControlBase : Control
             {
                 try
                 {
-                    if (token.IsCancellationRequested) return;
+                    if (ct.IsCancellationRequested) return;
 
                     var result = RenderScope(
                         sourceData,
@@ -178,19 +157,12 @@ public abstract class ScopeControlBase : Control
                         sourceStride,
                         targetWidth,
                         targetHeight,
-                        backBuffer,
-                        token);
+                        backBuffer);
 
-                    if (token.IsCancellationRequested || result == null) return;
+                    if (result == null) return;
 
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        if (token.IsCancellationRequested)
-                        {
-                            if (result != backBuffer) result.Dispose();
-                            return;
-                        }
-
                         var oldFront = _frontBuffer;
                         _frontBuffer = result;
 
@@ -214,15 +186,16 @@ public abstract class ScopeControlBase : Control
                 {
                     Debug.WriteLine($"Scope render error: {ex.Message}");
                 }
-            }, token);
+            }, ct);
         }
         catch (OperationCanceledException)
         {
         }
         finally
         {
-            if (sourceData != null)
-                s_bytePool.Return(sourceData);
+            s_bytePool.Return(sourceData);
+            if (lockTaken)
+                _renderLock.Release();
         }
     }
 

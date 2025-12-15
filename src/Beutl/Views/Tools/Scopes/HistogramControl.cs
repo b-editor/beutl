@@ -43,8 +43,7 @@ public class HistogramControl : ScopeControlBase
         int sourceStride,
         int targetWidth,
         int targetHeight,
-        WriteableBitmap? existingBitmap,
-        CancellationToken token)
+        WriteableBitmap? existingBitmap)
     {
         // Calculate histograms
         var rHist = new int[256];
@@ -56,9 +55,6 @@ public class HistogramControl : ScopeControlBase
 
         for (int y = 0; y < sourceHeight; y += yStep)
         {
-            if ((y & 0x3F) == 0)
-                token.ThrowIfCancellationRequested();
-
             int row = y * sourceStride;
             for (int x = 0; x < sourceWidth; x += xStep)
             {
@@ -68,8 +64,6 @@ public class HistogramControl : ScopeControlBase
                 rHist[sourceData[idx + 2]]++;
             }
         }
-
-        token.ThrowIfCancellationRequested();
 
         var mode = Mode;
 
