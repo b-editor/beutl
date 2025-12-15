@@ -30,6 +30,10 @@ public sealed class ColorScopesTabViewModel : IToolContext
                 RefreshRequested?.Invoke(this, EventArgs.Empty);
             })
             .DisposeWith(_disposables);
+
+        SelectedScopeType.Skip(1)
+            .Subscribe(_ => RefreshRequested?.Invoke(this, EventArgs.Empty))
+            .DisposeWith(_disposables);
     }
 
     public event EventHandler? RefreshRequested;

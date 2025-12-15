@@ -44,6 +44,7 @@ public class WaveformControl : ScopeControlBase
     static WaveformControl()
     {
         AffectsRender<WaveformControl>(ModeProperty, ThicknessProperty, GainProperty, ShowGridProperty);
+        ModeProperty.Changed.AddClassHandler<WaveformControl>((o, _) => o.Refresh());
     }
 
     public WaveformMode Mode
