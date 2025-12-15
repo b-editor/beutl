@@ -36,7 +36,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: beutl-linux_x64-standalone-${{ inputs.semVer }}
           path: artifacts
