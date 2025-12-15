@@ -23,6 +23,7 @@ public class HistogramControl : ScopeControlBase
     static HistogramControl()
     {
         AffectsRender<HistogramControl>(ModeProperty);
+        ModeProperty.Changed.AddClassHandler<HistogramControl>((o, _) => o.Refresh());
     }
 
     public HistogramMode Mode
