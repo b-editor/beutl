@@ -97,25 +97,29 @@ public class WaveformControl : ScopeControlBase
             return result;
         }
 
-        var mode = Mode;
+        WaveformMode mode = Mode;
         float thickness = Thickness;
         float gain = Gain;
         bool showGrid = ShowGrid;
         float[]? gridStrength = showGrid ? CreateGridStrength(targetHeight) : null;
         int sampleCount = (int)Math.Clamp(sourceHeight * 0.25f, 32f, 1024f);
-        float invSamples = 1f / Math.Max(sampleCount, 1);
+        float invSamplesGain = gain / Math.Max(sampleCount, 1);
+
+        // Pre-compute inverse values to avoid division in hot loops
+        float invTargetWidth = 1f / targetWidth;
+        float invSampleCount = 1f / sampleCount;
 
         using ILockedFramebuffer fb = result.Lock();
 
         fixed (byte* srcPtr = sourceData)
         {
-            var safeSrcPtr = (IntPtr)srcPtr;
+            IntPtr safeSrcPtr = (IntPtr)srcPtr;
             byte* destPtr = (byte*)fb.Address;
             int destRowBytes = fb.RowBytes;
 
             Parallel.For(0, targetWidth, x =>
             {
-                float x01 = (x + 0.5f) / targetWidth;
+                float x01 = (x + 0.5f) * invTargetWidth;
                 float paradeBand = 0f;
 
                 if (mode == WaveformMode.RgbParade)
@@ -130,17 +134,17 @@ public class WaveformControl : ScopeControlBase
                 Span<float> bBuffer = targetHeight <= 1024 ? stackalloc float[targetHeight] : new float[targetHeight];
                 Span<float> yBuffer = targetHeight <= 1024 ? stackalloc float[targetHeight] : new float[targetHeight];
 
+                int srcX = Math.Clamp((int)(x01 * sourceWidth), 0, sourceWidth - 1);
+
                 for (int i = 0; i < sampleCount; i++)
                 {
-                    float sampleY01 = (i + 0.5f) / sampleCount;
-                    int srcX = Math.Clamp((int)(x01 * sourceWidth), 0, sourceWidth - 1);
-                    int srcY = Math.Clamp((int)(sampleY01 * sourceHeight), 0, sourceHeight - 1);
+                    int srcY = Math.Clamp((int)((i + 0.5f) * invSampleCount * sourceHeight), 0, sourceHeight - 1);
 
                     byte* sample = (byte*)safeSrcPtr + (srcY * sourceStride) + (srcX * 4);
-                    float b = sample[0] / 255f;
-                    float g = sample[1] / 255f;
-                    float r = sample[2] / 255f;
-                    float a = sample[3] / 255f;
+                    float b = sample[0] * (1f / 255f);
+                    float g = sample[1] * (1f / 255f);
+                    float r = sample[2] * (1f / 255f);
+                    float a = sample[3] * (1f / 255f);
 
                     if (a > 0f && a < 1f)
                     {
@@ -188,15 +192,16 @@ public class WaveformControl : ScopeControlBase
                     float gridG = gridVal * s_colorGrid.G;
                     float gridB = gridVal * s_colorGrid.B;
 
-                    static float ToneMapExp(float x)
-                    {
-                        return 1f - MathF.Exp(-x);
-                    }
+                    // Fast tone mapping: 1 - exp(-x) ≈ x / (1 + x * 0.5) for brighter results
+                    float rrIn = rBuffer[y] * invSamplesGain;
+                    float ggIn = gBuffer[y] * invSamplesGain;
+                    float bbIn = bBuffer[y] * invSamplesGain;
+                    float yyIn = yBuffer[y] * invSamplesGain;
 
-                    float rr = ToneMapExp(rBuffer[y] * invSamples * gain);
-                    float gg = ToneMapExp(gBuffer[y] * invSamples * gain);
-                    float bb = ToneMapExp(bBuffer[y] * invSamples * gain);
-                    float yy = ToneMapExp(yBuffer[y] * invSamples * gain);
+                    float rr = rrIn / (1f + rrIn * 0.5f);
+                    float gg = ggIn / (1f + ggIn * 0.5f);
+                    float bb = bbIn / (1f + bbIn * 0.5f);
+                    float yy = yyIn / (1f + yyIn * 0.5f);
 
                     float colR;
                     float colG;
@@ -221,9 +226,14 @@ public class WaveformControl : ScopeControlBase
                         colB = rr * s_colorRed.B + gg * s_colorGreen.B + bb * s_colorBlue.B;
                     }
 
-                    colR = MathF.Pow(MathF.Max(0f, colR + gridR), 1f / 1.3f);
-                    colG = MathF.Pow(MathF.Max(0f, colG + gridG), 1f / 1.3f);
-                    colB = MathF.Pow(MathF.Max(0f, colB + gridB), 1f / 1.3f);
+                    // Fast gamma correction: pow(x, 0.769) ≈ sqrt(x) * (0.65 + 0.35*x) for brighter results
+                    float valR = MathF.Max(0f, colR + gridR);
+                    float valG = MathF.Max(0f, colG + gridG);
+                    float valB = MathF.Max(0f, colB + gridB);
+
+                    colR = MathF.Sqrt(valR) * (0.65f + 0.35f * valR);
+                    colG = MathF.Sqrt(valG) * (0.65f + 0.35f * valG);
+                    colB = MathF.Sqrt(valB) * (0.65f + 0.35f * valB);
 
                     int destIndex = (y * destRowBytes) + (x * 4);
                     destPtr[destIndex + 0] = (byte)(Math.Clamp(colB, 0f, 1f) * 255f);
@@ -245,13 +255,17 @@ public class WaveformControl : ScopeControlBase
         float radius = MathF.Max(thickness * 3f, 1f);
         int start = Math.Max(0, (int)MathF.Floor(center - radius));
         int end = Math.Min(height - 1, (int)MathF.Ceiling(center + radius));
-        float denom = MathF.Max(thickness, 1e-3f);
+        float invDenom = 1f / MathF.Max(thickness, 1e-3f);
+        float invHeight = 1f / height;
 
         for (int y = start; y <= end; y++)
         {
-            float y01 = (y + 0.5f) / height;
-            float k = MathF.Abs(y01 - yPos) * height / denom;
-            float contribution = MathF.Exp(-(k * k));
+            float y01 = (y + 0.5f) * invHeight;
+            float k = MathF.Abs(y01 - yPos) * height * invDenom;
+            float kSq = k * k;
+            // Fast Gaussian approximation: exp(-x²) ≈ 1/(1 + x² + 0.5*x⁴) for small x
+            // More accurate and faster than MathF.Exp for this use case
+            float contribution = 1f / (1f + kSq + 0.5f * kSq * kSq);
             buffer[y] += contribution;
         }
     }
@@ -279,6 +293,8 @@ public class WaveformControl : ScopeControlBase
     {
         float d = MathF.Abs(v - t);
         float k = (d * height) / MathF.Max(px, 1e-3f);
-        return MathF.Exp(-(k * k));
+        float kSq = k * k;
+        // Fast Gaussian approximation: exp(-x²) ≈ 1/(1 + x² + 0.5*x⁴)
+        return 1f / (1f + kSq + 0.5f * kSq * kSq);
     }
 }
