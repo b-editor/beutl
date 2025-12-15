@@ -5,6 +5,8 @@ using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
 using FluentAvalonia.UI.Controls;
+using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
+using Symbol = FluentIcons.Common.Symbol;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -23,10 +25,7 @@ public sealed class ColorScopesTabExtension : ToolTabExtension
 
     public override IconSource GetIcon()
     {
-        return new PathIconSource
-        {
-            Data = Geometry.Parse("M4 12a8 8 0 1 1 16 0a8 8 0 0 1-16 0Zm8-6a6 6 0 1 0 0 12a6 6 0 0 0 0-12Z")
-        };
+        return new SymbolIconSource { Symbol = Symbol.Microscope };
     }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
