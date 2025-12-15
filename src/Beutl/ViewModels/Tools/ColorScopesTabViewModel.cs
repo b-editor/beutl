@@ -21,6 +21,7 @@ public sealed class ColorScopesTabViewModel : IToolContext
     public ColorScopesTabViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
+        SourceBitmap.Value = editViewModel.Player.PreviewImage.Value as WriteableBitmap;
 
         // Update scope after rendering is complete
         editViewModel.Player.AfterRendered
@@ -47,10 +48,10 @@ public sealed class ColorScopesTabViewModel : IToolContext
     public ReactivePropertySlim<WriteableBitmap?> SourceBitmap { get; } = new();
 
     // Waveform settings
-    public ReactivePropertySlim<WaveformMode> WaveformMode { get; } = new(Views.Tools.Scopes.WaveformMode.Luma);
+    public ReactivePropertySlim<WaveformMode> WaveformMode { get; } = new(Views.Tools.Scopes.WaveformMode.RgbOverlay);
 
     // Histogram settings
-    public ReactivePropertySlim<HistogramMode> HistogramMode { get; } = new(Views.Tools.Scopes.HistogramMode.Overlay);
+    public ReactivePropertySlim<HistogramMode> HistogramMode { get; } = new(Views.Tools.Scopes.HistogramMode.Parade);
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 

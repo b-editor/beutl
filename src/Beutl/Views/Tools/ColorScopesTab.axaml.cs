@@ -18,6 +18,7 @@ public partial class ColorScopesTab : UserControl
     {
         if (DataContext is ColorScopesTabViewModel viewModel)
         {
+            RefreshCurrentScope();
             viewModel.RefreshRequested += OnRefreshRequested;
         }
     }
