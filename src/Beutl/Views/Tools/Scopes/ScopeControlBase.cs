@@ -28,13 +28,14 @@ public abstract class ScopeControlBase : Control
 
     private readonly object _renderLock = new();
     private CancellationTokenSource? _renderCts;
-    private WriteableBitmap? _renderedBitmap;
+    private WriteableBitmap? _frontBuffer;
+    private WriteableBitmap? _backBuffer;
     private byte[]? _cachedSourceData;
     private int _cachedWidth;
     private int _cachedHeight;
     private int _cachedStride;
 
-    protected WriteableBitmap? RenderedBitmap => _renderedBitmap;
+    protected WriteableBitmap? RenderedBitmap => _frontBuffer;
 
     public void Refresh()
     {
@@ -87,7 +88,7 @@ public abstract class ScopeControlBase : Control
 
     protected abstract string[]? HorizontalAxisLabels { get; }
 
-    protected abstract WriteableBitmap RenderScope(
+    protected abstract WriteableBitmap? RenderScope(
         byte[] sourceData,
         int sourceWidth,
         int sourceHeight,
@@ -103,8 +104,10 @@ public abstract class ScopeControlBase : Control
         if (bitmap == null)
         {
             _cachedSourceData = null;
-            _renderedBitmap?.Dispose();
-            _renderedBitmap = null;
+            _frontBuffer?.Dispose();
+            _frontBuffer = null;
+            _backBuffer?.Dispose();
+            _backBuffer = null;
             InvalidateVisual();
             return;
         }
@@ -156,13 +159,13 @@ public abstract class ScopeControlBase : Control
         int sourceWidth = _cachedWidth;
         int sourceHeight = _cachedHeight;
         int sourceStride = _cachedStride;
-        var existingBitmap = _renderedBitmap;
+        var backBuffer = _backBuffer;
 
-        Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
             try
             {
-                token.ThrowIfCancellationRequested();
+                if (token.IsCancellationRequested) return;
 
                 var result = RenderScope(
                     sourceData,
@@ -171,23 +174,30 @@ public abstract class ScopeControlBase : Control
                     sourceStride,
                     targetWidth,
                     targetHeight,
-                    existingBitmap,
+                    backBuffer,
                     token);
 
-                token.ThrowIfCancellationRequested();
+                if (token.IsCancellationRequested || result == null) return;
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     if (token.IsCancellationRequested)
                     {
-                        if (result != existingBitmap) result.Dispose();
+                        if (result != backBuffer) result.Dispose();
                         return;
                     }
 
-                    if (_renderedBitmap != result)
+                    var oldFront = _frontBuffer;
+                    _frontBuffer = result;
+
+                    if (result != backBuffer)
                     {
-                        _renderedBitmap?.Dispose();
-                        _renderedBitmap = result;
+                        _backBuffer?.Dispose();
+                        _backBuffer = oldFront;
+                    }
+                    else if (oldFront != result)
+                    {
+                        _backBuffer = oldFront;
                     }
 
                     InvalidateVisual();
@@ -228,8 +238,7 @@ public abstract class ScopeControlBase : Control
         if (contentWidth <= 0 || contentHeight <= 0)
             return;
 
-        // Draw rendered scope image
-        var bitmap = _renderedBitmap;
+        var bitmap = _frontBuffer;
         if (bitmap != null)
         {
             var destRect = new Rect(axisMargin, 0, contentWidth, contentHeight);
@@ -320,8 +329,10 @@ public abstract class ScopeControlBase : Control
             _renderCts = null;
         }
 
-        _renderedBitmap?.Dispose();
-        _renderedBitmap = null;
+        _frontBuffer?.Dispose();
+        _frontBuffer = null;
+        _backBuffer?.Dispose();
+        _backBuffer = null;
     }
 
     protected static uint PackColor(byte r, byte g, byte b, byte a = 255)
