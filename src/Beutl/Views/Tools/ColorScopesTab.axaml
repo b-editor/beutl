@@ -36,6 +36,15 @@
                     <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
                 </ComboBox>
             </Grid>
+
+            <Grid Grid.Column="1" IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Histogram}">
+                <ComboBox Margin="8,0,0,0"
+                          HorizontalAlignment="Stretch"
+                          SelectedIndex="{Binding HistogramMode.Value, Converter={x:Static scopes:HistogramModeConverter.Instance}}">
+                    <ComboBoxItem Content="{x:Static lang:Strings.RgbOverlay}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
+                </ComboBox>
+            </Grid>
         </Grid>
 
         <Border Grid.Row="1"
@@ -62,6 +71,7 @@
                                          BackgroundBrush="{StaticResource ScopeBackgroundBrush}"
                                          IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Histogram}"
                                          LabelBrush="{StaticResource ScopeLabelBrush}"
+                                         Mode="{Binding HistogramMode.Value}"
                                          SourceBitmap="{Binding SourceBitmap.Value}" />
 
                 <scopes:VectorscopeControl x:Name="VectorscopeControl"

@@ -45,6 +45,9 @@ public sealed class ColorScopesTabViewModel : IToolContext
     // Waveform settings
     public ReactivePropertySlim<WaveformMode> WaveformMode { get; } = new(Views.Tools.Scopes.WaveformMode.Luma);
 
+    // Histogram settings
+    public ReactivePropertySlim<HistogramMode> HistogramMode { get; } = new(Views.Tools.Scopes.HistogramMode.Overlay);
+
     public ReactivePropertySlim<float> WaveformThickness { get; } = new(1.25f);
 
     public ReactivePropertySlim<float> WaveformGain { get; } = new(2.0f);
@@ -111,6 +114,15 @@ public sealed class ColorScopesTabViewModel : IToolContext
                 WaveformShowGrid.Value = showGrid;
             }
         }
+
+        // Histogram settings
+        if (json.TryGetPropertyValue("histogramMode", out var histogramModeNode) && histogramModeNode is JsonValue histogramModeValue)
+        {
+            if (histogramModeValue.TryGetValue(out int histogramMode) && Enum.IsDefined(typeof(HistogramMode), histogramMode))
+            {
+                HistogramMode.Value = (HistogramMode)histogramMode;
+            }
+        }
     }
 
     public void WriteToJson(JsonObject json)
@@ -122,5 +134,8 @@ public sealed class ColorScopesTabViewModel : IToolContext
         json["waveformThickness"] = WaveformThickness.Value;
         json["waveformGain"] = WaveformGain.Value;
         json["waveformShowGrid"] = WaveformShowGrid.Value;
+
+        // Histogram settings
+        json["histogramMode"] = (int)HistogramMode.Value;
     }
 }
