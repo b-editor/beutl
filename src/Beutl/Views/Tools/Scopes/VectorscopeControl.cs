@@ -46,11 +46,8 @@ public class VectorscopeControl : ScopeControlBase
         int sourceStride,
         int targetWidth,
         int targetHeight,
-        WriteableBitmap? existingBitmap,
-        CancellationToken token)
+        WriteableBitmap? existingBitmap)
     {
-        if (token.IsCancellationRequested) return null;
-
         // Use square size for vectorscope
         int size = Math.Min(targetWidth, targetHeight);
         if (size <= 0) return null;
@@ -73,9 +70,6 @@ public class VectorscopeControl : ScopeControlBase
 
         for (int y = 0; y < sourceHeight; y += step)
         {
-            if ((y & 0x3F) == 0)
-                token.ThrowIfCancellationRequested();
-
             int row = y * sourceStride;
             for (int x = 0; x < sourceWidth; x += step)
             {
