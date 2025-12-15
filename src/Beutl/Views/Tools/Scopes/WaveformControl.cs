@@ -19,19 +19,19 @@ public class WaveformControl : ScopeControlBase
 
     public static readonly DirectProperty<WaveformControl, float> ThicknessProperty =
         AvaloniaProperty.RegisterDirect<WaveformControl, float>(
-            nameof(Thickness), o => o.Thickness, (o, v) => o.Thickness = v, 1.25f);
+            nameof(Thickness), o => o.Thickness, (o, v) => o.Thickness = v, 5f);
 
     public static readonly DirectProperty<WaveformControl, float> GainProperty =
         AvaloniaProperty.RegisterDirect<WaveformControl, float>(
-            nameof(Gain), o => o.Gain, (o, v) => o.Gain = v, 2.0f);
+            nameof(Gain), o => o.Gain, (o, v) => o.Gain = v, 10.0f);
 
     public static readonly DirectProperty<WaveformControl, bool> ShowGridProperty =
         AvaloniaProperty.RegisterDirect<WaveformControl, bool>(
             nameof(ShowGrid), o => o.ShowGrid, (o, v) => o.ShowGrid = v, true);
 
     private WaveformMode _mode = WaveformMode.Luma;
-    private float _thickness = 1.25f;
-    private float _gain = 2.0f;
+    private float _thickness = 5f;
+    private float _gain = 10.0f;
     private bool _showGrid = true;
 
     private static readonly string[] s_verticalLabels = ["100", "75", "50", "25", "0"];
