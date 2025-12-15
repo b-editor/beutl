@@ -52,12 +52,6 @@ public sealed class ColorScopesTabViewModel : IToolContext
     // Histogram settings
     public ReactivePropertySlim<HistogramMode> HistogramMode { get; } = new(Views.Tools.Scopes.HistogramMode.Overlay);
 
-    public ReactivePropertySlim<float> WaveformThickness { get; } = new(1.25f);
-
-    public ReactivePropertySlim<float> WaveformGain { get; } = new(2.0f);
-
-    public ReactivePropertySlim<bool> WaveformShowGrid { get; } = new(true);
-
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
     public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
@@ -95,30 +89,6 @@ public sealed class ColorScopesTabViewModel : IToolContext
             }
         }
 
-        if (json.TryGetPropertyValue("waveformThickness", out var thicknessNode) && thicknessNode is JsonValue thicknessValue)
-        {
-            if (thicknessValue.TryGetValue(out float thickness))
-            {
-                WaveformThickness.Value = thickness;
-            }
-        }
-
-        if (json.TryGetPropertyValue("waveformGain", out var gainNode) && gainNode is JsonValue gainValue)
-        {
-            if (gainValue.TryGetValue(out float gain))
-            {
-                WaveformGain.Value = gain;
-            }
-        }
-
-        if (json.TryGetPropertyValue("waveformShowGrid", out var showGridNode) && showGridNode is JsonValue showGridValue)
-        {
-            if (showGridValue.TryGetValue(out bool showGrid))
-            {
-                WaveformShowGrid.Value = showGrid;
-            }
-        }
-
         // Histogram settings
         if (json.TryGetPropertyValue("histogramMode", out var histogramModeNode) && histogramModeNode is JsonValue histogramModeValue)
         {
@@ -135,9 +105,6 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
         // Waveform settings
         json["waveformMode"] = (int)WaveformMode.Value;
-        json["waveformThickness"] = WaveformThickness.Value;
-        json["waveformGain"] = WaveformGain.Value;
-        json["waveformShowGrid"] = WaveformShowGrid.Value;
 
         // Histogram settings
         json["histogramMode"] = (int)HistogramMode.Value;
