@@ -35,8 +35,11 @@ public class WaveformControl : ScopeControlBase
     private bool _showGrid = true;
 
     private static readonly string[] s_verticalLabels = ["100", "75", "50", "25", "0"];
-
-
+    private static readonly (float R, float G, float B) s_colorLuma = (0.85f, 0.92f, 1.00f);
+    private static readonly (float R, float G, float B) s_colorRed = (1.00f, 0.25f, 0.25f);
+    private static readonly (float R, float G, float B) s_colorGreen = (0.25f, 1.00f, 0.35f);
+    private static readonly (float R, float G, float B) s_colorBlue = (0.35f, 0.60f, 1.00f);
+    private static readonly (float R, float G, float B) s_colorGrid = (0.08f, 0.08f, 0.09f);
 
     static WaveformControl()
     {
@@ -189,7 +192,10 @@ public class WaveformControl : ScopeControlBase
 
                 for (int y = 0; y < targetHeight; y++)
                 {
-                    float grid = showGrid && gridStrength is not null ? gridStrength[y] : 0f;
+                    float gridVal = showGrid && gridStrength is not null ? gridStrength[y] : 0f;
+                    float gridR = gridVal * s_colorGrid.R;
+                    float gridG = gridVal * s_colorGrid.G;
+                    float gridB = gridVal * s_colorGrid.B;
 
                     float rr = Math.Min(1f, rBuffer[y] * invSamples * gain);
                     float gg = Math.Min(1f, gBuffer[y] * invSamples * gain);
@@ -202,24 +208,26 @@ public class WaveformControl : ScopeControlBase
 
                     if (mode == WaveformMode.Luma)
                     {
-                        colR = colG = colB = yy;
+                        colR = yy * s_colorLuma.R;
+                        colG = yy * s_colorLuma.G;
+                        colB = yy * s_colorLuma.B;
                     }
                     else if (mode == WaveformMode.RgbOverlay)
                     {
-                        colR = rr;
-                        colG = gg;
-                        colB = bb;
+                        colR = rr * s_colorRed.R + gg * s_colorGreen.R + bb * s_colorBlue.R;
+                        colG = rr * s_colorRed.G + gg * s_colorGreen.G + bb * s_colorBlue.G;
+                        colB = rr * s_colorRed.B + gg * s_colorGreen.B + bb * s_colorBlue.B;
                     }
                     else
                     {
-                        colR = rr;
-                        colG = gg;
-                        colB = bb;
+                        colR = rr * s_colorRed.R + gg * s_colorGreen.R + bb * s_colorBlue.R;
+                        colG = rr * s_colorRed.G + gg * s_colorGreen.G + bb * s_colorBlue.G;
+                        colB = rr * s_colorRed.B + gg * s_colorGreen.B + bb * s_colorBlue.B;
                     }
 
-                    colR = MathF.Pow(MathF.Max(0f, colR + grid), 1f / 1.3f);
-                    colG = MathF.Pow(MathF.Max(0f, colG + grid), 1f / 1.3f);
-                    colB = MathF.Pow(MathF.Max(0f, colB + grid), 1f / 1.3f);
+                    colR = MathF.Pow(MathF.Max(0f, colR + gridR), 1f / 1.3f);
+                    colG = MathF.Pow(MathF.Max(0f, colG + gridG), 1f / 1.3f);
+                    colB = MathF.Pow(MathF.Max(0f, colB + gridB), 1f / 1.3f);
 
                     int destIndex = (y * destRowBytes) + (x * 4);
                     destPtr[destIndex + 0] = (byte)(Math.Clamp(colB, 0f, 1f) * 255f);

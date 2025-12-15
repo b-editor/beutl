@@ -12,9 +12,9 @@
              x:DataType="viewModels:ColorScopesTabViewModel"
              mc:Ignorable="d">
     <UserControl.Resources>
-        <SolidColorBrush x:Key="ScopeAxisBrush" Color="#808080" />
-        <SolidColorBrush x:Key="ScopeLabelBrush" Color="#A0A0A0" />
-        <SolidColorBrush x:Key="ScopeBackgroundBrush" Color="#0A0A0A" />
+        <SolidColorBrush x:Key="ScopeAxisBrush" Color="#141417" />
+        <SolidColorBrush x:Key="ScopeLabelBrush" Color="#808080" />
+        <SolidColorBrush x:Key="ScopeBackgroundBrush" Color="#050506" />
     </UserControl.Resources>
 
     <Grid Margin="8" RowDefinitions="Auto,*">
@@ -27,12 +27,8 @@
                 <ComboBoxItem Content="{x:Static lang:Strings.Vectorscope}" />
             </ComboBox>
 
-            <!--  Waveform Settings (visible only when Waveform is selected)  -->
-            <Grid Grid.Column="1"
-                  ColumnDefinitions="Auto,Auto,Auto,Auto"
-                  IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}">
-                <ComboBox Grid.Column="1"
-                          Margin="8,0,0,0"
+            <Grid Grid.Column="1" IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}">
+                <ComboBox Margin="8,0,0,0"
                           HorizontalAlignment="Stretch"
                           SelectedIndex="{Binding WaveformMode.Value, Converter={x:Static scopes:WaveformModeConverter.Instance}}">
                     <ComboBoxItem Content="{x:Static lang:Strings.Luma}" />
