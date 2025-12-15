@@ -14,11 +14,25 @@ public class VectorscopeControl : ScopeControlBase
         AvaloniaProperty.RegisterDirect<VectorscopeControl, bool>(nameof(ShowColorTargets), o => o.ShowColorTargets,
             (o, v) => o.ShowColorTargets = v, true);
 
+    // Cached brushes and pens for rendering
+    private static readonly SolidColorBrush s_gridBrush = new(Color.FromArgb(160, 40, 40, 40));
+    private static readonly Pen s_gridPen = new(s_gridBrush,1.5);
+    private static readonly SolidColorBrush s_innerGridBrush = new(Color.FromArgb(120, 30, 30, 30));
+    private static readonly Pen s_innerGridPen = new(s_innerGridBrush, 1.5);
+
+    // Cached color target pens
+    private static readonly Pen s_redTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 255, 0, 0)), 1.5);
+    private static readonly Pen s_greenTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 0, 255, 0)), 1.5);
+    private static readonly Pen s_blueTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 0, 0, 255)), 1.5);
+    private static readonly Pen s_cyanTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 0, 255, 255)), 1.5);
+    private static readonly Pen s_magentaTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 255, 0, 255)), 1.5);
+    private static readonly Pen s_yellowTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 255, 255, 0)), 1.5);
+
     public bool ShowColorTargets
     {
         get;
         set => SetAndRaise(ShowColorTargetsProperty, ref field, value);
-    }
+    } = true;
 
     // Vectorscope uses circular display, no standard axis labels
     protected override string[]? VerticalAxisLabels => null;
@@ -55,15 +69,6 @@ public class VectorscopeControl : ScopeControlBase
         dest.Fill(PackColor(0, 0, 0, 0));
         int stridePixels = fb.RowBytes / sizeof(uint);
 
-        // Draw grid and color targets
-        DrawVectorscopeGrid(dest, stridePixels, size);
-
-        if (ShowColorTargets)
-        {
-            DrawColorTargets(dest, stridePixels, size);
-        }
-
-        // Plot color data
         int step = Math.Max(1, Math.Max(sourceWidth, sourceHeight) / size);
 
         for (int y = 0; y < sourceHeight; y += step)
@@ -96,88 +101,6 @@ public class VectorscopeControl : ScopeControlBase
         return bitmap;
     }
 
-    private static void DrawVectorscopeGrid(Span<uint> dest, int stride, int size)
-    {
-        int center = size / 2;
-        uint gridColor = PackColor(40, 40, 40, 160);
-
-        // Draw crosshairs
-        for (int i = 0; i < size && i < stride; i++)
-        {
-            int hIndex = center * stride + i;
-            int vIndex = i * stride + center;
-            if (hIndex < dest.Length) dest[hIndex] = gridColor;
-            if (vIndex < dest.Length) dest[vIndex] = gridColor;
-        }
-
-        // Draw circular outline
-        int radius = size / 2 - 6;
-        for (int angle = 0; angle < 360; angle++)
-        {
-            double rad = Math.PI * angle / 180;
-            int x = center + (int)(Math.Cos(rad) * radius);
-            int y = center + (int)(Math.Sin(rad) * radius);
-            if ((uint)x < size && (uint)y < size)
-            {
-                dest[y * stride + x] = gridColor;
-            }
-        }
-
-        // Draw 75% radius circle
-        int radius75 = (int)(radius * 0.75);
-        for (int angle = 0; angle < 360; angle += 2)
-        {
-            double rad = Math.PI * angle / 180;
-            int x = center + (int)(Math.Cos(rad) * radius75);
-            int y = center + (int)(Math.Sin(rad) * radius75);
-            if ((uint)x < size && (uint)y < size)
-            {
-                dest[y * stride + x] = PackColor(30, 30, 30, 120);
-            }
-        }
-    }
-
-    private static void DrawColorTargets(Span<uint> dest, int stride, int size)
-    {
-        int center = size / 2;
-        int radius = size / 2 - 6;
-
-        // Standard color bar positions in vectorscope (CbCr space)
-        // These are approximate positions for 75% color bars
-        var targets = new[]
-        {
-            (name: "R", cb: 90, cr: 240, color: PackColor(180, 60, 60, 200)), // Red
-            (name: "Y", cb: 16, cr: 210, color: PackColor(180, 180, 60, 200)), // Yellow
-            (name: "G", cb: 54, cr: 34, color: PackColor(60, 180, 60, 200)), // Green
-            (name: "C", cb: 166, cr: 16, color: PackColor(60, 180, 180, 200)), // Cyan
-            (name: "B", cb: 240, cr: 110, color: PackColor(60, 60, 180, 200)), // Blue
-            (name: "M", cb: 202, cr: 222, color: PackColor(180, 60, 180, 200)), // Magenta
-        };
-
-        foreach (var (_, cb, cr, color) in targets)
-        {
-            int x = center + (cb - 128) * radius / 128;
-            int y = center - (cr - 128) * radius / 128;
-
-            // Draw target box
-            for (int dx = -3; dx <= 3; dx++)
-            {
-                for (int dy = -3; dy <= 3; dy++)
-                {
-                    if (Math.Abs(dx) == 3 || Math.Abs(dy) == 3)
-                    {
-                        int px = x + dx;
-                        int py = y + dy;
-                        if ((uint)px < size && (uint)py < size)
-                        {
-                            dest[py * stride + px] = color;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     public override void Render(DrawingContext context)
     {
         // Override to handle square aspect ratio for vectorscope
@@ -201,6 +124,13 @@ public class VectorscopeControl : ScopeControlBase
         double offsetX = axisMargin + (availableWidth - squareSize) / 2;
         double offsetY = (availableHeight - squareSize) / 2;
 
+        DrawVectorscopeGridOnContext(context, offsetX, offsetY, squareSize);
+
+        if (ShowColorTargets)
+        {
+            DrawColorTargetsOnContext(context, offsetX, offsetY, squareSize);
+        }
+
         // Draw rendered scope image centered
         var bitmap = RenderedBitmap;
         if (bitmap != null)
@@ -216,13 +146,12 @@ public class VectorscopeControl : ScopeControlBase
     private void DrawVectorscopeAxes(DrawingContext context, Rect bounds, double axisMargin, double offsetX,
         double offsetY, double squareSize)
     {
-        var axisBrush = AxisBrush ?? Brushes.Gray;
         var labelBrush = LabelBrush ?? Brushes.Gray;
 
         // Draw Cb label (horizontal - blue-yellow axis)
         var cbLabel = new FormattedText(
             "Cb",
-            System.Globalization.CultureInfo.CurrentCulture,
+            CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight,
             DefaultTypeface,
             10,
@@ -232,12 +161,52 @@ public class VectorscopeControl : ScopeControlBase
         // Draw Cr label (vertical - red-cyan axis)
         var crLabel = new FormattedText(
             "Cr",
-            System.Globalization.CultureInfo.CurrentCulture,
+            CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight,
             DefaultTypeface,
             10,
             labelBrush);
         context.DrawText(crLabel,
             new Point(axisMargin - crLabel.Width - 4, offsetY + squareSize / 2 - crLabel.Height / 2));
+    }
+
+    private void DrawVectorscopeGridOnContext(DrawingContext context, double offsetX, double offsetY, double size)
+    {
+        double center = size / 2;
+        double radius = size / 2 - 6;
+
+        // Draw crosshairs
+        context.DrawLine(s_gridPen, new Point(offsetX, offsetY + center), new Point(offsetX + size, offsetY + center));
+        context.DrawLine(s_gridPen, new Point(offsetX + center, offsetY), new Point(offsetX + center, offsetY + size));
+
+        // Draw outer circle
+        context.DrawEllipse(null, s_gridPen, new Point(offsetX + center, offsetY + center), radius, radius);
+
+        // Draw 75% radius circle
+        double radius75 = radius * 0.75;
+        context.DrawEllipse(null, s_innerGridPen, new Point(offsetX + center, offsetY + center), radius75, radius75);
+    }
+
+    private void DrawColorTargetsOnContext(DrawingContext context, double offsetX, double offsetY, double size)
+    {
+        var colorTargets = new (int Cb, int Cr, Pen Pen)[]
+        {
+            (90, 240, s_redTargetPen),      // Red
+            (54, 34, s_greenTargetPen),     // Green
+            (240, 110, s_blueTargetPen),    // Blue
+            (166, 16, s_cyanTargetPen),     // Cyan
+            (202, 222, s_magentaTargetPen), // Magenta
+            (16, 146, s_yellowTargetPen)    // Yellow
+        };
+
+        double sizeD = size;
+        double boxSize = 8;
+        foreach (var (cb, cr, pen) in colorTargets)
+        {
+            double x = offsetX + cb * (sizeD - 1) / 255;
+            double y = offsetY + (255 - cr) * (sizeD - 1) / 255;
+
+            context.DrawRectangle(null, pen, new Rect(x - boxSize / 2, y - boxSize / 2, boxSize, boxSize));
+        }
     }
 }
