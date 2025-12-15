@@ -17,37 +17,46 @@
         <SolidColorBrush x:Key="ScopeBackgroundBrush" Color="#050506" />
     </UserControl.Resources>
 
-    <Grid Margin="8" RowDefinitions="Auto,*">
-        <Grid ColumnDefinitions="Auto,Auto">
+    <Grid RowDefinitions="Auto,*">
+        <Grid Height="32" ColumnDefinitions="Auto,Auto">
             <ComboBox Grid.Column="0"
+                      Margin="8,0,0,0"
                       HorizontalAlignment="Stretch"
-                      SelectedIndex="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}}">
+                      VerticalAlignment="Center"
+                      SelectedIndex="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}}"
+                      Theme="{StaticResource LiteComboBoxStyle}">
                 <ComboBoxItem Content="{x:Static lang:Strings.Waveform}" />
                 <ComboBoxItem Content="{x:Static lang:Strings.Histogram}" />
                 <ComboBoxItem Content="{x:Static lang:Strings.Vectorscope}" />
             </ComboBox>
 
-            <Grid Grid.Column="1" IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}">
+            <Grid Grid.Column="1"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}">
                 <ComboBox Margin="8,0,0,0"
                           HorizontalAlignment="Stretch"
-                          SelectedIndex="{Binding WaveformMode.Value, Converter={x:Static scopes:WaveformModeConverter.Instance}}">
+                          SelectedIndex="{Binding WaveformMode.Value, Converter={x:Static scopes:WaveformModeConverter.Instance}}"
+                          Theme="{StaticResource LiteComboBoxStyle}">
                     <ComboBoxItem Content="{x:Static lang:Strings.Luma}" />
                     <ComboBoxItem Content="{x:Static lang:Strings.RgbOverlay}" />
                     <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
                 </ComboBox>
             </Grid>
 
-            <Grid Grid.Column="1" IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Histogram}">
+            <Grid Grid.Column="1"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Histogram}">
                 <ComboBox Margin="8,0,0,0"
                           HorizontalAlignment="Stretch"
-                          SelectedIndex="{Binding HistogramMode.Value, Converter={x:Static scopes:HistogramModeConverter.Instance}}">
+                          SelectedIndex="{Binding HistogramMode.Value, Converter={x:Static scopes:HistogramModeConverter.Instance}}"
+                          Theme="{StaticResource LiteComboBoxStyle}">
                     <ComboBoxItem Content="{x:Static lang:Strings.RgbOverlay}" />
                     <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
                 </ComboBox>
             </Grid>
         </Grid>
 
-        <Panel Grid.Row="1" Margin="0,8,0,0">
+        <Panel Grid.Row="1">
             <scopes:WaveformControl x:Name="WaveformControl"
                                     AxisBrush="{StaticResource ScopeAxisBrush}"
                                     BackgroundBrush="{StaticResource ScopeBackgroundBrush}"
