@@ -27,8 +27,8 @@ public abstract class ScopeControlBase : Control
 
     protected static readonly Typeface DefaultTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Normal);
 
+    private static readonly ArrayPool<byte> s_bytePool = ArrayPool<byte>.Create(4096 * 2048, 5);
     private readonly Lock _renderLock = new();
-    private readonly ArrayPool<byte> _bytePool = ArrayPool<byte>.Create(4096 * 2048, 5);
     private CancellationTokenSource? _renderCts;
     private WriteableBitmap? _frontBuffer;
     private WriteableBitmap? _backBuffer;
@@ -124,7 +124,7 @@ public abstract class ScopeControlBase : Control
             height = frame.Size.Height;
             stride = frame.RowBytes;
             int dataLength = stride * height;
-            sourceData = _bytePool.Rent(dataLength);
+            sourceData = s_bytePool.Rent(dataLength);
             new ReadOnlySpan<byte>((void*)frame.Address, dataLength).CopyTo(sourceData);
         }
 
@@ -222,7 +222,7 @@ public abstract class ScopeControlBase : Control
         finally
         {
             if (sourceData != null)
-                _bytePool.Return(sourceData);
+                s_bytePool.Return(sourceData);
         }
     }
 
