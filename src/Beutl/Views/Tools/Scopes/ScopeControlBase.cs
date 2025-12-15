@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Buffers;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -26,7 +27,8 @@ public abstract class ScopeControlBase : Control
 
     protected static readonly Typeface DefaultTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Normal);
 
-    private readonly object _renderLock = new();
+    private readonly Lock _renderLock = new();
+    private readonly ArrayPool<byte> _bytePool = ArrayPool<byte>.Create(4096 * 2048, 5);
     private CancellationTokenSource? _renderCts;
     private WriteableBitmap? _frontBuffer;
     private WriteableBitmap? _backBuffer;
@@ -122,7 +124,7 @@ public abstract class ScopeControlBase : Control
             height = frame.Size.Height;
             stride = frame.RowBytes;
             int dataLength = stride * height;
-            sourceData = new byte[dataLength];
+            sourceData = _bytePool.Rent(dataLength);
             new ReadOnlySpan<byte>((void*)frame.Address, dataLength).CopyTo(sourceData);
         }
 
@@ -134,17 +136,8 @@ public abstract class ScopeControlBase : Control
         StartBackgroundRender();
     }
 
-    private void StartBackgroundRender()
+    private async void StartBackgroundRender()
     {
-        if (_cachedSourceData == null) return;
-
-        var bounds = Bounds;
-        double axisMargin = AxisMargin;
-        int targetWidth = (int)Math.Max(1, bounds.Width - axisMargin);
-        int targetHeight = (int)Math.Max(1, bounds.Height - axisMargin);
-
-        if (targetWidth <= 0 || targetHeight <= 0) return;
-
         // Cancel previous render
         CancellationTokenSource newCts;
         lock (_renderLock)
@@ -161,56 +154,76 @@ public abstract class ScopeControlBase : Control
         int sourceStride = _cachedStride;
         var backBuffer = _backBuffer;
 
-        _ = Task.Run(async () =>
+        try
         {
-            try
+            if (sourceData == null) return;
+
+            var bounds = Bounds;
+            double axisMargin = AxisMargin;
+            int targetWidth = (int)Math.Max(1, bounds.Width - axisMargin);
+            int targetHeight = (int)Math.Max(1, bounds.Height - axisMargin);
+
+            if (targetWidth <= 0 || targetHeight <= 0) return;
+
+            await Task.Run(async () =>
             {
-                if (token.IsCancellationRequested) return;
-
-                var result = RenderScope(
-                    sourceData,
-                    sourceWidth,
-                    sourceHeight,
-                    sourceStride,
-                    targetWidth,
-                    targetHeight,
-                    backBuffer,
-                    token);
-
-                if (token.IsCancellationRequested || result == null) return;
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                try
                 {
-                    if (token.IsCancellationRequested)
-                    {
-                        if (result != backBuffer) result.Dispose();
-                        return;
-                    }
+                    if (token.IsCancellationRequested) return;
 
-                    var oldFront = _frontBuffer;
-                    _frontBuffer = result;
+                    var result = RenderScope(
+                        sourceData,
+                        sourceWidth,
+                        sourceHeight,
+                        sourceStride,
+                        targetWidth,
+                        targetHeight,
+                        backBuffer,
+                        token);
 
-                    if (result != backBuffer)
-                    {
-                        _backBuffer?.Dispose();
-                        _backBuffer = oldFront;
-                    }
-                    else if (oldFront != result)
-                    {
-                        _backBuffer = oldFront;
-                    }
+                    if (token.IsCancellationRequested || result == null) return;
 
-                    InvalidateVisual();
-                });
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Scope render error: {ex.Message}");
-            }
-        }, token);
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (token.IsCancellationRequested)
+                        {
+                            if (result != backBuffer) result.Dispose();
+                            return;
+                        }
+
+                        var oldFront = _frontBuffer;
+                        _frontBuffer = result;
+
+                        if (result != backBuffer)
+                        {
+                            _backBuffer?.Dispose();
+                            _backBuffer = oldFront;
+                        }
+                        else if (oldFront != result)
+                        {
+                            _backBuffer = oldFront;
+                        }
+
+                        InvalidateVisual();
+                    });
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Scope render error: {ex.Message}");
+                }
+            }, token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (sourceData != null)
+                _bytePool.Return(sourceData);
+        }
     }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
@@ -255,7 +268,8 @@ public abstract class ScopeControlBase : Control
         DrawAxes(context, bounds, axisMargin, contentWidth, contentHeight);
     }
 
-    private void DrawAxes(DrawingContext context, Rect bounds, double axisMargin, double contentWidth, double contentHeight)
+    private void DrawAxes(DrawingContext context, Rect bounds, double axisMargin, double contentWidth,
+        double contentHeight)
     {
         var axisBrush = AxisBrush ?? Brushes.Gray;
         var labelBrush = LabelBrush ?? Brushes.Gray;
