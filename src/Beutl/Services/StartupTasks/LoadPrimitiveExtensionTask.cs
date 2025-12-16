@@ -28,7 +28,8 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         AnimatedImageReaderExtension.Instance,
         AnimatedPngReaderExtension.Instance,
         MainViewExtension.Instance,
-        ColorScopesTabExtension.Instance
+        ColorScopesTabExtension.Instance,
+        ColorGradingTabExtension.Instance
     ];
 
     public LoadPrimitiveExtensionTask(PackageManager manager)

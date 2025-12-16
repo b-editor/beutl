@@ -32,6 +32,15 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
             editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
                 .DisposeWith(Disposables);
         }
+        if (visitor is ColorGradingWheel wheel && !Disposables.IsDisposed)
+        {
+            wheel.Bind(ColorGradingWheel.ColorProperty, Value.ToBinding())
+                .DisposeWith(Disposables);
+            wheel.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                .DisposeWith(Disposables);
+            wheel.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+                .DisposeWith(Disposables);
+        }
     }
 
     private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
@@ -39,6 +48,10 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
         if (sender is GradingColorEditor editor)
         {
             editor.Value = SetCurrentValueAndGetCoerced(editor.Value);
+        }
+        else if (sender is ColorGradingWheel wheel)
+        {
+            wheel.Color = SetCurrentValueAndGetCoerced(wheel.Color);
         }
     }
 

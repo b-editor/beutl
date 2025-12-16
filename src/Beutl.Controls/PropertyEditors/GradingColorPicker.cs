@@ -64,7 +64,6 @@ public class GradingColorPicker : TemplatedControl
         set => SetValue(InputTypeProperty, value);
     }
 
-
     public bool ShowDetails
     {
         get => GetValue(ShowDetailsProperty);
