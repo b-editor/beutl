@@ -2,6 +2,7 @@ using Avalonia;
 using Beutl.Language;
 using Beutl.Media;
 using FluentAvalonia.UI.Media;
+using UnboundedHsv = (float H, float S, float V);
 
 #nullable enable
 
@@ -26,8 +27,7 @@ public class GradingColorComponentsEditor : Vector3Editor<float>
         {
             if (args is PropertyEditorValueChangedEventArgs<(float, float, float)> e)
             {
-                float intensity = t.Color.Intensity;
-                t.Color = t.ToGradingColorFromTuple(e.NewValue, intensity);
+                t.Color = t.ToGradingColorFromTuple(e.NewValue);
                 t.UpdateProperties();
             }
         });
@@ -36,6 +36,7 @@ public class GradingColorComponentsEditor : Vector3Editor<float>
     public GradingColorComponentsEditor()
     {
         UpdateHeaders();
+        UpdateProperties();
     }
 
     public GradingColor Color
@@ -89,22 +90,21 @@ public class GradingColorComponentsEditor : Vector3Editor<float>
         }
         else
         {
-            var color2 = GradingColorPicker.GetColor2(Color).ToHSV();
-            FirstValue = color2.Huef;
-            SecondValue = color2.Saturationf * 100f;
-            ThirdValue = color2.Valuef * 100f;
+            var color2 = GradingColorHelper.GetUnboundedHsv(Color);
+            FirstValue = color2.H;
+            SecondValue = color2.S * 100f;
+            ThirdValue = color2.V * 100f;
         }
     }
 
-    public GradingColor ToGradingColorFromTuple((float, float, float) t, float intensity)
+    public GradingColor ToGradingColorFromTuple((float, float, float) t)
     {
         if (Rgb)
         {
             return new GradingColor(
                 t.Item1 / 100f,
                 t.Item2 / 100f,
-                t.Item3 / 100f,
-                intensity);
+                t.Item3 / 100f);
         }
         else
         {
@@ -115,12 +115,31 @@ public class GradingColorComponentsEditor : Vector3Editor<float>
                 h += 360;
             }
 
-            var color2 = Color2.FromHSVf(h, s / 100f, v / 100f);
-            return new GradingColor(
-                color2.Rf,
-                color2.Gf,
-                color2.Bf,
-                intensity);
+            var hsv = (h, s / 100f, v / 100f);
+            return GradingColorHelper.GetColor(hsv);
+        }
+    }
+
+    public (GradingColor?, UnboundedHsv?) GetGradingColorOrUnboundedHsv((float, float, float) t)
+    {
+        if (Rgb)
+        {
+            return (new GradingColor(
+                t.Item1 / 100f,
+                t.Item2 / 100f,
+                t.Item3 / 100f),
+                null);
+        }
+        else
+        {
+            (float h, float s, float v) = t;
+            h %= 360;
+            if (h < 0)
+            {
+                h += 360;
+            }
+
+            return (null, (h, s / 100f, v / 100f));
         }
     }
 }
