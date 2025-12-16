@@ -32,6 +32,9 @@ public class GradingColorPicker : TemplatedControl
     public static readonly StyledProperty<GradingColorPickerInputType> InputTypeProperty =
         AvaloniaProperty.Register<GradingColorPicker, GradingColorPickerInputType>(nameof(InputType));
 
+    public static readonly StyledProperty<bool> ShowDetailsProperty =
+        AvaloniaProperty.Register<GradingColorPicker, bool>(nameof(ShowDetails));
+
     private readonly CompositeDisposable _disposables = [];
     private ColorSpectrum? _ringSpectrum;
     private ColorPreviewer? _previewer;
@@ -59,6 +62,13 @@ public class GradingColorPicker : TemplatedControl
     {
         get => GetValue(InputTypeProperty);
         set => SetValue(InputTypeProperty, value);
+    }
+
+
+    public bool ShowDetails
+    {
+        get => GetValue(ShowDetailsProperty);
+        set => SetValue(ShowDetailsProperty, value);
     }
 
     private ColorSlider?[] GetColorSliders() =>
@@ -250,11 +260,21 @@ public class GradingColorPicker : TemplatedControl
         {
             OnInputTypeChanged();
         }
+        else if (change.Property == ShowDetailsProperty)
+        {
+            OnShowDetailsChanged(change.GetNewValue<bool>());
+        }
     }
 
     private void OnToggleDetailsButtonIsCheckedChanged(bool? value)
     {
-        PseudoClasses.Set(":details", value == true);
+        ShowDetails = value == true;
+    }
+
+    private void OnShowDetailsChanged(bool value)
+    {
+        PseudoClasses.Set(":details", value);
+        _detailsButton?.IsChecked = value;
     }
 
     private void OnColorTypeChanged()
