@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
-
 using Beutl.Converters;
 
 namespace Beutl.Media;
@@ -16,18 +15,18 @@ namespace Beutl.Media;
 [TypeConverter(typeof(GradingColorConverter))]
 public readonly struct GradingColor
     : IEquatable<GradingColor>,
-      IParsable<GradingColor>,
-      ISpanParsable<GradingColor>
+        IParsable<GradingColor>,
+        ISpanParsable<GradingColor>
 {
     /// <summary>
     /// Represents a neutral grading color (0, 0, 0) with intensity 1.
     /// </summary>
-    public static readonly GradingColor Zero = new(0f, 0f, 0f, 1f);
+    public static readonly GradingColor Zero = new(0f, 0f, 0f);
 
     /// <summary>
     /// Represents a neutral grading color (1, 1, 1) with intensity 1.
     /// </summary>
-    public static readonly GradingColor One = new(1f, 1f, 1f, 1f);
+    public static readonly GradingColor One = new(1f, 1f, 1f);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GradingColor"/> struct.
@@ -35,13 +34,11 @@ public readonly struct GradingColor
     /// <param name="r">The red component.</param>
     /// <param name="g">The green component.</param>
     /// <param name="b">The blue component.</param>
-    /// <param name="intensity">The intensity multiplier (default: 1.0).</param>
-    public GradingColor(float r, float g, float b, float intensity = 1f)
+    public GradingColor(float r, float g, float b)
     {
         R = r;
         G = g;
         B = b;
-        Intensity = intensity;
     }
 
     /// <summary>
@@ -60,36 +57,15 @@ public readonly struct GradingColor
     public float B { get; }
 
     /// <summary>
-    /// Gets the intensity multiplier for the color.
-    /// </summary>
-    public float Intensity { get; }
-
-    /// <summary>
-    /// Gets the effective Red component (R * Intensity).
-    /// </summary>
-    public float EffectiveR => R * Intensity;
-
-    /// <summary>
-    /// Gets the effective Green component (G * Intensity).
-    /// </summary>
-    public float EffectiveG => G * Intensity;
-
-    /// <summary>
-    /// Gets the effective Blue component (B * Intensity).
-    /// </summary>
-    public float EffectiveB => B * Intensity;
-
-    /// <summary>
     /// Creates a <see cref="GradingColor"/> from red, green and blue components.
     /// </summary>
     /// <param name="r">The red component.</param>
     /// <param name="g">The green component.</param>
     /// <param name="b">The blue component.</param>
-    /// <param name="intensity">The intensity multiplier (default: 1.0).</param>
     /// <returns>The grading color.</returns>
-    public static GradingColor FromRgb(float r, float g, float b, float intensity = 1f)
+    public static GradingColor FromRgb(float r, float g, float b)
     {
-        return new GradingColor(r, g, b, intensity);
+        return new GradingColor(r, g, b);
     }
 
     /// <summary>
@@ -99,24 +75,22 @@ public readonly struct GradingColor
     /// <param name="intensity">The intensity multiplier (default: 1.0).</param>
     /// <param name="scale">The scale factor for conversion (default: 1/255).</param>
     /// <returns>The grading color.</returns>
-    public static GradingColor FromColor(Color color, float intensity = 1f, float scale = 1f / 255f)
+    public static GradingColor FromColor(Color color, float scale = 1f / 255f)
     {
         return new GradingColor(
             color.R * scale,
             color.G * scale,
-            color.B * scale,
-            intensity);
+            color.B * scale);
     }
 
     /// <summary>
     /// Creates a <see cref="GradingColor"/> from a <see cref="Vector3"/>.
     /// </summary>
     /// <param name="vector">The source vector.</param>
-    /// <param name="intensity">The intensity multiplier (default: 1.0).</param>
     /// <returns>The grading color.</returns>
-    public static GradingColor FromVector3(Vector3 vector, float intensity = 1f)
+    public static GradingColor FromVector3(Vector3 vector)
     {
-        return new GradingColor(vector.X, vector.Y, vector.Z, intensity);
+        return new GradingColor(vector.X, vector.Y, vector.Z);
     }
 
     /// <summary>
@@ -126,7 +100,7 @@ public readonly struct GradingColor
     /// <returns>The vector representation.</returns>
     public Vector3 ToVector3()
     {
-        return new Vector3(EffectiveR, EffectiveG, EffectiveB);
+        return new Vector3(R, G, B);
     }
 
     /// <summary>
@@ -138,19 +112,9 @@ public readonly struct GradingColor
     {
         return Color.FromArgb(
             255,
-            (byte)Math.Clamp(EffectiveR * 255f, 0f, 255f),
-            (byte)Math.Clamp(EffectiveG * 255f, 0f, 255f),
-            (byte)Math.Clamp(EffectiveB * 255f, 0f, 255f));
-    }
-
-    /// <summary>
-    /// Creates a new <see cref="GradingColor"/> with the specified intensity.
-    /// </summary>
-    /// <param name="intensity">The new intensity value.</param>
-    /// <returns>A new GradingColor with the updated intensity.</returns>
-    public GradingColor WithIntensity(float intensity)
-    {
-        return new GradingColor(R, G, B, intensity);
+            (byte)Math.Clamp(R * 255f, 0f, 255f),
+            (byte)Math.Clamp(G * 255f, 0f, 255f),
+            (byte)Math.Clamp(B * 255f, 0f, 255f));
     }
 
     /// <summary>
@@ -237,20 +201,14 @@ public readonly struct GradingColor
         ReadOnlySpan<char> gStr = s.Slice(firstComma + 1, secondComma - firstComma - 1).Trim();
         ReadOnlySpan<char> remaining = s.Slice(secondComma + 1);
 
-        // Check for optional fourth component (intensity)
+        // TODO: 開発中の互換性のため，thirdCommaをチェックしているが本番では不要なため以下のように変更する
+        // ReadOnlySpan<char> bStr = s.Slice(secondComma + 1).Trim();
         int thirdComma = remaining.IndexOf(',');
         ReadOnlySpan<char> bStr;
-        float intensity = 1f;
 
         if (thirdComma >= 0)
         {
             bStr = remaining.Slice(0, thirdComma).Trim();
-            ReadOnlySpan<char> iStr = remaining.Slice(thirdComma + 1).Trim();
-
-            if (!float.TryParse(iStr, NumberStyles.Float, CultureInfo.InvariantCulture, out intensity))
-            {
-                return false;
-            }
         }
         else
         {
@@ -264,7 +222,7 @@ public readonly struct GradingColor
             return false;
         }
 
-        color = new GradingColor(r, g, b, intensity);
+        color = new GradingColor(r, g, b);
         return true;
     }
 
@@ -275,17 +233,13 @@ public readonly struct GradingColor
     /// <returns>The string representation.</returns>
     public override string ToString()
     {
-        if (Math.Abs(Intensity - 1f) < 0.0001f)
-        {
-            return string.Create(CultureInfo.InvariantCulture, $"{R}, {G}, {B}");
-        }
-        return string.Create(CultureInfo.InvariantCulture, $"{R}, {G}, {B}, {Intensity}");
+        return string.Create(CultureInfo.InvariantCulture, $"{R}, {G}, {B}");
     }
 
     /// <inheritdoc/>
     public bool Equals(GradingColor other)
     {
-        return R == other.R && G == other.G && B == other.B && Intensity == other.Intensity;
+        return R == other.R && G == other.G && B == other.B;
     }
 
     /// <inheritdoc/>
@@ -297,7 +251,7 @@ public readonly struct GradingColor
     /// <inheritdoc/>
     public override int GetHashCode()
     {
-        return HashCode.Combine(R, G, B, Intensity);
+        return HashCode.Combine(R, G, B);
     }
 
     /// <summary>
@@ -324,8 +278,7 @@ public readonly struct GradingColor
         return new GradingColor(
             left.R + right.R,
             left.G + right.G,
-            left.B + right.B,
-            (left.Intensity + right.Intensity) / 2f);
+            left.B + right.B);
     }
 
     /// <summary>
@@ -336,8 +289,7 @@ public readonly struct GradingColor
         return new GradingColor(
             left.R - right.R,
             left.G - right.G,
-            left.B - right.B,
-            (left.Intensity + right.Intensity) / 2f);
+            left.B - right.B);
     }
 
     /// <summary>
@@ -345,7 +297,7 @@ public readonly struct GradingColor
     /// </summary>
     public static GradingColor operator *(GradingColor color, float scalar)
     {
-        return new GradingColor(color.R * scalar, color.G * scalar, color.B * scalar, color.Intensity);
+        return new GradingColor(color.R * scalar, color.G * scalar, color.B * scalar);
     }
 
     /// <summary>
@@ -361,7 +313,8 @@ public readonly struct GradingColor
         return Parse(s);
     }
 
-    static bool IParsable<GradingColor>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out GradingColor result)
+    static bool IParsable<GradingColor>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider,
+        [MaybeNullWhen(false)] out GradingColor result)
     {
         return TryParse(s, out result);
     }
@@ -371,7 +324,8 @@ public readonly struct GradingColor
         return Parse(s);
     }
 
-    static bool ISpanParsable<GradingColor>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out GradingColor result)
+    static bool ISpanParsable<GradingColor>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s,
+        IFormatProvider? provider, [MaybeNullWhen(false)] out GradingColor result)
     {
         return TryParse(s, out result);
     }
