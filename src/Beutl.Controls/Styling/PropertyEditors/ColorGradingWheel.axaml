@@ -1,0 +1,72 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:lang="using:Beutl.Language"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors">
+    <Design.PreviewWith>
+        <local:ColorGradingWheel Width="420" Height="360" />
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:ColorGradingWheel}" TargetType="local:ColorGradingWheel">
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{TemplateBinding Padding}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid RowDefinitions="Auto,*" RowSpacing="12">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBlock Grid.Column="0"
+                                       VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Text="{TemplateBinding Header}" />
+
+                            <StackPanel Name="LeftRightButtons"
+                                        Grid.Column="1"
+                                        Margin="0,0,4,0"
+                                        Orientation="Horizontal">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
+
+                            <ContentPresenter Name="PART_MenuContentPresenter"
+                                              Grid.Column="2"
+                                              HorizontalAlignment="Right"
+                                              VerticalAlignment="Center"
+                                              Content="{TemplateBinding MenuContent}"
+                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                        </Grid>
+
+                        <local:GradingColorPicker Name="PART_GradingColorPicker"
+                                                  Grid.Row="1"
+                                                  MinWidth="1"
+                                                  Classes="wheel"
+                                                  InputType="{TemplateBinding InputType}"
+                                                  ShowDetails="{TemplateBinding ShowDetails}"
+                                                  Color="{Binding Color, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^[KeyFrameCount=0]">
+            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

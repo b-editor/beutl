@@ -1,0 +1,165 @@
+<UserControl x:Class="Beutl.Views.Tools.ColorGradingTab"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
+             xmlns:vm="using:Beutl.ViewModels.Tools"
+             d:DesignHeight="720"
+             d:DesignWidth="1080"
+             x:CompileBindings="True"
+             x:DataType="vm:ColorGradingTabViewModel"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <ControlTheme x:Key="MinimalNumberEditor"
+                      BasedOn="{StaticResource {x:Type pe:StringEditor}}"
+                      TargetType="pe:StringEditor">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Name="PART_HeaderTextBlock"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"
+                                       ClipToBounds="False"
+                                       Text="{TemplateBinding Header}"
+                                       TextTrimming="CharacterEllipsis" />
+
+                            <Grid Grid.Column="1"
+                                  Margin="8,4,4,4"
+                                  ColumnDefinitions="*,Auto">
+                                <TextBox x:Name="PART_InnerTextBox"
+                                         IsEnabled="{TemplateBinding IsReadOnly,
+                                                                     Converter={x:Static BoolConverters.Not}}"
+                                         Text="{TemplateBinding Text,
+                                                                Mode=TwoWay}" />
+
+                                <StackPanel Name="LeftRightButtons"
+                                            Grid.Column="1"
+                                            Margin="4,0,0,0"
+                                            Orientation="Horizontal">
+                                    <Button Name="PART_LeftButton"
+                                            Classes="left"
+                                            Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                    <Button Name="PART_RightButton"
+                                            Classes="right"
+                                            Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <ContentPresenter Name="PART_MenuContentPresenter"
+                                              Grid.Column="2"
+                                              Content="{TemplateBinding MenuContent}"
+                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+    </UserControl.Resources>
+    <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto,*">
+        <Grid Grid.Row="0"
+              Height="32"
+              ColumnDefinitions="*,*">
+            <TextBlock Grid.Column="0"
+                       Margin="8,0,0,0"
+                       VerticalAlignment="Center"
+                       FontWeight="SemiBold"
+                       Text="{x:Static lang:Strings.ColorGrading}" />
+
+            <ComboBox Grid.Column="1"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Center"
+                      DisplayMemberBinding="{ReflectionBinding Name}"
+                      ItemsSource="{Binding AvailableWheelModes}"
+                      SelectedValue="{Binding WheelMode.Value, Mode=TwoWay}"
+                      Theme="{StaticResource LiteComboBoxStyle}" />
+        </Grid>
+
+        <WrapPanel Grid.Row="1"
+                   Margin="8,0"
+                   IsEnabled="{Binding HasColorGrading.Value}">
+            <pe:NumberEditor x:Name="TemperatureEditor"
+                             x:TypeArguments="x:Single"
+                             DataContext="{Binding TemperatureEditor.Value}"
+                             Theme="{StaticResource MinimalNumberEditor}" />
+            <pe:NumberEditor x:Name="TintEditor"
+                             x:TypeArguments="x:Single"
+                             DataContext="{Binding TintEditor.Value}"
+                             Theme="{StaticResource MinimalNumberEditor}" />
+
+            <pe:NumberEditor x:Name="ExposureEditor"
+                             x:TypeArguments="x:Single"
+                             DataContext="{Binding ExposureEditor.Value}"
+                             Theme="{StaticResource MinimalNumberEditor}" />
+            <pe:NumberEditor x:Name="ContrastEditor"
+                             x:TypeArguments="x:Single"
+                             DataContext="{Binding ContrastEditor.Value}"
+                             Theme="{StaticResource MinimalNumberEditor}" />
+
+            <pe:NumberEditor x:Name="ContrastPivotEditor"
+                             x:TypeArguments="x:Single"
+                             DataContext="{Binding ContrastPivotEditor.Value}"
+                             Theme="{StaticResource MinimalNumberEditor}" />
+            <pe:NumberEditor x:Name="SaturationEditor"
+                             x:TypeArguments="x:Single"
+                             DataContext="{Binding SaturationEditor.Value}"
+                             Theme="{StaticResource MinimalNumberEditor}" />
+
+            <pe:NumberEditor x:Name="HueEditor"
+                             x:TypeArguments="x:Single"
+                             DataContext="{Binding HueEditor.Value}"
+                             Theme="{StaticResource MinimalNumberEditor}" />
+        </WrapPanel>
+
+        <Panel Grid.Row="2" IsVisible="{Binding HasColorGrading.Value}">
+            <Grid x:Name="LogControls"
+                  VerticalAlignment="Stretch"
+                  ColumnDefinitions="*,*,*"
+                  ColumnSpacing="8"
+                  IsVisible="{Binding IsLogMode.Value}">
+                <pe:ColorGradingWheel x:Name="ShadowsPicker"
+                                      Grid.Column="0"
+                                      DataContext="{Binding ShadowsEditor.Value}" />
+                <pe:ColorGradingWheel x:Name="MidtonesPicker"
+                                      Grid.Column="1"
+                                      DataContext="{Binding MidtonesEditor.Value}" />
+                <pe:ColorGradingWheel x:Name="HighlightsPicker"
+                                      Grid.Column="2"
+                                      DataContext="{Binding HighlightsEditor.Value}" />
+            </Grid>
+
+            <Grid x:Name="LiftControls"
+                  VerticalAlignment="Stretch"
+                  ColumnDefinitions="*,*,*,*"
+                  ColumnSpacing="8"
+                  IsVisible="{Binding IsLiftGammaGainMode.Value}">
+                <pe:ColorGradingWheel x:Name="LiftPicker"
+                                      Grid.Column="0"
+                                      DataContext="{Binding LiftEditor.Value}" />
+                <pe:ColorGradingWheel x:Name="GammaPicker"
+                                      Grid.Column="1"
+                                      DataContext="{Binding GammaEditor.Value}" />
+                <pe:ColorGradingWheel x:Name="GainPicker"
+                                      Grid.Column="2"
+                                      DataContext="{Binding GainEditor.Value}" />
+                <pe:ColorGradingWheel x:Name="OffsetPicker"
+                                      Grid.Column="3"
+                                      DataContext="{Binding OffsetEditor.Value}" />
+            </Grid>
+        </Panel>
+    </Grid>
+</UserControl>

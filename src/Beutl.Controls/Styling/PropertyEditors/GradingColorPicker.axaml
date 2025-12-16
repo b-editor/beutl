@@ -16,20 +16,27 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Panel>
-                    <StackPanel Name="Root">
-                        <ColorSpectrum Name="RingSpectrum"
-                                       Width="{Binding #Root.Bounds.Width}"
-                                       Height="{Binding #Root.Bounds.Width}"
-                                       BorderBrush="{DynamicResource ColorRampBorderBrush}"
-                                       BorderThickness="1"
-                                       Components="HueSaturation"
-                                       Shape="Ring" />
+                    <Grid Name="Root" RowDefinitions="*,Auto,Auto,Auto">
+                        <Border Name="SpectrumBorder"
+                                Width="{Binding #Root.Bounds.Width, Priority=Template}"
+                                Height="{Binding #Root.Bounds.Width, Priority=Template}">
+                            <ColorSpectrum Name="RingSpectrum"
+                                           HorizontalAlignment="Stretch"
+                                           VerticalAlignment="Stretch"
+                                           BorderBrush="{DynamicResource ColorRampBorderBrush}"
+                                           BorderThickness="1"
+                                           Components="HueSaturation"
+                                           Shape="Ring" />
+                        </Border>
 
                         <ColorPreviewer Name="Previewer"
+                                        Grid.Row="1"
                                         Margin="6,0"
                                         IsVisible="False" />
 
-                        <StackPanel Margin="6,8" Spacing="8">
+                        <StackPanel Grid.Row="2"
+                                    Margin="6,8"
+                                    Spacing="8">
 
                             <ColorSlider Name="HueSlider"
                                          ColorComponent="Component1"
@@ -56,7 +63,8 @@
 
                         </StackPanel>
 
-                        <Grid Margin="6,0,6,8"
+                        <Grid Grid.Row="3"
+                              Margin="6,0,6,8"
                               ColumnDefinitions="*,4,Auto"
                               RowDefinitions="Auto,6,Auto">
                             <ComboBox Name="ColorType"
@@ -85,7 +93,7 @@
                                                                 HorizontalAlignment="Stretch"
                                                                 Theme="{StaticResource GradingColorComponentsEditorStyle}" />
                         </Grid>
-                    </StackPanel>
+                    </Grid>
 
                     <Border Name="Smoke"
                             Background="{DynamicResource ContentDialogSmokeFill}"
@@ -148,6 +156,17 @@
 
         <Style Selector="^:disabled /template/ Border#Smoke">
             <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^.wheel">
+            <Style Selector="^ /template/ ComboBox#ColorType, ^ /template/ StackPanel#ButtonsLayout">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+            <Style Selector="^ /template/ Border#SpectrumBorder">
+                <Setter Property="Padding" Value="16" />
+                <Setter Property="Width" Value="NaN" />
+                <Setter Property="Height" Value="NaN" />
+            </Style>
         </Style>
 
     </ControlTheme>

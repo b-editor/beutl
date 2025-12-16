@@ -42,6 +42,15 @@ public class GradingColorEditor : PropertyEditor
         set => SetValue(IsLivePreviewEnabledProperty, value);
     }
 
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == ValueProperty)
+        {
+            _flyout?.Color = Value;
+        }
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         if (_button != null)
