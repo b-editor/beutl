@@ -17,21 +17,12 @@
             <ControlTemplate>
                 <Panel>
                     <StackPanel Name="Root">
-                        <ColorSpectrum Name="Spectrum"
-                                       Width="{Binding #Root.Bounds.Width}"
-                                       Height="{Binding #Root.Bounds.Width}"
-                                       BorderBrush="{DynamicResource ColorRampBorderBrush}"
-                                       BorderThickness="1"
-                                       Components="SaturationValue"
-                                       Shape="Box" />
-
                         <ColorSpectrum Name="RingSpectrum"
                                        Width="{Binding #Root.Bounds.Width}"
                                        Height="{Binding #Root.Bounds.Width}"
                                        BorderBrush="{DynamicResource ColorRampBorderBrush}"
                                        BorderThickness="1"
                                        Components="HueSaturation"
-                                       IsVisible="False"
                                        Shape="Ring" />
 
                         <ColorPreviewer Name="Previewer"
@@ -40,24 +31,28 @@
 
                         <StackPanel Margin="6,8" Spacing="8">
 
-                            <ColorSlider Name="Component1Slider"
+                            <ColorSlider Name="HueSlider"
                                          ColorComponent="Component1"
-                                         ColorModel="Rgba"
+                                         ColorModel="Hsva"
                                          IsVisible="False" />
 
-                            <ColorSlider Name="Component2Slider"
+                            <ColorSlider Name="SaturationSlider"
                                          ColorComponent="Component2"
-                                         ColorModel="Rgba"
+                                         ColorModel="Hsva"
                                          IsVisible="False" />
 
-                            <ColorSlider Name="Component3Slider"
-                                         ColorComponent="Component3"
-                                         ColorModel="Rgba"
-                                         IsVisible="False" />
-
-                            <ColorSlider Name="ThirdComponentSlider"
-                                         ColorComponent="Component1"
-                                         ColorModel="Hsva" />
+                            <!--  RGBの時のRed  -->
+                            <local:GradingWheel Name="FirstComponentWheel"
+                                                Background="Red"
+                                                IsVisible="False" />
+                            <!--  RGBの時のBlue  -->
+                            <local:GradingWheel Name="SecondComponentWheel"
+                                                Background="Green"
+                                                IsVisible="False" />
+                            <!--  HSVの時のValue, RGBの時のBlueを表すスライダー  -->
+                            <local:GradingWheel Name="ThirdComponentWheel" />
+                            <!--  RGBの時の全体  -->
+                            <local:GradingWheel Name="FourthComponentWheel" IsVisible="False" />
 
                         </StackPanel>
 
@@ -82,25 +77,13 @@
                                 <ToggleButton Name="ToggleDetailsButton" ToolTip.Tip="{x:Static lang:Strings.ShowSliders}">
                                     <ui:FontIcon Glyph="&#xE9E9;" />
                                 </ToggleButton>
-                                <ToggleButton Name="ToggleSpectrumShapeButton"
-                                              IsChecked="True"
-                                              ToolTip.Tip="{x:Static lang:Strings.ShowRing}">
-                                    <ui:FontIcon Glyph="&#xEA3A;" />
-                                </ToggleButton>
                             </StackPanel>
 
                             <local:GradingColorComponentsEditor Name="ColorComponentsBox"
                                                                 Grid.Row="2"
-                                                                Grid.Column="0"
+                                                                Grid.ColumnSpan="3"
                                                                 HorizontalAlignment="Stretch"
                                                                 Theme="{StaticResource GradingColorComponentsEditorStyle}" />
-
-                            <TextBox Name="IntensityBox"
-                                     Grid.Row="2"
-                                     Grid.Column="2"
-                                     Width="56"
-                                     MinWidth="56"
-                                     Text="100%" />
                         </Grid>
                     </StackPanel>
 
@@ -134,25 +117,31 @@
         </Style>
 
         <Style Selector="^:details">
-            <Style Selector="^ /template/ ToggleButton#ToggleSpectrumShapeButton">
-                <Setter Property="IsEnabled" Value="False" />
+            <Style Selector="^ /template/ ColorPreviewer#Previewer">
+                <Setter Property="IsVisible" Value="True" />
             </Style>
-
-            <Style Selector="^ /template/ ColorSlider#ThirdComponentSlider">
+            <Style Selector="^ /template/ ColorSpectrum#RingSpectrum">
                 <Setter Property="IsVisible" Value="False" />
             </Style>
 
             <Style Selector="^[InputType=Rgb]">
-                <Style Selector="^ /template/ ColorSlider#Component1Slider, ^ /template/ ColorSlider#Component2Slider, ^ /template/ ColorSlider#Component3Slider">
+                <Style Selector="^ /template/ ColorSlider#HueSlider, ^ /template/ ColorSlider#SaturationSlider">
+                    <Setter Property="IsVisible" Value="False" />
+                </Style>
+                <Style Selector="^ /template/ local|GradingWheel#FirstComponentWheel, ^ /template/ local|GradingWheel#SecondComponentWheel, ^ /template/ local|GradingWheel#FourthComponentWheel">
                     <Setter Property="IsVisible" Value="True" />
-                    <Setter Property="ColorModel" Value="Rgba" />
+                </Style>
+                <Style Selector="^ /template/ local|GradingWheel#ThirdComponentWheel">
+                    <Setter Property="Background" Value="Blue" />
                 </Style>
             </Style>
 
             <Style Selector="^[InputType=Hsv]">
-                <Style Selector="^ /template/ ColorSlider#Component1Slider, ^ /template/ ColorSlider#Component2Slider, ^ /template/ ColorSlider#Component3Slider">
+                <Style Selector="^ /template/ ColorSlider#HueSlider, ^ /template/ ColorSlider#SaturationSlider">
                     <Setter Property="IsVisible" Value="True" />
-                    <Setter Property="ColorModel" Value="Hsva" />
+                </Style>
+                <Style Selector="^ /template/ local|GradingWheel#FirstComponentWheel, ^ /template/ local|GradingWheel#SecondComponentWheel, ^ /template/ local|GradingWheel#FourthComponentWheel">
+                    <Setter Property="IsVisible" Value="False" />
                 </Style>
             </Style>
         </Style>

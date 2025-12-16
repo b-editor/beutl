@@ -1,4 +1,4 @@
-using System.Globalization;
+using System.Diagnostics;
 using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;
@@ -6,12 +6,11 @@ using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Media;
 using Beutl.Media;
 using Beutl.Reactive;
 using FluentAvalonia.Core;
-using FluentAvalonia.UI.Media;
+using UnboundedHsv = (float H, float S, float V);
 
 #nullable enable
 
@@ -34,18 +33,17 @@ public class GradingColorPicker : TemplatedControl
         AvaloniaProperty.Register<GradingColorPicker, GradingColorPickerInputType>(nameof(InputType));
 
     private readonly CompositeDisposable _disposables = [];
-    private ColorSpectrum? _spectrum;
     private ColorSpectrum? _ringSpectrum;
     private ColorPreviewer? _previewer;
-    private ColorSlider? _thirdComponentSlider;
-    private ColorSlider? _component1Slider, _component2Slider, _component3Slider;
+    private GradingWheel? _firstComponentWheel, _secondComponentWheel, _thirdComponentWheel, _fourthComponentWheel;
+    private ColorSlider? _hueSlider, _saturationSlider;
     private ComboBox? _colorType;
     private ToggleButton? _detailsButton;
-    private ToggleButton? _spectrumShapeButton;
     private GradingColorComponentsEditor? _componentsBox;
-    private TextBox? _intensityBox;
     private bool _ignoreColorChange;
+    private UnboundedHsv _oldHsv;
     private GradingColor _oldColor;
+    private UnboundedHsv _currentHsv;
 
     public event TypedEventHandler<GradingColorPicker, (GradingColor OldValue, GradingColor NewValue)>? ColorChanged;
 
@@ -65,10 +63,16 @@ public class GradingColorPicker : TemplatedControl
 
     private ColorSlider?[] GetColorSliders() =>
     [
-        _thirdComponentSlider,
-        _component1Slider,
-        _component2Slider,
-        _component3Slider
+        _hueSlider,
+        _saturationSlider
+    ];
+
+    private GradingWheel?[] GetWheels() =>
+    [
+        _firstComponentWheel,
+        _secondComponentWheel,
+        _thirdComponentWheel,
+        _fourthComponentWheel
     ];
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -76,26 +80,18 @@ public class GradingColorPicker : TemplatedControl
         UnregisterEvents();
 
         base.OnApplyTemplate(e);
-        _spectrum = e.NameScope.Find<ColorSpectrum>("Spectrum");
         _ringSpectrum = e.NameScope.Find<ColorSpectrum>("RingSpectrum");
         _previewer = e.NameScope.Find<ColorPreviewer>("Previewer");
-        _thirdComponentSlider = e.NameScope.Find<ColorSlider>("ThirdComponentSlider");
-        _component1Slider = e.NameScope.Find<ColorSlider>("Component1Slider");
-        _component2Slider = e.NameScope.Find<ColorSlider>("Component2Slider");
-        _component3Slider = e.NameScope.Find<ColorSlider>("Component3Slider");
+        _firstComponentWheel = e.NameScope.Find<GradingWheel>("FirstComponentWheel");
+        _secondComponentWheel = e.NameScope.Find<GradingWheel>("SecondComponentWheel");
+        _thirdComponentWheel = e.NameScope.Find<GradingWheel>("ThirdComponentWheel");
+        _fourthComponentWheel = e.NameScope.Find<GradingWheel>("FourthComponentWheel");
+        _hueSlider = e.NameScope.Find<ColorSlider>("HueSlider");
+        _saturationSlider = e.NameScope.Find<ColorSlider>("SaturationSlider");
 
         _colorType = e.NameScope.Find<ComboBox>("ColorType");
         _detailsButton = e.NameScope.Find<ToggleButton>("ToggleDetailsButton");
-        _spectrumShapeButton = e.NameScope.Find<ToggleButton>("ToggleSpectrumShapeButton");
         _componentsBox = e.NameScope.Find<GradingColorComponentsEditor>("ColorComponentsBox");
-        _intensityBox = e.NameScope.Find<TextBox>("IntensityBox");
-
-        if (_spectrum != null)
-        {
-            _spectrum.ColorChanged += OnSpectrumColorChanged;
-            _spectrum.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            _spectrum.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
-        }
 
         if (_ringSpectrum != null)
         {
@@ -121,19 +117,21 @@ public class GradingColorPicker : TemplatedControl
             }
         }
 
+        foreach (GradingWheel? item in GetWheels())
+        {
+            if (item != null)
+            {
+                item.DragStarted += OnWheelDragStarted;
+                item.DragDelta += OnWheelDragDelta;
+                item.DragCompleted += OnWheelDragCompleted;
+            }
+        }
+
         if (_componentsBox != null)
         {
             _componentsBox.ValueChanged += OnComponentsBoxValueChanged;
             _componentsBox.ValueConfirmed += OnComponentsBoxValueConfirmed;
         }
-
-        _intensityBox?.GetPropertyChangedObservable(TextBox.TextProperty)
-            .Subscribe(OnIntensityBoxTextChanged)
-            .DisposeWith(_disposables);
-
-        _intensityBox?.AddDisposableHandler(PointerWheelChangedEvent, OnIntensityBoxPointerWheelChanged,
-                RoutingStrategies.Tunnel)
-            .DisposeWith(_disposables);
 
         _colorType?.GetPropertyChangedObservable(SelectingItemsControl.SelectedIndexProperty)
             .Subscribe(_ => OnColorTypeChanged())
@@ -146,26 +144,69 @@ public class GradingColorPicker : TemplatedControl
                 .DisposeWith(_disposables);
         }
 
-        if (_spectrumShapeButton != null)
-        {
-            _spectrumShapeButton.GetObservable(ToggleButton.IsCheckedProperty)
-                .Subscribe(OnToggleSpectrumShapeButtonIsCheckedChanged)
-                .DisposeWith(_disposables);
-        }
-
         UpdateColor((Color, null));
         OnInputTypeChanged();
+    }
+
+    private void OnWheelDragStarted(object? sender, VectorEventArgs e)
+    {
+        _oldHsv = _currentHsv;
+        _oldColor = Color;
+    }
+
+    private void OnWheelDragDelta(object? sender, VectorEventArgs e)
+    {
+        if (_ignoreColorChange) return;
+
+        if (sender is GradingWheel wheel)
+        {
+            float delta = (float)(e.Vector.X / wheel.Bounds.Width);
+            if ((InputType == GradingColorPickerInputType.Hsv || !PseudoClasses.Contains(":details")) && wheel.Name == "ThirdComponentWheel")
+            {
+                // Hue, SaturationはSliderで操作するため、Valueのみ変更する
+                var hsv = _oldHsv;
+                hsv.V += delta;
+                UpdateColor((null, hsv));
+            }
+            else if (InputType == GradingColorPickerInputType.Rgb)
+            {
+                bool isMaster = wheel.Name == "FourthComponentWheel";
+                var color = _oldColor;
+                if (isMaster || wheel.Name == "FirstComponentWheel")
+                {
+                    color = new(color.R + delta, color.G, color.B);
+                }
+                if (isMaster || wheel.Name == "SecondComponentWheel")
+                {
+                    color = new(color.R, color.G + delta, color.B);
+                }
+                if (isMaster || wheel.Name == "ThirdComponentWheel")
+                {
+                    color = new(color.R, color.G, color.B + delta);
+                }
+
+                UpdateColor((color, null));
+            }
+        }
+    }
+
+    private void OnWheelDragCompleted(object? sender, VectorEventArgs e)
+    {
+        var current = Color;
+        if (!_oldColor.Equals(current))
+        {
+            ColorConfirmed?.Invoke(this, (_oldColor, current));
+        }
     }
 
     private void OnComponentsBoxValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
         if (_componentsBox != null)
         {
-            float intensity = Color.Intensity;
             if (e is PropertyEditorValueChangedEventArgs<(float, float, float)> ee)
             {
-                var oldValue = _componentsBox.ToGradingColorFromTuple(ee.OldValue, intensity);
-                var newValue = _componentsBox.ToGradingColorFromTuple(ee.NewValue, intensity);
+                var oldValue = _componentsBox.ToGradingColorFromTuple(ee.OldValue);
+                var newValue = _componentsBox.ToGradingColorFromTuple(ee.NewValue);
                 ColorConfirmed?.Invoke(this, (oldValue, newValue));
             }
         }
@@ -175,11 +216,10 @@ public class GradingColorPicker : TemplatedControl
     {
         if (_componentsBox != null && !_ignoreColorChange)
         {
-            float intensity = Color.Intensity;
             if (e is PropertyEditorValueChangedEventArgs<(float, float, float)> ee)
             {
-                var newValue = _componentsBox.ToGradingColorFromTuple(ee.NewValue, intensity);
-                UpdateColor((newValue, null), ignoreComponents: true);
+                var newValue = _componentsBox.GetGradingColorOrUnboundedHsv(ee.NewValue);
+                UpdateColor(newValue, ignoreComponents: true);
             }
         }
     }
@@ -215,33 +255,6 @@ public class GradingColorPicker : TemplatedControl
     private void OnToggleDetailsButtonIsCheckedChanged(bool? value)
     {
         PseudoClasses.Set(":details", value == true);
-
-        if (_spectrum != null && _ringSpectrum != null && _previewer != null)
-        {
-            if (value != true)
-            {
-                OnToggleSpectrumShapeButtonIsCheckedChanged(_spectrumShapeButton?.IsChecked);
-            }
-            else
-            {
-                _spectrum.IsVisible = _ringSpectrum.IsVisible = false;
-            }
-
-            _previewer.IsVisible = value == true;
-        }
-    }
-
-    private void OnToggleSpectrumShapeButtonIsCheckedChanged(bool? value)
-    {
-        if (_spectrum != null && _ringSpectrum != null && _thirdComponentSlider != null)
-        {
-            _ringSpectrum.IsVisible = value == true;
-            _spectrum.IsVisible = value != true;
-
-            _thirdComponentSlider.ColorComponent = value == true
-                ? _ringSpectrum.ThirdComponent
-                : _spectrum.ThirdComponent;
-        }
     }
 
     private void OnColorTypeChanged()
@@ -269,89 +282,25 @@ public class GradingColorPicker : TemplatedControl
         _componentsBox?.Rgb = InputType == GradingColorPickerInputType.Rgb;
     }
 
-    private void OnIntensityBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
-    {
-        if (_intensityBox != null
-            && !DataValidationErrors.GetHasErrors(_intensityBox)
-            && _intensityBox.IsKeyboardFocusWithin
-            && TryParseIntensity(_intensityBox.Text, out float value))
-        {
-            float delta = 10;
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
-            {
-                delta = 1;
-            }
-
-            value = e.Delta.Y switch
-            {
-                < 0 => value - delta,
-                > 0 => value + delta,
-                _ => value
-            };
-
-            UpdateColor((Color.WithIntensity(value / 100f), null));
-
-            e.Handled = true;
-        }
-    }
-
-    private static bool TryParseIntensity(string? s, out float r)
-    {
-        r = 0;
-        if (string.IsNullOrWhiteSpace(s)) return false;
-
-        string text = s.Trim() ?? "";
-        if (text.EndsWith('%'))
-        {
-            text = text.TrimEnd('%');
-        }
-
-        return float.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out r)
-               || float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out r);
-    }
-
-    private void OnIntensityBoxTextChanged(AvaloniaPropertyChangedEventArgs args)
-    {
-        if (_intensityBox != null && !_ignoreColorChange)
-        {
-            if (TryParseIntensity(_intensityBox.Text, out float f))
-            {
-                DataValidationErrors.ClearErrors(_intensityBox);
-                UpdateColor((Color.WithIntensity(f / 100f), null), ignoreIntensity: true);
-            }
-            else
-            {
-                DataValidationErrors.SetErrors(_intensityBox, DataValidationMessages.InvalidString);
-            }
-        }
-    }
-
     private void OnColorSliderColorChanged(object? sender, ColorChangedEventArgs args)
     {
         if (_ignoreColorChange) return;
 
-        Color2 newColor = args.NewColor;
         if (sender is ColorSlider { ColorModel: ColorModel.Hsva } slider)
         {
-            HsvColor hsv = slider.HsvColor;
-            Color2 oldColor = GetColor2(Color);
-            newColor = Color2.FromHSVf((float)hsv.H, (float)hsv.S, (float)hsv.V);
+            UnboundedHsv hsv = _currentHsv;
 
-            if (slider is { ColorComponent: Avalonia.Controls.ColorComponent.Component3 })
+            if (slider is { ColorComponent: ColorComponent.Component2 })
             {
-                newColor = Color2.FromHSV(oldColor.Hue, oldColor.Saturation, newColor.Value);
+                hsv.S = (float)slider.HsvColor.S;
             }
-            else if (slider is { ColorComponent: Avalonia.Controls.ColorComponent.Component2 })
+            else if (slider is { ColorComponent: ColorComponent.Component1 })
             {
-                newColor = Color2.FromHSV(oldColor.Hue, newColor.Saturation, oldColor.Value);
+                hsv.H = (float)slider.HsvColor.H;
             }
-            else if (slider is { ColorComponent: Avalonia.Controls.ColorComponent.Component1 })
-            {
-                newColor = Color2.FromHSV(newColor.Hue, oldColor.Saturation, oldColor.Value);
-            }
+
+            UpdateColor((null, hsv));
         }
-
-        UpdateColor((null, newColor));
     }
 
     private void OnSpectrumColorChanged(object? sender, ColorChangedEventArgs args)
@@ -366,30 +315,11 @@ public class GradingColorPicker : TemplatedControl
             color = previewer.HsvColor;
         }
 
-        var color2 = Color2.FromHSVf((float)color.H, (float)color.S, (float)color.V);
-        UpdateColor((null, color2));
+        var hsv = ((float)color.H, (float)color.S, (float)color.V);
+        UpdateColor((null, hsv));
     }
 
-    internal static Color2 GetColor2(GradingColor color)
-    {
-        return Color2.FromRGBf(
-            Math.Clamp(Math.Abs(color.R), 0f, 1f),
-            Math.Clamp(Math.Abs(color.G), 0f, 1f),
-            Math.Clamp(Math.Abs(color.B), 0f, 1f));
-    }
-
-    private GradingColor GetColor(Color2 color)
-    {
-        color = color.ToRGB();
-        return new GradingColor(
-            color.Rf * (Color.R != 0 ? Math.Sign(Color.R) : 1),
-            color.Gf * (Color.G != 0 ? Math.Sign(Color.G) : 1),
-            color.Bf * (Color.B != 0 ? Math.Sign(Color.B) : 1),
-            Color.Intensity);
-    }
-
-    private void UpdateColor((GradingColor?, Color2?) color, bool ignoreComponents = false,
-        bool ignoreIntensity = false)
+    private void UpdateColor((GradingColor?, UnboundedHsv?) color, bool ignoreComponents = false)
     {
         if (_ignoreColorChange) return;
 
@@ -397,14 +327,12 @@ public class GradingColorPicker : TemplatedControl
         {
             _ignoreColorChange = true;
             GradingColor oldColor = Color;
-            GradingColor newColor = color.Item1 ?? GetColor(color.Item2!.Value);
-            Color2 newColor2 = color.Item2 ?? GetColor2(color.Item1!.Value);
+            GradingColor newColor = color.Item1 ?? GradingColorHelper.GetColor(color.Item2!.Value);
+            UnboundedHsv newHsv = color.Item2 ?? GradingColorHelper.GetUnboundedHsv(color.Item1!.Value);
+            _currentHsv = newHsv;
             Color = newColor;
 
-            HsvColor hsv = HsvColor.FromHsv(newColor2.Hue, newColor2.Saturationf, newColor2.Valuef);
-
-            if (_spectrum != null)
-                _spectrum.HsvColor = hsv;
+            HsvColor hsv = HsvColor.FromHsv(newHsv.H, newHsv.S, newHsv.V);
 
             if (_ringSpectrum != null)
                 _ringSpectrum.HsvColor = hsv;
@@ -414,24 +342,16 @@ public class GradingColorPicker : TemplatedControl
 
             foreach (ColorSlider? item in GetColorSliders())
             {
-                if (item != null)
+                if (item == null) continue;
+
+                if (item.ColorModel == ColorModel.Hsva)
                 {
-                    if (item.ColorModel == ColorModel.Hsva)
-                    {
-                        item.HsvColor = hsv;
-                    }
-                    else
-                    {
-                        item.Color = newColor2;
-                    }
+                    item.HsvColor = hsv;
                 }
             }
 
             if (_componentsBox != null && !ignoreComponents)
                 _componentsBox.Color = newColor;
-
-            if (_intensityBox != null && !ignoreIntensity)
-                _intensityBox.Text = (newColor.Intensity * 100f).ToString("F0") + "%";
 
             ColorChanged?.Invoke(this, (oldColor, newColor));
         }
@@ -444,13 +364,6 @@ public class GradingColorPicker : TemplatedControl
     private void UnregisterEvents()
     {
         _disposables.Clear();
-
-        if (_spectrum != null)
-        {
-            _spectrum.ColorChanged -= OnSpectrumColorChanged;
-            _spectrum.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
-            _spectrum.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
-        }
 
         if (_ringSpectrum != null)
         {
@@ -479,6 +392,16 @@ public class GradingColorPicker : TemplatedControl
                 item.ColorChanged -= OnColorSliderColorChanged;
                 item.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
                 item.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
+            }
+        }
+
+        foreach (GradingWheel? item in GetWheels())
+        {
+            if (item != null)
+            {
+                item.DragStarted -= OnWheelDragStarted;
+                item.DragDelta -= OnWheelDragDelta;
+                item.DragCompleted -= OnWheelDragCompleted;
             }
         }
     }

@@ -1,0 +1,19 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors">
+    <Design.PreviewWith>
+        <Border Padding="20" Background="#FF1E1E1E">
+            <local:GradingWheel Width="200" Height="24" />
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:GradingWheel}" TargetType="local:GradingWheel">
+        <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="Cursor" Value="SizeWestEast" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="MinWidth" Value="60" />
+    </ControlTheme>
+</ResourceDictionary>
