@@ -257,9 +257,9 @@ public sealed partial class ColorGrading : FilterEffect
     private static SKColorF ToColorVector(GradingColor value, float minValue = float.NegativeInfinity)
     {
         return new SKColorF(
-            Math.Max(value.EffectiveR, minValue),
-            Math.Max(value.EffectiveG, minValue),
-            Math.Max(value.EffectiveB, minValue),
+            Math.Max(value.R, minValue),
+            Math.Max(value.G, minValue),
+            Math.Max(value.B, minValue),
             1f);
     }
 }
