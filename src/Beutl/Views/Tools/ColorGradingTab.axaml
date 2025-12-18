@@ -118,6 +118,10 @@
                              x:TypeArguments="x:Single"
                              DataContext="{Binding SaturationEditor.Value}"
                              Theme="{StaticResource MinimalNumberEditor}" />
+            <pe:NumberEditor x:Name="VibranceEditor"
+                             x:TypeArguments="x:Single"
+                             DataContext="{Binding VibranceEditor.Value}"
+                             Theme="{StaticResource MinimalNumberEditor}" />
 
             <pe:NumberEditor x:Name="HueEditor"
                              x:TypeArguments="x:Single"

@@ -1055,6 +1055,9 @@
   <data name="Saturation" xml:space="preserve">
     <value>彩度</value>
   </data>
+  <data name="Vibrance" xml:space="preserve">
+    <value>バイブランス</value>
+  </data>
   <data name="ShowSliders" xml:space="preserve">
     <value>スライダーを表示</value>
   </data>

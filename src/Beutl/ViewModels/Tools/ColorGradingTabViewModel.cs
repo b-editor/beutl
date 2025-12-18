@@ -99,6 +99,8 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
 
     public ReactivePropertySlim<NumberEditorViewModel<float>?> SaturationEditor { get; } = new();
 
+    public ReactivePropertySlim<NumberEditorViewModel<float>?> VibranceEditor { get; } = new();
+
     public ReactivePropertySlim<NumberEditorViewModel<float>?> HueEditor { get; } = new();
 
     public ReactivePropertySlim<GradingColorEditorViewModel?> ShadowsEditor { get; } = new();
@@ -186,6 +188,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         ContrastEditor.Value = CreateNumberEditor(effect.Contrast);
         ContrastPivotEditor.Value = CreateNumberEditor(effect.ContrastPivot);
         SaturationEditor.Value = CreateNumberEditor(effect.Saturation);
+        VibranceEditor.Value = CreateNumberEditor(effect.Vibrance);
         HueEditor.Value = CreateNumberEditor(effect.Hue);
 
         ShadowsEditor.Value = CreateColorEditor(effect.Shadows);
@@ -236,6 +239,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         ContrastEditor.Value = null;
         ContrastPivotEditor.Value = null;
         SaturationEditor.Value = null;
+        VibranceEditor.Value = null;
         HueEditor.Value = null;
 
         ShadowsEditor.Value = null;

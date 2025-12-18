@@ -1910,6 +1910,12 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Saturation", resourceCulture);
             }
         }
+
+        public static string Vibrance {
+            get {
+                return ResourceManager.GetString("Vibrance", resourceCulture);
+            }
+        }
         
         public static string ShowSliders {
             get {
