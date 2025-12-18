@@ -23,6 +23,7 @@ public sealed partial class ColorGrading : FilterEffect
             uniform float contrast; // -1 to +1
             uniform float contrastPivot; // typically 0.18 or 0.5
             uniform float saturation; // -1 to +1
+            uniform float vibrance; // -1 to +1
             uniform float hue; // degrees (-180 to +180)
             uniform float temperature; // -1 to +1 (cool to warm)
             uniform float tint; // -1 to +1 (green to magenta)
@@ -38,6 +39,13 @@ public sealed partial class ColorGrading : FilterEffect
 
             float get_luminance(float3 color) {
                 return dot(color, LUMINANCE_COEFF);
+            }
+
+            float saturation_of(float3 color) {
+                float maxc = max(max(color.r, color.g), color.b);
+                float minc = min(min(color.r, color.g), color.b);
+                float delta = maxc - minc;
+                return maxc > 0.0 ? delta / maxc : 0.0;
             }
 
             float3 apply_lift_gamma_gain(float3 color, float3 l, float3 g, float3 gn) {
@@ -122,7 +130,8 @@ public sealed partial class ColorGrading : FilterEffect
                 color = (color - contrastPivot) * (1.0 + contrast) + contrastPivot;
                 color = apply_tonal_balance(color, shadows, midtones, highlights);
                 color = apply_temperature_tint(color, temperature, tint);
-                color = apply_saturation(color, saturation);
+                float satWeight = 1.0 - clamp(saturation_of(color), 0.0, 1.0);
+                color = apply_saturation(color, saturation * (1.0 + vibrance * satWeight));
                 color = apply_hue(color, hue);
 
                 color += offset;
@@ -168,6 +177,10 @@ public sealed partial class ColorGrading : FilterEffect
     [Display(Name = nameof(Strings.Saturation), ResourceType = typeof(Strings))]
     [Range(-100, 100)]
     public IProperty<float> Saturation { get; } = Property.CreateAnimatable<float>();
+
+    [Display(Name = nameof(Strings.Vibrance), ResourceType = typeof(Strings))]
+    [Range(-100, 100)]
+    public IProperty<float> Vibrance { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(Strings.Hue), ResourceType = typeof(Strings))]
     [Range(-180, 180)]
@@ -231,6 +244,7 @@ public sealed partial class ColorGrading : FilterEffect
             builder.Uniforms["contrast"] = data.Contrast / 100f;
             builder.Uniforms["contrastPivot"] = data.ContrastPivot;
             builder.Uniforms["saturation"] = data.Saturation / 100f;
+            builder.Uniforms["vibrance"] = data.Vibrance / 100f;
             builder.Uniforms["hue"] = data.Hue;
             builder.Uniforms["temperature"] = data.Temperature / 100f;
             builder.Uniforms["tint"] = data.Tint / 100f;
