@@ -45,12 +45,6 @@ public partial class ColorGradingTab : UserControl
         }
     }
 
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        base.OnDetachedFromVisualTree(e);
-        _subscriptions.Dispose();
-    }
-
     private void BindNumberEditor(NumberEditor<float> editor, NumberEditorViewModel<float>? viewModel)
     {
         editor.MenuContent = new PropertyEditorMenu();

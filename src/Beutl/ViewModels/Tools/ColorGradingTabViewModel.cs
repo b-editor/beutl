@@ -232,13 +232,6 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
 
     private void ClearEditors()
     {
-        foreach (BaseEditorViewModel item in _editorContexts)
-        {
-            item.Dispose();
-        }
-
-        _editorContexts.Clear();
-
         TemperatureEditor.Value = null;
         TintEditor.Value = null;
         ExposureEditor.Value = null;
@@ -257,5 +250,12 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         GammaEditor.Value = null;
         GainEditor.Value = null;
         OffsetEditor.Value = null;
+
+        foreach (BaseEditorViewModel item in _editorContexts)
+        {
+            item.Dispose();
+        }
+
+        _editorContexts.Clear();
     }
 }
