@@ -88,7 +88,7 @@ jobs:
           fakeroot dpkg-deb --build ubuntu22.04_amd64 .
 
       - name: Save package
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ubuntu22.04_amd64
           path: ./packages/beutl_${{ inputs.simpleVer }}-${{ inputs.revision }}ubuntu22.04_amd64.deb

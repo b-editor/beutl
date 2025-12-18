@@ -141,7 +141,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "output/AppBundle/Beutl.app" "artifacts/Beutl.${{ matrix.rid }}.app.zip"
 
       - name: Save
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: Beutl_${{ matrix.rid }}
           path: artifacts/Beutl.${{ matrix.rid }}.app.zip
