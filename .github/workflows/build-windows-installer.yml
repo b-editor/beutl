@@ -36,7 +36,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: beutl-win_x64${{ matrix.standalone == true && '-standalone' || '' }}-${{ inputs.semVer }}
           path: artifacts
