@@ -103,6 +103,10 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
 
     public ReactivePropertySlim<NumberEditorViewModel<float>?> HueEditor { get; } = new();
 
+    public ReactivePropertySlim<NumberEditorViewModel<float>?> LowRangeEditor { get; } = new();
+
+    public ReactivePropertySlim<NumberEditorViewModel<float>?> HighRangeEditor { get; } = new();
+
     public ReactivePropertySlim<GradingColorEditorViewModel?> ShadowsEditor { get; } = new();
 
     public ReactivePropertySlim<GradingColorEditorViewModel?> MidtonesEditor { get; } = new();
@@ -190,6 +194,8 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         SaturationEditor.Value = CreateNumberEditor(effect.Saturation);
         VibranceEditor.Value = CreateNumberEditor(effect.Vibrance);
         HueEditor.Value = CreateNumberEditor(effect.Hue);
+        LowRangeEditor.Value = CreateNumberEditor(effect.LowRange);
+        HighRangeEditor.Value = CreateNumberEditor(effect.HighRange);
 
         ShadowsEditor.Value = CreateColorEditor(effect.Shadows);
         MidtonesEditor.Value = CreateColorEditor(effect.Midtones);
@@ -241,6 +247,8 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         SaturationEditor.Value = null;
         VibranceEditor.Value = null;
         HueEditor.Value = null;
+        LowRangeEditor.Value = null;
+        HighRangeEditor.Value = null;
 
         ShadowsEditor.Value = null;
         MidtonesEditor.Value = null;

@@ -34,6 +34,8 @@ public sealed partial class ColorGrading : FilterEffect
             uniform float3 gamma; // Midtone gamma (typically 0.5 to 2.0, default 1.0)
             uniform float3 gain; // Highlight gain (typically 0.0 to 2.0, default 1.0)
             uniform float3 offset; // RGB offset (-1 to +1)
+            uniform float lowRange;
+            uniform float highRange;
 
             const float3 LUMINANCE_COEFF = float3(0.2126, 0.7152, 0.0722);
 
@@ -60,8 +62,8 @@ public sealed partial class ColorGrading : FilterEffect
 
             float3 apply_tonal_balance(float3 color, float3 shd, float3 mid, float3 hlt) {
                 float luma = get_luminance(color);
-                float shadow_w = 1.0 - smoothstep(0.0, 0.4, luma);
-                float highlight_w = smoothstep(0.6, 1.0, luma);
+                float shadow_w = 1.0 - smoothstep(0.0, lowRange, luma);
+                float highlight_w = smoothstep(highRange, 1.0, luma);
                 float midtone_w = 1.0 - shadow_w - highlight_w;
 
                 midtone_w = max(midtone_w, 0.0);
@@ -186,6 +188,14 @@ public sealed partial class ColorGrading : FilterEffect
     [Range(-180, 180)]
     public IProperty<float> Hue { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.LowRange), ResourceType = typeof(Strings))]
+    [Range(0, 100)]
+    public IProperty<float> LowRange { get; } = Property.CreateAnimatable(40f);
+
+    [Display(Name = nameof(Strings.HighRange), ResourceType = typeof(Strings))]
+    [Range(0, 100)]
+    public IProperty<float> HighRange { get; } = Property.CreateAnimatable(60f);
+
     [Display(Name = nameof(Strings.Shadows), ResourceType = typeof(Strings))]
     public IProperty<GradingColor> Shadows { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
@@ -248,6 +258,16 @@ public sealed partial class ColorGrading : FilterEffect
             builder.Uniforms["hue"] = data.Hue;
             builder.Uniforms["temperature"] = data.Temperature / 100f;
             builder.Uniforms["tint"] = data.Tint / 100f;
+
+            float lowRange = Math.Clamp(data.LowRange, 0f, 100f);
+            float highRange = Math.Clamp(data.HighRange, 0f, 100f);
+            if (lowRange > highRange)
+            {
+                (lowRange, highRange) = (highRange, lowRange);
+            }
+
+            builder.Uniforms["lowRange"] = lowRange / 100f;
+            builder.Uniforms["highRange"] = highRange / 100f;
             builder.Uniforms["shadows"] = ToColorVector(data.Shadows);
             builder.Uniforms["midtones"] = ToColorVector(data.Midtones);
             builder.Uniforms["highlights"] = ToColorVector(data.Highlights);

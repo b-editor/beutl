@@ -32,6 +32,8 @@ public partial class ColorGradingTab : UserControl
             _subscriptions.Add(vm.SaturationEditor.Subscribe(v => BindNumberEditor(SaturationEditor, v)));
             _subscriptions.Add(vm.VibranceEditor.Subscribe(v => BindNumberEditor(VibranceEditor, v)));
             _subscriptions.Add(vm.HueEditor.Subscribe(v => BindNumberEditor(HueEditor, v)));
+            _subscriptions.Add(vm.LowRangeEditor.Subscribe(v => BindNumberEditor(LowRangeEditor, v)));
+            _subscriptions.Add(vm.HighRangeEditor.Subscribe(v => BindNumberEditor(HighRangeEditor, v)));
 
             _subscriptions.Add(vm.ShadowsEditor.Subscribe(v => BindColorPicker(ShadowsPicker, v)));
             _subscriptions.Add(vm.MidtonesEditor.Subscribe(v => BindColorPicker(MidtonesPicker, v)));
