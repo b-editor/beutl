@@ -127,6 +127,15 @@
                              x:TypeArguments="x:Single"
                              DataContext="{Binding HueEditor.Value}"
                              Theme="{StaticResource MinimalNumberEditor}" />
+
+            <pe:NumberEditor x:Name="LowRangeEditor"
+                             x:TypeArguments="x:Single"
+                             DataContext="{Binding LowRangeEditor.Value}"
+                             Theme="{StaticResource MinimalNumberEditor}" />
+            <pe:NumberEditor x:Name="HighRangeEditor"
+                             x:TypeArguments="x:Single"
+                             DataContext="{Binding HighRangeEditor.Value}"
+                             Theme="{StaticResource MinimalNumberEditor}" />
         </WrapPanel>
 
         <Panel Grid.Row="2" IsVisible="{Binding HasColorGrading.Value}">

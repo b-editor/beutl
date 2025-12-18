@@ -51,6 +51,66 @@ namespace Beutl.Language {
             }
         }
         
+        public static string BlueCurve {
+            get {
+                return ResourceManager.GetString("BlueCurve", resourceCulture);
+            }
+        }
+        
+        public static string Curves {
+            get {
+                return ResourceManager.GetString("Curves", resourceCulture);
+            }
+        }
+        
+        public static string CustomCurve {
+            get {
+                return ResourceManager.GetString("CustomCurve", resourceCulture);
+            }
+        }
+        
+        public static string GreenCurve {
+            get {
+                return ResourceManager.GetString("GreenCurve", resourceCulture);
+            }
+        }
+        
+        public static string HueVsHue {
+            get {
+                return ResourceManager.GetString("HueVsHue", resourceCulture);
+            }
+        }
+        
+        public static string HueVsLuminance {
+            get {
+                return ResourceManager.GetString("HueVsLuminance", resourceCulture);
+            }
+        }
+        
+        public static string HueVsSaturation {
+            get {
+                return ResourceManager.GetString("HueVsSaturation", resourceCulture);
+            }
+        }
+        
+        public static string LuminanceVsSaturation {
+            get {
+                return ResourceManager.GetString("LuminanceVsSaturation", resourceCulture);
+            }
+        }
+        
+        public static string RedCurve {
+            get {
+                return ResourceManager.GetString("RedCurve", resourceCulture);
+            }
+        }
+        
+        public static string SaturationVsSaturation {
+            get {
+                return ResourceManager.GetString("SaturationVsSaturation", resourceCulture);
+            }
+        }
+        
         public static string CreateNew {
             get {
                 return ResourceManager.GetString("CreateNew", resourceCulture);
@@ -1215,6 +1275,18 @@ namespace Beutl.Language {
             }
         }
         
+        public static string LowRange {
+            get {
+                return ResourceManager.GetString("LowRange", resourceCulture);
+            }
+        }
+        
+        public static string HighRange {
+            get {
+                return ResourceManager.GetString("HighRange", resourceCulture);
+            }
+        }
+        
         public static string Shadows {
             get {
                 return ResourceManager.GetString("Shadows", resourceCulture);
@@ -1910,7 +1982,7 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Saturation", resourceCulture);
             }
         }
-
+        
         public static string Vibrance {
             get {
                 return ResourceManager.GetString("Vibrance", resourceCulture);

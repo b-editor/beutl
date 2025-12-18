@@ -702,6 +702,12 @@
   <data name="Exposure" xml:space="preserve">
     <value>Exposure</value>
   </data>
+  <data name="LowRange" xml:space="preserve">
+    <value>Low Range</value>
+  </data>
+  <data name="HighRange" xml:space="preserve">
+    <value>High Range</value>
+  </data>
   <data name="Shadows" xml:space="preserve">
     <value>Shadows</value>
   </data>
