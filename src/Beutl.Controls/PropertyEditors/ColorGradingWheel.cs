@@ -10,8 +10,11 @@ namespace Beutl.Controls.PropertyEditors;
 
 public class ColorGradingWheel : PropertyEditor
 {
-    public static readonly StyledProperty<GradingColor> ColorProperty =
-        AvaloniaProperty.Register<ColorGradingWheel, GradingColor>(nameof(Color), new GradingColor(1, 1, 1),
+    public static readonly DirectProperty<ColorGradingWheel, GradingColor> ColorProperty =
+        AvaloniaProperty.RegisterDirect<ColorGradingWheel, GradingColor>(
+            nameof(Color),
+            o => o.Color,
+            (o, v) => o.Color = v,
             defaultBindingMode: BindingMode.TwoWay);
 
     public static readonly StyledProperty<GradingColorPickerInputType> InputTypeProperty =
@@ -24,8 +27,8 @@ public class ColorGradingWheel : PropertyEditor
 
     public GradingColor Color
     {
-        get => GetValue(ColorProperty);
-        set => SetValue(ColorProperty, value);
+        get;
+        set => SetAndRaise(ColorProperty, ref field, value);
     }
 
     public GradingColorPickerInputType InputType
