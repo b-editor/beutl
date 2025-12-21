@@ -1965,6 +1965,12 @@ namespace Beutl.Language {
             }
         }
         
+        public static string Master {
+            get {
+                return ResourceManager.GetString("Master", resourceCulture);
+            }
+        }
+        
         public static string Hue {
             get {
                 return ResourceManager.GetString("Hue", resourceCulture);
