@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 using Beutl.Graphics;
@@ -8,26 +7,22 @@ namespace Beutl.Converters;
 
 internal sealed class CurveMapJsonConverter : JsonConverter<CurveMap>
 {
+    private static readonly CurveControlPointJsonConverter s_pointConverter = new();
+
     public override CurveMap Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         if (reader.TokenType != JsonTokenType.StartArray)
             throw new JsonException("Invalid CurveMap.");
 
-        var jsonNode = JsonNode.Parse(ref reader);
-        if (jsonNode is not JsonArray jsonArray)
-            throw new JsonException("Invalid CurveMap.");
+        var points = new List<CurveControlPoint>();
 
-        var points = new List<Point>();
-        foreach (JsonNode? item in jsonArray)
+        while (reader.Read())
         {
-            if (item is JsonValue jsonValue && jsonValue.TryGetValue(out string? pointString))
-            {
-                points.Add(Point.Parse(pointString));
-            }
-            else
-            {
-                throw new JsonException("Invalid Point in CurveMap.");
-            }
+            if (reader.TokenType == JsonTokenType.EndArray)
+                break;
+
+            CurveControlPoint point = s_pointConverter.Read(ref reader, typeof(CurveControlPoint), options);
+            points.Add(point);
         }
 
         return new CurveMap(points);
@@ -36,9 +31,9 @@ internal sealed class CurveMapJsonConverter : JsonConverter<CurveMap>
     public override void Write(Utf8JsonWriter writer, CurveMap value, JsonSerializerOptions options)
     {
         writer.WriteStartArray();
-        foreach (Point point in value.Points)
+        foreach (CurveControlPoint point in value.Points)
         {
-            writer.WriteStringValue(point.ToString());
+            s_pointConverter.Write(writer, point, options);
         }
         writer.WriteEndArray();
     }
