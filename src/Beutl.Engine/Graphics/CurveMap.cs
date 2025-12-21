@@ -12,14 +12,14 @@ public sealed class CurveMap : IEquatable<CurveMap>
 {
     public static readonly CurveMap Default = new([new(0, 0), new(1, 1)]);
 
-    public CurveMap(IEnumerable<Point> points)
+    public CurveMap(IEnumerable<CurveControlPoint> points)
     {
         Points = Normalize(points);
     }
 
-    public ImmutableArray<Point> Points { get; }
+    public ImmutableArray<CurveControlPoint> Points { get; }
 
-    public CurveMap WithPoints(IEnumerable<Point> points)
+    public CurveMap WithPoints(IEnumerable<CurveControlPoint> points)
     {
         return new CurveMap(points);
     }
@@ -30,24 +30,88 @@ public sealed class CurveMap : IEquatable<CurveMap>
             return t;
 
         if (t <= 0)
-            return Points[0].Y;
+            return Points[0].Point.Y;
 
         if (t >= 1)
-            return Points[^1].Y;
+            return Points[^1].Point.Y;
 
         for (int i = 1; i < Points.Length; i++)
         {
-            Point prev = Points[i - 1];
-            Point next = Points[i];
+            CurveControlPoint prev = Points[i - 1];
+            CurveControlPoint next = Points[i];
 
-            if (t <= next.X)
+            if (t <= next.Point.X)
             {
-                float ratio = (t - prev.X) / (next.X - prev.X);
-                return prev.Y + (next.Y - prev.Y) * ratio;
+                // Normalize t to the segment range [0, 1]
+                float segmentT = (t - prev.Point.X) / (next.Point.X - prev.Point.X);
+
+                // Use Bezier interpolation if handles are present
+                if (prev.HasHandles || next.HasHandles)
+                {
+                    return EvaluateCubicBezier(prev, next, segmentT);
+                }
+                else
+                {
+                    // Linear interpolation
+                    return prev.Point.Y + (next.Point.Y - prev.Point.Y) * segmentT;
+                }
             }
         }
 
-        return Points[^1].Y;
+        return Points[^1].Point.Y;
+    }
+
+    private static float EvaluateCubicBezier(CurveControlPoint p0, CurveControlPoint p1, float t)
+    {
+        // Control points for cubic Bezier:
+        // P0 = start point
+        // P1 = start point + right handle
+        // P2 = end point + left handle
+        // P3 = end point
+
+        Point startPoint = p0.Point;
+        Point controlPoint1 = p0.AbsoluteRightHandle;
+        Point controlPoint2 = p1.AbsoluteLeftHandle;
+        Point endPoint = p1.Point;
+
+        // For X, we need to find the parameter u such that X(u) = t
+        // Since we normalized t to the segment, we need to find u for the Bezier
+        float u = FindBezierParameterForX(
+            startPoint.X, controlPoint1.X, controlPoint2.X, endPoint.X,
+            startPoint.X + t * (endPoint.X - startPoint.X));
+
+        // Then evaluate Y at that parameter
+        return CubicBezier(u, startPoint.Y, controlPoint1.Y, controlPoint2.Y, endPoint.Y);
+    }
+
+    private static float FindBezierParameterForX(float x0, float x1, float x2, float x3, float targetX)
+    {
+        // Binary search to find u where X(u) = targetX
+        float low = 0f;
+        float high = 1f;
+        float mid = 0.5f;
+
+        for (int i = 0; i < 20; i++)
+        {
+            mid = (low + high) * 0.5f;
+            float x = CubicBezier(mid, x0, x1, x2, x3);
+
+            if (Math.Abs(x - targetX) < 1e-6f)
+                break;
+
+            if (x < targetX)
+                low = mid;
+            else
+                high = mid;
+        }
+
+        return mid;
+    }
+
+    private static float CubicBezier(float t, float p0, float p1, float p2, float p3)
+    {
+        float u = 1 - t;
+        return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
     }
 
     public SKShader ToShader()
@@ -92,7 +156,7 @@ public sealed class CurveMap : IEquatable<CurveMap>
     public override int GetHashCode()
     {
         HashCode hash = new();
-        foreach (Point p in Points)
+        foreach (CurveControlPoint p in Points)
         {
             hash.Add(p);
         }
@@ -100,8 +164,8 @@ public sealed class CurveMap : IEquatable<CurveMap>
         return hash.ToHashCode();
     }
 
-    private static ImmutableArray<Point> Normalize(IEnumerable<Point> points)
+    private static ImmutableArray<CurveControlPoint> Normalize(IEnumerable<CurveControlPoint> points)
     {
-        return points.OrderBy(p => p.X).ToImmutableArray();
+        return points.OrderBy(p => p.Point.X).ToImmutableArray();
     }
 }

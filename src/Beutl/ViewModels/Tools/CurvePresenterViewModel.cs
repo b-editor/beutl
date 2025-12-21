@@ -22,15 +22,14 @@ public sealed class CurvePresenterViewModel : IDisposable
         _property = property;
         _commandRecorder = commandRecorder;
 
-        Points = new ObservableCollection<Avalonia.Point>(
-            _property.CurrentValue.Points.Select(p => p.ToAvaPoint()));
+        Points = new ObservableCollection<CurveControlPoint>(_property.CurrentValue.Points);
         Points.CollectionChanged += OnCollectionChanged;
         _property.ValueChanged += OnPropertyChanged;
     }
 
     public string Header { get; }
 
-    public ObservableCollection<Avalonia.Point> Points { get; }
+    public ObservableCollection<CurveControlPoint> Points { get; }
 
     public void BeginEdit()
     {
@@ -61,7 +60,7 @@ public sealed class CurvePresenterViewModel : IDisposable
         _isUpdating = true;
         try
         {
-            var map = new CurveMap(Points.Select(p => p.ToBtlPoint()));
+            var map = new CurveMap(Points);
             _property.CurrentValue = map;
         }
         finally
@@ -82,7 +81,7 @@ public sealed class CurvePresenterViewModel : IDisposable
             Points.Clear();
             foreach (var point in _property.CurrentValue.Points)
             {
-                Points.Add(point.ToAvaPoint());
+                Points.Add(point);
             }
             Points.CollectionChanged += OnCollectionChanged;
         }
