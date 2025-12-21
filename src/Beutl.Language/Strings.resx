@@ -120,6 +120,36 @@
   <data name="File" xml:space="preserve">
     <value>File</value>
   </data>
+  <data name="BlueCurve" xml:space="preserve">
+    <value>Blue curve</value>
+  </data>
+  <data name="Curves" xml:space="preserve">
+    <value>Curves</value>
+  </data>
+  <data name="CustomCurve" xml:space="preserve">
+    <value>Custom (RGB)</value>
+  </data>
+  <data name="GreenCurve" xml:space="preserve">
+    <value>Green curve</value>
+  </data>
+  <data name="HueVsHue" xml:space="preserve">
+    <value>Hue vs Hue</value>
+  </data>
+  <data name="HueVsLuminance" xml:space="preserve">
+    <value>Hue vs Luminance</value>
+  </data>
+  <data name="HueVsSaturation" xml:space="preserve">
+    <value>Hue vs Saturation</value>
+  </data>
+  <data name="LuminanceVsSaturation" xml:space="preserve">
+    <value>Luminance vs Saturation</value>
+  </data>
+  <data name="RedCurve" xml:space="preserve">
+    <value>Red curve</value>
+  </data>
+  <data name="SaturationVsSaturation" xml:space="preserve">
+    <value>Saturation vs Saturation</value>
+  </data>
   <data name="CreateNew" xml:space="preserve">
     <value>Create New</value>
   </data>
