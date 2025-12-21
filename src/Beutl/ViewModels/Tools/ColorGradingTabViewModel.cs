@@ -63,7 +63,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
     public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.RightUpperBottom);
+        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.RightLowerBottom);
 
     public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
         new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();

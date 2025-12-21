@@ -70,7 +70,7 @@
             </Setter>
         </ControlTheme>
     </UserControl.Resources>
-    <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*">
         <Grid Grid.Row="0"
               Height="32"
               ColumnDefinitions="*,*">
