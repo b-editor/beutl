@@ -1077,6 +1077,9 @@
   <data name="Blue" xml:space="preserve">
     <value>Blue</value>
   </data>
+  <data name="Master" xml:space="preserve">
+    <value>Master</value>
+  </data>
   <data name="Hue" xml:space="preserve">
     <value>Hue</value>
   </data>

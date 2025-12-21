@@ -208,6 +208,7 @@ public static class PropertyEditorService
             new(typeof(Geometry), new(_ => new GeometryEditor(), s => new GeometryEditorViewModel(s.ToTyped<Geometry?>()))),
             new(typeof(AudioEffect), new(_ => new AudioEffectEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<AudioEffect?>()))),
             new(typeof(Transform), new(_ => new TransformEditor(), s => new TransformEditorViewModel(s.ToTyped<Transform?>()))),
+            new(typeof(CurveMap), new(_ => new CurveMapEditor(), s => new CurveMapEditorViewModel(s.ToTyped<CurveMap>()))),
             new(typeof(ICoreList<GradientStop>), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<ICoreList<GradientStop>>()))),
             new(typeof(DisplacementMapTransform), new(_ => new DisplacementMapTransformEditor(), s => new DisplacementMapTransformEditorViewModel(s.ToTyped<DisplacementMapTransform?>()))),
             new(typeof(IList), new(CreateListEditor, CreateListEditorViewModel)),
