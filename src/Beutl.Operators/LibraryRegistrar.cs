@@ -133,6 +133,7 @@ public static class LibraryRegistrar
                 .AddFilterEffect<Brightness>(Strings.Brightness)
                 .AddFilterEffect<Gamma>(Strings.Gamma)
                 .AddFilterEffect<ColorGrading>(Strings.ColorGrading)
+                .AddFilterEffect<Curves>(Strings.Curves)
                 .AddFilterEffect<Invert>(Strings.Invert)
                 .AddFilterEffect<LutEffect>(Strings.LUT_Cube_File)
                 .AddFilterEffect<BlendEffect>(Strings.BlendEffect)

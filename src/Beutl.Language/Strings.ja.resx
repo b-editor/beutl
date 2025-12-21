@@ -125,6 +125,36 @@
   <data name="File" xml:space="preserve">
     <value>ファイル</value>
   </data>
+  <data name="BlueCurve" xml:space="preserve">
+    <value>ブルーカーブ</value>
+  </data>
+  <data name="Curves" xml:space="preserve">
+    <value>カーブ</value>
+  </data>
+  <data name="CustomCurve" xml:space="preserve">
+    <value>カスタム(RGB)</value>
+  </data>
+  <data name="GreenCurve" xml:space="preserve">
+    <value>グリーンカーブ</value>
+  </data>
+  <data name="HueVsHue" xml:space="preserve">
+    <value>色相 vs 色相</value>
+  </data>
+  <data name="HueVsLuminance" xml:space="preserve">
+    <value>色相 vs 輝度</value>
+  </data>
+  <data name="HueVsSaturation" xml:space="preserve">
+    <value>色相 vs 彩度</value>
+  </data>
+  <data name="LuminanceVsSaturation" xml:space="preserve">
+    <value>輝度 vs 彩度</value>
+  </data>
+  <data name="RedCurve" xml:space="preserve">
+    <value>レッドカーブ</value>
+  </data>
+  <data name="SaturationVsSaturation" xml:space="preserve">
+    <value>彩度 vs 彩度</value>
+  </data>
   <data name="Close" xml:space="preserve">
     <value>閉じる</value>
   </data>
