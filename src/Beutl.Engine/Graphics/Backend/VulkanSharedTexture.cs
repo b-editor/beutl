@@ -1,0 +1,224 @@
+﻿using System.Runtime.InteropServices;
+using Silk.NET.Vulkan;
+using SkiaSharp;
+
+namespace Beutl.Graphics.Backend;
+
+using Image = Silk.NET.Vulkan.Image;
+
+internal sealed unsafe class VulkanSharedTexture : ISharedTexture
+{
+    private readonly VulkanContext _context;
+    private readonly Image _image;
+    private readonly DeviceMemory _memory;
+    private readonly ImageView _imageView;
+    private readonly int _width;
+    private readonly int _height;
+    private readonly TextureFormat _format;
+    private readonly ulong _allocationSize;
+    private GRBackendRenderTarget? _backendRenderTarget;
+    private bool _disposed;
+
+    public VulkanSharedTexture(VulkanContext context, int width, int height, TextureFormat format)
+    {
+        _context = context;
+        _width = width;
+        _height = height;
+        _format = format;
+
+        var vk = context.Vk;
+
+        // Create image with color attachment and transfer src for blitting
+        var imageInfo = new ImageCreateInfo
+        {
+            SType = StructureType.ImageCreateInfo,
+            ImageType = ImageType.Type2D,
+            Format = ConvertFormat(format),
+            Extent = new Extent3D { Width = (uint)width, Height = (uint)height, Depth = 1 },
+            MipLevels = 1,
+            ArrayLayers = 1,
+            Samples = SampleCountFlags.Count1Bit,
+            Tiling = ImageTiling.Optimal,
+            Usage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
+                    ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit,
+            SharingMode = SharingMode.Exclusive,
+            InitialLayout = ImageLayout.Undefined
+        };
+
+        fixed (Image* pImage = &_image)
+        {
+            var result = vk.CreateImage(context.Device, &imageInfo, null, pImage);
+            if (result != Result.Success)
+                throw new InvalidOperationException($"Failed to create Vulkan image: {result}");
+        }
+
+        // Get memory requirements
+        MemoryRequirements memReqs;
+        vk.GetImageMemoryRequirements(context.Device, _image, &memReqs);
+        _allocationSize = memReqs.Size;
+
+        // Allocate device local memory
+        var allocInfo = new MemoryAllocateInfo
+        {
+            SType = StructureType.MemoryAllocateInfo,
+            AllocationSize = memReqs.Size,
+            MemoryTypeIndex = FindMemoryType(context, memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
+        };
+
+        fixed (DeviceMemory* pMemory = &_memory)
+        {
+            var result = vk.AllocateMemory(context.Device, &allocInfo, null, pMemory);
+            if (result != Result.Success)
+                throw new InvalidOperationException($"Failed to allocate Vulkan image memory: {result}");
+        }
+
+        // Bind memory to image
+        vk.BindImageMemory(context.Device, _image, _memory, 0);
+
+        // Create image view
+        var viewInfo = new ImageViewCreateInfo
+        {
+            SType = StructureType.ImageViewCreateInfo,
+            Image = _image,
+            ViewType = ImageViewType.Type2D,
+            Format = ConvertFormat(format),
+            SubresourceRange = new ImageSubresourceRange
+            {
+                AspectMask = ImageAspectFlags.ColorBit,
+                BaseMipLevel = 0,
+                LevelCount = 1,
+                BaseArrayLayer = 0,
+                LayerCount = 1
+            }
+        };
+
+        fixed (ImageView* pView = &_imageView)
+        {
+            var result = vk.CreateImageView(context.Device, &viewInfo, null, pView);
+            if (result != Result.Success)
+                throw new InvalidOperationException($"Failed to create Vulkan image view: {result}");
+        }
+
+        // Create GRBackendRenderTarget for SkiaSharp (Windows/Linux only)
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            CreateBackendRenderTarget();
+        }
+    }
+
+    private void CreateBackendRenderTarget()
+    {
+        var vkImageInfo = new GRVkImageInfo
+        {
+            Image = _image.Handle,
+            Alloc = new GRVkAlloc { Memory = (ulong)_memory.Handle, Offset = 0, Size = _allocationSize },
+            ImageTiling = (uint)ImageTiling.Optimal,
+            ImageLayout = (uint)ImageLayout.ColorAttachmentOptimal,
+            Format = (uint)ConvertFormat(_format),
+            ImageUsageFlags = (uint)(ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
+                                     ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit),
+            SampleCount = 1,
+            LevelCount = 1,
+            CurrentQueueFamily = _context.GraphicsQueueFamilyIndex,
+            Protected = false,
+            SharingMode = (uint)SharingMode.Exclusive
+        };
+
+        _backendRenderTarget = new GRBackendRenderTarget(_width, _height, vkImageInfo);
+    }
+
+    public int Width => _width;
+
+    public int Height => _height;
+
+    public TextureFormat Format => _format;
+
+    public IntPtr VulkanImageHandle => (IntPtr)_image.Handle;
+
+    public SKSurface CreateSkiaSurface()
+    {
+        // On macOS, use raster surface (Metal interop handles rendering separately)
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            var info = new SKImageInfo(_width, _height, GetSkiaColorType(_format), SKAlphaType.Premul);
+            return SKSurface.Create(info);
+        }
+
+        // On Windows/Linux, use Vulkan backend render target
+        if (_backendRenderTarget == null)
+        {
+            throw new InvalidOperationException("Backend render target is not initialized");
+        }
+
+        var grContext = _context.SkiaContext;
+        var surface = SKSurface.Create(grContext, _backendRenderTarget, GRSurfaceOrigin.TopLeft,
+            GetSkiaColorType(_format));
+
+        if (surface == null)
+        {
+            throw new InvalidOperationException("Failed to create SkiaSharp surface from Vulkan backend render target");
+        }
+
+        return surface;
+    }
+
+    private static Silk.NET.Vulkan.Format ConvertFormat(TextureFormat format)
+    {
+        return format switch
+        {
+            TextureFormat.RGBA8Unorm => Silk.NET.Vulkan.Format.R8G8B8A8Unorm,
+            TextureFormat.BGRA8Unorm => Silk.NET.Vulkan.Format.B8G8R8A8Unorm,
+            TextureFormat.RGBA16Float => Silk.NET.Vulkan.Format.R16G16B16A16Sfloat,
+            TextureFormat.RGBA32Float => Silk.NET.Vulkan.Format.R32G32B32A32Sfloat,
+            TextureFormat.R8Unorm => Silk.NET.Vulkan.Format.R8Unorm,
+            TextureFormat.R16Float => Silk.NET.Vulkan.Format.R16Sfloat,
+            TextureFormat.R32Float => Silk.NET.Vulkan.Format.R32Sfloat,
+            _ => throw new ArgumentException($"Unsupported format: {format}")
+        };
+    }
+
+    private static SKColorType GetSkiaColorType(TextureFormat format)
+    {
+        return format switch
+        {
+            TextureFormat.RGBA8Unorm => SKColorType.Rgba8888,
+            TextureFormat.BGRA8Unorm => SKColorType.Bgra8888,
+            TextureFormat.RGBA16Float => SKColorType.RgbaF16,
+            TextureFormat.RGBA32Float => SKColorType.RgbaF32,
+            TextureFormat.R8Unorm => SKColorType.Gray8,
+            TextureFormat.R16Float => SKColorType.AlphaF16,
+            TextureFormat.R32Float => SKColorType.RgbaF32, // Fallback: no single-channel F32
+            _ => SKColorType.Rgba8888
+        };
+    }
+
+    private static uint FindMemoryType(VulkanContext context, uint typeFilter, MemoryPropertyFlags properties)
+    {
+        PhysicalDeviceMemoryProperties memProps;
+        context.Vk.GetPhysicalDeviceMemoryProperties(context.PhysicalDevice, &memProps);
+
+        for (uint i = 0; i < memProps.MemoryTypeCount; i++)
+        {
+            if ((typeFilter & (1u << (int)i)) != 0 &&
+                (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
+            {
+                return i;
+            }
+        }
+
+        throw new InvalidOperationException("Failed to find suitable memory type");
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        _backendRenderTarget?.Dispose();
+        _backendRenderTarget = null;
+
+        _context.Vk.DestroyImageView(_context.Device, _imageView, null);
+        _context.Vk.DestroyImage(_context.Device, _image, null);
+        _context.Vk.FreeMemory(_context.Device, _memory, null);
+    }
+}

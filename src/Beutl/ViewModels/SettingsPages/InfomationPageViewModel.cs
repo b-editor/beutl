@@ -21,15 +21,16 @@ public sealed class InformationPageViewModel : PageContext
         {
             if (!Design.IsDesignMode)
             {
-                _ = SharedGRContext.GetOrCreate();
-                GlVersion.Value = SharedGRContext.Version;
-
-                GpuDevice.Value = SharedGPUContext.Device.Name;
-
-                using var sw = new StringWriter();
-                SharedGPUContext.Device.PrintInformation(sw);
-
-                GpuDeviceDetail.Value = sw.ToString();
+                // TODO: GPU情報の取得を実装する
+                // _ = SharedGRContext.GetOrCreate();
+                // GlVersion.Value = SharedGRContext.Version;
+                //
+                // GpuDevice.Value = SharedGPUContext.Device.Name;
+                //
+                // using var sw = new StringWriter();
+                // SharedGPUContext.Device.PrintInformation(sw);
+                //
+                // GpuDeviceDetail.Value = sw.ToString();
             }
         }, DispatchPriority.Low);
 

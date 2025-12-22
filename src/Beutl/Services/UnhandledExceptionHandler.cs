@@ -1,5 +1,6 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
 using Beutl.Logging;
@@ -74,8 +75,7 @@ public static class UnhandledExceptionHandler
         {
             GlobalConfiguration.Instance.Save(GlobalConfiguration.DefaultFilePath);
 
-            SharedGPUContext.Shutdown();
-            SharedGRContext.Shutdown();
+            GraphicsContextFactory.Shutdown();
             RenderThread.Dispatcher.Shutdown();
 
             BeutlApplication.Current.LoggerFactory.Dispose();

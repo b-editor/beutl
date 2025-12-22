@@ -36,8 +36,6 @@ internal static class Program
 
         UnhandledExceptionHandler.Initialize();
 
-        RenderThread.Dispatcher.Dispatch(SharedGPUContext.Create, Threading.DispatchPriority.High);
-
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
 

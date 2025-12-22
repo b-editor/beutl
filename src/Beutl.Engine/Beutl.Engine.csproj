@@ -30,6 +30,11 @@
     <PackageReference Include="OpenCvSharp4.runtime.win" />
     <PackageReference Include="OpenTK.OpenAL" />
     <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" />
+    <PackageReference Include="Silk.NET.MoltenVK.Native" />
+    <PackageReference Include="Silk.NET.Vulkan" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" />
+    <PackageReference Include="Silk.NET.Vulkan.Loader.Native" />
     <PackageReference Include="SkiaSharp.HarfBuzz" />
     <PackageReference Include="Vortice.XAudio2" />
     <PackageReference Include="SkiaSharp" />
