@@ -8,6 +8,8 @@ internal interface IGraphicsContext : IDisposable
 
     GRContext SkiaContext { get; }
 
+    GpuInfo? GpuInfo { get; }
+
     ISharedTexture CreateTexture(int width, int height, TextureFormat format);
 
     void WaitIdle();

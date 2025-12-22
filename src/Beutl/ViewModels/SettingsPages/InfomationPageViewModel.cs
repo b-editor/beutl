@@ -4,6 +4,7 @@ using System.Reflection;
 using Avalonia.Controls;
 
 using Beutl.Controls.Navigation;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Threading;
 
@@ -21,16 +22,34 @@ public sealed class InformationPageViewModel : PageContext
         {
             if (!Design.IsDesignMode)
             {
-                // TODO: GPU情報の取得を実装する
-                // _ = SharedGRContext.GetOrCreate();
-                // GlVersion.Value = SharedGRContext.Version;
-                //
-                // GpuDevice.Value = SharedGPUContext.Device.Name;
-                //
-                // using var sw = new StringWriter();
-                // SharedGPUContext.Device.PrintInformation(sw);
-                //
-                // GpuDeviceDetail.Value = sw.ToString();
+                var context = GraphicsContextFactory.GetOrCreateShared();
+                if (context?.GpuInfo is { } gpuInfo)
+                {
+                    // Available GPUs
+                    AvailableGpus.Value = gpuInfo.AvailableGpus
+                        .Select(g => $"{g.Name} ({g.DeviceType})")
+                        .ToArray();
+
+                    // Selected GPU
+                    if (gpuInfo.SelectedGpu != null)
+                    {
+                        SelectedGpu.Value = $"{gpuInfo.SelectedGpu.Name} ({gpuInfo.SelectedGpu.DeviceType})";
+                    }
+
+                    // Vulkan version
+                    VulkanVersion.Value = gpuInfo.ApiVersion;
+
+                    // Enabled extensions
+                    EnabledExtensions.Value = gpuInfo.EnabledExtensions.ToArray();
+
+                    // Memory info
+                    if (gpuInfo.Memory != null)
+                    {
+                        var deviceMemoryMB = gpuInfo.Memory.DeviceLocalMemory / (1024 * 1024);
+                        var hostMemoryMB = gpuInfo.Memory.HostVisibleMemory / (1024 * 1024);
+                        AvailableMemory.Value = $"Device Local: {deviceMemoryMB:N0} MB, Host Visible: {hostMemoryMB:N0} MB";
+                    }
+                }
             }
         }, DispatchPriority.Low);
 
@@ -58,11 +77,15 @@ public sealed class InformationPageViewModel : PageContext
 
     public string ThirdPartyNoticesUrl { get; } = "https://github.com/b-editor/beutl/blob/main/THIRD_PARTY_NOTICES.md";
 
-    public ReactivePropertySlim<string?> GlVersion { get; } = new();
+    public ReactivePropertySlim<string[]?> AvailableGpus { get; } = new();
 
-    public ReactivePropertySlim<string?> GpuDevice { get; } = new();
+    public ReactivePropertySlim<string?> SelectedGpu { get; } = new();
 
-    public ReactivePropertySlim<string?> GpuDeviceDetail { get; } = new();
+    public ReactivePropertySlim<string[]?> EnabledExtensions { get; } = new();
+
+    public ReactivePropertySlim<string?> VulkanVersion { get; } = new();
+
+    public ReactivePropertySlim<string?> AvailableMemory { get; } = new();
 
     public TelemetrySettingsPageViewModel Telemetry => _telemetry ??= new();
 

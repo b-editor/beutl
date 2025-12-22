@@ -95,16 +95,42 @@
                             </Style>
                         </StackPanel.Styles>
                         <Grid ColumnDefinitions="*,*">
-                            <TextBlock Text="{x:Static lang:SettingsPage.OpenGLVersion}" />
-                            <SelectableTextBlock Grid.Column="1" Text="{Binding GlVersion.Value}" />
+                            <TextBlock Text="Vulkan Version" />
+                            <SelectableTextBlock Grid.Column="1" Text="{Binding VulkanVersion.Value}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*">
+                            <TextBlock Text="Selected GPU" />
+                            <SelectableTextBlock Grid.Column="1" Text="{Binding SelectedGpu.Value}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*">
+                            <TextBlock Text="Available Memory" />
+                            <SelectableTextBlock Grid.Column="1" Text="{Binding AvailableMemory.Value}" />
                         </Grid>
                         <Grid RowDefinitions="Auto,Auto">
-                            <TextBlock Text="{x:Static lang:SettingsPage.GpuInformation}" />
-                            <SelectableTextBlock Grid.Row="1"
-                                                 Margin="16,0"
-                                                 FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
-                                                 Text="{Binding GpuDeviceDetail.Value}"
-                                                 TextWrapping="WrapWithOverflow" />
+                            <TextBlock Text="Available GPUs" />
+                            <ItemsControl Grid.Row="1"
+                                          Margin="16,0"
+                                          ItemsSource="{Binding AvailableGpus.Value}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <SelectableTextBlock FontFamily="Cascadia Code,Consolas,Menlo,Monospace" Text="{Binding}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                        <Grid RowDefinitions="Auto,Auto">
+                            <TextBlock Text="Enabled Extensions" />
+                            <ItemsControl Grid.Row="1"
+                                          Margin="16,0"
+                                          ItemsSource="{Binding EnabledExtensions.Value}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <SelectableTextBlock FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                                                             FontSize="11"
+                                                             Text="{Binding}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </Grid>
                     </StackPanel>
                 </ctrls:OptionsDisplayItem.Content>

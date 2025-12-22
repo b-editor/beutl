@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Core;
@@ -24,6 +25,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
     private readonly string[] _enabledDeviceExtensions;
     private GRContext? _skiaContext;
     private GRVkBackendContext? _skiaBackendContext;
+    private GpuInfo? _gpuInfo;
     private bool _disposed;
 
     public VulkanContext(bool enableValidation = false)
@@ -72,6 +74,9 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         {
             InitializeSkiaVulkanContext();
         }
+
+        // Collect GPU information
+        _gpuInfo = CollectGpuInfo();
 
         s_logger.LogDebug("Vulkan context created successfully");
     }
@@ -152,6 +157,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
     public Queue GraphicsQueue => _graphicsQueue;
 
     public uint GraphicsQueueFamilyIndex => _graphicsQueueFamilyIndex;
+
+    public GpuInfo? GpuInfo => _gpuInfo;
 
     public ISharedTexture CreateTexture(int width, int height, TextureFormat format)
     {
@@ -594,5 +601,93 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         _vk.DestroyInstance(_instance, null);
         _vk.Dispose();
+    }
+
+    private GpuInfo CollectGpuInfo()
+    {
+        var availableGpus = new List<GpuDeviceInfo>();
+        GpuDeviceInfo? selectedGpu = null;
+        GpuMemoryInfo? memoryInfo = null;
+        string apiVersion = "Unknown";
+
+        // Enumerate all physical devices
+        uint deviceCount = 0;
+        _vk.EnumeratePhysicalDevices(_instance, &deviceCount, null);
+
+        if (deviceCount > 0)
+        {
+            var devices = new PhysicalDevice[deviceCount];
+            fixed (PhysicalDevice* pDevices = devices)
+            {
+                _vk.EnumeratePhysicalDevices(_instance, &deviceCount, pDevices);
+            }
+
+            foreach (var device in devices)
+            {
+                PhysicalDeviceProperties properties;
+                _vk.GetPhysicalDeviceProperties(device, &properties);
+
+                var deviceName = Marshal.PtrToStringAnsi((IntPtr)properties.DeviceName) ?? "Unknown";
+                var deviceType = properties.DeviceType switch
+                {
+                    PhysicalDeviceType.IntegratedGpu => "Integrated GPU",
+                    PhysicalDeviceType.DiscreteGpu => "Discrete GPU",
+                    PhysicalDeviceType.VirtualGpu => "Virtual GPU",
+                    PhysicalDeviceType.Cpu => "CPU",
+                    _ => "Other"
+                };
+
+                availableGpus.Add(new GpuDeviceInfo(deviceName, deviceType));
+
+                // If this is the selected device, get additional info
+                if (device.Handle == _physicalDevice.Handle)
+                {
+                    selectedGpu = new GpuDeviceInfo(deviceName, deviceType);
+
+                    // Extract Vulkan API version
+                    uint major = properties.ApiVersion >> 22;
+                    uint minor = (properties.ApiVersion >> 12) & 0x3FF;
+                    uint patch = properties.ApiVersion & 0xFFF;
+                    apiVersion = $"{major}.{minor}.{patch}";
+
+                    // Get memory properties
+                    PhysicalDeviceMemoryProperties memProps;
+                    _vk.GetPhysicalDeviceMemoryProperties(device, &memProps);
+
+                    ulong deviceLocalMemory = 0;
+                    ulong hostVisibleMemory = 0;
+
+                    for (uint i = 0; i < memProps.MemoryHeapCount; i++)
+                    {
+                        var heap = memProps.MemoryHeaps[(int)i];
+                        if ((heap.Flags & MemoryHeapFlags.DeviceLocalBit) != 0)
+                        {
+                            deviceLocalMemory += heap.Size;
+                        }
+                        else
+                        {
+                            hostVisibleMemory += heap.Size;
+                        }
+                    }
+
+                    memoryInfo = new GpuMemoryInfo(deviceLocalMemory, hostVisibleMemory);
+                }
+            }
+        }
+
+        // Combine instance and device extensions
+        var allExtensions = new List<string>();
+        allExtensions.AddRange(_enabledInstanceExtensions);
+        allExtensions.AddRange(_enabledDeviceExtensions);
+
+        var info = new GpuInfo(
+            availableGpus,
+            selectedGpu,
+            allExtensions,
+            apiVersion,
+            memoryInfo);
+        var json = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
+        s_logger.LogInformation("GPU Info: {Info}", json);
+        return info;
     }
 }

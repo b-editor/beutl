@@ -26,6 +26,8 @@ internal sealed class CompositeContext : IGraphicsContext
 
     public VulkanContext Vulkan { get; }
 
+    public GpuInfo? GpuInfo => Vulkan.GpuInfo;
+
     public ISharedTexture CreateTexture(int width, int height, TextureFormat format)
     {
         return new MetalVulkanSharedTexture(Metal, Vulkan, width, height, format);
@@ -33,7 +35,7 @@ internal sealed class CompositeContext : IGraphicsContext
 
     public void WaitIdle()
     {
-        Vulkan?.WaitIdle();
+        Vulkan.WaitIdle();
         Metal.WaitIdle();
     }
 
@@ -42,7 +44,7 @@ internal sealed class CompositeContext : IGraphicsContext
         if (_disposed) return;
         _disposed = true;
 
-        Vulkan?.Dispose();
+        Vulkan.Dispose();
         Metal.Dispose();
     }
 }
