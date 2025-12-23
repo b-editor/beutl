@@ -104,7 +104,15 @@ internal static class VulkanSetup
             if (swiftShaderIcd != null)
                 prependPaths.Add(swiftShaderIcd);
 
-            UpdateEnv(prependPaths, appendPaths, "VK_ADD_DRIVER_FILES");
+            if (OperatingSystem.IsMacOS())
+            {
+                // https://stackoverflow.com/questions/79476650/vulkan-on-macos-with-multiple-drivers
+                UpdateEnv(prependPaths, appendPaths, "VK_DRIVER_FILES");
+            }
+            else
+            {
+                UpdateEnv(prependPaths, appendPaths, "VK_ADD_DRIVER_FILES");
+            }
 
             s_logger.LogDebug("MoltenVK environment setup completed successfully");
         }
