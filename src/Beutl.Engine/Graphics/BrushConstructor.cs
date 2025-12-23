@@ -206,7 +206,7 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
         PixelSize pixelSize;
 
         if (tileBrush is ImageBrush.Resource imageBrush
-                 && imageBrush.Source?.TryGetRef(out Ref<IBitmap>? bitmap) == true)
+            && imageBrush.Source?.TryGetRef(out Ref<IBitmap>? bitmap) == true)
         {
             using (bitmap)
             {
@@ -217,16 +217,30 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
         else if (tileBrush is DrawableBrush.Resource drawableBrush)
         {
             if (drawableBrush.Drawable is null) return null;
-            renderTarget = RenderTarget.Create((int)Bounds.Width, (int)Bounds.Height);
+
+            var drawable = drawableBrush.Drawable;
+            using var node = new DrawableRenderNode(drawable);
+            using var context = new GraphicsContext2D(node, new PixelSize((int)Bounds.Width, (int)Bounds.Height));
+            drawable.GetOriginal().Render(context, drawable);
+            var processor = new RenderNodeProcessor(node, true);
+            var ops = processor.RasterizeToRenderTargets();
+            var totalBounds = ops.Aggregate(Rect.Empty, (current, item) => current.Union(item.Bounds));
+
+            renderTarget = RenderTarget.Create((int)totalBounds.Width, (int)totalBounds.Height);
             if (renderTarget == null) return null;
 
             using (var icanvas = new ImmediateCanvas(renderTarget))
             {
                 icanvas.Clear();
-                icanvas.DrawDrawable(drawableBrush.Drawable);
+
+                foreach (var op in ops)
+                {
+                    icanvas.DrawRenderTarget(op.RenderTarget, op.Bounds.Position - totalBounds.Position);
+                    op.RenderTarget.Dispose();
+                }
             }
 
-            pixelSize = new PixelSize(renderTarget.Width, renderTarget.Height);
+            pixelSize = new PixelSize((int)totalBounds.Width, (int)totalBounds.Height);
             skImage = renderTarget.Value.Snapshot();
         }
         else

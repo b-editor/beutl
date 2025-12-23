@@ -20,8 +20,8 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
             || Builder.HasFilter()
             || CurrentTargets is [{ NodeOperation: not null }])
         {
-            using var paint = new SKPaint();
-            paint.ImageFilter = Builder.GetFilter();
+            using var paint = Builder.HasFilter() ? new SKPaint() : null;
+            paint?.ImageFilter = Builder.GetFilter();
 
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
@@ -32,7 +32,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                 {
                     using (var canvas = new ImmediateCanvas(surface))
                     using (canvas.PushTransform(Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y)))
-                    using (canvas.PushPaint(paint))
+                    using (paint != null ? canvas.PushPaint(paint) : default)
                     {
                         canvas.Clear();
                         target.Draw(canvas);
