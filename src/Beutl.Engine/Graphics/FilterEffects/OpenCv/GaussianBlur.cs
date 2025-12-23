@@ -88,6 +88,7 @@ public partial class GaussianBlur : FilterEffect
                 EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
                 using (var canvas = context.Open(newTarget))
                 {
+                    canvas.Clear();
                     canvas.DrawBitmap(dst, Brushes.Resource.White, null);
                 }
                 target.Dispose();

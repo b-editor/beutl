@@ -34,6 +34,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                     using (canvas.PushTransform(Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y)))
                     using (canvas.PushPaint(paint))
                     {
+                        canvas.Clear();
                         target.Draw(canvas);
                     }
 

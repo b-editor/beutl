@@ -100,6 +100,7 @@ public partial class ColorKey : FilterEffect
             using (var canvas = c.Open(newTarget))
             {
                 paint.Shader = finalShader;
+                canvas.Clear();
                 canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
 
                 c.Targets[i] = newTarget;

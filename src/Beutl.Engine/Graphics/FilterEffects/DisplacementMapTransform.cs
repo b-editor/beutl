@@ -97,6 +97,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     using (var canvas = c.Open(newTarget))
                     {
                         paint.Shader = finalShader;
+                        canvas.Clear();
                         canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
 
                         c.Targets[i] = newTarget;
@@ -200,6 +201,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                     using (var canvas = c.Open(newTarget))
                     {
                         paint.Shader = finalShader;
+                        canvas.Clear();
                         canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
 
                         c.Targets[i] = newTarget;
@@ -299,6 +301,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                     using (var canvas = c.Open(newTarget))
                     {
                         paint.Shader = finalShader;
+                        canvas.Clear();
                         canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
 
                         c.Targets[i] = newTarget;

@@ -222,6 +222,7 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
 
             using (var icanvas = new ImmediateCanvas(renderTarget))
             {
+                icanvas.Clear();
                 icanvas.DrawDrawable(drawableBrush.Drawable);
             }
 

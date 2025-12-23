@@ -30,6 +30,7 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
                                throw new Exception("RenderTarget is null");
 
             using var canvas = new ImmediateCanvas(renderTarget);
+            canvas.Clear();
 
             using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
             {
@@ -54,6 +55,7 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
                                      ?? throw new Exception("RenderTarget is null");
 
             using var canvas = new ImmediateCanvas(renderTarget);
+            canvas.Clear();
 
             using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
             {
@@ -75,6 +77,7 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
         using var renderTarget =
             RenderTarget.Create(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
         using var canvas = new ImmediateCanvas(renderTarget);
+        canvas.Clear();
         using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
         {
             foreach (var op in ops)

@@ -71,6 +71,7 @@ public partial class SplitEffect : FilterEffect
 
                                 using (ImmediateCanvas canvas = effectContext.Open(newTarget))
                                 {
+                                    canvas.Clear();
                                     canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h, -divHeight * v));
                                 }
 

@@ -60,6 +60,7 @@ public partial class DisplacementMapEffect : FilterEffect
                         using (var canvas = effectContext.Open(newTarget))
                         {
                             paint.Shader = displacementMapShader;
+                            canvas.Clear();
                             canvas.Canvas.DrawRect(
                                 new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height),
                                 paint);

@@ -85,7 +85,8 @@ public sealed partial class Clipping : FilterEffect
         return new Thickness(x0, y0, bitmap.Width - x1, bitmap.Height - y1);
     }
 
-    private static void Apply((Thickness thickness, bool autoCenter, bool autoClip) data, CustomFilterEffectContext context)
+    private static void Apply((Thickness thickness, bool autoCenter, bool autoClip) data,
+        CustomFilterEffectContext context)
     {
         Thickness originalThickness = data.thickness;
         bool autoCenter = data.autoCenter;
@@ -135,22 +136,21 @@ public sealed partial class Clipping : FilterEffect
                     Rect centeredRect = originalRect.CenterRect(clipRect);
                     newTarget = context.CreateTarget(centeredRect.Translate(target.Bounds.Position));
                     using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                    using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX, pointY)))
                     {
-                        using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX, pointY)))
-                        {
-                            newCanvas.DrawRenderTarget(target.RenderTarget!, new(centeredRect.X, centeredRect.Y));
-                        }
+                        newCanvas.Clear();
+                        newCanvas.DrawRenderTarget(target.RenderTarget!, new(centeredRect.X, centeredRect.Y));
                     }
                 }
                 else
                 {
                     newTarget = context.CreateTarget(newBounds);
                     using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                    using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX, pointY)))
                     {
-                        using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX, pointY)))
-                        {
-                            newCanvas.DrawRenderTarget(target.RenderTarget!, new(target.Bounds.X - newBounds.X, target.Bounds.Y - newBounds.Y));
-                        }
+                        newCanvas.Clear();
+                        newCanvas.DrawRenderTarget(target.RenderTarget!,
+                            new(target.Bounds.X - newBounds.X, target.Bounds.Y - newBounds.Y));
                     }
                 }
 

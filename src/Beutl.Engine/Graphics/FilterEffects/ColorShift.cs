@@ -122,6 +122,7 @@ public partial class ColorShift : FilterEffect
             using (var canvas = context.Open(newTarget))
             {
                 paint.Shader = finalShader;
+                canvas.Clear();
                 canvas.Canvas.DrawRect(new SKRect(0, 0, bounds.Width, bounds.Height), paint);
 
                 context.Targets[i] = newTarget;

@@ -85,6 +85,7 @@ public sealed partial class PathFollowEffect : FilterEffect
                 using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
                 using (canvas.PushTransform(m2))
                 {
+                    canvas.Clear();
                     target.Draw(canvas);
                 }
 
