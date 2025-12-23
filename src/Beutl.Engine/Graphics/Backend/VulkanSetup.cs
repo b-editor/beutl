@@ -104,8 +104,7 @@ internal static class VulkanSetup
             if (swiftShaderIcd != null)
                 prependPaths.Add(swiftShaderIcd);
 
-            UpdateEnv(prependPaths, appendPaths, "VK_ICD_FILENAMES");
-            UpdateEnv(prependPaths, appendPaths, "VK_DRIVER_FILES");
+            UpdateEnv(prependPaths, appendPaths, "VK_ADD_DRIVER_FILES");
 
             s_logger.LogDebug("MoltenVK environment setup completed successfully");
         }
