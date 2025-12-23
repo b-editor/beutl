@@ -116,13 +116,13 @@ public partial class ColorShift : FilterEffect
             builder.Uniforms["minOffset"] = new SKPoint(minOffsetX, minOffsetY);
 
             // 最終的なシェーダーを生成
+            var newTarget = context.CreateTarget(bounds);
             using (SKShader finalShader = builder.Build())
             using (var paint = new SKPaint())
+            using (var canvas = context.Open(newTarget))
             {
-                var newTarget = context.CreateTarget(bounds);
-                var canvas = newTarget.RenderTarget!.Value.Canvas;
                 paint.Shader = finalShader;
-                canvas.DrawRect(new SKRect(0, 0, bounds.Width, bounds.Height), paint);
+                canvas.Canvas.DrawRect(new SKRect(0, 0, bounds.Width, bounds.Height), paint);
 
                 context.Targets[i] = newTarget;
             }

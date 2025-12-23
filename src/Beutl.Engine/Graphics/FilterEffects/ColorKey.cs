@@ -93,14 +93,14 @@ public partial class ColorKey : FilterEffect
             builder.Uniforms["range"] = data.range / 100f;
             builder.Uniforms["boundary"] = data.boundary / 100f;
 
+            var newTarget = c.CreateTarget(effectTarget.Bounds);
             // 最終的なシェーダーを生成
             using (SKShader finalShader = builder.Build())
             using (var paint = new SKPaint())
+            using (var canvas = c.Open(newTarget))
             {
-                var newTarget = c.CreateTarget(effectTarget.Bounds);
-                var canvas = newTarget.RenderTarget!.Value.Canvas;
                 paint.Shader = finalShader;
-                canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
+                canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
 
                 c.Targets[i] = newTarget;
             }

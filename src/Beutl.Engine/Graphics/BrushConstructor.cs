@@ -244,17 +244,17 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
             intermediate = RenderTarget.Create(intermediateSize.Width, intermediateSize.Height);
             if (intermediate == null) return null;
 
-            SKCanvas canvas = intermediate.Value.Canvas;
+            using (var canvas = new ImmediateCanvas(intermediate))
             using (var paintTmp = new SKPaint())
             {
-                canvas.Clear();
-                canvas.Save();
-                canvas.ClipRect(calc.IntermediateClip.ToSKRect());
-                canvas.SetMatrix(calc.IntermediateTransform.ToSKMatrix());
+                canvas.Canvas.Clear();
+                canvas.Canvas.Save();
+                canvas.Canvas.ClipRect(calc.IntermediateClip.ToSKRect());
+                canvas.Canvas.SetMatrix(calc.IntermediateTransform.ToSKMatrix());
 
-                canvas.DrawImage(skImage, 0, 0, tileBrush.BitmapInterpolationMode.ToSKSamplingOptions(), paintTmp);
+                canvas.Canvas.DrawImage(skImage, 0, 0, tileBrush.BitmapInterpolationMode.ToSKSamplingOptions(), paintTmp);
 
-                canvas.Restore();
+                canvas.Canvas.Restore();
             }
 
             SKMatrix tileTransform = tileBrush.TileMode != TileMode.None
@@ -284,8 +284,9 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
             }
 
             using (SKImage snapshot = intermediate.Value.Snapshot())
+            using (SKImage raster = snapshot.ToRasterImage())
             {
-                return snapshot.ToShader(tileX, tileY, tileTransform);
+                return raster.ToShader(tileX, tileY, tileTransform);
             }
         }
         finally

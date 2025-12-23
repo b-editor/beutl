@@ -54,6 +54,7 @@ public sealed partial class Clipping : FilterEffect
 
     private static Thickness FindRectAndReturnThickness(SKSurface surface)
     {
+        surface.Flush(true, true);
         using var image = surface.Snapshot();
         using var bitmap = new Bitmap<Grayscale8>(image.Width, image.Height);
         image.ReadPixels(

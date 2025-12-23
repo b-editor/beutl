@@ -84,7 +84,10 @@ public partial class Blur : FilterEffect
                 Cv2.Blur(mat, mat, new(kWidth, kHeight));
 
                 EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
-                newTarget.RenderTarget!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
+                using (var canvas = context.Open(newTarget))
+                {
+                    canvas.DrawBitmap(dst, Brushes.Resource.White, null);
+                }
                 target.Dispose();
                 context.Targets[i] = newTarget;
             }
