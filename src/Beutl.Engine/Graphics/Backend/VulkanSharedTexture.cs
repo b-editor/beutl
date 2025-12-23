@@ -16,7 +16,7 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
     private readonly int _height;
     private readonly TextureFormat _format;
     private readonly ulong _allocationSize;
-    private GRBackendRenderTarget? _backendRenderTarget;
+    private ImageLayout _currentLayout = ImageLayout.Undefined;
     private bool _disposed;
 
     public VulkanSharedTexture(VulkanContext context, int width, int height, TextureFormat format)
@@ -99,15 +99,36 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
                 throw new InvalidOperationException($"Failed to create Vulkan image view: {result}");
         }
 
-        // Create GRBackendRenderTarget for SkiaSharp (Windows/Linux only)
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            CreateBackendRenderTarget();
-        }
+        TransitionTo(ImageLayout.ColorAttachmentOptimal);
     }
 
-    private void CreateBackendRenderTarget()
+    public int Width => _width;
+
+    public int Height => _height;
+
+    public TextureFormat Format => _format;
+
+    public IntPtr VulkanImageHandle => (IntPtr)_image.Handle;
+
+    public void PrepareForRender()
     {
+        TransitionTo(ImageLayout.ColorAttachmentOptimal);
+    }
+
+    public void PrepareForSampling()
+    {
+        TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+    }
+
+    public SKSurface CreateSkiaSurface()
+    {
+        // On macOS, use raster surface (Metal interop handles rendering separately)
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            var info = new SKImageInfo(_width, _height, GetSkiaColorType(_format), SKAlphaType.Premul);
+            return SKSurface.Create(info);
+        }
+
         var vkImageInfo = new GRVkImageInfo
         {
             Image = _image.Handle,
@@ -124,34 +145,10 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
             SharingMode = (uint)SharingMode.Exclusive
         };
 
-        _backendRenderTarget = new GRBackendRenderTarget(_width, _height, vkImageInfo);
-    }
-
-    public int Width => _width;
-
-    public int Height => _height;
-
-    public TextureFormat Format => _format;
-
-    public IntPtr VulkanImageHandle => (IntPtr)_image.Handle;
-
-    public SKSurface CreateSkiaSurface()
-    {
-        // On macOS, use raster surface (Metal interop handles rendering separately)
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            var info = new SKImageInfo(_width, _height, GetSkiaColorType(_format), SKAlphaType.Premul);
-            return SKSurface.Create(info);
-        }
-
-        // On Windows/Linux, use Vulkan backend render target
-        if (_backendRenderTarget == null)
-        {
-            throw new InvalidOperationException("Backend render target is not initialized");
-        }
+        using var backendRenderTarget = new GRBackendRenderTarget(_width, _height, vkImageInfo);
 
         var grContext = _context.SkiaContext;
-        var surface = SKSurface.Create(grContext, _backendRenderTarget, GRSurfaceOrigin.TopLeft,
+        var surface = SKSurface.Create(grContext, backendRenderTarget, GRSurfaceOrigin.TopLeft,
             GetSkiaColorType(_format));
 
         if (surface == null)
@@ -209,13 +206,19 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
         throw new InvalidOperationException("Failed to find suitable memory type");
     }
 
+    private void TransitionTo(ImageLayout layout)
+    {
+        if (_currentLayout == layout)
+            return;
+
+        _context.TransitionImageLayout(_image, _currentLayout, layout);
+        _currentLayout = layout;
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-
-        _backendRenderTarget?.Dispose();
-        _backendRenderTarget = null;
 
         _context.Vk.DestroyImageView(_context.Device, _imageView, null);
         _context.Vk.DestroyImage(_context.Device, _image, null);

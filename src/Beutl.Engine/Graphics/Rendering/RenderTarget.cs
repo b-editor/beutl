@@ -88,6 +88,7 @@ public class RenderTarget : IDisposable
     public unsafe Bitmap<Bgra8888> Snapshot()
     {
         VerifyAccess();
+        PrepareForSampling();
         var result = new Bitmap<Bgra8888>(Width, Height);
 
         _surface.Value!.ReadPixels(new SKImageInfo(Width, Height, SKColorType.Bgra8888), result.Data,
@@ -117,6 +118,23 @@ public class RenderTarget : IDisposable
         _texture?.Release();
         IsDisposed = true;
         GC.SuppressFinalize(this);
+    }
+
+    internal void BeginDraw()
+    {
+        VerifyAccess();
+
+        if (_texture?.Value is VulkanSharedTexture vulkanTexture)
+        {
+            vulkanTexture.PrepareForRender();
+        }
+    }
+
+    internal void PrepareForSampling()
+    {
+        VerifyAccess();
+
+        _surface.Value!.Flush(true, true);
     }
 
     private sealed class SKSurfaceCounter<T>(T value)
