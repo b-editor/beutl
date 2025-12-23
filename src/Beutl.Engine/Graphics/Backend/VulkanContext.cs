@@ -470,6 +470,7 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
         // Select the first suitable device (prefer discrete GPU)
         PhysicalDevice selectedDevice = default;
         bool foundDiscrete = false;
+        bool foundIntegrated = false;
 
         foreach (var device in devices)
         {
@@ -483,10 +484,12 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
             {
                 selectedDevice = device;
                 foundDiscrete = true;
+                foundIntegrated = true;
             }
-            else if (properties.DeviceType == PhysicalDeviceType.IntegratedGpu && !foundDiscrete)
+            else if (properties.DeviceType == PhysicalDeviceType.IntegratedGpu && !foundIntegrated)
             {
                 selectedDevice = device;
+                foundIntegrated = true;
             }
             else if (selectedDevice.Handle == IntPtr.Zero)
             {
