@@ -15,6 +15,7 @@
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.22.0" />
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.22.0" />
     <PackageVersion Include="Silk.NET.Vulkan.Loader.Native" Version="2024.10.25" />
+    <PackageVersion Include="Silk.NET.Vulkan.SwiftShader.Native" Version="2024.5.8" />
     <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="11.3.6.2" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.9" />
     <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="11.3.9" />

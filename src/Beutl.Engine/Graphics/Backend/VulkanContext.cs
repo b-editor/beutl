@@ -30,11 +30,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public VulkanContext(bool enableValidation = false)
     {
-        // Setup MoltenVK on macOS
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            MacOSVulkanSetup.SetupMoltenVK();
-        }
+        // Set icd for Vulkan loader
+        VulkanSetup.Setup();
 
         _vk = Vk.GetApi();
         _enableValidation = enableValidation;
@@ -486,6 +483,10 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
             {
                 selectedDevice = device;
                 foundDiscrete = true;
+            }
+            else if (properties.DeviceType == PhysicalDeviceType.IntegratedGpu && !foundDiscrete)
+            {
+                selectedDevice = device;
             }
             else if (selectedDevice.Handle == IntPtr.Zero)
             {
