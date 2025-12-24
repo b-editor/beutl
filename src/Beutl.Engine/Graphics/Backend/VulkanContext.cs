@@ -9,37 +9,30 @@ namespace Beutl.Graphics.Backend;
 
 using Image = Silk.NET.Vulkan.Image;
 
-internal sealed unsafe class VulkanContext : IGraphicsContext
+internal sealed class VulkanContext : IGraphicsContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger<VulkanContext>();
     private readonly VulkanInstance _vulkanInstance;
     private readonly VulkanDevice _vulkanDevice;
     private readonly VulkanCommandPool _vulkanCommandPool;
-    private readonly GpuInfo? _gpuInfo;
     private GRContext? _skiaContext;
     private GRVkBackendContext? _skiaBackendContext;
     private bool _disposed;
 
-    public VulkanContext(bool enableValidation = false)
+    public VulkanContext(VulkanInstance vulkanInstance, VulkanPhysicalDeviceInfo physicalDevice)
     {
-        VulkanSetup.Setup();
-
-        var vk = Vk.GetApi();
-
-        _vulkanInstance = new VulkanInstance(vk, enableValidation);
-        _vulkanDevice = new VulkanDevice(vk, _vulkanInstance.Instance);
+        _vulkanInstance = vulkanInstance;
+        _vulkanDevice = new VulkanDevice(vulkanInstance.Vk, vulkanInstance.Instance, physicalDevice.Device);
         _vulkanCommandPool = new VulkanCommandPool(
-            vk,
+            vulkanInstance.Vk,
             _vulkanDevice.Device,
             _vulkanDevice.GraphicsQueue,
             _vulkanDevice.GraphicsQueueFamilyIndex);
 
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        if (!physicalDevice.IsMoltenVK)
         {
             InitializeSkiaVulkanContext();
         }
-
-        _gpuInfo = CollectGpuInfo();
 
         s_logger.LogDebug("Vulkan context created successfully");
     }
@@ -96,20 +89,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public GraphicsBackend Backend => GraphicsBackend.Vulkan;
 
-    public GRContext SkiaContext
-    {
-        get
-        {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
-                throw new PlatformNotSupportedException(
-                    "SkiaSharp Vulkan backend is not supported on macOS. Use MetalContext instead, or use VulkanContext for offscreen rendering.");
-            }
-
-            return _skiaContext ?? throw new InvalidOperationException(
-                "SkiaSharp Vulkan context is not initialized. Make sure the Vulkan context was created successfully.");
-        }
-    }
+    public GRContext SkiaContext => _skiaContext ?? throw new InvalidOperationException(
+        "SkiaSharp Vulkan context is not initialized. Make sure the Vulkan context was created successfully.");
 
     public Vk Vk => _vulkanInstance.Vk;
 
@@ -123,7 +104,8 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
     public uint GraphicsQueueFamilyIndex => _vulkanDevice.GraphicsQueueFamilyIndex;
 
-    public GpuInfo? GpuInfo => _gpuInfo;
+    public IEnumerable<string> EnabledExtensions =>
+        _vulkanInstance.EnabledExtensions.Concat(_vulkanDevice.EnabledExtensions);
 
     public ISharedTexture CreateTexture(int width, int height, TextureFormat format)
     {
@@ -161,94 +143,5 @@ internal sealed unsafe class VulkanContext : IGraphicsContext
 
         _vulkanCommandPool.Dispose();
         _vulkanDevice.Dispose();
-        _vulkanInstance.Dispose();
-        _vulkanInstance.Vk.Dispose();
-    }
-
-    private GpuInfo CollectGpuInfo()
-    {
-        var vk = _vulkanInstance.Vk;
-        var instance = _vulkanInstance.Instance;
-        var physicalDevice = _vulkanDevice.PhysicalDevice;
-
-        var availableGpus = new List<GpuDeviceInfo>();
-        GpuDeviceInfo? selectedGpu = null;
-        GpuMemoryInfo? memoryInfo = null;
-        string apiVersion = "Unknown";
-
-        uint deviceCount = 0;
-        vk.EnumeratePhysicalDevices(instance, &deviceCount, null);
-
-        if (deviceCount > 0)
-        {
-            var devices = new PhysicalDevice[deviceCount];
-            fixed (PhysicalDevice* pDevices = devices)
-            {
-                vk.EnumeratePhysicalDevices(instance, &deviceCount, pDevices);
-            }
-
-            foreach (var device in devices)
-            {
-                PhysicalDeviceProperties properties;
-                vk.GetPhysicalDeviceProperties(device, &properties);
-
-                var deviceName = Marshal.PtrToStringAnsi((IntPtr)properties.DeviceName) ?? "Unknown";
-                var deviceType = properties.DeviceType switch
-                {
-                    PhysicalDeviceType.IntegratedGpu => "Integrated GPU",
-                    PhysicalDeviceType.DiscreteGpu => "Discrete GPU",
-                    PhysicalDeviceType.VirtualGpu => "Virtual GPU",
-                    PhysicalDeviceType.Cpu => "CPU",
-                    _ => "Other"
-                };
-
-                availableGpus.Add(new GpuDeviceInfo(deviceName, deviceType));
-
-                if (device.Handle == physicalDevice.Handle)
-                {
-                    selectedGpu = new GpuDeviceInfo(deviceName, deviceType);
-
-                    uint major = properties.ApiVersion >> 22;
-                    uint minor = (properties.ApiVersion >> 12) & 0x3FF;
-                    uint patch = properties.ApiVersion & 0xFFF;
-                    apiVersion = $"{major}.{minor}.{patch}";
-
-                    PhysicalDeviceMemoryProperties memProps;
-                    vk.GetPhysicalDeviceMemoryProperties(device, &memProps);
-
-                    ulong deviceLocalMemory = 0;
-                    ulong hostVisibleMemory = 0;
-
-                    for (uint i = 0; i < memProps.MemoryHeapCount; i++)
-                    {
-                        var heap = memProps.MemoryHeaps[(int)i];
-                        if ((heap.Flags & MemoryHeapFlags.DeviceLocalBit) != 0)
-                        {
-                            deviceLocalMemory += heap.Size;
-                        }
-                        else
-                        {
-                            hostVisibleMemory += heap.Size;
-                        }
-                    }
-
-                    memoryInfo = new GpuMemoryInfo(deviceLocalMemory, hostVisibleMemory);
-                }
-            }
-        }
-
-        var allExtensions = new List<string>();
-        allExtensions.AddRange(_vulkanInstance.EnabledExtensions);
-        allExtensions.AddRange(_vulkanDevice.EnabledExtensions);
-
-        var info = new GpuInfo(
-            availableGpus,
-            selectedGpu,
-            allExtensions,
-            apiVersion,
-            memoryInfo);
-        var json = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
-        s_logger.LogInformation("GPU Info: {Info}", json);
-        return info;
     }
 }

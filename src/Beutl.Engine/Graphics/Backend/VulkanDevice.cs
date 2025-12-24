@@ -17,17 +17,22 @@ internal sealed unsafe class VulkanDevice : IDisposable
     private readonly string[] _enabledExtensions;
     private bool _disposed;
 
-    public VulkanDevice(Vk vk, Instance instance)
+    public VulkanDevice(Vk vk, Instance instance, PhysicalDevice physicalDevice)
     {
         _vk = vk;
         _instance = instance;
+        _physicalDevice = physicalDevice;
 
-        _physicalDevice = SelectPhysicalDevice();
         _graphicsQueueFamilyIndex = FindGraphicsQueueFamily();
         _enabledExtensions = GetRequiredDeviceExtensions();
         _device = CreateDevice(_enabledExtensions);
 
         _vk.GetDeviceQueue(_device, _graphicsQueueFamilyIndex, 0, out _graphicsQueue);
+
+        PhysicalDeviceProperties properties;
+        _vk.GetPhysicalDeviceProperties(_physicalDevice, &properties);
+        var deviceName = Marshal.PtrToStringAnsi((IntPtr)properties.DeviceName);
+        s_logger.LogInformation("Using GPU: {DeviceName}", deviceName);
     }
 
     public Vk Vk => _vk;
@@ -44,58 +49,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
 
     public string[] EnabledExtensions => _enabledExtensions;
 
-    private PhysicalDevice SelectPhysicalDevice()
-    {
-        uint deviceCount = 0;
-        _vk.EnumeratePhysicalDevices(_instance, &deviceCount, null);
-
-        if (deviceCount == 0)
-        {
-            throw new InvalidOperationException("No Vulkan-capable GPU found");
-        }
-
-        var devices = new PhysicalDevice[deviceCount];
-        fixed (PhysicalDevice* pDevices = devices)
-        {
-            _vk.EnumeratePhysicalDevices(_instance, &deviceCount, pDevices);
-        }
-
-        PhysicalDevice selectedDevice = default;
-        bool foundDiscrete = false;
-        bool foundIntegrated = false;
-
-        foreach (var device in devices)
-        {
-            PhysicalDeviceProperties properties;
-            _vk.GetPhysicalDeviceProperties(device, &properties);
-
-            var deviceName = Marshal.PtrToStringAnsi((IntPtr)properties.DeviceName);
-            s_logger.LogInformation("Found GPU: {DeviceName} (Type: {DeviceType})", deviceName, properties.DeviceType);
-
-            if (properties.DeviceType == PhysicalDeviceType.DiscreteGpu && !foundDiscrete)
-            {
-                selectedDevice = device;
-                foundDiscrete = true;
-                foundIntegrated = true;
-            }
-            else if (properties.DeviceType == PhysicalDeviceType.IntegratedGpu && !foundIntegrated)
-            {
-                selectedDevice = device;
-                foundIntegrated = true;
-            }
-            else if (selectedDevice.Handle == IntPtr.Zero)
-            {
-                selectedDevice = device;
-            }
-        }
-
-        PhysicalDeviceProperties selectedProps;
-        _vk.GetPhysicalDeviceProperties(selectedDevice, &selectedProps);
-        var selectedName = Marshal.PtrToStringAnsi((IntPtr)selectedProps.DeviceName);
-        s_logger.LogInformation("Selected GPU: {SelectedName}", selectedName);
-
-        return selectedDevice;
-    }
+    
 
     private uint FindGraphicsQueueFamily()
     {

@@ -7,6 +7,29 @@ using Silk.NET.Vulkan.Extensions.EXT;
 
 namespace Beutl.Graphics.Backend;
 
+internal record VulkanMemoryInfo(ulong DeviceLocalMemory, ulong HostVisibleMemory);
+
+internal record VulkanPhysicalDeviceInfo(
+    PhysicalDevice Device,
+    string Name,
+    PhysicalDeviceType Type,
+    uint ApiVersionInt,
+    VulkanMemoryInfo Memory)
+{
+    public bool IsMoltenVK => Name.Contains("Apple");
+
+    public string ApiVersion
+    {
+        get
+        {
+            uint major = ApiVersionInt >> 22;
+            uint minor = (ApiVersionInt >> 12) & 0x3FF;
+            uint patch = ApiVersionInt & 0xFFF;
+            return $"{major}.{minor}.{patch}";
+        }
+    }
+}
+
 internal sealed unsafe class VulkanInstance : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<VulkanInstance>();
@@ -41,6 +64,105 @@ internal sealed unsafe class VulkanInstance : IDisposable
     public bool EnableValidation => _enableValidation;
 
     public string[] EnabledExtensions => _enabledExtensions;
+
+    public PhysicalDevice[] EnumeratePhysicalDevices()
+    {
+        uint deviceCount = 0;
+        _vk.EnumeratePhysicalDevices(_instance, &deviceCount, null);
+
+        if (deviceCount == 0)
+        {
+            return [];
+        }
+
+        var devices = new PhysicalDevice[deviceCount];
+        fixed (PhysicalDevice* pDevices = devices)
+        {
+            _vk.EnumeratePhysicalDevices(_instance, &deviceCount, pDevices);
+        }
+
+        return devices;
+    }
+
+    public VulkanPhysicalDeviceInfo[] GetAvailableGpus()
+    {
+        var devices = EnumeratePhysicalDevices();
+        var result = new VulkanPhysicalDeviceInfo[devices.Length];
+
+        for (int i = 0; i < devices.Length; i++)
+        {
+            result[i] = GetPhysicalDeviceDetails(devices[i]);
+        }
+
+        return result;
+    }
+
+    public VulkanPhysicalDeviceInfo SelectBestPhysicalDevice()
+    {
+        var gpus = GetAvailableGpus();
+
+        if (gpus.Length == 0)
+        {
+            throw new InvalidOperationException("No Vulkan-capable GPU found");
+        }
+
+        VulkanPhysicalDeviceInfo? selected = null;
+
+        foreach (var gpu in gpus)
+        {
+            s_logger.LogInformation("Found GPU: {DeviceName} (Type: {DeviceType})", gpu.Name, gpu.Type);
+
+            if (gpu.Type == PhysicalDeviceType.DiscreteGpu)
+            {
+                selected = gpu;
+                break;
+            }
+
+            if (gpu.Type == PhysicalDeviceType.IntegratedGpu && selected == null)
+            {
+                selected = gpu;
+            }
+            else if (selected == null)
+            {
+                selected = gpu;
+            }
+        }
+
+        s_logger.LogInformation("Selected GPU: {DeviceName}", selected!.Name);
+        return selected;
+    }
+
+    public VulkanPhysicalDeviceInfo GetPhysicalDeviceDetails(PhysicalDevice device)
+    {
+        PhysicalDeviceProperties properties;
+        _vk.GetPhysicalDeviceProperties(device, &properties);
+
+        var deviceName = Marshal.PtrToStringAnsi((IntPtr)properties.DeviceName) ?? "Unknown";
+        var deviceType = properties.DeviceType;
+
+        PhysicalDeviceMemoryProperties memProps;
+        _vk.GetPhysicalDeviceMemoryProperties(device, &memProps);
+
+        ulong deviceLocalMemory = 0;
+        ulong hostVisibleMemory = 0;
+
+        for (uint i = 0; i < memProps.MemoryHeapCount; i++)
+        {
+            var heap = memProps.MemoryHeaps[(int)i];
+            if ((heap.Flags & MemoryHeapFlags.DeviceLocalBit) != 0)
+            {
+                deviceLocalMemory += heap.Size;
+            }
+            else
+            {
+                hostVisibleMemory += heap.Size;
+            }
+        }
+
+        var memoryInfo = new VulkanMemoryInfo(deviceLocalMemory, hostVisibleMemory);
+
+        return new VulkanPhysicalDeviceInfo(device, deviceName, deviceType, properties.ApiVersion, memoryInfo);
+    }
 
     private string[] GetRequiredInstanceExtensions()
     {
