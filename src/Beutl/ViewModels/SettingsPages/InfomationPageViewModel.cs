@@ -22,34 +22,36 @@ public sealed class InformationPageViewModel : PageContext
         {
             if (!Design.IsDesignMode)
             {
-                var context = GraphicsContextFactory.GetOrCreateShared();
-                if (context?.GpuInfo is { } gpuInfo)
-                {
-                    // Available GPUs
-                    AvailableGpus.Value = gpuInfo.AvailableGpus
-                        .Select(g => $"{g.Name} ({g.DeviceType})")
-                        .ToArray();
+                GraphicsContextFactory.GetOrCreateShared();
 
-                    // Selected GPU
-                    if (gpuInfo.SelectedGpu != null)
-                    {
-                        SelectedGpu.Value = $"{gpuInfo.SelectedGpu.Name} ({gpuInfo.SelectedGpu.DeviceType})";
-                    }
+                // Available GPUs
+                var gpus = GraphicsContextFactory.GetAvailableGpus();
+                AvailableGpus.Value = gpus
+                    .Select(g => $"{g.Name} ({g.Type})")
+                    .ToArray();
+
+                // Selected GPU details
+                if (GraphicsContextFactory.GetSelectedGpuDetails() is { } selectedGpu)
+                {
+                    SelectedGpu.Value = $"{selectedGpu.Name} ({selectedGpu.Type})";
 
                     // Vulkan version
-                    VulkanVersion.Value = gpuInfo.ApiVersion;
-
-                    // Enabled extensions
-                    EnabledExtensions.Value = gpuInfo.EnabledExtensions.ToArray();
+                    if (selectedGpu.ApiVersion != null)
+                    {
+                        VulkanVersion.Value = selectedGpu.ApiVersion;
+                    }
 
                     // Memory info
-                    if (gpuInfo.Memory != null)
+                    if (selectedGpu.Memory != null)
                     {
-                        var deviceMemoryMB = gpuInfo.Memory.DeviceLocalMemory / (1024 * 1024);
-                        var hostMemoryMB = gpuInfo.Memory.HostVisibleMemory / (1024 * 1024);
+                        var deviceMemoryMB = selectedGpu.Memory.DeviceLocalMemory / (1024 * 1024);
+                        var hostMemoryMB = selectedGpu.Memory.HostVisibleMemory / (1024 * 1024);
                         AvailableMemory.Value = $"Device Local: {deviceMemoryMB:N0} MB, Host Visible: {hostMemoryMB:N0} MB";
                     }
                 }
+
+                // Enabled extensions
+                EnabledExtensions.Value = [.. GraphicsContextFactory.GetEnabledExtensions()];
             }
         }, DispatchPriority.Low);
 

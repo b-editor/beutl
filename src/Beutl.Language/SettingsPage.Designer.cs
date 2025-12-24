@@ -398,5 +398,29 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("SwapTimelineScrollDirection", resourceCulture);
             }
         }
+        
+        public static string Graphics {
+            get {
+                return ResourceManager.GetString("Graphics", resourceCulture);
+            }
+        }
+        
+        public static string SelectedGpu {
+            get {
+                return ResourceManager.GetString("SelectedGpu", resourceCulture);
+            }
+        }
+        
+        public static string SelectedGpu_Description {
+            get {
+                return ResourceManager.GetString("SelectedGpu_Description", resourceCulture);
+            }
+        }
+        
+        public static string SelectedGpu_Auto {
+            get {
+                return ResourceManager.GetString("SelectedGpu_Auto", resourceCulture);
+            }
+        }
     }
 }

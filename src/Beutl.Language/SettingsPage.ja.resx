@@ -358,4 +358,20 @@
     <value>タイムラインのスクロール方向を入れ替える</value>
     <comment/>
   </data>
+  <data name="Graphics" xml:space="preserve">
+    <value>Graphics</value>
+    <comment/>
+  </data>
+  <data name="SelectedGpu" xml:space="preserve">
+    <value>GPU</value>
+    <comment/>
+  </data>
+  <data name="SelectedGpu_Description" xml:space="preserve">
+    <value>レンダリングに使用するGPUを選択します。変更は再起動後に反映されます。</value>
+    <comment/>
+  </data>
+  <data name="SelectedGpu_Auto" xml:space="preserve">
+    <value>自動</value>
+    <comment/>
+  </data>
 </root>

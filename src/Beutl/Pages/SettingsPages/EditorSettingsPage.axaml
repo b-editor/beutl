@@ -24,6 +24,27 @@
                         VerticalAlignment="Stretch"
                         Orientation="Vertical"
                         Spacing="4">
+                <TextBlock Text="{x:Static lang:SettingsPage.Graphics}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.SelectedGpu_Description}" Header="{x:Static lang:SettingsPage.SelectedGpu}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250"
+                                  ItemsSource="{CompiledBinding AvailableGpus}"
+                                  SelectedIndex="{CompiledBinding SelectedGpuIndex.Value}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:Strings.Editor}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.AutoAdjustSceneDuration_Description}" Header="{x:Static lang:SettingsPage.AutoAdjustSceneDuration}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"

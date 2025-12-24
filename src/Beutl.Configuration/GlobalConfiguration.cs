@@ -71,6 +71,8 @@ public sealed class GlobalConfiguration
 
             json["Editor"] = CoreSerializer.SerializeToJsonObject(EditorConfig);
 
+            json["Graphics"] = CoreSerializer.SerializeToJsonObject(GraphicsConfig);
+
             json.JsonSave(file);
         }
         finally
@@ -117,6 +119,9 @@ public sealed class GlobalConfiguration
 
                 if (json["Editor"] is JsonObject editor)
                     Deserialize(EditorConfig, editor);
+
+                if (json["Graphics"] is JsonObject graphics)
+                    Deserialize(GraphicsConfig, graphics);
 
                 if (json["Version"] is JsonValue version
                     && version.TryGetValue(out string? versionString))
