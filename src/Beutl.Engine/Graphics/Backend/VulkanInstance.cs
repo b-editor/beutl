@@ -93,8 +93,21 @@ internal sealed unsafe class VulkanInstance : IDisposable
         var appNamePtr = Marshal.StringToHGlobalAnsi("Beutl");
         var engineNamePtr = Marshal.StringToHGlobalAnsi("Beutl.Engine");
 
+        var extensionPtrs = new byte*[filteredExtensions.Length];
+        var layerPtrs = new byte*[validationLayers.Length];
+
         try
         {
+            for (int i = 0; i < filteredExtensions.Length; i++)
+            {
+                extensionPtrs[i] = (byte*)Marshal.StringToHGlobalAnsi(filteredExtensions[i]);
+            }
+
+            for (int i = 0; i < validationLayers.Length; i++)
+            {
+                layerPtrs[i] = (byte*)Marshal.StringToHGlobalAnsi(validationLayers[i]);
+            }
+
             var appInfo = new ApplicationInfo
             {
                 SType = StructureType.ApplicationInfo,
@@ -110,58 +123,49 @@ internal sealed unsafe class VulkanInstance : IDisposable
                 SType = StructureType.InstanceCreateInfo, PApplicationInfo = &appInfo
             };
 
-            var extensionPtrs = new byte*[filteredExtensions.Length];
-            for (int i = 0; i < filteredExtensions.Length; i++)
-            {
-                extensionPtrs[i] = (byte*)Marshal.StringToHGlobalAnsi(filteredExtensions[i]);
-            }
-
             fixed (byte** ppExtensions = extensionPtrs)
+            fixed (byte** ppLayers = layerPtrs)
             {
                 createInfo.EnabledExtensionCount = (uint)filteredExtensions.Length;
                 createInfo.PpEnabledExtensionNames = ppExtensions;
+                createInfo.EnabledLayerCount = (uint)validationLayers.Length;
+                createInfo.PpEnabledLayerNames = ppLayers;
 
-                var layerPtrs = new byte*[validationLayers.Length];
-                for (int i = 0; i < validationLayers.Length; i++)
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
-                    layerPtrs[i] = (byte*)Marshal.StringToHGlobalAnsi(validationLayers[i]);
+                    createInfo.Flags |= InstanceCreateFlags.EnumeratePortabilityBitKhr;
                 }
 
-                fixed (byte** ppLayers = layerPtrs)
+                Instance instance;
+                var result = _vk.CreateInstance(&createInfo, null, &instance);
+                if (result != Result.Success)
                 {
-                    createInfo.EnabledLayerCount = (uint)validationLayers.Length;
-                    createInfo.PpEnabledLayerNames = ppLayers;
-
-                    if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                    {
-                        createInfo.Flags |= InstanceCreateFlags.EnumeratePortabilityBitKhr;
-                    }
-
-                    Instance instance;
-                    var result = _vk.CreateInstance(&createInfo, null, &instance);
-                    if (result != Result.Success)
-                    {
-                        throw new InvalidOperationException($"Failed to create Vulkan instance: {result}");
-                    }
-
-                    for (int i = 0; i < validationLayers.Length; i++)
-                    {
-                        Marshal.FreeHGlobal((IntPtr)layerPtrs[i]);
-                    }
-
-                    for (int i = 0; i < filteredExtensions.Length; i++)
-                    {
-                        Marshal.FreeHGlobal((IntPtr)extensionPtrs[i]);
-                    }
-
-                    return instance;
+                    throw new InvalidOperationException($"Failed to create Vulkan instance: {result}");
                 }
+
+                return instance;
             }
         }
         finally
         {
             Marshal.FreeHGlobal(appNamePtr);
             Marshal.FreeHGlobal(engineNamePtr);
+
+            for (int i = 0; i < extensionPtrs.Length; i++)
+            {
+                if (extensionPtrs[i] != null)
+                {
+                    Marshal.FreeHGlobal((IntPtr)extensionPtrs[i]);
+                }
+            }
+
+            for (int i = 0; i < layerPtrs.Length; i++)
+            {
+                if (layerPtrs[i] != null)
+                {
+                    Marshal.FreeHGlobal((IntPtr)layerPtrs[i]);
+                }
+            }
         }
     }
 

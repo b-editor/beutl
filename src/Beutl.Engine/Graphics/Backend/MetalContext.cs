@@ -3,12 +3,18 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Backend;
 
-internal sealed class MetalContext
+internal sealed class MetalContext : IDisposable
 {
     private readonly IntPtr _metalDevice;
     private readonly IntPtr _commandQueue;
     private readonly GRContext _grContext;
     private bool _disposed;
+
+    private static readonly IntPtr s_newCommandQueueSelector = GetValidSelector("newCommandQueue");
+    private static readonly IntPtr s_commandBufferSelector = GetValidSelector("commandBuffer");
+    private static readonly IntPtr s_commitSelector = GetValidSelector("commit");
+    private static readonly IntPtr s_waitUntilCompletedSelector = GetValidSelector("waitUntilCompleted");
+    private static readonly IntPtr s_releaseSelector = GetValidSelector("release");
 
     public MetalContext()
     {
@@ -24,24 +30,40 @@ internal sealed class MetalContext
             throw new InvalidOperationException("Failed to create Metal device");
         }
 
-        // Create command queue
-        _commandQueue = objc_msgSend_IntPtr(_metalDevice, sel_getUid("newCommandQueue"));
-        if (_commandQueue == IntPtr.Zero)
+        try
         {
-            throw new InvalidOperationException("Failed to create Metal command queue");
+            // Create command queue
+            _commandQueue = objc_msgSend_IntPtr(_metalDevice, s_newCommandQueueSelector);
+            if (_commandQueue == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Failed to create Metal command queue");
+            }
+
+            try
+            {
+                // Create SkiaSharp Metal context
+                var backendContext = new GRMtlBackendContext
+                {
+                    DeviceHandle = _metalDevice,
+                    QueueHandle = _commandQueue
+                };
+
+                _grContext = GRContext.CreateMetal(backendContext);
+                if (_grContext == null)
+                {
+                    throw new InvalidOperationException("Failed to create SkiaSharp Metal context");
+                }
+            }
+            catch
+            {
+                ReleaseObject(_commandQueue);
+                throw;
+            }
         }
-
-        // Create SkiaSharp Metal context
-        var backendContext = new GRMtlBackendContext
+        catch
         {
-            DeviceHandle = _metalDevice,
-            QueueHandle = _commandQueue
-        };
-
-        _grContext = GRContext.CreateMetal(backendContext);
-        if (_grContext == null)
-        {
-            throw new InvalidOperationException("Failed to create SkiaSharp Metal context");
+            ReleaseObject(_metalDevice);
+            throw;
         }
     }
 
@@ -52,11 +74,11 @@ internal sealed class MetalContext
     public void WaitIdle()
     {
         // Create a command buffer and commit it with waitUntilCompleted
-        var commandBuffer = objc_msgSend_IntPtr(_commandQueue, sel_getUid("commandBuffer"));
+        var commandBuffer = objc_msgSend_IntPtr(_commandQueue, s_commandBufferSelector);
         if (commandBuffer != IntPtr.Zero)
         {
-            objc_msgSend_void(commandBuffer, sel_getUid("commit"));
-            objc_msgSend_void(commandBuffer, sel_getUid("waitUntilCompleted"));
+            objc_msgSend_void(commandBuffer, s_commitSelector);
+            objc_msgSend_void(commandBuffer, s_waitUntilCompletedSelector);
         }
     }
 
@@ -70,9 +92,25 @@ internal sealed class MetalContext
         _grContext?.Dispose();
 
         // Release Metal objects
-        if (_commandQueue != IntPtr.Zero)
+        ReleaseObject(_commandQueue);
+        ReleaseObject(_metalDevice);
+    }
+
+    private static IntPtr GetValidSelector(string selectorName)
+    {
+        var selector = sel_getUid(selectorName);
+        if (selector == IntPtr.Zero)
         {
-            objc_msgSend_void(_commandQueue, sel_getUid("release"));
+            throw new InvalidOperationException($"Failed to get Objective-C selector: {selectorName}");
+        }
+        return selector;
+    }
+
+    private static void ReleaseObject(IntPtr obj)
+    {
+        if (obj != IntPtr.Zero && s_releaseSelector != IntPtr.Zero)
+        {
+            objc_msgSend_void(obj, s_releaseSelector);
         }
     }
 

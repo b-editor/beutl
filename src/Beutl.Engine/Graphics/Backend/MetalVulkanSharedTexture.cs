@@ -175,12 +175,12 @@ internal sealed unsafe class MetalVulkanSharedTexture : ISharedTexture
         };
     }
 
-    public SKSurface? CreateSkiaSurface()
+    public SKSurface CreateSkiaSurface()
     {
         if (_metalTexture == IntPtr.Zero)
         {
             s_logger.LogWarning("Cannot create SkiaSurface: Metal texture handle is null");
-            return null;
+            throw new InvalidOperationException("Metal texture handle is null");
         }
 
         // Use the exported Metal texture for SkiaSharp rendering
