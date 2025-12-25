@@ -72,7 +72,6 @@ basicMaterial.DiffuseColor.CurrentValue = new Color(255, 100, 150, 200); // Ligh
 cube.Material.CurrentValue = basicMaterial;
 
 var cubeResource = (Cube3D.Resource)cube.ToResource(renderContext);
-var cubeMesh = cube.GetMesh(cubeResource);
 
 // Create directional light
 var light = new DirectionalLight3D();
@@ -90,7 +89,7 @@ Console.WriteLine();
 
 // Render
 Console.WriteLine("Rendering...");
-var objects = new List<(Object3D.Resource, Mesh)> { (cubeResource, cubeMesh) };
+var objects = new List<Object3D.Resource> { cubeResource };
 var lights = new List<Light3D.Resource> { lightResource };
 
 renderer.Render(
@@ -132,7 +131,7 @@ Console.WriteLine();
 
 // Cleanup
 Console.WriteLine("Cleaning up...");
-cubeMesh.Dispose();
+cubeResource.Dispose();
 renderer.Dispose();
 graphicsContext.Dispose();
 
