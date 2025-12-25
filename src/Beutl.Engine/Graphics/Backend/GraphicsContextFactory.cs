@@ -7,7 +7,7 @@ using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics.Backend;
 
-internal class GraphicsContextFactory
+public class GraphicsContextFactory
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(GraphicsContextFactory));
     private static bool s_failedToInitialize;
@@ -16,15 +16,26 @@ internal class GraphicsContextFactory
 
     public static IGraphicsContext? SharedContext { get; private set; }
 
-    public static VulkanInstance? VulkanInstance => s_vulkanInstance;
+    internal static VulkanInstance? VulkanInstance => s_vulkanInstance;
 
-    public static VulkanPhysicalDeviceInfo[] GetAvailableGpus()
+    /// <summary>
+    /// Gets all available graphics devices.
+    /// </summary>
+    /// <returns>An array of available graphics devices.</returns>
+    public static GraphicsDeviceInfo[] GetAvailableDevices()
+    {
+        EnsureVulkanInstance();
+        var gpus = s_vulkanInstance?.GetAvailableGpus() ?? [];
+        return gpus.Select(g => g.ToGraphicsDeviceInfo()).ToArray();
+    }
+
+    internal static VulkanPhysicalDeviceInfo[] GetAvailableGpus()
     {
         EnsureVulkanInstance();
         return s_vulkanInstance?.GetAvailableGpus() ?? [];
     }
 
-    public static void SelectGpu(VulkanPhysicalDeviceInfo physicalDevice)
+    internal static void SelectGpu(VulkanPhysicalDeviceInfo physicalDevice)
     {
         if (SharedContext != null)
         {
@@ -34,6 +45,11 @@ internal class GraphicsContextFactory
         s_selectedPhysicalDevice = physicalDevice;
     }
 
+    /// <summary>
+    /// Selects a GPU by its name.
+    /// </summary>
+    /// <param name="gpuName">The name of the GPU to select.</param>
+    /// <returns>True if a matching GPU was found and selected; otherwise, false.</returns>
     public static bool SelectGpuByName(string? gpuName)
     {
         if (string.IsNullOrEmpty(gpuName))
@@ -97,7 +113,25 @@ internal class GraphicsContextFactory
         return SharedContext;
     }
 
-    public static VulkanPhysicalDeviceInfo? GetSelectedGpuDetails()
+    /// <summary>
+    /// Gets the currently selected or best available graphics device.
+    /// </summary>
+    /// <returns>The selected graphics device info, or null if no Vulkan instance exists.</returns>
+    public static GraphicsDeviceInfo? GetSelectedDevice()
+    {
+        if (s_vulkanInstance == null)
+            return null;
+
+        VulkanPhysicalDeviceInfo? selectedPhysicalDevice = s_selectedPhysicalDevice ?? default;
+        if (selectedPhysicalDevice == null || selectedPhysicalDevice.Device.Handle == IntPtr.Zero)
+        {
+            selectedPhysicalDevice = s_vulkanInstance.SelectBestPhysicalDevice();
+        }
+
+        return selectedPhysicalDevice?.ToGraphicsDeviceInfo();
+    }
+
+    internal static VulkanPhysicalDeviceInfo? GetSelectedGpuDetails()
     {
         if (s_vulkanInstance == null)
             return null;

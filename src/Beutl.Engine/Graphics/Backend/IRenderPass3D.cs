@@ -6,7 +6,7 @@ namespace Beutl.Graphics.Backend;
 /// <summary>
 /// Interface for 3D render pass abstraction.
 /// </summary>
-internal interface IRenderPass3D : IDisposable
+public interface IRenderPass3D : IDisposable
 {
     /// <summary>
     /// Begins the render pass.

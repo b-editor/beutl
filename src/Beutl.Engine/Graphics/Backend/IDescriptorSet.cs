@@ -5,7 +5,7 @@ namespace Beutl.Graphics.Backend;
 /// <summary>
 /// Interface for descriptor set abstraction.
 /// </summary>
-internal interface IDescriptorSet : IDisposable
+public interface IDescriptorSet : IDisposable
 {
     /// <summary>
     /// Updates a buffer binding.

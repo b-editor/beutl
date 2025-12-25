@@ -6,7 +6,7 @@ namespace Beutl.Graphics.Backend;
 /// <summary>
 /// Interface for 3D framebuffer abstraction.
 /// </summary>
-internal interface IFramebuffer3D : IDisposable
+public interface IFramebuffer3D : IDisposable
 {
     /// <summary>
     /// Gets the width of the framebuffer.
