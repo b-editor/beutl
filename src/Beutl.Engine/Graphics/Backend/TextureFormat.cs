@@ -8,5 +8,7 @@ internal enum TextureFormat
     RGBA32Float,
     R8Unorm,
     R16Float,
-    R32Float
+    R32Float,
+    Depth32Float,
+    Depth24Stencil8
 }
