@@ -1,70 +1,129 @@
 using System;
 using System.Numerics;
+using Beutl.Engine;
+using Beutl.Graphics.Backend;
 
 namespace Beutl.Graphics3D.Meshes;
 
 /// <summary>
-/// Represents 3D mesh data with vertices and indices.
+/// Abstract base class for 3D mesh geometry.
 /// </summary>
-public class Mesh : IDisposable
+public abstract partial class Mesh : EngineObject
 {
-    private Vertex3D[] _vertices;
-    private uint[] _indices;
-    private bool _disposed;
+    /// <summary>
+    /// Applies the mesh geometry to the resource.
+    /// </summary>
+    /// <param name="resource">The resource to apply to.</param>
+    /// <param name="vertices">Output array of vertices.</param>
+    /// <param name="indices">Output array of indices.</param>
+    public abstract void ApplyTo(Resource resource, out Vertex3D[] vertices, out uint[] indices);
 
-    public Mesh(Vertex3D[] vertices, uint[] indices)
+    public partial class Resource
     {
-        _vertices = vertices ?? throw new ArgumentNullException(nameof(vertices));
-        _indices = indices ?? throw new ArgumentNullException(nameof(indices));
-    }
+        private int? _capturedVersion;
+        private Vertex3D[]? _cachedVertices;
+        private uint[]? _cachedIndices;
 
-    /// <summary>
-    /// Gets the vertices of the mesh.
-    /// </summary>
-    public ReadOnlySpan<Vertex3D> Vertices => _vertices;
+        /// <summary>
+        /// Gets or sets the vertex buffer. Set by Renderer3D.
+        /// </summary>
+        internal IBuffer? VertexBuffer { get; set; }
 
-    /// <summary>
-    /// Gets the indices of the mesh.
-    /// </summary>
-    public ReadOnlySpan<uint> Indices => _indices;
+        /// <summary>
+        /// Gets or sets the index buffer. Set by Renderer3D.
+        /// </summary>
+        internal IBuffer? IndexBuffer { get; set; }
 
-    /// <summary>
-    /// Gets the number of vertices.
-    /// </summary>
-    public int VertexCount => _vertices.Length;
+        /// <summary>
+        /// Gets or sets whether the GPU buffers need to be recreated.
+        /// </summary>
+        internal bool BuffersDirty { get; set; } = true;
 
-    /// <summary>
-    /// Gets the number of indices.
-    /// </summary>
-    public int IndexCount => _indices.Length;
-
-    /// <summary>
-    /// Gets the bounding box of the mesh.
-    /// </summary>
-    public BoundingBox GetBoundingBox()
-    {
-        if (_vertices.Length == 0)
-            return new BoundingBox(Vector3.Zero, Vector3.Zero);
-
-        var min = _vertices[0].Position;
-        var max = _vertices[0].Position;
-
-        foreach (var vertex in _vertices)
+        /// <summary>
+        /// Gets the cached vertices, regenerating if needed.
+        /// </summary>
+        public ReadOnlySpan<Vertex3D> GetVertices()
         {
-            min = Vector3.Min(min, vertex.Position);
-            max = Vector3.Max(max, vertex.Position);
+            EnsureCached();
+            return _cachedVertices;
         }
 
-        return new BoundingBox(min, max);
-    }
+        /// <summary>
+        /// Gets the cached indices, regenerating if needed.
+        /// </summary>
+        public ReadOnlySpan<uint> GetIndices()
+        {
+            EnsureCached();
+            return _cachedIndices;
+        }
 
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-        _vertices = [];
-        _indices = [];
-        GC.SuppressFinalize(this);
+        /// <summary>
+        /// Gets the number of vertices.
+        /// </summary>
+        public int VertexCount
+        {
+            get
+            {
+                EnsureCached();
+                return _cachedVertices?.Length ?? 0;
+            }
+        }
+
+        /// <summary>
+        /// Gets the number of indices.
+        /// </summary>
+        public int IndexCount
+        {
+            get
+            {
+                EnsureCached();
+                return _cachedIndices?.Length ?? 0;
+            }
+        }
+
+        /// <summary>
+        /// Gets the bounding box of the mesh.
+        /// </summary>
+        public BoundingBox GetBoundingBox()
+        {
+            EnsureCached();
+
+            if (_cachedVertices == null || _cachedVertices.Length == 0)
+                return new BoundingBox(Vector3.Zero, Vector3.Zero);
+
+            var min = _cachedVertices[0].Position;
+            var max = _cachedVertices[0].Position;
+
+            foreach (var vertex in _cachedVertices)
+            {
+                min = Vector3.Min(min, vertex.Position);
+                max = Vector3.Max(max, vertex.Position);
+            }
+
+            return new BoundingBox(min, max);
+        }
+
+        private void EnsureCached()
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+            if (_capturedVersion != Version || _cachedVertices == null)
+            {
+                _capturedVersion = Version;
+                BuffersDirty = true;
+                GetOriginal().ApplyTo(this, out _cachedVertices!, out _cachedIndices!);
+            }
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            VertexBuffer?.Dispose();
+            VertexBuffer = null;
+            IndexBuffer?.Dispose();
+            IndexBuffer = null;
+            _cachedVertices = null;
+            _cachedIndices = null;
+        }
     }
 }
 

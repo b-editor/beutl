@@ -6,7 +6,6 @@ using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
-using Beutl.Graphics3D.Meshes;
 using Beutl.Media;
 
 namespace Beutl.Graphics3D;
@@ -86,8 +85,8 @@ internal sealed class Scene3DRenderNode : RenderNode
             renderer.Resize(width, height);
         }
 
-        // Prepare object resources and meshes
-        var objectsWithMeshes = new List<(Object3D.Resource, Mesh)>();
+        // Prepare object resources
+        var objectResources = new List<Object3D.Resource>();
         if (_objects != null)
         {
             foreach (var obj in _objects)
@@ -97,8 +96,7 @@ internal sealed class Scene3DRenderNode : RenderNode
 
                 // Create resource for the Object3D
                 var objResource = (Object3D.Resource)obj.ToResource(new RenderContext(TimeSpan.Zero));
-                var mesh = obj.GetMesh(objResource);
-                objectsWithMeshes.Add((objResource, mesh));
+                objectResources.Add(objResource);
             }
         }
 
@@ -120,7 +118,7 @@ internal sealed class Scene3DRenderNode : RenderNode
         // Render
         renderer.Render(
             cameraResource,
-            objectsWithMeshes,
+            objectResources,
             lightResources,
             _resource.BackgroundColor,
             _resource.AmbientColor,
@@ -129,26 +127,13 @@ internal sealed class Scene3DRenderNode : RenderNode
         // Get the rendered surface
         var surface = renderer.CreateSkiaSurface();
         if (surface == null)
-        {
-            // Dispose meshes
-            foreach (var (_, mesh) in objectsWithMeshes)
-            {
-                mesh.Dispose();
-            }
             return [];
-        }
 
         // Create the render operation that will draw the 3D scene
         var operation = RenderNodeOperation.CreateFromSurface(
             Bounds,
             new Point(0, 0),
             surface);
-
-        // Dispose meshes after creating the operation
-        foreach (var (_, mesh) in objectsWithMeshes)
-        {
-            mesh.Dispose();
-        }
 
         return [operation];
     }

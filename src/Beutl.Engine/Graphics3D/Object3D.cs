@@ -53,22 +53,6 @@ public abstract partial class Object3D : EngineObject
     /// </summary>
     public IProperty<bool> IsVisible { get; } = Property.CreateAnimatable(true);
 
-    /// <summary>
-    /// Gets the world transformation matrix for this object.
-    /// </summary>
-    public Matrix4x4 GetWorldMatrix(Resource resource)
-    {
-        var scale = Matrix4x4.CreateScale(resource.Scale);
-        var rotation = Matrix4x4.CreateFromQuaternion(resource.Rotation);
-        var translation = Matrix4x4.CreateTranslation(resource.Position);
-        return scale * rotation * translation;
-    }
-
-    /// <summary>
-    /// Gets the mesh for this object.
-    /// </summary>
-    public abstract Mesh GetMesh(Resource resource);
-
     public abstract partial class Resource
     {
         /// <summary>
@@ -81,5 +65,11 @@ public abstract partial class Object3D : EngineObject
             var translation = Matrix4x4.CreateTranslation(Position);
             return scale * rotation * translation;
         }
+
+        /// <summary>
+        /// Gets the mesh resource for this object.
+        /// </summary>
+        /// <returns>The mesh resource, or null if not available.</returns>
+        public abstract Mesh.Resource? GetMesh();
     }
 }

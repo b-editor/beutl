@@ -25,7 +25,6 @@ internal sealed class Renderer3D : I3DRenderer
     private ISharedTexture? _colorTexture;
     private IBuffer? _uniformBuffer;
     private IDescriptorSet? _descriptorSet;
-    private readonly Dictionary<Mesh, (IBuffer vertex, IBuffer index)> _meshBuffers = new();
     private bool _disposed;
 
     public Renderer3D(IGraphicsContext context)
@@ -103,7 +102,7 @@ internal sealed class Renderer3D : I3DRenderer
 
     public void Render(
         Camera3D.Resource camera,
-        IReadOnlyList<(Object3D.Resource obj, Mesh mesh)> objects,
+        IReadOnlyList<Object3D.Resource> objects,
         IReadOnlyList<Light3D.Resource> lights,
         Color backgroundColor,
         Color ambientColor,
@@ -141,17 +140,21 @@ internal sealed class Renderer3D : I3DRenderer
         }
 
         // Render each object
-        foreach (var (obj, mesh) in objects)
+        foreach (var obj in objects)
         {
             if (!obj.IsVisible)
                 continue;
 
-            // Get or create mesh buffers
-            if (!_meshBuffers.TryGetValue(mesh, out var buffers))
-            {
-                buffers = CreateMeshBuffers(mesh);
-                _meshBuffers[mesh] = buffers;
-            }
+            // Get mesh resource from object
+            var meshResource = obj.GetMesh();
+            if (meshResource == null)
+                continue;
+
+            // Ensure GPU buffers are created/updated
+            EnsureMeshBuffers(meshResource);
+
+            if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
+                continue;
 
             // Update uniform buffer
             var ubo = new UniformBufferObject
@@ -179,14 +182,14 @@ internal sealed class Renderer3D : I3DRenderer
             _uniformBuffer!.Upload(new ReadOnlySpan<UniformBufferObject>(ref ubo));
 
             // Bind vertex and index buffers
-            _renderPass.BindVertexBuffer(buffers.vertex);
-            _renderPass.BindIndexBuffer(buffers.index);
+            _renderPass.BindVertexBuffer(meshResource.VertexBuffer);
+            _renderPass.BindIndexBuffer(meshResource.IndexBuffer);
 
             // Bind descriptor set
             _renderPass.BindDescriptorSet(_basicPipeline, _descriptorSet!);
 
             // Draw the mesh
-            _renderPass.DrawIndexed((uint)mesh.Indices.Length);
+            _renderPass.DrawIndexed((uint)meshResource.IndexCount);
         }
 
         _renderPass.End();
@@ -195,15 +198,25 @@ internal sealed class Renderer3D : I3DRenderer
         _currentFramebuffer.ColorTexture.PrepareForSampling();
     }
 
-    private (IBuffer vertex, IBuffer index) CreateMeshBuffers(Mesh mesh)
+    private void EnsureMeshBuffers(Mesh.Resource meshResource)
     {
-        var vertices = mesh.Vertices;
-        var indices = mesh.Indices;
-        int vertexCount = vertices.Length;
-        int indexCount = indices.Length;
-        ulong vertexSize = (ulong)(vertexCount * Marshal.SizeOf<Vertex3D>());
-        ulong indexSize = (ulong)(indexCount * sizeof(uint));
+        if (!meshResource.BuffersDirty)
+            return;
 
+        var vertices = meshResource.GetVertices();
+        var indices = meshResource.GetIndices();
+
+        if (vertices.Length == 0 || indices.Length == 0)
+            return;
+
+        ulong vertexSize = (ulong)(vertices.Length * Marshal.SizeOf<Vertex3D>());
+        ulong indexSize = (ulong)(indices.Length * sizeof(uint));
+
+        // Dispose old buffers if they exist
+        meshResource.VertexBuffer?.Dispose();
+        meshResource.IndexBuffer?.Dispose();
+
+        // Create new device-local buffers
         var vertexBuffer = _context.CreateBuffer(
             vertexSize,
             BufferUsage.VertexBuffer | BufferUsage.TransferDestination,
@@ -232,7 +245,10 @@ internal sealed class Renderer3D : I3DRenderer
         _context.CopyBuffer(vertexStaging, vertexBuffer, vertexSize);
         _context.CopyBuffer(indexStaging, indexBuffer, indexSize);
 
-        return (vertexBuffer, indexBuffer);
+        // Store in mesh resource
+        meshResource.VertexBuffer = vertexBuffer;
+        meshResource.IndexBuffer = indexBuffer;
+        meshResource.BuffersDirty = false;
     }
 
     public SKSurface? CreateSkiaSurface()
@@ -249,13 +265,6 @@ internal sealed class Renderer3D : I3DRenderer
     {
         if (_disposed) return;
         _disposed = true;
-
-        foreach (var (_, buffers) in _meshBuffers)
-        {
-            buffers.vertex.Dispose();
-            buffers.index.Dispose();
-        }
-        _meshBuffers.Clear();
 
         _descriptorSet?.Dispose();
         _uniformBuffer?.Dispose();

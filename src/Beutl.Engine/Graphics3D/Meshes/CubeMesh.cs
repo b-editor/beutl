@@ -1,4 +1,3 @@
-using System;
 using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using Beutl.Engine;
@@ -6,9 +5,9 @@ using Beutl.Engine;
 namespace Beutl.Graphics3D.Meshes;
 
 /// <summary>
-/// A procedural cube mesh generator.
+/// A procedural cube mesh.
 /// </summary>
-public partial class CubeMesh : EngineObject
+public sealed partial class CubeMesh : Mesh
 {
     public CubeMesh()
     {
@@ -33,29 +32,25 @@ public partial class CubeMesh : EngineObject
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Depth { get; } = Property.CreateAnimatable(1f);
 
-    /// <summary>
-    /// Generates the mesh data for this cube.
-    /// </summary>
-    /// <summary>
-    /// Generates the mesh data for this cube.
-    /// </summary>
-    public Mesh GenerateMesh(Resource resource)
+    /// <inheritdoc />
+    public override void ApplyTo(Mesh.Resource resource, out Vertex3D[] vertices, out uint[] indices)
     {
-        return GenerateMesh(resource.Width, resource.Height, resource.Depth);
+        var r = (Resource)resource;
+        GenerateCube(r.Width, r.Height, r.Depth, out vertices, out indices);
     }
 
     /// <summary>
     /// Generates cube mesh data with the specified dimensions.
     /// </summary>
-    public static Mesh GenerateMesh(float width, float height, float depth)
+    public static void GenerateCube(float width, float height, float depth, out Vertex3D[] vertices, out uint[] indices)
     {
         float halfW = width * 0.5f;
         float halfH = height * 0.5f;
         float halfD = depth * 0.5f;
 
         // 24 vertices (4 per face, 6 faces) with unique normals
-        var vertices = new Vertex3D[]
-        {
+        vertices =
+        [
             // Front face (Z+)
             new(new Vector3(-halfW, -halfH, halfD), new Vector3(0, 0, 1), new Vector2(0, 1)),
             new(new Vector3(halfW, -halfH, halfD), new Vector3(0, 0, 1), new Vector2(1, 1)),
@@ -91,11 +86,11 @@ public partial class CubeMesh : EngineObject
             new(new Vector3(-halfW, -halfH, halfD), new Vector3(-1, 0, 0), new Vector2(1, 1)),
             new(new Vector3(-halfW, halfH, halfD), new Vector3(-1, 0, 0), new Vector2(1, 0)),
             new(new Vector3(-halfW, halfH, -halfD), new Vector3(-1, 0, 0), new Vector2(0, 0)),
-        };
+        ];
 
         // 36 indices (6 per face, 6 faces)
-        var indices = new uint[]
-        {
+        indices =
+        [
             // Front
             0, 1, 2, 0, 2, 3,
             // Back
@@ -108,8 +103,6 @@ public partial class CubeMesh : EngineObject
             16, 17, 18, 16, 18, 19,
             // Left
             20, 21, 22, 20, 22, 23
-        };
-
-        return new Mesh(vertices, indices);
+        ];
     }
 }
