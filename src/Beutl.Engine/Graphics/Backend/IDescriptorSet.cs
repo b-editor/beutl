@@ -15,11 +15,12 @@ public interface IDescriptorSet : IDisposable
     void UpdateBuffer(int binding, IBuffer buffer);
 
     /// <summary>
-    /// Updates a texture binding.
+    /// Updates a texture binding with a sampler (for CombinedImageSampler).
     /// </summary>
     /// <param name="binding">The binding index.</param>
     /// <param name="texture">The texture to bind.</param>
-    void UpdateTexture(int binding, ITexture2D texture);
+    /// <param name="sampler">The sampler to use.</param>
+    void UpdateTexture(int binding, ITexture2D texture, ISampler sampler);
 
     /// <summary>
     /// Binds this descriptor set for use in rendering.

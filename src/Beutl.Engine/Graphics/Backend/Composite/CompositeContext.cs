@@ -89,6 +89,15 @@ internal sealed class CompositeContext : IGraphicsContext
         return Vulkan.CreateDescriptorSet(pipeline, poolSizes);
     }
 
+    public ISampler CreateSampler(
+        SamplerFilter minFilter = SamplerFilter.Linear,
+        SamplerFilter magFilter = SamplerFilter.Linear,
+        SamplerAddressMode addressModeU = SamplerAddressMode.ClampToEdge,
+        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge)
+    {
+        return Vulkan.CreateSampler(minFilter, magFilter, addressModeU, addressModeV);
+    }
+
     public void CopyBuffer(IBuffer source, IBuffer destination, ulong size)
     {
         Vulkan.CopyBuffer(source, destination, size);

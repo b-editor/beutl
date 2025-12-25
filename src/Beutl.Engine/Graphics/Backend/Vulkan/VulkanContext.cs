@@ -180,6 +180,15 @@ internal sealed class VulkanContext : IGraphicsContext
         return new VulkanDescriptorSet(this, vulkanPipeline.DescriptorSetLayoutHandle, vulkanPoolSizes);
     }
 
+    public ISampler CreateSampler(
+        SamplerFilter minFilter = SamplerFilter.Linear,
+        SamplerFilter magFilter = SamplerFilter.Linear,
+        SamplerAddressMode addressModeU = SamplerAddressMode.ClampToEdge,
+        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge)
+    {
+        return new VulkanSampler(this, minFilter, magFilter, addressModeU, addressModeV);
+    }
+
     public unsafe void CopyBuffer(IBuffer source, IBuffer destination, ulong size)
     {
         var vulkanSource = (VulkanBuffer)source;
