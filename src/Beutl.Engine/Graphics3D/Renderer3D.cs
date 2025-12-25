@@ -58,11 +58,8 @@ internal sealed class Renderer3D : I3DRenderer
 
     private void CreateBasicPipeline()
     {
-        var vertexShaderSource = GetBasicVertexShader();
-        var fragmentShaderSource = GetBasicFragmentShader();
-
-        var vertexSpirv = _shaderCompiler.CompileToSpirv(vertexShaderSource, ShaderStage.Vertex);
-        var fragmentSpirv = _shaderCompiler.CompileToSpirv(fragmentShaderSource, ShaderStage.Fragment);
+        var vertexSpirv = _shaderCompiler.CompileToSpirv(BasicShaderSources.VertexShader, ShaderStage.Vertex);
+        var fragmentSpirv = _shaderCompiler.CompileToSpirv(BasicShaderSources.FragmentShader, ShaderStage.Fragment);
 
         var descriptorBindings = new DescriptorBinding[]
         {
@@ -248,88 +245,6 @@ internal sealed class Renderer3D : I3DRenderer
         return _colorTexture?.DownloadPixels() ?? [];
     }
 
-    private static string GetBasicVertexShader() => """
-        #version 450
-
-        layout(location = 0) in vec3 inPosition;
-        layout(location = 1) in vec3 inNormal;
-        layout(location = 2) in vec2 inTexCoord;
-
-        layout(binding = 0) uniform UniformBufferObject {
-            mat4 model;
-            mat4 view;
-            mat4 projection;
-            vec3 lightDirection;
-            float _pad1;
-            vec3 lightColor;
-            float _pad2;
-            vec3 ambientColor;
-            float _pad3;
-            vec3 viewPosition;
-            float _pad4;
-            vec4 objectColor;
-        } ubo;
-
-        layout(location = 0) out vec3 fragNormal;
-        layout(location = 1) out vec3 fragPosition;
-        layout(location = 2) out vec2 fragTexCoord;
-
-        void main() {
-            vec4 worldPos = ubo.model * vec4(inPosition, 1.0);
-            gl_Position = ubo.projection * ubo.view * worldPos;
-
-            fragNormal = mat3(transpose(inverse(ubo.model))) * inNormal;
-            fragPosition = worldPos.xyz;
-            fragTexCoord = inTexCoord;
-        }
-        """;
-
-    private static string GetBasicFragmentShader() => """
-        #version 450
-
-        layout(location = 0) in vec3 fragNormal;
-        layout(location = 1) in vec3 fragPosition;
-        layout(location = 2) in vec2 fragTexCoord;
-
-        layout(binding = 0) uniform UniformBufferObject {
-            mat4 model;
-            mat4 view;
-            mat4 projection;
-            vec3 lightDirection;
-            float _pad1;
-            vec3 lightColor;
-            float _pad2;
-            vec3 ambientColor;
-            float _pad3;
-            vec3 viewPosition;
-            float _pad4;
-            vec4 objectColor;
-        } ubo;
-
-        layout(location = 0) out vec4 outColor;
-
-        void main() {
-            vec3 normal = normalize(fragNormal);
-            vec3 lightDir = normalize(-ubo.lightDirection);
-
-            // Ambient
-            vec3 ambient = ubo.ambientColor * ubo.objectColor.rgb;
-
-            // Diffuse
-            float diff = max(dot(normal, lightDir), 0.0);
-            vec3 diffuse = diff * ubo.lightColor * ubo.objectColor.rgb;
-
-            // Simple specular (Blinn-Phong)
-            vec3 viewDir = normalize(ubo.viewPosition - fragPosition);
-            vec3 halfwayDir = normalize(lightDir + viewDir);
-            float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
-            vec3 specular = spec * ubo.lightColor * 0.5;
-
-            vec3 result = ambient + diffuse + specular;
-            outColor = vec4(result, ubo.objectColor.a);
-        }
-        """;
-
     public void Dispose()
     {
         if (_disposed) return;
@@ -350,21 +265,4 @@ internal sealed class Renderer3D : I3DRenderer
         (_shaderCompiler as IDisposable)?.Dispose();
         _renderPass.Dispose();
     }
-}
-
-[StructLayout(LayoutKind.Sequential)]
-internal struct UniformBufferObject
-{
-    public Matrix4x4 Model;
-    public Matrix4x4 View;
-    public Matrix4x4 Projection;
-    public Vector3 LightDirection;
-    private float _pad1;
-    public Vector3 LightColor;
-    private float _pad2;
-    public Vector3 AmbientColor;
-    private float _pad3;
-    public Vector3 ViewPosition;
-    private float _pad4;
-    public Vector4 ObjectColor;
 }
