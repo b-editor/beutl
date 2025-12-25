@@ -85,22 +85,17 @@ internal sealed class Renderer3D : I3DRenderer
 
         float aspectRatio = (float)Width / Height;
 
-        // Get the first directional light (simplified for now)
-        Vector3 lightDirection = new(0, -1, -1);
-        Vector3 lightColor = new(1, 1, 1);
-
+        // Convert light resources to shader-compatible LightData
+        var lightDataList = new List<LightData>();
         foreach (var light in lights)
         {
-            if (light is DirectionalLight3D.Resource dirLight && dirLight.IsLightEnabled)
-            {
-                var normalizedDir = dirLight.Direction;
-                if (normalizedDir != Vector3.Zero)
-                    normalizedDir = Vector3.Normalize(normalizedDir);
-                lightDirection = normalizedDir;
-                var color = dirLight.Color;
-                lightColor = new Vector3(color.R / 255f, color.G / 255f, color.B / 255f) * dirLight.Intensity;
+            if (!light.IsLightEnabled)
+                continue;
+
+            lightDataList.Add(LightData.FromLight(light));
+
+            if (lightDataList.Count >= RenderContext3D.MaxLights)
                 break;
-            }
         }
 
         // Create render context for materials
@@ -111,9 +106,8 @@ internal sealed class Renderer3D : I3DRenderer
             camera.GetViewMatrix(),
             camera.GetProjectionMatrix(aspectRatio),
             camera.Position,
-            lightDirection,
-            lightColor,
-            new Vector3(ambientColor.R / 255f, ambientColor.G / 255f, ambientColor.B / 255f) * ambientIntensity);
+            new Vector3(ambientColor.R / 255f, ambientColor.G / 255f, ambientColor.B / 255f) * ambientIntensity,
+            lightDataList);
 
         // Begin render pass
         _renderPass.Begin(_currentFramebuffer, backgroundColor);
