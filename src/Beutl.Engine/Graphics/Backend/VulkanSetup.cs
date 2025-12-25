@@ -83,14 +83,8 @@ internal static class VulkanSetup
             var (putenv, library) = GetPutenvDelegate();
             var envVar = $"{varName}={newValue}";
             var envPtr = Marshal.StringToHGlobalAnsi(envVar);
-            try
-            {
-                putenv(envPtr);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(envPtr);
-            }
+            putenv(envPtr);
+            // envPtrを解放するとIncompatible driverのエラーが発生する
         }
     }
 
