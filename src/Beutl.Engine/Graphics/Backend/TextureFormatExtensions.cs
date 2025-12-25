@@ -58,4 +58,12 @@ public static class TextureFormatExtensions
             _ => ImageAspectFlags.ColorBit
         };
     }
+
+    /// <summary>
+    /// Returns true if this format is a depth or depth-stencil format.
+    /// </summary>
+    public static bool IsDepthFormat(this TextureFormat format)
+    {
+        return format is TextureFormat.Depth32Float or TextureFormat.Depth24Stencil8;
+    }
 }
