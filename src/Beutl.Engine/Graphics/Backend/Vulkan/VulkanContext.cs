@@ -119,7 +119,7 @@ internal sealed class VulkanContext : IGraphicsContext
     {
         var usage = format.IsDepthFormat()
             ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit;
+            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
         return new VulkanTexture2D(this, width, height, format, usage);
     }
 
@@ -156,19 +156,28 @@ internal sealed class VulkanContext : IGraphicsContext
         IRenderPass3D renderPass,
         byte[] vertexShaderSpirv,
         byte[] fragmentShaderSpirv,
-        DescriptorBinding[] descriptorBindings)
+        DescriptorBinding[] descriptorBindings,
+        VertexInputDescription vertexInput,
+        PipelineOptions? options = null)
     {
         var vulkanRenderPass = (VulkanRenderPass3D)renderPass;
         var vulkanBindings = descriptorBindings
             .Select(VulkanFlagConverter.ToVulkan)
             .ToArray();
+        var vulkanVertexInput = VulkanFlagConverter.ToVulkan(vertexInput);
+        var pipelineOptions = options ?? PipelineOptions.Default;
+
         return new VulkanPipeline3D(
             this,
             vulkanRenderPass.Handle,
             vertexShaderSpirv,
             fragmentShaderSpirv,
-            VulkanVertex3D.GetVertexInputDescription(),
-            vulkanBindings);
+            vulkanVertexInput,
+            vulkanBindings,
+            vulkanRenderPass.ColorAttachmentCount,
+            pipelineOptions.DepthTestEnabled,
+            pipelineOptions.DepthWriteEnabled,
+            VulkanFlagConverter.ToVulkan(pipelineOptions.CullMode));
     }
 
     public IDescriptorSet CreateDescriptorSet(IPipeline3D pipeline, DescriptorPoolSize[] poolSizes)
@@ -199,6 +208,103 @@ internal sealed class VulkanContext : IGraphicsContext
             var copyRegion = new BufferCopy { Size = size };
             Vk.CmdCopyBuffer(cmd, vulkanSource.Handle, vulkanDest.Handle, 1, &copyRegion);
         });
+    }
+
+
+    public unsafe void CopyTexture(ITexture2D source, ISharedTexture destination)
+    {
+        var vulkanSource = (VulkanTexture2D)source;
+        var vulkanDest = (VulkanSharedTexture)destination;
+
+        // Transition source to transfer source layout
+        vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
+
+        // Prepare destination for rendering (this transitions to ColorAttachmentOptimal)
+        // Then transition to transfer destination
+        SubmitImmediateCommands(cmd =>
+        {
+            // Transition destination to transfer destination
+            var barrier = new ImageMemoryBarrier
+            {
+                SType = StructureType.ImageMemoryBarrier,
+                OldLayout = ImageLayout.Undefined,
+                NewLayout = ImageLayout.TransferDstOptimal,
+                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                Image = new Image((ulong)vulkanDest.VulkanImageHandle),
+                SubresourceRange = new ImageSubresourceRange
+                {
+                    AspectMask = ImageAspectFlags.ColorBit,
+                    BaseMipLevel = 0,
+                    LevelCount = 1,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
+                },
+                SrcAccessMask = 0,
+                DstAccessMask = AccessFlags.TransferWriteBit
+            };
+
+            Vk.CmdPipelineBarrier(
+                cmd,
+                PipelineStageFlags.TopOfPipeBit,
+                PipelineStageFlags.TransferBit,
+                0,
+                0, null,
+                0, null,
+                1, &barrier);
+
+            // Use blit for format conversion (RGBA8 -> BGRA8)
+            var blitRegion = new ImageBlit
+            {
+                SrcSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = ImageAspectFlags.ColorBit,
+                    MipLevel = 0,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
+                },
+                DstSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = ImageAspectFlags.ColorBit,
+                    MipLevel = 0,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
+                }
+            };
+
+            blitRegion.SrcOffsets[0] = new Offset3D(0, 0, 0);
+            blitRegion.SrcOffsets[1] = new Offset3D(source.Width, source.Height, 1);
+            blitRegion.DstOffsets[0] = new Offset3D(0, 0, 0);
+            blitRegion.DstOffsets[1] = new Offset3D(destination.Width, destination.Height, 1);
+
+            Vk.CmdBlitImage(
+                cmd,
+                vulkanSource.ImageHandle,
+                ImageLayout.TransferSrcOptimal,
+                new Image((ulong)vulkanDest.VulkanImageHandle),
+                ImageLayout.TransferDstOptimal,
+                1,
+                &blitRegion,
+                Filter.Nearest);
+
+            // Transition destination back to color attachment optimal
+            barrier.OldLayout = ImageLayout.TransferDstOptimal;
+            barrier.NewLayout = ImageLayout.ColorAttachmentOptimal;
+            barrier.SrcAccessMask = AccessFlags.TransferWriteBit;
+            barrier.DstAccessMask = AccessFlags.ColorAttachmentReadBit | AccessFlags.ColorAttachmentWriteBit;
+
+            Vk.CmdPipelineBarrier(
+                cmd,
+                PipelineStageFlags.TransferBit,
+                PipelineStageFlags.ColorAttachmentOutputBit,
+                0,
+                0, null,
+                0, null,
+                1, &barrier);
+        });
+
+        // Transition source back to shader read optimal
+        vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
     public void WaitIdle()

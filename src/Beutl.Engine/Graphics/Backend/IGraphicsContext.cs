@@ -61,11 +61,20 @@ public interface IGraphicsContext : IDisposable
     /// <summary>
     /// Creates a new 3D pipeline.
     /// </summary>
+    /// <param name="renderPass">The render pass for the pipeline.</param>
+    /// <param name="vertexShaderSpirv">The compiled vertex shader SPIR-V bytecode.</param>
+    /// <param name="fragmentShaderSpirv">The compiled fragment shader SPIR-V bytecode.</param>
+    /// <param name="descriptorBindings">The descriptor bindings for the pipeline.</param>
+    /// <param name="vertexInput">The vertex input description. Use VertexInputDescription.Empty for fullscreen passes.</param>
+    /// <param name="options">Pipeline options (depth test, cull mode, etc.). If null, uses PipelineOptions.Default.</param>
+    /// <returns>A new pipeline instance.</returns>
     IPipeline3D CreatePipeline3D(
         IRenderPass3D renderPass,
         byte[] vertexShaderSpirv,
         byte[] fragmentShaderSpirv,
-        DescriptorBinding[] descriptorBindings);
+        DescriptorBinding[] descriptorBindings,
+        VertexInputDescription vertexInput,
+        PipelineOptions? options = null);
 
     /// <summary>
     /// Creates a new descriptor set.
@@ -89,6 +98,13 @@ public interface IGraphicsContext : IDisposable
     /// Copies data between two buffers.
     /// </summary>
     void CopyBuffer(IBuffer source, IBuffer destination, ulong size);
+
+    /// <summary>
+    /// Copies texture data from source to destination.
+    /// </summary>
+    /// <param name="source">The source texture.</param>
+    /// <param name="destination">The destination shared texture.</param>
+    void CopyTexture(ITexture2D source, ISharedTexture destination);
 
     void WaitIdle();
 }

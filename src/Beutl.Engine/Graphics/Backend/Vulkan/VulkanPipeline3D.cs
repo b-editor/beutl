@@ -23,8 +23,12 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
         RenderPass renderPass,
         byte[] vertexShaderSpirv,
         byte[] fragmentShaderSpirv,
-        VertexInputDescription vertexInputDescription,
-        DescriptorSetLayoutBinding[] descriptorBindings)
+        VulkanVertexInputDescription vertexInputDescription,
+        DescriptorSetLayoutBinding[] descriptorBindings,
+        int colorAttachmentCount = 1,
+        bool depthTestEnabled = true,
+        bool depthWriteEnabled = true,
+        CullModeFlags cullMode = CullModeFlags.BackBit)
     {
         _context = context;
         var vk = context.Vk;
@@ -76,7 +80,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
         _pipelineLayout = pipelineLayout;
 
         // Create graphics pipeline
-        _pipeline = CreateGraphicsPipeline(vk, device, renderPass, vertexInputDescription);
+        _pipeline = CreateGraphicsPipeline(vk, device, renderPass, vertexInputDescription, colorAttachmentCount, depthTestEnabled, depthWriteEnabled, cullMode);
     }
 
     public Pipeline Handle => _pipeline;
@@ -85,7 +89,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
 
     public DescriptorSetLayout DescriptorSetLayoutHandle => _descriptorSetLayout;
 
-    private Pipeline CreateGraphicsPipeline(Vk vk, Device device, RenderPass renderPass, VertexInputDescription vertexInput)
+    private Pipeline CreateGraphicsPipeline(Vk vk, Device device, RenderPass renderPass, VulkanVertexInputDescription vertexInput, int colorAttachmentCount, bool depthTestEnabled, bool depthWriteEnabled, CullModeFlags cullMode)
     {
         var mainBytes = System.Text.Encoding.UTF8.GetBytes("main\0");
         fixed (byte* mainPtr = mainBytes)
@@ -140,7 +144,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
                     RasterizerDiscardEnable = Vk.False,
                     PolygonMode = PolygonMode.Fill,
                     LineWidth = 1.0f,
-                    CullMode = CullModeFlags.BackBit,
+                    CullMode = cullMode,
                     FrontFace = FrontFace.CounterClockwise,
                     DepthBiasEnable = Vk.False
                 };
@@ -155,26 +159,31 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
                 var depthStencil = new PipelineDepthStencilStateCreateInfo
                 {
                     SType = StructureType.PipelineDepthStencilStateCreateInfo,
-                    DepthTestEnable = Vk.True,
-                    DepthWriteEnable = Vk.True,
+                    DepthTestEnable = depthTestEnabled ? Vk.True : Vk.False,
+                    DepthWriteEnable = depthWriteEnabled ? Vk.True : Vk.False,
                     DepthCompareOp = CompareOp.Less,
                     DepthBoundsTestEnable = Vk.False,
                     StencilTestEnable = Vk.False
                 };
 
-                var colorBlendAttachment = new PipelineColorBlendAttachmentState
+                // Create color blend attachments for each color attachment
+                var colorBlendAttachments = stackalloc PipelineColorBlendAttachmentState[colorAttachmentCount];
+                for (int i = 0; i < colorAttachmentCount; i++)
                 {
-                    ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit |
-                                     ColorComponentFlags.BBit | ColorComponentFlags.ABit,
-                    BlendEnable = Vk.False
-                };
+                    colorBlendAttachments[i] = new PipelineColorBlendAttachmentState
+                    {
+                        ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit |
+                                         ColorComponentFlags.BBit | ColorComponentFlags.ABit,
+                        BlendEnable = Vk.False
+                    };
+                }
 
                 var colorBlending = new PipelineColorBlendStateCreateInfo
                 {
                     SType = StructureType.PipelineColorBlendStateCreateInfo,
                     LogicOpEnable = Vk.False,
-                    AttachmentCount = 1,
-                    PAttachments = &colorBlendAttachment
+                    AttachmentCount = (uint)colorAttachmentCount,
+                    PAttachments = colorBlendAttachments
                 };
 
                 var dynamicStates = stackalloc DynamicState[] { DynamicState.Viewport, DynamicState.Scissor };
@@ -271,56 +280,11 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
 }
 
 /// <summary>
-/// Describes vertex input for a pipeline.
+/// Vulkan-specific vertex input description.
 /// </summary>
-internal struct VertexInputDescription
+internal struct VulkanVertexInputDescription
 {
     public VertexInputBindingDescription[] Bindings;
     public VertexInputAttributeDescription[] Attributes;
 }
 
-/// <summary>
-/// Vulkan-specific vertex input description helper for <see cref="Beutl.Graphics3D.Meshes.Vertex3D"/>.
-/// </summary>
-internal static class VulkanVertex3D
-{
-    public static VertexInputDescription GetVertexInputDescription()
-    {
-        return new VertexInputDescription
-        {
-            Bindings =
-            [
-                new VertexInputBindingDescription
-                {
-                    Binding = 0,
-                    Stride = (uint)Marshal.SizeOf<Beutl.Graphics3D.Meshes.Vertex3D>(),
-                    InputRate = VertexInputRate.Vertex
-                }
-            ],
-            Attributes =
-            [
-                new VertexInputAttributeDescription
-                {
-                    Binding = 0,
-                    Location = 0,
-                    Format = Format.R32G32B32Sfloat,
-                    Offset = 0
-                },
-                new VertexInputAttributeDescription
-                {
-                    Binding = 0,
-                    Location = 1,
-                    Format = Format.R32G32B32Sfloat,
-                    Offset = (uint)Marshal.OffsetOf<Beutl.Graphics3D.Meshes.Vertex3D>(nameof(Beutl.Graphics3D.Meshes.Vertex3D.Normal))
-                },
-                new VertexInputAttributeDescription
-                {
-                    Binding = 0,
-                    Location = 2,
-                    Format = Format.R32G32Sfloat,
-                    Offset = (uint)Marshal.OffsetOf<Beutl.Graphics3D.Meshes.Vertex3D>(nameof(Beutl.Graphics3D.Meshes.Vertex3D.TexCoord))
-                }
-            ]
-        };
-    }
-}

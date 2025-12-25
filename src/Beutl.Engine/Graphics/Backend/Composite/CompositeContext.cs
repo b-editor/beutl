@@ -79,9 +79,11 @@ internal sealed class CompositeContext : IGraphicsContext
         IRenderPass3D renderPass,
         byte[] vertexShaderSpirv,
         byte[] fragmentShaderSpirv,
-        DescriptorBinding[] descriptorBindings)
+        DescriptorBinding[] descriptorBindings,
+        VertexInputDescription vertexInput,
+        PipelineOptions? options = null)
     {
-        return Vulkan.CreatePipeline3D(renderPass, vertexShaderSpirv, fragmentShaderSpirv, descriptorBindings);
+        return Vulkan.CreatePipeline3D(renderPass, vertexShaderSpirv, fragmentShaderSpirv, descriptorBindings, vertexInput, options);
     }
 
     public IDescriptorSet CreateDescriptorSet(IPipeline3D pipeline, DescriptorPoolSize[] poolSizes)
@@ -101,6 +103,12 @@ internal sealed class CompositeContext : IGraphicsContext
     public void CopyBuffer(IBuffer source, IBuffer destination, ulong size)
     {
         Vulkan.CopyBuffer(source, destination, size);
+    }
+
+
+    public void CopyTexture(ITexture2D source, ISharedTexture destination)
+    {
+        Vulkan.CopyTexture(source, destination);
     }
 
     public void WaitIdle()

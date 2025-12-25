@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics3D.Meshes;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -74,12 +75,13 @@ public sealed partial class BasicMaterial : Material3D
                 new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Vertex | ShaderStage.Fragment)
             };
 
-            // Create pipeline
+            // Create pipeline with vertex input for Vertex3D
             _pipeline = graphicsContext.CreatePipeline3D(
                 context.RenderPass,
                 vertexSpirv,
                 fragmentSpirv,
-                descriptorBindings);
+                descriptorBindings,
+                Vertex3D.GetVertexInputDescription());
 
             // Create descriptor set
             var poolSizes = new DescriptorPoolSize[]
