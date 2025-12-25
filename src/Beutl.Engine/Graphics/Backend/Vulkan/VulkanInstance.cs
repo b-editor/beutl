@@ -5,7 +5,7 @@ using Silk.NET.Core;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
 
-namespace Beutl.Graphics.Backend;
+namespace Beutl.Graphics.Backend.Vulkan;
 
 internal record VulkanMemoryInfo(ulong DeviceLocalMemory, ulong HostVisibleMemory);
 

@@ -9,37 +9,24 @@ using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Meshes;
 using Beutl.Graphics3D.Primitives;
 using Beutl.Media;
-using Silk.NET.Vulkan;
 using SkiaSharp;
 
 Console.WriteLine("=== Beutl 3D Graphics Test ===");
 Console.WriteLine();
 
-// Initialize Vulkan
-Console.WriteLine("Initializing Vulkan...");
-VulkanSetup.Setup();
-var vk = Vk.GetApi();
-var vulkanInstance = new VulkanInstance(vk, enableValidation: false);
+// Initialize graphics context using the abstraction layer
+Console.WriteLine("Initializing graphics context...");
+var graphicsContext = GraphicsContextFactory.CreateContext();
 
-// Get available GPUs
-var gpus = vulkanInstance.GetAvailableGpus();
-Console.WriteLine($"Found {gpus.Length} GPU(s):");
-foreach (var gpu in gpus)
+Console.WriteLine($"Backend: {graphicsContext.Backend}");
+Console.WriteLine($"Supports 3D Rendering: {graphicsContext.Supports3DRendering}");
+Console.WriteLine();
+
+if (!graphicsContext.Supports3DRendering)
 {
-    Console.WriteLine($"  - {gpu.Name} (Type: {gpu.Type})");
+    Console.WriteLine("3D rendering is not supported on this system.");
+    return 1;
 }
-Console.WriteLine();
-
-// Select the best GPU
-var selectedGpu = vulkanInstance.SelectBestPhysicalDevice();
-Console.WriteLine($"Selected GPU: {selectedGpu.Name}");
-Console.WriteLine();
-
-// Create Vulkan context
-Console.WriteLine("Creating Vulkan context...");
-var vulkanContext = new VulkanContext(vulkanInstance, selectedGpu);
-Console.WriteLine("Vulkan context created successfully.");
-Console.WriteLine();
 
 // Render settings
 const int Width = 800;
@@ -50,14 +37,10 @@ Console.WriteLine($"Render size: {Width}x{Height}");
 Console.WriteLine($"Output: {OutputPath}");
 Console.WriteLine();
 
-// Create renderer
+// Create 3D renderer via the abstracted interface
 Console.WriteLine("Creating 3D renderer...");
-var renderer = new Vulkan3DRenderer(vulkanContext);
+var renderer = graphicsContext.Create3DRenderer();
 renderer.Initialize(Width, Height);
-
-// Create shared texture for output
-var colorTexture = vulkanContext.CreateTexture(Width, Height, TextureFormat.BGRA8Unorm);
-renderer.Resize(Width, Height, colorTexture);
 Console.WriteLine("Renderer initialized.");
 Console.WriteLine();
 
@@ -121,17 +104,13 @@ renderer.Render(
 Console.WriteLine("Render complete.");
 Console.WriteLine();
 
-// Download pixel data from texture
-Console.WriteLine("Downloading texture data...");
-var pixelData = colorTexture.DownloadPixels();
+// Download pixel data from renderer
+Console.WriteLine("Downloading pixel data...");
+var pixelData = renderer.DownloadPixels();
 Console.WriteLine($"Downloaded {pixelData.Length} bytes of pixel data.");
 
 // Create SKImage from pixel data
 Console.WriteLine("Creating image...");
-var imageInfo = new SKImageInfo(Width, Height, SKColorType.Bgra8888, SKAlphaType.Premul);
-using var pixmap = new SKPixmap(imageInfo, System.Runtime.InteropServices.GCHandle.Alloc(pixelData, System.Runtime.InteropServices.GCHandleType.Pinned).AddrOfPinnedObject());
-
-// Copy to a managed image to avoid pinning issues
 using var bitmap = new SKBitmap(Width, Height, SKColorType.Bgra8888, SKAlphaType.Premul);
 unsafe
 {
@@ -155,8 +134,7 @@ Console.WriteLine();
 Console.WriteLine("Cleaning up...");
 cubeMesh.Dispose();
 renderer.Dispose();
-vulkanContext.Dispose();
-vulkanInstance.Dispose();
+graphicsContext.Dispose();
 
 Console.WriteLine("Done!");
 Console.WriteLine();

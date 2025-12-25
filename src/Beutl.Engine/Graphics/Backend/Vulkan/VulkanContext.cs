@@ -1,11 +1,12 @@
 ﻿using System.Runtime.InteropServices;
 using System.Text.Json;
+using Beutl.Graphics3D;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Backend;
+namespace Beutl.Graphics.Backend.Vulkan;
 
 using Image = Silk.NET.Vulkan.Image;
 
@@ -107,9 +108,16 @@ internal sealed class VulkanContext : IGraphicsContext
     public IEnumerable<string> EnabledExtensions =>
         _vulkanInstance.EnabledExtensions.Concat(_vulkanDevice.EnabledExtensions);
 
+    public bool Supports3DRendering => true;
+
     public ISharedTexture CreateTexture(int width, int height, TextureFormat format)
     {
         return new VulkanSharedTexture(this, width, height, format);
+    }
+
+    public I3DRenderer Create3DRenderer()
+    {
+        return new Vulkan3DRenderer(this);
     }
 
     public void WaitIdle()

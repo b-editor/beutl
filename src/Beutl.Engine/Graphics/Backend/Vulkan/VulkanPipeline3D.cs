@@ -3,7 +3,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 
-namespace Beutl.Graphics.Backend.Vulkan3D;
+namespace Beutl.Graphics.Backend.Vulkan;
 
 /// <summary>
 /// Vulkan implementation of <see cref="IPipeline3D"/>.
@@ -273,42 +273,17 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
 /// <summary>
 /// Describes vertex input for a pipeline.
 /// </summary>
-public struct VertexInputDescription
+internal struct VertexInputDescription
 {
     public VertexInputBindingDescription[] Bindings;
     public VertexInputAttributeDescription[] Attributes;
-
-    public static VertexInputDescription Create<TVertex>() where TVertex : unmanaged, IVertex
-    {
-        return TVertex.GetVertexInputDescription();
-    }
 }
 
 /// <summary>
-/// Interface for vertex types to describe their layout.
+/// Vulkan-specific vertex input description helper for <see cref="Beutl.Graphics3D.Meshes.Vertex3D"/>.
 /// </summary>
-public interface IVertex
+internal static class VulkanVertex3D
 {
-    static abstract VertexInputDescription GetVertexInputDescription();
-}
-
-/// <summary>
-/// Standard 3D vertex with position, normal, and texture coordinates.
-/// </summary>
-[StructLayout(LayoutKind.Sequential)]
-public struct Vertex3D : IVertex
-{
-    public Vector3 Position;
-    public Vector3 Normal;
-    public Vector2 TexCoord;
-
-    public Vertex3D(Vector3 position, Vector3 normal, Vector2 texCoord)
-    {
-        Position = position;
-        Normal = normal;
-        TexCoord = texCoord;
-    }
-
     public static VertexInputDescription GetVertexInputDescription()
     {
         return new VertexInputDescription
@@ -318,7 +293,7 @@ public struct Vertex3D : IVertex
                 new VertexInputBindingDescription
                 {
                     Binding = 0,
-                    Stride = (uint)Marshal.SizeOf<Vertex3D>(),
+                    Stride = (uint)Marshal.SizeOf<Beutl.Graphics3D.Meshes.Vertex3D>(),
                     InputRate = VertexInputRate.Vertex
                 }
             ],
@@ -336,14 +311,14 @@ public struct Vertex3D : IVertex
                     Binding = 0,
                     Location = 1,
                     Format = Format.R32G32B32Sfloat,
-                    Offset = (uint)Marshal.OffsetOf<Vertex3D>(nameof(Normal))
+                    Offset = (uint)Marshal.OffsetOf<Beutl.Graphics3D.Meshes.Vertex3D>(nameof(Beutl.Graphics3D.Meshes.Vertex3D.Normal))
                 },
                 new VertexInputAttributeDescription
                 {
                     Binding = 0,
                     Location = 2,
                     Format = Format.R32G32Sfloat,
-                    Offset = (uint)Marshal.OffsetOf<Vertex3D>(nameof(TexCoord))
+                    Offset = (uint)Marshal.OffsetOf<Beutl.Graphics3D.Meshes.Vertex3D>(nameof(Beutl.Graphics3D.Meshes.Vertex3D.TexCoord))
                 }
             ]
         };

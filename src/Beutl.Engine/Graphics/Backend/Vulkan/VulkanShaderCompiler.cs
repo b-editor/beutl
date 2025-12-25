@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Silk.NET.Shaderc;
 
-namespace Beutl.Graphics.Backend.Vulkan3D;
+namespace Beutl.Graphics.Backend.Vulkan;
 
 /// <summary>
 /// Vulkan implementation of <see cref="IShaderCompiler"/> using shaderc.

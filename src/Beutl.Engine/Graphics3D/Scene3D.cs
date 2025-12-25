@@ -89,7 +89,7 @@ public partial class Scene3D : Drawable
 
     public partial class Resource
     {
-        internal Vulkan3DRenderer? Renderer { get; set; }
+        internal I3DRenderer? Renderer { get; set; }
 
         partial void PostDispose(bool disposing)
         {

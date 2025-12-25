@@ -1,7 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Backend;
+namespace Beutl.Graphics.Backend.Metal;
 
 internal sealed class MetalContext : IDisposable
 {

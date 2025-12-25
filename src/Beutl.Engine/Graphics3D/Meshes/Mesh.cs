@@ -1,6 +1,5 @@
 using System;
 using System.Numerics;
-using Beutl.Graphics.Backend.Vulkan3D;
 
 namespace Beutl.Graphics3D.Meshes;
 

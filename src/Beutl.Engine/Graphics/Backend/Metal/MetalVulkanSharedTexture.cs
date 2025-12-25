@@ -4,7 +4,9 @@ using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
+
+namespace Beutl.Graphics.Backend.Metal;
 
 using Image = Silk.NET.Vulkan.Image;
 
@@ -239,7 +241,7 @@ internal sealed unsafe class MetalVulkanSharedTexture : ISharedTexture
         var pixelData = new byte[bufferSize];
 
         // Create staging buffer
-        using var stagingBuffer = new Vulkan3D.VulkanBuffer(
+        using var stagingBuffer = new VulkanBuffer(
             _vulkanContext,
             bufferSize,
             BufferUsageFlags.TransferDstBit,
