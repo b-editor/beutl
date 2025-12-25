@@ -1,10 +1,10 @@
 using System;
-using Beutl.Media;
+using System.Collections.Generic;
 
 namespace Beutl.Graphics.Backend;
 
 /// <summary>
-/// Interface for 3D framebuffer abstraction.
+/// Interface for 3D framebuffer with MRT (Multiple Render Targets) support.
 /// </summary>
 public interface IFramebuffer3D : IDisposable
 {
@@ -19,12 +19,22 @@ public interface IFramebuffer3D : IDisposable
     int Height { get; }
 
     /// <summary>
-    /// Gets the color texture attachment.
+    /// Gets all color texture attachments.
     /// </summary>
-    ISharedTexture ColorTexture { get; }
+    IReadOnlyList<ITexture2D> ColorTextures { get; }
 
     /// <summary>
     /// Gets the depth texture attachment.
     /// </summary>
     ITexture2D DepthTexture { get; }
+
+    /// <summary>
+    /// Prepares all textures for sampling.
+    /// </summary>
+    void PrepareForSampling();
+
+    /// <summary>
+    /// Prepares all textures for rendering.
+    /// </summary>
+    void PrepareForRendering();
 }

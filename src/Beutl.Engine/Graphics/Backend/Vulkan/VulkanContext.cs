@@ -115,6 +115,14 @@ internal sealed class VulkanContext : IGraphicsContext
         return new VulkanSharedTexture(this, width, height, format);
     }
 
+    public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
+    {
+        var usage = format.IsDepthFormat()
+            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit
+            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit;
+        return new VulkanTexture2D(this, width, height, format, usage);
+    }
+
     public I3DRenderer Create3DRenderer()
     {
         return new Renderer3D(this);
@@ -130,15 +138,18 @@ internal sealed class VulkanContext : IGraphicsContext
         return new VulkanShaderCompiler();
     }
 
-    public IRenderPass3D CreateRenderPass3D()
+    public IRenderPass3D CreateRenderPass3D(IReadOnlyList<TextureFormat> colorFormats, TextureFormat depthFormat = TextureFormat.Depth32Float)
     {
-        return new VulkanRenderPass3D(this);
+        var vulkanColorFormats = colorFormats.Select(f => f.ToVulkanFormat()).ToList();
+        return new VulkanRenderPass3D(this, vulkanColorFormats, depthFormat.ToVulkanFormat());
     }
 
-    public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, ISharedTexture colorTexture)
+    public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D depthTexture)
     {
         var vulkanRenderPass = (VulkanRenderPass3D)renderPass;
-        return new VulkanFramebuffer3D(this, vulkanRenderPass.Handle, colorTexture);
+        var vulkanColorTextures = colorTextures.Cast<VulkanTexture2D>().ToList();
+        var vulkanDepthTexture = (VulkanTexture2D)depthTexture;
+        return new VulkanFramebuffer3D(this, vulkanRenderPass.Handle, vulkanColorTextures, vulkanDepthTexture);
     }
 
     public IPipeline3D CreatePipeline3D(
