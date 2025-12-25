@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Materials;
@@ -20,12 +21,13 @@ internal sealed class Renderer3D : I3DRenderer
     private readonly IGraphicsContext _context;
     private readonly IRenderPass3D _renderPass;
     private readonly IShaderCompiler _shaderCompiler;
-    private IPipeline3D? _basicPipeline;
     private IFramebuffer3D? _currentFramebuffer;
     private ISharedTexture? _colorTexture;
-    private IBuffer? _uniformBuffer;
-    private IDescriptorSet? _descriptorSet;
     private bool _disposed;
+
+    // Default material for objects without a material
+    private readonly BasicMaterial _defaultMaterial = new();
+    private BasicMaterial.Resource? _defaultMaterialResource;
 
     public Renderer3D(IGraphicsContext context)
     {
@@ -42,43 +44,11 @@ internal sealed class Renderer3D : I3DRenderer
         Width = width;
         Height = height;
 
-        // Create uniform buffer for MVP matrix
-        _uniformBuffer = _context.CreateBuffer(
-            (ulong)Marshal.SizeOf<UniformBufferObject>(),
-            BufferUsage.UniformBuffer,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
-
-        // Create basic shaders and pipeline
-        CreateBasicPipeline();
-
         // Create initial framebuffer
         CreateFramebuffer(width, height);
-    }
 
-    private void CreateBasicPipeline()
-    {
-        var vertexSpirv = _shaderCompiler.CompileToSpirv(BasicShaderSources.VertexShader, ShaderStage.Vertex);
-        var fragmentSpirv = _shaderCompiler.CompileToSpirv(BasicShaderSources.FragmentShader, ShaderStage.Fragment);
-
-        var descriptorBindings = new DescriptorBinding[]
-        {
-            new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Vertex | ShaderStage.Fragment)
-        };
-
-        _basicPipeline = _context.CreatePipeline3D(
-            _renderPass,
-            vertexSpirv,
-            fragmentSpirv,
-            descriptorBindings);
-
-        // Create descriptor set
-        var poolSizes = new DescriptorPoolSize[]
-        {
-            new(DescriptorType.UniformBuffer, 1)
-        };
-
-        _descriptorSet = _context.CreateDescriptorSet(_basicPipeline, poolSizes);
-        _descriptorSet.UpdateBuffer(0, _uniformBuffer!);
+        // Initialize default material
+        _defaultMaterialResource = (BasicMaterial.Resource)_defaultMaterial.ToResource(new RenderContext(TimeSpan.Zero));
     }
 
     private void CreateFramebuffer(int width, int height)
@@ -110,16 +80,10 @@ internal sealed class Renderer3D : I3DRenderer
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (_currentFramebuffer == null || _basicPipeline == null)
+        if (_currentFramebuffer == null)
             return;
 
         float aspectRatio = (float)Width / Height;
-
-        // Begin render pass
-        _renderPass.Begin(_currentFramebuffer, backgroundColor);
-
-        // Bind pipeline
-        _renderPass.BindPipeline(_basicPipeline);
 
         // Get the first directional light (simplified for now)
         Vector3 lightDirection = new(0, -1, -1);
@@ -139,6 +103,21 @@ internal sealed class Renderer3D : I3DRenderer
             }
         }
 
+        // Create render context for materials
+        var renderContext = new RenderContext3D(
+            _context,
+            _renderPass,
+            _shaderCompiler,
+            camera.GetViewMatrix(),
+            camera.GetProjectionMatrix(aspectRatio),
+            camera.Position,
+            lightDirection,
+            lightColor,
+            new Vector3(ambientColor.R / 255f, ambientColor.G / 255f, ambientColor.B / 255f) * ambientIntensity);
+
+        // Begin render pass
+        _renderPass.Begin(_currentFramebuffer, backgroundColor);
+
         // Render each object
         foreach (var obj in objects)
         {
@@ -156,37 +135,20 @@ internal sealed class Renderer3D : I3DRenderer
             if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
                 continue;
 
-            // Update uniform buffer
-            var ubo = new UniformBufferObject
-            {
-                Model = obj.GetWorldMatrix(),
-                View = camera.GetViewMatrix(),
-                Projection = camera.GetProjectionMatrix(aspectRatio),
-                LightDirection = lightDirection,
-                LightColor = lightColor,
-                AmbientColor = new Vector3(ambientColor.R / 255f, ambientColor.G / 255f, ambientColor.B / 255f) * ambientIntensity,
-                ViewPosition = camera.Position
-            };
+            // Get material resource (use default if not set)
+            var materialResource = obj.Material as Material3D.Resource ?? _defaultMaterialResource;
+            if (materialResource == null)
+                continue;
 
-            // Get material color
-            if (obj.Material is BasicMaterial.Resource basicMat)
-            {
-                var diffuse = basicMat.DiffuseColor;
-                ubo.ObjectColor = new Vector4(diffuse.R / 255f, diffuse.G / 255f, diffuse.B / 255f, diffuse.A / 255f);
-            }
-            else
-            {
-                ubo.ObjectColor = new Vector4(1, 1, 1, 1);
-            }
+            // Ensure material pipeline is created
+            materialResource.EnsurePipeline(renderContext);
 
-            _uniformBuffer!.Upload(new ReadOnlySpan<UniformBufferObject>(ref ubo));
+            // Bind material (pipeline, uniforms, descriptor sets)
+            materialResource.Bind(renderContext, obj);
 
             // Bind vertex and index buffers
             _renderPass.BindVertexBuffer(meshResource.VertexBuffer);
             _renderPass.BindIndexBuffer(meshResource.IndexBuffer);
-
-            // Bind descriptor set
-            _renderPass.BindDescriptorSet(_basicPipeline, _descriptorSet!);
 
             // Draw the mesh
             _renderPass.DrawIndexed((uint)meshResource.IndexCount);
@@ -266,9 +228,7 @@ internal sealed class Renderer3D : I3DRenderer
         if (_disposed) return;
         _disposed = true;
 
-        _descriptorSet?.Dispose();
-        _uniformBuffer?.Dispose();
-        _basicPipeline?.Dispose();
+        _defaultMaterialResource?.Dispose();
         _currentFramebuffer?.Dispose();
         _colorTexture?.Dispose();
         (_shaderCompiler as IDisposable)?.Dispose();
