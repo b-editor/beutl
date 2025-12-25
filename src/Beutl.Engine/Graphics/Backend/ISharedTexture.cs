@@ -12,5 +12,11 @@ internal interface ISharedTexture : IDisposable
 
     IntPtr VulkanImageHandle { get; }
 
+    IntPtr VulkanImageViewHandle { get; }
+
     SKSurface CreateSkiaSurface();
+
+    void PrepareForRender();
+
+    void PrepareForSampling();
 }
