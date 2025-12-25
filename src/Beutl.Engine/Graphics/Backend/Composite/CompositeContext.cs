@@ -45,6 +45,11 @@ internal sealed class CompositeContext : IGraphicsContext
         return new MetalVulkanSharedTexture(Metal, Vulkan, width, height, format);
     }
 
+    public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
+    {
+        return Vulkan.CreateTexture2D(width, height, format);
+    }
+
     public I3DRenderer Create3DRenderer()
     {
         return Vulkan.Create3DRenderer();
@@ -60,14 +65,14 @@ internal sealed class CompositeContext : IGraphicsContext
         return Vulkan.CreateShaderCompiler();
     }
 
-    public IRenderPass3D CreateRenderPass3D()
+    public IRenderPass3D CreateRenderPass3D(IReadOnlyList<TextureFormat> colorFormats, TextureFormat depthFormat = TextureFormat.Depth32Float)
     {
-        return Vulkan.CreateRenderPass3D();
+        return Vulkan.CreateRenderPass3D(colorFormats, depthFormat);
     }
 
-    public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, ISharedTexture colorTexture)
+    public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D depthTexture)
     {
-        return Vulkan.CreateFramebuffer3D(renderPass, colorTexture);
+        return Vulkan.CreateFramebuffer3D(renderPass, colorTextures, depthTexture);
     }
 
     public IPipeline3D CreatePipeline3D(

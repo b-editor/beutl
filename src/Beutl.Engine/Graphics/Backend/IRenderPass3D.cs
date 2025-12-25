@@ -4,17 +4,17 @@ using Beutl.Media;
 namespace Beutl.Graphics.Backend;
 
 /// <summary>
-/// Interface for 3D render pass abstraction.
+/// Interface for 3D render pass with MRT support.
 /// </summary>
 public interface IRenderPass3D : IDisposable
 {
     /// <summary>
-    /// Begins the render pass.
+    /// Begins the render pass with multiple clear colors for MRT.
     /// </summary>
     /// <param name="framebuffer">The framebuffer to render to.</param>
-    /// <param name="clearColor">The color to clear the framebuffer with.</param>
+    /// <param name="clearColors">Clear colors for each color attachment.</param>
     /// <param name="clearDepth">The depth value to clear the depth buffer with.</param>
-    void Begin(IFramebuffer3D framebuffer, Color clearColor, float clearDepth = 1.0f);
+    void Begin(IFramebuffer3D framebuffer, ReadOnlySpan<Color> clearColors, float clearDepth = 1.0f);
 
     /// <summary>
     /// Binds a pipeline for rendering.
@@ -49,10 +49,10 @@ public interface IRenderPass3D : IDisposable
     /// <summary>
     /// Draws indexed primitives.
     /// </summary>
-    /// <param name="indexCount">The number of indices to draw.</param>
-    /// <param name="instanceCount">The number of instances to draw.</param>
-    /// <param name="firstIndex">The first index to draw.</param>
-    /// <param name="vertexOffset">The vertex offset to add to each index.</param>
-    /// <param name="firstInstance">The first instance to draw.</param>
     void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0);
+
+    /// <summary>
+    /// Draws a fullscreen triangle for post-processing.
+    /// </summary>
+    void Draw(uint vertexCount, uint instanceCount = 1, uint firstVertex = 0, uint firstInstance = 0);
 }
