@@ -127,6 +127,42 @@ internal sealed class VulkanContext : IGraphicsContext
         _vulkanCommandPool.TransitionImageLayout(image, oldLayout, newLayout);
     }
 
+    public void TransitionImageLayout(Image image, ImageLayout oldLayout, ImageLayout newLayout, ImageAspectFlags aspectMask)
+    {
+        _vulkanCommandPool.TransitionImageLayout(image, oldLayout, newLayout, aspectMask);
+    }
+
+    public CommandBuffer AllocateCommandBuffer()
+    {
+        return _vulkanCommandPool.AllocateCommandBuffer();
+    }
+
+    public void SubmitCommandBuffer(CommandBuffer commandBuffer)
+    {
+        _vulkanCommandPool.SubmitCommandBuffer(commandBuffer);
+    }
+
+
+    /// <summary>
+    /// Finds a suitable memory type for the given requirements.
+    /// </summary>
+    public unsafe uint FindMemoryType(uint typeFilter, MemoryPropertyFlags properties)
+    {
+        PhysicalDeviceMemoryProperties memProps;
+        Vk.GetPhysicalDeviceMemoryProperties(PhysicalDevice, &memProps);
+
+        for (uint i = 0; i < memProps.MemoryTypeCount; i++)
+        {
+            if ((typeFilter & (1u << (int)i)) != 0 &&
+                (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
+            {
+                return i;
+            }
+        }
+
+        throw new InvalidOperationException("Failed to find suitable memory type");
+    }
+
     public void Dispose()
     {
         if (_disposed)
