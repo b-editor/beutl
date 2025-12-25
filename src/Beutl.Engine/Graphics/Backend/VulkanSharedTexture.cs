@@ -161,6 +161,66 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
         return surface;
     }
 
+
+    public unsafe byte[] DownloadPixels()
+    {
+        // Transition to transfer source
+        TransitionTo(ImageLayout.TransferSrcOptimal);
+
+        int bytesPerPixel = _format switch
+        {
+            TextureFormat.RGBA8Unorm or TextureFormat.BGRA8Unorm => 4,
+            TextureFormat.RGBA16Float => 8,
+            TextureFormat.RGBA32Float => 16,
+            TextureFormat.R8Unorm => 1,
+            TextureFormat.R16Float => 2,
+            TextureFormat.R32Float => 4,
+            _ => 4
+        };
+
+        ulong bufferSize = (ulong)(_width * _height * bytesPerPixel);
+        var pixelData = new byte[bufferSize];
+
+        // Create staging buffer
+        using var stagingBuffer = new Vulkan3D.VulkanBuffer(
+            _context,
+            bufferSize,
+            BufferUsageFlags.TransferDstBit,
+            MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit);
+
+        // Copy image to buffer
+        _context.SubmitImmediateCommands(cmd =>
+        {
+            var region = new BufferImageCopy
+            {
+                BufferOffset = 0,
+                BufferRowLength = 0,
+                BufferImageHeight = 0,
+                ImageSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = ImageAspectFlags.ColorBit,
+                    MipLevel = 0,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
+                },
+                ImageOffset = new Offset3D(0, 0, 0),
+                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
+            };
+
+            _context.Vk.CmdCopyImageToBuffer(cmd, _image, ImageLayout.TransferSrcOptimal, stagingBuffer.Handle, 1, &region);
+        });
+
+        // Read data from staging buffer
+        var srcPtr = stagingBuffer.Map();
+        System.Runtime.InteropServices.Marshal.Copy(srcPtr, pixelData, 0, (int)bufferSize);
+        stagingBuffer.Unmap();
+
+        // Transition back to color attachment
+        TransitionTo(ImageLayout.ColorAttachmentOptimal);
+
+        return pixelData;
+    }
+
     private void TransitionTo(ImageLayout layout)
     {
         if (_currentLayout == layout)
