@@ -58,19 +58,12 @@ internal sealed class Scene3DRenderNode : RenderNode
             return [];
 
         var graphicsContext = GraphicsContextFactory.SharedContext;
-        if (graphicsContext == null)
+        if (graphicsContext == null || !graphicsContext.Supports3DRendering)
             return [];
-
-        // Get VulkanContext (handle both direct VulkanContext and CompositeContext)
-        VulkanContext? vulkanContext = graphicsContext as VulkanContext;
-        if (vulkanContext == null && graphicsContext is CompositeContext compositeContext)
-        {
-            vulkanContext = compositeContext.Vulkan;
-        }
 
         // Camera is already a Resource from the source generator
         var cameraResource = _resource.Camera;
-        if (vulkanContext == null || cameraResource == null)
+        if (cameraResource == null)
             return [];
 
         int width = (int)_resource.RenderWidth;
@@ -80,7 +73,7 @@ internal sealed class Scene3DRenderNode : RenderNode
             return [];
 
         // Get or create renderer
-        var renderer = _resource.Renderer ??= new Vulkan3DRenderer(vulkanContext);
+        var renderer = _resource.Renderer ??= graphicsContext.Create3DRenderer();
 
         // Initialize or resize if needed
         if (renderer.Width != width || renderer.Height != height)
@@ -90,9 +83,7 @@ internal sealed class Scene3DRenderNode : RenderNode
                 renderer.Initialize(width, height);
             }
 
-            // Create shared texture for output
-            var colorTexture = graphicsContext.CreateTexture(width, height, TextureFormat.BGRA8Unorm);
-            renderer.Resize(width, height, colorTexture);
+            renderer.Resize(width, height);
         }
 
         // Prepare object resources and meshes

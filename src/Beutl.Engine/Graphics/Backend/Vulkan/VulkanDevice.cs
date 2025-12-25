@@ -3,7 +3,7 @@ using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
 
-namespace Beutl.Graphics.Backend;
+namespace Beutl.Graphics.Backend.Vulkan;
 
 internal sealed unsafe class VulkanDevice : IDisposable
 {

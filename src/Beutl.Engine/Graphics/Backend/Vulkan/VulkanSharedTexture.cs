@@ -2,7 +2,7 @@
 using Silk.NET.Vulkan;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Backend;
+namespace Beutl.Graphics.Backend.Vulkan;
 
 using Image = Silk.NET.Vulkan.Image;
 
@@ -182,7 +182,7 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
         var pixelData = new byte[bufferSize];
 
         // Create staging buffer
-        using var stagingBuffer = new Vulkan3D.VulkanBuffer(
+        using var stagingBuffer = new VulkanBuffer(
             _context,
             bufferSize,
             BufferUsageFlags.TransferDstBit,

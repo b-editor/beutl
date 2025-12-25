@@ -2,7 +2,6 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using Beutl.Engine;
-using Beutl.Graphics.Backend.Vulkan3D;
 
 namespace Beutl.Graphics3D.Meshes;
 

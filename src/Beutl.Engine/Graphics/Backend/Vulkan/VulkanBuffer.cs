@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using Silk.NET.Vulkan;
 using Buffer = Silk.NET.Vulkan.Buffer;
 
-namespace Beutl.Graphics.Backend.Vulkan3D;
+namespace Beutl.Graphics.Backend.Vulkan;
 
 /// <summary>
 /// Vulkan implementation of <see cref="IBuffer"/>.

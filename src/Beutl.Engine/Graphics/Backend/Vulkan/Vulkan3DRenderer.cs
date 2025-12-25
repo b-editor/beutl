@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Beutl.Graphics.Backend;
-using Beutl.Graphics.Backend.Vulkan3D;
+using Beutl.Graphics3D;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Materials;
@@ -12,18 +11,20 @@ using Beutl.Media;
 using Silk.NET.Vulkan;
 using SkiaSharp;
 
-namespace Beutl.Graphics3D;
+namespace Beutl.Graphics.Backend.Vulkan;
 
 /// <summary>
+/// Vulkan implementation of <see cref="I3DRenderer"/>.
 /// Orchestrates 3D rendering using Vulkan.
 /// </summary>
-internal sealed unsafe class Vulkan3DRenderer : IDisposable
+internal sealed unsafe class Vulkan3DRenderer : I3DRenderer
 {
     private readonly VulkanContext _context;
     private readonly VulkanRenderPass3D _renderPass;
     private readonly VulkanShaderCompiler _shaderCompiler;
     private VulkanPipeline3D? _basicPipeline;
     private VulkanFramebuffer3D? _currentFramebuffer;
+    private ISharedTexture? _colorTexture;
     private VulkanBuffer? _uniformBuffer;
     private VulkanDescriptorSet? _descriptorSet;
     private readonly Dictionary<Mesh, (VulkanBuffer vertex, VulkanBuffer index)> _meshBuffers = new();
@@ -53,6 +54,9 @@ internal sealed unsafe class Vulkan3DRenderer : IDisposable
 
         // Create basic shaders and pipeline
         CreateBasicPipeline();
+
+        // Create initial framebuffer
+        CreateFramebuffer(width, height);
     }
 
     private void CreateBasicPipeline()
@@ -79,7 +83,7 @@ internal sealed unsafe class Vulkan3DRenderer : IDisposable
             _renderPass.Handle,
             vertexSpirv,
             fragmentSpirv,
-            VertexInputDescription.Create<Vertex3D>(),
+            VulkanVertex3D.GetVertexInputDescription(),
             descriptorBindings);
 
         // Create descriptor set
@@ -92,13 +96,23 @@ internal sealed unsafe class Vulkan3DRenderer : IDisposable
         _descriptorSet.UpdateBuffer(0, _uniformBuffer!);
     }
 
-    public void Resize(int width, int height, ISharedTexture colorTexture)
+    private void CreateFramebuffer(int width, int height)
     {
+        _currentFramebuffer?.Dispose();
+        _colorTexture?.Dispose();
+
+        _colorTexture = _context.CreateTexture(width, height, TextureFormat.BGRA8Unorm);
+        _currentFramebuffer = new VulkanFramebuffer3D(_context, _renderPass.Handle, _colorTexture);
+    }
+
+    public void Resize(int width, int height)
+    {
+        if (Width == width && Height == height)
+            return;
+
         Width = width;
         Height = height;
-
-        _currentFramebuffer?.Dispose();
-        _currentFramebuffer = new VulkanFramebuffer3D(_context, _renderPass.Handle, colorTexture);
+        CreateFramebuffer(width, height);
     }
 
     public void Render(
@@ -127,7 +141,7 @@ internal sealed unsafe class Vulkan3DRenderer : IDisposable
         // Get the first directional light (simplified for now)
         Vector3 lightDirection = new(0, -1, -1);
         Vector3 lightColor = new(1, 1, 1);
-        
+
         foreach (var light in lights)
         {
             if (light is DirectionalLight3D.Resource dirLight && dirLight.IsLightEnabled)
@@ -260,7 +274,12 @@ internal sealed unsafe class Vulkan3DRenderer : IDisposable
 
     public SKSurface? CreateSkiaSurface()
     {
-        return _currentFramebuffer?.ColorTexture.CreateSkiaSurface();
+        return _colorTexture?.CreateSkiaSurface();
+    }
+
+    public byte[] DownloadPixels()
+    {
+        return _colorTexture?.DownloadPixels() ?? [];
     }
 
     private static string GetBasicVertexShader() => """
@@ -292,7 +311,7 @@ internal sealed unsafe class Vulkan3DRenderer : IDisposable
         void main() {
             vec4 worldPos = ubo.model * vec4(inPosition, 1.0);
             gl_Position = ubo.projection * ubo.view * worldPos;
-            
+
             fragNormal = mat3(transpose(inverse(ubo.model))) * inNormal;
             fragPosition = worldPos.xyz;
             fragTexCoord = inTexCoord;
@@ -326,20 +345,20 @@ internal sealed unsafe class Vulkan3DRenderer : IDisposable
         void main() {
             vec3 normal = normalize(fragNormal);
             vec3 lightDir = normalize(-ubo.lightDirection);
-            
+
             // Ambient
             vec3 ambient = ubo.ambientColor * ubo.objectColor.rgb;
-            
+
             // Diffuse
             float diff = max(dot(normal, lightDir), 0.0);
             vec3 diffuse = diff * ubo.lightColor * ubo.objectColor.rgb;
-            
+
             // Simple specular (Blinn-Phong)
             vec3 viewDir = normalize(ubo.viewPosition - fragPosition);
             vec3 halfwayDir = normalize(lightDir + viewDir);
             float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
             vec3 specular = spec * ubo.lightColor * 0.5;
-            
+
             vec3 result = ambient + diffuse + specular;
             outColor = vec4(result, ubo.objectColor.a);
         }
@@ -361,6 +380,7 @@ internal sealed unsafe class Vulkan3DRenderer : IDisposable
         _uniformBuffer?.Dispose();
         _basicPipeline?.Dispose();
         _currentFramebuffer?.Dispose();
+        _colorTexture?.Dispose();
         _shaderCompiler.Dispose();
         _renderPass.Dispose();
     }
