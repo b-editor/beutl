@@ -48,12 +48,9 @@ internal sealed unsafe class VulkanInstance : IDisposable
         _enabledExtensions = GetRequiredInstanceExtensions();
         _instance = CreateInstance(_enabledExtensions);
 
-        if (_enableValidation)
+        if (_enableValidation && _vk.TryGetInstanceExtension(_instance, out _debugUtils))
         {
-            if (_vk.TryGetInstanceExtension(_instance, out _debugUtils))
-            {
-                _debugMessenger = CreateDebugMessenger();
-            }
+            _debugMessenger = CreateDebugMessenger();
         }
     }
 

@@ -83,8 +83,14 @@ internal static class VulkanSetup
             var (putenv, library) = GetPutenvDelegate();
             var envVar = $"{varName}={newValue}";
             var envPtr = Marshal.StringToHGlobalAnsi(envVar);
-            putenv(envPtr);
-            NativeLibrary.Free(library);
+            try
+            {
+                putenv(envPtr);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(envPtr);
+            }
         }
     }
 

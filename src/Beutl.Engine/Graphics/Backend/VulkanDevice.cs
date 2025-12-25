@@ -49,7 +49,6 @@ internal sealed unsafe class VulkanDevice : IDisposable
 
     public string[] EnabledExtensions => _enabledExtensions;
 
-    
 
     private uint FindGraphicsQueueFamily()
     {
