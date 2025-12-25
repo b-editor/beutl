@@ -14,7 +14,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
     private readonly DescriptorSetLayout _layout;
     private bool _disposed;
 
-    public VulkanDescriptorSet(VulkanContext context, DescriptorSetLayout layout, DescriptorPoolSize[] poolSizes)
+    public VulkanDescriptorSet(VulkanContext context, DescriptorSetLayout layout, Silk.NET.Vulkan.DescriptorPoolSize[] poolSizes)
     {
         _context = context;
         _layout = layout;
@@ -23,7 +23,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
         var device = context.Device;
 
         // Create descriptor pool
-        fixed (DescriptorPoolSize* poolSizesPtr = poolSizes)
+        fixed (Silk.NET.Vulkan.DescriptorPoolSize* poolSizesPtr = poolSizes)
         {
             var poolInfo = new DescriptorPoolCreateInfo
             {
@@ -86,7 +86,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
             DstBinding = (uint)binding,
             DstArrayElement = 0,
             DescriptorCount = 1,
-            DescriptorType = DescriptorType.UniformBuffer,
+            DescriptorType = Silk.NET.Vulkan.DescriptorType.UniformBuffer,
             PBufferInfo = &bufferInfo
         };
 
@@ -120,7 +120,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
             DstBinding = (uint)binding,
             DstArrayElement = 0,
             DescriptorCount = 1,
-            DescriptorType = sampler.HasValue ? DescriptorType.CombinedImageSampler : DescriptorType.SampledImage,
+            DescriptorType = sampler.HasValue ? Silk.NET.Vulkan.DescriptorType.CombinedImageSampler : Silk.NET.Vulkan.DescriptorType.SampledImage,
             PImageInfo = &imageInfo
         };
 
