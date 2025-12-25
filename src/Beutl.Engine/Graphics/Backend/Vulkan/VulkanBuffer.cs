@@ -14,15 +14,15 @@ internal sealed unsafe class VulkanBuffer : IBuffer
     private readonly Buffer _buffer;
     private readonly DeviceMemory _memory;
     private readonly ulong _size;
-    private readonly BufferUsageFlags _usage;
-    private readonly MemoryPropertyFlags _memoryProperties;
+    private readonly BufferUsage _usage;
+    private readonly MemoryProperty _memoryProperties;
     private bool _disposed;
 
     public VulkanBuffer(
         VulkanContext context,
         ulong size,
-        BufferUsageFlags usage,
-        MemoryPropertyFlags memoryProperties)
+        BufferUsage usage,
+        MemoryProperty memoryProperties)
     {
         _context = context;
         _size = size;
@@ -32,12 +32,15 @@ internal sealed unsafe class VulkanBuffer : IBuffer
         var vk = context.Vk;
         var device = context.Device;
 
+        var vulkanUsage = VulkanFlagConverter.ToVulkan(usage);
+        var vulkanMemoryProperties = VulkanFlagConverter.ToVulkan(memoryProperties);
+
         // Create buffer
         var bufferInfo = new BufferCreateInfo
         {
             SType = StructureType.BufferCreateInfo,
             Size = size,
-            Usage = usage,
+            Usage = vulkanUsage,
             SharingMode = SharingMode.Exclusive
         };
 
@@ -58,7 +61,7 @@ internal sealed unsafe class VulkanBuffer : IBuffer
         {
             SType = StructureType.MemoryAllocateInfo,
             AllocationSize = memReqs.Size,
-            MemoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, memoryProperties)
+            MemoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, vulkanMemoryProperties)
         };
 
         DeviceMemory memory;

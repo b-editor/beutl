@@ -244,8 +244,8 @@ internal sealed unsafe class MetalVulkanSharedTexture : ISharedTexture
         using var stagingBuffer = new VulkanBuffer(
             _vulkanContext,
             bufferSize,
-            BufferUsageFlags.TransferDstBit,
-            MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit);
+            BufferUsage.TransferDestination,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
         // Copy image to buffer
         _vulkanContext.SubmitImmediateCommands(cmd =>

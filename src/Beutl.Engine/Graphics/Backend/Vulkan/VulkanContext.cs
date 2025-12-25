@@ -117,7 +117,68 @@ internal sealed class VulkanContext : IGraphicsContext
 
     public I3DRenderer Create3DRenderer()
     {
-        return new Vulkan3DRenderer(this);
+        return new Renderer3D(this);
+    }
+
+    public IBuffer CreateBuffer(ulong size, BufferUsage usage, MemoryProperty memoryProperty)
+    {
+        return new VulkanBuffer(this, size, usage, memoryProperty);
+    }
+
+    public IShaderCompiler CreateShaderCompiler()
+    {
+        return new VulkanShaderCompiler();
+    }
+
+    public IRenderPass3D CreateRenderPass3D()
+    {
+        return new VulkanRenderPass3D(this);
+    }
+
+    public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, ISharedTexture colorTexture)
+    {
+        var vulkanRenderPass = (VulkanRenderPass3D)renderPass;
+        return new VulkanFramebuffer3D(this, vulkanRenderPass.Handle, colorTexture);
+    }
+
+    public IPipeline3D CreatePipeline3D(
+        IRenderPass3D renderPass,
+        byte[] vertexShaderSpirv,
+        byte[] fragmentShaderSpirv,
+        DescriptorBinding[] descriptorBindings)
+    {
+        var vulkanRenderPass = (VulkanRenderPass3D)renderPass;
+        var vulkanBindings = descriptorBindings
+            .Select(VulkanFlagConverter.ToVulkan)
+            .ToArray();
+        return new VulkanPipeline3D(
+            this,
+            vulkanRenderPass.Handle,
+            vertexShaderSpirv,
+            fragmentShaderSpirv,
+            VulkanVertex3D.GetVertexInputDescription(),
+            vulkanBindings);
+    }
+
+    public IDescriptorSet CreateDescriptorSet(IPipeline3D pipeline, DescriptorPoolSize[] poolSizes)
+    {
+        var vulkanPipeline = (VulkanPipeline3D)pipeline;
+        var vulkanPoolSizes = poolSizes
+            .Select(VulkanFlagConverter.ToVulkan)
+            .ToArray();
+        return new VulkanDescriptorSet(this, vulkanPipeline.DescriptorSetLayoutHandle, vulkanPoolSizes);
+    }
+
+    public unsafe void CopyBuffer(IBuffer source, IBuffer destination, ulong size)
+    {
+        var vulkanSource = (VulkanBuffer)source;
+        var vulkanDest = (VulkanBuffer)destination;
+
+        SubmitImmediateCommands(cmd =>
+        {
+            var copyRegion = new BufferCopy { Size = size };
+            Vk.CmdCopyBuffer(cmd, vulkanSource.Handle, vulkanDest.Handle, 1, &copyRegion);
+        });
     }
 
     public void WaitIdle()

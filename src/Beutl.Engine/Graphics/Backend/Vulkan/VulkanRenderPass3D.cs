@@ -207,6 +207,73 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         return _currentCommandBuffer;
     }
 
+
+    public void BindPipeline(IPipeline3D pipeline)
+    {
+        if (!_inRenderPass)
+        {
+            throw new InvalidOperationException("Render pass not begun");
+        }
+
+        var vulkanPipeline = (VulkanPipeline3D)pipeline;
+        _context.Vk.CmdBindPipeline(_currentCommandBuffer, PipelineBindPoint.Graphics, vulkanPipeline.Handle);
+    }
+
+    public void BindVertexBuffer(IBuffer buffer)
+    {
+        if (!_inRenderPass)
+        {
+            throw new InvalidOperationException("Render pass not begun");
+        }
+
+        var vulkanBuffer = (VulkanBuffer)buffer;
+        var bufferHandle = vulkanBuffer.Handle;
+        ulong offset = 0;
+        _context.Vk.CmdBindVertexBuffers(_currentCommandBuffer, 0, 1, &bufferHandle, &offset);
+    }
+
+    public void BindIndexBuffer(IBuffer buffer)
+    {
+        if (!_inRenderPass)
+        {
+            throw new InvalidOperationException("Render pass not begun");
+        }
+
+        var vulkanBuffer = (VulkanBuffer)buffer;
+        _context.Vk.CmdBindIndexBuffer(_currentCommandBuffer, vulkanBuffer.Handle, 0, IndexType.Uint32);
+    }
+
+    public void BindDescriptorSet(IPipeline3D pipeline, IDescriptorSet descriptorSet)
+    {
+        if (!_inRenderPass)
+        {
+            throw new InvalidOperationException("Render pass not begun");
+        }
+
+        var vulkanPipeline = (VulkanPipeline3D)pipeline;
+        var vulkanDescriptorSet = (VulkanDescriptorSet)descriptorSet;
+        var set = vulkanDescriptorSet.Handle;
+        _context.Vk.CmdBindDescriptorSets(
+            _currentCommandBuffer,
+            PipelineBindPoint.Graphics,
+            vulkanPipeline.PipelineLayoutHandle,
+            0,
+            1,
+            &set,
+            0,
+            null);
+    }
+
+    public void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0)
+    {
+        if (!_inRenderPass)
+        {
+            throw new InvalidOperationException("Render pass not begun");
+        }
+
+        _context.Vk.CmdDrawIndexed(_currentCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
