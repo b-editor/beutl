@@ -21,6 +21,7 @@ internal sealed class Renderer3D : I3DRenderer
     // Render passes
     private GeometryPass? _geometryPass;
     private LightingPass? _lightingPass;
+    private FlipPass? _flipPass;
 
     // Final output for Skia integration
     private ISharedTexture? _outputTexture;
@@ -47,6 +48,10 @@ internal sealed class Renderer3D : I3DRenderer
         _lightingPass = new LightingPass(_context, _shaderCompiler, _geometryPass.DepthTexture!);
         _lightingPass.Initialize(width, height);
 
+        // Create flip pass (corrects vertical orientation)
+        _flipPass = new FlipPass(_context, _shaderCompiler);
+        _flipPass.Initialize(width, height);
+
         // Create output texture for Skia integration
         _outputTexture = _context.CreateTexture(width, height, TextureFormat.BGRA8Unorm);
     }
@@ -70,6 +75,9 @@ internal sealed class Renderer3D : I3DRenderer
             _lightingPass.Initialize(width, height);
         }
 
+        // Resize flip pass
+        _flipPass?.Resize(width, height);
+
         // Recreate output texture
         _outputTexture?.Dispose();
         _outputTexture = _context.CreateTexture(width, height, TextureFormat.BGRA8Unorm);
@@ -85,7 +93,7 @@ internal sealed class Renderer3D : I3DRenderer
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (_geometryPass == null || _lightingPass == null)
+        if (_geometryPass == null || _lightingPass == null || _flipPass == null)
             return;
 
         float aspectRatio = (float)Width / Height;
@@ -112,17 +120,22 @@ internal sealed class Renderer3D : I3DRenderer
         _lightingPass.Execute(camera, lightDataList, backgroundColor, ambientColor, ambientIntensity);
         _lightingPass.PrepareForSampling();
 
+        // === FLIP PASS ===
+        _flipPass.SetInputTexture(_lightingPass.OutputTexture!);
+        _flipPass.Execute();
+        _flipPass.PrepareForSampling();
+
         // Copy result to output texture for Skia integration
         CopyToOutputTexture();
     }
 
     private void CopyToOutputTexture()
     {
-        if (_lightingPass?.OutputTexture == null || _outputTexture == null)
+        if (_flipPass?.OutputTexture == null || _outputTexture == null)
             return;
 
-        // Copy from lighting output (ITexture2D) to shared output texture (ISharedTexture)
-        _context.CopyTexture(_lightingPass.OutputTexture, _outputTexture);
+        // Copy from flip pass output (ITexture2D) to shared output texture (ISharedTexture)
+        _context.CopyTexture(_flipPass.OutputTexture, _outputTexture);
     }
 
     public SKSurface? CreateSkiaSurface()
@@ -140,6 +153,7 @@ internal sealed class Renderer3D : I3DRenderer
         if (_disposed) return;
         _disposed = true;
 
+        _flipPass?.Dispose();
         _lightingPass?.Dispose();
         _geometryPass?.Dispose();
         _outputTexture?.Dispose();
