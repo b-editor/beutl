@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
-using Beutl.Graphics3D.Meshes;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -42,14 +41,14 @@ public interface I3DRenderer : IDisposable
     /// Renders the 3D scene.
     /// </summary>
     /// <param name="camera">The camera resource.</param>
-    /// <param name="objects">The objects to render with their meshes.</param>
+    /// <param name="objects">The object resources to render.</param>
     /// <param name="lights">The lights in the scene.</param>
     /// <param name="backgroundColor">The background clear color.</param>
     /// <param name="ambientColor">The ambient light color.</param>
     /// <param name="ambientIntensity">The ambient light intensity.</param>
     void Render(
         Camera3D.Resource camera,
-        IReadOnlyList<(Object3D.Resource obj, Mesh mesh)> objects,
+        IReadOnlyList<Object3D.Resource> objects,
         IReadOnlyList<Light3D.Resource> lights,
         Color backgroundColor,
         Color ambientColor,
