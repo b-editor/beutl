@@ -179,6 +179,7 @@ public static class PropertyEditorService
             new(typeof(FileInfo), new(_ => new StorageFileEditor(), s => new StorageFileEditorViewModel(s.ToTyped<FileInfo>()))),
 
             new(typeof(Color), new(_ => new ColorEditor(), s => new ColorEditorViewModel(s.ToTyped<Color>()))),
+            new(typeof(GradingColor), new(_ => new GradingColorEditor(), s => new GradingColorEditorViewModel(s.ToTyped<GradingColor>()))),
 
             new(typeof(Point), new(_ => new Vector2Editor<float>(), s => new PointEditorViewModel(s.ToTyped<Point>()))),
             new(typeof(Size), new(_ => new Vector2Editor<float>(), s => new SizeEditorViewModel(s.ToTyped<Size>()))),
@@ -207,6 +208,7 @@ public static class PropertyEditorService
             new(typeof(Geometry), new(_ => new GeometryEditor(), s => new GeometryEditorViewModel(s.ToTyped<Geometry?>()))),
             new(typeof(AudioEffect), new(_ => new AudioEffectEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<AudioEffect?>()))),
             new(typeof(Transform), new(_ => new TransformEditor(), s => new TransformEditorViewModel(s.ToTyped<Transform?>()))),
+            new(typeof(CurveMap), new(_ => new CurveMapEditor(), s => new CurveMapEditorViewModel(s.ToTyped<CurveMap>()))),
             new(typeof(ICoreList<GradientStop>), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<ICoreList<GradientStop>>()))),
             new(typeof(DisplacementMapTransform), new(_ => new DisplacementMapTransformEditor(), s => new DisplacementMapTransformEditorViewModel(s.ToTyped<DisplacementMapTransform?>()))),
             new(typeof(IList), new(CreateListEditor, CreateListEditorViewModel)),

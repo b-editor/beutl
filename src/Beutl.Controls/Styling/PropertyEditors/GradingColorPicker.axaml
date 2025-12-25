@@ -1,0 +1,173 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:lang="using:Beutl.Language"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <Design.PreviewWith>
+        <local:GradingColorPicker Width="220"
+                                  Height="500"
+                                  InputType="Rgb" />
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:GradingColorPicker}" TargetType="local:GradingColorPicker">
+        <Setter Property="MinWidth" Value="240" />
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Grid Name="Root" RowDefinitions="*,Auto,Auto,Auto">
+                        <Border Name="SpectrumBorder"
+                                Width="{Binding #Root.Bounds.Width, Priority=Template}"
+                                Height="{Binding #Root.Bounds.Width, Priority=Template}">
+                            <ColorSpectrum Name="RingSpectrum"
+                                           HorizontalAlignment="Stretch"
+                                           VerticalAlignment="Stretch"
+                                           BorderBrush="{DynamicResource ColorRampBorderBrush}"
+                                           BorderThickness="1"
+                                           Components="HueSaturation"
+                                           Shape="Ring" />
+                        </Border>
+
+                        <ColorPreviewer Name="Previewer"
+                                        Grid.Row="1"
+                                        Margin="6,0"
+                                        IsVisible="False" />
+
+                        <StackPanel Grid.Row="2"
+                                    Margin="6,8"
+                                    Spacing="8">
+
+                            <ColorSlider Name="HueSlider"
+                                         ColorComponent="Component1"
+                                         ColorModel="Hsva"
+                                         IsVisible="False" />
+
+                            <ColorSlider Name="SaturationSlider"
+                                         ColorComponent="Component2"
+                                         ColorModel="Hsva"
+                                         IsVisible="False" />
+
+                            <!--  RGBの時のRed  -->
+                            <local:GradingWheel Name="FirstComponentWheel"
+                                                Background="Red"
+                                                IsVisible="False" />
+                            <!--  RGBの時のBlue  -->
+                            <local:GradingWheel Name="SecondComponentWheel"
+                                                Background="Green"
+                                                IsVisible="False" />
+                            <!--  HSVの時のValue, RGBの時のBlueを表すスライダー  -->
+                            <local:GradingWheel Name="ThirdComponentWheel" />
+                            <!--  RGBの時の全体  -->
+                            <local:GradingWheel Name="FourthComponentWheel" IsVisible="False" />
+
+                        </StackPanel>
+
+                        <Grid Grid.Row="3"
+                              Margin="6,0,6,8"
+                              ColumnDefinitions="*,4,Auto"
+                              RowDefinitions="Auto,6,Auto">
+                            <ComboBox Name="ColorType"
+                                      Grid.ColumnSpan="2"
+                                      Padding="6,5,0,5"
+                                      SelectedIndex="0"
+                                      Theme="{StaticResource LiteComboBoxStyle}">
+                                <ComboBoxItem Content="RGB" />
+                                <ComboBoxItem Content="HSV" />
+                            </ComboBox>
+
+                            <StackPanel Name="ButtonsLayout"
+                                        Grid.Column="0"
+                                        Grid.ColumnSpan="3"
+                                        HorizontalAlignment="Right"
+                                        Orientation="Horizontal"
+                                        Spacing="4">
+                                <ToggleButton Name="ToggleDetailsButton" ToolTip.Tip="{x:Static lang:Strings.ShowSliders}">
+                                    <ui:FontIcon Glyph="&#xE9E9;" />
+                                </ToggleButton>
+                            </StackPanel>
+
+                            <local:GradingColorComponentsEditor Name="ColorComponentsBox"
+                                                                Grid.Row="2"
+                                                                Grid.ColumnSpan="3"
+                                                                HorizontalAlignment="Stretch"
+                                                                Theme="{StaticResource GradingColorComponentsEditorStyle}" />
+                        </Grid>
+                    </Grid>
+
+                    <Border Name="Smoke"
+                            Background="{DynamicResource ContentDialogSmokeFill}"
+                            IsVisible="False" />
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ StackPanel#ButtonsLayout &gt; ToggleButton">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Theme" Value="{StaticResource TransparentToggleButton}" />
+
+            <Style Selector="^ &gt; ui|FontIcon">
+                <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^ /template/ ColorSlider">
+            <Setter Property="Height" Value="{DynamicResource ColorPickerColorRampSize}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ColorRampBorderBrush}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource ColorRampBorderThickness}" />
+            <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
+            <Setter Property="Orientation" Value="Horizontal" />
+        </Style>
+
+        <Style Selector="^:details">
+            <Style Selector="^ /template/ ColorPreviewer#Previewer">
+                <Setter Property="IsVisible" Value="True" />
+            </Style>
+            <Style Selector="^ /template/ ColorSpectrum#RingSpectrum">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+
+            <Style Selector="^[InputType=Rgb]">
+                <Style Selector="^ /template/ ColorSlider#HueSlider, ^ /template/ ColorSlider#SaturationSlider">
+                    <Setter Property="IsVisible" Value="False" />
+                </Style>
+                <Style Selector="^ /template/ local|GradingWheel#FirstComponentWheel, ^ /template/ local|GradingWheel#SecondComponentWheel, ^ /template/ local|GradingWheel#FourthComponentWheel">
+                    <Setter Property="IsVisible" Value="True" />
+                </Style>
+                <Style Selector="^ /template/ local|GradingWheel#ThirdComponentWheel">
+                    <Setter Property="Background" Value="Blue" />
+                </Style>
+            </Style>
+
+            <Style Selector="^[InputType=Hsv]">
+                <Style Selector="^ /template/ ColorSlider#HueSlider, ^ /template/ ColorSlider#SaturationSlider">
+                    <Setter Property="IsVisible" Value="True" />
+                </Style>
+                <Style Selector="^ /template/ local|GradingWheel#FirstComponentWheel, ^ /template/ local|GradingWheel#SecondComponentWheel, ^ /template/ local|GradingWheel#FourthComponentWheel">
+                    <Setter Property="IsVisible" Value="False" />
+                </Style>
+            </Style>
+        </Style>
+
+        <Style Selector="^:disabled /template/ Border#Smoke">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^.wheel">
+            <Style Selector="^ /template/ ComboBox#ColorType, ^ /template/ StackPanel#ButtonsLayout">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+            <Style Selector="^ /template/ Border#SpectrumBorder">
+                <Setter Property="Padding" Value="16" />
+                <Setter Property="Width" Value="NaN" />
+                <Setter Property="Height" Value="NaN" />
+            </Style>
+        </Style>
+
+    </ControlTheme>
+</ResourceDictionary>
