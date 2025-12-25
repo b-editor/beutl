@@ -171,11 +171,14 @@ internal sealed class Renderer3D : I3DRenderer
             new(5, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment)         // Lights
         };
 
+        // Use fullscreen pipeline (no vertex input, no depth test)
         _lightingPipeline = _context.CreatePipeline3D(
             _lightingPass!,
             vertexSpirv,
             fragmentSpirv,
-            descriptorBindings);
+            descriptorBindings,
+            VertexInputDescription.Empty,
+            PipelineOptions.Fullscreen);
 
         // Create descriptor set
         var poolSizes = new DescriptorPoolSize[]
@@ -260,10 +263,10 @@ internal sealed class Renderer3D : I3DRenderer
         // Clear colors for G-Buffer (black/zero for most, except normal which should be (0,0,1) for up)
         Span<Color> clearColors =
         [
-            new Color(255, 0, 0, 0),    // Position (black, alpha=1 for valid)
-            new Color(255, 128, 128, 255), // Normal (0.5,0.5,1 = up normal) + Metallic=1
-            new Color(255, 0, 0, 0),    // Albedo + Roughness
-            new Color(255, 0, 0, 0)     // Emission + AO
+            new Color(0, 0, 0, 0),       // Position (black, alpha=0 for invalid background)
+            new Color(255, 128, 128, 0), // Normal (0.5,0.5,1 = up) + Metallic=0
+            new Color(0, 0, 0, 0),       // Albedo (black) + Roughness=0
+            new Color(255, 0, 0, 0)      // Emission (none) + AO=1
         ];
 
         // Begin geometry pass
@@ -362,11 +365,11 @@ internal sealed class Renderer3D : I3DRenderer
 
     private void CopyToOutputTexture()
     {
-        // TODO: Copy from _lightingOutputTexture to _outputTexture
-        // For now, the lighting pass output is in _lightingOutputTexture
-        // We need to blit or copy it to the shared texture for Skia
-        _outputTexture?.PrepareForRender();
-        // The actual copy would need a blit command or another render pass
+        if (_lightingOutputTexture == null || _outputTexture == null)
+            return;
+
+        // Copy from lighting output (ITexture2D) to shared output texture (ISharedTexture)
+        _context.CopyTexture(_lightingOutputTexture, _outputTexture);
     }
 
     private void EnsureMeshBuffers(Mesh.Resource meshResource)
