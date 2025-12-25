@@ -1,14 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
-
 using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Utilities;
-
 using SkiaSharp;
-
 using Cv = OpenCvSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -39,7 +36,8 @@ public partial class FlatShadow : FilterEffect
         context.CustomEffect((r.Angle, r.Length, r.Brush, r.ShadowOnly), Apply, TransformBounds);
     }
 
-    private static Rect TransformBounds((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data, Rect rect)
+    private static Rect TransformBounds((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
+        Rect rect)
     {
         float length = data.Length;
         float radian = MathUtilities.Deg2Rad(data.Angle);
@@ -54,7 +52,8 @@ public partial class FlatShadow : FilterEffect
         return new Rect(rect.X - (xAbs - x) / 2, rect.Y - (yAbs - y) / 2, width, height);
     }
 
-    private static void Apply((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data, CustomFilterEffectContext context)
+    private static void Apply((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
+        CustomFilterEffectContext context)
     {
         static Cv.Point[][] FindPoints(Bitmap<Bgra8888> src)
         {
@@ -70,6 +69,7 @@ public partial class FlatShadow : FilterEffect
 
             return points;
         }
+
         static SKPath CreatePath(Cv.Point[][] points)
         {
             var skpath = new SKPath();
@@ -119,24 +119,18 @@ public partial class FlatShadow : FilterEffect
                     target.Bounds.Y - (y2Abs - y2) / 2,
                     (size.Width + x2Abs),
                     (size.Height + y2Abs)));
-            using ImmediateCanvas newCanvas = context.Open(newTarget);
-
-            using var paint = new SKPaint
-            {
-                Color = SKColors.White,
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill,
-            };
-
-            var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn);
-            using var brushPaint = new SKPaint();
-            c.ConfigurePaint(brushPaint);
-
-            using SKPath path = CreatePath(points);
-
+            using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Fill })
+            using (var brushPaint = new SKPaint())
+            using (SKPath path = CreatePath(points))
+            using (ImmediateCanvas newCanvas = context.Open(newTarget))
             using (newCanvas.PushLayer())
             using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2, (y2Abs - y2) / 2)))
             {
+                newCanvas.Clear();
+
+                var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn);
+                c.ConfigurePaint(brushPaint);
+
                 float lenAbs = Math.Abs(length);
                 int unit = Math.Sign(length);
                 for (int i = 0; i < lenAbs; i++)
@@ -144,12 +138,12 @@ public partial class FlatShadow : FilterEffect
                     newCanvas.Transform = Matrix.CreateTranslation(x1 * unit, y1 * unit) * newCanvas.Transform;
                     newCanvas.Canvas.DrawPath(path, paint);
                 }
+
+                newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Size.ToSKSize()), brushPaint);
+
+                if (!data.ShadowOnly)
+                    newCanvas.DrawRenderTarget(target.RenderTarget!, new((x2Abs - x2) / 2, (y2Abs - y2) / 2));
             }
-
-            newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Size.ToSKSize()), brushPaint);
-
-            if (!data.ShadowOnly)
-                newCanvas.DrawRenderTarget(target.RenderTarget!, new((x2Abs - x2) / 2, (y2Abs - y2) / 2));
 
             target.Dispose();
             context.Targets[ii] = newTarget;

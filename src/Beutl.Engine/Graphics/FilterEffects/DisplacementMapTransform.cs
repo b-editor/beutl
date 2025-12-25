@@ -91,13 +91,14 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     builder.Uniforms["uTranslation"] = new SKPoint(r.X, r.Y);
 
                     // 最終的なシェーダーを生成
+                    var newTarget = c.CreateTarget(effectTarget.Bounds);
                     using (SKShader finalShader = builder.Build())
                     using (var paint = new SKPaint())
+                    using (var canvas = c.Open(newTarget))
                     {
-                        var newTarget = c.CreateTarget(effectTarget.Bounds);
-                        var canvas = newTarget.RenderTarget!.Value.Canvas;
                         paint.Shader = finalShader;
-                        canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
+                        canvas.Clear();
+                        canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
 
                         c.Targets[i] = newTarget;
                     }
@@ -194,13 +195,14 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                         effectTarget.Bounds.Height / 2 + center.Y);
 
                     // 最終的なシェーダーを生成
+                    var newTarget = c.CreateTarget(effectTarget.Bounds);
                     using (SKShader finalShader = builder.Build())
                     using (var paint = new SKPaint())
+                    using (var canvas = c.Open(newTarget))
                     {
-                        var newTarget = c.CreateTarget(effectTarget.Bounds);
-                        var canvas = newTarget.RenderTarget!.Value.Canvas;
                         paint.Shader = finalShader;
-                        canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
+                        canvas.Clear();
+                        canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
 
                         c.Targets[i] = newTarget;
                     }
@@ -293,13 +295,14 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                         effectTarget.Bounds.Height / 2 + center.Y);
 
                     // 最終的なシェーダーを生成
+                    var newTarget = c.CreateTarget(effectTarget.Bounds);
                     using (SKShader finalShader = builder.Build())
                     using (var paint = new SKPaint())
+                    using (var canvas = c.Open(newTarget))
                     {
-                        var newTarget = c.CreateTarget(effectTarget.Bounds);
-                        var canvas = newTarget.RenderTarget!.Value.Canvas;
                         paint.Shader = finalShader;
-                        canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
+                        canvas.Clear();
+                        canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
 
                         c.Targets[i] = newTarget;
                     }

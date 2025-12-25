@@ -55,12 +55,14 @@ public partial class DisplacementMapEffect : FilterEffect
                             new BrushConstructor(new Rect(effectTarget.Bounds.Size), brush, BlendMode.SrcOver)
                                 .CreateShader();
 
+                        var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
                         using (var paint = new SKPaint())
+                        using (var canvas = effectContext.Open(newTarget))
                         {
-                            var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
-                            var canvas = newTarget.RenderTarget!.Value.Canvas;
                             paint.Shader = displacementMapShader;
-                            canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height),
+                            canvas.Clear();
+                            canvas.Canvas.DrawRect(
+                                new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height),
                                 paint);
 
                             effectContext.Targets[i] = newTarget;

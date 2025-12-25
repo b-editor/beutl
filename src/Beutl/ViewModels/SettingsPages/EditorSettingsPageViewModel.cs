@@ -1,4 +1,5 @@
 ﻿using Beutl.Configuration;
+using Beutl.Graphics.Backend;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
@@ -7,12 +8,14 @@ public sealed class EditorSettingsPageViewModel : IDisposable
 {
     private readonly ViewConfig _viewConfig;
     private readonly EditorConfig _editorConfig;
+    private readonly GraphicsConfig _graphicsConfig;
     private readonly CompositeDisposable _disposables = [];
 
     public EditorSettingsPageViewModel()
     {
         _viewConfig = GlobalConfiguration.Instance.ViewConfig;
         _editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        _graphicsConfig = GlobalConfiguration.Instance.GraphicsConfig;
 
         AutoAdjustSceneDuration = _editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
             .ToReactiveProperty()
@@ -87,6 +90,40 @@ public sealed class EditorSettingsPageViewModel : IDisposable
             .DisposeWith(_disposables);
         SwapTimelineScrollDirection.Subscribe(b => _editorConfig.SwapTimelineScrollDirection = b)
             .DisposeWith(_disposables);
+
+        // GPU selection
+        InitializeGpuSelection();
+    }
+
+    private void InitializeGpuSelection()
+    {
+        var availableGpus = GraphicsContextFactory.GetAvailableGpus();
+
+        // Build GPU list with "Auto" as first item
+        var gpuItems = new List<GpuItem> { new(null, SettingsPage.SelectedGpu_Auto) };
+        gpuItems.AddRange(availableGpus.Select(g => new GpuItem(g.Name, g.Name)));
+        AvailableGpus = gpuItems;
+
+        // Find current selection
+        string? savedGpuName = _graphicsConfig.SelectedGpuName;
+        int selectedIndex = 0;
+        if (!string.IsNullOrEmpty(savedGpuName))
+        {
+            int index = gpuItems.FindIndex(g => g.Name == savedGpuName);
+            if (index >= 0)
+            {
+                selectedIndex = index;
+            }
+        }
+
+        SelectedGpuIndex = new ReactiveProperty<int>(selectedIndex).DisposeWith(_disposables);
+        SelectedGpuIndex.Subscribe(index =>
+        {
+            if (index >= 0 && index < AvailableGpus.Count)
+            {
+                _graphicsConfig.SelectedGpuName = AvailableGpus[index].Name;
+            }
+        }).DisposeWith(_disposables);
     }
 
     public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }
@@ -113,8 +150,14 @@ public sealed class EditorSettingsPageViewModel : IDisposable
 
     public ReactiveProperty<bool> SwapTimelineScrollDirection { get; }
 
+    public IReadOnlyList<GpuItem> AvailableGpus { get; private set; } = [];
+
+    public ReactiveProperty<int> SelectedGpuIndex { get; private set; } = null!;
+
     public void Dispose()
     {
         _disposables.Dispose();
     }
 }
+
+public record GpuItem(string? Name, string DisplayName);

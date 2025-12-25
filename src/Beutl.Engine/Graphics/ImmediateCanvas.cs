@@ -1,5 +1,4 @@
-﻿using Beutl.Animation;
-using Beutl.Graphics.Effects;
+﻿using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Pixel;
@@ -26,6 +25,7 @@ public partial class ImmediateCanvas : ICanvas
         _renderTarget = renderTarget;
         Canvas = _renderTarget.Value.Canvas;
         _currentTransform = Canvas.TotalMatrix.ToMatrix();
+        _renderTarget.BeginDraw();
     }
 
     ~ImmediateCanvas()
@@ -84,6 +84,7 @@ public partial class ImmediateCanvas : ICanvas
     {
         void DisposeCore()
         {
+            GraphicsContextFactory.SharedContext?.SkiaContext.Flush(true, true);
             _sharedFillPaint.Dispose();
             _sharedStrokePaint.Dispose();
             GC.SuppressFinalize(this);
@@ -109,15 +110,20 @@ public partial class ImmediateCanvas : ICanvas
         _sharedFillPaint.IsAntialias = true;
 
         Canvas.DrawSurface(surface, point.X, point.Y, _sharedFillPaint);
+
+        surface.Flush(true, true);
     }
 
     public void DrawRenderTarget(RenderTarget renderTarget, Point point)
     {
+        // NOTE: renderTargetを保持しておいて次回Flushされたときに開放すると効率的
         renderTarget.VerifyAccess();
         _sharedFillPaint.Reset();
         _sharedFillPaint.IsAntialias = true;
 
         Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, _sharedFillPaint);
+
+        renderTarget.Value.Flush(true, true);
     }
 
     public void DrawDrawable(Drawable.Resource drawable)

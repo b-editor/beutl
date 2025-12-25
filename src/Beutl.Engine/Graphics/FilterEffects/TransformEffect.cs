@@ -59,6 +59,7 @@ public sealed partial class TransformEffect : FilterEffect
                         using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
                         using (canvas.PushTransform(m2))
                         {
+                            canvas.Clear();
                             canvas.DrawRenderTarget(target.RenderTarget!, default);
                         }
 

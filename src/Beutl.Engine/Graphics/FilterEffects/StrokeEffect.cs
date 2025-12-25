@@ -104,6 +104,7 @@ public partial class StrokeEffect : FilterEffect
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
                 using (newCanvas.PushTransform(origin))
                 {
+                    newCanvas.Clear();
                     if (data.Style == StrokeStyles.Background)
                     {
                         newCanvas.DrawRenderTarget(srcRenderTarget, default);

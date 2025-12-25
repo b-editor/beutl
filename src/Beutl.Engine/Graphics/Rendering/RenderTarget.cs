@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using Beutl.Graphics.Backend;
+using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Threading;
 using SkiaSharp;
@@ -7,14 +8,17 @@ namespace Beutl.Graphics.Rendering;
 
 public class RenderTarget : IDisposable
 {
-    private readonly SKSurfaceCounter _surface;
+    private readonly SKSurfaceCounter<SKSurface> _surface;
+    private readonly SKSurfaceCounter<ISharedTexture>? _texture;
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
 
-    private RenderTarget(SKSurfaceCounter surface, int width, int height)
+    private RenderTarget(SKSurfaceCounter<SKSurface> surface, int width, int height,
+        SKSurfaceCounter<ISharedTexture>? texture = null)
     {
         _surface = surface;
         Width = width;
         Height = height;
+        _texture = texture;
     }
 
     ~RenderTarget()
@@ -36,6 +40,7 @@ public class RenderTarget : IDisposable
         try
         {
             SKSurface? surface;
+            ISharedTexture? sharedTexture = null;
             if (Dispatcher.Current == null)
             {
                 surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
@@ -43,14 +48,12 @@ public class RenderTarget : IDisposable
             else
             {
                 RenderThread.Dispatcher.VerifyAccess();
-                GRContext? grContext = SharedGRContext.GetOrCreate();
+                IGraphicsContext? context = GraphicsContextFactory.GetOrCreateShared();
 
-                if (grContext != null)
+                if (context != null)
                 {
-                    surface = SKSurface.Create(
-                        grContext,
-                        false,
-                        new SKImageInfo(width, height, SKColorType.Bgra8888 /*, SKAlphaType.Unpremul*/));
+                    sharedTexture = context.CreateTexture(width, height, TextureFormat.BGRA8Unorm);
+                    surface = sharedTexture.CreateSkiaSurface();
                 }
                 else
                 {
@@ -59,7 +62,10 @@ public class RenderTarget : IDisposable
                 }
             }
 
-            return surface == null ? null : new RenderTarget(new SKSurfaceCounter(surface), width, height);
+            var textureRef = sharedTexture != null ? new SKSurfaceCounter<ISharedTexture>(sharedTexture) : null;
+            return surface == null
+                ? null
+                : new RenderTarget(new SKSurfaceCounter<SKSurface>(surface), width, height, textureRef);
         }
         catch
         {
@@ -70,7 +76,7 @@ public class RenderTarget : IDisposable
     public static RenderTarget CreateNull(int width, int height)
     {
         var surface = SKSurface.CreateNull(width, height);
-        return new RenderTarget(new SKSurfaceCounter(surface), width, height);
+        return new RenderTarget(new SKSurfaceCounter<SKSurface>(surface), width, height);
     }
 
     public static RenderTarget GetRenderTarget(ImmediateCanvas canvas)
@@ -82,6 +88,7 @@ public class RenderTarget : IDisposable
     public unsafe Bitmap<Bgra8888> Snapshot()
     {
         VerifyAccess();
+        PrepareForSampling();
         var result = new Bitmap<Bgra8888>(Width, Height);
 
         _surface.Value!.ReadPixels(new SKImageInfo(Width, Height, SKColorType.Bgra8888), result.Data,
@@ -93,7 +100,8 @@ public class RenderTarget : IDisposable
     public RenderTarget ShallowCopy()
     {
         _surface.AddRef();
-        return new RenderTarget(_surface, Width, Height);
+        _texture?.AddRef();
+        return new RenderTarget(_surface, Width, Height, _texture);
     }
 
     public void VerifyAccess()
@@ -107,16 +115,35 @@ public class RenderTarget : IDisposable
         if (IsDisposed) return;
 
         _surface.Release();
+        _texture?.Release();
         IsDisposed = true;
         GC.SuppressFinalize(this);
     }
 
-    private sealed class SKSurfaceCounter(SKSurface value)
+    internal void BeginDraw()
+    {
+        VerifyAccess();
+
+        if (_texture?.Value is VulkanSharedTexture vulkanTexture)
+        {
+            vulkanTexture.PrepareForRender();
+        }
+    }
+
+    internal void PrepareForSampling()
+    {
+        VerifyAccess();
+
+        _surface.Value!.Flush(true, true);
+    }
+
+    private sealed class SKSurfaceCounter<T>(T value)
+        where T : class, IDisposable
     {
         private readonly Dispatcher? _dispatcher = Dispatcher.Current;
         private volatile int _refs = 1;
 
-        public SKSurface? Value { get; private set; } = value;
+        public T? Value { get; private set; } = value;
 
         public int RefCount => _refs;
 

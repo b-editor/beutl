@@ -79,13 +79,14 @@ public partial class MosaicEffect : FilterEffect
             builder.Uniforms["origin"] = data.origin.ToPixels(new(image.Width, image.Height)).ToSKPoint();
 
             // 最終的なシェーダーを生成
+            var newTarget = c.CreateTarget(effectTarget.Bounds);
             using (SKShader finalShader = builder.Build())
             using (var paint = new SKPaint())
+            using (var canvas = c.Open(newTarget))
             {
-                var newTarget = c.CreateTarget(effectTarget.Bounds);
-                var canvas = newTarget.RenderTarget!.Value.Canvas;
                 paint.Shader = finalShader;
-                canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
+                canvas.Clear();
+                canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
 
                 c.Targets[i] = newTarget;
             }

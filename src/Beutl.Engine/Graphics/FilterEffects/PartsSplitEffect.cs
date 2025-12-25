@@ -96,6 +96,7 @@ public partial class PartsSplitEffect : FilterEffect
                     using (ImmediateCanvas newCanvas = context.Open(newTarget))
                     using (newCanvas.PushTransform(Matrix.CreateTranslation(-pathBounds.Left, -pathBounds.Top)))
                     {
+                        newCanvas.Clear();
                         newCanvas.Canvas.ClipPath(skpath, antialias: true);
 
                         newCanvas.DrawRenderTarget(srcRenderTarget, default);

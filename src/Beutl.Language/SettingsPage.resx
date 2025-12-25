@@ -356,4 +356,20 @@
     <value>Swap the scroll direction of the timeline</value>
     <comment/>
   </data>
+  <data name="Graphics" xml:space="preserve">
+    <value>Graphics</value>
+    <comment/>
+  </data>
+  <data name="SelectedGpu" xml:space="preserve">
+    <value>GPU</value>
+    <comment/>
+  </data>
+  <data name="SelectedGpu_Description" xml:space="preserve">
+    <value>Select the GPU to use for rendering. Changes will take effect after restart.</value>
+    <comment/>
+  </data>
+  <data name="SelectedGpu_Auto" xml:space="preserve">
+    <value>Auto</value>
+    <comment/>
+  </data>
 </root>

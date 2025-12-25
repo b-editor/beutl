@@ -206,7 +206,7 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
         PixelSize pixelSize;
 
         if (tileBrush is ImageBrush.Resource imageBrush
-                 && imageBrush.Source?.TryGetRef(out Ref<IBitmap>? bitmap) == true)
+            && imageBrush.Source?.TryGetRef(out Ref<IBitmap>? bitmap) == true)
         {
             using (bitmap)
             {
@@ -217,15 +217,30 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
         else if (tileBrush is DrawableBrush.Resource drawableBrush)
         {
             if (drawableBrush.Drawable is null) return null;
-            renderTarget = RenderTarget.Create((int)Bounds.Width, (int)Bounds.Height);
+
+            var drawable = drawableBrush.Drawable;
+            using var node = new DrawableRenderNode(drawable);
+            using var context = new GraphicsContext2D(node, new PixelSize((int)Bounds.Width, (int)Bounds.Height));
+            drawable.GetOriginal().Render(context, drawable);
+            var processor = new RenderNodeProcessor(node, true);
+            var ops = processor.RasterizeToRenderTargets();
+            var totalBounds = ops.Aggregate(Rect.Empty, (current, item) => current.Union(item.Bounds));
+
+            renderTarget = RenderTarget.Create((int)totalBounds.Width, (int)totalBounds.Height);
             if (renderTarget == null) return null;
 
             using (var icanvas = new ImmediateCanvas(renderTarget))
             {
-                icanvas.DrawDrawable(drawableBrush.Drawable);
+                icanvas.Clear();
+
+                foreach (var op in ops)
+                {
+                    icanvas.DrawRenderTarget(op.RenderTarget, op.Bounds.Position - totalBounds.Position);
+                    op.RenderTarget.Dispose();
+                }
             }
 
-            pixelSize = new PixelSize(renderTarget.Width, renderTarget.Height);
+            pixelSize = new PixelSize((int)totalBounds.Width, (int)totalBounds.Height);
             skImage = renderTarget.Value.Snapshot();
         }
         else
@@ -244,17 +259,17 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
             intermediate = RenderTarget.Create(intermediateSize.Width, intermediateSize.Height);
             if (intermediate == null) return null;
 
-            SKCanvas canvas = intermediate.Value.Canvas;
+            using (var canvas = new ImmediateCanvas(intermediate))
             using (var paintTmp = new SKPaint())
             {
-                canvas.Clear();
-                canvas.Save();
-                canvas.ClipRect(calc.IntermediateClip.ToSKRect());
-                canvas.SetMatrix(calc.IntermediateTransform.ToSKMatrix());
+                canvas.Canvas.Clear();
+                canvas.Canvas.Save();
+                canvas.Canvas.ClipRect(calc.IntermediateClip.ToSKRect());
+                canvas.Canvas.SetMatrix(calc.IntermediateTransform.ToSKMatrix());
 
-                canvas.DrawImage(skImage, 0, 0, tileBrush.BitmapInterpolationMode.ToSKSamplingOptions(), paintTmp);
+                canvas.Canvas.DrawImage(skImage, 0, 0, tileBrush.BitmapInterpolationMode.ToSKSamplingOptions(), paintTmp);
 
-                canvas.Restore();
+                canvas.Canvas.Restore();
             }
 
             SKMatrix tileTransform = tileBrush.TileMode != TileMode.None
@@ -284,8 +299,9 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
             }
 
             using (SKImage snapshot = intermediate.Value.Snapshot())
+            using (SKImage raster = snapshot.ToRasterImage())
             {
-                return snapshot.ToShader(tileX, tileY, tileTransform);
+                return raster.ToShader(tileX, tileY, tileTransform);
             }
         }
         finally

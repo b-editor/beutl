@@ -13,6 +13,7 @@ public partial class LayerEffect : FilterEffect
                 var newTarget = ctx.CreateTarget(bounds);
                 using (var canvas = ctx.Open(newTarget))
                 {
+                    canvas.Clear();
                     foreach (var t in ctx.Targets)
                     {
                         using (canvas.PushTransform(Matrix.CreateTranslation(t.Bounds.Position - bounds.Position)))

@@ -9,6 +9,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Graphics.Backend;
 using Beutl.NodeTree.Nodes;
 using Beutl.Operators;
 using Beutl.Pages;
@@ -40,6 +41,9 @@ public sealed class App : Application
 
         GlobalConfiguration config = GlobalConfiguration.Instance;
         ViewConfig view = config.ViewConfig;
+
+        // Apply GPU selection from config
+        GraphicsContextFactory.SelectGpuByName(config.GraphicsConfig.SelectedGpuName);
 
         AvaloniaXamlLoader.Load(this);
         Resources["PaletteColors"] = AppHelpers.GetPaletteColors();

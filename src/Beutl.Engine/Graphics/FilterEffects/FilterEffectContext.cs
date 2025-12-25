@@ -152,6 +152,7 @@ public sealed class FilterEffectContext : IDisposable
                         EffectTarget newTarget = context.CreateTarget(target.Bounds);
                         using (ImmediateCanvas canvas = context.Open(newTarget))
                         {
+                            canvas.Clear();
                             using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
                             using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
                             using var filter = SKImageFilter.CreateColorFilter(blend, blur);

@@ -72,7 +72,12 @@ public partial class MedianBlur : FilterEffect
                 Cv2.MedianBlur(mat, mat, kSize);
 
                 EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
-                newTarget.RenderTarget!.Value.Canvas.DrawBitmap(dst.ToSKBitmap(), 0, 0);
+                using (var canvas = context.Open(newTarget))
+                {
+                    canvas.Clear();
+                    canvas.DrawBitmap(dst, Brushes.Resource.White, null);
+                }
+
                 target.Dispose();
                 context.Targets[i] = newTarget;
             }
