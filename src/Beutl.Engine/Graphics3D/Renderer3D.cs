@@ -41,6 +41,7 @@ internal sealed class Renderer3D : I3DRenderer
     private IDescriptorSet? _lightingDescriptorSet;
     private IBuffer? _lightingUniformBuffer;
     private IBuffer? _lightsBuffer;
+    private ISampler? _gBufferSampler;
 
     // Final output for Skia integration
     private ISharedTexture? _outputTexture;
@@ -116,6 +117,7 @@ internal sealed class Renderer3D : I3DRenderer
         _lightingDescriptorSet?.Dispose();
         _lightingUniformBuffer?.Dispose();
         _lightsBuffer?.Dispose();
+        _gBufferSampler?.Dispose();
 
         // Create output textures
         _lightingOutputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
@@ -136,6 +138,13 @@ internal sealed class Renderer3D : I3DRenderer
 
     private void CreateLightingPipeline()
     {
+        // Create sampler for G-Buffer textures
+        _gBufferSampler = _context.CreateSampler(
+            SamplerFilter.Nearest,
+            SamplerFilter.Nearest,
+            SamplerAddressMode.ClampToEdge,
+            SamplerAddressMode.ClampToEdge);
+
         // Create uniform buffers
         _lightingUniformBuffer = _context.CreateBuffer(
             (ulong)Marshal.SizeOf<LightingPassUBO>(),
@@ -329,10 +338,10 @@ internal sealed class Renderer3D : I3DRenderer
         _lightsBuffer!.Upload(new ReadOnlySpan<LightsBufferData>(ref lightsData));
 
         // Update G-Buffer texture bindings in descriptor set
-        _lightingDescriptorSet!.UpdateTexture(0, _positionTexture!);
-        _lightingDescriptorSet.UpdateTexture(1, _normalMetallicTexture!);
-        _lightingDescriptorSet.UpdateTexture(2, _albedoRoughnessTexture!);
-        _lightingDescriptorSet.UpdateTexture(3, _emissionAOTexture!);
+        _lightingDescriptorSet!.UpdateTexture(0, _positionTexture!, _gBufferSampler!);
+        _lightingDescriptorSet.UpdateTexture(1, _normalMetallicTexture!, _gBufferSampler!);
+        _lightingDescriptorSet.UpdateTexture(2, _albedoRoughnessTexture!, _gBufferSampler!);
+        _lightingDescriptorSet.UpdateTexture(3, _emissionAOTexture!, _gBufferSampler!);
 
         // Begin lighting pass
         Span<Color> clearColors = [backgroundColor];
@@ -435,6 +444,7 @@ internal sealed class Renderer3D : I3DRenderer
         _lightingPipeline?.Dispose();
         _lightsBuffer?.Dispose();
         _lightingUniformBuffer?.Dispose();
+        _gBufferSampler?.Dispose();
         _lightingFramebuffer?.Dispose();
         _lightingPass?.Dispose();
         _lightingOutputTexture?.Dispose();
