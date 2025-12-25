@@ -1,8 +1,11 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
+using Beutl.Graphics.Backend.Metal;
+using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Graphics3D;
 using Silk.NET.Vulkan;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Backend;
+namespace Beutl.Graphics.Backend.Composite;
 
 internal sealed class CompositeContext : IGraphicsContext
 {
@@ -32,12 +35,19 @@ internal sealed class CompositeContext : IGraphicsContext
 
     public VulkanContext Vulkan { get; }
 
+    public bool Supports3DRendering => Vulkan.Supports3DRendering;
+
     public ISharedTexture CreateTexture(int width, int height, TextureFormat format)
     {
         if (Metal == null)
             return Vulkan.CreateTexture(width, height, format);
 
         return new MetalVulkanSharedTexture(Metal, Vulkan, width, height, format);
+    }
+
+    public I3DRenderer Create3DRenderer()
+    {
+        return Vulkan.Create3DRenderer();
     }
 
     public void WaitIdle()

@@ -2,7 +2,7 @@ using System;
 using Beutl.Media;
 using Silk.NET.Vulkan;
 
-namespace Beutl.Graphics.Backend.Vulkan3D;
+namespace Beutl.Graphics.Backend.Vulkan;
 
 /// <summary>
 /// Vulkan implementation of <see cref="IRenderPass3D"/>.

@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
-namespace Beutl.Graphics.Backend;
+namespace Beutl.Graphics.Backend.Vulkan;
 
 internal static class VulkanSetup
 {
