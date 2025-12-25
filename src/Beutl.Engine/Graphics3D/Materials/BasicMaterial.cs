@@ -37,6 +37,7 @@ public sealed partial class BasicMaterial : Material3D
 
     /// <summary>
     /// Gets the shininess factor for specular highlights.
+    /// Higher values create sharper highlights. Converted to roughness for PBR.
     /// </summary>
     [Range(1f, 256f)]
     public IProperty<float> Shininess { get; } = Property.CreateAnimatable(32f);
@@ -63,7 +64,7 @@ public sealed partial class BasicMaterial : Material3D
                 BufferUsage.UniformBuffer,
                 MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
-            // Compile shaders
+            // Compile shaders for G-Buffer output
             var vertexSpirv = shaderCompiler.CompileToSpirv(VertexShaderSource, ShaderStage.Vertex);
             var fragmentSpirv = shaderCompiler.CompileToSpirv(FragmentShaderSource, ShaderStage.Fragment);
 
@@ -99,22 +100,23 @@ public sealed partial class BasicMaterial : Material3D
 
             var renderPass = context.RenderPass;
 
+            // Convert shininess to roughness (inverse relationship)
+            // Shininess 1 -> Roughness 1.0, Shininess 256 -> Roughness ~0.04
+            float roughness = 1.0f - MathF.Sqrt(Shininess / 256f);
+            roughness = Math.Clamp(roughness, 0.04f, 1.0f);
+
             // Update uniform buffer
             var ubo = new BasicMaterialUBO
             {
                 Model = obj.GetWorldMatrix(),
                 View = context.ViewMatrix,
                 Projection = context.ProjectionMatrix,
-                LightDirection = context.LightDirection,
-                LightColor = context.LightColor,
-                AmbientColor = context.AmbientColor,
-                ViewPosition = context.CameraPosition,
-                ObjectColor = new Vector4(
+                Albedo = new Vector4(
                     DiffuseColor.R / 255f,
                     DiffuseColor.G / 255f,
                     DiffuseColor.B / 255f,
                     DiffuseColor.A / 255f),
-                Shininess = Shininess
+                Roughness = roughness
             };
 
             _uniformBuffer.Upload(new ReadOnlySpan<BasicMaterialUBO>(ref ubo));
@@ -135,7 +137,7 @@ public sealed partial class BasicMaterial : Material3D
         }
 
         /// <summary>
-        /// Uniform buffer object for basic material.
+        /// Uniform buffer object for basic material (geometry pass).
         /// </summary>
         [StructLayout(LayoutKind.Sequential)]
         private struct BasicMaterialUBO
@@ -143,19 +145,14 @@ public sealed partial class BasicMaterial : Material3D
             public Matrix4x4 Model;
             public Matrix4x4 View;
             public Matrix4x4 Projection;
-            public Vector3 LightDirection;
-            private float _pad1;
-            public Vector3 LightColor;
-            private float _pad2;
-            public Vector3 AmbientColor;
-            private float _pad3;
-            public Vector3 ViewPosition;
-            private float _pad4;
-            public Vector4 ObjectColor;
-            public float Shininess;
-            private Vector3 _pad5;
+            public Vector4 Albedo;
+            public float Roughness;
+            private Vector3 _pad;
         }
 
+        /// <summary>
+        /// Vertex shader for G-Buffer geometry pass.
+        /// </summary>
         private static string VertexShaderSource => """
             #version 450
 
@@ -163,82 +160,69 @@ public sealed partial class BasicMaterial : Material3D
             layout(location = 1) in vec3 inNormal;
             layout(location = 2) in vec2 inTexCoord;
 
-            layout(binding = 0) uniform UniformBufferObject {
+            layout(binding = 0) uniform MaterialUBO {
                 mat4 model;
                 mat4 view;
                 mat4 projection;
-                vec3 lightDirection;
-                float _pad1;
-                vec3 lightColor;
-                float _pad2;
-                vec3 ambientColor;
-                float _pad3;
-                vec3 viewPosition;
-                float _pad4;
-                vec4 objectColor;
-                float shininess;
-                vec3 _pad5;
-            } ubo;
+                vec4 albedo;
+                float roughness;
+                vec3 _pad;
+            } material;
 
-            layout(location = 0) out vec3 fragNormal;
-            layout(location = 1) out vec3 fragPosition;
+            layout(location = 0) out vec3 fragWorldPos;
+            layout(location = 1) out vec3 fragNormal;
             layout(location = 2) out vec2 fragTexCoord;
 
             void main() {
-                vec4 worldPos = ubo.model * vec4(inPosition, 1.0);
-                gl_Position = ubo.projection * ubo.view * worldPos;
+                vec4 worldPos = material.model * vec4(inPosition, 1.0);
+                gl_Position = material.projection * material.view * worldPos;
 
-                fragNormal = mat3(transpose(inverse(ubo.model))) * inNormal;
-                fragPosition = worldPos.xyz;
+                fragWorldPos = worldPos.xyz;
+                fragNormal = mat3(transpose(inverse(material.model))) * inNormal;
                 fragTexCoord = inTexCoord;
             }
             """;
 
+        /// <summary>
+        /// Fragment shader for G-Buffer output.
+        /// BasicMaterial is treated as non-metallic with full AO and no emission.
+        /// </summary>
         private static string FragmentShaderSource => """
             #version 450
 
-            layout(location = 0) in vec3 fragNormal;
-            layout(location = 1) in vec3 fragPosition;
+            layout(location = 0) in vec3 fragWorldPos;
+            layout(location = 1) in vec3 fragNormal;
             layout(location = 2) in vec2 fragTexCoord;
 
-            layout(binding = 0) uniform UniformBufferObject {
+            layout(binding = 0) uniform MaterialUBO {
                 mat4 model;
                 mat4 view;
                 mat4 projection;
-                vec3 lightDirection;
-                float _pad1;
-                vec3 lightColor;
-                float _pad2;
-                vec3 ambientColor;
-                float _pad3;
-                vec3 viewPosition;
-                float _pad4;
-                vec4 objectColor;
-                float shininess;
-                vec3 _pad5;
-            } ubo;
+                vec4 albedo;
+                float roughness;
+                vec3 _pad;
+            } material;
 
-            layout(location = 0) out vec4 outColor;
+            // G-Buffer outputs
+            layout(location = 0) out vec4 outPosition;       // World position (RGB) + Valid flag (A)
+            layout(location = 1) out vec4 outNormalMetallic; // Normal (RGB encoded) + Metallic (A)
+            layout(location = 2) out vec4 outAlbedoRoughness; // Albedo (RGB) + Roughness (A)
+            layout(location = 3) out vec4 outEmissionAO;     // Emission (RGB) + AO (A)
 
             void main() {
-                vec3 normal = normalize(fragNormal);
-                vec3 lightDir = normalize(-ubo.lightDirection);
+                vec3 N = normalize(fragNormal);
 
-                // Ambient
-                vec3 ambient = ubo.ambientColor * ubo.objectColor.rgb;
+                // Output world position with valid flag
+                outPosition = vec4(fragWorldPos, 1.0);
 
-                // Diffuse
-                float diff = max(dot(normal, lightDir), 0.0);
-                vec3 diffuse = diff * ubo.lightColor * ubo.objectColor.rgb;
+                // Output normal (encoded to [0,1] range) with metallic (0 for basic material)
+                outNormalMetallic = vec4(N * 0.5 + 0.5, 0.0);
 
-                // Specular (Blinn-Phong)
-                vec3 viewDir = normalize(ubo.viewPosition - fragPosition);
-                vec3 halfwayDir = normalize(lightDir + viewDir);
-                float spec = pow(max(dot(normal, halfwayDir), 0.0), ubo.shininess);
-                vec3 specular = spec * ubo.lightColor * 0.5;
+                // Output albedo with roughness
+                outAlbedoRoughness = vec4(material.albedo.rgb, material.roughness);
 
-                vec3 result = ambient + diffuse + specular;
-                outColor = vec4(result, ubo.objectColor.a);
+                // Output no emission with full ambient occlusion
+                outEmissionAO = vec4(0.0, 0.0, 0.0, 1.0);
             }
             """;
     }
