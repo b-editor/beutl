@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
-using System.Numerics;
 using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Meshes;
 
 namespace Beutl.Graphics3D.Primitives;
@@ -8,7 +8,7 @@ namespace Beutl.Graphics3D.Primitives;
 /// <summary>
 /// A 3D cube primitive.
 /// </summary>
-public partial class Cube3D : Object3D
+public sealed partial class Cube3D : Object3D
 {
     public Cube3D()
     {
@@ -33,13 +33,49 @@ public partial class Cube3D : Object3D
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Depth { get; } = Property.CreateAnimatable(1f);
 
-    /// <inheritdoc />
-    /// <inheritdoc />
-    public override Mesh GetMesh(Object3D.Resource resource)
+    public partial class Resource
     {
-        var cubeResource = (Resource)resource;
-        return CubeMesh.GenerateMesh(cubeResource.Width, cubeResource.Height, cubeResource.Depth);
+        private readonly CubeMesh _mesh = new();
+        private CubeMesh.Resource? _meshResource;
+
+        partial void PostUpdate(Cube3D obj, RenderContext context)
+        {
+            _mesh.Width.CurrentValue = Math.Max(Width, 0.001f);
+            _mesh.Height.CurrentValue = Math.Max(Height, 0.001f);
+            _mesh.Depth.CurrentValue = Math.Max(Depth, 0.001f);
+
+            if (_meshResource is null)
+            {
+                _meshResource = _mesh.ToResource(context);
+                Version++;
+            }
+            else
+            {
+                if (_meshResource.GetOriginal() != _mesh)
+                {
+                    var oldMesh = _meshResource;
+                    _meshResource = _mesh.ToResource(context);
+                    oldMesh.Dispose();
+                    Version++;
+                }
+                else
+                {
+                    var oldVersion = _meshResource.Version;
+                    var _ = false;
+                    _meshResource.Update(_mesh, context, ref _);
+                    if (oldVersion != _meshResource.Version)
+                    {
+                        Version++;
+                    }
+                }
+            }
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            _meshResource?.Dispose();
+        }
+
+        public override Mesh.Resource? GetMesh() => _meshResource;
     }
-
-
 }
