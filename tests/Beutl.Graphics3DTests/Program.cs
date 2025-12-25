@@ -11,10 +11,10 @@ using Beutl.Graphics3D.Primitives;
 using Beutl.Media;
 using SkiaSharp;
 
-Console.WriteLine("=== Beutl 3D Graphics Test ===");
+Console.WriteLine("=== Beutl 3D Graphics Test - PBR Material Grid ===");
 Console.WriteLine();
 
-// Initialize graphics context using the abstraction layer
+// Initialize graphics context
 Console.WriteLine("Initializing graphics context...");
 var graphicsContext = GraphicsContextFactory.CreateContext();
 
@@ -29,174 +29,154 @@ if (!graphicsContext.Supports3DRendering)
 }
 
 // Render settings
-const int Width = 800;
-const int Height = 600;
-const string BasicOutputPath = "render_basic.png";
-const string PBROutputPath = "render_pbr.png";
+const int Width = 1200;
+const int Height = 800;
+const string PBRGridOutputPath = "render_pbr_grid.png";
 
 Console.WriteLine($"Render size: {Width}x{Height}");
 Console.WriteLine();
 
-// Create 3D renderer via the abstracted interface
+// Create 3D renderer
 Console.WriteLine("Creating 3D renderer...");
 var renderer = graphicsContext.Create3DRenderer();
 renderer.Initialize(Width, Height);
 Console.WriteLine("Renderer initialized.");
 Console.WriteLine();
 
-// Create camera
-Console.WriteLine("Setting up scene...");
+var renderContext = new RenderContext(TimeSpan.Zero);
+
+// === PBR Material Grid Test ===
+Console.WriteLine("=== PBR Material Grid Test ===");
+Console.WriteLine();
+Console.WriteLine("Grid layout:");
+Console.WriteLine("  Horizontal (left to right): Metallic 0.0 -> 1.0");
+Console.WriteLine("  Vertical (bottom to top):   Roughness 0.0 -> 1.0");
+Console.WriteLine();
+
+// Camera
 var camera = new PerspectiveCamera();
-camera.Position.CurrentValue = new Vector3(3, 3, 5);
-camera.Target.CurrentValue = Vector3.Zero;
+camera.Position.CurrentValue = new Vector3(0, 0, 12);
+camera.Target.CurrentValue = new Vector3(0, 0, 0);
 camera.Up.CurrentValue = Vector3.UnitY;
-camera.FieldOfView.CurrentValue = 60f;
+camera.FieldOfView.CurrentValue = 45f;
 camera.NearPlane.CurrentValue = 0.1f;
 camera.FarPlane.CurrentValue = 100f;
 
-// Create camera resource
-var renderContext = new RenderContext(TimeSpan.Zero);
 var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(renderContext);
 
-// === Test 1: BasicMaterial with DirectionalLight ===
-Console.WriteLine("--- Test 1: BasicMaterial with DirectionalLight ---");
+// Grid parameters
+const int GridSizeX = 7; // Metallic steps
+const int GridSizeY = 7; // Roughness steps
+const float SphereRadius = 0.4f;
+const float Spacing = 1.1f;
 
-var cube1 = new Cube3D();
-cube1.Position.CurrentValue = Vector3.Zero;
-cube1.Scale.CurrentValue = Vector3.One;
-cube1.Rotation.CurrentValue = Quaternion.CreateFromYawPitchRoll(MathF.PI / 6, MathF.PI / 8, 0);
-cube1.Width.CurrentValue = 2f;
-cube1.Height.CurrentValue = 2f;
-cube1.Depth.CurrentValue = 2f;
+var objects = new List<Object3D.Resource>();
 
-var basicMaterial = new BasicMaterial();
-basicMaterial.DiffuseColor.CurrentValue = new Color(255, 100, 150, 200); // Light blue-ish
-cube1.Material.CurrentValue = basicMaterial;
+// Calculate grid offset to center
+float offsetX = -(GridSizeX - 1) * Spacing * 0.5f;
+float offsetY = -(GridSizeY - 1) * Spacing * 0.5f;
 
-var cube1Resource = (Cube3D.Resource)cube1.ToResource(renderContext);
+Console.WriteLine($"Creating {GridSizeX}x{GridSizeY} = {GridSizeX * GridSizeY} spheres...");
 
-// Create directional light
-var dirLight = new DirectionalLight3D();
-dirLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -1, -1));
-dirLight.Color.CurrentValue = Colors.White;
-dirLight.Intensity.CurrentValue = 1.0f;
-dirLight.IsLightEnabled.CurrentValue = true;
+for (int y = 0; y < GridSizeY; y++)
+{
+    float roughness = (float)y / (GridSizeY - 1); // 0.0 to 1.0
 
-var dirLightResource = (DirectionalLight3D.Resource)dirLight.ToResource(renderContext);
+    for (int x = 0; x < GridSizeX; x++)
+    {
+        float metallic = (float)x / (GridSizeX - 1); // 0.0 to 1.0
 
-Console.WriteLine("  Camera: PerspectiveCamera at (3, 3, 5) looking at origin");
-Console.WriteLine("  Object: Cube3D (2x2x2) with BasicMaterial");
-Console.WriteLine("  Light: DirectionalLight3D from (-1, -1, -1)");
+        var sphere = new Sphere3D();
+        sphere.Position.CurrentValue = new Vector3(
+            offsetX + x * Spacing,
+            offsetY + y * Spacing,
+            0);
+        sphere.Radius.CurrentValue = SphereRadius;
+        sphere.Segments.CurrentValue = 32;
+        sphere.Rings.CurrentValue = 16;
+
+        // PBR material with bright gold color for visibility
+        var material = new PBRMaterial();
+        material.Albedo.CurrentValue = new Color(255, 255, 200, 50); // Bright orange-gold
+        material.Metallic.CurrentValue = metallic;
+        material.Roughness.CurrentValue = roughness;
+        material.AmbientOcclusion.CurrentValue = 1.0f;
+        sphere.Material.CurrentValue = material;
+
+        objects.Add((Sphere3D.Resource)sphere.ToResource(renderContext));
+    }
+}
+
+Console.WriteLine("Spheres created.");
 Console.WriteLine();
 
-// Render BasicMaterial test
-Console.WriteLine("Rendering BasicMaterial test...");
-var objects1 = new List<Object3D.Resource> { cube1Resource };
-var lights1 = new List<Light3D.Resource> { dirLightResource };
+// Lighting - 3-point lighting setup
+var keyLight = new DirectionalLight3D();
+keyLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -1, -1));
+keyLight.Color.CurrentValue = Colors.White;
+keyLight.Intensity.CurrentValue = 2.5f;
+keyLight.IsLightEnabled.CurrentValue = true;
 
+var fillLight = new DirectionalLight3D();
+fillLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(0.8f, -0.3f, -0.5f));
+fillLight.Color.CurrentValue = new Color(255, 220, 200, 255); // Warm
+fillLight.Intensity.CurrentValue = 1.0f;
+fillLight.IsLightEnabled.CurrentValue = true;
+
+var rimLight = new DirectionalLight3D();
+rimLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(0, 0, 1));
+rimLight.Color.CurrentValue = new Color(255, 180, 200, 255); // Cool
+rimLight.Intensity.CurrentValue = 0.6f;
+rimLight.IsLightEnabled.CurrentValue = true;
+
+var lights = new List<Light3D.Resource>
+{
+    (DirectionalLight3D.Resource)keyLight.ToResource(renderContext),
+    (DirectionalLight3D.Resource)fillLight.ToResource(renderContext),
+    (DirectionalLight3D.Resource)rimLight.ToResource(renderContext)
+};
+
+Console.WriteLine("Lights: Key (white), Fill (warm), Rim (cool)");
+Console.WriteLine();
+
+// Render
+Console.WriteLine("Rendering PBR grid...");
 renderer.Render(
     cameraResource,
-    objects1,
-    lights1,
-    new Color(255, 30, 30, 50), // Dark blue background
-    Colors.White, // Ambient color
-    0.2f); // Ambient intensity
+    objects,
+    lights,
+    new Color(255, 25, 25, 30), // Dark background
+    Colors.White,
+    0.08f); // Low ambient
 
-SaveRenderOutput(renderer, Width, Height, BasicOutputPath);
-Console.WriteLine($"Output saved to: {Path.GetFullPath(BasicOutputPath)}");
+SaveRenderOutput(renderer, Width, Height, PBRGridOutputPath);
+Console.WriteLine($"Output saved to: {Path.GetFullPath(PBRGridOutputPath)}");
 Console.WriteLine();
 
-// === Test 2: PBRMaterial with Multiple Lights ===
-Console.WriteLine("--- Test 2: PBRMaterial with Multiple Lights ---");
-
-var cube2 = new Cube3D();
-cube2.Position.CurrentValue = Vector3.Zero;
-cube2.Scale.CurrentValue = Vector3.One;
-cube2.Rotation.CurrentValue = Quaternion.CreateFromYawPitchRoll(MathF.PI / 6, MathF.PI / 8, 0);
-cube2.Width.CurrentValue = 2f;
-cube2.Height.CurrentValue = 2f;
-cube2.Depth.CurrentValue = 2f;
-
-var pbrMaterial = new PBRMaterial();
-pbrMaterial.Albedo.CurrentValue = new Color(255, 180, 120, 80); // Gold-ish
-pbrMaterial.Metallic.CurrentValue = 0.8f; // Mostly metallic
-pbrMaterial.Roughness.CurrentValue = 0.3f; // Somewhat smooth
-pbrMaterial.AmbientOcclusion.CurrentValue = 1.0f;
-cube2.Material.CurrentValue = pbrMaterial;
-
-var cube2Resource = (Cube3D.Resource)cube2.ToResource(renderContext);
-
-// Create multiple lights
-// Directional light (sun)
-var sunLight = new DirectionalLight3D();
-sunLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(0, -1, -0.5f));
-sunLight.Color.CurrentValue = new Color(255, 255, 240, 220); // Warm white
-sunLight.Intensity.CurrentValue = 0.8f;
-sunLight.IsLightEnabled.CurrentValue = true;
-
-var sunLightResource = (DirectionalLight3D.Resource)sunLight.ToResource(renderContext);
-
-// Point light (red)
-var pointLight = new PointLight3D();
-pointLight.Position.CurrentValue = new Vector3(3, 2, 0);
-pointLight.Color.CurrentValue = new Color(255, 255, 100, 100); // Red
-pointLight.Intensity.CurrentValue = 1.5f;
-pointLight.Range.CurrentValue = 10f;
-pointLight.ConstantAttenuation.CurrentValue = 1.0f;
-pointLight.LinearAttenuation.CurrentValue = 0.09f;
-pointLight.QuadraticAttenuation.CurrentValue = 0.032f;
-pointLight.IsLightEnabled.CurrentValue = true;
-
-var pointLightResource = (PointLight3D.Resource)pointLight.ToResource(renderContext);
-
-// Spot light (blue)
-var spotLight = new SpotLight3D();
-spotLight.Position.CurrentValue = new Vector3(-3, 3, 2);
-spotLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(1, -1, -0.5f));
-spotLight.Color.CurrentValue = new Color(255, 100, 150, 255); // Blue
-spotLight.Intensity.CurrentValue = 2.0f;
-spotLight.InnerConeAngle.CurrentValue = 15f;
-spotLight.OuterConeAngle.CurrentValue = 25f;
-spotLight.Range.CurrentValue = 15f;
-spotLight.IsLightEnabled.CurrentValue = true;
-
-var spotLightResource = (SpotLight3D.Resource)spotLight.ToResource(renderContext);
-
-Console.WriteLine("  Object: Cube3D (2x2x2) with PBRMaterial (Gold, Metallic=0.8, Roughness=0.3)");
-Console.WriteLine("  Lights:");
-Console.WriteLine("    - DirectionalLight3D (warm white sun)");
-Console.WriteLine("    - PointLight3D (red) at (3, 2, 0)");
-Console.WriteLine("    - SpotLight3D (blue) at (-3, 3, 2)");
+// Legend
+Console.WriteLine("=== What to observe ===");
+Console.WriteLine("Bottom-left (Metallic=0, Roughness=0): Smooth plastic - sharp WHITE specular");
+Console.WriteLine("Bottom-right (Metallic=1, Roughness=0): Polished metal - sharp COLORED specular");
+Console.WriteLine("Top-left (Metallic=0, Roughness=1): Matte plastic - soft diffuse");
+Console.WriteLine("Top-right (Metallic=1, Roughness=1): Rough metal - soft colored highlights");
 Console.WriteLine();
-
-// Render PBR test
-Console.WriteLine("Rendering PBR test...");
-var objects2 = new List<Object3D.Resource> { cube2Resource };
-var lights2 = new List<Light3D.Resource> { sunLightResource, pointLightResource, spotLightResource };
-
-renderer.Render(
-    cameraResource,
-    objects2,
-    lights2,
-    new Color(255, 20, 20, 30), // Dark background
-    Colors.White, // Ambient color
-    0.05f); // Low ambient intensity for PBR
-
-SaveRenderOutput(renderer, Width, Height, PBROutputPath);
-Console.WriteLine($"Output saved to: {Path.GetFullPath(PBROutputPath)}");
+Console.WriteLine("Key differences:");
+Console.WriteLine("- Dielectric (left): White specular highlights, visible base color");
+Console.WriteLine("- Metal (right): Colored specular (reflects albedo), darker diffuse");
+Console.WriteLine("- Smooth (bottom): Sharp, concentrated highlights");
+Console.WriteLine("- Rough (top): Spread-out, soft lighting");
 Console.WriteLine();
 
 // Cleanup
 Console.WriteLine("Cleaning up...");
-cube1Resource.Dispose();
-cube2Resource.Dispose();
+foreach (var obj in objects)
+{
+    obj.Dispose();
+}
 renderer.Dispose();
 graphicsContext.Dispose();
 
 Console.WriteLine("Done!");
-Console.WriteLine();
-Console.WriteLine("=== Test Complete ===");
-
 return 0;
 
 static void SaveRenderOutput(I3DRenderer renderer, int width, int height, string outputPath)
