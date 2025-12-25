@@ -135,8 +135,8 @@ internal sealed unsafe class VulkanTexture2D : ITexture2D
         var stagingBuffer = new VulkanBuffer(
             _context,
             (ulong)data.Length,
-            BufferUsageFlags.TransferSrcBit,
-            MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit);
+            BufferUsage.TransferSource,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
         try
         {
