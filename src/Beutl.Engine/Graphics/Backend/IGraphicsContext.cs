@@ -4,7 +4,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Backend;
 
-internal interface IGraphicsContext : IDisposable
+public interface IGraphicsContext : IDisposable
 {
     GraphicsBackend Backend { get; }
 

@@ -5,7 +5,7 @@ namespace Beutl.Graphics.Backend;
 /// <summary>
 /// Interface for 2D texture abstraction.
 /// </summary>
-internal interface ITexture2D : IDisposable
+public interface ITexture2D : IDisposable
 {
     /// <summary>
     /// Gets the width of the texture.
