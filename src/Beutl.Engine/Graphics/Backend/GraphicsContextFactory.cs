@@ -1,3 +1,5 @@
+using Beutl.Graphics.Backend.Composite;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
