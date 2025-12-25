@@ -19,4 +19,9 @@ internal interface ISharedTexture : IDisposable
     void PrepareForRender();
 
     void PrepareForSampling();
+
+    /// <summary>
+    /// Downloads pixel data from the texture to a byte array.
+    /// </summary>
+    byte[] DownloadPixels();
 }
