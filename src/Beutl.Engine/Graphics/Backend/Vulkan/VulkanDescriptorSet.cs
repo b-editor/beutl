@@ -93,24 +93,18 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
         _context.Vk.UpdateDescriptorSets(_context.Device, 1, &writeDescriptor, 0, null);
     }
 
-    public void UpdateTexture(int binding, ITexture2D texture)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        UpdateTexture(binding, texture, null);
-    }
-
-    public void UpdateTexture(int binding, ITexture2D texture, Sampler? sampler)
+    public void UpdateTexture(int binding, ITexture2D texture, ISampler sampler)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         var vulkanTexture = (VulkanTexture2D)texture;
+        var vulkanSampler = (VulkanSampler)sampler;
 
         var imageInfo = new DescriptorImageInfo
         {
             ImageView = vulkanTexture.ImageViewHandle,
             ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
-            Sampler = sampler ?? default
+            Sampler = vulkanSampler.Handle
         };
 
         var writeDescriptor = new WriteDescriptorSet
@@ -120,7 +114,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
             DstBinding = (uint)binding,
             DstArrayElement = 0,
             DescriptorCount = 1,
-            DescriptorType = sampler.HasValue ? Silk.NET.Vulkan.DescriptorType.CombinedImageSampler : Silk.NET.Vulkan.DescriptorType.SampledImage,
+            DescriptorType = Silk.NET.Vulkan.DescriptorType.CombinedImageSampler,
             PImageInfo = &imageInfo
         };
 

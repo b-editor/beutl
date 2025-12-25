@@ -73,6 +73,19 @@ public interface IGraphicsContext : IDisposable
     IDescriptorSet CreateDescriptorSet(IPipeline3D pipeline, DescriptorPoolSize[] poolSizes);
 
     /// <summary>
+    /// Creates a new texture sampler.
+    /// </summary>
+    /// <param name="minFilter">The minification filter.</param>
+    /// <param name="magFilter">The magnification filter.</param>
+    /// <param name="addressModeU">The address mode for U coordinate.</param>
+    /// <param name="addressModeV">The address mode for V coordinate.</param>
+    ISampler CreateSampler(
+        SamplerFilter minFilter = SamplerFilter.Linear,
+        SamplerFilter magFilter = SamplerFilter.Linear,
+        SamplerAddressMode addressModeU = SamplerAddressMode.ClampToEdge,
+        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge);
+
+    /// <summary>
     /// Copies data between two buffers.
     /// </summary>
     void CopyBuffer(IBuffer source, IBuffer destination, ulong size);
