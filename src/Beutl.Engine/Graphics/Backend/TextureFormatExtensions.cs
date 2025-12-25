@@ -6,7 +6,7 @@ namespace Beutl.Graphics.Backend;
 /// <summary>
 /// Extension methods for <see cref="TextureFormat"/>.
 /// </summary>
-internal static class TextureFormatExtensions
+public static class TextureFormatExtensions
 {
     /// <summary>
     /// Converts <see cref="TextureFormat"/> to Vulkan <see cref="Format"/>.

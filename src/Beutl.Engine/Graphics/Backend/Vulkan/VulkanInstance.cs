@@ -28,6 +28,23 @@ internal record VulkanPhysicalDeviceInfo(
             return $"{major}.{minor}.{patch}";
         }
     }
+
+    /// <summary>
+    /// Converts this Vulkan-specific device info to a public <see cref="GraphicsDeviceInfo"/>.
+    /// </summary>
+    public GraphicsDeviceInfo ToGraphicsDeviceInfo()
+    {
+        var deviceType = Type switch
+        {
+            PhysicalDeviceType.IntegratedGpu => GraphicsDeviceType.Integrated,
+            PhysicalDeviceType.DiscreteGpu => GraphicsDeviceType.Discrete,
+            PhysicalDeviceType.VirtualGpu => GraphicsDeviceType.Virtual,
+            PhysicalDeviceType.Cpu => GraphicsDeviceType.Cpu,
+            _ => GraphicsDeviceType.Other
+        };
+
+        return new GraphicsDeviceInfo(Name, deviceType, ApiVersion, Memory.DeviceLocalMemory / (1024 * 1024));
+    }
 }
 
 internal sealed unsafe class VulkanInstance : IDisposable

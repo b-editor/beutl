@@ -2,7 +2,7 @@
 
 namespace Beutl.Graphics.Backend;
 
-internal interface ISharedTexture : IDisposable
+public interface ISharedTexture : IDisposable
 {
     int Width { get; }
 
