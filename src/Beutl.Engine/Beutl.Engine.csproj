@@ -3,6 +3,10 @@
     <RootNameSpace>Beutl</RootNameSpace>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Beutl.Graphics3DTests" />
+    <InternalsVisibleTo Include="Beutl.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Remove="Graphics\VertexMode.cs" />
   </ItemGroup>
   <ItemGroup>
