@@ -1,5 +1,6 @@
 using System.Numerics;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics3D.Lighting;
 
 namespace Beutl.Graphics3D;
 
@@ -8,6 +9,11 @@ namespace Beutl.Graphics3D;
 /// </summary>
 public readonly struct RenderContext3D
 {
+    /// <summary>
+    /// Maximum number of lights supported in a single render pass.
+    /// </summary>
+    public const int MaxLights = 8;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="RenderContext3D"/> struct.
     /// </summary>
@@ -18,9 +24,8 @@ public readonly struct RenderContext3D
         Matrix4x4 viewMatrix,
         Matrix4x4 projectionMatrix,
         Vector3 cameraPosition,
-        Vector3 lightDirection,
-        Vector3 lightColor,
-        Vector3 ambientColor)
+        Vector3 ambientColor,
+        IReadOnlyList<LightData> lights)
     {
         GraphicsContext = graphicsContext;
         RenderPass = renderPass;
@@ -28,9 +33,8 @@ public readonly struct RenderContext3D
         ViewMatrix = viewMatrix;
         ProjectionMatrix = projectionMatrix;
         CameraPosition = cameraPosition;
-        LightDirection = lightDirection;
-        LightColor = lightColor;
         AmbientColor = ambientColor;
+        Lights = lights;
     }
 
     /// <summary>
@@ -64,17 +68,46 @@ public readonly struct RenderContext3D
     public Vector3 CameraPosition { get; }
 
     /// <summary>
-    /// Gets the direction of the main light source.
-    /// </summary>
-    public Vector3 LightDirection { get; }
-
-    /// <summary>
-    /// Gets the color of the main light source.
-    /// </summary>
-    public Vector3 LightColor { get; }
-
-    /// <summary>
     /// Gets the ambient light color.
     /// </summary>
     public Vector3 AmbientColor { get; }
+
+    /// <summary>
+    /// Gets the list of lights in the scene.
+    /// </summary>
+    public IReadOnlyList<LightData> Lights { get; }
+
+    /// <summary>
+    /// Gets the primary directional light direction (for backwards compatibility).
+    /// Returns (0, -1, -1) if no directional light is present.
+    /// </summary>
+    public Vector3 LightDirection
+    {
+        get
+        {
+            foreach (var light in Lights)
+            {
+                if (light.Type == (int)LightType.Directional)
+                    return light.PositionOrDirection;
+            }
+            return new Vector3(0, -1, -1);
+        }
+    }
+
+    /// <summary>
+    /// Gets the primary directional light color (for backwards compatibility).
+    /// Returns (1, 1, 1) if no directional light is present.
+    /// </summary>
+    public Vector3 LightColor
+    {
+        get
+        {
+            foreach (var light in Lights)
+            {
+                if (light.Type == (int)LightType.Directional)
+                    return light.Color * light.Intensity;
+            }
+            return Vector3.One;
+        }
+    }
 }
