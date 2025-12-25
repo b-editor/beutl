@@ -105,4 +105,80 @@ internal static class VulkanFlagConverter
             DescriptorCount = poolSize.Count
         };
     }
+
+    public static CullModeFlags ToVulkan(CullMode cullMode)
+    {
+        return cullMode switch
+        {
+            CullMode.None => CullModeFlags.None,
+            CullMode.Front => CullModeFlags.FrontBit,
+            CullMode.Back => CullModeFlags.BackBit,
+            _ => CullModeFlags.BackBit
+        };
+    }
+
+    public static Format ToVulkan(VertexFormat format)
+    {
+        return format switch
+        {
+            VertexFormat.Float => Format.R32Sfloat,
+            VertexFormat.Float2 => Format.R32G32Sfloat,
+            VertexFormat.Float3 => Format.R32G32B32Sfloat,
+            VertexFormat.Float4 => Format.R32G32B32A32Sfloat,
+            VertexFormat.Int => Format.R32Sint,
+            VertexFormat.Int2 => Format.R32G32Sint,
+            VertexFormat.Int3 => Format.R32G32B32Sint,
+            VertexFormat.Int4 => Format.R32G32B32A32Sint,
+            VertexFormat.UInt => Format.R32Uint,
+            VertexFormat.UInt2 => Format.R32G32Uint,
+            VertexFormat.UInt3 => Format.R32G32B32Uint,
+            VertexFormat.UInt4 => Format.R32G32B32A32Uint,
+            _ => Format.R32G32B32Sfloat
+        };
+    }
+
+    public static Silk.NET.Vulkan.VertexInputRate ToVulkan(Backend.VertexInputRate inputRate)
+    {
+        return inputRate switch
+        {
+            Backend.VertexInputRate.Vertex => Silk.NET.Vulkan.VertexInputRate.Vertex,
+            Backend.VertexInputRate.Instance => Silk.NET.Vulkan.VertexInputRate.Instance,
+            _ => Silk.NET.Vulkan.VertexInputRate.Vertex
+        };
+    }
+
+    public static VulkanVertexInputDescription ToVulkan(Backend.VertexInputDescription description)
+    {
+        var bindings = new VertexInputBindingDescription[description.Bindings?.Length ?? 0];
+        var attributes = new VertexInputAttributeDescription[description.Attributes?.Length ?? 0];
+
+        for (int i = 0; i < bindings.Length; i++)
+        {
+            var binding = description.Bindings![i];
+            bindings[i] = new VertexInputBindingDescription
+            {
+                Binding = binding.Binding,
+                Stride = binding.Stride,
+                InputRate = ToVulkan(binding.InputRate)
+            };
+        }
+
+        for (int i = 0; i < attributes.Length; i++)
+        {
+            var attr = description.Attributes![i];
+            attributes[i] = new VertexInputAttributeDescription
+            {
+                Location = attr.Location,
+                Binding = attr.Binding,
+                Format = ToVulkan(attr.Format),
+                Offset = attr.Offset
+            };
+        }
+
+        return new VulkanVertexInputDescription
+        {
+            Bindings = bindings,
+            Attributes = attributes
+        };
+    }
 }
