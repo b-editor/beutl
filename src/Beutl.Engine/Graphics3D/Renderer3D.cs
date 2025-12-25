@@ -2,39 +2,37 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Beutl.Graphics3D;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Meshes;
 using Beutl.Media;
-using Silk.NET.Vulkan;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Backend.Vulkan;
+namespace Beutl.Graphics3D;
 
 /// <summary>
-/// Vulkan implementation of <see cref="I3DRenderer"/>.
-/// Orchestrates 3D rendering using Vulkan.
+/// Backend-agnostic 3D renderer that uses abstracted graphics interfaces.
 /// </summary>
-internal sealed unsafe class Vulkan3DRenderer : I3DRenderer
+internal sealed class Renderer3D : I3DRenderer
 {
-    private readonly VulkanContext _context;
-    private readonly VulkanRenderPass3D _renderPass;
-    private readonly VulkanShaderCompiler _shaderCompiler;
-    private VulkanPipeline3D? _basicPipeline;
-    private VulkanFramebuffer3D? _currentFramebuffer;
+    private readonly IGraphicsContext _context;
+    private readonly IRenderPass3D _renderPass;
+    private readonly IShaderCompiler _shaderCompiler;
+    private IPipeline3D? _basicPipeline;
+    private IFramebuffer3D? _currentFramebuffer;
     private ISharedTexture? _colorTexture;
-    private VulkanBuffer? _uniformBuffer;
-    private VulkanDescriptorSet? _descriptorSet;
-    private readonly Dictionary<Mesh, (VulkanBuffer vertex, VulkanBuffer index)> _meshBuffers = new();
+    private IBuffer? _uniformBuffer;
+    private IDescriptorSet? _descriptorSet;
+    private readonly Dictionary<Mesh, (IBuffer vertex, IBuffer index)> _meshBuffers = new();
     private bool _disposed;
 
-    public Vulkan3DRenderer(VulkanContext context)
+    public Renderer3D(IGraphicsContext context)
     {
         _context = context;
-        _renderPass = new VulkanRenderPass3D(context);
-        _shaderCompiler = new VulkanShaderCompiler();
+        _renderPass = context.CreateRenderPass3D();
+        _shaderCompiler = context.CreateShaderCompiler();
     }
 
     public int Width { get; private set; }
@@ -46,11 +44,10 @@ internal sealed unsafe class Vulkan3DRenderer : I3DRenderer
         Height = height;
 
         // Create uniform buffer for MVP matrix
-        _uniformBuffer = new VulkanBuffer(
-            _context,
+        _uniformBuffer = _context.CreateBuffer(
             (ulong)Marshal.SizeOf<UniformBufferObject>(),
-            BufferUsageFlags.UniformBufferBit,
-            MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit);
+            BufferUsage.UniformBuffer,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
         // Create basic shaders and pipeline
         CreateBasicPipeline();
@@ -67,32 +64,24 @@ internal sealed unsafe class Vulkan3DRenderer : I3DRenderer
         var vertexSpirv = _shaderCompiler.CompileToSpirv(vertexShaderSource, ShaderStage.Vertex);
         var fragmentSpirv = _shaderCompiler.CompileToSpirv(fragmentShaderSource, ShaderStage.Fragment);
 
-        var descriptorBindings = new DescriptorSetLayoutBinding[]
+        var descriptorBindings = new DescriptorBinding[]
         {
-            new()
-            {
-                Binding = 0,
-                DescriptorType = DescriptorType.UniformBuffer,
-                DescriptorCount = 1,
-                StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit
-            }
+            new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Vertex | ShaderStage.Fragment)
         };
 
-        _basicPipeline = new VulkanPipeline3D(
-            _context,
-            _renderPass.Handle,
+        _basicPipeline = _context.CreatePipeline3D(
+            _renderPass,
             vertexSpirv,
             fragmentSpirv,
-            VulkanVertex3D.GetVertexInputDescription(),
             descriptorBindings);
 
         // Create descriptor set
         var poolSizes = new DescriptorPoolSize[]
         {
-            new() { Type = DescriptorType.UniformBuffer, DescriptorCount = 1 }
+            new(DescriptorType.UniformBuffer, 1)
         };
 
-        _descriptorSet = new VulkanDescriptorSet(_context, _basicPipeline.DescriptorSetLayoutHandle, poolSizes);
+        _descriptorSet = _context.CreateDescriptorSet(_basicPipeline, poolSizes);
         _descriptorSet.UpdateBuffer(0, _uniformBuffer!);
     }
 
@@ -102,7 +91,7 @@ internal sealed unsafe class Vulkan3DRenderer : I3DRenderer
         _colorTexture?.Dispose();
 
         _colorTexture = _context.CreateTexture(width, height, TextureFormat.BGRA8Unorm);
-        _currentFramebuffer = new VulkanFramebuffer3D(_context, _renderPass.Handle, _colorTexture);
+        _currentFramebuffer = _context.CreateFramebuffer3D(_renderPass, _colorTexture);
     }
 
     public void Resize(int width, int height)
@@ -133,10 +122,8 @@ internal sealed unsafe class Vulkan3DRenderer : I3DRenderer
         // Begin render pass
         _renderPass.Begin(_currentFramebuffer, backgroundColor);
 
-        var cmd = _renderPass.GetCurrentCommandBuffer();
-
         // Bind pipeline
-        _context.Vk.CmdBindPipeline(cmd, PipelineBindPoint.Graphics, _basicPipeline.Handle);
+        _renderPass.BindPipeline(_basicPipeline);
 
         // Get the first directional light (simplified for now)
         Vector3 lightDirection = new(0, -1, -1);
@@ -194,20 +181,15 @@ internal sealed unsafe class Vulkan3DRenderer : I3DRenderer
 
             _uniformBuffer!.Upload(new ReadOnlySpan<UniformBufferObject>(ref ubo));
 
+            // Bind vertex and index buffers
+            _renderPass.BindVertexBuffer(buffers.vertex);
+            _renderPass.BindIndexBuffer(buffers.index);
+
             // Bind descriptor set
-            var descriptorSet = _descriptorSet!.Handle;
-            _context.Vk.CmdBindDescriptorSets(cmd, PipelineBindPoint.Graphics, _basicPipeline.PipelineLayoutHandle, 0, 1, &descriptorSet, 0, null);
+            _renderPass.BindDescriptorSet(_basicPipeline, _descriptorSet!);
 
-            // Bind vertex buffer
-            var vertexBuffer = buffers.vertex.Handle;
-            ulong offset = 0;
-            _context.Vk.CmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &offset);
-
-            // Bind index buffer
-            _context.Vk.CmdBindIndexBuffer(cmd, buffers.index.Handle, 0, IndexType.Uint32);
-
-            // Draw
-            _context.Vk.CmdDrawIndexed(cmd, (uint)mesh.IndexCount, 1, 0, 0, 0);
+            // Draw the mesh
+            _renderPass.DrawIndexed((uint)mesh.Indices.Length);
         }
 
         _renderPass.End();
@@ -216,7 +198,7 @@ internal sealed unsafe class Vulkan3DRenderer : I3DRenderer
         _currentFramebuffer.ColorTexture.PrepareForSampling();
     }
 
-    private (VulkanBuffer vertex, VulkanBuffer index) CreateMeshBuffers(Mesh mesh)
+    private (IBuffer vertex, IBuffer index) CreateMeshBuffers(Mesh mesh)
     {
         var vertices = mesh.Vertices;
         var indices = mesh.Indices;
@@ -225,49 +207,33 @@ internal sealed unsafe class Vulkan3DRenderer : I3DRenderer
         ulong vertexSize = (ulong)(vertexCount * Marshal.SizeOf<Vertex3D>());
         ulong indexSize = (ulong)(indexCount * sizeof(uint));
 
-        var vertexBuffer = new VulkanBuffer(
-            _context,
+        var vertexBuffer = _context.CreateBuffer(
             vertexSize,
-            BufferUsageFlags.VertexBufferBit | BufferUsageFlags.TransferDstBit,
-            MemoryPropertyFlags.DeviceLocalBit);
+            BufferUsage.VertexBuffer | BufferUsage.TransferDestination,
+            MemoryProperty.DeviceLocal);
 
-        var indexBuffer = new VulkanBuffer(
-            _context,
+        var indexBuffer = _context.CreateBuffer(
             indexSize,
-            BufferUsageFlags.IndexBufferBit | BufferUsageFlags.TransferDstBit,
-            MemoryPropertyFlags.DeviceLocalBit);
+            BufferUsage.IndexBuffer | BufferUsage.TransferDestination,
+            MemoryProperty.DeviceLocal);
 
         // Create staging buffers and upload
-        using var vertexStaging = new VulkanBuffer(
-            _context,
+        using var vertexStaging = _context.CreateBuffer(
             vertexSize,
-            BufferUsageFlags.TransferSrcBit,
-            MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit);
+            BufferUsage.TransferSource,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
-        using var indexStaging = new VulkanBuffer(
-            _context,
+        using var indexStaging = _context.CreateBuffer(
             indexSize,
-            BufferUsageFlags.TransferSrcBit,
-            MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit);
+            BufferUsage.TransferSource,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
         vertexStaging.Upload(vertices);
         indexStaging.Upload(indices);
 
-        // Capture handles for the lambda
-        var vertexStagingHandle = vertexStaging.Handle;
-        var indexStagingHandle = indexStaging.Handle;
-        var vertexBufferHandle = vertexBuffer.Handle;
-        var indexBufferHandle = indexBuffer.Handle;
-
         // Copy from staging to device local
-        _context.SubmitImmediateCommands(cmd =>
-        {
-            var vertexCopy = new BufferCopy { Size = vertexSize };
-            _context.Vk.CmdCopyBuffer(cmd, vertexStagingHandle, vertexBufferHandle, 1, &vertexCopy);
-
-            var indexCopy = new BufferCopy { Size = indexSize };
-            _context.Vk.CmdCopyBuffer(cmd, indexStagingHandle, indexBufferHandle, 1, &indexCopy);
-        });
+        _context.CopyBuffer(vertexStaging, vertexBuffer, vertexSize);
+        _context.CopyBuffer(indexStaging, indexBuffer, indexSize);
 
         return (vertexBuffer, indexBuffer);
     }
@@ -381,7 +347,7 @@ internal sealed unsafe class Vulkan3DRenderer : I3DRenderer
         _basicPipeline?.Dispose();
         _currentFramebuffer?.Dispose();
         _colorTexture?.Dispose();
-        _shaderCompiler.Dispose();
+        (_shaderCompiler as IDisposable)?.Dispose();
         _renderPass.Dispose();
     }
 }

@@ -50,6 +50,45 @@ internal sealed class CompositeContext : IGraphicsContext
         return Vulkan.Create3DRenderer();
     }
 
+    public IBuffer CreateBuffer(ulong size, BufferUsage usage, MemoryProperty memoryProperty)
+    {
+        return Vulkan.CreateBuffer(size, usage, memoryProperty);
+    }
+
+    public IShaderCompiler CreateShaderCompiler()
+    {
+        return Vulkan.CreateShaderCompiler();
+    }
+
+    public IRenderPass3D CreateRenderPass3D()
+    {
+        return Vulkan.CreateRenderPass3D();
+    }
+
+    public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, ISharedTexture colorTexture)
+    {
+        return Vulkan.CreateFramebuffer3D(renderPass, colorTexture);
+    }
+
+    public IPipeline3D CreatePipeline3D(
+        IRenderPass3D renderPass,
+        byte[] vertexShaderSpirv,
+        byte[] fragmentShaderSpirv,
+        DescriptorBinding[] descriptorBindings)
+    {
+        return Vulkan.CreatePipeline3D(renderPass, vertexShaderSpirv, fragmentShaderSpirv, descriptorBindings);
+    }
+
+    public IDescriptorSet CreateDescriptorSet(IPipeline3D pipeline, DescriptorPoolSize[] poolSizes)
+    {
+        return Vulkan.CreateDescriptorSet(pipeline, poolSizes);
+    }
+
+    public void CopyBuffer(IBuffer source, IBuffer destination, ulong size)
+    {
+        Vulkan.CopyBuffer(source, destination, size);
+    }
+
     public void WaitIdle()
     {
         Vulkan.WaitIdle();
