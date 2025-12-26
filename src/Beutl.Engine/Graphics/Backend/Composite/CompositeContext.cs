@@ -50,6 +50,16 @@ internal sealed class CompositeContext : IGraphicsContext
         return Vulkan.CreateTexture2D(width, height, format);
     }
 
+    public ITextureCube CreateTextureCube(int size, TextureFormat format)
+    {
+        return Vulkan.CreateTextureCube(size, format);
+    }
+
+    public ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format)
+    {
+        return Vulkan.CreateTextureArray(width, height, arraySize, format);
+    }
+
     public I3DRenderer Create3DRenderer()
     {
         return Vulkan.Create3DRenderer();
