@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Numerics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
@@ -10,7 +11,7 @@ namespace Beutl.Graphics3D;
 
 /// <summary>
 /// Deferred 3D renderer using G-Buffer for lighting calculations.
-/// Coordinates the geometry and lighting passes.
+/// Coordinates shadow, geometry, and lighting passes.
 /// </summary>
 internal sealed class Renderer3D : I3DRenderer
 {
@@ -22,6 +23,9 @@ internal sealed class Renderer3D : I3DRenderer
     private GeometryPass? _geometryPass;
     private LightingPass? _lightingPass;
     private FlipPass? _flipPass;
+
+    // Shadow management
+    private ShadowManager? _shadowManager;
 
     // Final output for Skia integration
     private ISharedTexture? _outputTexture;
@@ -39,6 +43,9 @@ internal sealed class Renderer3D : I3DRenderer
     {
         Width = width;
         Height = height;
+
+        // Create shadow manager
+        _shadowManager = new ShadowManager(_context, _shaderCompiler);
 
         // Create geometry pass
         _geometryPass = new GeometryPass(_context, _shaderCompiler);
@@ -93,19 +100,40 @@ internal sealed class Renderer3D : I3DRenderer
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (_geometryPass == null || _lightingPass == null || _flipPass == null)
+        if (_geometryPass == null || _lightingPass == null || _flipPass == null || _shadowManager == null)
             return;
 
         float aspectRatio = (float)Width / Height;
 
+        // Calculate scene bounds for shadow mapping
+        var (sceneCenter, sceneRadius) = CalculateSceneBounds(objects);
+
+        // === SHADOW PASS ===
+        var lightToShadowIndex = _shadowManager.RenderShadows(lights, objects, sceneCenter, sceneRadius);
+        var shadowUbo = _shadowManager.GetShadowUBO();
+        _shadowManager.PrepareForSampling();
+
         // Convert light resources to shader-compatible LightData
         var lightDataList = new List<LightData>();
+        int lightIndex = 0;
         foreach (var light in lights)
         {
             if (!light.IsLightEnabled)
+            {
+                lightIndex++;
                 continue;
+            }
 
-            lightDataList.Add(LightData.FromLight(light));
+            var lightData = LightData.FromLight(light);
+
+            // Set shadow index if this light casts shadows
+            if (lightToShadowIndex.TryGetValue(lightIndex, out int shadowIdx))
+            {
+                lightData.ShadowIndex = shadowIdx;
+            }
+
+            lightDataList.Add(lightData);
+            lightIndex++;
 
             if (lightDataList.Count >= RenderContext3D.MaxLights)
                 break;
@@ -117,7 +145,8 @@ internal sealed class Renderer3D : I3DRenderer
 
         // === LIGHTING PASS ===
         _lightingPass.BindGBuffer(_geometryPass);
-        _lightingPass.Execute(camera, lightDataList, backgroundColor, ambientColor, ambientIntensity);
+        _lightingPass.BindShadowMaps(_shadowManager);
+        _lightingPass.Execute(camera, lightDataList, backgroundColor, ambientColor, ambientIntensity, shadowUbo);
         _lightingPass.PrepareForSampling();
 
         // === FLIP PASS ===
@@ -127,6 +156,46 @@ internal sealed class Renderer3D : I3DRenderer
 
         // Copy result to output texture for Skia integration
         CopyToOutputTexture();
+    }
+
+    /// <summary>
+    /// Calculates the bounding sphere of all visible objects in the scene.
+    /// Used for directional light shadow mapping.
+    /// </summary>
+    private static (Vector3 Center, float Radius) CalculateSceneBounds(IReadOnlyList<Object3D.Resource> objects)
+    {
+        if (objects.Count == 0)
+            return (Vector3.Zero, 10f);
+
+        // Calculate bounding box from all object positions
+        var min = new Vector3(float.MaxValue);
+        var max = new Vector3(float.MinValue);
+
+        foreach (var obj in objects)
+        {
+            if (!obj.IsVisible)
+                continue;
+
+            var pos = obj.Position;
+            var scale = obj.Scale;
+
+            // Approximate object bounds (position ± scale)
+            min = Vector3.Min(min, pos - scale);
+            max = Vector3.Max(max, pos + scale);
+        }
+
+        // If no visible objects, return default bounds
+        if (min.X == float.MaxValue)
+            return (Vector3.Zero, 10f);
+
+        // Calculate center and radius
+        var center = (min + max) * 0.5f;
+        var radius = Vector3.Distance(min, max) * 0.5f;
+
+        // Ensure minimum radius
+        radius = Math.Max(radius, 5f);
+
+        return (center, radius);
     }
 
     private void CopyToOutputTexture()
@@ -156,6 +225,7 @@ internal sealed class Renderer3D : I3DRenderer
         _flipPass?.Dispose();
         _lightingPass?.Dispose();
         _geometryPass?.Dispose();
+        _shadowManager?.Dispose();
         _outputTexture?.Dispose();
 
         (_shaderCompiler as IDisposable)?.Dispose();

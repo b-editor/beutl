@@ -122,5 +122,13 @@ public interface IGraphicsContext : IDisposable
     /// <param name="destination">The destination shared texture.</param>
     void CopyTexture(ITexture2D source, ISharedTexture destination);
 
+    /// <summary>
+    /// Copies a 2D texture to a specific face of a cube map.
+    /// </summary>
+    /// <param name="source">The source 2D texture.</param>
+    /// <param name="destination">The destination cube map texture.</param>
+    /// <param name="faceIndex">The cube face index (0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z).</param>
+    void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex);
+
     void WaitIdle();
 }

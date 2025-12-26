@@ -86,9 +86,13 @@ public struct LightData
     public float OuterCutoff;
 
     /// <summary>
-    /// Padding to ensure 16-byte alignment.
+    /// Index into the shadow info array (-1 = no shadow).
     /// </summary>
-    private float _pad;
+    public int ShadowIndex;
+
+    // Padding to align struct to 80 bytes (multiple of 16 for std140 array alignment)
+    private int _pad1;
+    private int _pad2;
 
     /// <summary>
     /// Creates light data from a DirectionalLight3D resource.
@@ -111,7 +115,8 @@ public struct LightData
             LinearAttenuation = 0f,
             QuadraticAttenuation = 0f,
             InnerCutoff = 0f,
-            OuterCutoff = 0f
+            OuterCutoff = 0f,
+            ShadowIndex = -1
         };
     }
 
@@ -132,7 +137,8 @@ public struct LightData
             LinearAttenuation = light.LinearAttenuation,
             QuadraticAttenuation = light.QuadraticAttenuation,
             InnerCutoff = 0f,
-            OuterCutoff = 0f
+            OuterCutoff = 0f,
+            ShadowIndex = -1
         };
     }
 
@@ -157,7 +163,8 @@ public struct LightData
             LinearAttenuation = light.LinearAttenuation,
             QuadraticAttenuation = light.QuadraticAttenuation,
             InnerCutoff = MathF.Cos(light.InnerConeAngle * MathF.PI / 180f),
-            OuterCutoff = MathF.Cos(light.OuterConeAngle * MathF.PI / 180f)
+            OuterCutoff = MathF.Cos(light.OuterConeAngle * MathF.PI / 180f),
+            ShadowIndex = -1
         };
     }
 
