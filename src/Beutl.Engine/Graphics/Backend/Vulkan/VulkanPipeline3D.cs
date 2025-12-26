@@ -28,7 +28,8 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
         int colorAttachmentCount = 1,
         bool depthTestEnabled = true,
         bool depthWriteEnabled = true,
-        CullModeFlags cullMode = CullModeFlags.BackBit)
+        CullModeFlags cullMode = CullModeFlags.BackBit,
+        Silk.NET.Vulkan.FrontFace frontFace = Silk.NET.Vulkan.FrontFace.CounterClockwise)
     {
         _context = context;
         var vk = context.Vk;
@@ -88,7 +89,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
         _pipelineLayout = pipelineLayout;
 
         // Create graphics pipeline
-        _pipeline = CreateGraphicsPipeline(vk, device, renderPass, vertexInputDescription, colorAttachmentCount, depthTestEnabled, depthWriteEnabled, cullMode);
+        _pipeline = CreateGraphicsPipeline(vk, device, renderPass, vertexInputDescription, colorAttachmentCount, depthTestEnabled, depthWriteEnabled, cullMode, frontFace);
     }
 
     public Pipeline Handle => _pipeline;
@@ -97,7 +98,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
 
     public DescriptorSetLayout DescriptorSetLayoutHandle => _descriptorSetLayout;
 
-    private Pipeline CreateGraphicsPipeline(Vk vk, Device device, RenderPass renderPass, VulkanVertexInputDescription vertexInput, int colorAttachmentCount, bool depthTestEnabled, bool depthWriteEnabled, CullModeFlags cullMode)
+    private Pipeline CreateGraphicsPipeline(Vk vk, Device device, RenderPass renderPass, VulkanVertexInputDescription vertexInput, int colorAttachmentCount, bool depthTestEnabled, bool depthWriteEnabled, CullModeFlags cullMode, Silk.NET.Vulkan.FrontFace frontFace)
     {
         var mainBytes = System.Text.Encoding.UTF8.GetBytes("main\0");
         fixed (byte* mainPtr = mainBytes)
@@ -153,7 +154,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
                     PolygonMode = PolygonMode.Fill,
                     LineWidth = 1.0f,
                     CullMode = cullMode,
-                    FrontFace = FrontFace.CounterClockwise,
+                    FrontFace = frontFace,
                     DepthBiasEnable = Vk.False
                 };
 

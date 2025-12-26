@@ -21,13 +21,19 @@ public struct PipelineOptions
     public CullMode CullMode { get; set; }
 
     /// <summary>
+    /// Gets or sets the front face winding order. Default is CounterClockwise.
+    /// </summary>
+    public FrontFace FrontFace { get; set; }
+
+    /// <summary>
     /// Gets the default pipeline options for 3D rendering.
     /// </summary>
     public static PipelineOptions Default => new()
     {
         DepthTestEnabled = true,
         DepthWriteEnabled = true,
-        CullMode = CullMode.Back
+        CullMode = CullMode.Back,
+        FrontFace = FrontFace.CounterClockwise
     };
 
     /// <summary>
@@ -37,7 +43,8 @@ public struct PipelineOptions
     {
         DepthTestEnabled = false,
         DepthWriteEnabled = false,
-        CullMode = CullMode.None
+        CullMode = CullMode.None,
+        FrontFace = FrontFace.CounterClockwise
     };
 }
 
@@ -60,4 +67,20 @@ public enum CullMode
     /// Cull back-facing triangles.
     /// </summary>
     Back = 2
+}
+
+/// <summary>
+/// Specifies the winding order for front-facing triangles.
+/// </summary>
+public enum FrontFace
+{
+    /// <summary>
+    /// Triangles with counter-clockwise winding are front-facing.
+    /// </summary>
+    CounterClockwise = 0,
+
+    /// <summary>
+    /// Triangles with clockwise winding are front-facing.
+    /// </summary>
+    Clockwise = 1
 }
