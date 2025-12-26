@@ -193,7 +193,8 @@ internal sealed class VulkanContext : IGraphicsContext
             vulkanRenderPass.ColorAttachmentCount,
             pipelineOptions.DepthTestEnabled,
             pipelineOptions.DepthWriteEnabled,
-            VulkanFlagConverter.ToVulkan(pipelineOptions.CullMode));
+            VulkanFlagConverter.ToVulkan(pipelineOptions.CullMode),
+            VulkanFlagConverter.ToVulkan(pipelineOptions.FrontFace));
     }
 
     public IDescriptorSet CreateDescriptorSet(IPipeline3D pipeline, DescriptorPoolSize[] poolSizes)

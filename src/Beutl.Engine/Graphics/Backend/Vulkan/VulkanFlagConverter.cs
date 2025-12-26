@@ -97,6 +97,16 @@ internal static class VulkanFlagConverter
         };
     }
 
+    public static Silk.NET.Vulkan.FrontFace ToVulkan(Backend.FrontFace frontFace)
+    {
+        return frontFace switch
+        {
+            Backend.FrontFace.CounterClockwise => Silk.NET.Vulkan.FrontFace.CounterClockwise,
+            Backend.FrontFace.Clockwise => Silk.NET.Vulkan.FrontFace.Clockwise,
+            _ => Silk.NET.Vulkan.FrontFace.CounterClockwise
+        };
+    }
+
     public static Silk.NET.Vulkan.DescriptorPoolSize ToVulkan(Backend.DescriptorPoolSize poolSize)
     {
         return new Silk.NET.Vulkan.DescriptorPoolSize
