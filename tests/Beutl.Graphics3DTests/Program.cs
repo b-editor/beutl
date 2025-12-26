@@ -390,13 +390,14 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
     lights.Clear();
 
     var spotLight = new SpotLight3D();
-    spotLight.Position.CurrentValue = new Vector3(4, 5, 4);
-    spotLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(-0.5f, -1, -0.5f));
+    // Position directly above looking straight down for clear shadow testing
+    spotLight.Position.CurrentValue = new Vector3(0, 6, 0);
+    spotLight.Direction.CurrentValue = new Vector3(0, -1, 0);
     spotLight.Color.CurrentValue = new Color(255, 255, 255, 220);
-    spotLight.Intensity.CurrentValue = 25f;
-    spotLight.Range.CurrentValue = 20f;
-    spotLight.InnerConeAngle.CurrentValue = 15f;
-    spotLight.OuterConeAngle.CurrentValue = 35f;
+    spotLight.Intensity.CurrentValue = 30f;
+    spotLight.Range.CurrentValue = 15f;
+    spotLight.InnerConeAngle.CurrentValue = 25f;
+    spotLight.OuterConeAngle.CurrentValue = 50f;  // Wider cone to cover scene
     spotLight.IsLightEnabled.CurrentValue = true;
     spotLight.CastsShadow.CurrentValue = true;
     spotLight.ShadowBias.CurrentValue = 0.005f;
