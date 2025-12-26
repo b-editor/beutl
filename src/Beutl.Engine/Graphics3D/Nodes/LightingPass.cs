@@ -9,6 +9,7 @@ namespace Beutl.Graphics3D.Nodes;
 /// <summary>
 /// Lighting pass for deferred rendering.
 /// Samples the G-Buffer and applies PBR lighting to produce the final lit image.
+/// Supports shadow mapping for directional, spot, and point lights.
 /// </summary>
 public sealed class LightingPass : GraphicsNode3D
 {
@@ -18,7 +19,13 @@ public sealed class LightingPass : GraphicsNode3D
     private IDescriptorSet? _descriptorSet;
     private IBuffer? _cameraUniformBuffer;
     private IBuffer? _lightsBuffer;
+    private IBuffer? _shadowBuffer;
     private ISampler? _gBufferSampler;
+    private ISampler? _shadowSampler;
+
+    // Shadow textures for binding
+    private ITexture2D? _dummyShadowTexture2D;
+    private ITextureCube? _dummyShadowCube;
 
     public LightingPass(IGraphicsContext context, IShaderCompiler shaderCompiler, ITexture2D depthTexture)
         : base(context, shaderCompiler)
@@ -51,7 +58,11 @@ public sealed class LightingPass : GraphicsNode3D
         _descriptorSet?.Dispose();
         _cameraUniformBuffer?.Dispose();
         _lightsBuffer?.Dispose();
+        _shadowBuffer?.Dispose();
         _gBufferSampler?.Dispose();
+        _shadowSampler?.Dispose();
+        _dummyShadowTexture2D?.Dispose();
+        _dummyShadowCube?.Dispose();
 
         // Create output texture
         OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
@@ -78,6 +89,17 @@ public sealed class LightingPass : GraphicsNode3D
             SamplerAddressMode.ClampToEdge,
             SamplerAddressMode.ClampToEdge);
 
+        // Create sampler for shadow maps (linear filtering for PCF)
+        _shadowSampler = Context.CreateSampler(
+            SamplerFilter.Linear,
+            SamplerFilter.Linear,
+            SamplerAddressMode.ClampToEdge,
+            SamplerAddressMode.ClampToEdge);
+
+        // Create dummy shadow textures for initial binding
+        _dummyShadowTexture2D = Context.CreateTexture2D(1, 1, TextureFormat.Depth32Float);
+        _dummyShadowCube = Context.CreateTextureCube(1, TextureFormat.Depth32Float);
+
         // Create uniform buffers
         _cameraUniformBuffer = Context.CreateBuffer(
             (ulong)Marshal.SizeOf<LightingPassUBO>(),
@@ -89,11 +111,16 @@ public sealed class LightingPass : GraphicsNode3D
             BufferUsage.UniformBuffer,
             MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
+        _shadowBuffer = Context.CreateBuffer(
+            (ulong)Marshal.SizeOf<ShadowUBO>(),
+            BufferUsage.UniformBuffer,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+
         // Compile shaders
         var vertexSpirv = ShaderCompiler.CompileToSpirv(LightingVertexShader, ShaderStage.Vertex);
         var fragmentSpirv = ShaderCompiler.CompileToSpirv(LightingFragmentShader, ShaderStage.Fragment);
 
-        // Descriptor bindings: 4 G-Buffer samplers + 2 uniform buffers
+        // Descriptor bindings: 4 G-Buffer samplers + 3 uniform buffers + shadow samplers
         var descriptorBindings = new DescriptorBinding[]
         {
             new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // Position
@@ -101,7 +128,10 @@ public sealed class LightingPass : GraphicsNode3D
             new(2, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // Albedo+Roughness
             new(3, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // Emission+AO
             new(4, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment),        // Camera/ambient
-            new(5, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment)         // Lights
+            new(5, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment),        // Lights
+            new(6, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment),        // Shadow UBO
+            new(7, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // Shadow map 2D (first one)
+            new(8, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)  // Shadow cube map (first one)
         };
 
         // Use fullscreen pipeline (no vertex input, no depth test)
@@ -116,13 +146,18 @@ public sealed class LightingPass : GraphicsNode3D
         // Create descriptor set
         var poolSizes = new DescriptorPoolSize[]
         {
-            new(DescriptorType.CombinedImageSampler, 4),
-            new(DescriptorType.UniformBuffer, 2)
+            new(DescriptorType.CombinedImageSampler, 6),  // 4 G-Buffer + 2 shadow
+            new(DescriptorType.UniformBuffer, 3)          // Camera + Lights + Shadow
         };
 
         _descriptorSet = Context.CreateDescriptorSet(_pipeline, poolSizes);
         _descriptorSet.UpdateBuffer(4, _cameraUniformBuffer);
         _descriptorSet.UpdateBuffer(5, _lightsBuffer);
+        _descriptorSet.UpdateBuffer(6, _shadowBuffer);
+
+        // Bind dummy shadow textures initially
+        _descriptorSet.UpdateTexture(7, _dummyShadowTexture2D, _shadowSampler);
+        _descriptorSet.UpdateTextureCube(8, _dummyShadowCube, _shadowSampler);
     }
 
     /// <summary>
@@ -140,6 +175,37 @@ public sealed class LightingPass : GraphicsNode3D
     }
 
     /// <summary>
+    /// Binds shadow maps from the shadow manager.
+    /// </summary>
+    internal void BindShadowMaps(ShadowManager shadowManager)
+    {
+        if (_descriptorSet == null || _shadowSampler == null)
+            return;
+
+        // Bind first 2D shadow map (or dummy if none)
+        var shadowMap2D = shadowManager.GetShadowMap2D(0);
+        if (shadowMap2D != null)
+        {
+            _descriptorSet.UpdateTexture(7, shadowMap2D, _shadowSampler);
+        }
+        else if (_dummyShadowTexture2D != null)
+        {
+            _descriptorSet.UpdateTexture(7, _dummyShadowTexture2D, _shadowSampler);
+        }
+
+        // Bind first cube shadow map (or dummy if none)
+        var shadowMapCube = shadowManager.GetShadowMapCube(0);
+        if (shadowMapCube != null)
+        {
+            _descriptorSet.UpdateTextureCube(8, shadowMapCube, _shadowSampler);
+        }
+        else if (_dummyShadowCube != null)
+        {
+            _descriptorSet.UpdateTextureCube(8, _dummyShadowCube, _shadowSampler);
+        }
+    }
+
+    /// <summary>
     /// Executes the lighting pass.
     /// </summary>
     public void Execute(
@@ -147,7 +213,8 @@ public sealed class LightingPass : GraphicsNode3D
         List<LightData> lightDataList,
         Color backgroundColor,
         Color ambientColor,
-        float ambientIntensity)
+        float ambientIntensity,
+        ShadowUBO? shadowData = null)
     {
         if (Framebuffer == null || RenderPass == null || _pipeline == null || _descriptorSet == null)
             return;
@@ -171,6 +238,10 @@ public sealed class LightingPass : GraphicsNode3D
         }
         _lightsBuffer!.Upload(new ReadOnlySpan<LightsBufferData>(ref lightsData));
 
+        // Update shadow buffer
+        var shadowUbo = shadowData ?? new ShadowUBO();
+        _shadowBuffer!.Upload(new ReadOnlySpan<ShadowUBO>(ref shadowUbo));
+
         // Begin lighting pass
         Span<Color> clearColors = [backgroundColor];
         BeginPass(clearColors, 1.0f);
@@ -191,7 +262,11 @@ public sealed class LightingPass : GraphicsNode3D
         _pipeline?.Dispose();
         _lightsBuffer?.Dispose();
         _cameraUniformBuffer?.Dispose();
+        _shadowBuffer?.Dispose();
         _gBufferSampler?.Dispose();
+        _shadowSampler?.Dispose();
+        _dummyShadowTexture2D?.Dispose();
+        _dummyShadowCube?.Dispose();
         Framebuffer?.Dispose();
         RenderPass?.Dispose();
         OutputTexture?.Dispose();
@@ -229,11 +304,17 @@ public sealed class LightingPass : GraphicsNode3D
 
         const float PI = 3.14159265359;
         const int MAX_LIGHTS = 8;
+        const int MAX_SHADOWS = 8;
 
         // Light types
         const int LIGHT_DIRECTIONAL = 0;
         const int LIGHT_POINT = 1;
         const int LIGHT_SPOT = 2;
+
+        // Shadow types
+        const int SHADOW_NONE = 0;
+        const int SHADOW_2D = 1;
+        const int SHADOW_CUBE = 2;
 
         struct Light {
             vec3 positionOrDirection;
@@ -247,8 +328,30 @@ public sealed class LightingPass : GraphicsNode3D
             float quadraticAtt;
             float innerCutoff;
             float outerCutoff;
-            float _pad;
+            int shadowIndex;
+            // Padding to 80 bytes (multiple of 16 for std140 array alignment)
+            int _pad1;
+            int _pad2;
         };
+
+        struct ShadowInfo {
+            mat4 lightViewProjection;   // 64 bytes, offset 0
+            vec3 lightPosition;         // 12 bytes, offset 64
+            float farPlane;             // 4 bytes, offset 76
+            float bias;                 // 4 bytes, offset 80
+            float normalBias;           // 4 bytes, offset 84
+            int shadowMapIndex;         // 4 bytes, offset 88
+            int shadowType;             // 4 bytes, offset 92
+            float shadowStrength;       // 4 bytes, offset 96
+            // Padding to 128 bytes (std140 alignment)
+            float _pad1;                // 4 bytes, offset 100
+            float _pad2;                // 4 bytes, offset 104
+            float _pad3;                // 4 bytes, offset 108
+            float _pad4;                // 4 bytes, offset 112
+            float _pad5;                // 4 bytes, offset 116
+            float _pad6;                // 4 bytes, offset 120
+            float _pad7;                // 4 bytes, offset 124
+        };  // Total: 128 bytes
 
         layout(location = 0) in vec2 fragTexCoord;
 
@@ -271,6 +374,17 @@ public sealed class LightingPass : GraphicsNode3D
             int _pad3;
             Light lights[MAX_LIGHTS];
         } lighting;
+
+        layout(binding = 6) uniform ShadowUBO {
+            int shadowCount2D;
+            int shadowCountCube;
+            int _pad1;
+            int _pad2;
+            ShadowInfo shadows[MAX_SHADOWS];
+        } shadowData;
+
+        layout(binding = 7) uniform sampler2D shadowMap2D;
+        layout(binding = 8) uniform samplerCube shadowMapCube;
 
         layout(location = 0) out vec4 outColor;
 
@@ -310,7 +424,63 @@ public sealed class LightingPass : GraphicsNode3D
             return 1.0 / (constant + linear * distance + quadratic * distance * distance);
         }
 
-        vec3 calculateLight(Light light, vec3 worldPos, vec3 N, vec3 V, vec3 F0, vec3 albedo, float metallic, float roughness) {
+        // Shadow calculation for 2D shadow maps (directional/spot lights)
+        float calculateShadow2D(int shadowIdx, vec3 worldPos, vec3 N, vec3 L) {
+            if (shadowIdx < 0 || shadowIdx >= shadowData.shadowCount2D) return 1.0;
+
+            ShadowInfo info = shadowData.shadows[shadowIdx];
+            if (info.shadowType != SHADOW_2D) return 1.0;
+
+            vec4 lightSpacePos = info.lightViewProjection * vec4(worldPos, 1.0);
+            vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
+            // Map xy from NDC [-1,1] to texture [0,1], but z is already [0,1] in Vulkan
+            projCoords.xy = projCoords.xy * 0.5 + 0.5;
+
+            // Outside shadow map bounds
+            if (projCoords.z > 1.0 || projCoords.x < 0.0 || projCoords.x > 1.0 ||
+                projCoords.y < 0.0 || projCoords.y > 1.0) return 1.0;
+
+            float currentDepth = projCoords.z;
+            float bias = max(info.bias * (1.0 - dot(N, L)), info.normalBias);
+
+            // PCF 3x3 for soft shadows
+            float shadow = 0.0;
+            vec2 texelSize = 1.0 / textureSize(shadowMap2D, 0);
+            for (int x = -1; x <= 1; ++x) {
+                for (int y = -1; y <= 1; ++y) {
+                    float pcfDepth = texture(shadowMap2D, projCoords.xy + vec2(x, y) * texelSize).r;
+                    shadow += (currentDepth - bias > pcfDepth) ? 0.0 : 1.0;
+                }
+            }
+            shadow /= 9.0;
+
+            return mix(1.0, shadow, info.shadowStrength);
+        }
+
+        // Shadow calculation for cube shadow maps (point lights)
+        float calculateShadowCube(int shadowIdx, vec3 worldPos) {
+            if (shadowIdx < 0) return 1.0;
+
+            // Find the shadow info for this point light
+            int cubeIdx = shadowIdx - shadowData.shadowCount2D;
+            if (cubeIdx < 0 || cubeIdx >= shadowData.shadowCountCube) return 1.0;
+
+            ShadowInfo info = shadowData.shadows[shadowIdx];
+            if (info.shadowType != SHADOW_CUBE) return 1.0;
+
+            vec3 fragToLight = worldPos - info.lightPosition;
+            float currentDepth = length(fragToLight);
+
+            float closestDepth = texture(shadowMapCube, fragToLight).r;
+            closestDepth *= info.farPlane;
+
+            float bias = info.bias;
+            float shadow = currentDepth - bias > closestDepth ? 0.0 : 1.0;
+
+            return mix(1.0, shadow, info.shadowStrength);
+        }
+
+        vec3 calculateLight(int lightIdx, Light light, vec3 worldPos, vec3 N, vec3 V, vec3 F0, vec3 albedo, float metallic, float roughness) {
             vec3 L;
             float attenuation = 1.0;
             float spotEffect = 1.0;
@@ -331,6 +501,16 @@ public sealed class LightingPass : GraphicsNode3D
                 }
             }
 
+            // Calculate shadow factor
+            float shadowFactor = 1.0;
+            if (light.shadowIndex >= 0) {
+                if (light.type == LIGHT_POINT) {
+                    shadowFactor = calculateShadowCube(light.shadowIndex, worldPos);
+                } else {
+                    shadowFactor = calculateShadow2D(light.shadowIndex, worldPos, N, L);
+                }
+            }
+
             vec3 H = normalize(V + L);
             vec3 radiance = light.color * light.intensity * attenuation * spotEffect;
 
@@ -347,7 +527,7 @@ public sealed class LightingPass : GraphicsNode3D
             vec3 specular = numerator / denominator;
 
             float NdotL = max(dot(N, L), 0.0);
-            return (kD * albedo / PI + specular) * radiance * NdotL;
+            return (kD * albedo / PI + specular) * radiance * NdotL * shadowFactor;
         }
 
         void main() {
@@ -379,7 +559,7 @@ public sealed class LightingPass : GraphicsNode3D
             // Accumulate lighting
             vec3 Lo = vec3(0.0);
             for (int i = 0; i < lighting.lightCount && i < MAX_LIGHTS; i++) {
-                Lo += calculateLight(lighting.lights[i], worldPos, N, V, F0, albedo, metallic, roughness);
+                Lo += calculateLight(i, lighting.lights[i], worldPos, N, V, F0, albedo, metallic, roughness);
             }
 
             // Ambient lighting

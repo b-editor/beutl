@@ -118,7 +118,7 @@ internal sealed class VulkanContext : IGraphicsContext
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
         var usage = format.IsDepthFormat()
-            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit
+            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit
             : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
         return new VulkanTexture2D(this, width, height, format, usage);
     }
@@ -126,7 +126,7 @@ internal sealed class VulkanContext : IGraphicsContext
     public ITextureCube CreateTextureCube(int size, TextureFormat format)
     {
         var usage = format.IsDepthFormat()
-            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit
+            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
             : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
         return new VulkanTextureCube(this, size, format, usage);
     }
@@ -314,6 +314,100 @@ internal sealed class VulkanContext : IGraphicsContext
                 cmd,
                 PipelineStageFlags.TransferBit,
                 PipelineStageFlags.ColorAttachmentOutputBit,
+                0,
+                0, null,
+                0, null,
+                1, &barrier);
+        });
+
+        // Transition source back to shader read optimal
+        vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+    }
+
+    public unsafe void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)
+    {
+        if (faceIndex < 0 || faceIndex >= 6)
+            throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
+
+        var vulkanSource = (VulkanTexture2D)source;
+        var vulkanDest = (VulkanTextureCube)destination;
+
+        // Transition source to transfer source layout
+        vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
+
+        SubmitImmediateCommands(cmd =>
+        {
+            // Transition cube face to transfer destination
+            var barrier = new ImageMemoryBarrier
+            {
+                SType = StructureType.ImageMemoryBarrier,
+                OldLayout = ImageLayout.Undefined,
+                NewLayout = ImageLayout.TransferDstOptimal,
+                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                Image = vulkanDest.ImageHandle,
+                SubresourceRange = new ImageSubresourceRange
+                {
+                    AspectMask = ImageAspectFlags.DepthBit,
+                    BaseMipLevel = 0,
+                    LevelCount = 1,
+                    BaseArrayLayer = (uint)faceIndex,
+                    LayerCount = 1
+                },
+                SrcAccessMask = 0,
+                DstAccessMask = AccessFlags.TransferWriteBit
+            };
+
+            Vk.CmdPipelineBarrier(
+                cmd,
+                PipelineStageFlags.TopOfPipeBit,
+                PipelineStageFlags.TransferBit,
+                0,
+                0, null,
+                0, null,
+                1, &barrier);
+
+            // Copy from 2D texture to cube face
+            var copyRegion = new ImageCopy
+            {
+                SrcSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = ImageAspectFlags.DepthBit,
+                    MipLevel = 0,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
+                },
+                SrcOffset = new Offset3D(0, 0, 0),
+                DstSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = ImageAspectFlags.DepthBit,
+                    MipLevel = 0,
+                    BaseArrayLayer = (uint)faceIndex,
+                    LayerCount = 1
+                },
+                DstOffset = new Offset3D(0, 0, 0),
+                Extent = new Extent3D((uint)source.Width, (uint)source.Height, 1)
+            };
+
+            Vk.CmdCopyImage(
+                cmd,
+                vulkanSource.ImageHandle,
+                ImageLayout.TransferSrcOptimal,
+                vulkanDest.ImageHandle,
+                ImageLayout.TransferDstOptimal,
+                1,
+                &copyRegion);
+
+            // Transition cube face to shader read optimal
+            barrier.OldLayout = ImageLayout.TransferDstOptimal;
+            barrier.NewLayout = ImageLayout.ShaderReadOnlyOptimal;
+            barrier.SrcAccessMask = AccessFlags.TransferWriteBit;
+            barrier.DstAccessMask = AccessFlags.ShaderReadBit;
+
+            Vk.CmdPipelineBarrier(
+                cmd,
+                PipelineStageFlags.TransferBit,
+                PipelineStageFlags.FragmentShaderBit,
                 0,
                 0, null,
                 0, null,

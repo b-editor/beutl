@@ -121,6 +121,11 @@ internal sealed class CompositeContext : IGraphicsContext
         Vulkan.CopyTexture(source, destination);
     }
 
+    public void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)
+    {
+        Vulkan.CopyTextureToCubeFace(source, destination, faceIndex);
+    }
+
     public void WaitIdle()
     {
         Vulkan.WaitIdle();

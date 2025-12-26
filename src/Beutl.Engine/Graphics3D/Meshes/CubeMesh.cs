@@ -88,21 +88,21 @@ public sealed partial class CubeMesh : Mesh
             new(new Vector3(-halfW, halfH, -halfD), new Vector3(-1, 0, 0), new Vector2(0, 0)),
         ];
 
-        // 36 indices (6 per face, 6 faces)
+        // 36 indices (6 per face, 6 faces) - counter-clockwise winding for front faces
         indices =
         [
-            // Front
-            0, 1, 2, 0, 2, 3,
-            // Back
-            4, 5, 6, 4, 6, 7,
-            // Top
-            8, 9, 10, 8, 10, 11,
-            // Bottom
-            12, 13, 14, 12, 14, 15,
-            // Right
-            16, 17, 18, 16, 18, 19,
-            // Left
-            20, 21, 22, 20, 22, 23
+            // Front (looking at Z+, CCW = 0,2,1 then 0,3,2)
+            0, 2, 1, 0, 3, 2,
+            // Back (looking at Z-, CCW)
+            4, 6, 5, 4, 7, 6,
+            // Top (looking at Y+, CCW)
+            8, 10, 9, 8, 11, 10,
+            // Bottom (looking at Y-, CCW)
+            12, 14, 13, 12, 15, 14,
+            // Right (looking at X+, CCW)
+            16, 18, 17, 16, 19, 18,
+            // Left (looking at X-, CCW)
+            20, 22, 21, 20, 23, 22
         ];
     }
 }

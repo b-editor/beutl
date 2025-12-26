@@ -32,4 +32,27 @@ public abstract partial class Light3D : EngineObject
     /// Gets whether this light is enabled.
     /// </summary>
     public IProperty<bool> IsLightEnabled { get; } = Property.CreateAnimatable(true);
+
+    /// <summary>
+    /// Gets whether this light casts shadows.
+    /// </summary>
+    public IProperty<bool> CastsShadow { get; } = Property.CreateAnimatable(false);
+
+    /// <summary>
+    /// Gets the depth bias for shadow mapping to prevent shadow acne.
+    /// </summary>
+    [Range(0f, 0.1f)]
+    public IProperty<float> ShadowBias { get; } = Property.CreateAnimatable(0.005f);
+
+    /// <summary>
+    /// Gets the normal bias for shadow mapping to prevent shadow acne on surfaces facing away from the light.
+    /// </summary>
+    [Range(0f, 0.1f)]
+    public IProperty<float> ShadowNormalBias { get; } = Property.CreateAnimatable(0.02f);
+
+    /// <summary>
+    /// Gets the shadow strength (0 = no shadow, 1 = full shadow).
+    /// </summary>
+    [Range(0f, 1f)]
+    public IProperty<float> ShadowStrength { get; } = Property.CreateAnimatable(1f);
 }
