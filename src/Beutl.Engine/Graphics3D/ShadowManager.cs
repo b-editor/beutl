@@ -10,7 +10,7 @@ namespace Beutl.Graphics3D;
 /// </summary>
 internal sealed class ShadowManager : IDisposable
 {
-    private const int MaxShadowMaps2D = 4;
+    public const int MaxShadowMaps2D = 4;
     private const int MaxShadowMapsCube = 4;
 
     private readonly IGraphicsContext _context;
@@ -189,7 +189,10 @@ internal sealed class ShadowManager : IDisposable
         shadowPass.Execute(objects);
 
         // Copy shadow map to array
-        // TODO: Optimize by rendering directly to array layer
+        if (shadowPass.ShadowDepthTexture != null && _shadowMapArray != null)
+        {
+            _context.CopyTextureToArrayLayer(shadowPass.ShadowDepthTexture, _shadowMapArray, _activeShadowCount2D);
+        }
 
         return new ShadowInfo
         {
@@ -206,6 +209,12 @@ internal sealed class ShadowManager : IDisposable
         var shadowPass = _shadowPasses2D[_activeShadowCount2D];
         shadowPass.SetupForSpotLight(light);
         shadowPass.Execute(objects);
+
+        // Copy shadow map to array
+        if (shadowPass.ShadowDepthTexture != null && _shadowMapArray != null)
+        {
+            _context.CopyTextureToArrayLayer(shadowPass.ShadowDepthTexture, _shadowMapArray, _activeShadowCount2D);
+        }
 
         return new ShadowInfo
         {
@@ -295,6 +304,11 @@ internal sealed class ShadowManager : IDisposable
         {
             _shadowPasses2D[i].PrepareForSampling();
         }
+
+        // Note: CopyTextureToArrayLayer already transitions each layer to ShaderReadOnlyOptimal,
+        // so we don't need to call TransitionAllToSampled here. Doing so would actually be
+        // harmful because it would transition from Undefined (stale internal state) and
+        // potentially discard the shadow map data.
 
         // Prepare point shadow cube maps
         for (int i = 0; i < _activeShadowCountCube; i++)

@@ -130,5 +130,13 @@ public interface IGraphicsContext : IDisposable
     /// <param name="faceIndex">The cube face index (0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z).</param>
     void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex);
 
+    /// <summary>
+    /// Copies a 2D texture to a specific layer of a texture array.
+    /// </summary>
+    /// <param name="source">The source 2D texture.</param>
+    /// <param name="destination">The destination texture array.</param>
+    /// <param name="layerIndex">The layer index in the array.</param>
+    void CopyTextureToArrayLayer(ITexture2D source, ITextureArray destination, int layerIndex);
+
     void WaitIdle();
 }
