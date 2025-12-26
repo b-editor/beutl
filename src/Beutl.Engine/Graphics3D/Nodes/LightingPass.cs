@@ -24,7 +24,7 @@ public sealed class LightingPass : GraphicsNode3D
     private ISampler? _shadowSampler;
 
     // Shadow textures for binding
-    private ITexture2D? _dummyShadowTexture2D;
+    private ITextureArray? _dummyShadowArray;
     private ITextureCube? _dummyShadowCube;
 
     public LightingPass(IGraphicsContext context, IShaderCompiler shaderCompiler, ITexture2D depthTexture)
@@ -61,7 +61,7 @@ public sealed class LightingPass : GraphicsNode3D
         _shadowBuffer?.Dispose();
         _gBufferSampler?.Dispose();
         _shadowSampler?.Dispose();
-        _dummyShadowTexture2D?.Dispose();
+        _dummyShadowArray?.Dispose();
         _dummyShadowCube?.Dispose();
 
         // Create output texture
@@ -97,7 +97,7 @@ public sealed class LightingPass : GraphicsNode3D
             SamplerAddressMode.ClampToEdge);
 
         // Create dummy shadow textures for initial binding
-        _dummyShadowTexture2D = Context.CreateTexture2D(1, 1, TextureFormat.Depth32Float);
+        _dummyShadowArray = Context.CreateTextureArray(1, 1, ShadowManager.MaxShadowMaps2D, TextureFormat.Depth32Float);
         _dummyShadowCube = Context.CreateTextureCube(1, TextureFormat.Depth32Float);
 
         // Create uniform buffers
@@ -156,7 +156,7 @@ public sealed class LightingPass : GraphicsNode3D
         _descriptorSet.UpdateBuffer(6, _shadowBuffer);
 
         // Bind dummy shadow textures initially
-        _descriptorSet.UpdateTexture(7, _dummyShadowTexture2D, _shadowSampler);
+        _descriptorSet.UpdateTextureArray(7, _dummyShadowArray, _shadowSampler);
         _descriptorSet.UpdateTextureCube(8, _dummyShadowCube, _shadowSampler);
     }
 
@@ -182,15 +182,15 @@ public sealed class LightingPass : GraphicsNode3D
         if (_descriptorSet == null || _shadowSampler == null)
             return;
 
-        // Bind first 2D shadow map (or dummy if none)
-        var shadowMap2D = shadowManager.GetShadowMap2D(0);
-        if (shadowMap2D != null)
+        // Bind 2D shadow map array (for directional/spot lights)
+        var shadowMapArray = shadowManager.ShadowMapArray;
+        if (shadowMapArray != null && shadowManager.ActiveShadowCount2D > 0)
         {
-            _descriptorSet.UpdateTexture(7, shadowMap2D, _shadowSampler);
+            _descriptorSet.UpdateTextureArray(7, shadowMapArray, _shadowSampler);
         }
-        else if (_dummyShadowTexture2D != null)
+        else if (_dummyShadowArray != null)
         {
-            _descriptorSet.UpdateTexture(7, _dummyShadowTexture2D, _shadowSampler);
+            _descriptorSet.UpdateTextureArray(7, _dummyShadowArray, _shadowSampler);
         }
 
         // Bind first cube shadow map (or dummy if none)
@@ -265,7 +265,7 @@ public sealed class LightingPass : GraphicsNode3D
         _shadowBuffer?.Dispose();
         _gBufferSampler?.Dispose();
         _shadowSampler?.Dispose();
-        _dummyShadowTexture2D?.Dispose();
+        _dummyShadowArray?.Dispose();
         _dummyShadowCube?.Dispose();
         Framebuffer?.Dispose();
         RenderPass?.Dispose();
@@ -383,7 +383,7 @@ public sealed class LightingPass : GraphicsNode3D
             ShadowInfo shadows[MAX_SHADOWS];
         } shadowData;
 
-        layout(binding = 7) uniform sampler2D shadowMap2D;
+        layout(binding = 7) uniform sampler2DArray shadowMapArray;
         layout(binding = 8) uniform samplerCube shadowMapCube;
 
         layout(location = 0) out vec4 outColor;
@@ -426,12 +426,15 @@ public sealed class LightingPass : GraphicsNode3D
 
         // Shadow calculation for 2D shadow maps (directional/spot lights)
         float calculateShadow2D(int shadowIdx, vec3 worldPos, vec3 N, vec3 L) {
-            if (shadowIdx < 0 || shadowIdx >= shadowData.shadowCount2D) return 1.0;
+            if (shadowIdx < 0 || shadowIdx >= MAX_SHADOWS) return 1.0;
 
             ShadowInfo info = shadowData.shadows[shadowIdx];
             if (info.shadowType != SHADOW_2D) return 1.0;
 
-            vec4 lightSpacePos = info.lightViewProjection * vec4(worldPos, 1.0);
+            // Normal offset bias: move sample position along normal to avoid self-shadowing
+            vec3 offsetPos = worldPos + N * info.normalBias;
+
+            vec4 lightSpacePos = info.lightViewProjection * vec4(offsetPos, 1.0);
             vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
             // Map xy from NDC [-1,1] to texture [0,1], but z is already [0,1] in Vulkan
             projCoords.xy = projCoords.xy * 0.5 + 0.5;
@@ -441,29 +444,27 @@ public sealed class LightingPass : GraphicsNode3D
                 projCoords.y < 0.0 || projCoords.y > 1.0) return 1.0;
 
             float currentDepth = projCoords.z;
-            float bias = max(info.bias * (1.0 - dot(N, L)), info.normalBias);
+            float bias = info.bias;  // Depth bias from light properties
+            int layerIndex = info.shadowMapIndex;
 
             // PCF 3x3 for soft shadows
             float shadow = 0.0;
-            vec2 texelSize = 1.0 / textureSize(shadowMap2D, 0);
+            vec2 texelSize = 1.0 / textureSize(shadowMapArray, 0).xy;
             for (int x = -1; x <= 1; ++x) {
                 for (int y = -1; y <= 1; ++y) {
-                    float pcfDepth = texture(shadowMap2D, projCoords.xy + vec2(x, y) * texelSize).r;
+                    float pcfDepth = texture(shadowMapArray, vec3(projCoords.xy + vec2(x, y) * texelSize, layerIndex)).r;
                     shadow += (currentDepth - bias > pcfDepth) ? 0.0 : 1.0;
                 }
             }
             shadow /= 9.0;
 
+            // Apply shadow strength (0 = no shadow effect, 1 = full shadow)
             return mix(1.0, shadow, info.shadowStrength);
         }
 
         // Shadow calculation for cube shadow maps (point lights)
         float calculateShadowCube(int shadowIdx, vec3 worldPos) {
-            if (shadowIdx < 0) return 1.0;
-
-            // Find the shadow info for this point light
-            int cubeIdx = shadowIdx - shadowData.shadowCount2D;
-            if (cubeIdx < 0 || cubeIdx >= shadowData.shadowCountCube) return 1.0;
+            if (shadowIdx < 0 || shadowIdx >= MAX_SHADOWS) return 1.0;
 
             ShadowInfo info = shadowData.shadows[shadowIdx];
             if (info.shadowType != SHADOW_CUBE) return 1.0;

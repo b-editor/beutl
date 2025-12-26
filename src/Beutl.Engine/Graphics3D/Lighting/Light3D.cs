@@ -41,8 +41,8 @@ public abstract partial class Light3D : EngineObject
     /// <summary>
     /// Gets the depth bias for shadow mapping to prevent shadow acne.
     /// </summary>
-    [Range(0f, 0.1f)]
-    public IProperty<float> ShadowBias { get; } = Property.CreateAnimatable(0.005f);
+    [Range(0f, 0.01f)]
+    public IProperty<float> ShadowBias { get; } = Property.CreateAnimatable(0.0001f);
 
     /// <summary>
     /// Gets the normal bias for shadow mapping to prevent shadow acne on surfaces facing away from the light.

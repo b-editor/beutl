@@ -134,7 +134,7 @@ internal sealed class VulkanContext : IGraphicsContext
     public ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format)
     {
         var usage = format.IsDepthFormat()
-            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit
+            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
             : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
         return new VulkanTextureArray(this, width, height, arraySize, format, usage);
     }
@@ -399,6 +399,105 @@ internal sealed class VulkanContext : IGraphicsContext
                 &copyRegion);
 
             // Transition cube face to shader read optimal
+            barrier.OldLayout = ImageLayout.TransferDstOptimal;
+            barrier.NewLayout = ImageLayout.ShaderReadOnlyOptimal;
+            barrier.SrcAccessMask = AccessFlags.TransferWriteBit;
+            barrier.DstAccessMask = AccessFlags.ShaderReadBit;
+
+            Vk.CmdPipelineBarrier(
+                cmd,
+                PipelineStageFlags.TransferBit,
+                PipelineStageFlags.FragmentShaderBit,
+                0,
+                0, null,
+                0, null,
+                1, &barrier);
+        });
+
+        // Transition source back to shader read optimal
+        vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+    }
+
+    public unsafe void CopyTextureToArrayLayer(ITexture2D source, ITextureArray destination, int layerIndex)
+    {
+        if (layerIndex < 0 || layerIndex >= (int)destination.ArraySize)
+            throw new ArgumentOutOfRangeException(nameof(layerIndex), $"Layer index must be 0-{destination.ArraySize - 1}");
+
+        var vulkanSource = (VulkanTexture2D)source;
+        var vulkanDest = (VulkanTextureArray)destination;
+
+        // Determine aspect mask based on format
+        var aspectMask = source.Format.IsDepthFormat()
+            ? ImageAspectFlags.DepthBit
+            : ImageAspectFlags.ColorBit;
+
+        // Transition source to transfer source layout
+        vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
+
+        SubmitImmediateCommands(cmd =>
+        {
+            // Transition array layer to transfer destination
+            var barrier = new ImageMemoryBarrier
+            {
+                SType = StructureType.ImageMemoryBarrier,
+                OldLayout = ImageLayout.Undefined,
+                NewLayout = ImageLayout.TransferDstOptimal,
+                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                Image = vulkanDest.ImageHandle,
+                SubresourceRange = new ImageSubresourceRange
+                {
+                    AspectMask = aspectMask,
+                    BaseMipLevel = 0,
+                    LevelCount = 1,
+                    BaseArrayLayer = (uint)layerIndex,
+                    LayerCount = 1
+                },
+                SrcAccessMask = 0,
+                DstAccessMask = AccessFlags.TransferWriteBit
+            };
+
+            Vk.CmdPipelineBarrier(
+                cmd,
+                PipelineStageFlags.TopOfPipeBit,
+                PipelineStageFlags.TransferBit,
+                0,
+                0, null,
+                0, null,
+                1, &barrier);
+
+            // Copy from 2D texture to array layer
+            var copyRegion = new ImageCopy
+            {
+                SrcSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = aspectMask,
+                    MipLevel = 0,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
+                },
+                SrcOffset = new Offset3D(0, 0, 0),
+                DstSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = aspectMask,
+                    MipLevel = 0,
+                    BaseArrayLayer = (uint)layerIndex,
+                    LayerCount = 1
+                },
+                DstOffset = new Offset3D(0, 0, 0),
+                Extent = new Extent3D((uint)source.Width, (uint)source.Height, 1)
+            };
+
+            Vk.CmdCopyImage(
+                cmd,
+                vulkanSource.ImageHandle,
+                ImageLayout.TransferSrcOptimal,
+                vulkanDest.ImageHandle,
+                ImageLayout.TransferDstOptimal,
+                1,
+                &copyRegion);
+
+            // Transition array layer to shader read optimal
             barrier.OldLayout = ImageLayout.TransferDstOptimal;
             barrier.NewLayout = ImageLayout.ShaderReadOnlyOptimal;
             barrier.SrcAccessMask = AccessFlags.TransferWriteBit;
