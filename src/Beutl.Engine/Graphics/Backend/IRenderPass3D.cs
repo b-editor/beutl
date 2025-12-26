@@ -55,4 +55,12 @@ public interface IRenderPass3D : IDisposable
     /// Draws a fullscreen triangle for post-processing.
     /// </summary>
     void Draw(uint vertexCount, uint instanceCount = 1, uint firstVertex = 0, uint firstInstance = 0);
+
+    /// <summary>
+    /// Sets push constants for the currently bound pipeline.
+    /// </summary>
+    /// <typeparam name="T">The type of push constants data.</typeparam>
+    /// <param name="data">The push constants data.</param>
+    /// <param name="stageFlags">The shader stages that will access the push constants.</param>
+    void SetPushConstants<T>(T data, ShaderStage stageFlags = ShaderStage.Vertex | ShaderStage.Fragment) where T : unmanaged;
 }
