@@ -123,6 +123,22 @@ internal sealed class VulkanContext : IGraphicsContext
         return new VulkanTexture2D(this, width, height, format, usage);
     }
 
+    public ITextureCube CreateTextureCube(int size, TextureFormat format)
+    {
+        var usage = format.IsDepthFormat()
+            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit
+            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
+        return new VulkanTextureCube(this, size, format, usage);
+    }
+
+    public ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format)
+    {
+        var usage = format.IsDepthFormat()
+            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit
+            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
+        return new VulkanTextureArray(this, width, height, arraySize, format, usage);
+    }
+
     public I3DRenderer Create3DRenderer()
     {
         return new Renderer3D(this);
@@ -325,6 +341,17 @@ internal sealed class VulkanContext : IGraphicsContext
     public void TransitionImageLayout(Image image, ImageLayout oldLayout, ImageLayout newLayout, ImageAspectFlags aspectMask)
     {
         _vulkanCommandPool.TransitionImageLayout(image, oldLayout, newLayout, aspectMask);
+    }
+
+    public void TransitionImageLayout(
+        Image image,
+        ImageLayout oldLayout,
+        ImageLayout newLayout,
+        ImageAspectFlags aspectMask,
+        uint baseArrayLayer,
+        uint layerCount)
+    {
+        _vulkanCommandPool.TransitionImageLayout(image, oldLayout, newLayout, aspectMask, baseArrayLayer, layerCount);
     }
 
     public CommandBuffer AllocateCommandBuffer()

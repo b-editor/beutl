@@ -27,6 +27,22 @@ public interface IGraphicsContext : IDisposable
     ITexture2D CreateTexture2D(int width, int height, TextureFormat format);
 
     /// <summary>
+    /// Creates a cube map texture (for point light shadow maps).
+    /// </summary>
+    /// <param name="size">The size (width and height) of each cube face.</param>
+    /// <param name="format">The texture format.</param>
+    ITextureCube CreateTextureCube(int size, TextureFormat format);
+
+    /// <summary>
+    /// Creates a 2D texture array (for multiple shadow maps).
+    /// </summary>
+    /// <param name="width">The width of each layer.</param>
+    /// <param name="height">The height of each layer.</param>
+    /// <param name="arraySize">The number of layers in the array.</param>
+    /// <param name="format">The texture format.</param>
+    ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format);
+
+    /// <summary>
     /// Creates a new 3D renderer.
     /// </summary>
     /// <returns>A new 3D renderer instance.</returns>

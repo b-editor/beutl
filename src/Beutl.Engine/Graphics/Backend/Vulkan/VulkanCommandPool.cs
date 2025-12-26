@@ -224,6 +224,44 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
         });
     }
 
+    public void TransitionImageLayout(
+        Image image,
+        ImageLayout oldLayout,
+        ImageLayout newLayout,
+        ImageAspectFlags aspectMask,
+        uint baseArrayLayer,
+        uint layerCount)
+    {
+        SubmitImmediateCommands(commandBuffer =>
+        {
+            ImageMemoryBarrier barrier = new()
+            {
+                SType = StructureType.ImageMemoryBarrier,
+                OldLayout = oldLayout,
+                NewLayout = newLayout,
+                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                Image = image,
+                SubresourceRange = new ImageSubresourceRange
+                {
+                    AspectMask = aspectMask,
+                    BaseMipLevel = 0,
+                    LevelCount = 1,
+                    BaseArrayLayer = baseArrayLayer,
+                    LayerCount = layerCount
+                }
+            };
+
+            GetPipelineStages(oldLayout, newLayout, out PipelineStageFlags srcStage, out PipelineStageFlags dstStage,
+                out AccessFlags srcAccess, out AccessFlags dstAccess);
+
+            barrier.SrcAccessMask = srcAccess;
+            barrier.DstAccessMask = dstAccess;
+
+            _vk.CmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, null, 0, null, 1, &barrier);
+        });
+    }
+
     private static void GetPipelineStages(
         ImageLayout oldLayout,
         ImageLayout newLayout,

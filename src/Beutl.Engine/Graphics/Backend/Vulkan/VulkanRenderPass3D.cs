@@ -14,6 +14,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
     private readonly RenderPass _renderPass;
     private readonly int _colorAttachmentCount;
     private CommandBuffer _currentCommandBuffer;
+    private VulkanPipeline3D? _currentPipeline;
     private bool _inRenderPass;
     private bool _disposed;
 
@@ -72,7 +73,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
             Format = depthFormat,
             Samples = SampleCountFlags.Count1Bit,
             LoadOp = AttachmentLoadOp.Clear,
-            StoreOp = AttachmentStoreOp.DontCare,
+            StoreOp = AttachmentStoreOp.Store, // Store depth for shadow mapping
             StencilLoadOp = AttachmentLoadOp.DontCare,
             StencilStoreOp = AttachmentStoreOp.DontCare,
             InitialLayout = ImageLayout.DepthStencilAttachmentOptimal,
@@ -227,6 +228,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         _context.SubmitCommandBuffer(_currentCommandBuffer);
 
         _inRenderPass = false;
+        _currentPipeline = null;
     }
 
     public CommandBuffer GetCurrentCommandBuffer()
@@ -246,6 +248,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         }
 
         var vulkanPipeline = (VulkanPipeline3D)pipeline;
+        _currentPipeline = vulkanPipeline;
         _context.Vk.CmdBindPipeline(_currentCommandBuffer, PipelineBindPoint.Graphics, vulkanPipeline.Handle);
     }
 
@@ -312,6 +315,39 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         }
 
         _context.Vk.CmdDraw(_currentCommandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
+    }
+
+    public void SetPushConstants<T>(T data, ShaderStage stageFlags = ShaderStage.Vertex | ShaderStage.Fragment) where T : unmanaged
+    {
+        if (!_inRenderPass)
+        {
+            throw new InvalidOperationException("Render pass not begun");
+        }
+
+        if (_currentPipeline == null)
+        {
+            throw new InvalidOperationException("No pipeline bound");
+        }
+
+        var size = (uint)sizeof(T);
+        if (size > 128)
+        {
+            throw new ArgumentException($"Push constants size {size} exceeds maximum of 128 bytes");
+        }
+
+        ShaderStageFlags vulkanStageFlags = 0;
+        if ((stageFlags & ShaderStage.Vertex) != 0)
+            vulkanStageFlags |= ShaderStageFlags.VertexBit;
+        if ((stageFlags & ShaderStage.Fragment) != 0)
+            vulkanStageFlags |= ShaderStageFlags.FragmentBit;
+
+        _context.Vk.CmdPushConstants(
+            _currentCommandBuffer,
+            _currentPipeline.PipelineLayoutHandle,
+            vulkanStageFlags,
+            0,
+            size,
+            &data);
     }
 
     public void Dispose()

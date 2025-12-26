@@ -58,15 +58,23 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
             _descriptorSetLayout = descriptorLayout;
         }
 
-        // Create pipeline layout
+        // Create pipeline layout with push constants support
+        // Use 128 bytes which is the minimum guaranteed by Vulkan
+        var pushConstantRange = new PushConstantRange
+        {
+            StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit,
+            Offset = 0,
+            Size = 128
+        };
+
         var layouts = stackalloc DescriptorSetLayout[] { _descriptorSetLayout };
         var pipelineLayoutInfo = new PipelineLayoutCreateInfo
         {
             SType = StructureType.PipelineLayoutCreateInfo,
             SetLayoutCount = 1,
             PSetLayouts = layouts,
-            PushConstantRangeCount = 0,
-            PPushConstantRanges = null
+            PushConstantRangeCount = 1,
+            PPushConstantRanges = &pushConstantRange
         };
 
         PipelineLayout pipelineLayout;
