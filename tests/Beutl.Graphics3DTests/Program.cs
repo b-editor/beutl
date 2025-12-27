@@ -38,7 +38,7 @@ Console.WriteLine();
 
 // Create 3D renderer
 Console.WriteLine("Creating 3D renderer...");
-var renderer = graphicsContext.Create3DRenderer();
+var renderer = new Renderer3D(graphicsContext);
 renderer.Initialize(Width, Height);
 Console.WriteLine("Renderer initialized.");
 Console.WriteLine();
@@ -216,7 +216,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
 
     // Create 3D renderer
     Console.WriteLine("Creating 3D renderer for shadow test...");
-    var renderer = graphicsContext.Create3DRenderer();
+    var renderer = new Renderer3D(graphicsContext);
     renderer.Initialize(Width, Height);
 
     var renderContext = new RenderContext(TimeSpan.Zero);

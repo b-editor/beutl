@@ -43,13 +43,6 @@ public interface IGraphicsContext : IDisposable
     ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format);
 
     /// <summary>
-    /// Creates a new 3D renderer.
-    /// </summary>
-    /// <returns>A new 3D renderer instance.</returns>
-    /// <exception cref="NotSupportedException">Thrown if 3D rendering is not supported.</exception>
-    I3DRenderer Create3DRenderer();
-
-    /// <summary>
     /// Creates a new GPU buffer.
     /// </summary>
     IBuffer CreateBuffer(ulong size, BufferUsage usage, MemoryProperty memoryProperty);

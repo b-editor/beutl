@@ -72,7 +72,7 @@ internal sealed class Scene3DRenderNode : RenderNode
             return [];
 
         // Get or create renderer
-        var renderer = _resource.Renderer ??= graphicsContext.Create3DRenderer();
+        var renderer = _resource.Renderer ??= new Renderer3D(graphicsContext);
 
         // Initialize or resize if needed
         if (renderer.Width != width || renderer.Height != height)
