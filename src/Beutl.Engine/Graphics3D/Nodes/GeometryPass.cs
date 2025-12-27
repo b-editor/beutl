@@ -61,7 +61,7 @@ public sealed class GeometryPass : GraphicsNode3D
     protected override void OnInitialize(int width, int height)
     {
         CreateGBuffer(width, height);
-        _defaultMaterialResource = (BasicMaterial.Resource)_defaultMaterial.ToResource(new RenderContext(TimeSpan.Zero));
+        _defaultMaterialResource = _defaultMaterial.ToResource(new RenderContext(TimeSpan.Zero));
     }
 
     protected override void OnResize(int width, int height)
@@ -150,7 +150,7 @@ public sealed class GeometryPass : GraphicsNode3D
                 continue;
 
             // Get material resource (use default if not set)
-            var materialResource = obj.Material as Material3D.Resource ?? _defaultMaterialResource;
+            var materialResource = obj.Material ?? _defaultMaterialResource;
             if (materialResource == null)
                 continue;
 
