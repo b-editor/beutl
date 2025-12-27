@@ -100,6 +100,13 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
                 continue;
             }
 
+            // Check if property is excluded from tracking
+            if (property.TryGetMetadata<CorePropertyMetadata>(_object.GetType(), out var metadata)
+                && !metadata.Tracked)
+            {
+                continue;
+            }
+
             object? value = _object.GetValue(property);
             string childPath = BuildPropertyPath(property.Name);
 
@@ -199,6 +206,13 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
         if (_propertiesToTrack != null &&
             !_propertiesToTrack.Contains(args.Property.Name))
+        {
+            return;
+        }
+
+        // Check if property is excluded from tracking
+        if (args.Property.TryGetMetadata<CorePropertyMetadata>(_object.GetType(), out var metadata)
+            && !metadata.Tracked)
         {
             return;
         }

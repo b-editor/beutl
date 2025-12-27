@@ -32,6 +32,7 @@ public class NodeGroup : NodeTreeModel
     }
 
     [NotAutoSerialized]
+    [NotTracked]
     public GroupInput? Input
     {
         get => _input;
@@ -39,6 +40,7 @@ public class NodeGroup : NodeTreeModel
     }
 
     [NotAutoSerialized]
+    [NotTracked]
     public GroupOutput? Output
     {
         get => _output;

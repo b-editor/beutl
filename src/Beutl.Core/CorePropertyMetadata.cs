@@ -20,6 +20,8 @@ public abstract class CorePropertyMetadata : ICorePropertyMetadata
 
     public bool Browsable { get; private set; } = true;
 
+    public bool Tracked { get; private set; } = true;
+
     public DisplayAttribute? DisplayAttribute { get; private set; }
 
     public abstract Type PropertyType { get; }
@@ -31,6 +33,7 @@ public abstract class CorePropertyMetadata : ICorePropertyMetadata
         if (Attributes != null)
         {
             ShouldSerialize = !Attributes.Any(x => x is NotAutoSerializedAttribute);
+            Tracked = !Attributes.Any(x => x is NotTrackedAttribute);
             foreach (Attribute item in Attributes)
             {
                 switch (item)
