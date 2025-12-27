@@ -241,7 +241,7 @@ void main() {
         // Render each object
         foreach (var obj in objects)
         {
-            if (!obj.IsVisible)
+            if (!obj.IsEnabled)
                 continue;
 
             var meshResource = obj.GetMesh();
