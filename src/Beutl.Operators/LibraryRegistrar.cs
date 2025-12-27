@@ -3,6 +3,7 @@ using Beutl.Audio.Effects;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics3D;
 using Beutl.Language;
 using Beutl.Media;
 // using Beutl.NodeTree.Nodes.Transform;
@@ -73,6 +74,12 @@ public static class LibraryRegistrar
             .AddMultiple(Strings.Sound, m => m
                 .BindSourceOperator<Source.SourceSoundOperator>()
                 .BindSound<SourceSound>()
+            );
+
+        LibraryService.Current
+            .AddMultiple("3D", m => m
+                .BindSourceOperator<Source.Scene3DOperator>()
+                .BindDrawable<Scene3D>()
             );
 
         LibraryService.Current
