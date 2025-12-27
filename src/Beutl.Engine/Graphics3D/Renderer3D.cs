@@ -13,7 +13,7 @@ namespace Beutl.Graphics3D;
 /// Deferred 3D renderer using G-Buffer for lighting calculations.
 /// Coordinates shadow, geometry, and lighting passes.
 /// </summary>
-internal sealed class Renderer3D : I3DRenderer
+internal sealed class Renderer3D : IRenderer3D
 {
     private readonly IGraphicsContext _context;
     private readonly IShaderCompiler _shaderCompiler;
