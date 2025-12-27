@@ -30,6 +30,8 @@ public static class JsonHelper
             new DirectoryInfoConverter(),
             new FileInfoConverter(),
             new CoreSerializableJsonConverter(),
+            new Vector3JsonConverter(),
+            new QuaternionJsonConverter()
             //new CoreObjectJsonConverter()
         }
     };
