@@ -78,10 +78,10 @@ public partial class Scene3D : Drawable
             return;
 
         // Use DrawNode to add our custom render node
-        context.DrawNode<Scene3DRenderNode, (Resource, ICoreList<Object3D>, ICoreList<Light3D>)>(
-            (scene3DResource, Objects.CurrentValue, Lights.CurrentValue),
-            static parameters => new Scene3DRenderNode(parameters.Item1, parameters.Item2, parameters.Item3),
-            static (node, parameters) => node.Update(parameters.Item1, parameters.Item2, parameters.Item3));
+        context.DrawNode<Scene3DRenderNode, Resource>(
+            scene3DResource,
+            static res => new Scene3DRenderNode(res),
+            static (node, res) => node.Update(res));
     }
 
     public partial class Resource
