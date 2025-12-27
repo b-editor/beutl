@@ -54,7 +54,15 @@ public sealed class MoveCollectionRangeOperation<T> : ChangeOperation, IProperty
 
     private void ApplyToEngineProperty(IListProperty<T> listProperty)
     {
-        listProperty.MoveRange(OldIndex, NewIndex, Count);
+        int oldIndex = OldIndex;
+        int newIndex = NewIndex;
+        int count = Count;
+        if (newIndex > oldIndex)
+        {
+            newIndex += count;
+        }
+
+        listProperty.MoveRange(OldIndex, Count, newIndex);
     }
 
     private void ApplyTo(object obj, object? list)
@@ -112,7 +120,15 @@ public sealed class MoveCollectionRangeOperation<T> : ChangeOperation, IProperty
 
     private void RevertToEngineProperty(IListProperty<T> listProperty)
     {
-        listProperty.MoveRange(NewIndex, OldIndex, Count);
+        int oldIndex = OldIndex;
+        int newIndex = NewIndex;
+        int count = Count;
+        if (oldIndex > newIndex)
+        {
+            oldIndex += count;
+        }
+
+        listProperty.MoveRange(NewIndex, Count, oldIndex);
     }
 
     private void RevertTo(object obj, object? list)
