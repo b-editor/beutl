@@ -226,7 +226,7 @@ internal sealed class VulkanContext : IGraphicsContext
     public unsafe void CopyTexture(ITexture2D source, ISharedTexture destination)
     {
         var vulkanSource = (VulkanTexture2D)source;
-        var vulkanDest = (VulkanSharedTexture)destination;
+        var vulkanDestImageHandle = new Image((ulong)destination.VulkanImageHandle);
 
         // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
@@ -243,7 +243,7 @@ internal sealed class VulkanContext : IGraphicsContext
                 NewLayout = ImageLayout.TransferDstOptimal,
                 SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
                 DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                Image = new Image((ulong)vulkanDest.VulkanImageHandle),
+                Image = vulkanDestImageHandle,
                 SubresourceRange = new ImageSubresourceRange
                 {
                     AspectMask = ImageAspectFlags.ColorBit,
@@ -293,7 +293,7 @@ internal sealed class VulkanContext : IGraphicsContext
                 cmd,
                 vulkanSource.ImageHandle,
                 ImageLayout.TransferSrcOptimal,
-                new Image((ulong)vulkanDest.VulkanImageHandle),
+                vulkanDestImageHandle,
                 ImageLayout.TransferDstOptimal,
                 1,
                 &blitRegion,
