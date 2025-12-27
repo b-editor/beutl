@@ -2,7 +2,7 @@
 using System.Collections.Specialized;
 using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
-
+using Beutl.Editor;
 using Beutl.Reactive;
 using Beutl.Serialization;
 
@@ -11,18 +11,21 @@ namespace Beutl.NodeTree.Nodes.Group;
 // Todo: ファイルからノードグループを読み込めるようにする。
 public class GroupNode : Node
 {
+    public static readonly CoreProperty<NodeGroup> GroupProperty;
     private readonly CompositeDisposable _disposables = [];
     private readonly List<IDisposable> _outputSocketDisposable = [];
     private readonly List<IDisposable> _inputSocketDisposable = [];
-    private int _outputSocketCount = 0;
-    private int _inputSocketCount = 0;
+
+    static GroupNode()
+    {
+        GroupProperty = ConfigureProperty<NodeGroup, GroupNode>(nameof(Group))
+            .Accessor(o => o.Group)
+            .Register();
+    }
 
     public GroupNode()
     {
-        Group = new NodeGroup()
-        {
-            Name = "Group"
-        };
+        Group = new NodeGroup() { Name = "Group" };
         HierarchicalChildren.Add(Group);
         Group.Edited += OnGroupEdited;
 
@@ -73,10 +76,11 @@ public class GroupNode : Node
     public override void PreEvaluate(NodeEvaluationContext context)
     {
         base.PreEvaluate(context);
-        for (int i = _outputSocketCount; i < Items.Count; i++)
+        var outputSocketCount = Group.Output?.Items.Count ?? 0;
+        for (int i = outputSocketCount; i < Items.Count; i++)
         {
             INodeItem input = Items[i];
-            INodeItem? output = Group.Input?.Items[i - _outputSocketCount];
+            INodeItem? output = Group.Input?.Items[i - outputSocketCount];
             if (input is IInputSocket inputSocket
                 && output is ISupportSetValueNodeItem outputSocket)
             {
@@ -97,7 +101,8 @@ public class GroupNode : Node
 
     public override void PostEvaluate(NodeEvaluationContext context)
     {
-        for (int i = 0; i < _outputSocketCount; i++)
+        var outputSocketCount = Group.Output?.Items.Count ?? 0;
+        for (int i = 0; i < outputSocketCount; i++)
         {
             INodeItem output = Items[i];
             INodeItem? input = Group.Output?.Items[i];
@@ -131,12 +136,13 @@ public class GroupNode : Node
 
     private void OnOutputChanged(GroupOutput? newObj, GroupOutput? oldObj)
     {
+        if (RecordingSuppression.IsSuppressed) return;
         if (oldObj != null)
         {
             oldObj.Items.CollectionChanged -= OutputItemsCollectionChanged;
-            Items.RemoveRange(0, _outputSocketCount);
+            var outputSocketCount = oldObj.Items.Count;
+            Items.RemoveRange(0, outputSocketCount);
             DisposeOutput();
-            _outputSocketCount = 0;
         }
 
         if (newObj != null)
@@ -148,8 +154,6 @@ public class GroupNode : Node
                 IInputSocket item = (IInputSocket)newObj.Items[i];
                 AddOutput(i, item);
             }
-
-            _outputSocketCount = newObj.Items.Count;
         }
     }
 
@@ -168,12 +172,12 @@ public class GroupNode : Node
 
     private void OutputItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        if (RecordingSuppression.IsSuppressed) return;
         void Add(int index, IList items)
         {
             foreach (IInputSocket item in items)
             {
                 AddOutput(index++, item);
-                _outputSocketCount++;
             }
         }
 
@@ -187,7 +191,6 @@ public class GroupNode : Node
             _outputSocketDisposable.RemoveRange(index, items.Count);
 
             Items.RemoveRange(index, items.Count);
-            _outputSocketCount -= items.Count;
         }
 
         switch (e.Action)
@@ -207,20 +210,24 @@ public class GroupNode : Node
                 break;
 
             case NotifyCollectionChangedAction.Reset:
-                Items.RemoveRange(0, _outputSocketCount);
-                _outputSocketCount = 0;
+                var outputSocketCount = Group.Output?.Items.Count ?? 0;
+                Items.RemoveRange(0, outputSocketCount);
+                // _outputSocketCount = 0;
                 break;
         }
     }
 
     private void OnInputChanged(GroupInput? newObj, GroupInput? oldObj)
     {
+        if (RecordingSuppression.IsSuppressed) return;
         if (oldObj != null)
         {
             oldObj.Items.CollectionChanged -= InputItemsCollectionChanged;
-            Items.RemoveRange(_outputSocketCount, _inputSocketCount);
+
+            var outputSocketCount = Group.Output?.Items.Count ?? 0;
+            var inputSocketCount = oldObj.Items.Count;
+            Items.RemoveRange(outputSocketCount, inputSocketCount);
             DisposeInput();
-            _inputSocketCount = 0;
         }
 
         if (newObj != null)
@@ -232,8 +239,6 @@ public class GroupNode : Node
                 IGroupSocket item = (IGroupSocket)newObj.Items[i];
                 AddInput(i, item);
             }
-
-            _inputSocketCount = newObj.Items.Count;
         }
     }
 
@@ -253,17 +258,18 @@ public class GroupNode : Node
 
         _inputSocketDisposable.Insert(index, ((CoreObject)item).GetObservable(NameProperty)
             .Subscribe(v => inputSocket.Name = v));
-        Items.Insert(_outputSocketCount + index, inputSocket);
+        var outputSocketCount = Group.Output?.Items.Count ?? 0;
+        Items.Insert(outputSocketCount + index, inputSocket);
     }
 
     private void InputItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        if (RecordingSuppression.IsSuppressed) return;
         void Add(int index, IList items)
         {
             foreach (IGroupSocket item in items)
             {
                 AddInput(index++, item);
-                _inputSocketCount++;
             }
         }
 
@@ -276,8 +282,9 @@ public class GroupNode : Node
 
             _inputSocketDisposable.RemoveRange(index, items.Count);
 
-            Items.RemoveRange(_outputSocketCount + index, items.Count);
-            _inputSocketCount -= items.Count;
+
+            var outputSocketCount = Group.Output?.Items.Count ?? 0;
+            Items.RemoveRange(outputSocketCount + index, items.Count);
         }
 
         switch (e.Action)
@@ -297,8 +304,9 @@ public class GroupNode : Node
                 break;
 
             case NotifyCollectionChangedAction.Reset:
-                Items.RemoveRange(_outputSocketCount, _inputSocketCount);
-                _inputSocketCount = 0;
+                var outputSocketCount = Group.Output?.Items.Count ?? 0;
+                var inputSocketCount = Group.Input?.Items.Count ?? 0;
+                Items.RemoveRange(outputSocketCount, inputSocketCount);
                 break;
         }
     }
