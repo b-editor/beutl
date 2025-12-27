@@ -1,7 +1,7 @@
 namespace Beutl.Editor;
 
-// IOperationObserverの通知を抑制
-public static class PublishingSuppression
+// HistoryMangerが記録するのを抑制
+public static class RecordingSuppression
 {
     private static readonly AsyncLocal<int> s_suppressionCount = new();
 

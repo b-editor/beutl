@@ -21,7 +21,6 @@ public sealed class HistoryManager : IDisposable
     private long _transactionIdCounter;
     private HistoryTransaction _currentTransaction;
     private bool _isDisposed;
-    private int _recordingSuppressionCount;
 
     public HistoryManager(CoreObject root, OperationSequenceGenerator sequenceGenerator)
     {
@@ -94,7 +93,7 @@ public sealed class HistoryManager : IDisposable
 
         lock (_lock)
         {
-            if (_recordingSuppressionCount > 0)
+            if (RecordingSuppression.IsSuppressed)
             {
                 _logger.LogDebug("Recording suppressed, ignoring operation: {OperationType}", operation.GetType().Name);
                 return;
@@ -256,38 +255,12 @@ public sealed class HistoryManager : IDisposable
     public IDisposable SuppressRecording()
     {
         ThrowIfDisposed();
-        lock (_lock)
-        {
-            _recordingSuppressionCount++;
-        }
-        return new RecordingSuppressionScope(this);
-    }
-
-    private void EndRecordingSuppression()
-    {
-        lock (_lock)
-        {
-            _recordingSuppressionCount--;
-        }
+        return RecordingSuppression.Enter();
     }
 
     private void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
-    }
-
-    private sealed class RecordingSuppressionScope(HistoryManager manager) : IDisposable
-    {
-        private bool _disposed;
-
-        public void Dispose()
-        {
-            if (!_disposed)
-            {
-                manager.EndRecordingSuppression();
-                _disposed = true;
-            }
-        }
     }
 
     public void Dispose()
