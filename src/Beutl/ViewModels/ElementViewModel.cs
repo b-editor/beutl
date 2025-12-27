@@ -481,21 +481,23 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnExclude()
     {
+        var history = Timeline.EditorContext.HistoryManager;
         // IsSelectedがtrueのものをまとめて削除する。
         foreach (ElementViewModel element in GetGroupOrSelectedElements())
         {
             Scene.RemoveChild(element.Model);
         }
-        Timeline.EditorContext.HistoryManager.Commit(CommandNames.RemoveElement);
+        history.Commit(CommandNames.RemoveElement);
     }
 
     private void OnDelete()
     {
+        var history = Timeline.EditorContext.HistoryManager;
         foreach (ElementViewModel element in GetGroupOrSelectedElements())
         {
             Scene.DeleteChild(element.Model);
         }
-        Timeline.EditorContext.HistoryManager.Commit(CommandNames.DeleteElement);
+        history.Commit(CommandNames.DeleteElement);
     }
 
     private void OnBringAnimationToTop()
@@ -616,12 +618,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         {
             if (await SetClipboard([.. targets]))
             {
+                var history = Timeline.EditorContext.HistoryManager;
                 foreach (ElementViewModel target in targets)
                 {
                     Scene.RemoveChild(target.Model);
                 }
 
-                Timeline.EditorContext.HistoryManager.Commit(CommandNames.CutElement);
+                history.Commit(CommandNames.CutElement);
             }
         }
     }
