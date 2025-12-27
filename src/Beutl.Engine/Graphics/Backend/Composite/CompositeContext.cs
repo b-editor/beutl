@@ -60,11 +60,6 @@ internal sealed class CompositeContext : IGraphicsContext
         return Vulkan.CreateTextureArray(width, height, arraySize, format);
     }
 
-    public I3DRenderer Create3DRenderer()
-    {
-        return Vulkan.Create3DRenderer();
-    }
-
     public IBuffer CreateBuffer(ulong size, BufferUsage usage, MemoryProperty memoryProperty)
     {
         return Vulkan.CreateBuffer(size, usage, memoryProperty);
