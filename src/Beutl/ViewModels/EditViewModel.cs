@@ -33,6 +33,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
     ISupportAutoSaveEditorContext
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
+    private readonly AutoSaveService _autoSaveService = new();
 
     private readonly CompositeDisposable _disposables = [];
 
@@ -108,6 +109,11 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         DockHost = new DockHostViewModel(SceneId, this)
             .DisposeWith(_disposables);
+
+        _autoSaveService.SaveError
+            .Subscribe(_ => NotificationService.ShowError(string.Empty, Message.An_exception_occurred_while_saving_the_file))
+            .DisposeWith(_disposables);
+        _autoSaveService.DisposeWith(_disposables);
 
         RestoreState();
 
@@ -251,28 +257,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
     {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
-            HashSet<CoreObject> objectsToSave = [];
-
-            // ChangeOperationから保存対象のオブジェクトを収集
-            foreach (ChangeOperation operation in list)
-            {
-                CollectObjectsToSave(operation, objectsToSave);
-            }
-
-            // 各オブジェクトを保存
-            foreach (CoreObject obj in objectsToSave)
-            {
-                try
-                {
-                    _logger.LogTrace("Auto-saving object ({TypeName}, {ObjectId}).", TypeFormat.ToString(obj.GetType()), obj.Id);
-                    CoreSerializer.StoreToUri(obj, obj.Uri!, CoreSerializationMode.Write);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "An exception occurred while auto-saving the file.");
-                    NotificationService.ShowError(string.Empty, Message.An_exception_occurred_while_saving_the_file);
-                }
-            }
+            _autoSaveService.AutoSave(list);
 
             // ビューステートを保存
             try
@@ -284,63 +269,6 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 _logger.LogError(ex, "An exception occurred while saving the view state.");
             }
         });
-    }
-
-    private static void CollectObjectsToSave(ChangeOperation operation, HashSet<CoreObject> objectsToSave)
-    {
-        CoreObject? obj = null;
-
-        if (operation is IUpdatePropertyValueOperation updateOp)
-        {
-            obj = updateOp.Object;
-        }
-        else if (operation is ICollectionChangeOperation collectionOp)
-        {
-            obj = collectionOp.Object;
-
-            // コレクション内のアイテムも保存対象に追加
-            foreach (object? item in collectionOp.Items)
-            {
-                if (item is CoreObject itemObj)
-                {
-                    AddObjectWithAncestors(itemObj, objectsToSave);
-                }
-            }
-        }
-        else if (operation is UpdateSplineEasingOperation splineOp)
-        {
-            obj = splineOp.Parent;
-        }
-        else if (operation is UpdateNodeItemOperation nodeOp)
-        {
-            obj = nodeOp.NodeItem as CoreObject;
-        }
-
-        if (obj != null)
-        {
-            AddObjectWithAncestors(obj, objectsToSave);
-        }
-    }
-
-    private static void AddObjectWithAncestors(CoreObject obj, HashSet<CoreObject> objectsToSave)
-    {
-        // オブジェクト自体にUriがあれば追加
-        if (obj.Uri != null)
-        {
-            objectsToSave.Add(obj);
-        }
-
-        // 親要素を辿ってUriを持つオブジェクトを探す
-        if (obj is IHierarchical hierarchical)
-        {
-            foreach (CoreObject ancestor in hierarchical.EnumerateAncestors<CoreObject>())
-            {
-                if (ancestor.Uri != null)
-                {
-                    objectsToSave.Add(ancestor);
-                }
-            }
-        }
     }
 
     private List<TimeRange> GetAffectedTimeRanges(IList<ChangeOperation> list)
