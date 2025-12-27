@@ -127,7 +127,8 @@ public class SocketViewModel : NodeItemViewModel
                 break;
 
             case IOutputSocket outputSocket when outputSocket.Connections.Count > 0:
-                foreach (Connection connection in outputSocket.Connections)
+                // Disconnect内でConnectionsから要素を削除するのでToArrayする必要がある
+                foreach (Connection connection in outputSocket.Connections.ToArray())
                 {
                     connection.Output.Disconnect(connection.Input);
                 }
