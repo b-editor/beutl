@@ -76,11 +76,28 @@ public static class LibraryRegistrar
                 .BindSound<SourceSound>()
             );
 
-        LibraryService.Current
-            .AddMultiple("3D", m => m
+        LibraryService.Current.RegisterGroup("3D", g => g
+            .AddMultiple("Scene3D", m => m
                 .BindSourceOperator<Source.Scene3DOperator>()
                 .BindDrawable<Scene3D>()
-            );
+            )
+            .AddMultiple("Cube", m => m
+                .BindSourceOperator<Source.Cube3DOperator>()
+            )
+            .AddMultiple("Sphere", m => m
+                .BindSourceOperator<Source.Sphere3DOperator>()
+            )
+            // Lights
+            .AddMultiple("Directional Light", m => m
+                .BindSourceOperator<Source.DirectionalLight3DOperator>()
+            )
+            .AddMultiple("Point Light", m => m
+                .BindSourceOperator<Source.PointLight3DOperator>()
+            )
+            .AddMultiple("Spot Light", m => m
+                .BindSourceOperator<Source.SpotLight3DOperator>()
+            )
+        );
 
         LibraryService.Current
             .AddMultiple(Strings.Portal, m => m
