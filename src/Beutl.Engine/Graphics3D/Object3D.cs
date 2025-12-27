@@ -16,6 +16,7 @@ public abstract partial class Object3D : EngineObject
     public Object3D()
     {
         ScanProperties<Object3D>();
+        Material.CurrentValue = new PBRMaterial();
     }
 
     /// <summary>
@@ -38,7 +39,7 @@ public abstract partial class Object3D : EngineObject
     /// <summary>
     /// Gets the material applied to this object.
     /// </summary>
-    public IProperty<Material3D?> Material { get; } = Property.Create<Material3D?>(new PBRMaterial());
+    public IProperty<Material3D?> Material { get; } = Property.Create<Material3D?>();
 
     /// <summary>
     /// Gets whether this object casts shadows.
