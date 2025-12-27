@@ -86,7 +86,7 @@ public partial class Scene3D : Drawable
 
     public partial class Resource
     {
-        internal I3DRenderer? Renderer { get; set; }
+        internal IRenderer3D? Renderer { get; set; }
 
         partial void PostDispose(bool disposing)
         {

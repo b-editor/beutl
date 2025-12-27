@@ -11,7 +11,7 @@ namespace Beutl.Graphics3D;
 /// Interface for 3D rendering abstraction.
 /// Provides backend-agnostic 3D rendering capabilities.
 /// </summary>
-public interface I3DRenderer : IDisposable
+public interface IRenderer3D : IDisposable
 {
     /// <summary>
     /// Gets the current render width.

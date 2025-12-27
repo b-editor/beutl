@@ -185,7 +185,7 @@ graphicsContext.Dispose();
 Console.WriteLine("All tests complete!");
 return 0;
 
-static void SaveRenderOutput(I3DRenderer renderer, int width, int height, string outputPath)
+static void SaveRenderOutput(IRenderer3D renderer, int width, int height, string outputPath)
 {
     var pixelData = renderer.DownloadPixels();
     using var bitmap = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
