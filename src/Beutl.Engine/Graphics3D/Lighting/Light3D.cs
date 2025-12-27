@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.Numerics;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
@@ -27,11 +26,6 @@ public abstract partial class Light3D : EngineObject
     /// </summary>
     [Range(0f, float.MaxValue)]
     public IProperty<float> Intensity { get; } = Property.CreateAnimatable(1f);
-
-    /// <summary>
-    /// Gets whether this light is enabled.
-    /// </summary>
-    public IProperty<bool> IsLightEnabled { get; } = Property.CreateAnimatable(true);
 
     /// <summary>
     /// Gets whether this light casts shadows.

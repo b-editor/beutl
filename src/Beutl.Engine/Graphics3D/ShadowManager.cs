@@ -124,7 +124,7 @@ internal sealed class ShadowManager : IDisposable
             var light = lights[lightIndex];
 
             // Check if this light casts shadows
-            if (!light.CastsShadow || !light.IsLightEnabled)
+            if (!light.CastsShadow || !light.IsEnabled)
                 continue;
 
             ShadowInfo shadowInfo;
