@@ -63,13 +63,13 @@ public class JsonSerializationTest
         proj.Items.Add(scene);
         var elm1 = new Element();
         CoreSerializer.StoreToUri(elm1, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.layer")));
-        scene.AddChild(elm1).Do();
+        scene.AddChild(elm1);
         elm1.Operation.Children.Add(new EllipseOperator());
         elm1.Operation.Children.Add(new DecorateOperator());
 
         var elm2 = new Element { ZIndex = 2 };
         CoreSerializer.StoreToUri(elm2, UriHelper.CreateFromPath(Path.Combine(basePath, $"1.layer")));
-        scene.AddChild(elm2).Do();
+        scene.AddChild(elm2);
         var rectNode = new RectGeometryNode();
         var shapeNode = new GeometryShapeNode();
         var outNode = new OutputNode();
@@ -99,7 +99,7 @@ public class JsonSerializationTest
         var proj = new Project { Uri = UriHelper.CreateFromPath(projPath) };
         var scene = new Scene { Uri = UriHelper.CreateFromPath(scenePath) };
         var elm1 = new Element { Uri = UriHelper.CreateFromPath(layerPath) };
-        scene.AddChild(elm1).Do();
+        scene.AddChild(elm1);
         proj.Items.Add(scene);
         app.Project = proj;
 
@@ -149,7 +149,7 @@ public class JsonSerializationTest
         var proj = new Project { Uri = UriHelper.CreateFromPath(projPath) };
         var scene = new Scene { Uri = UriHelper.CreateFromPath(scenePath) };
         var elm1 = new Element { Uri = UriHelper.CreateFromPath(layerPath) };
-        scene.AddChild(elm1).Do();
+        scene.AddChild(elm1);
         proj.Items.Add(scene);
         app.Project = proj;
 
