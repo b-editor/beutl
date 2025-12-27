@@ -24,9 +24,10 @@ public abstract partial class Object3D : EngineObject
     public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
-    /// Gets the rotation of the object as a quaternion.
+    /// Gets the rotation of the object as Euler angles in radians (X=Pitch, Y=Yaw, Z=Roll).
     /// </summary>
-    public IProperty<Quaternion> Rotation { get; } = Property.CreateAnimatable(Quaternion.Identity);
+    [Display(Name = nameof(Strings.Rotation), ResourceType = typeof(Strings))]
+    public IProperty<Vector3> Rotation { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
     /// Gets the scale of the object.
@@ -61,7 +62,7 @@ public abstract partial class Object3D : EngineObject
         public Matrix4x4 GetWorldMatrix()
         {
             var scale = Matrix4x4.CreateScale(Scale);
-            var rotation = Matrix4x4.CreateFromQuaternion(Rotation);
+            var rotation = Matrix4x4.CreateFromYawPitchRoll(MathUtilities.Deg2Rad(Rotation.Y), MathUtilities.Deg2Rad(Rotation.X), MathUtilities.Deg2Rad(Rotation.Z));
             var translation = Matrix4x4.CreateTranslation(Position);
             return scale * rotation * translation;
         }
