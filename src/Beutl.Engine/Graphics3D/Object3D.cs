@@ -4,6 +4,7 @@ using Beutl.Engine;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Meshes;
 using Beutl.Language;
+using Beutl.Utilities;
 
 namespace Beutl.Graphics3D;
 
@@ -37,7 +38,7 @@ public abstract partial class Object3D : EngineObject
     /// <summary>
     /// Gets the material applied to this object.
     /// </summary>
-    public IProperty<Material3D?> Material { get; } = Property.Create<Material3D?>();
+    public IProperty<Material3D?> Material { get; } = Property.Create<Material3D?>(new PBRMaterial());
 
     /// <summary>
     /// Gets whether this object casts shadows.
