@@ -118,7 +118,7 @@ internal sealed class Renderer3D : IRenderer3D
         int lightIndex = 0;
         foreach (var light in lights)
         {
-            if (!light.IsLightEnabled)
+            if (!light.IsEnabled)
             {
                 lightIndex++;
                 continue;
@@ -173,7 +173,7 @@ internal sealed class Renderer3D : IRenderer3D
 
         foreach (var obj in objects)
         {
-            if (!obj.IsVisible)
+            if (!obj.IsEnabled)
                 continue;
 
             var pos = obj.Position;

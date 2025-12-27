@@ -50,11 +50,6 @@ public abstract partial class Object3D : EngineObject
     /// </summary>
     public IProperty<bool> ReceiveShadows { get; } = Property.CreateAnimatable(true);
 
-    /// <summary>
-    /// Gets whether this object is visible.
-    /// </summary>
-    public IProperty<bool> IsVisible { get; } = Property.CreateAnimatable(true);
-
     public abstract partial class Resource
     {
         /// <summary>

@@ -135,7 +135,7 @@ public sealed class GeometryPass : GraphicsNode3D
         // Render each object
         foreach (var obj in objects)
         {
-            if (!obj.IsVisible)
+            if (!obj.IsEnabled)
                 continue;
 
             // Get mesh resource from object
