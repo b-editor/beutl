@@ -15,9 +15,6 @@ namespace Beutl.Graphics3D;
 /// </summary>
 public partial class Scene3D : Drawable
 {
-    private readonly CoreList<Object3D> _objects = [];
-    private readonly CoreList<Light3D> _lights = [];
-
     public Scene3D()
     {
         ScanProperties<Scene3D>();
@@ -31,12 +28,12 @@ public partial class Scene3D : Drawable
     /// <summary>
     /// Gets the 3D objects in this scene.
     /// </summary>
-    public CoreList<Object3D> Objects => _objects;
+    public IListProperty<Object3D> Objects { get; } = Property.CreateList<Object3D>();
 
     /// <summary>
     /// Gets the lights in this scene.
     /// </summary>
-    public CoreList<Light3D> Lights => _lights;
+    public IListProperty<Light3D> Lights { get; } = Property.CreateList<Light3D>();
 
     /// <summary>
     /// Gets the ambient color of the scene.
@@ -81,8 +78,8 @@ public partial class Scene3D : Drawable
             return;
 
         // Use DrawNode to add our custom render node
-        context.DrawNode<Scene3DRenderNode, (Resource, CoreList<Object3D>, CoreList<Light3D>)>(
-            (scene3DResource, _objects, _lights),
+        context.DrawNode<Scene3DRenderNode, (Resource, ICoreList<Object3D>, ICoreList<Light3D>)>(
+            (scene3DResource, Objects.CurrentValue, Lights.CurrentValue),
             static parameters => new Scene3DRenderNode(parameters.Item1, parameters.Item2, parameters.Item3),
             static (node, parameters) => node.Update(parameters.Item1, parameters.Item2, parameters.Item3));
     }
