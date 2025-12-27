@@ -25,6 +25,7 @@
     <File Path="version.json" />
   </Folder>
   <Folder Name="/Tests/">
+    <Project Path="tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj" />
     <Project Path="tests\Beutl.Benchmarks\Beutl.Benchmarks.csproj" />
     <Project Path="tests\Beutl.UnitTests\Beutl.UnitTests.csproj" />
     <Project Path="tests\DirectoryViewTest\DirectoryViewTest.csproj" />
