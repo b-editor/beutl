@@ -353,7 +353,6 @@ public partial class GraphEditorView : UserControl
 
         if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
         {
-            // TODO: 検証
             if (_mouseFlag == Timeline.MouseFlags.EndingBarMarkerPressed)
             {
                 viewModel.EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneDuration);

@@ -24,9 +24,9 @@ public sealed class LayerHeaderViewModel : IDisposable
         Number = _model.Select(i => i?.GetObservable(TimelineLayer.ZIndexProperty) ?? Observable.ReturnThenNever(num))
             .Switch()
             .ToReactiveProperty();
-        Name = _model.Select(i => i?.GetObservable(CoreObject.NameProperty) ?? Observable.ReturnThenNever($"{num}"))
+        Name = _model.Select(i => i?.GetObservable(CoreObject.NameProperty) ?? Number.Select(n => n.ToString()))
             .Switch()
-            .Select(s => string.IsNullOrEmpty(s) ? $"{num}" : s)
+            .Select(s => string.IsNullOrEmpty(s) ? $"{Number.Value}" : s)
             .ToReactiveProperty($"{num}");
         Color = _model.Select(i =>
                 i?.GetObservable(TimelineLayer.ColorProperty) ?? Observable.ReturnThenNever(Media.Colors.Transparent))
@@ -221,10 +221,7 @@ public sealed class LayerHeaderViewModel : IDisposable
     {
         if (_model.Value != null) return _model.Value;
 
-        _model.Value = new TimelineLayer
-        {
-            Name = Name.Value, Color = Color.Value.ToMedia(), ZIndex = Number.Value
-        };
+        _model.Value = new TimelineLayer { Name = Name.Value, Color = Color.Value.ToMedia(), ZIndex = Number.Value };
         Timeline.Scene.Layers.Add(_model.Value);
         return _model.Value;
     }

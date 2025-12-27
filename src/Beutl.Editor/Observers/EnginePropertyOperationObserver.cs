@@ -9,7 +9,6 @@ using Beutl.Serialization;
 
 namespace Beutl.Editor.Observers;
 
-// TODO: IListProperty対応
 public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
 {
     private readonly Subject<ChangeOperation> _operations = new();
