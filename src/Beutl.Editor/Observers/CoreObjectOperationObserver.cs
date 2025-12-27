@@ -3,9 +3,9 @@ using System.ComponentModel;
 using System.Reactive.Subjects;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
-using Beutl.Editor.Infrastructure;
 using Beutl.Editor.Operations;
 using Beutl.Engine;
+using Beutl.NodeTree;
 using Beutl.Serialization;
 
 namespace Beutl.Editor.Observers;
@@ -18,6 +18,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
     private readonly Dictionary<int, IOperationObserver> _collectionPublishers = new();
     private readonly Dictionary<string, IOperationObserver> _enginePropertyPublishers = new();
     private SplineEasingOperationObserver? _splineEasingPublisher;
+    private NodeItemOperationObserver? _nodeItemPublisher;
     private readonly Subject<ChangeOperation> _operations = new();
     private readonly IDisposable? _subscription;
     private readonly OperationSequenceGenerator _sequenceNumberGenerator;
@@ -76,6 +77,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         }
 
         _splineEasingPublisher?.Dispose();
+        _nodeItemPublisher?.Dispose();
 
         _subscription?.Dispose();
         _operations.OnCompleted();
@@ -125,6 +127,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         }
 
         InitializeSplineEasingPublisher();
+        InitializeNodeItemPublisher();
     }
 
     private void InitializeSplineEasingPublisher()
@@ -136,7 +139,21 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
                 _operations,
                 splineEasing,
                 _sequenceNumberGenerator,
+                keyFrame,
                 easingPath,
+                _propertyPathsToTrack);
+        }
+    }
+
+    private void InitializeNodeItemPublisher()
+    {
+        if (_object is INodeItem nodeItem)
+        {
+            _nodeItemPublisher = new NodeItemOperationObserver(
+                _operations,
+                nodeItem,
+                _sequenceNumberGenerator,
+                _propertyPath,
                 _propertyPathsToTrack);
         }
     }
@@ -221,7 +238,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         }
 
         // Handle SplineEasing changes for KeyFrame
-        if (_object is KeyFrame && args.Property.Id == KeyFrame.EasingProperty.Id)
+        if (_object is KeyFrame keyFrame && args.Property.Id == KeyFrame.EasingProperty.Id)
         {
             _splineEasingPublisher?.Dispose();
             _splineEasingPublisher = null;
@@ -232,6 +249,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
                     _operations,
                     newSplineEasing,
                     _sequenceNumberGenerator,
+                    keyFrame,
                     childPath,
                     _propertyPathsToTrack);
             }

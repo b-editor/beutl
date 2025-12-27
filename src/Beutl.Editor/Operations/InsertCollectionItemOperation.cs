@@ -1,9 +1,11 @@
 using Beutl.Engine;
 using Beutl.Editor.Infrastructure;
+using Beutl.NodeTree;
 
 namespace Beutl.Editor.Operations;
 
-public sealed class InsertCollectionItemOperation<T> : ChangeOperation, IPropertyPathProvider, ICollectionChangeOperation
+public sealed class InsertCollectionItemOperation<T> : ChangeOperation, IPropertyPathProvider,
+    ICollectionChangeOperation
 {
     public required CoreObject Object { get; set; }
 
@@ -23,7 +25,13 @@ public sealed class InsertCollectionItemOperation<T> : ChangeOperation, IPropert
 
         if (coreProperty != null)
         {
-            ApplyToCoreProperty(Object, coreProperty);
+            ApplyTo(Object, Object.GetValue(coreProperty));
+            return;
+        }
+
+        if (Object is INodeItem nodeItem && name == "Property")
+        {
+            ApplyTo(nodeItem, nodeItem.Property?.GetValue());
             return;
         }
 
@@ -55,21 +63,21 @@ public sealed class InsertCollectionItemOperation<T> : ChangeOperation, IPropert
         }
     }
 
-    private void ApplyToCoreProperty(CoreObject obj, CoreProperty coreProperty)
+    private void ApplyTo(object obj, object? list)
     {
-        if (obj.GetValue(coreProperty) is not IList<T> list)
+        if (list is not IList<T> list2)
         {
             throw new InvalidOperationException(
                 $"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
         }
 
-        if (Index < 0 || Index > list.Count)
+        if (Index < 0 || Index > list2.Count)
         {
-            list.Add(Item);
+            list2.Add(Item);
         }
         else
         {
-            list.Insert(Index, Item);
+            list2.Insert(Index, Item);
         }
     }
 
@@ -81,7 +89,13 @@ public sealed class InsertCollectionItemOperation<T> : ChangeOperation, IPropert
 
         if (coreProperty != null)
         {
-            RevertToCoreProperty(Object, coreProperty);
+            RevertTo(Object, Object.GetValue(coreProperty));
+            return;
+        }
+
+        if (Object is INodeItem nodeItem && name == "Property")
+        {
+            RevertTo(nodeItem, nodeItem.Property?.GetValue());
             return;
         }
 
@@ -106,14 +120,14 @@ public sealed class InsertCollectionItemOperation<T> : ChangeOperation, IPropert
         listProperty.RemoveAt(Index);
     }
 
-    private void RevertToCoreProperty(CoreObject obj, CoreProperty coreProperty)
+    private void RevertTo(object obj, object? list)
     {
-        if (obj.GetValue(coreProperty) is not IList<T> list)
+        if (list is not IList<T> list2)
         {
             throw new InvalidOperationException(
                 $"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
         }
 
-        list.RemoveAt(Index);
+        list2.RemoveAt(Index);
     }
 }

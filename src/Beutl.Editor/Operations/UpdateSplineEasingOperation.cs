@@ -9,6 +9,8 @@ public sealed class UpdateSplineEasingOperation(
     float oldValue)
     : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation
 {
+    public CoreObject? Parent { get; set; }
+
     public SplineEasing Easing { get; set; } = easing;
 
     public string PropertyPath { get; set; } = propertyPath;

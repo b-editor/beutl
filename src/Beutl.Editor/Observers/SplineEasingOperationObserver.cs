@@ -12,6 +12,7 @@ public sealed class SplineEasingOperationObserver : IOperationObserver
     private readonly IDisposable? _subscription;
     private readonly SplineEasing _easing;
     private readonly OperationSequenceGenerator _sequenceNumberGenerator;
+    private readonly CoreObject? _parent;
     private readonly string _propertyPath;
     private readonly HashSet<string>? _propertyPathsToTrack;
     private readonly HashSet<string>? _propertiesToTrack;
@@ -25,11 +26,13 @@ public sealed class SplineEasingOperationObserver : IOperationObserver
         IObserver<ChangeOperation>? observer,
         SplineEasing easing,
         OperationSequenceGenerator sequenceNumberGenerator,
+        CoreObject? parent,
         string propertyPath = "",
         HashSet<string>? propertyPathsToTrack = null)
     {
         _easing = easing;
         _sequenceNumberGenerator = sequenceNumberGenerator;
+        _parent = parent;
         _propertyPath = propertyPath;
         _propertyPathsToTrack = propertyPathsToTrack;
 
@@ -105,7 +108,8 @@ public sealed class SplineEasingOperationObserver : IOperationObserver
 
         var operation = new UpdateSplineEasingOperation(_easing, fullPath, newValue, oldValue)
         {
-            SequenceNumber = _sequenceNumberGenerator.GetNext()
+            SequenceNumber = _sequenceNumberGenerator.GetNext(),
+            Parent = _parent
         };
         _operations.OnNext(operation);
     }

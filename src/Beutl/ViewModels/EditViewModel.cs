@@ -307,6 +307,14 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 }
             }
         }
+        else if (operation is UpdateSplineEasingOperation splineOp)
+        {
+            obj = splineOp.Parent;
+        }
+        else if (operation is UpdateNodeItemOperation nodeOp)
+        {
+            obj = nodeOp.NodeItem as CoreObject;
+        }
 
         if (obj != null)
         {

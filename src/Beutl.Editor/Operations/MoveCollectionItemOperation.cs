@@ -1,6 +1,7 @@
 using Beutl.Engine;
 
 using Beutl.Editor.Infrastructure;
+using Beutl.NodeTree;
 
 namespace Beutl.Editor.Operations;
 
@@ -25,7 +26,13 @@ public sealed class MoveCollectionItemOperation<T> : ChangeOperation, IPropertyP
 
         if (coreProperty != null)
         {
-            ApplyToCoreProperty(Object, coreProperty);
+            ApplyTo(Object, Object.GetValue(coreProperty));
+            return;
+        }
+
+        if (Object is INodeItem nodeItem && name == "Property")
+        {
+            ApplyTo(nodeItem, nodeItem.Property?.GetValue());
             return;
         }
 
@@ -48,16 +55,17 @@ public sealed class MoveCollectionItemOperation<T> : ChangeOperation, IPropertyP
         listProperty.Move(OldIndex, NewIndex);
     }
 
-    private void ApplyToCoreProperty(CoreObject obj, CoreProperty coreProperty)
+    private void ApplyTo(object obj, object? list)
     {
-        if (obj.GetValue(coreProperty) is not IList<T> list)
+        if (list is not IList<T> list2)
         {
-            throw new InvalidOperationException($"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
+            throw new InvalidOperationException(
+                $"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
         }
 
-        var item = list[OldIndex];
-        list.RemoveAt(OldIndex);
-        list.Insert(NewIndex, item);
+        var item = list2[OldIndex];
+        list2.RemoveAt(OldIndex);
+        list2.Insert(NewIndex, item);
     }
 
     public override void Revert(OperationExecutionContext context)
@@ -68,7 +76,13 @@ public sealed class MoveCollectionItemOperation<T> : ChangeOperation, IPropertyP
 
         if (coreProperty != null)
         {
-            RevertToCoreProperty(Object, coreProperty);
+            RevertTo(Object, Object.GetValue(coreProperty));
+            return;
+        }
+
+        if (Object is INodeItem nodeItem && name == "Property")
+        {
+            RevertTo(nodeItem, nodeItem.Property?.GetValue());
             return;
         }
 
@@ -91,15 +105,16 @@ public sealed class MoveCollectionItemOperation<T> : ChangeOperation, IPropertyP
         listProperty.Move(NewIndex, OldIndex);
     }
 
-    private void RevertToCoreProperty(CoreObject obj, CoreProperty coreProperty)
+    private void RevertTo(object obj, object? list)
     {
-        if (obj.GetValue(coreProperty) is not IList<T> list)
+        if (list is not IList<T> list2)
         {
-            throw new InvalidOperationException($"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
+            throw new InvalidOperationException(
+                $"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
         }
 
-        var item = list[NewIndex];
-        list.RemoveAt(NewIndex);
-        list.Insert(OldIndex, item);
+        var item = list2[NewIndex];
+        list2.RemoveAt(NewIndex);
+        list2.Insert(OldIndex, item);
     }
 }

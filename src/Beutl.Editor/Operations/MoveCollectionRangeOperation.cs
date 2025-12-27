@@ -1,6 +1,7 @@
 using Beutl.Engine;
 
 using Beutl.Editor.Infrastructure;
+using Beutl.NodeTree;
 
 namespace Beutl.Editor.Operations;
 
@@ -27,7 +28,13 @@ public sealed class MoveCollectionRangeOperation<T> : ChangeOperation, IProperty
 
         if (coreProperty != null)
         {
-            ApplyToCoreProperty(Object, coreProperty);
+            ApplyTo(Object, Object.GetValue(coreProperty));
+            return;
+        }
+
+        if (Object is INodeItem nodeItem && name == "Property")
+        {
+            ApplyTo(nodeItem, nodeItem.Property?.GetValue());
             return;
         }
 
@@ -50,23 +57,24 @@ public sealed class MoveCollectionRangeOperation<T> : ChangeOperation, IProperty
         listProperty.MoveRange(OldIndex, NewIndex, Count);
     }
 
-    private void ApplyToCoreProperty(CoreObject obj, CoreProperty coreProperty)
+    private void ApplyTo(object obj, object? list)
     {
-        if (obj.GetValue(coreProperty) is not IList<T> list)
+        if (list is not IList<T> list2)
         {
-            throw new InvalidOperationException($"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
+            throw new InvalidOperationException(
+                $"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
         }
 
         var items = new T[Count];
         for (int i = 0; i < Count; i++)
         {
-            items[i] = list[OldIndex]!;
-            list.RemoveAt(OldIndex);
+            items[i] = list2[OldIndex]!;
+            list2.RemoveAt(OldIndex);
         }
 
         for (int i = 0; i < Count; i++)
         {
-            list.Insert(NewIndex + i, items[i]);
+            list2.Insert(NewIndex + i, items[i]);
         }
     }
 
@@ -78,7 +86,13 @@ public sealed class MoveCollectionRangeOperation<T> : ChangeOperation, IProperty
 
         if (coreProperty != null)
         {
-            RevertToCoreProperty(Object, coreProperty);
+            RevertTo(Object, Object.GetValue(coreProperty));
+            return;
+        }
+
+        if (Object is INodeItem nodeItem && name == "Property")
+        {
+            RevertTo(nodeItem, nodeItem.Property?.GetValue());
             return;
         }
 
@@ -101,23 +115,24 @@ public sealed class MoveCollectionRangeOperation<T> : ChangeOperation, IProperty
         listProperty.MoveRange(NewIndex, OldIndex, Count);
     }
 
-    private void RevertToCoreProperty(CoreObject obj, CoreProperty coreProperty)
+    private void RevertTo(object obj, object? list)
     {
-        if (obj.GetValue(coreProperty) is not IList<T> list)
+        if (list is not IList<T> list2)
         {
-            throw new InvalidOperationException($"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
+            throw new InvalidOperationException(
+                $"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
         }
 
         var items = new T[Count];
         for (int i = 0; i < Count; i++)
         {
-            items[i] = list[NewIndex]!;
-            list.RemoveAt(NewIndex);
+            items[i] = list2[NewIndex]!;
+            list2.RemoveAt(NewIndex);
         }
 
         for (int i = 0; i < Count; i++)
         {
-            list.Insert(OldIndex + i, items[i]);
+            list2.Insert(OldIndex + i, items[i]);
         }
     }
 }

@@ -1,5 +1,6 @@
 using Beutl.Engine;
 using Beutl.Editor.Infrastructure;
+using Beutl.NodeTree;
 
 namespace Beutl.Editor.Operations;
 
@@ -23,7 +24,13 @@ public sealed class RemoveCollectionRangeOperation<T> : ChangeOperation, IProper
 
         if (coreProperty != null)
         {
-            ApplyToCoreProperty(Object, coreProperty);
+            ApplyTo(Object, Object.GetValue(coreProperty));
+            return;
+        }
+
+        if (Object is INodeItem nodeItem && name == "Property")
+        {
+            ApplyTo(nodeItem, nodeItem.Property?.GetValue());
             return;
         }
 
@@ -46,16 +53,17 @@ public sealed class RemoveCollectionRangeOperation<T> : ChangeOperation, IProper
         listProperty.RemoveRange(Index, Items.Length);
     }
 
-    private void ApplyToCoreProperty(CoreObject obj, CoreProperty coreProperty)
+    private void ApplyTo(object obj, object? list)
     {
-        if (obj.GetValue(coreProperty) is not IList<T> list)
+        if (list is not IList<T> list2)
         {
-            throw new InvalidOperationException($"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
+            throw new InvalidOperationException(
+                $"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
         }
 
         for (int i = 0; i < Items.Length; i++)
         {
-            list.RemoveAt(Index);
+            list2.RemoveAt(Index);
         }
     }
 
@@ -67,7 +75,13 @@ public sealed class RemoveCollectionRangeOperation<T> : ChangeOperation, IProper
 
         if (coreProperty != null)
         {
-            RevertToCoreProperty(Object, coreProperty);
+            RevertTo(Object, Object.GetValue(coreProperty));
+            return;
+        }
+
+        if (Object is INodeItem nodeItem && name == "Property")
+        {
+            RevertTo(nodeItem, nodeItem.Property?.GetValue());
             return;
         }
 
@@ -93,16 +107,17 @@ public sealed class RemoveCollectionRangeOperation<T> : ChangeOperation, IProper
         }
     }
 
-    private void RevertToCoreProperty(CoreObject obj, CoreProperty coreProperty)
+    private void RevertTo(object obj, object? list)
     {
-        if (obj.GetValue(coreProperty) is not IList<T> list)
+        if (list is not IList<T> list2)
         {
-            throw new InvalidOperationException($"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
+            throw new InvalidOperationException(
+                $"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
         }
 
         for (int i = 0; i < Items.Length; i++)
         {
-            list.Insert(Index + i, Items[i]);
+            list2.Insert(Index + i, Items[i]);
         }
     }
 }
