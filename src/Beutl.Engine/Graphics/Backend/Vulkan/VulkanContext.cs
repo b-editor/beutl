@@ -139,11 +139,6 @@ internal sealed class VulkanContext : IGraphicsContext
         return new VulkanTextureArray(this, width, height, arraySize, format, usage);
     }
 
-    public I3DRenderer Create3DRenderer()
-    {
-        return new Renderer3D(this);
-    }
-
     public IBuffer CreateBuffer(ulong size, BufferUsage usage, MemoryProperty memoryProperty)
     {
         return new VulkanBuffer(this, size, usage, memoryProperty);
