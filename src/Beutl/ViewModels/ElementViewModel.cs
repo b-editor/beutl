@@ -107,10 +107,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Color.Skip(1)
             .Subscribe(c =>
             {
-                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-                RecordableCommands.Edit(Model, Element.AccentColorProperty, c.ToMedia(), Model.AccentColor)
-                    .WithStoables([Model])
-                    .DoAndRecord(recorder);
+                Model.AccentColor = c.ToMedia();
+                Timeline.EditorContext.HistoryManager.Commit(CommandNames.ChangeElementColor);
             })
             .AddTo(_disposables);
 
@@ -413,7 +411,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     public async Task SubmitViewModelChanges()
     {
         PrepareAnimationContext context = PrepareAnimation();
-        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
 
         float scale = Timeline.Options.Value.Scale;
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
@@ -421,8 +418,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         TimeSpan length = Width.Value.ToTimeSpan(scale).RoundToRate(rate);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
-        Scene.MoveChild(zindex, start, length, Model)
-            .DoAndRecord(recorder);
+        Scene.MoveChild(zindex, start, length, Model);
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.MoveElement);
 
         await AnimationRequest(context);
     }
@@ -484,25 +481,23 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnExclude()
     {
-        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-
+        var history = Timeline.EditorContext.HistoryManager;
         // IsSelectedがtrueのものをまとめて削除する。
-        GetGroupOrSelectedElements()
-            .Select(i => Scene.RemoveChild(i.Model))
-            .ToArray()
-            .ToCommand()
-            .DoAndRecord(recorder);
+        foreach (ElementViewModel element in GetGroupOrSelectedElements())
+        {
+            Scene.RemoveChild(element.Model);
+        }
+        history.Commit(CommandNames.RemoveElement);
     }
 
     private void OnDelete()
     {
-        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-
-        GetGroupOrSelectedElements()
-            .Select(i => Scene.DeleteChild(i.Model))
-            .ToArray()
-            .ToCommand()
-            .DoAndRecord(recorder);
+        var history = Timeline.EditorContext.HistoryManager;
+        foreach (ElementViewModel element in GetGroupOrSelectedElements())
+        {
+            Scene.DeleteChild(element.Model);
+        }
+        history.Commit(CommandNames.DeleteElement);
     }
 
     private void OnBringAnimationToTop()
@@ -544,9 +539,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         return ids;
     }
 
-    private List<IRecordableCommand> RemoveIdsFromElementSets(IReadOnlyCollection<Guid> ids)
+    private void RemoveIdsFromElementSets(IReadOnlyCollection<Guid> ids)
     {
-        var list = new List<IRecordableCommand>();
         for (int i = Scene.Groups.Count - 1; i >= 0; i--)
         {
             ImmutableHashSet<Guid> group = Scene.Groups[i];
@@ -556,61 +550,41 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
             ImmutableHashSet<Guid> updatedGroup = group.Except(ids);
             var index = i;
-            var scene = Scene;
             if (updatedGroup.Count >= 2)
             {
-                list.Add(RecordableCommands.Create()
-                    .OnDo(() => scene.Groups[index] = updatedGroup)
-                    .OnUndo(() => scene.Groups[index] = group)
-                    .ToCommand([Scene]));
+                Scene.Groups[index] = updatedGroup;
             }
             else
             {
-                list.Add(RecordableCommands.Create()
-                    .OnDo(() => scene.Groups.RemoveAt(index))
-                    .OnUndo(() => scene.Groups.Insert(index, group))
-                    .ToCommand([Scene]));
+                Scene.Groups.RemoveAt(index);
             }
         }
-
-        return list;
     }
 
     private void OnGroupSelectedElements()
     {
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
 
-        var list = RemoveIdsFromElementSets(ids);
+        RemoveIdsFromElementSets(ids);
 
         ImmutableHashSet<Guid> newGroup = [.. ids];
         if (newGroup.Count >= 2)
         {
-            var scene = Scene;
-            list.Add(RecordableCommands.Create()
-                .OnDo(() =>
-                {
-                    if (!scene.Groups.Any(x => x.SetEquals(newGroup)))
-                    {
-                        scene.Groups.Add(newGroup);
-                    }
-                })
-                .OnUndo(() => scene.Groups.Remove(newGroup))
-                .ToCommand([Scene]));
+            if (!Scene.Groups.Any(x => x.SetEquals(newGroup)))
+            {
+                Scene.Groups.Add(newGroup);
+            }
         }
 
-        list.ToArray()
-            .ToCommand()
-            .DoAndRecord(Timeline.EditorContext.CommandRecorder);
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.GroupElements);
     }
 
     private void OnUngroupSelectedElements()
     {
-        var recorder = Timeline.EditorContext.CommandRecorder;
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
-        RemoveIdsFromElementSets(ids)
-            .ToArray()
-            .ToCommand()
-            .DoAndRecord(recorder);
+        RemoveIdsFromElementSets(ids);
+
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.UngroupElements);
     }
 
     private void OnSetAttached(ImmutableHashSet<Guid> group)
@@ -644,12 +618,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         {
             if (await SetClipboard([.. targets]))
             {
-                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
-                targets
-                    .Select(i => Scene.RemoveChild(i.Model))
-                    .ToArray()
-                    .ToCommand()
-                    .DoAndRecord(recorder);
+                var history = Timeline.EditorContext.HistoryManager;
+                foreach (ElementViewModel target in targets)
+                {
+                    Scene.RemoveChild(target.Model);
+                }
+
+                history.Commit(CommandNames.CutElement);
             }
         }
     }
@@ -662,12 +637,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             targets = [this];
         }
 
-        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
         TimeSpan minLength = TimeSpan.FromSeconds(1d / rate);
         TimeSpan absTime = timeSpan.RoundToRate(rate);
 
-        List<IRecordableCommand> commands = [];
         var groupUpdates = new Dictionary<int, List<Guid>>();
 
         foreach (ElementViewModel target in targets)
@@ -680,7 +653,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
             ObjectRegenerator.Regenerate(target.Model, out Element backward);
 
-            IRecordableCommand command1 = target.Scene.MoveChild(
+            target.Scene.MoveChild(
                 target.Model.ZIndex,
                 target.Model.Start,
                 forwardLength,
@@ -701,11 +674,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             CoreSerializer.StoreToUri(
                 backward,
                 RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
-            IRecordableCommand command2 = target.Scene.AddChild(backward);
-            IRecordableCommand command3 = backward.Operation.OnSplit(true, forwardLength, -forwardLength);
-            IRecordableCommand command4 = target.Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);
-
-            commands.AddRange([command1, command2, command3, command4]);
+            target.Scene.AddChild(backward);
+            backward.Operation.OnSplit(true, forwardLength, -forwardLength);
+            target.Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);
 
             if (target._elementGroup is { } set)
             {
@@ -729,19 +700,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             if (newGroup.Count >= 2)
             {
                 var scene = Scene;
-                commands.Add(RecordableCommands.Create()
-                    .OnDo(() => scene.Groups.Insert(index + 1, newGroup))
-                    .OnUndo(() => scene.Groups.Remove(newGroup))
-                    .ToCommand([Scene]));
+                scene.Groups.Insert(index + 1, newGroup);
             }
         }
 
-        if (commands.Count == 0)
-            return;
-
-        commands.ToArray()
-            .ToCommand()
-            .DoAndRecord(recorder);
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.SplitElement);
     }
 
     private async void OnChangeToOriginalLength()
@@ -751,7 +714,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             && op.TryGetOriginalLength(out TimeSpan timeSpan))
         {
             PrepareAnimationContext context = PrepareAnimation();
-            CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
 
             int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
             TimeSpan length = timeSpan.FloorToRate(rate);
@@ -766,8 +728,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 }
             }
 
-            Scene.MoveChild(Model.ZIndex, Model.Start, length, Model)
-                .DoAndRecord(recorder);
+            Scene.MoveChild(Model.ZIndex, Model.Start, length, Model);
+            Timeline.EditorContext.HistoryManager.Commit(CommandNames.MoveElement);
 
             await AnimationRequest(context);
         }

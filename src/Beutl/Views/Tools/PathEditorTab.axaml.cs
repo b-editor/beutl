@@ -13,7 +13,6 @@ using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
-using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using BtlPoint = Beutl.Graphics.Point;
 using BtlVector = Beutl.Graphics.Vector;
@@ -350,10 +349,7 @@ public partial class PathEditorTab : UserControl, IPathEditorView
             && DataContext is PathEditorTabViewModel { Element.Value: { } element } viewModel
             && _dragStates?.Count > 0)
         {
-            _dragStates.Select(v => v.CreateCommand([]))
-                .Aggregate((IRecordableCommand?)null, (a, b) => a.Append(b))!
-                .WithStoables([element])
-                .DoAndRecord(viewModel.EditViewModel.CommandRecorder);
+            viewModel.EditViewModel.HistoryManager.Commit(CommandNames.EditPathPoint);
         }
 
         _dragStates = null;
@@ -369,7 +365,8 @@ public partial class PathEditorTab : UserControl, IPathEditorView
             e.Handled = true;
         }
 
-        if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.A)
+        var modifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+        if (e.KeyModifiers == modifier && e.Key == Key.A)
         {
             canvas.Children.OfType<Thumb>()
                 .Where(c => !c.Classes.Contains("control"))

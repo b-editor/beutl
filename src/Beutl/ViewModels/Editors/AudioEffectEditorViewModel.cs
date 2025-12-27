@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Audio.Effects;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Operation;
 using Beutl.Services;
@@ -77,10 +78,8 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
             {
                 if (Value.Value is { } effect)
                 {
-                    CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-                    RecordableCommands.Edit(effect, EngineObject.IsEnabledProperty, v, !v)
-                        .WithStoables(GetStorables())
-                        .DoAndRecord(recorder);
+                    effect.IsEnabled = v;
+                    Commit();
                 }
             })
             .DisposeWith(Disposables);
@@ -139,11 +138,8 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
         if (Value.Value is AudioEffectGroup group
             && Activator.CreateInstance(type) is AudioEffect instance)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            group.Children.BeginRecord<AudioEffect>()
-                .Add(instance)
-                .ToCommand(GetStorables())
-                .DoAndRecord(recorder);
+            group.Children.Add(instance);
+            Commit();
         }
     }
 

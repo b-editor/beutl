@@ -113,11 +113,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     {
         if (!EqualityComparer<Brush>.Default.Equals(oldValue, newValue))
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-
-            RecordableCommands.Edit((IPropertyAdapter<Brush>)PropertyAdapter, newValue, oldValue)
-                .WithStoables(GetStorables())
-                .DoAndRecord(recorder);
+            PropertyAdapter.SetValue(newValue);
+            Commit();
         }
     }
 
@@ -125,12 +122,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     {
         if (Value.Value is SolidColorBrush solid)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-
-            // TODO: Colorプロパティにアニメーションが適用されている時の対応
-            RecordableCommands.Edit(solid.Color, newValue, oldValue)
-                .WithStoables(GetStorables())
-                .DoAndRecord(recorder);
+            solid.Color.CurrentValue = newValue;
+            Commit();
         }
     }
 
@@ -138,11 +131,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     {
         if (Value.Value is GradientBrush { GradientStops: { } list })
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            list.BeginRecord<GradientStop>()
-                .Insert(index, item)
-                .ToCommand(GetStorables())
-                .DoAndRecord(recorder);
+            list.Insert(index, item);
+            Commit();
         }
     }
 
@@ -150,11 +140,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     {
         if (Value.Value is GradientBrush { GradientStops: { } list })
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            list.BeginRecord<GradientStop>()
-                .RemoveAt(index)
-                .ToCommand(GetStorables())
-                .DoAndRecord(recorder);
+            list.RemoveAt(index);
+            Commit();
         }
     }
 
@@ -162,26 +149,12 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         int oldIndex, int newIndex,
         GradientStop.Resource oldObject, GradientStop obj)
     {
-        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         if (Value.Value is GradientBrush { GradientStops: { } list })
         {
-            IRecordableCommand? move = oldIndex == newIndex
-                ? null
-                : list.BeginRecord<GradientStop>()
-                    .Move(oldIndex, newIndex)
-                    .ToCommand([]);
+            if (oldIndex != newIndex)
+                list.Move(oldIndex, newIndex);
 
-            IRecordableCommand? offset = obj.Offset.CurrentValue != oldObject.Offset
-                ? RecordableCommands.Edit(obj.Offset, obj.Offset.CurrentValue, oldObject.Offset)
-                : null;
-            IRecordableCommand? color = obj.Color.CurrentValue != oldObject.Color
-                ? RecordableCommands.Edit(obj.Color, obj.Color.CurrentValue, oldObject.Color)
-                : null;
-
-            move.Append(offset)
-                .Append(color)
-                .WithStoables(GetStorables())
-                .DoAndRecord(recorder);
+            Commit();
         }
     }
 
@@ -191,10 +164,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         {
             if (Activator.CreateInstance(type) is Drawable instance)
             {
-                CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-                RecordableCommands.Edit(drawable.Drawable, instance)
-                    .WithStoables(GetStorables())
-                    .DoAndRecord(recorder);
+                drawable.Drawable.CurrentValue = instance;
+                Commit();
             }
         }
     }

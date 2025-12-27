@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Editor;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
@@ -161,19 +162,17 @@ public sealed partial class ElementView : UserControl
     private void UseNodeClick(object? sender, RoutedEventArgs e)
     {
         Element model = ViewModel.Model;
-        CommandRecorder recorder = ViewModel.Timeline.EditorContext.CommandRecorder;
-        RecordableCommands.Edit(model, Element.UseNodeProperty, !model.UseNode)
-            .WithStoables([model])
-            .DoAndRecord(recorder);
+        HistoryManager history = ViewModel.Timeline.EditorContext.HistoryManager;
+        model.UseNode = !model.UseNode;
+        history.Commit(CommandNames.ChangeElementUseNode);
     }
 
     private void EnableElementClick(object? sender, RoutedEventArgs e)
     {
         Element model = ViewModel.Model;
-        CommandRecorder recorder = ViewModel.Timeline.EditorContext.CommandRecorder;
-        RecordableCommands.Edit(model, Element.IsEnabledProperty, !model.IsEnabled)
-            .WithStoables([model])
-            .DoAndRecord(recorder);
+        HistoryManager history = ViewModel.Timeline.EditorContext.HistoryManager;
+        model.IsEnabled = !model.IsEnabled;
+        history.Commit(CommandNames.ChangeElementEnabled);
     }
 
     private void OnTextBoxLostFocus(object? sender, RoutedEventArgs e)
@@ -429,7 +428,7 @@ public sealed partial class ElementView : UserControl
                     }
                     else if (_resizeContexts.Length > 1)
                     {
-                        CommandRecorder recorder = viewModel.Timeline.EditorContext.CommandRecorder;
+                        HistoryManager history = viewModel.Timeline.EditorContext.HistoryManager;
                         var animations = _resizeContexts
                             .Select(x => (ViewModel: x.ViewModel, Context: x.ViewModel.PrepareAnimation()))
                             .ToArray();
@@ -437,19 +436,16 @@ public sealed partial class ElementView : UserControl
                         float scale = viewModel.Timeline.Options.Value.Scale;
                         int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
 
-                        var commands = new List<IRecordableCommand>();
                         foreach (ElementResizeContext ctx in _resizeContexts)
                         {
                             TimeSpan newStart = ctx.ViewModel.BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
                             TimeSpan newLength = ctx.ViewModel.Width.Value.ToTimeSpan(scale).RoundToRate(rate);
                             int zindex = viewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);
 
-                            commands.Add(viewModel.Scene.MoveChild(zindex, newStart, newLength, ctx.ViewModel.Model));
+                            viewModel.Scene.MoveChild(zindex, newStart, newLength, ctx.ViewModel.Model);
                         }
 
-                        commands.ToArray()
-                            .ToCommand()
-                            .DoAndRecord(recorder);
+                        history.Commit(CommandNames.MoveElement);
 
                         foreach (var (item, context) in animations)
                         {
@@ -589,7 +585,7 @@ public sealed partial class ElementView : UserControl
 
                 if (AssociatedObject is { ViewModel: { } viewModel })
                 {
-                    CommandRecorder recorder = viewModel.Timeline.EditorContext.CommandRecorder;
+                    HistoryManager history = viewModel.Timeline.EditorContext.HistoryManager;
                     e.Handled = true;
                     IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
                     var elems = relatedElements.Select(x => x.Model).ToArray();
@@ -611,8 +607,8 @@ public sealed partial class ElementView : UserControl
                         int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
                         int deltaIndex = newIndex - viewModel.Model.ZIndex;
 
-                        viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems)
-                            .DoAndRecord(recorder);
+                        viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems);
+                        history.Commit(CommandNames.MoveElement);
 
                         foreach (var (item, context) in animations)
                         {

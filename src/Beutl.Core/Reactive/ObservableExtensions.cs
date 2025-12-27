@@ -16,4 +16,19 @@ public static class ObservableExtensions
             });
         }
     }
+
+    extension<TSource>(IObservable<TSource> source)
+    {
+        public IObservable<(TSource? OldValue, TSource? NewValue)> CombineWithPrevious()
+        {
+            return source.Scan((default(TSource), default(TSource)), (previous, current) => (previous.Item2, current))
+                .Select(t => (t.Item1, t.Item2));
+        }
+
+        public IObservable<TResult> CombineWithPrevious<TResult>(Func<TSource?, TSource?, TResult> resultSelector)
+        {
+            return source.Scan((default(TSource), default(TSource)), (previous, current) => (previous.Item2, current))
+                .Select(t => resultSelector(t.Item1, t.Item2));
+        }
+    }
 }

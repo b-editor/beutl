@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
 using Avalonia;
-
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
 
@@ -81,11 +80,8 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
             }
         }
 
-        CommandRecorder recorder = _editViewModel.CommandRecorder;
-        NodeTree.Nodes.BeginRecord<Node>()
-            .Add(node)
-            .ToCommand([NodeTree])
-            .DoAndRecord(recorder);
+        NodeTree.Nodes.Add(node);
+        _editViewModel.HistoryManager.Commit(CommandNames.AddNode);
     }
 
     public void Dispose()

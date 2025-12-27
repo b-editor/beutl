@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Controls.Navigation;
+using Beutl.Editor;
 using Beutl.Operation;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
@@ -12,11 +13,15 @@ namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEditorContextVisitor, IServiceProvider
 {
-    private readonly CommandRecorder _recorder = new();
+    private readonly HistoryManager _history;
 
     public AnExtensionSettingsPageViewModel(Extension extension)
     {
         Extension = extension;
+
+        var sequenceGenerator = new OperationSequenceGenerator();
+        _history = new HistoryManager(extension.Settings!, sequenceGenerator);
+
         InitializeCoreObject(extension.Settings!, (_, m) => m.Browsable);
 
         NavigateParent.Subscribe(async () =>
@@ -34,9 +39,9 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
 
     public object? GetService(Type serviceType)
     {
-        if (serviceType == typeof(CommandRecorder))
+        if (serviceType == typeof(HistoryManager))
         {
-            return _recorder;
+            return _history;
         }
 
         return null;

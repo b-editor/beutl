@@ -4,6 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Controls.Behaviors;
+using Beutl.Editor;
 using Beutl.ViewModels.NodeTree;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -61,13 +62,11 @@ public partial class NodeInputView : UserControl
         {
             if (itemsControl?.DataContext is NodeTreeInputTabViewModel { InnerViewModel.Value: { } viewModel })
             {
-                CommandRecorder recorder = viewModel.GetRequiredService<CommandRecorder>();
+                HistoryManager history = viewModel.GetRequiredService<HistoryManager>();
                 oldIndex = viewModel.ConvertToOriginalIndex(oldIndex);
                 newIndex = viewModel.ConvertToOriginalIndex(newIndex);
-                viewModel.Model.NodeTree.Nodes.BeginRecord<Beutl.NodeTree.Node>()
-                    .Move(oldIndex, newIndex)
-                    .ToCommand([viewModel.Model])
-                    .DoAndRecord(recorder);
+                viewModel.Model.NodeTree.Nodes.Move(oldIndex, newIndex);
+                history.Commit(CommandNames.MoveNode);
             }
         }
     }

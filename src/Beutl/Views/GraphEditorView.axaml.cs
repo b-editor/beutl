@@ -3,7 +3,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Beutl.Animation;
@@ -11,8 +10,6 @@ using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Helpers;
 using Beutl.Models;
-using Beutl.ProjectSystem;
-using Beutl.Services;
 using Beutl.ViewModels;
 using Reactive.Bindings.Extensions;
 using Path = Avalonia.Controls.Shapes.Path;
@@ -358,16 +355,11 @@ public partial class GraphEditorView : UserControl
         {
             if (_mouseFlag == Timeline.MouseFlags.EndingBarMarkerPressed)
             {
-                RecordableCommands.Edit(viewModel.Scene, Scene.DurationProperty, viewModel.Scene.Duration,
-                        _initialDuration)
-                    .DoAndRecord(viewModel.EditorContext.CommandRecorder);
+                viewModel.EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
             }
             else if (_mouseFlag == Timeline.MouseFlags.StartingBarMarkerPressed)
             {
-                RecordableCommands.Edit(viewModel.Scene, Scene.StartProperty, viewModel.Scene.Start, _initialStart)
-                    .Append(RecordableCommands.Edit(viewModel.Scene, Scene.DurationProperty, viewModel.Scene.Duration,
-                        _initialDuration))
-                    .DoAndRecord(viewModel.EditorContext.CommandRecorder);
+                viewModel.EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneStart);
             }
 
             _mouseFlag = Timeline.MouseFlags.Free;
@@ -448,12 +440,6 @@ public partial class GraphEditorView : UserControl
     private bool _cPointPressed;
 
     private Point _cPointstart;
-
-    // コントロールポイントのドラッグ前の位置
-    private (float, float) _oldValue;
-
-    // 反対側のコントロールポイントのドラッグ前の位置
-    private (float, float) _oldValue2;
 
     // 反対側のコントロールポイントのキーフレームを探す
     private GraphEditorKeyFrameViewModel? FindOppositeKeyFrame(GraphEditorKeyFrameViewModel item, string tag)
@@ -543,14 +529,7 @@ public partial class GraphEditorView : UserControl
     private void OnControlPointPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is GraphEditorViewModel viewModel
-            && sender is Shape
-            {
-                Tag: string tag,
-                DataContext: GraphEditorKeyFrameViewModel
-                {
-                    Model.Easing: Animation.Easings.SplineEasing splineEasing
-                } itemViewModel
-            } shape)
+            && sender is Shape { DataContext: GraphEditorKeyFrameViewModel { Model.Easing: Animation.Easings.SplineEasing } } shape)
         {
             if (!e.KeyModifiers.HasFlag(KeyModifiers.Alt)
                 && shape.GetLogicalSiblings().OfType<Path>().FirstOrDefault(v => v.Name == "KeyTimeIcon") is Path ki
@@ -564,23 +543,6 @@ public partial class GraphEditorView : UserControl
 
             if (point.Properties.IsLeftButtonPressed)
             {
-                _oldValue = tag switch
-                {
-                    "ControlPoint1" => (splineEasing.X1, splineEasing.Y1),
-                    "ControlPoint2" => (splineEasing.X2, splineEasing.Y2),
-                    _ => default,
-                };
-                var oppotite = FindOppositeKeyFrame(itemViewModel, tag);
-                if (oppotite is { Model.Easing: Animation.Easings.SplineEasing splineEasing2 })
-                {
-                    _oldValue2 = tag switch
-                    {
-                        "ControlPoint2" => (splineEasing2.X1, splineEasing2.Y1),
-                        "ControlPoint1" => (splineEasing2.X2, splineEasing2.Y2),
-                        _ => default,
-                    };
-                }
-
                 _cPointPressed = true;
                 _cPointstart = new Point(e.GetPosition(views).X, point.Position.Y);
                 viewModel.BeginEditing();
@@ -595,31 +557,6 @@ public partial class GraphEditorView : UserControl
             && _cPointPressed
             && sender is Shape { DataContext: GraphEditorKeyFrameViewModel itemViewModel, Tag: string tag })
         {
-            var recorder = viewModel.EditorContext.CommandRecorder;
-            switch (tag)
-            {
-                case "ControlPoint1":
-                    itemViewModel.SubmitControlPoint1(_oldValue.Item1, _oldValue.Item2)?.DoAndRecord(recorder);
-                    break;
-                case "ControlPoint2":
-                    itemViewModel.SubmitControlPoint2(_oldValue.Item1, _oldValue.Item2)?.DoAndRecord(recorder);
-                    break;
-            }
-
-            var oppotite = FindOppositeKeyFrame(itemViewModel, tag);
-            if (oppotite != null)
-            {
-                switch (tag)
-                {
-                    case "ControlPoint2":
-                        oppotite.SubmitControlPoint1(_oldValue2.Item1, _oldValue2.Item2)?.DoAndRecord(recorder);
-                        break;
-                    case "ControlPoint1":
-                        oppotite.SubmitControlPoint2(_oldValue2.Item1, _oldValue2.Item2)?.DoAndRecord(recorder);
-                        break;
-                }
-            }
-
             viewModel.EndEditting();
             _cPointPressed = false;
             e.Handled = true;
@@ -634,11 +571,7 @@ public partial class GraphEditorView : UserControl
     private (Point ControlPoint1, Point ControlPoint2)? _viewControlPoints;
     private (Point ControlPoint1, Point ControlPoint2)? _nextViewControlPoints;
 
-    // ドラッグ前のコントロールポイントの位置（データ側での点）
-    private readonly Dictionary<IKeyFrame, (Point ControlPoint1, Point ControlPoint2)> _oldControlPoints = new();
-
     private IKeyFrame? _keyframe;
-    private TimeSpan _oldKeyTime;
     private GraphEditorKeyFrameViewModel? _keyframeViewModel;
     private GraphEditorKeyFrameViewModel? _nextKeyframeViewModel;
 
@@ -724,13 +657,6 @@ public partial class GraphEditorView : UserControl
                                         prev.LeftBottom.Value - prev.ControlPoint1.Value,
                                         _viewControlPoints.Value.ControlPoint2);
                                 }
-
-                                if (prev.Model.Easing is SplineEasing splineEasing)
-                                {
-                                    _oldControlPoints.TryAdd(prev.Model, (
-                                        new Point(splineEasing.X1, splineEasing.Y1),
-                                        new Point(splineEasing.X2, splineEasing.Y2)));
-                                }
                             }
 
                             itemViewModel.SubmitCrossed(timeSpan);
@@ -776,13 +702,6 @@ public partial class GraphEditorView : UserControl
                                 {
                                     _viewControlPoints = (nextNext.LeftBottom.Value - nextNext.ControlPoint1.Value,
                                         _viewControlPoints.Value.ControlPoint2);
-                                }
-
-                                if (nextNext.Model.Easing is SplineEasing splineEasing)
-                                {
-                                    _oldControlPoints.TryAdd(nextNext.Model, (
-                                        new Point(splineEasing.X1, splineEasing.Y1),
-                                        new Point(splineEasing.X2, splineEasing.Y2)));
                                 }
                             }
 
@@ -854,18 +773,19 @@ public partial class GraphEditorView : UserControl
         {
             if (_followingKeyFrames != null)
             {
-                _followingKeyFrames.Select(i => i.CreateSubmitKeyTimeAndValueCommand(i.Model.KeyTime))
-                    .Append(_keyframeViewModel.CreateSubmitKeyTimeAndValueCommand(_oldKeyTime))
-                    .ToArray()
-                    .ToCommand()
-                    .DoAndRecord(viewModel.EditorContext.CommandRecorder);
+                foreach (GraphEditorKeyFrameViewModel keyframe in _followingKeyFrames)
+                {
+                    keyframe.UpdateKeyTimeAndValue();
+                }
+
+                _keyframeViewModel.UpdateKeyTimeAndValue();
+                viewModel.EditorContext.HistoryManager.Commit(CommandNames.MoveKeyFrame);
             }
             else
             {
-                _keyframeViewModel.SubmitKeyTimeAndValue(_oldKeyTime, _oldControlPoints);
+                _keyframeViewModel.CommitKeyTimeAndValue();
             }
 
-            _oldControlPoints.Clear();
             _followingKeyFrames = null;
             _keyframe = null;
             _keyframeViewModel = null;
@@ -888,7 +808,6 @@ public partial class GraphEditorView : UserControl
                 _keyTimePressed = true;
                 _keyframe = itemViewModel.Model;
                 _keyframeViewModel = itemViewModel;
-                _oldKeyTime = _keyframe.KeyTime;
                 _viewControlPoints = GetSplineControlPoints(itemViewModel);
                 int nextIndex = itemViewModel.Parent.KeyFrames.IndexOf(itemViewModel) + 1;
                 _nextKeyframeViewModel = nextIndex < itemViewModel.Parent.KeyFrames.Count
@@ -911,16 +830,13 @@ public partial class GraphEditorView : UserControl
 
     private (Point, Point)? GetSplineControlPoints(GraphEditorKeyFrameViewModel keyFrame)
     {
-        if (keyFrame.Model.Easing is SplineEasing easing)
+        if (keyFrame.Model.Easing is SplineEasing)
         {
             var viewControlPoint1 = keyFrame.ControlPoint1.Value;
             var viewControlPoint2 = keyFrame.ControlPoint2.Value;
             viewControlPoint1 = keyFrame.LeftBottom.Value - viewControlPoint1;
             viewControlPoint2 = keyFrame.RightTop.Value - viewControlPoint2;
-            var controlPoint1 = new Point(easing.X1, easing.Y1);
-            var controlPoint2 = new Point(easing.X2, easing.Y2);
 
-            _oldControlPoints[keyFrame.Model] = (controlPoint1, controlPoint2);
             return (viewControlPoint1, viewControlPoint2);
         }
         else

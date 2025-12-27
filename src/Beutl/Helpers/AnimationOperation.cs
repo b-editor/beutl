@@ -8,9 +8,10 @@ namespace Beutl.Helpers;
 
 public class AnimationOperations
 {
-    private static TimeSpan ConvertKeyTime(IKeyFrameAnimation animation, Scene? scene, Element? element,
-        TimeSpan globalkeyTime, ILogger logger)
+    private static TimeSpan ConvertKeyTime(IKeyFrameAnimation animation, TimeSpan globalkeyTime, ILogger logger)
     {
+        var element = animation.FindHierarchicalParent<Element>();
+        var scene = animation.FindHierarchicalParent<Scene>();
         logger.LogInformation("Converting key time {GlobalKeyTime}", globalkeyTime);
         TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
         TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
@@ -21,13 +22,12 @@ public class AnimationOperations
         return keyTime.RoundToRate(rate);
     }
 
-    public static KeyFrame<T>? InsertKeyFrame<T>(KeyFrameAnimation<T> animation, Scene? scene, Element? element,
-        Easing? easing, TimeSpan keyTime, ILogger logger, CommandRecorder cr, ImmutableArray<CoreObject?> storables)
+    public static KeyFrame<T>? InsertKeyFrame<T>(KeyFrameAnimation<T> animation, Easing? easing, TimeSpan keyTime, ILogger logger)
     {
         logger.LogInformation("Inserting key frame at {KeyTime}", keyTime);
         bool defaultEasing = easing is null or SplineEasing { X1: 0, Y1: 0, X2: 1, Y2: 1 };
         KeyFrame<T>? createdKeyFrame = null;
-        keyTime = ConvertKeyTime(animation, scene, element, keyTime, logger);
+        keyTime = ConvertKeyTime(animation, keyTime, logger);
 
         if (animation.KeyFrames.All(x => x.KeyTime != keyTime))
         {
@@ -47,20 +47,8 @@ public class AnimationOperations
                     Value = animation.Interpolate(keyTime), Easing = left, KeyTime = keyTime
                 };
 
-                var oldNextEasing = nextKeyFrame.Easing;
-                RecordableCommands.Create(storables)
-                    .OnDo(() =>
-                    {
-                        animation.KeyFrames.Add(createdKeyFrame, out _);
-                        nextKeyFrame.Easing = right;
-                    })
-                    .OnUndo(() =>
-                    {
-                        nextKeyFrame.Easing = oldNextEasing;
-                        animation.KeyFrames.Remove(createdKeyFrame);
-                    })
-                    .ToCommand()
-                    .DoAndRecord(cr);
+                animation.KeyFrames.Add(createdKeyFrame, out _);
+                nextKeyFrame.Easing = right;
             }
             else
             {
@@ -70,57 +58,32 @@ public class AnimationOperations
                     Value = animation.Interpolate(keyTime), Easing = easing, KeyTime = keyTime
                 };
 
-                RecordableCommands.Create(storables)
-                    .OnDo(() => animation.KeyFrames.Add(createdKeyFrame, out _))
-                    .OnUndo(() => animation.KeyFrames.Remove(createdKeyFrame))
-                    .ToCommand()
-                    .DoAndRecord(cr);
+                animation.KeyFrames.Add(createdKeyFrame, out _);
             }
         }
 
         return createdKeyFrame;
     }
 
-    public static void RemoveKeyFrame(IKeyFrameAnimation animation, Scene? scene, Element? element,
-        TimeSpan keyTime, ILogger logger, CommandRecorder cr, ImmutableArray<CoreObject?> storables)
+    public static void RemoveKeyFrame(IKeyFrameAnimation animation, TimeSpan keyTime, ILogger logger)
     {
         logger.LogInformation("Removing key frame at {KeyTime}", keyTime);
-        keyTime = ConvertKeyTime(animation, scene, element, keyTime, logger);
+        keyTime = ConvertKeyTime(animation, keyTime, logger);
         IKeyFrame? keyframe = animation.KeyFrames.FirstOrDefault(x => x.KeyTime == keyTime);
         if (keyframe == null) return;
 
         var index = animation.KeyFrames.IndexOf(keyframe);
 
-        // 次の要素があるとき
-        var oldEasing = keyframe.Easing;
-        RecordableCommands.Create(storables)
-            .OnDo(() => SplineEasingHelper.Remove(animation, index))
-            .OnUndo(() =>
-            {
-                keyframe.Easing = oldEasing;
-                animation.KeyFrames.Add(keyframe, out _);
-            })
-            .ToCommand()
-            .DoAndRecord(cr);
+        SplineEasingHelper.Remove(animation, index);
     }
 
-    public static void RemoveKeyFrame(IKeyFrameAnimation animation, Scene? scene, Element? element,
-        IKeyFrame keyframe, ILogger logger, CommandRecorder cr, ImmutableArray<CoreObject?> storables)
+    public static void RemoveKeyFrame(IKeyFrameAnimation animation, IKeyFrame keyframe, ILogger logger)
     {
         logger.LogInformation("Removing key frame at {KeyTime}", keyframe.KeyTime);
 
         var index = animation.KeyFrames.IndexOf(keyframe);
 
         // 次の要素があるとき
-        var oldEasing = keyframe.Easing;
-        RecordableCommands.Create(storables)
-            .OnDo(() => SplineEasingHelper.Remove(animation, index))
-            .OnUndo(() =>
-            {
-                keyframe.Easing = oldEasing;
-                animation.KeyFrames.Add(keyframe, out _);
-            })
-            .ToCommand()
-            .DoAndRecord(cr);
+        SplineEasingHelper.Remove(animation, index);
     }
 }

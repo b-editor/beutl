@@ -106,11 +106,8 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         if (Value.Value is { } group
             && Activator.CreateInstance(type) is PathSegment instance)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            group.Segments.BeginRecord<PathSegment>()
-                .Add(instance)
-                .ToCommand(GetStorables())
-                .DoAndRecord(recorder);
+            group.Segments.Add(instance);
+            Commit();
         }
     }
 

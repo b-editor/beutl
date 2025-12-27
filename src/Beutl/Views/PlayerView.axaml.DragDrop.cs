@@ -57,7 +57,7 @@ public partial class PlayerView
                     && Activator.CreateInstance(feType) is FilterEffect newFe)
                 {
                     FilterEffect? fe = drawable.FilterEffect.CurrentValue;
-                    AddOrSetHelper.AddOrSet(ref fe, newFe, [element], editViewModel.CommandRecorder);
+                    AddOrSetHelper.AddOrSet(ref fe, newFe);
                     drawable.FilterEffect.CurrentValue = fe;
                 }
                 else if (containsTra
@@ -66,7 +66,7 @@ public partial class PlayerView
                          && Activator.CreateInstance(traType) is Transform newTra)
                 {
                     Transform? tra = drawable.Transform.CurrentValue;
-                    AddOrSetHelper.AddOrSet(ref tra, newTra, [element], editViewModel.CommandRecorder);
+                    AddOrSetHelper.AddOrSet(ref tra, newTra);
                     drawable.Transform.CurrentValue = tra;
                 }
 
@@ -93,7 +93,7 @@ public partial class PlayerView
                 if (e.KeyModifiers == KeyModifiers.Control)
                 {
                     var desc = new ElementDescription(frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centeredPosition);
-                    var dialogViewModel = new AddElementDialogViewModel(scene, desc, editViewModel.CommandRecorder);
+                    var dialogViewModel = new AddElementDialogViewModel(scene, desc, editViewModel.HistoryManager);
                     var dialog = new AddElementDialog { DataContext = dialogViewModel };
                     await dialog.ShowAsync();
                 }

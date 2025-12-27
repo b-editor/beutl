@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
     <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Operators\Beutl.Operators.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Editor\Beutl.Editor.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 

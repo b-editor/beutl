@@ -73,18 +73,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         if (parent is { DataContext: IPathEditorViewModel { Element.Value: { } element } viewModel })
         {
             parent.SkipUpdatePosition = false;
-            IRecordableCommand? command = _dragState?.CreateCommand([]);
-            if (_coordDragStates?.Length > 0)
-            {
-                command = _coordDragStates.Aggregate(command, (a, b) => a.Append(b.CreateCommand([])));
-            }
-
-            if (command != null)
-            {
-                command = command.WithStoables([element]);
-
-                command.DoAndRecord(viewModel.EditViewModel.CommandRecorder);
-            }
+            viewModel.EditViewModel.HistoryManager.Commit(CommandNames.EditPathPoint);
         }
 
         _coordDragStates = null;

@@ -11,19 +11,24 @@ public abstract class Node : Hierarchical
 {
     public static readonly CoreProperty<bool> IsExpandedProperty;
     public static readonly CoreProperty<(double X, double Y)> PositionProperty;
+    public static readonly CoreProperty<ICoreList<INodeItem>> ItemsProperty;
     private readonly HierarchicalList<INodeItem> _items;
     private (double X, double Y) _position;
     private NodeTreeModel? _nodeTree;
 
     static Node()
     {
-        IsExpandedProperty = ConfigureProperty<bool, Node>(nameof(Position))
+        IsExpandedProperty = ConfigureProperty<bool, Node>(nameof(IsExpanded))
             .DefaultValue(true)
             .Register();
 
         PositionProperty = ConfigureProperty<(double X, double Y), Node>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
             .DefaultValue((0, 0))
+            .Register();
+
+        ItemsProperty = ConfigureProperty<ICoreList<INodeItem>, Node>(nameof(Items))
+            .Accessor(o => o.Items, (o, v) => o._items.Replace(v))
             .Register();
     }
 
@@ -60,6 +65,7 @@ public abstract class Node : Hierarchical
         RaiseInvalidated(e);
     }
 
+    [NotAutoSerialized]
     public ICoreList<INodeItem> Items => _items;
 
     public bool IsExpanded

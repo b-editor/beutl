@@ -84,9 +84,8 @@ public class SourceOperator : Hierarchical, ISourceOperator
         return false;
     }
 
-    public virtual IRecordableCommand? OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
+    public virtual void OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
     {
-        return null;
     }
 
     protected void RaiseEdited(object? sender, EventArgs e)
