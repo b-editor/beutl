@@ -115,19 +115,19 @@ var keyLight = new DirectionalLight3D();
 keyLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -1, -1));
 keyLight.Color.CurrentValue = Colors.White;
 keyLight.Intensity.CurrentValue = 2.5f;
-keyLight.IsLightEnabled.CurrentValue = true;
+keyLight.IsEnabled = true;
 
 var fillLight = new DirectionalLight3D();
 fillLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(0.8f, -0.3f, -0.5f));
 fillLight.Color.CurrentValue = new Color(255, 220, 200, 255); // Warm
 fillLight.Intensity.CurrentValue = 1.0f;
-fillLight.IsLightEnabled.CurrentValue = true;
+fillLight.IsEnabled = true;
 
 var rimLight = new DirectionalLight3D();
 rimLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(0, 0, 1));
 rimLight.Color.CurrentValue = new Color(255, 180, 200, 255); // Cool
 rimLight.Intensity.CurrentValue = 0.6f;
-rimLight.IsLightEnabled.CurrentValue = true;
+rimLight.IsEnabled = true;
 
 var lights = new List<Light3D.Resource>
 {
@@ -313,7 +313,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
     directionalLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -2, -1));
     directionalLight.Color.CurrentValue = Colors.White;
     directionalLight.Intensity.CurrentValue = 2.0f;
-    directionalLight.IsLightEnabled.CurrentValue = true;
+    directionalLight.IsEnabled = true;
     directionalLight.CastsShadow.CurrentValue = true;
     directionalLight.ShadowBias.CurrentValue = 0.005f;
     directionalLight.ShadowNormalBias.CurrentValue = 0.02f;
@@ -350,7 +350,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
     pointLight.Color.CurrentValue = new Color(255, 255, 240, 200); // Warm white
     pointLight.Intensity.CurrentValue = 15f;
     pointLight.Range.CurrentValue = 15f;
-    pointLight.IsLightEnabled.CurrentValue = true;
+    pointLight.IsEnabled = true;
     pointLight.CastsShadow.CurrentValue = true;
     pointLight.ShadowBias.CurrentValue = 0.01f;
     pointLight.ShadowStrength.CurrentValue = 0.9f;
@@ -362,7 +362,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
     ambientFill.Direction.CurrentValue = Vector3.Normalize(new Vector3(0, -1, 0));
     ambientFill.Color.CurrentValue = new Color(255, 100, 120, 150);
     ambientFill.Intensity.CurrentValue = 0.3f;
-    ambientFill.IsLightEnabled.CurrentValue = true;
+    ambientFill.IsEnabled = true;
     ambientFill.CastsShadow.CurrentValue = false;
 
     lights.Add((DirectionalLight3D.Resource)ambientFill.ToResource(renderContext));
@@ -398,7 +398,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
     spotLight.Range.CurrentValue = 15f;
     spotLight.InnerConeAngle.CurrentValue = 25f;
     spotLight.OuterConeAngle.CurrentValue = 50f;  // Wider cone to cover scene
-    spotLight.IsLightEnabled.CurrentValue = true;
+    spotLight.IsEnabled = true;
     spotLight.CastsShadow.CurrentValue = true;
     spotLight.ShadowBias.CurrentValue = 0.005f;
     spotLight.ShadowStrength.CurrentValue = 0.95f;
@@ -436,7 +436,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
     mainLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -1.5f, -0.5f));
     mainLight.Color.CurrentValue = new Color(255, 255, 250, 230);
     mainLight.Intensity.CurrentValue = 1.8f;
-    mainLight.IsLightEnabled.CurrentValue = true;
+    mainLight.IsEnabled = true;
     mainLight.CastsShadow.CurrentValue = true;
     mainLight.ShadowStrength.CurrentValue = 0.7f;
 
@@ -451,7 +451,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
     secondarySpot.Range.CurrentValue = 15f;
     secondarySpot.InnerConeAngle.CurrentValue = 20f;
     secondarySpot.OuterConeAngle.CurrentValue = 40f;
-    secondarySpot.IsLightEnabled.CurrentValue = true;
+    secondarySpot.IsEnabled = true;
     secondarySpot.CastsShadow.CurrentValue = true;
     secondarySpot.ShadowStrength.CurrentValue = 0.6f;
 
