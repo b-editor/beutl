@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 
 using Avalonia;
 using Avalonia.Media;
@@ -81,7 +81,6 @@ public class SocketViewModel : NodeItemViewModel
             if (groupNode != null && socket != null
                 && groupNode.AddSocket(socket, out _))
             {
-                // TODO: 検証する
                 _editViewModel.HistoryManager.Commit(CommandNames.AddSocket);
             }
 
