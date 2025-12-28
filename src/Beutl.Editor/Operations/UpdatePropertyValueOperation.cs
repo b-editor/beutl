@@ -19,7 +19,7 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
 
     object? IUpdatePropertyValueOperation.OldValue => OldValue;
 
-    public override void Apply(OperationExecutionContext context)
+    private (string Name, bool UpdateAnimation, bool UpdateExpression) ParsePropertyPath()
     {
         string name = PropertyPath;
         bool updateAnimation = false;
@@ -45,11 +45,43 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
             }
         }
 
+        return (name, updateAnimation, updateExpression);
+    }
+
+    private static void UpdateEngineProperty(IProperty engineProperty, bool updateAnimation, bool updateExpression, T value)
+    {
+        if (updateAnimation)
+        {
+            if (engineProperty.IsAnimatable)
+            {
+                engineProperty.Animation = value as IAnimation;
+            }
+        }
+        else if (updateExpression)
+        {
+            if (engineProperty.IsAnimatable)
+            {
+                engineProperty.Expression = value as IExpression;
+            }
+        }
+        else
+        {
+            if (engineProperty is IProperty<T> typedProperty)
+            {
+                typedProperty.CurrentValue = value;
+            }
+        }
+    }
+
+    public override void Apply(OperationExecutionContext context)
+    {
+        var (name, updateAnimation, updateExpression) = ParsePropertyPath();
+
         var coreProperty = PropertyRegistry.FindRegistered(Object.GetType(), name);
 
         if (coreProperty != null)
         {
-            ApplyToCoreProperty(coreProperty);
+            Object.SetValue(coreProperty, NewValue);
             return;
         }
 
@@ -59,71 +91,19 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
                                  ?? throw new InvalidOperationException(
                                      $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}.");
 
-            ApplyToEngineProperty(engineProperty, updateAnimation, updateExpression);
+            UpdateEngineProperty(engineProperty, updateAnimation, updateExpression, NewValue);
         }
-    }
-
-    private void ApplyToEngineProperty(IProperty engineProperty, bool updateAnimation, bool updateExpression)
-    {
-        if (updateAnimation)
-        {
-            if (engineProperty.IsAnimatable)
-            {
-                engineProperty.Animation = NewValue as IAnimation;
-            }
-        }
-        else if (updateExpression)
-        {
-            if (engineProperty.IsAnimatable)
-            {
-                engineProperty.Expression = NewValue as IExpression;
-            }
-        }
-        else
-        {
-            if (engineProperty is IProperty<T> typedProperty)
-            {
-                typedProperty.CurrentValue = NewValue;
-            }
-        }
-    }
-
-    private void ApplyToCoreProperty(CoreProperty coreProperty)
-    {
-        Object.SetValue(coreProperty, NewValue);
     }
 
     public override void Revert(OperationExecutionContext context)
     {
-        string name = PropertyPath;
-        bool updateAnimation = false;
-        bool updateExpression = false;
-
-        if (PropertyPath.Contains('.'))
-        {
-            var parts = PropertyPath.Split('.');
-
-            if (parts[^1] == "Animation" && parts.Length >= 2)
-            {
-                name = parts[^2];
-                updateAnimation = true;
-            }
-            else if (parts[^1] == "Expression" && parts.Length >= 2)
-            {
-                name = parts[^2];
-                updateExpression = true;
-            }
-            else
-            {
-                name = parts[^1];
-            }
-        }
+        var (name, updateAnimation, updateExpression) = ParsePropertyPath();
 
         var coreProperty = PropertyRegistry.FindRegistered(Object.GetType(), name);
 
         if (coreProperty != null)
         {
-            RevertToCoreProperty(coreProperty);
+            Object.SetValue(coreProperty, OldValue);
             return;
         }
 
@@ -133,38 +113,8 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
                                  ?? throw new InvalidOperationException(
                                      $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}.");
 
-            RevertToEngineProperty(engineProperty, updateAnimation, updateExpression);
+            UpdateEngineProperty(engineProperty, updateAnimation, updateExpression, OldValue);
         }
-    }
-
-    private void RevertToEngineProperty(IProperty engineProperty, bool updateAnimation, bool updateExpression)
-    {
-        if (updateAnimation)
-        {
-            if (engineProperty.IsAnimatable)
-            {
-                engineProperty.Animation = OldValue as IAnimation;
-            }
-        }
-        else if (updateExpression)
-        {
-            if (engineProperty.IsAnimatable)
-            {
-                engineProperty.Expression = OldValue as IExpression;
-            }
-        }
-        else
-        {
-            if (engineProperty is IProperty<T> typedProperty)
-            {
-                typedProperty.CurrentValue = OldValue;
-            }
-        }
-    }
-
-    private void RevertToCoreProperty(CoreProperty coreProperty)
-    {
-        Object.SetValue(coreProperty, OldValue);
     }
 
     public bool TryMerge(ChangeOperation other)

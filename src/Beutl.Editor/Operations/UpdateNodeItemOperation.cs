@@ -20,7 +20,7 @@ public sealed class UpdateNodeItemOperation(
 
     public object? OldValue { get; set; } = oldValue;
 
-    public override void Apply(OperationExecutionContext context)
+    private void UpdateValue(object? value)
     {
         if (PropertyPath.Contains('.'))
         {
@@ -29,35 +29,25 @@ public sealed class UpdateNodeItemOperation(
             switch (parts[^1])
             {
                 case "Animation" when parts.Length >= 2 && NodeItem.Property is IAnimatablePropertyAdapter animatablePropertyAdapter:
-                    animatablePropertyAdapter.Animation = NewValue as IAnimation;
+                    animatablePropertyAdapter.Animation = value as IAnimation;
                     return;
                 case "Expression" when parts.Length >= 2 && NodeItem.Property is IExpressionPropertyAdapter expressiblePropertyAdapter:
-                    expressiblePropertyAdapter.Expression = NewValue as IExpression;
+                    expressiblePropertyAdapter.Expression = value as IExpression;
                     return;
             }
         }
 
-        NodeItem.Property?.SetValue(NewValue);
+        NodeItem.Property?.SetValue(value);
+    }
+
+    public override void Apply(OperationExecutionContext context)
+    {
+        UpdateValue(NewValue);
     }
 
     public override void Revert(OperationExecutionContext context)
     {
-        if (PropertyPath.Contains('.'))
-        {
-            string[] parts = PropertyPath.Split('.');
-
-            switch (parts[^1])
-            {
-                case "Animation" when parts.Length >= 2 && NodeItem.Property is IAnimatablePropertyAdapter animatablePropertyAdapter:
-                    animatablePropertyAdapter.Animation = OldValue as IAnimation;
-                    return;
-                case "Expression" when parts.Length >= 2 && NodeItem.Property is IExpressionPropertyAdapter expressiblePropertyAdapter:
-                    expressiblePropertyAdapter.Expression = OldValue as IExpression;
-                    return;
-            }
-        }
-
-        NodeItem.Property?.SetValue(OldValue);
+        UpdateValue(OldValue);
     }
 
     public bool TryMerge(ChangeOperation other)
