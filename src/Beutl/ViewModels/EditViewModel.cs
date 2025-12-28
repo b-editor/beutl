@@ -273,20 +273,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     private List<TimeRange> GetAffectedTimeRanges(IList<ChangeOperation> list)
     {
-        List<TimeRange> affectedRanges = [];
-
-        foreach (ChangeOperation operation in list)
-        {
-            foreach (TimeRange range in GetAffectedTimeRangesFromOperation(operation))
-            {
-                if (!range.IsEmpty)
-                {
-                    affectedRanges.Add(range);
-                }
-            }
-        }
-
-        return affectedRanges;
+        return [.. list.SelectMany(GetAffectedTimeRangesFromOperation).Where(range => !range.IsEmpty)];
     }
 
     private IEnumerable<TimeRange> GetAffectedTimeRangesFromOperation(ChangeOperation operation)
@@ -313,16 +300,10 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             }
 
             // Itemsから複数のElementを探す
-            foreach (object? item in collectionOp.Items)
+            foreach (Element? item in collectionOp.Items.Select(i => i is CoreObject coreObj ? FindElementFromObject(coreObj) : null)
+                .Where(i => i != null))
             {
-                if (item is CoreObject coreObj)
-                {
-                    Element? itemElement = FindElementFromObject(coreObj);
-                    if (itemElement != null)
-                    {
-                        yield return itemElement.Range;
-                    }
-                }
+                yield return item!.Range;
             }
         }
     }

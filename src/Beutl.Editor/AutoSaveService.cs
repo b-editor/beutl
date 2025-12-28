@@ -68,12 +68,9 @@ public sealed class AutoSaveService : IDisposable
             obj = collectionOp.Object;
 
             // コレクション内のアイテムも保存対象に追加
-            foreach (object? item in collectionOp.Items)
+            foreach (CoreObject? item in collectionOp.Items.OfType<CoreObject>())
             {
-                if (item is CoreObject itemObj)
-                {
-                    AddObjectWithAncestors(itemObj, objectsToSave);
-                }
+                AddObjectWithAncestors(item, objectsToSave);
             }
         }
         else if (operation is UpdateSplineEasingOperation splineOp)
@@ -102,12 +99,9 @@ public sealed class AutoSaveService : IDisposable
         // 親要素を辿ってUriを持つオブジェクトを探す
         if (obj is IHierarchical hierarchical)
         {
-            foreach (CoreObject ancestor in hierarchical.EnumerateAncestors<CoreObject>())
+            foreach (CoreObject ancestor in hierarchical.EnumerateAncestors<CoreObject>().Where(a => a.Uri != null))
             {
-                if (ancestor.Uri != null)
-                {
-                    objectsToSave.Add(ancestor);
-                }
+                objectsToSave.Add(ancestor);
             }
         }
     }

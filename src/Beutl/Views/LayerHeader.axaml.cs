@@ -186,6 +186,7 @@ public sealed partial class LayerHeader : UserControl
 
             _viewModel.Timeline.LayerHeaders.Move(_oldLayerNum, _newLayerNum);
 
+            // ZIndexを更新しアニメーションする
             foreach (ElementViewModel item in _items1)
             {
                 item.AnimationRequest(_newLayerNum);

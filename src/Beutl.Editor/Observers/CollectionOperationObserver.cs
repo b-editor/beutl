@@ -32,12 +32,9 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
         _subscription = _operations.Subscribe(observer);
         _propertyPathsToTrack = propertyPathsToTrack;
 
-        foreach (T item in list)
+        foreach (CoreObject item in list.OfType<CoreObject>())
         {
-            if (item is CoreObject coreObject)
-            {
-                InitializeChildPublishers(coreObject);
-            }
+            InitializeChildPublishers(item);
         }
 
         if (list is INotifyCollectionChanged notifyCollection)
@@ -137,13 +134,11 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
 
         foreach (object oldItem in e.OldItems)
         {
-            if (oldItem is CoreObject coreObject)
+            if (oldItem is CoreObject coreObject
+                && _childPublishers.TryGetValue(coreObject, out var childPublisher))
             {
-                if (_childPublishers.TryGetValue(coreObject, out var childPublisher))
-                {
-                    childPublisher.Dispose();
-                    _childPublishers.Remove(coreObject);
-                }
+                childPublisher.Dispose();
+                _childPublishers.Remove(coreObject);
             }
         }
 
@@ -183,13 +178,11 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
         {
             foreach (object oldItem in e.OldItems)
             {
-                if (oldItem is CoreObject coreObject)
+                if (oldItem is CoreObject coreObject
+                    && _childPublishers.TryGetValue(coreObject, out var childPublisher))
                 {
-                    if (_childPublishers.TryGetValue(coreObject, out var childPublisher))
-                    {
-                        childPublisher.Dispose();
-                        _childPublishers.Remove(coreObject);
-                    }
+                    childPublisher.Dispose();
+                    _childPublishers.Remove(coreObject);
                 }
             }
 
