@@ -81,6 +81,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
+    <ProjectReference Include="..\Beutl.Editor\Beutl.Editor.csproj" />
     <ProjectReference Condition="'$(NukePublish)'!='True'"
       Include="..\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj" />
     <ProjectReference Condition="'$(NukePublish)'!='True'"

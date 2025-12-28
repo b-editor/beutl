@@ -124,11 +124,8 @@ public partial class MainView
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                scene.RemoveChild(element).Do();
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
+                scene.DeleteChild(element);
+                viewModel.HistoryManager.Commit(CommandNames.DeleteElement);
             }
         }
     }
@@ -143,7 +140,7 @@ public partial class MainView
                 DataContext = new AddElementDialogViewModel(viewModel.Scene,
                     new ElementDescription(timeline.ClickedFrame, TimeSpan.FromSeconds(5),
                         timeline.CalculateClickedLayer()),
-                    viewModel.CommandRecorder)
+                    viewModel.HistoryManager)
             };
             await dialog.ShowAsync();
         }

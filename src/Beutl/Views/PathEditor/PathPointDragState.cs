@@ -103,23 +103,4 @@ public sealed class PathPointDragState
             Next?.SetValue(prop, Next.GetValue(prop) + delta);
         }
     }
-
-    public IRecordableCommand? CreateCommand(ImmutableArray<CoreObject?> storables)
-    {
-        if (Previous == null && Next == null)
-        {
-            return RecordableCommands.Edit(Property, Property.CurrentValue, OldValue)
-                .WithStoables(storables);
-        }
-        else
-        {
-            return RecordableCommands.Append(
-                Previous != null && Previous.Value != OldPreviousValue
-                    ? RecordableCommands.Edit(Previous, KeyFrame<BtlPoint>.ValueProperty, Previous.Value, OldPreviousValue).WithStoables(storables)
-                    : null,
-                Next != null && Next.Value != OldNextValue
-                    ? RecordableCommands.Edit(Next, KeyFrame<BtlPoint>.ValueProperty, Next.Value, OldNextValue).WithStoables(storables)
-                    : null);
-        }
-    }
 }

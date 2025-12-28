@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Editor;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Models;
@@ -106,14 +107,13 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
                 KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(type)!;
                 CoreSerializer.PopulateFromJsonObject(newKeyFrame, jsonObj);
-                CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+                HistoryManager history = Timeline.EditorContext.HistoryManager;
 
                 if (type.GenericTypeArguments[0] != Parent.Property.PropertyType)
                 {
                     // イージングのみ変更
-                    RecordableCommands.Edit(Model, KeyFrame.EasingProperty, newKeyFrame.Easing, Model.Easing)
-                        .WithStoables([Parent.Element.Model])
-                        .DoAndRecord(recorder);
+                    Model.Easing = newKeyFrame.Easing;
+                    history.Commit(CommandNames.ChangeEasing);
                     NotificationService.ShowWarning(Strings.GraphEditor,
                         "The property type of the pasted keyframe does not match. Only the easing is applied.");
                 }
@@ -121,11 +121,9 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                 {
                     newKeyFrame.KeyTime = Model.KeyTime;
                     int index = Animation.KeyFrames.IndexOf(Model);
-                    Animation.KeyFrames.BeginRecord<IKeyFrame>()
-                        .Remove(Model)
-                        .Insert(index, (IKeyFrame)newKeyFrame)
-                        .ToCommand([Parent.Element.Model])
-                        .DoAndRecord(recorder);
+                    Animation.KeyFrames.Remove(Model);
+                    Animation.KeyFrames.Insert(index, (IKeyFrame)newKeyFrame);
+                    history.Commit(CommandNames.PasteKeyFrame);
                 }
 
                 return;
@@ -142,14 +140,12 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private void Remove()
     {
+        HistoryManager history = Timeline.EditorContext.HistoryManager;
         AnimationOperations.RemoveKeyFrame(
             animation: Animation,
-            scene: Timeline.Scene,
-            element: Parent.Element.Model,
             keyframe: Model,
-            logger: _logger,
-            cr: Timeline.EditorContext.CommandRecorder,
-            storables: [Parent.Element.Model]);
+            logger: _logger);
+        history.Commit(CommandNames.RemoveKeyFrame);
     }
 
     public void UpdateKeyTime()
@@ -157,17 +153,16 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         float scale = Timeline.Options.Value.Scale;
         Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
         int rate = proj?.GetFrameRate() ?? 30;
-        CommandRecorder recorder = Timeline.EditorContext.CommandRecorder;
+        HistoryManager history = Timeline.EditorContext.HistoryManager;
 
         TimeSpan time = Left.Value.ToTimeSpan(scale).RoundToRate(rate);
-        SplineEasingHelper.Move(Animation, Model, time)
-            ?.WithStoables([Parent.Element.Model])
-            .DoAndRecord(recorder);
+        SplineEasingHelper.Move(Animation, Model, time);
+        history.Commit(CommandNames.MoveKeyFrame);
 
         Left.Value = time.ToPixel(scale);
     }
 
-    public IRecordableCommand CreateUpdateCommand()
+    public void ReflectModelKeyTime()
     {
         float scale = Timeline.Options.Value.Scale;
         Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
@@ -177,7 +172,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
         Left.Value = time.ToPixel(scale);
 
-        return RecordableCommands.Edit(Model, KeyFrame.KeyTimeProperty, time);
+        Model.KeyTime = time;
     }
 
     public void Dispose()

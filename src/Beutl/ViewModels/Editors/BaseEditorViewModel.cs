@@ -8,10 +8,11 @@ using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor;
 using Beutl.Engine.Expressions;
-using Beutl.Media;
 using Beutl.Helpers;
 using Beutl.Logging;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -273,6 +274,11 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         }
     }
 
+    public void Commit(string? name = null)
+    {
+        this.GetRequiredService<HistoryManager>().Commit(name ?? CommandNames.EditProperty);
+    }
+
     protected object? GetDefaultValue()
     {
         return PropertyAdapter.GetDefaultValue();
@@ -373,22 +379,17 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             if (EditingKeyFrame.Value is { } kf)
             {
-                RecordableCommands.Edit(kf, KeyFrame<T>.ValueProperty, newValue, oldValue)
-                    .WithStoables(GetStorables())
-                    .DoAndRecord(recorder);
+                kf.Value = newValue!;
             }
             else
             {
                 IPropertyAdapter<T> prop = PropertyAdapter;
-                RecordableCommands.Create(GetStorables())
-                    .OnDo(() => prop.SetValue(newValue))
-                    .OnUndo(() => prop.SetValue(oldValue))
-                    .ToCommand()
-                    .DoAndRecord(recorder);
+                prop.SetValue(newValue);
             }
+
+            Commit();
         }
     }
 
@@ -412,18 +413,12 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
 
-        Element? element = this.GetService<Element>();
-        Scene? scene = this.GetService<EditViewModel>()?.Scene;
-        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         var keyframe = AnimationOperations.InsertKeyFrame(
             animation: kfAnimation,
-            scene: scene,
-            element: element,
             easing: null,
             keyTime: keyTime,
-            logger: Logger,
-            cr: recorder,
-            storables: GetStorables());
+            logger: Logger);
+        Commit();
 
         if (keyframe == null) return;
 
@@ -438,17 +433,11 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
 
-        Element? element = this.GetService<Element>();
-        Scene? scene = this.GetService<EditViewModel>()?.Scene;
-        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         AnimationOperations.RemoveKeyFrame(
             animation: kfAnimation,
-            scene: scene,
-            element: element,
             keyTime: keyTime,
-            logger: Logger,
-            cr: recorder,
-            storables: GetStorables());
+            logger: Logger);
+        Commit();
     }
 
     public override void PrepareToEditAnimation()
@@ -456,8 +445,6 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty
             && animatableProperty.Animation is not KeyFrameAnimation<T>)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            var oldAnimation = animatableProperty.Animation;
             var newAnimation = new KeyFrameAnimation<T>();
             T initialValue = animatableProperty.GetValue()!;
             newAnimation.KeyFrames.Add(new KeyFrame<T>
@@ -465,32 +452,13 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
                 Value = initialValue, Easing = new SplineEasing(), KeyTime = TimeSpan.Zero
             });
 
-            // Expressionを保存してnullに設定する
-            IExpression<T>? oldExpression = null;
-            if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
+            animatableProperty.Animation = newAnimation;
+            if (PropertyAdapter is IExpressionPropertyAdapter<T> ep)
             {
-                oldExpression = expressionProperty.Expression;
+                ep.Expression = null;
             }
 
-            RecordableCommands.Create(GetStorables())
-                .OnDo(() =>
-                {
-                    animatableProperty.Animation = newAnimation;
-                    if (PropertyAdapter is IExpressionPropertyAdapter<T> ep)
-                    {
-                        ep.Expression = null;
-                    }
-                })
-                .OnUndo(() =>
-                {
-                    animatableProperty.Animation = oldAnimation;
-                    if (PropertyAdapter is IExpressionPropertyAdapter<T> ep)
-                    {
-                        ep.Expression = oldExpression;
-                    }
-                })
-                .ToCommand()
-                .DoAndRecord(recorder);
+            Commit();
         }
     }
 
@@ -498,14 +466,8 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            IAnimation<T>? oldAnimation = animatableProperty.Animation;
-
-            RecordableCommands.Create(GetStorables())
-                .OnDo(() => animatableProperty.Animation = null)
-                .OnUndo(() => animatableProperty.Animation = oldAnimation)
-                .ToCommand()
-                .DoAndRecord(recorder);
+            animatableProperty.Animation = null;
+            Commit();
         }
     }
 
@@ -513,40 +475,18 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            IExpression<T>? oldExpression = expressionProperty.Expression;
-
             if (!Expression.TryParse<T>(expressionString, out var newExpression, out error))
             {
                 return false;
             }
 
-            // Animationを保存してnullに設定する
-            IAnimation<T>? oldAnimation = null;
-            if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty)
+            expressionProperty.Expression = newExpression;
+            if (PropertyAdapter is IAnimatablePropertyAdapter<T> ap)
             {
-                oldAnimation = animatableProperty.Animation;
+                ap.Animation = null;
             }
 
-            RecordableCommands.Create(GetStorables())
-                .OnDo(() =>
-                {
-                    expressionProperty.Expression = newExpression;
-                    if (PropertyAdapter is IAnimatablePropertyAdapter<T> ap)
-                    {
-                        ap.Animation = null;
-                    }
-                })
-                .OnUndo(() =>
-                {
-                    expressionProperty.Expression = oldExpression;
-                    if (PropertyAdapter is IAnimatablePropertyAdapter<T> ap)
-                    {
-                        ap.Animation = oldAnimation;
-                    }
-                })
-                .ToCommand()
-                .DoAndRecord(recorder);
+            Commit();
         }
 
         error = null;
@@ -557,14 +497,8 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            IExpression<T>? oldExpression = expressionProperty.Expression;
-
-            RecordableCommands.Create(GetStorables())
-                .OnDo(() => expressionProperty.Expression = null)
-                .OnUndo(() => expressionProperty.Expression = oldExpression)
-                .ToCommand()
-                .DoAndRecord(recorder);
+            expressionProperty.Expression = null;
+            Commit();
         }
     }
 
@@ -574,6 +508,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         {
             return expressionProperty.Expression?.ExpressionString;
         }
+
         return null;
     }
 }

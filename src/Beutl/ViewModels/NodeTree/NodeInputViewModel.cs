@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
+using Beutl.Editor;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
 using Beutl.Services;
@@ -61,19 +62,14 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
 
     public void Remove()
     {
-        CommandRecorder recorder = _parent.GetRequiredService<CommandRecorder>();
-        _nodeTree.Nodes.BeginRecord<Node>()
-            .Remove(Node)
-            .ToCommand([_parent.Model])
-            .DoAndRecord(recorder);
+        _nodeTree.Nodes.Remove(Node);
+        _parent.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveNode);
     }
 
     public void UpdateName(string? name)
     {
-        CommandRecorder recorder = _parent.GetRequiredService<CommandRecorder>();
-        RecordableCommands.Edit(Node, CoreObject.NameProperty, name)
-            .WithStoables([_parent.Model])
-            .DoAndRecord(recorder);
+        Node.Name = name!;
+        _parent.GetRequiredService<HistoryManager>().Commit(CommandNames.RenameNode);
     }
 
     public void Dispose()

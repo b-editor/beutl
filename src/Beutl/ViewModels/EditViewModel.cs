@@ -1,10 +1,12 @@
-﻿using System.Collections.Immutable;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Numerics;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Configuration;
+using Beutl.Editor;
+using Beutl.Editor.Observers;
+using Beutl.Editor.Operations;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
@@ -31,6 +33,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
     ISupportAutoSaveEditorContext
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
+    private readonly AutoSaveService _autoSaveService = new();
 
     private readonly CompositeDisposable _disposables = [];
 
@@ -89,14 +92,28 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         Player = new PlayerViewModel(this);
         Commands = new KnownCommandsImpl(scene, this);
-        CommandRecorder = new CommandRecorder();
+        var sequenceGenerator = new OperationSequenceGenerator();
+        var observer = new CoreObjectOperationObserver(null, Scene, sequenceGenerator)
+            .DisposeWith(_disposables);
+        HistoryManager = new HistoryManager(Scene, sequenceGenerator);
+        HistoryManager.Subscribe(observer)
+            .DisposeWith(_disposables);
+
+        observer.Operations
+            .Buffer(HistoryManager.StateChanged)
+            .Subscribe(OnChangeOperations)
+            .DisposeWith(_disposables);
+
         BufferStatus = new BufferStatusViewModel(this)
             .DisposeWith(_disposables);
 
         DockHost = new DockHostViewModel(SceneId, this)
             .DisposeWith(_disposables);
 
-        CommandRecorder.Executed += OnCommandRecorderExecuted;
+        _autoSaveService.SaveError
+            .Subscribe(_ => NotificationService.ShowError(string.Empty, Message.An_exception_occurred_while_saving_the_file))
+            .DisposeWith(_disposables);
+        _autoSaveService.DisposeWith(_disposables);
 
         RestoreState();
 
@@ -207,68 +224,154 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         }
     }
 
-    private void OnCommandRecorderExecuted(object? sender, CommandExecutedEventArgs e)
+    private void OnChangeOperations(IList<ChangeOperation> list)
     {
-        _logger.LogInformation("Command executed, updating FrameCacheManager and saving state if needed.");
-        Task.Run(() =>
+        if (list.Count == 0)
         {
-            int rate = Player.GetFrameRate();
-            IEnumerable<TimeRange> affectedRange = e.Command is IAffectsTimelineCommand affectsTimeline
-                ? affectsTimeline.GetAffectedRange()
-                : e.Storables.OfType<Element>().Select(v => v.Range);
+            return;
+        }
 
-            FrameCacheManager.Value.DeleteAndUpdateBlocks(affectedRange
-                .Select(item => (Start: (int)item.Start.ToFrameNumber(rate),
-                    End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
-        });
+        // 影響を受けるタイムレンジを取得
+        List<TimeRange> affectedRanges = GetAffectedTimeRanges(list);
 
-        if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
+        // フレームキャッシュを更新
+        if (affectedRanges.Count > 0)
         {
-            Dispatcher.UIThread.Invoke(() =>
+            Task.Run(() =>
             {
-                var objects = e.Storables
-                    .Select(item =>
-                    {
-                        if (item is Hierarchical hierarchical)
-                        {
-                            return hierarchical.EnumerateAncestors<CoreObject>().Where(o => o.Uri != null);
-                        }
-
-                        if (item.Uri != null)
-                        {
-                            return [item];
-                        }
-
-                        return [];
-                    })
-                    .SelectMany(e => e)
-                    .ToHashSet();
-
-                foreach (CoreObject item in objects)
-                {
-                    try
-                    {
-                        _logger.LogTrace("Auto-saving object ({TypeName}, {ObjectId}).", TypeFormat.ToString(item.GetType()), item.Id);
-                        CoreSerializer.StoreToUri(item, item.Uri!, CoreSerializationMode.Write);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "An exception occurred while saving the file.");
-                        NotificationService.ShowError(string.Empty,
-                            Message.An_exception_occurred_while_saving_the_file);
-                    }
-                }
-
-                try
-                {
-                    SaveState();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "An exception occurred while saving the view state.");
-                }
+                int rate = Player.GetFrameRate();
+                FrameCacheManager.Value.DeleteAndUpdateBlocks(affectedRanges
+                    .Select(item => (Start: (int)item.Start.ToFrameNumber(rate),
+                        End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
             });
         }
+
+        // 自動保存
+        if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled)
+        {
+            AutoSave(list);
+        }
+    }
+
+    private void AutoSave(IList<ChangeOperation> list)
+    {
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _autoSaveService.AutoSave(list);
+
+            // ビューステートを保存
+            try
+            {
+                SaveState();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An exception occurred while saving the view state.");
+            }
+        });
+    }
+
+    private List<TimeRange> GetAffectedTimeRanges(IList<ChangeOperation> list)
+    {
+        return [.. list.SelectMany(GetAffectedTimeRangesFromOperation).Where(range => !range.IsEmpty)];
+    }
+
+    private IEnumerable<TimeRange> GetAffectedTimeRangesFromOperation(ChangeOperation operation)
+    {
+        // IUpdatePropertyValueOperationの場合
+        if (operation is IUpdatePropertyValueOperation updateOp)
+        {
+            TimeRange? range = GetAffectedTimeRangeFromUpdateOperation(updateOp);
+            if (range.HasValue)
+            {
+                yield return range.Value;
+            }
+            yield break;
+        }
+
+        // ICollectionChangeOperationの場合
+        if (operation is ICollectionChangeOperation collectionOp)
+        {
+            // Objectプロパティから影響を受けるElementを探す
+            Element? element = FindElementFromObject(collectionOp.Object);
+            if (element != null)
+            {
+                yield return element.Range;
+            }
+
+            // Itemsから複数のElementを探す
+            foreach (Element? item in collectionOp.Items.Select(i => i is CoreObject coreObj ? FindElementFromObject(coreObj) : null)
+                .Where(i => i != null))
+            {
+                yield return item!.Range;
+            }
+        }
+    }
+
+    private TimeRange? GetAffectedTimeRangeFromUpdateOperation(IUpdatePropertyValueOperation updateOp)
+    {
+        CoreObject obj = updateOp.Object;
+        string propertyPath = updateOp.PropertyPath;
+
+        // ElementのStartまたはLengthプロパティの変更の場合
+        if (obj is Element element)
+        {
+            string propertyName = GetPropertyNameFromPath(propertyPath);
+            if (propertyName == nameof(Element.Start) || propertyName == nameof(Element.Length))
+            {
+                // 変更前後の両方の範囲を含む
+                TimeRange currentRange = element.Range;
+
+                // OldValueから変更前の範囲を計算
+                if (updateOp.OldValue is TimeSpan oldTimeSpan)
+                {
+                    TimeRange oldRange = propertyName == nameof(Element.Start)
+                        ? currentRange.WithStart(oldTimeSpan)
+                        : currentRange.WithDuration(oldTimeSpan);
+                    return currentRange.Union(oldRange);
+                }
+
+                return currentRange;
+            }
+
+            // その他のElementプロパティの場合
+            return element.Range;
+        }
+
+        // Element以外のオブジェクトの場合、親を辿ってElementを探す
+        Element? parentElement = FindElementFromObject(obj);
+        if (parentElement != null)
+        {
+            return parentElement.Range;
+        }
+
+        return null;
+    }
+
+    private static string GetPropertyNameFromPath(string propertyPath)
+    {
+        if (propertyPath.Contains('.'))
+        {
+            string[] parts = propertyPath.Split('.');
+            return parts[^1];
+        }
+
+        return propertyPath;
+    }
+
+    private static Element? FindElementFromObject(CoreObject obj)
+    {
+        if (obj is Element element)
+        {
+            return element;
+        }
+
+        if (obj is IHierarchical hierarchical)
+        {
+            return hierarchical.EnumerateAncestors<Element>().FirstOrDefault();
+        }
+
+        return null;
     }
 
     private void OnSelectedObjectDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
@@ -301,7 +404,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     public BufferStatusViewModel BufferStatus { get; private set; }
 
-    public CommandRecorder CommandRecorder { get; private set; }
+    public HistoryManager HistoryManager { get; private set; }
 
     public ReadOnlyReactivePropertySlim<FrameCacheManager> FrameCacheManager { get; private set; }
 
@@ -345,8 +448,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         Scene = null!;
         Commands = null!;
-        CommandRecorder.Executed -= OnCommandRecorderExecuted;
-        CommandRecorder.Clear();
+        HistoryManager.Clear();
         FrameCacheManager.Value.Dispose();
         FrameCacheManager.Dispose();
 
@@ -487,8 +589,8 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         if (serviceType.IsAssignableTo(typeof(ISupportCloseAnimation)))
             return this;
 
-        if (serviceType == typeof(CommandRecorder))
-            return CommandRecorder;
+        if (serviceType == typeof(HistoryManager))
+            return HistoryManager;
 
         return null;
     }
@@ -529,9 +631,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                     Transform? transform = transformp.GetValue();
                     AddOrSetHelper.AddOrSet(
                         ref transform,
-                        new TranslateTransform(desc.Position),
-                        [operation],
-                        CommandRecorder);
+                        new TranslateTransform(desc.Position));
                     transformp.SetValue(transform);
                 }
                 else
@@ -555,13 +655,12 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 element.Name = Path.GetFileName(desc.FileName);
                 SetAccentColor(element, typeof(T).FullName!);
 
-                element.Operation.AddChild(t = new T()).Do();
+                element.Operation.AddChild(t = new T());
                 SetTransform(element.Operation, t);
 
                 return element;
             }
 
-            var list = new List<IRecordableCommand>();
             if (MatchFileImage(desc.FileName))
             {
                 _logger.LogDebug("File is an image.");
@@ -570,7 +669,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 t.Value.Source.CurrentValue = image;
 
                 CoreSerializer.StoreToUri(element, element.Uri!);
-                list.Add(Scene.AddChild(element));
+                Scene.AddChild(element);
                 scrollPos = (element.Range, element.ZIndex);
             }
             else if (MatchFileVideoOnly(desc.FileName))
@@ -591,12 +690,10 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
                 CoreSerializer.StoreToUri(element1, element1.Uri!);
                 CoreSerializer.StoreToUri(element2, element2.Uri!);
-                list.Add(Scene.AddChild(element1));
-                list.Add(Scene.AddChild(element2));
+                Scene.AddChild(element1);
+                Scene.AddChild(element2);
                 // グループ化
-                list.Add(Scene.Groups.BeginRecord<ImmutableHashSet<Guid>>()
-                    .Add([element1.Id, element2.Id])
-                    .ToCommand([Scene]));
+                Scene.Groups.Add([element1.Id, element2.Id]);
                 scrollPos = (element1.Range, element1.ZIndex);
             }
             else if (MatchFileAudioOnly(desc.FileName))
@@ -611,13 +708,11 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 }
 
                 CoreSerializer.StoreToUri(element, element.Uri!);
-                list.Add(Scene.AddChild(element));
+                Scene.AddChild(element);
                 scrollPos = (element.Range, element.ZIndex);
             }
 
-            list.ToArray()
-                .ToCommand()
-                .DoAndRecord(CommandRecorder);
+            HistoryManager.Commit(CommandNames.AddElement);
 
             if (scrollPos.HasValue && timeline != null)
             {
@@ -642,12 +737,13 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 element.AccentColor =
                     ColorGenerator.GenerateColor(desc.InitialOperator.FullName ?? desc.InitialOperator.Name);
                 var operatour = (SourceOperator)Activator.CreateInstance(desc.InitialOperator)!;
-                element.Operation.AddChild(operatour).Do();
+                element.Operation.AddChild(operatour);
                 SetTransform(element.Operation, operatour);
             }
 
             CoreSerializer.StoreToUri(element, element.Uri!);
-            Scene.AddChild(element).DoAndRecord(CommandRecorder);
+            Scene.AddChild(element);
+            HistoryManager.Commit(CommandNames.AddElement);
 
             timeline?.ScrollTo.Execute((element.Range, element.ZIndex));
         }
@@ -772,7 +868,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         public ValueTask<bool> OnUndo()
         {
             viewModel._logger.LogInformation("Undoing last command.");
-            viewModel.CommandRecorder.Undo();
+            viewModel.HistoryManager.Undo();
             viewModel._logger.LogInformation("Undo completed.");
 
             return ValueTask.FromResult(true);
@@ -781,7 +877,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         public ValueTask<bool> OnRedo()
         {
             viewModel._logger.LogInformation("Redoing last undone command.");
-            viewModel.CommandRecorder.Redo();
+            viewModel.HistoryManager.Redo();
             viewModel._logger.LogInformation("Redo completed.");
 
             return ValueTask.FromResult(true);

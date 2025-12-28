@@ -102,11 +102,8 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
     {
         if (Value.Value is PathGeometry group)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            group.Figures.BeginRecord<PathFigure>()
-                .Add(new PathFigure())
-                .ToCommand(GetStorables())
-                .DoAndRecord(recorder);
+            group.Figures.Add(new PathFigure());
+            Commit();
         }
     }
 

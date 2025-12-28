@@ -1,11 +1,8 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
-
 using Beutl.Animation;
 using Beutl.Services;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -114,7 +111,9 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEdito
 
 public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEditorViewModel
 {
-    private static readonly NotifyCollectionChangedEventArgs s_resetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
+    private static readonly NotifyCollectionChangedEventArgs s_resetCollectionChanged =
+        new(NotifyCollectionChangedAction.Reset);
+
     private INotifyCollectionChanged? _incc;
 
     public ListEditorViewModel(IPropertyAdapter property)
@@ -129,27 +128,27 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
             .Take(1)
             .Subscribe(_ =>
                 List.Subscribe(list =>
-                {
-                    if (_incc != null)
                     {
-                        _incc.CollectionChanged -= OnCollectionChanged;
-                        _incc = null;
+                        if (_incc != null)
+                        {
+                            _incc.CollectionChanged -= OnCollectionChanged;
+                            _incc = null;
 
-                        OnCollectionChanged(s_resetCollectionChanged);
-                    }
+                            OnCollectionChanged(s_resetCollectionChanged);
+                        }
 
-                    if (list is INotifyCollectionChanged incc)
-                    {
-                        _incc = incc;
-                        _incc.CollectionChanged += OnCollectionChanged;
-                        var args = new NotifyCollectionChangedEventArgs(
-                            action: NotifyCollectionChangedAction.Add,
-                            changedItems: list.ToArray(),
-                            startingIndex: 0);
-                        OnCollectionChanged(args);
-                    }
-                })
-                .DisposeWith(Disposables))
+                        if (list is INotifyCollectionChanged incc)
+                        {
+                            _incc = incc;
+                            _incc.CollectionChanged += OnCollectionChanged;
+                            var args = new NotifyCollectionChangedEventArgs(
+                                action: NotifyCollectionChangedAction.Add,
+                                changedItems: list.ToArray(),
+                                startingIndex: 0);
+                            OnCollectionChanged(args);
+                        }
+                    })
+                    .DisposeWith(Disposables))
             .DisposeWith(Disposables);
     }
 
@@ -180,7 +179,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         {
             ListItemEditorViewModel<TItem> item = Items[index];
             if (this.GetService<ISupportCloseAnimation>() is { } service
-                && item.ItemAccessor.GetValue() is {  } value)
+                && item.ItemAccessor.GetValue() is { } value)
             {
                 service.Close(value);
             }
@@ -227,6 +226,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                     Items[index].ItemAccessor.OnItemChanged(List.Value![index]);
                     index++;
                 }
+
                 break;
 
             case NotifyCollectionChangedAction.Move:
@@ -235,6 +235,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                 {
                     newIndex += e.OldItems!.Count;
                 }
+
                 Items.MoveRange(e.OldStartingIndex, e.NewItems!.Count, newIndex);
 
                 UpdateIndex(0);
@@ -247,6 +248,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                     Items.RemoveAt(i);
                     item.Dispose();
                 }
+
                 break;
         }
     }
@@ -255,7 +257,6 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
     {
         if (List.Value == null)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             Type listType = PropertyAdapter.PropertyType;
             if (PropertyAdapter.IsReadOnly)
                 throw new InvalidOperationException("読み取り専用です。");
@@ -267,34 +268,25 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
             IPropertyAdapter prop = PropertyAdapter;
 
-            RecordableCommands.Create(GetStorables())
-                .OnDo(() => prop.SetValue(list))
-                .OnUndo(() => prop.SetValue(null))
-                .ToCommand()
-                .DoAndRecord(recorder);
+            prop.SetValue(list);
         }
         else
         {
             List.Value.Clear();
         }
+
+        Commit();
     }
 
     public void Delete()
     {
         if (List.Value != null)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
             if (PropertyAdapter.IsReadOnly)
                 throw new InvalidOperationException("読み取り専用です。");
 
-            IPropertyAdapter prop = PropertyAdapter;
-            IList<TItem?> oldValue = List.Value;
-
-            RecordableCommands.Create(GetStorables())
-                .OnDo(() => prop.SetValue(null))
-                .OnUndo(() => prop.SetValue(oldValue))
-                .ToCommand()
-                .DoAndRecord(recorder);
+            PropertyAdapter.SetValue(null);
+            Commit();
         }
     }
 
@@ -311,29 +303,29 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public void AddItem(TItem? item)
     {
-        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-        List.Value!.BeginRecord()
-            .Add(item)
-            .ToCommand(GetStorables())
-            .DoAndRecord(recorder);
+        List.Value!.Add(item);
+        Commit();
     }
 
     public void RemoveItem(int index)
     {
-        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-        List.Value!.BeginRecord()
-            .RemoveAt(index)
-            .ToCommand(GetStorables())
-            .DoAndRecord(recorder);
+        List.Value!.RemoveAt(index);
+        Commit();
     }
 
     public void MoveItem(int oldIndex, int newIndex)
     {
-        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-        List.Value!.BeginRecord()
-            .Move(oldIndex, newIndex)
-            .ToCommand(GetStorables())
-            .DoAndRecord(recorder);
+        if (List.Value is ICoreList<TItem> coreList)
+        {
+            coreList.Move(oldIndex, newIndex);
+        }
+        else
+        {
+            var item = List.Value![oldIndex];
+            List.Value!.RemoveAt(oldIndex);
+            List.Value!.Insert(newIndex, item);
+        }
+        Commit();
     }
 
     public override void ReadFromJson(JsonObject json)

@@ -1,4 +1,3 @@
-﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
 using Avalonia;
@@ -80,10 +79,9 @@ public class SocketViewModel : NodeItemViewModel
             }
 
             if (groupNode != null && socket != null
-                && groupNode.AddSocket(socket, out Connection? connection))
+                && groupNode.AddSocket(socket, out _))
             {
-                var command = new ConnectGeneratedSocketCommand(connection, groupNode);
-                _editViewModel.CommandRecorder.PushOnly(command);
+                _editViewModel.HistoryManager.Commit(CommandNames.AddSocket);
             }
 
             return false;
@@ -92,11 +90,7 @@ public class SocketViewModel : NodeItemViewModel
             && SortSocket(Model, target.Model, out IInputSocket? inputSocket, out IOutputSocket? outputSocket))
         {
             bool isConnected = outputSocket.TryConnect(inputSocket);
-            RecordableCommands.Create([.. GetStorables(inputSocket), .. GetStorables(outputSocket)])
-                .OnUndo(() => outputSocket.Disconnect(inputSocket))
-                .OnRedo(() => outputSocket.TryConnect(inputSocket))
-                .ToCommand()
-                .PushTo(_editViewModel.CommandRecorder);
+            _editViewModel.HistoryManager.Commit(CommandNames.ConnectSocket);
 
             return isConnected;
         }
@@ -106,24 +100,13 @@ public class SocketViewModel : NodeItemViewModel
         }
     }
 
-    private IRecordableCommand CreateDisconnectCommand(IInputSocket inputSocket, IOutputSocket outputSocket)
-    {
-        return RecordableCommands.Create([.. GetStorables(inputSocket), .. GetStorables(outputSocket)])
-            .OnDo(() => outputSocket.Disconnect(inputSocket))
-            .OnUndo(() => outputSocket.TryConnect(inputSocket))
-            .ToCommand();
-    }
-
     public bool TryDisconnect(SocketViewModel target)
     {
         if (Model != null && target.Model != null
             && SortSocket(Model, target.Model, out IInputSocket? inputSocket, out IOutputSocket? outputSocket))
         {
-            RecordableCommands.Create([.. GetStorables(inputSocket), .. GetStorables(outputSocket)])
-                .OnDo(() => outputSocket.Disconnect(inputSocket))
-                .OnUndo(() => outputSocket.TryConnect(inputSocket))
-                .ToCommand()
-                .DoAndRecord(_editViewModel.CommandRecorder);
+            outputSocket.Disconnect(inputSocket);
+            _editViewModel.HistoryManager.Commit(CommandNames.DisconnectSocket);
 
             return true;
         }
@@ -138,15 +121,17 @@ public class SocketViewModel : NodeItemViewModel
         switch (Model)
         {
             case IInputSocket inputSocket when inputSocket.Connection is { } connection:
-                CreateDisconnectCommand(connection.Input, connection.Output)
-                    .DoAndRecord(_editViewModel.CommandRecorder);
+                connection.Output.Disconnect(connection.Input);
+                _editViewModel.HistoryManager.Commit(CommandNames.DisconnectSocket);
                 break;
 
             case IOutputSocket outputSocket when outputSocket.Connections.Count > 0:
-                outputSocket.Connections.Select(x => CreateDisconnectCommand(x.Input, x.Output))
-                    .ToArray()
-                    .ToCommand()
-                    .DoAndRecord(_editViewModel.CommandRecorder);
+                // Disconnect内でConnectionsから要素を削除するのでToArrayする必要がある
+                foreach (Connection connection in outputSocket.Connections.ToArray())
+                {
+                    connection.Output.Disconnect(connection.Input);
+                }
+                _editViewModel.HistoryManager.Commit(CommandNames.DisconnectSocket);
                 break;
         }
     }
@@ -155,18 +140,15 @@ public class SocketViewModel : NodeItemViewModel
     {
         if (Model is IAutomaticallyGeneratedSocket generatedSocket)
         {
-            Node.Items.BeginRecord<INodeItem>()
-                .Remove(generatedSocket)
-                .ToCommand(GetStorables(Model!))
-                .DoAndRecord(_editViewModel.CommandRecorder);
+            Node.Items.Remove(generatedSocket);
+            _editViewModel.HistoryManager.Commit(CommandNames.RemoveSocket);
         }
     }
 
     public void UpdateName(string? e)
     {
-        RecordableCommands.Edit(Model!, CoreObject.NameProperty, e)
-            .WithStoables(GetStorables(Model!))
-            .DoAndRecord(_editViewModel.CommandRecorder);
+        Model!.Name = e!;
+        _editViewModel.HistoryManager.Commit(CommandNames.RenameSocket);
     }
 
     protected override void OnDispose()
@@ -197,63 +179,5 @@ public class SocketViewModel : NodeItemViewModel
 
     protected virtual void OnIsConnectedChanged()
     {
-    }
-
-    private static ImmutableArray<CoreObject?> GetStorables(ISocket socket)
-    {
-        return [socket as CoreObject];
-    }
-
-    private sealed class ConnectGeneratedSocketCommand : IRecordableCommand
-    {
-        private readonly ISocketsCanBeAdded _node;
-        private readonly ISocket _socket;
-        private readonly int _index = -1;
-
-        public ConnectGeneratedSocketCommand(Connection connection, ISocketsCanBeAdded node)
-        {
-            _node = node;
-            if (node is Node node1)
-            {
-                _index = node1.Items.IndexOf(connection.Input);
-                _socket = connection.Input;
-                if (_index < 0)
-                {
-                    _index = node1.Items.IndexOf(connection.Output);
-                    _socket = connection.Output;
-                }
-            }
-
-            if (_index < 0 || _socket == null)
-            {
-                throw new Exception();
-            }
-        }
-
-        public ImmutableArray<CoreObject?> GetStorables()
-        {
-            return SocketViewModel.GetStorables(_socket);
-        }
-
-        public void Do()
-        {
-            // 実行されない。
-        }
-
-        public void Redo()
-        {
-            if (_node is Node node1)
-            {
-                node1.Items.Insert(_index, _socket);
-            }
-        }
-
-        public void Undo()
-        {
-            if (_node is Node node1)
-            {
-                node1.Items.Remove(_socket);
-            }
-        }
     }
 }

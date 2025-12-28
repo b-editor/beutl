@@ -187,7 +187,7 @@ public static class SplineEasingHelper
             Easing.Y2 = newPoint.Y;
         }
 
-        public IRecordableCommand UpdateControlPoint1((float X, float Y) vector)
+        public void UpdateControlPoint1((float X, float Y) vector)
         {
             vector = (-vector.X, -vector.Y);
             // ベクトルの角度を取得
@@ -213,22 +213,11 @@ public static class SplineEasingHelper
 
             // Update CP1
             var easing = Easing;
-            var oldPoint = (easing.X1, easing.Y1);
-            return RecordableCommands.Create()
-                .OnDo(() =>
-                {
-                    easing.X1 = newPoint.X;
-                    easing.Y1 = newPoint.Y;
-                })
-                .OnUndo(() =>
-                {
-                    easing.X1 = oldPoint.X1;
-                    easing.Y1 = oldPoint.Y1;
-                })
-                .ToCommand();
+            easing.X1 = newPoint.X;
+            easing.Y1 = newPoint.Y;
         }
 
-        public IRecordableCommand UpdateControlPoint2((float X, float Y) vector)
+        public void UpdateControlPoint2((float X, float Y) vector)
         {
             vector = (-vector.X, -vector.Y);
             // ベクトルの角度を取得
@@ -254,19 +243,8 @@ public static class SplineEasingHelper
 
             // Update CP2
             var easing = Easing;
-            var oldPoint = (easing.X2, easing.Y2);
-            return RecordableCommands.Create()
-                .OnDo(() =>
-                {
-                    easing.X2 = newPoint.X;
-                    easing.Y2 = newPoint.Y;
-                })
-                .OnUndo(() =>
-                {
-                    easing.X2 = oldPoint.X2;
-                    easing.Y2 = oldPoint.Y2;
-                })
-                .ToCommand();
+            easing.X2 = newPoint.X;
+            easing.Y2 = newPoint.Y;
         }
 
         // X1 > X2になる場合調整を行う
@@ -340,7 +318,7 @@ public static class SplineEasingHelper
         }
     }
 
-    public static IRecordableCommand Move(
+    public static void Move(
         IKeyFrameAnimation animation, IKeyFrame keyFrame, TimeSpan keyTime)
     {
         var type = animation.ValueType;
@@ -363,15 +341,11 @@ public static class SplineEasingHelper
 
         if (method.HasValue)
         {
-            return (IRecordableCommand?)method.Value.Invoke(null, [animation, keyFrame, keyTime]);
+            method.Value.Invoke(null, [animation, keyFrame, keyTime]);
         }
         else
         {
-            var oldKeyTime = keyFrame.KeyTime;
-            return RecordableCommands.Create()
-                .OnDo(() => keyFrame.KeyTime = keyTime)
-                .OnUndo(() => keyFrame.KeyTime = oldKeyTime)
-                .ToCommand();
+            keyFrame.KeyTime = keyTime;
         }
     }
 
@@ -416,16 +390,10 @@ public static class SplineEasingHelper
     }
 
 
-    public static IRecordableCommand MoveGeneric<T>(
+    public static void MoveGeneric<T>(
         KeyFrameAnimation<T> animation, KeyFrame<T> keyFrame, TimeSpan keyTime)
         where T : struct, INumber<T>
     {
-        var oldKeyTime = keyFrame.KeyTime;
-        var command = RecordableCommands.Create()
-            .OnDo(() => keyFrame.KeyTime = keyTime)
-            .OnUndo(() => keyFrame.KeyTime = oldKeyTime)
-            .ToCommand();
-
         int oldIndex = animation.KeyFrames.IndexOf(keyFrame);
 
         var oldNextKeyFrame = oldIndex + 1 < animation.KeyFrames.Count
@@ -453,11 +421,10 @@ public static class SplineEasingHelper
             oldNextInfo?.Update(oldNextKeyFrame, keyFrame);
             currentInfo?.Update(keyFrame, oldPrevKeyFrame);
 
-            return command
-                .Append(oldNextCPV1.HasValue ? oldNextInfo?.UpdateControlPoint1(oldNextCPV1.Value) : null)
-                .Append(oldNextCPV2.HasValue ? oldNextInfo?.UpdateControlPoint2(oldNextCPV2.Value) : null)
-                .Append(currentCPV1.HasValue ? currentInfo?.UpdateControlPoint1(currentCPV1.Value) : null)
-                .Append(currentCPV2.HasValue ? currentInfo?.UpdateControlPoint2(currentCPV2.Value) : null);
+            if (oldNextCPV1.HasValue) oldNextInfo?.UpdateControlPoint1(oldNextCPV1.Value);
+            if (oldNextCPV2.HasValue) oldNextInfo?.UpdateControlPoint2(oldNextCPV2.Value);
+            if (currentCPV1.HasValue) currentInfo?.UpdateControlPoint1(currentCPV1.Value);
+            if (currentCPV2.HasValue) currentInfo?.UpdateControlPoint2(currentCPV2.Value);
         }
         else if (0 <= newIndex && newIndex <= animation.KeyFrames.Count)
         {
@@ -482,23 +449,18 @@ public static class SplineEasingHelper
             if (newPrevKeyFrame != null)
                 currentInfo?.Update(keyFrame, newPrevKeyFrame);
 
-            return command
-                .Append(oldNextCPV2.HasValue && oldPrevKeyFrame != null
-                    ? oldNextInfo?.UpdateControlPoint2(oldNextCPV2.Value)
-                    : null)
-                .Append(currentCPV1.HasValue && oldPrevKeyFrame != null
-                    ? oldNextInfo?.UpdateControlPoint1(currentCPV1.Value)
-                    : null)
-                .Append(newNextCPV2.HasValue ? newNextInfo?.UpdateControlPoint2(newNextCPV2.Value) : null)
-                .Append(oldNextCPV1.HasValue ? newNextInfo?.UpdateControlPoint1(oldNextCPV1.Value) : null)
-                .Append(currentCPV2.HasValue && newPrevKeyFrame != null
-                    ? currentInfo?.UpdateControlPoint2(currentCPV2.Value)
-                    : null)
-                .Append(newNextCPV1.HasValue && newPrevKeyFrame != null
-                    ? currentInfo?.UpdateControlPoint1(newNextCPV1.Value)
-                    : null);
+            if (oldNextCPV2.HasValue && oldPrevKeyFrame != null)
+                oldNextInfo?.UpdateControlPoint2(oldNextCPV2.Value);
+            if (currentCPV1.HasValue && oldPrevKeyFrame != null)
+                oldNextInfo?.UpdateControlPoint1(currentCPV1.Value);
+            if (newNextCPV2.HasValue)
+                newNextInfo?.UpdateControlPoint2(newNextCPV2.Value);
+            if (oldNextCPV1.HasValue)
+                newNextInfo?.UpdateControlPoint1(oldNextCPV1.Value);
+            if (currentCPV2.HasValue && newPrevKeyFrame != null)
+                currentInfo?.UpdateControlPoint2(currentCPV2.Value);
+            if (newNextCPV1.HasValue && newPrevKeyFrame != null)
+                currentInfo?.UpdateControlPoint1(newNextCPV1.Value);
         }
-
-        return command;
     }
 }

@@ -1,10 +1,8 @@
 ﻿using System.Numerics;
-using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
-using Avalonia.Controls.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -14,12 +12,8 @@ using Beutl.Configuration;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Pixel;
-using Beutl.Media.Source;
 using Beutl.Models;
-using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
@@ -343,16 +337,11 @@ public sealed partial class Timeline : UserControl
             }
             else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
             {
-                RecordableCommands.Edit(ViewModel.Scene, Scene.DurationProperty, ViewModel.Scene.Duration,
-                        _initialDuration)
-                    .DoAndRecord(ViewModel.EditorContext.CommandRecorder);
+                ViewModel.EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
             }
             else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
             {
-                RecordableCommands.Edit(ViewModel.Scene, Scene.StartProperty, ViewModel.Scene.Start, _initialStart)
-                    .Append(RecordableCommands.Edit(ViewModel.Scene, Scene.DurationProperty, ViewModel.Scene.Duration,
-                        _initialDuration))
-                    .DoAndRecord(ViewModel.EditorContext.CommandRecorder);
+                ViewModel.EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneStart);
             }
 
             if (Scale.IsPointerOver && ViewModel.HoveredCacheBlock.Value is { } cache)
@@ -509,7 +498,6 @@ public sealed partial class Timeline : UserControl
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {
-                CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
                 var dialog = new AddElementDialog
                 {
                     DataContext = new AddElementDialogViewModel(
@@ -519,7 +507,7 @@ public sealed partial class Timeline : UserControl
                             TimeSpan.FromSeconds(5),
                             viewModel.CalculateClickedLayer(),
                             InitialOperator: type),
-                        recorder)
+                        ViewModel.EditorContext.HistoryManager)
                 };
                 await dialog.ShowAsync();
             }
@@ -551,13 +539,12 @@ public sealed partial class Timeline : UserControl
     private async void AddElementClick(object? sender, RoutedEventArgs e)
     {
         if (ViewModel == null) return;
-        CommandRecorder recorder = ViewModel.EditorContext.CommandRecorder;
         var dialog = new AddElementDialog
         {
             DataContext = new AddElementDialogViewModel(ViewModel.Scene,
                 new ElementDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5),
                     ViewModel.CalculateClickedLayer()),
-                recorder)
+                ViewModel.EditorContext.HistoryManager)
         };
         await dialog.ShowAsync();
     }

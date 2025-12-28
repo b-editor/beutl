@@ -44,11 +44,8 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<Gradie
     {
         if (Value.Value is { } list)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            list.BeginRecord<GradientStop>()
-                .Insert(index, item)
-                .ToCommand(GetStorables())
-                .DoAndRecord(recorder);
+            list.Insert(index, item);
+            Commit();
         }
     }
 
@@ -56,11 +53,8 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<Gradie
     {
         if (Value.Value is { } list)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            list.BeginRecord<GradientStop>()
-                .RemoveAt(index)
-                .ToCommand(GetStorables())
-                .DoAndRecord(recorder);
+            list.RemoveAt(index);
+            Commit();
         }
     }
 
@@ -68,24 +62,14 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<Gradie
         int oldIndex, int newIndex,
         GradientStop.Resource oldObject, GradientStop obj)
     {
-        CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
         if (Value.Value is { } list)
         {
-            IRecordableCommand? move = oldIndex == newIndex ? null : list.BeginRecord<GradientStop>()
-                .Move(oldIndex, newIndex)
-                .ToCommand([]);
+            if (oldIndex != newIndex)
+            {
+                list.Move(oldIndex, newIndex);
+            }
 
-            IRecordableCommand? offset = obj.Offset.CurrentValue != oldObject.Offset
-                ? RecordableCommands.Edit(obj.Offset, obj.Offset.CurrentValue, oldObject.Offset)
-                : null;
-            IRecordableCommand? color = obj.Color.CurrentValue != oldObject.Color
-                ? RecordableCommands.Edit(obj.Color, obj.Color.CurrentValue, oldObject.Color)
-                : null;
-
-            move.Append(offset)
-                .Append(color)
-                .WithStoables(GetStorables())
-                .DoAndRecord(recorder);
+            Commit();
         }
     }
 

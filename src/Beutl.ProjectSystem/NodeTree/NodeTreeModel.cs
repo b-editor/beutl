@@ -6,16 +6,28 @@ namespace Beutl.NodeTree;
 
 public abstract class NodeTreeModel : Hierarchical, INotifyEdited
 {
+    public static readonly CoreProperty<HierarchicalList<Node>> NodesProperty;
     private readonly HierarchicalList<Node> _nodes;
 
     public event EventHandler? Edited;
+
+    static NodeTreeModel()
+    {
+        NodesProperty = ConfigureProperty<HierarchicalList<Node>, NodeTreeModel>(nameof(Nodes))
+            .Accessor(o => o.Nodes, (o, v) => o.Nodes = v)
+            .Register();
+    }
 
     public NodeTreeModel()
     {
         _nodes = new HierarchicalList<Node>(this);
     }
 
-    public ICoreList<Node> Nodes => _nodes;
+    public HierarchicalList<Node> Nodes
+    {
+        get => _nodes;
+        set => _nodes.Replace(value);
+    }
 
     protected void RaiseInvalidated(EventArgs args)
     {
@@ -37,20 +49,5 @@ public abstract class NodeTreeModel : Hierarchical, INotifyEdited
         }
 
         return null;
-    }
-
-    public override void Serialize(ICoreSerializationContext context)
-    {
-        base.Serialize(context);
-        context.SetValue(nameof(Nodes), Nodes);
-    }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        base.Deserialize(context);
-        if (context.GetValue<Node[]>(nameof(Nodes)) is { } nodes)
-        {
-            Nodes.Replace(nodes);
-        }
     }
 }

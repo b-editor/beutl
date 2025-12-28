@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Microsoft ResX Schema
+
+    Version 2.0
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
+    associated with the data types.
+
+    Example:
+
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+
+    There are any number of "resheader" rows that contain simple
+    name/value pairs.
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
+    mimetype set.
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
+    extensible. For a given mimetype the value must be set accordingly:
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
+    read any of the formats listed below.
+
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+              xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <!-- Element Operations -->
+  <data name="AddElement" xml:space="preserve">
+    <value>要素を追加</value>
+  </data>
+  <data name="RemoveElement" xml:space="preserve">
+    <value>要素を除外</value>
+  </data>
+  <data name="CutElement" xml:space="preserve">
+    <value>要素を切り取り</value>
+  </data>
+  <data name="DeleteElement" xml:space="preserve">
+    <value>要素を削除</value>
+  </data>
+  <data name="PasteElement" xml:space="preserve">
+    <value>要素を貼り付け</value>
+  </data>
+  <data name="MoveElement" xml:space="preserve">
+    <value>要素を移動</value>
+  </data>
+  <data name="SplitElement" xml:space="preserve">
+    <value>要素を分割</value>
+  </data>
+  <data name="ChangeElementColor" xml:space="preserve">
+    <value>要素の色を変更</value>
+  </data>
+  <data name="ChangeElementEnabled" xml:space="preserve">
+    <value>要素の有効/無効を変更</value>
+  </data>
+  <data name="ChangeElementUseNode" xml:space="preserve">
+    <value>要素のノード使用を変更</value>
+  </data>
+  <data name="GroupElements" xml:space="preserve">
+    <value>要素をグループ化</value>
+  </data>
+  <data name="UngroupElements" xml:space="preserve">
+    <value>グループを解除</value>
+  </data>
+  <!-- Timeline Operations -->
+  <data name="ChangeSceneDuration" xml:space="preserve">
+    <value>シーンの長さを変更</value>
+  </data>
+  <data name="ChangeSceneStart" xml:space="preserve">
+    <value>シーンの開始を変更</value>
+  </data>
+  <data name="MoveLayer" xml:space="preserve">
+    <value>レイヤーを移動</value>
+  </data>
+  <data name="ChangeLayerEnabled" xml:space="preserve">
+    <value>レイヤーの有効/無効を変更</value>
+  </data>
+  <data name="ChangeLayerColor" xml:space="preserve">
+    <value>レイヤーの色を変更</value>
+  </data>
+  <!-- KeyFrame/Animation Operations -->
+  <data name="InsertKeyFrame" xml:space="preserve">
+    <value>キーフレームを挿入</value>
+  </data>
+  <data name="RemoveKeyFrame" xml:space="preserve">
+    <value>キーフレームを削除</value>
+  </data>
+  <data name="EditKeyFrame" xml:space="preserve">
+    <value>キーフレームを編集</value>
+  </data>
+  <data name="MoveKeyFrame" xml:space="preserve">
+    <value>キーフレームを移動</value>
+  </data>
+  <data name="ChangeEasing" xml:space="preserve">
+    <value>イージングを変更</value>
+  </data>
+  <data name="PasteKeyFrame" xml:space="preserve">
+    <value>キーフレームを貼り付け</value>
+  </data>
+  <data name="PasteAnimation" xml:space="preserve">
+    <value>アニメーションを貼り付け</value>
+  </data>
+  <data name="ChangeUseGlobalClock" xml:space="preserve">
+    <value>グローバルクロックの使用を変更</value>
+  </data>
+  <data name="DeleteAnimation" xml:space="preserve">
+    <value>アニメーションを削除</value>
+  </data>
+  <!-- Node Tree Operations -->
+  <data name="AddNode" xml:space="preserve">
+    <value>ノードを追加</value>
+  </data>
+  <data name="RemoveNode" xml:space="preserve">
+    <value>ノードを削除</value>
+  </data>
+  <data name="MoveNode" xml:space="preserve">
+    <value>ノードを移動</value>
+  </data>
+  <data name="RenameNode" xml:space="preserve">
+    <value>ノード名を変更</value>
+  </data>
+  <data name="ConnectSocket" xml:space="preserve">
+    <value>ソケットを接続</value>
+  </data>
+  <data name="DisconnectSocket" xml:space="preserve">
+    <value>ソケットを切断</value>
+  </data>
+  <data name="AddSocket" xml:space="preserve">
+    <value>ソケットを追加</value>
+  </data>
+  <data name="RemoveSocket" xml:space="preserve">
+    <value>ソケットを削除</value>
+  </data>
+  <data name="RenameSocket" xml:space="preserve">
+    <value>ソケット名を変更</value>
+  </data>
+  <data name="ChangeUseNode" xml:space="preserve">
+    <value>ノードの使用を変更</value>
+  </data>
+  <!-- Source Operator Operations -->
+  <data name="AddSourceOperator" xml:space="preserve">
+    <value>ソースオペレーターを追加</value>
+  </data>
+  <data name="RemoveSourceOperator" xml:space="preserve">
+    <value>ソースオペレーターを削除</value>
+  </data>
+  <data name="ChangeSourceOperatorEnabled" xml:space="preserve">
+    <value>ソースオペレーターの有効/無効を変更</value>
+  </data>
+  <data name="PasteSourceOperator" xml:space="preserve">
+    <value>ソースオペレーターを貼り付け</value>
+  </data>
+  <data name="MoveSourceOperator" xml:space="preserve">
+    <value>ソースオペレーターを移動</value>
+  </data>
+  <!-- Scene Settings Operations -->
+  <data name="ChangeSceneSettings" xml:space="preserve">
+    <value>シーン設定を変更</value>
+  </data>
+  <!-- Path Editor Operations -->
+  <data name="EditPathPoint" xml:space="preserve">
+    <value>パスポイントを編集</value>
+  </data>
+  <!-- Transform Operations -->
+  <data name="TransformElement" xml:space="preserve">
+    <value>要素を変形</value>
+  </data>
+  <!-- Property Editor Operations -->
+  <data name="EditProperty" xml:space="preserve">
+    <value>プロパティを編集</value>
+  </data>
+</root>

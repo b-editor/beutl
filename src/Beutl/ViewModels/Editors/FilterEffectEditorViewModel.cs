@@ -71,7 +71,8 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
                     .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        IsEnabled = Value.Select(x => x?.GetObservable(FilterEffect.IsEnabledProperty) ?? Observable.ReturnThenNever(x?.IsEnabled ?? false))
+        IsEnabled = Value.Select(x =>
+                x?.GetObservable(FilterEffect.IsEnabledProperty) ?? Observable.ReturnThenNever(x?.IsEnabled ?? false))
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(Disposables);
@@ -81,10 +82,8 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             {
                 if (Value.Value is { } filter && filter.IsEnabled != v)
                 {
-                    CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-                    RecordableCommands.Edit(filter, EngineObject.IsEnabledProperty, v)
-                        .WithStoables(GetStorables())
-                        .DoAndRecord(recorder);
+                    filter.IsEnabled = v;
+                    Commit();
                 }
             })
             .DisposeWith(Disposables);
@@ -147,11 +146,8 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         if (Value.Value is FilterEffectGroup group
             && Activator.CreateInstance(type) is FilterEffect instance)
         {
-            CommandRecorder recorder = this.GetRequiredService<CommandRecorder>();
-            group.Children.BeginRecord<FilterEffect>()
-                .Add(instance)
-                .ToCommand(GetStorables())
-                .DoAndRecord(recorder);
+            group.Children.Add(instance);
+            Commit();
         }
     }
 

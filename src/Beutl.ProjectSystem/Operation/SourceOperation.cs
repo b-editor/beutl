@@ -42,12 +42,12 @@ public sealed class SourceOperation : Hierarchical, INotifyEdited
     [NotAutoSerialized]
     public ICoreList<SourceOperator> Children => _children;
 
-    public IRecordableCommand OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
+    public void OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
     {
-        return _children.Select(v => v.OnSplit(backward, startDelta, lengthDelta))
-            .Where(v => v != null)
-            .ToArray()!
-            .ToCommand();
+        foreach (SourceOperator item in _children)
+        {
+            item.OnSplit(backward, startDelta, lengthDelta);
+        }
     }
 
     public override void Serialize(ICoreSerializationContext context)
@@ -162,31 +162,25 @@ public sealed class SourceOperation : Hierarchical, INotifyEdited
         }
     }
 
-    public IRecordableCommand AddChild(SourceOperator @operator)
+    public void AddChild(SourceOperator @operator)
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
-        return Children.BeginRecord<SourceOperator>()
-            .Add(@operator)
-            .ToCommand([this]);
+        Children.Add(@operator);
     }
 
-    public IRecordableCommand RemoveChild(SourceOperator @operator)
+    public void RemoveChild(SourceOperator @operator)
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
-        return Children.BeginRecord<SourceOperator>()
-            .Remove(@operator)
-            .ToCommand([this]);
+        Children.Remove(@operator);
     }
 
-    public IRecordableCommand InsertChild(int index, SourceOperator @operator)
+    public void InsertChild(int index, SourceOperator @operator)
     {
         ArgumentNullException.ThrowIfNull(@operator);
 
-        return Children.BeginRecord<SourceOperator>()
-            .Insert(index, @operator)
-            .ToCommand([this]);
+        Children.Insert(index, @operator);
     }
 
     private void OnOperatorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
