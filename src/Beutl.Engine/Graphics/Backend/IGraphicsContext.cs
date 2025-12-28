@@ -43,6 +43,14 @@ public interface IGraphicsContext : IDisposable
     ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format);
 
     /// <summary>
+    /// Creates a cube map texture array (for multiple point light shadow maps).
+    /// </summary>
+    /// <param name="size">The size (width and height) of each cube face.</param>
+    /// <param name="arraySize">The number of cube maps in the array.</param>
+    /// <param name="format">The texture format.</param>
+    ITextureCubeArray CreateTextureCubeArray(int size, uint arraySize, TextureFormat format);
+
+    /// <summary>
     /// Creates a new GPU buffer.
     /// </summary>
     IBuffer CreateBuffer(ulong size, BufferUsage usage, MemoryProperty memoryProperty);
@@ -130,6 +138,15 @@ public interface IGraphicsContext : IDisposable
     /// <param name="destination">The destination texture array.</param>
     /// <param name="layerIndex">The layer index in the array.</param>
     void CopyTextureToArrayLayer(ITexture2D source, ITextureArray destination, int layerIndex);
+
+    /// <summary>
+    /// Copies a 2D texture to a specific face of a cube map in a cube array.
+    /// </summary>
+    /// <param name="source">The source 2D texture.</param>
+    /// <param name="destination">The destination cube map array texture.</param>
+    /// <param name="arrayIndex">The array index of the cube map.</param>
+    /// <param name="faceIndex">The cube face index (0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z).</param>
+    void CopyTextureToCubeArrayFace(ITexture2D source, ITextureCubeArray destination, int arrayIndex, int faceIndex);
 
     void WaitIdle();
 }
