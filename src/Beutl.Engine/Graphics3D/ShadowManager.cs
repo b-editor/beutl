@@ -11,7 +11,7 @@ namespace Beutl.Graphics3D;
 internal sealed class ShadowManager : IDisposable
 {
     public const int MaxShadowMaps2D = 4;
-    private const int MaxShadowMapsCube = 4;
+    public const int MaxShadowMapsCube = 4;
 
     private readonly IGraphicsContext _context;
     private readonly IShaderCompiler _shaderCompiler;
@@ -22,7 +22,7 @@ internal sealed class ShadowManager : IDisposable
 
     // Shadow map textures for shader binding
     private ITextureArray? _shadowMapArray;
-    private ITextureCube?[] _shadowCubeMaps;
+    private ITextureCubeArray? _shadowMapCubeArray;
 
     // Shadow info for shader
     private readonly ShadowInfo[] _shadowInfos;
@@ -39,7 +39,6 @@ internal sealed class ShadowManager : IDisposable
 
         _shadowPasses2D = new ShadowPass[MaxShadowMaps2D];
         _pointShadowPasses = new PointShadowPass[MaxShadowMapsCube];
-        _shadowCubeMaps = new ITextureCube[MaxShadowMapsCube];
         _shadowInfos = new ShadowInfo[ShadowInfoArray.MaxShadows];
     }
 
@@ -59,9 +58,9 @@ internal sealed class ShadowManager : IDisposable
     public ITextureArray? ShadowMapArray => _shadowMapArray;
 
     /// <summary>
-    /// Gets the cube shadow maps.
+    /// Gets the cube shadow map array texture.
     /// </summary>
-    public IReadOnlyList<ITextureCube?> ShadowCubeMaps => _shadowCubeMaps;
+    public ITextureCubeArray? ShadowMapCubeArray => _shadowMapCubeArray;
 
     /// <summary>
     /// Initializes the shadow manager.
@@ -88,6 +87,12 @@ internal sealed class ShadowManager : IDisposable
             ShadowPass.DefaultShadowMapSize,
             ShadowPass.DefaultShadowMapSize,
             MaxShadowMaps2D,
+            TextureFormat.Depth32Float);
+
+        // Create shadow cube map array for point light shadows
+        _shadowMapCubeArray = _context.CreateTextureCubeArray(
+            PointShadowPass.DefaultCubeFaceSize,
+            MaxShadowMapsCube,
             TextureFormat.Depth32Float);
 
         _initialized = true;
@@ -232,8 +237,19 @@ internal sealed class ShadowManager : IDisposable
         shadowPass.SetupForPointLight(light);
         shadowPass.Execute(objects);
 
-        // Store cube map reference
-        _shadowCubeMaps[_activeShadowCountCube] = shadowPass.ShadowCubeTexture;
+        // Copy each cube face to the cube array
+        if (_shadowMapCubeArray != null)
+        {
+            var faceTextures = shadowPass.FaceDepthTextures;
+            for (int faceIndex = 0; faceIndex < 6; faceIndex++)
+            {
+                var faceTexture = faceTextures[faceIndex];
+                if (faceTexture != null)
+                {
+                    _context.CopyTextureToCubeArrayFace(faceTexture, _shadowMapCubeArray, _activeShadowCountCube, faceIndex);
+                }
+            }
+        }
 
         return new ShadowInfo
         {
@@ -282,18 +298,6 @@ internal sealed class ShadowManager : IDisposable
     }
 
     /// <summary>
-    /// Gets the cube shadow map for the specified index.
-    /// </summary>
-    public ITextureCube? GetShadowMapCube(int index)
-    {
-        if (index < 0 || index >= _activeShadowCountCube)
-            return null;
-
-        return _shadowCubeMaps[index];
-    }
-
-
-    /// <summary>
     /// Prepares all active shadow maps for sampling in the lighting pass.
     /// Must be called after RenderShadows and before the lighting pass.
     /// </summary>
@@ -305,15 +309,15 @@ internal sealed class ShadowManager : IDisposable
             _shadowPasses2D[i].PrepareForSampling();
         }
 
-        // Note: CopyTextureToArrayLayer already transitions each layer to ShaderReadOnlyOptimal,
-        // so we don't need to call TransitionAllToSampled here. Doing so would actually be
-        // harmful because it would transition from Undefined (stale internal state) and
-        // potentially discard the shadow map data.
+        // Note: CopyTextureToArrayLayer and CopyTextureToCubeArrayFace already transition
+        // each layer/face to ShaderReadOnlyOptimal, so we don't need to call
+        // TransitionAllToSampled here. Doing so would actually be harmful because it would
+        // transition from Undefined (stale internal state) and potentially discard the data.
 
-        // Prepare point shadow cube maps
-        for (int i = 0; i < _activeShadowCountCube; i++)
+        // Transition the cube array to sampled state
+        if (_activeShadowCountCube > 0)
         {
-            _pointShadowPasses[i].PrepareForSampling();
+            _shadowMapCubeArray?.TransitionToSampled();
         }
     }
 
@@ -333,5 +337,6 @@ internal sealed class ShadowManager : IDisposable
         }
 
         _shadowMapArray?.Dispose();
+        _shadowMapCubeArray?.Dispose();
     }
 }
