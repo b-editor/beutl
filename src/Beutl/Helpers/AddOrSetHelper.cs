@@ -10,7 +10,7 @@ public static class AddOrSetHelper
     {
         if (fe is FilterEffectGroup feGroup)
         {
-            feGroup.Children.Add(fe);
+            feGroup.Children.Add(toBeAdded);
         }
         else if (fe != null)
         {
@@ -29,7 +29,7 @@ public static class AddOrSetHelper
     {
         if (tra is TransformGroup group)
         {
-            group.Children.Add(tra);
+            group.Children.Add(toBeAdded);
         }
         else if (tra != null)
         {
