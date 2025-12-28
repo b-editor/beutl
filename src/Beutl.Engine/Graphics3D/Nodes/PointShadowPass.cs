@@ -118,6 +118,11 @@ void main() {
     public ITextureCube? ShadowCubeTexture { get; private set; }
 
     /// <summary>
+    /// Gets the depth textures for each cube face (for copying to cube array).
+    /// </summary>
+    internal IReadOnlyList<ITexture2D?> FaceDepthTextures => _faceDepthTextures;
+
+    /// <summary>
     /// Gets the light position for this shadow.
     /// </summary>
     public Vector3 LightPosition => _lightPosition;

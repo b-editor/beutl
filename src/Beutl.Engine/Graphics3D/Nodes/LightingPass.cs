@@ -25,7 +25,7 @@ public sealed class LightingPass : GraphicsNode3D
 
     // Shadow textures for binding
     private ITextureArray? _dummyShadowArray;
-    private ITextureCube? _dummyShadowCube;
+    private ITextureCubeArray? _dummyShadowCubeArray;
 
     public LightingPass(IGraphicsContext context, IShaderCompiler shaderCompiler, ITexture2D depthTexture)
         : base(context, shaderCompiler)
@@ -62,7 +62,7 @@ public sealed class LightingPass : GraphicsNode3D
         _gBufferSampler?.Dispose();
         _shadowSampler?.Dispose();
         _dummyShadowArray?.Dispose();
-        _dummyShadowCube?.Dispose();
+        _dummyShadowCubeArray?.Dispose();
 
         // Create output texture
         OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
@@ -98,7 +98,7 @@ public sealed class LightingPass : GraphicsNode3D
 
         // Create dummy shadow textures for initial binding
         _dummyShadowArray = Context.CreateTextureArray(1, 1, ShadowManager.MaxShadowMaps2D, TextureFormat.Depth32Float);
-        _dummyShadowCube = Context.CreateTextureCube(1, TextureFormat.Depth32Float);
+        _dummyShadowCubeArray = Context.CreateTextureCubeArray(1, ShadowManager.MaxShadowMapsCube, TextureFormat.Depth32Float);
 
         // Create uniform buffers
         _cameraUniformBuffer = Context.CreateBuffer(
@@ -130,8 +130,8 @@ public sealed class LightingPass : GraphicsNode3D
             new(4, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment),        // Camera/ambient
             new(5, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment),        // Lights
             new(6, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment),        // Shadow UBO
-            new(7, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // Shadow map 2D (first one)
-            new(8, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)  // Shadow cube map (first one)
+            new(7, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // Shadow map 2D array
+            new(8, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)  // Shadow cube map array
         };
 
         // Use fullscreen pipeline (no vertex input, no depth test)
@@ -157,7 +157,7 @@ public sealed class LightingPass : GraphicsNode3D
 
         // Bind dummy shadow textures initially
         _descriptorSet.UpdateTextureArray(7, _dummyShadowArray, _shadowSampler);
-        _descriptorSet.UpdateTextureCube(8, _dummyShadowCube, _shadowSampler);
+        _descriptorSet.UpdateTextureCubeArray(8, _dummyShadowCubeArray, _shadowSampler);
     }
 
     /// <summary>
@@ -193,15 +193,15 @@ public sealed class LightingPass : GraphicsNode3D
             _descriptorSet.UpdateTextureArray(7, _dummyShadowArray, _shadowSampler);
         }
 
-        // Bind first cube shadow map (or dummy if none)
-        var shadowMapCube = shadowManager.GetShadowMapCube(0);
-        if (shadowMapCube != null)
+        // Bind cube shadow map array (for point lights)
+        var shadowMapCubeArray = shadowManager.ShadowMapCubeArray;
+        if (shadowMapCubeArray != null && shadowManager.ActiveShadowCountCube > 0)
         {
-            _descriptorSet.UpdateTextureCube(8, shadowMapCube, _shadowSampler);
+            _descriptorSet.UpdateTextureCubeArray(8, shadowMapCubeArray, _shadowSampler);
         }
-        else if (_dummyShadowCube != null)
+        else if (_dummyShadowCubeArray != null)
         {
-            _descriptorSet.UpdateTextureCube(8, _dummyShadowCube, _shadowSampler);
+            _descriptorSet.UpdateTextureCubeArray(8, _dummyShadowCubeArray, _shadowSampler);
         }
     }
 
@@ -266,7 +266,7 @@ public sealed class LightingPass : GraphicsNode3D
         _gBufferSampler?.Dispose();
         _shadowSampler?.Dispose();
         _dummyShadowArray?.Dispose();
-        _dummyShadowCube?.Dispose();
+        _dummyShadowCubeArray?.Dispose();
         Framebuffer?.Dispose();
         RenderPass?.Dispose();
         OutputTexture?.Dispose();
@@ -384,7 +384,7 @@ public sealed class LightingPass : GraphicsNode3D
         } shadowData;
 
         layout(binding = 7) uniform sampler2DArray shadowMapArray;
-        layout(binding = 8) uniform samplerCube shadowMapCube;
+        layout(binding = 8) uniform samplerCubeArray shadowMapCubeArray;
 
         layout(location = 0) out vec4 outColor;
 
@@ -463,20 +463,45 @@ public sealed class LightingPass : GraphicsNode3D
         }
 
         // Shadow calculation for cube shadow maps (point lights)
-        float calculateShadowCube(int shadowIdx, vec3 worldPos) {
+        // Supports multiple point lights via samplerCubeArray, PCF soft shadows, and normal bias
+        float calculateShadowCube(int shadowIdx, vec3 worldPos, vec3 N) {
             if (shadowIdx < 0 || shadowIdx >= MAX_SHADOWS) return 1.0;
 
             ShadowInfo info = shadowData.shadows[shadowIdx];
             if (info.shadowType != SHADOW_CUBE) return 1.0;
 
-            vec3 fragToLight = worldPos - info.lightPosition;
+            // Apply normal bias: offset position along normal to reduce self-shadowing
+            vec3 offsetPos = worldPos + N * info.normalBias;
+
+            vec3 fragToLight = offsetPos - info.lightPosition;
             float currentDepth = length(fragToLight);
 
-            float closestDepth = texture(shadowMapCube, fragToLight).r;
-            closestDepth *= info.farPlane;
-
+            // Depth bias
             float bias = info.bias;
-            float shadow = currentDepth - bias > closestDepth ? 0.0 : 1.0;
+
+            // PCF sampling offsets for cube maps
+            // Using 20 samples in a disk pattern around the sample direction
+            vec3 sampleOffsetDirections[20] = vec3[](
+                vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1),
+                vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
+                vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
+                vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
+                vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
+            );
+
+            // Disk radius scales with distance for consistent soft shadow width
+            float diskRadius = (1.0 + (currentDepth / info.farPlane)) * 0.02;
+
+            int layerIndex = info.shadowMapIndex;
+            float shadow = 0.0;
+
+            for (int i = 0; i < 20; ++i) {
+                vec3 sampleDir = fragToLight + sampleOffsetDirections[i] * diskRadius;
+                float closestDepth = texture(shadowMapCubeArray, vec4(sampleDir, layerIndex)).r;
+                closestDepth *= info.farPlane;
+                shadow += (currentDepth - bias > closestDepth) ? 0.0 : 1.0;
+            }
+            shadow /= 20.0;
 
             return mix(1.0, shadow, info.shadowStrength);
         }
@@ -506,7 +531,7 @@ public sealed class LightingPass : GraphicsNode3D
             float shadowFactor = 1.0;
             if (light.shadowIndex >= 0) {
                 if (light.type == LIGHT_POINT) {
-                    shadowFactor = calculateShadowCube(light.shadowIndex, worldPos);
+                    shadowFactor = calculateShadowCube(light.shadowIndex, worldPos, N);
                 } else {
                     shadowFactor = calculateShadow2D(light.shadowIndex, worldPos, N, L);
                 }
