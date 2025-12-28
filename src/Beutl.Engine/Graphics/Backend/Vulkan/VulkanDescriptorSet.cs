@@ -177,6 +177,34 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
         _context.Vk.UpdateDescriptorSets(_context.Device, 1, &writeDescriptor, 0, null);
     }
 
+    public void UpdateTextureCubeArray(int binding, ITextureCubeArray texture, ISampler sampler)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        var vulkanTexture = (VulkanTextureCubeArray)texture;
+        var vulkanSampler = (VulkanSampler)sampler;
+
+        var imageInfo = new DescriptorImageInfo
+        {
+            ImageView = vulkanTexture.ImageViewHandle,
+            ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
+            Sampler = vulkanSampler.Handle
+        };
+
+        var writeDescriptor = new WriteDescriptorSet
+        {
+            SType = StructureType.WriteDescriptorSet,
+            DstSet = _descriptorSet,
+            DstBinding = (uint)binding,
+            DstArrayElement = 0,
+            DescriptorCount = 1,
+            DescriptorType = Silk.NET.Vulkan.DescriptorType.CombinedImageSampler,
+            PImageInfo = &imageInfo
+        };
+
+        _context.Vk.UpdateDescriptorSets(_context.Device, 1, &writeDescriptor, 0, null);
+    }
+
     public void Bind()
     {
         // Binding is done through command buffer in VulkanPipeline3D

@@ -39,6 +39,14 @@ public interface IDescriptorSet : IDisposable
     void UpdateTextureArray(int binding, ITextureArray texture, ISampler sampler);
 
     /// <summary>
+    /// Updates a cube map texture array binding with a sampler (for samplerCubeArray).
+    /// </summary>
+    /// <param name="binding">The binding index.</param>
+    /// <param name="texture">The cube map texture array to bind.</param>
+    /// <param name="sampler">The sampler to use.</param>
+    void UpdateTextureCubeArray(int binding, ITextureCubeArray texture, ISampler sampler);
+
+    /// <summary>
     /// Binds this descriptor set for use in rendering.
     /// </summary>
     void Bind();
