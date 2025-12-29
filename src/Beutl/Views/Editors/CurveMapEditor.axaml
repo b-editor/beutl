@@ -12,7 +12,14 @@
              x:CompileBindings="True"
              x:DataType="vm:CurveMapEditorViewModel"
              mc:Ignorable="d">
-    <Grid ColumnDefinitions="2*,Auto,*,Auto">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
         <TextBlock Margin="4,0,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Center"
