@@ -43,6 +43,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         _currentFrame?.Clear();
     }
 
+    // TODO: DrawableがDetachされたときにキャッシュを削除する仕組みを入れる
     // Drawable
     public void Add(Drawable drawable, TimeSpan time)
     {

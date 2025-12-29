@@ -41,7 +41,7 @@
 
         <Panel Grid.Row="1"
                Margin="8,0,8,8"
-               IsEnabled="{Binding HasCurves.Value}">
+               IsVisible="{Binding HasCurves.Value}">
             <curves:CurveEditor DragCompleted="CurveEditor_DragCompleted"
                                 DragStarted="CurveEditor_DragStarted"
                                 IsVisible="{Binding ShowMasterCurve.Value}"
@@ -105,5 +105,12 @@
                                 Visualization="SaturationVsSaturation"
                                 VisualizationRenderer="{Binding Renderer}" />
         </Panel>
+
+        <TextBlock Grid.Row="1"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   IsVisible="{Binding IsCurvesMissing.Value}"
+                   Text="{x:Static lang:Strings.ColorCurves_Missing}"
+                   TextWrapping="Wrap" />
     </Grid>
 </UserControl>

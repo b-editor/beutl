@@ -17,11 +17,13 @@ public partial class CurveMapEditor : UserControl
     private void OpenCurvesTab_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is CurveMapEditorViewModel { IsDisposed: false } viewModel
-            && viewModel.GetService<EditViewModel>() is { } editViewModel)
+            && viewModel.GetService<EditViewModel>() is { } editViewModel
+            && viewModel.TryGetCurves() is { } curves)
         {
             CurvesTabViewModel context = editViewModel.FindToolTab<CurvesTabViewModel>()
                 ?? new CurvesTabViewModel(editViewModel);
 
+            context.Effect.Value = curves;
             var prop = viewModel.PropertyAdapter.GetEngineProperty();
             if (prop != null)
             {

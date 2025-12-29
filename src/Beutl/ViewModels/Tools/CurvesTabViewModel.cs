@@ -38,16 +38,17 @@ public record CustomCurveChannelItem(CustomCurveChannel Channel, string DisplayN
 public sealed class CurvesTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly List<CurvePresenterViewModel> _editorContexts = [];
+    private readonly CompositeDisposable _effectDisposables = [];
     private readonly EditViewModel _editViewModel;
-    private Curves? _currentEffect;
-    private Element? _currentElement;
 
     public CurvesTabViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
 
         SourceBitmap.Value = editViewModel.Player.PreviewImage.Value as WriteableBitmap;
+
+        Effect.Subscribe(SetEditors)
+            .DisposeWith(_disposables);
 
         editViewModel.Player.AfterRendered
             .ObserveOnUIDispatcher()
@@ -62,10 +63,6 @@ public sealed class CurvesTabViewModel : IToolContext
                 SourceBitmap.Value = bitmap;
                 UpdateHistogramForCurrentGroup();
             })
-            .DisposeWith(_disposables);
-
-        _editViewModel.SelectedObject
-            .Subscribe(OnSelectedObjectChanged)
             .DisposeWith(_disposables);
 
         HasCurves = Effect
@@ -266,10 +263,35 @@ public sealed class CurvesTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
+        if (json.TryGetPropertyValue("selectedGroup", out var selectedGroupNode)
+            && selectedGroupNode is JsonValue selectedGroupValue
+            && selectedGroupValue.TryGetValue(out int selectedGroup))
+        {
+            SelectedGroup.Value = (CurveGroup)selectedGroup;
+        }
+
+        if (json.TryGetPropertyValue("selectedChannel", out var selectedChannelNode)
+            && selectedChannelNode is JsonValue selectedChannelValue
+            && selectedChannelValue.TryGetValue(out int selectedChannel))
+        {
+            SelectedChannel.Value = (CustomCurveChannel)selectedChannel;
+        }
+
+        if (json.TryGetPropertyValue("effectId", out var effectIdNode)
+            && effectIdNode is JsonValue effectIdValue
+            && effectIdValue.TryGetValue(out string? effectIdStr)
+            && Guid.TryParse(effectIdStr, out Guid effectId))
+        {
+            var colorGrading = _editViewModel.Scene.FindById(effectId) as Curves;
+            Effect.Value = colorGrading;
+        }
     }
 
     public void WriteToJson(JsonObject json)
     {
+        json["selectedGroup"] = (int)SelectedGroup.Value;
+        json["selectedChannel"] = (int)SelectedChannel.Value;
+        json["effectId"] = Effect.Value?.Id;
     }
 
     public object? GetService(Type serviceType)
@@ -281,15 +303,15 @@ public sealed class CurvesTabViewModel : IToolContext
             return _editViewModel.HistoryManager;
 
         if (serviceType == typeof(Element))
-            return _currentElement;
+            return Effect.Value?.FindHierarchicalParent<Element>();
 
         if (serviceType == typeof(Curves))
-            return _currentEffect;
+            return Effect.Value;
 
         if (serviceType == typeof(Scene))
             return _editViewModel.Scene;
 
-        return (_editViewModel as IServiceProvider).GetService(serviceType);
+        return _editViewModel.GetService(serviceType);
     }
 
     public void SelectCurveByPropertyName(string propertyName)
@@ -330,22 +352,9 @@ public sealed class CurvesTabViewModel : IToolContext
         }
     }
 
-    private void OnSelectedObjectChanged(CoreObject? obj)
-    {
-        var effect = obj?.Find(o => o is Curves) as Curves;
-        _currentElement = obj as Element ?? obj?.Find(o => o is Element) as Element;
-
-        if (!ReferenceEquals(effect, _currentEffect))
-        {
-            SetEditors(effect);
-        }
-    }
-
     private void SetEditors(Curves? effect)
     {
         ClearEditors();
-        _currentEffect = effect;
-        Effect.Value = effect;
 
         if (effect == null)
             return;
@@ -359,23 +368,26 @@ public sealed class CurvesTabViewModel : IToolContext
         HueVsLuminance.Value = CreateCurve(effect.HueVsLuminance);
         LuminanceVsSaturation.Value = CreateCurve(effect.LuminanceVsSaturation);
         SaturationVsSaturation.Value = CreateCurve(effect.SaturationVsSaturation);
+
+        effect.DetachedFromHierarchy += OnEffectDetached;
+        _effectDisposables.Add(Disposable.Create(() => effect.DetachedFromHierarchy -= OnEffectDetached));
+    }
+
+    private void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
+    {
+        Effect.Value = null;
     }
 
     private CurvePresenterViewModel CreateCurve(IProperty<CurveMap> property)
     {
-        var vm = new CurvePresenterViewModel(property.Name, _currentEffect!, property, _editViewModel.HistoryManager);
-        _editorContexts.Add(vm);
+        var vm = new CurvePresenterViewModel(property.Name, Effect.Value!, property, _editViewModel.HistoryManager);
+        _effectDisposables.Add(vm);
         return vm;
     }
 
     private void ClearEditors()
     {
-        foreach (CurvePresenterViewModel item in _editorContexts)
-        {
-            item.Dispose();
-        }
-
-        _editorContexts.Clear();
+        _effectDisposables.Clear();
 
         MasterCurve.Value = null;
         RedCurve.Value = null;
