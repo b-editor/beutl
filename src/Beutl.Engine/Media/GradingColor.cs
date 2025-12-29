@@ -199,21 +199,7 @@ public readonly struct GradingColor
 
         ReadOnlySpan<char> rStr = s.Slice(0, firstComma).Trim();
         ReadOnlySpan<char> gStr = s.Slice(firstComma + 1, secondComma - firstComma - 1).Trim();
-        ReadOnlySpan<char> remaining = s.Slice(secondComma + 1);
-
-        // TODO: 開発中の互換性のため，thirdCommaをチェックしているが本番では不要なため以下のように変更する
-        // ReadOnlySpan<char> bStr = s.Slice(secondComma + 1).Trim();
-        int thirdComma = remaining.IndexOf(',');
-        ReadOnlySpan<char> bStr;
-
-        if (thirdComma >= 0)
-        {
-            bStr = remaining.Slice(0, thirdComma).Trim();
-        }
-        else
-        {
-            bStr = remaining.Trim();
-        }
+        ReadOnlySpan<char> bStr = s.Slice(secondComma + 1).Trim();
 
         if (!float.TryParse(rStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float r) ||
             !float.TryParse(gStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float g) ||
