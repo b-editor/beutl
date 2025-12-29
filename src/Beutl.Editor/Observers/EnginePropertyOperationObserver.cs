@@ -129,11 +129,11 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
             return;
         }
 
-        var operationType = typeof(UpdatePropertyValueOperation<>).MakeGenericType(typeof(IExpression<T>));
-        var operation = (ChangeOperation)Activator.CreateInstance(
-            operationType,
-            _object, $"{_propertyPath}.Expression", obj, _expression)!;
-        operation.SequenceNumber = _sequenceNumberGenerator.GetNext();
+        var operation = new UpdatePropertyValueOperation<IExpression<T>?>(
+            (CoreObject)_object, $"{_propertyPath}.Expression", obj, _expression)
+        {
+            SequenceNumber = _sequenceNumberGenerator.GetNext()
+        };
         _operations.OnNext(operation);
         _expression = obj;
     }
@@ -161,11 +161,11 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
                 _propertyPathsToTrack);
         }
 
-        var operationType = typeof(UpdatePropertyValueOperation<>).MakeGenericType(typeof(IAnimation<T>));
-        var operation = (ChangeOperation)Activator.CreateInstance(
-            operationType,
-            _object, animationPath, newAnimation, _animation)!;
-        operation.SequenceNumber = _sequenceNumberGenerator.GetNext();
+        var operation = new UpdatePropertyValueOperation<IAnimation<T>?>(
+            (CoreObject)_object, animationPath, newAnimation, _animation)
+        {
+            SequenceNumber = _sequenceNumberGenerator.GetNext()
+        };
         _operations.OnNext(operation);
         _animation = newAnimation;
     }
@@ -183,11 +183,11 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
 
         InitializePublishers(e.NewValue);
 
-        var operationType = typeof(UpdatePropertyValueOperation<>).MakeGenericType(typeof(T));
-        var operation = (ChangeOperation)Activator.CreateInstance(
-            operationType,
-            _object, _propertyPath, e.NewValue, e.OldValue)!;
-        operation.SequenceNumber = _sequenceNumberGenerator.GetNext();
+        var operation = new UpdatePropertyValueOperation<T>(
+            (CoreObject)_object, _propertyPath, e.NewValue, e.OldValue)
+        {
+            SequenceNumber = _sequenceNumberGenerator.GetNext()
+        };
         _operations.OnNext(operation);
     }
 }
