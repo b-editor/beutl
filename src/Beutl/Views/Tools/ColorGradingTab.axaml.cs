@@ -62,6 +62,7 @@ public partial class ColorGradingTab : UserControl
             return;
         }
 
+        picker.IsEnabled = true;
         picker.MenuContent = new PropertyEditorMenu();
         viewModel.Accept(picker);
     }
