@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -10,17 +11,16 @@ public sealed class CurvePresenterViewModel : IDisposable
 {
     private readonly Curves _effect;
     private readonly IProperty<CurveMap> _property;
-    private readonly CommandRecorder _commandRecorder;
-    private CurveMap? _oldValue;
+    private readonly HistoryManager _history;
     private bool _isUpdating;
 
     public CurvePresenterViewModel(string header, Curves effect, IProperty<CurveMap> property,
-        CommandRecorder commandRecorder)
+        HistoryManager history)
     {
         Header = header;
         _effect = effect;
         _property = property;
-        _commandRecorder = commandRecorder;
+        _history = history;
 
         Points = new ObservableCollection<CurveControlPoint>(_property.CurrentValue.Points);
         Points.CollectionChanged += OnCollectionChanged;
@@ -33,23 +33,11 @@ public sealed class CurvePresenterViewModel : IDisposable
 
     public void BeginEdit()
     {
-        _oldValue = _property.CurrentValue;
     }
 
     public void EndEdit()
     {
-        if (_oldValue == null) return;
-
-        CurveMap newValue = _property.CurrentValue;
-        CurveMap oldValue = _oldValue;
-        _oldValue = null;
-
-        if (oldValue != newValue)
-        {
-            RecordableCommands.Edit(_property, newValue, oldValue)
-                .WithStoables([_effect])
-                .DoAndRecord(_commandRecorder);
-        }
+        _history.Commit(CommandNames.EditProperty);
     }
 
     // Viewからの変更を反映

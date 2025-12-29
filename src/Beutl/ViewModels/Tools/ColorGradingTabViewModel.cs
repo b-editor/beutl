@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Media;
@@ -130,8 +131,8 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         if (serviceType == typeof(EditViewModel))
             return _editViewModel;
 
-        if (serviceType == typeof(CommandRecorder))
-            return _editViewModel.CommandRecorder;
+        if (serviceType == typeof(HistoryManager))
+            return _editViewModel.HistoryManager;
 
         if (serviceType == typeof(Element))
             return _currentElement;

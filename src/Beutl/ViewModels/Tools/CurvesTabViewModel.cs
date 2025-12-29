@@ -7,6 +7,7 @@ using Beutl.Graphics.Effects;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Avalonia.Media.Imaging;
+using Beutl.Editor;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -276,8 +277,8 @@ public sealed class CurvesTabViewModel : IToolContext
         if (serviceType == typeof(EditViewModel))
             return _editViewModel;
 
-        if (serviceType == typeof(CommandRecorder))
-            return _editViewModel.CommandRecorder;
+        if (serviceType == typeof(HistoryManager))
+            return _editViewModel.HistoryManager;
 
         if (serviceType == typeof(Element))
             return _currentElement;
@@ -362,7 +363,7 @@ public sealed class CurvesTabViewModel : IToolContext
 
     private CurvePresenterViewModel CreateCurve(IProperty<CurveMap> property)
     {
-        var vm = new CurvePresenterViewModel(property.Name, _currentEffect!, property, _editViewModel.CommandRecorder);
+        var vm = new CurvePresenterViewModel(property.Name, _currentEffect!, property, _editViewModel.HistoryManager);
         _editorContexts.Add(vm);
         return vm;
     }
