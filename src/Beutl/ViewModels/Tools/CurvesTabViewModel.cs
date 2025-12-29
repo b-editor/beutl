@@ -50,10 +50,12 @@ public sealed class CurvesTabViewModel : IToolContext
         Effect.Subscribe(SetEditors)
             .DisposeWith(_disposables);
 
-        editViewModel.Player.AfterRendered
+        editViewModel.Player.AfterRendered.CombineLatest(IsSelected)
             .ObserveOnUIDispatcher()
             .Subscribe(_ =>
             {
+                if (!IsSelected.Value) return;
+
                 var bitmap = editViewModel.Player.PreviewImage.Value as WriteableBitmap;
                 if (ReferenceEquals(SourceBitmap.Value, bitmap))
                 {

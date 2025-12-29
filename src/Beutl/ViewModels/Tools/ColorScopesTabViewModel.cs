@@ -24,9 +24,11 @@ public sealed class ColorScopesTabViewModel : IToolContext
         SourceBitmap.Value = editViewModel.Player.PreviewImage.Value as WriteableBitmap;
 
         // Update scope after rendering is complete
-        editViewModel.Player.AfterRendered
+        editViewModel.Player.AfterRendered.CombineLatest(IsSelected)
             .Subscribe(_ =>
             {
+                if (!IsSelected.Value) return;
+
                 SourceBitmap.Value = editViewModel.Player.PreviewImage.Value as WriteableBitmap;
                 RefreshRequested?.Invoke(this, EventArgs.Empty);
             })
