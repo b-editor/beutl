@@ -196,14 +196,5 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             return;
 
         RecreateSplineEasingPublisher();
-
-        string childPath = BuildPropertyPath(args.Property.Name);
-
-        var operation = new UpdatePropertyValueOperation<Easing?>(
-            source, childPath, args.NewValue, args.OldValue)
-        {
-            SequenceNumber = _sequenceNumberGenerator.GetNext()
-        };
-        _operations.OnNext(operation);
     }
 }
