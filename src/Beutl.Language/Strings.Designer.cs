@@ -1257,6 +1257,12 @@ namespace Beutl.Language {
             }
         }
         
+        public static string ColorGrading_Missing {
+            get {
+                return ResourceManager.GetString("ColorGrading_Missing", resourceCulture);
+            }
+        }
+        
         public static string Temperature {
             get {
                 return ResourceManager.GetString("Temperature", resourceCulture);

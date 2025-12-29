@@ -728,6 +728,9 @@
   <data name="ColorGrading" xml:space="preserve">
     <value>カラーグレーディング</value>
   </data>
+  <data name="ColorGrading_Missing" xml:space="preserve">
+    <value>カラーグレーディングエフェクトが選択されていません。</value>
+  </data>
   <data name="Temperature" xml:space="preserve">
     <value>色温度</value>
   </data>

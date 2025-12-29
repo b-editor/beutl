@@ -91,7 +91,7 @@
 
         <WrapPanel Grid.Row="1"
                    Margin="8,0"
-                   IsEnabled="{Binding HasColorGrading.Value}">
+                   IsVisible="{Binding HasColorGrading.Value}">
             <pe:NumberEditor x:Name="TemperatureEditor"
                              x:TypeArguments="x:Single"
                              DataContext="{Binding TemperatureEditor.Value}"
@@ -174,5 +174,12 @@
                                       DataContext="{Binding OffsetEditor.Value}" />
             </Grid>
         </Panel>
+
+        <TextBlock Grid.RowSpan="3"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   IsVisible="{Binding IsColorGradingMissing.Value}"
+                   Text="{x:Static lang:Strings.ColorGrading_Missing}"
+                   TextWrapping="Wrap" />
     </Grid>
 </UserControl>
