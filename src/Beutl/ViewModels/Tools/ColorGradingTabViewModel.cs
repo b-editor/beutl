@@ -25,15 +25,12 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
     private readonly CompositeDisposable _disposables = [];
     private readonly EditViewModel _editViewModel;
     private readonly List<BaseEditorViewModel> _editorContexts = [];
-    private ColorGrading? _currentEffect;
-    private Element? _currentElement;
 
     public ColorGradingTabViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
 
-        _editViewModel.SelectedObject
-            .Subscribe(OnSelectedObjectChanged)
+        Effect.Subscribe(SetEditors)
             .DisposeWith(_disposables);
 
         HasColorGrading = Effect
@@ -135,15 +132,15 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
             return _editViewModel.HistoryManager;
 
         if (serviceType == typeof(Element))
-            return _currentElement;
+            return Effect.Value?.FindHierarchicalParent<Element>();
 
         if (serviceType == typeof(ColorGrading))
-            return _currentEffect;
+            return Effect.Value;
 
         if (serviceType == typeof(Scene))
             return _editViewModel.Scene;
 
-        return (_editViewModel as IServiceProvider).GetService(serviceType);
+        return _editViewModel.GetService(serviceType);
     }
 
     public void Dispose()
@@ -167,22 +164,9 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         json["wheelMode"] = WheelMode.Value.Value;
     }
 
-    private void OnSelectedObjectChanged(CoreObject? obj)
-    {
-        var effect = obj?.Find(o => o is ColorGrading) as ColorGrading;
-        _currentElement = obj as Element ?? obj?.Find(o => o is Element) as Element;
-
-        if (!ReferenceEquals(effect, _currentEffect))
-        {
-            SetEditors(effect);
-        }
-    }
-
     private void SetEditors(ColorGrading? effect)
     {
         ClearEditors();
-        _currentEffect = effect;
-        Effect.Value = effect;
 
         if (effect == null)
             return;
@@ -212,7 +196,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         if (property is not AnimatableProperty<float> anim)
             return null;
 
-        var adapter = new AnimatablePropertyAdapter<float>(anim, _currentEffect!);
+        var adapter = new AnimatablePropertyAdapter<float>(anim, Effect.Value!);
         var vm = new NumberEditorViewModel<float>(adapter);
         vm.Accept(this);
         _editorContexts.Add(vm);
@@ -224,7 +208,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         if (property is not AnimatableProperty<GradingColor> anim)
             return null;
 
-        var adapter = new AnimatablePropertyAdapter<GradingColor>(anim, _currentEffect!);
+        var adapter = new AnimatablePropertyAdapter<GradingColor>(anim, Effect.Value!);
         var vm = new GradingColorEditorViewModel(adapter);
         vm.Accept(this);
         _editorContexts.Add(vm);
