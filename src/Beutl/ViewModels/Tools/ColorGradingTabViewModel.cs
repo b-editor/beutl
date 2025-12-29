@@ -73,6 +73,8 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
     public ReactivePropertySlim<ColorGradingWheelMode> WheelMode { get; } =
         new(ColorGradingWheelMode.ShadowsMidtonesHighlights);
 
+    public ReactivePropertySlim<bool> IsNumberEditorsVisible { get; } = new(true);
+
     public ColorGradingWheelMode[] AvailableWheelModes { get; } =
     [
         ColorGradingWheelMode.ShadowsMidtonesHighlights,
@@ -166,12 +168,20 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
             var colorGrading = _editViewModel.Scene.FindById(effectId) as ColorGrading;
             Effect.Value = colorGrading;
         }
+
+        if (json.TryGetPropertyValue("isNumberEditorsVisible", out var isNumberEditorsVisibleNode)
+            && isNumberEditorsVisibleNode is JsonValue isNumberEditorsVisibleValue
+            && isNumberEditorsVisibleValue.TryGetValue(out bool isVisible))
+        {
+            IsNumberEditorsVisible.Value = isVisible;
+        }
     }
 
     public void WriteToJson(JsonObject json)
     {
         json["wheelMode"] = WheelMode.Value.Value;
         json["effectId"] = Effect.Value?.Id;
+        json["isNumberEditorsVisible"] = IsNumberEditorsVisible.Value;
     }
 
     private void SetEditors(ColorGrading? effect)

@@ -2,6 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="clr-namespace:FluentIcons.FluentAvalonia;assembly=FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
@@ -69,18 +70,79 @@
                 </ControlTemplate>
             </Setter>
         </ControlTheme>
+
+        <ControlTheme x:Key="PropertiesVisibilityToggleButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="{StaticResource ButtonPadding}" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_Root"
+                            Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <icons:SymbolIcon Name="PART_SymbolIcon"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Symbol="Edit" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+
+            <Style Selector="^:checked /template/ icons|SymbolIcon#PART_SymbolIcon">
+                <Setter Property="Symbol" Value="EditOff" />
+            </Style>
+
+            <Style Selector="^:pointerover /template/ Border#PART_Root">
+                <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+            </Style>
+
+            <Style Selector="^:pressed /template/ Border#PART_Root">
+                <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+            </Style>
+            <Style Selector="^:pressed /template/ icons|SymbolIcon#PART_SymbolIcon">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+
+            <Style Selector="^:disabled /template/ Border#PART_Root">
+                <Setter Property="Background" Value="{DynamicResource SubtleFillColorDisabledBrush}" />
+            </Style>
+            <Style Selector="^:disabled /template/ icons|SymbolIcon#PART_SymbolIcon">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+            </Style>
+        </ControlTheme>
     </UserControl.Resources>
     <Grid RowDefinitions="Auto,Auto,*">
         <Grid Grid.Row="0"
               Height="32"
-              ColumnDefinitions="*,*">
+              ColumnDefinitions="*,Auto,Auto">
             <TextBlock Grid.Column="0"
                        Margin="8,0,0,0"
                        VerticalAlignment="Center"
                        FontWeight="SemiBold"
                        Text="{x:Static lang:Strings.ColorGrading}" />
 
-            <ComboBox Grid.Column="1"
+            <ToggleButton Grid.Column="1"
+                          Width="32"
+                          Height="32"
+                          Margin="0,0,4,0"
+                          VerticalAlignment="Center"
+                          IsChecked="{Binding IsNumberEditorsVisible.Value, Mode=TwoWay}"
+                          Theme="{StaticResource PropertiesVisibilityToggleButtonStyle}" />
+
+            <ComboBox Grid.Column="2"
                       HorizontalAlignment="Right"
                       VerticalAlignment="Center"
                       DisplayMemberBinding="{ReflectionBinding Name}"
@@ -89,9 +151,13 @@
                       Theme="{StaticResource LiteComboBoxStyle}" />
         </Grid>
 
-        <WrapPanel Grid.Row="1"
-                   Margin="8,0"
-                   IsVisible="{Binding HasColorGrading.Value}">
+        <WrapPanel Grid.Row="1" Margin="8,0">
+            <WrapPanel.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                    <Binding Path="HasColorGrading.Value" />
+                    <Binding Path="IsNumberEditorsVisible.Value" />
+                </MultiBinding>
+            </WrapPanel.IsVisible>
             <pe:NumberEditor x:Name="TemperatureEditor"
                              x:TypeArguments="x:Single"
                              DataContext="{Binding TemperatureEditor.Value}"
