@@ -1,0 +1,42 @@
+<UserControl x:Class="Beutl.Views.Editors.ColorGradingPropertiesEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Views.Editors"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:media="using:Beutl.Media"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.Editors"
+             x:Name="root"
+             d:DesignHeight="300"
+             d:DesignWidth="300"
+             x:CompileBindings="True"
+             x:DataType="vm:ColorGradingPropertiesViewModel"
+             mc:Ignorable="d">
+    <StackPanel Margin="0,8,0,4" Spacing="8">
+        <Button HorizontalAlignment="Stretch"
+                Click="OpenTabClick"
+                Content="{x:Static lang:Strings.EditInTab}" />
+
+        <ToggleButton x:Name="expandProps"
+                      Height="24"
+                      Padding="0"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Bottom"
+                      HorizontalContentAlignment="Center"
+                      VerticalContentAlignment="Center"
+                      Background="{DynamicResource ButtonBackground}"
+                      IsChecked="{Binding IsExpanded.Value}"
+                      Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />
+
+        <ItemsControl x:Name="propsItemsControl" ItemsSource="{Binding Properties}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>
