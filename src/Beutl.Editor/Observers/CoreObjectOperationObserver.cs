@@ -14,8 +14,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 {
     private readonly ICoreObject _object;
     private readonly string _propertyPath;
-    private readonly Dictionary<int, CoreObjectOperationObserver> _childPublishers = new();
-    private readonly Dictionary<int, IOperationObserver> _collectionPublishers = new();
+    private readonly Dictionary<int, IOperationObserver> _corePropertyPublishers = new();
     private readonly Dictionary<string, IOperationObserver> _enginePropertyPublishers = new();
     private SplineEasingOperationObserver? _splineEasingPublisher;
     private NodeItemOperationObserver? _nodeItemPublisher;
@@ -47,7 +46,12 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             .Where(i => !string.IsNullOrEmpty(i))
             .ToHashSet();
         InitializeChildPublishers();
-        obj.PropertyChanged += OnPropertyChanged;
+
+        // Easingの変更を監視
+        if (obj is KeyFrame)
+        {
+            obj.PropertyChanged += OnPropertyChanged;
+        }
 
         if (obj is EngineObject engineObject)
         {
@@ -61,12 +65,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
     {
         _object.PropertyChanged -= OnPropertyChanged;
 
-        foreach (CoreObjectOperationObserver child in _childPublishers.Values)
-        {
-            child.Dispose();
-        }
-
-        foreach (IOperationObserver collection in _collectionPublishers.Values)
+        foreach (IOperationObserver collection in _corePropertyPublishers.Values)
         {
             collection.Dispose();
         }
@@ -92,7 +91,8 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
     private void InitializeChildPublishers()
     {
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(_object.GetType()))
+        var objectType = _object.GetType();
+        foreach (CoreProperty property in PropertyRegistry.GetRegistered(objectType))
         {
             if (Hierarchical.HierarchicalParentProperty.Id == property.Id) continue;
             if (_propertiesToTrack != null && !_propertiesToTrack.Contains(property.Name))
@@ -101,45 +101,37 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             }
 
             // Check if property is excluded from tracking
-            if (property.TryGetMetadata<CorePropertyMetadata>(_object.GetType(), out var metadata)
+            if (property.TryGetMetadata<CorePropertyMetadata>(objectType, out var metadata)
                 && !metadata.Tracked)
             {
                 continue;
             }
 
-            object? value = _object.GetValue(property);
             string childPath = BuildPropertyPath(property.Name);
 
-            if (value is IList list)
-            {
-                var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
-                if (elementType == null) throw new InvalidOperationException("Could not determine the element type of the list.");
-                var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(elementType);
+            var observerType = typeof(CorePropertyOperationObserver<>).MakeGenericType(property.PropertyType);
+            var propertyPublisher = (IOperationObserver)Activator.CreateInstance(
+                observerType,
+                _operations,
+                _object,
+                property,
+                _sequenceNumberGenerator,
+                childPath,
+                _propertyPathsToTrack)!;
 
-                var collectionPublisher = Activator.CreateInstance(observerType,
-                    _operations, list, _object,
-                    childPath, _sequenceNumberGenerator, _propertyPathsToTrack)!;
-                _collectionPublishers.Add(property.Id, (IOperationObserver)collectionPublisher);
-            }
-            else if (value is ICoreObject child)
-            {
-                var childPublisher = new CoreObjectOperationObserver(
-                    _operations,
-                    child,
-                    _sequenceNumberGenerator,
-                    childPath,
-                    _propertyPathsToTrack);
-                _childPublishers.Add(property.Id, childPublisher);
-            }
+            _corePropertyPublishers.Add(property.Id, propertyPublisher);
         }
 
-        InitializeSplineEasingPublisher();
+        RecreateSplineEasingPublisher();
         InitializeNodeItemPublisher();
     }
 
-    private void InitializeSplineEasingPublisher()
+    private void RecreateSplineEasingPublisher()
     {
-        if (_object is KeyFrame keyFrame && keyFrame.Easing is SplineEasing splineEasing)
+        _splineEasingPublisher?.Dispose();
+        _splineEasingPublisher = null;
+
+        if (_object is KeyFrame { Easing: SplineEasing splineEasing } keyFrame)
         {
             string easingPath = BuildPropertyPath(nameof(KeyFrame.Easing));
             _splineEasingPublisher = new SplineEasingOperationObserver(
@@ -191,89 +183,18 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // Suppress publishing during remote operation application to prevent echo-back
-        if (PublishingSuppression.IsSuppressed)
-        {
-            return;
-        }
+        if (PublishingSuppression.IsSuppressed) return;
 
-        if (e is not CorePropertyChangedEventArgs args ||
-            sender is not ICoreObject source ||
-            args.Property.Id == Hierarchical.HierarchicalParentProperty.Id)
-        {
+        if (e is not CorePropertyChangedEventArgs<Easing> args || sender is not CoreObject source)
             return;
-        }
+
+        if (args.Property.Id != KeyFrame.EasingProperty.Id)
+            return;
 
         if (_propertiesToTrack != null &&
             !_propertiesToTrack.Contains(args.Property.Name))
-        {
             return;
-        }
 
-        // Check if property is excluded from tracking
-        if (args.Property.TryGetMetadata<CorePropertyMetadata>(_object.GetType(), out var metadata)
-            && !metadata.Tracked)
-        {
-            return;
-        }
-
-        if (_childPublishers.Remove(args.Property.Id, out var childPublisher))
-        {
-            childPublisher.Dispose();
-        }
-
-        if (_collectionPublishers.Remove(args.Property.Id, out var collectionPublisher))
-        {
-            collectionPublisher.Dispose();
-        }
-
-        string childPath = BuildPropertyPath(args.Property.Name);
-
-        if (args.NewValue is IList list)
-        {
-            var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
-            if (elementType == null) throw new InvalidOperationException("Could not determine the element type of the list.");
-            var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(elementType);
-
-            var newPublisher = Activator.CreateInstance(observerType,
-                _operations, list, source,
-                childPath, _sequenceNumberGenerator, _propertyPathsToTrack)!;
-            _collectionPublishers.Add(args.Property.Id, (IOperationObserver)newPublisher);
-        }
-        else if (args.NewValue is ICoreObject newChild)
-        {
-            var newPublisher = new CoreObjectOperationObserver(
-                _operations,
-                newChild,
-                _sequenceNumberGenerator,
-                childPath,
-                _propertyPathsToTrack);
-            _childPublishers.Add(args.Property.Id, newPublisher);
-        }
-
-        // Handle SplineEasing changes for KeyFrame
-        if (_object is KeyFrame keyFrame && args.Property.Id == KeyFrame.EasingProperty.Id)
-        {
-            _splineEasingPublisher?.Dispose();
-            _splineEasingPublisher = null;
-
-            if (args.NewValue is SplineEasing newSplineEasing)
-            {
-                _splineEasingPublisher = new SplineEasingOperationObserver(
-                    _operations,
-                    newSplineEasing,
-                    _sequenceNumberGenerator,
-                    keyFrame,
-                    childPath,
-                    _propertyPathsToTrack);
-            }
-        }
-
-        var operationType = typeof(UpdatePropertyValueOperation<>).MakeGenericType(args.Property.PropertyType);
-        var operation = (ChangeOperation)Activator.CreateInstance(
-            operationType,
-            source, childPath, args.NewValue, args.OldValue)!;
-        operation.SequenceNumber = _sequenceNumberGenerator.GetNext();
-        _operations.OnNext(operation);
+        RecreateSplineEasingPublisher();
     }
 }
