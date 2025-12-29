@@ -24,7 +24,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly EditViewModel _editViewModel;
-    private readonly List<BaseEditorViewModel> _editorContexts = [];
+    private readonly CompositeDisposable _effectDisposables = [];
 
     public ColorGradingTabViewModel(EditViewModel editViewModel)
     {
@@ -157,11 +157,21 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         {
             WheelMode.Value = AvailableWheelModes.FirstOrDefault(i => i.Value == mode) ?? WheelMode.Value;
         }
+
+        if (json.TryGetPropertyValue("effectId", out var effectIdNode)
+            && effectIdNode is JsonValue effectIdValue
+            && effectIdValue.TryGetValue(out string? effectIdStr)
+            && Guid.TryParse(effectIdStr, out Guid effectId))
+        {
+            var colorGrading = _editViewModel.Scene.FindById(effectId) as ColorGrading;
+            Effect.Value = colorGrading;
+        }
     }
 
     public void WriteToJson(JsonObject json)
     {
         json["wheelMode"] = WheelMode.Value.Value;
+        json["effectId"] = Effect.Value?.Id;
     }
 
     private void SetEditors(ColorGrading? effect)
@@ -189,6 +199,14 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         GammaEditor.Value = CreateColorEditor(effect.Gamma);
         GainEditor.Value = CreateColorEditor(effect.Gain);
         OffsetEditor.Value = CreateColorEditor(effect.Offset);
+
+        effect.DetachedFromHierarchy += OnEffectDetached;
+        _effectDisposables.Add(Disposable.Create(() => effect.DetachedFromHierarchy -= OnEffectDetached));
+    }
+
+    private void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
+    {
+        Effect.Value = null;
     }
 
     private NumberEditorViewModel<float>? CreateNumberEditor(IProperty<float> property)
@@ -199,7 +217,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         var adapter = new AnimatablePropertyAdapter<float>(anim, Effect.Value!);
         var vm = new NumberEditorViewModel<float>(adapter);
         vm.Accept(this);
-        _editorContexts.Add(vm);
+        _effectDisposables.Add(vm);
         return vm;
     }
 
@@ -211,7 +229,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         var adapter = new AnimatablePropertyAdapter<GradingColor>(anim, Effect.Value!);
         var vm = new GradingColorEditorViewModel(adapter);
         vm.Accept(this);
-        _editorContexts.Add(vm);
+        _effectDisposables.Add(vm);
         return vm;
     }
 
@@ -236,11 +254,6 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         GainEditor.Value = null;
         OffsetEditor.Value = null;
 
-        foreach (BaseEditorViewModel item in _editorContexts)
-        {
-            item.Dispose();
-        }
-
-        _editorContexts.Clear();
+        _effectDisposables.Clear();
     }
 }
