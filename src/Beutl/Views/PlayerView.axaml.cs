@@ -31,6 +31,10 @@ public partial class PlayerView : UserControl
         framePanel.PointerMoved += OnFramePointerMoved;
         framePanel.AddHandler(PointerWheelChangedEvent, OnFramePointerWheelChanged, RoutingStrategies.Tunnel);
 
+        framePanel.Focusable = true;
+        framePanel.KeyDown += OnFrameKeyDown;
+        framePanel.KeyUp += OnFrameKeyUp;
+
         framePanel.GetObservable(BoundsProperty)
             .Subscribe(s =>
             {
@@ -91,13 +95,15 @@ public partial class PlayerView : UserControl
                 })
                 .DisposeWith(_disposables);
 
-            vm.IsHandMode.CombineLatest(vm.IsCropMode)
+            vm.IsHandMode.CombineLatest(vm.IsCropMode, vm.IsCameraMode)
                 .ObserveOnUIDispatcher()
                 .Subscribe(t =>
                 {
                     if (t.First)
                         framePanel.Cursor = Cursors.Hand;
                     else if (t.Second)
+                        framePanel.Cursor = Cursors.Cross;
+                    else if (t.Third)
                         framePanel.Cursor = Cursors.Cross;
                     else
                         framePanel.Cursor = null;
