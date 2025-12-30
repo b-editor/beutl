@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
 namespace Beutl.WaitingDialog;
+
 public class App : Application
 {
     public override void Initialize()

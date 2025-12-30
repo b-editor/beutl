@@ -53,7 +53,7 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 
     private void EditInFrameClicked(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PathFigureEditorViewModel{ IsDisposed: false } viewModel
+        if (DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
             && viewModel.GetService<EditViewModel>() is { } editViewModel)
         {
             editViewModel?.Player.PathEditor.StartEdit(viewModel);
@@ -62,7 +62,7 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 
     private void EditInTabClicked(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PathFigureEditorViewModel{ IsDisposed: false } viewModel
+        if (DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
             && viewModel.GetService<EditViewModel>() is { } editViewModel)
         {
             var context = editViewModel.FindToolTab<PathEditorTabViewModel>()
@@ -87,7 +87,7 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PathFigureEditorViewModel { IsDisposed: false }viewModel
+        if (DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
             && viewModel.GetService<EditViewModel>() is { } editViewModel
             && sender is ToggleButton btn)
         {
@@ -106,7 +106,7 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 
     private void AddClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PathFigureEditorViewModel{ IsDisposed: false } viewModel
+        if (DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
             && sender is MenuFlyoutItem item)
         {
             try

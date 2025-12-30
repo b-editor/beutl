@@ -1,8 +1,8 @@
 ﻿// https://github.com/amwx/FluentAvalonia/blob/9e35813b3e3e649ad254ff6be4a35e52ac96d051/src/FluentAvalonia/UI/Controls/ColorPicker/ColorPaletteItem.properties.cs
 
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
-using Avalonia;
 
 namespace FluentAvalonia.UI.Controls;
 

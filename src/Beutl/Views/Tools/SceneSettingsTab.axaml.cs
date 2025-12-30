@@ -5,6 +5,7 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.ViewModels.Tools;
 
 namespace Beutl.Views.Tools;
+
 public partial class SceneSettingsTab : UserControl
 {
     private readonly CompositeDisposable _disposables = [];

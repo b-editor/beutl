@@ -7,7 +7,7 @@ public static class KeyGestureHelper
 {
     public static KeyModifiers GetCommandModifier()
     {
-        if (Application.Current is { PlatformSettings.HotkeyConfiguration: {} configuration })
+        if (Application.Current is { PlatformSettings.HotkeyConfiguration: { } configuration })
         {
             return configuration.CommandModifiers;
         }

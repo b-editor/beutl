@@ -1,6 +1,6 @@
-﻿using Avalonia.Data;
+﻿using Avalonia;
+using Avalonia.Data;
 using Avalonia.Media;
-using Avalonia;
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Media;
 
@@ -58,7 +58,7 @@ public partial class FAColorPicker
     /// Defines the <see cref="UseSpectrum"/> property
     /// </summary>
     public static readonly StyledProperty<bool> UseSpectrumProperty =
-        AvaloniaProperty.Register<FAColorPicker, bool>(nameof(UseSpectrum), 
+        AvaloniaProperty.Register<FAColorPicker, bool>(nameof(UseSpectrum),
             defaultValue: true);
 
     /// <summary>
@@ -92,7 +92,7 @@ public partial class FAColorPicker
     /// Defines the <see cref="PaletteColumnCount"/> property
     /// </summary>
     public static readonly StyledProperty<int> PaletteColumnCountProperty =
-        AvaloniaProperty.Register<FAColorPicker, int>(nameof(PaletteColumnCount), 
+        AvaloniaProperty.Register<FAColorPicker, int>(nameof(PaletteColumnCount),
             defaultValue: 10);
 
     /// <summary>
@@ -158,7 +158,7 @@ public partial class FAColorPicker
     /// </summary>
     public bool IsAlphaEnabled
     {
-        get => GetValue(IsAlphaEnabledProperty); 
+        get => GetValue(IsAlphaEnabledProperty);
         set => SetValue(IsAlphaEnabledProperty, value);
     }
 

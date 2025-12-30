@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;

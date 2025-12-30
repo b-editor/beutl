@@ -84,7 +84,7 @@ public sealed class GraphicsContext2D(
 
         if (next == null)
         {
-            next =  new MemoryNode<T>(defaultValue);
+            next = new MemoryNode<T>(defaultValue);
             Add(next);
         }
 

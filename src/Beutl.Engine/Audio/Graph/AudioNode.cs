@@ -1,4 +1,4 @@
-namespace Beutl.Audio.Graph;
+﻿namespace Beutl.Audio.Graph;
 
 public abstract class AudioNode : IDisposable
 {

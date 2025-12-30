@@ -25,7 +25,7 @@ public class ImageSourceRenderNodeTest
         var fill = Brushes.Resource.White;
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
-        pen.Thickness.CurrentValue= 1;
+        pen.Thickness.CurrentValue = 1;
         var penResource = pen.ToResource(RenderContext.Default);
         var node = new ImageSourceRenderNode(source, fill, penResource);
 

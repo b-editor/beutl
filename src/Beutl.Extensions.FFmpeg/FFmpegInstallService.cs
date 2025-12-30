@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO.Compression;
 using System.Net.Http.Json;
 using System.Runtime.InteropServices;
@@ -523,7 +523,10 @@ public class FFmpegInstallService
         {
             ProcessStartInfo psi = new("which")
             {
-                Arguments = "brew", RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true
+                Arguments = "brew",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
             };
             using Process? process = Process.Start(psi);
             if (process != null)

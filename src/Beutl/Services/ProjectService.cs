@@ -118,7 +118,7 @@ public sealed class ProjectService
             var project = new Project()
             {
                 Items = { scene },
-                Uri  = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{Constants.ProjectFileExtension}")),
+                Uri = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{Constants.ProjectFileExtension}")),
                 Variables =
                 {
                     [ProjectVariableKeys.FrameRate] = framerate.ToString(),

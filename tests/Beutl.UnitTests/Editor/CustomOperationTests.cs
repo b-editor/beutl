@@ -1,4 +1,4 @@
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;

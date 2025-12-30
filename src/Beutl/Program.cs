@@ -1,13 +1,11 @@
 ﻿using System.Runtime;
-
 using Avalonia;
 using Avalonia.Media;
-using ReactiveUI.Avalonia;
-
 using Beutl.Configuration;
 using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
 using Beutl.Services;
+using ReactiveUI.Avalonia;
 
 namespace Beutl;
 

@@ -10,6 +10,7 @@ using Beutl.ViewModels.NodeTree;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.NodeTree;
+
 public partial class NodeInputView : UserControl
 {
     public NodeInputView()

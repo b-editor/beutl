@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Effects;

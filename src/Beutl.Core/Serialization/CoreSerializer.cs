@@ -209,7 +209,7 @@ public static class CoreSerializer
             using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Write);
             using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
 
-            var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects  };
+            var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects };
             SerializeToJsonObject(obj, options)
                 .WriteTo(writer, JsonHelper.SerializerOptions);
         }

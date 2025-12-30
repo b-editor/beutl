@@ -16,7 +16,7 @@ public class VectorscopeControl : ScopeControlBase
 
     // Cached brushes and pens for rendering
     private static readonly SolidColorBrush s_gridBrush = new(Color.FromArgb(160, 40, 40, 40));
-    private static readonly Pen s_gridPen = new(s_gridBrush,1.5);
+    private static readonly Pen s_gridPen = new(s_gridBrush, 1.5);
     private static readonly SolidColorBrush s_innerGridBrush = new(Color.FromArgb(120, 30, 30, 30));
     private static readonly Pen s_innerGridPen = new(s_innerGridBrush, 1.5);
 

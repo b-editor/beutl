@@ -1,4 +1,4 @@
-namespace Beutl.Engine.Expressions;
+﻿namespace Beutl.Engine.Expressions;
 
 public class PropertyLookup(ICoreObject root)
 {

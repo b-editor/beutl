@@ -59,7 +59,7 @@ public sealed partial class PenEditor : UserControl
 
     private void InitializeClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PenEditorViewModel{ IsDisposed: false } viewModel)
+        if (DataContext is PenEditorViewModel { IsDisposed: false } viewModel)
         {
             viewModel.SetValue(viewModel.Value.Value, new Pen());
             expandToggle.IsChecked = true;
@@ -68,7 +68,7 @@ public sealed partial class PenEditor : UserControl
 
     private void DeleteClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PenEditorViewModel{ IsDisposed: false } viewModel)
+        if (DataContext is PenEditorViewModel { IsDisposed: false } viewModel)
         {
             viewModel.SetValue(viewModel.Value.Value, null);
         }

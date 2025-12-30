@@ -92,7 +92,7 @@ public partial class JsonSerializationContext
             }
         }
 
-        UseJsonSerializer:
+    UseJsonSerializer:
         return JsonSerializer.SerializeToNode(value, baseType, JsonHelper.SerializerOptions);
     }
 

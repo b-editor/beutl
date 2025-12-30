@@ -1,10 +1,10 @@
-﻿using Avalonia.Data;
-using Avalonia;
-using Avalonia.Media;
+﻿using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
-using FluentAvalonia.Core;
 using Avalonia.Controls.Metadata;
+using Avalonia.Data;
+using Avalonia.Media;
+using FluentAvalonia.Core;
 
 namespace FluentAvalonia.UI.Controls;
 

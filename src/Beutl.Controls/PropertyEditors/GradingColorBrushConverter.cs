@@ -1,14 +1,11 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Globalization;
-
 using Avalonia.Data.Converters;
 using Avalonia.Media;
-
 using Beutl.Media;
-
-using ASolidColorBrush = Avalonia.Media.SolidColorBrush;
 using AColor = Avalonia.Media.Color;
+using ASolidColorBrush = Avalonia.Media.SolidColorBrush;
 
 namespace Beutl.Controls.PropertyEditors;
 

@@ -1,4 +1,4 @@
-using Beutl.Animation.Easings;
+﻿using Beutl.Animation.Easings;
 using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.Logging;

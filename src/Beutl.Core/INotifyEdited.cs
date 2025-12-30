@@ -1,4 +1,4 @@
-namespace Beutl;
+﻿namespace Beutl;
 
 public interface INotifyEdited
 {

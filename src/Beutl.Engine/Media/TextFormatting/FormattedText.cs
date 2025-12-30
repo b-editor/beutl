@@ -183,7 +183,9 @@ public class FormattedText : IEquatable<FormattedText>
         var typeface = new Typeface(Font, Style, Weight);
         var font = new SKFont(typeface.ToSkia(), Size)
         {
-            Edging = SKFontEdging.Antialias, Subpixel = true, Hinting = SKFontHinting.Full
+            Edging = SKFontEdging.Antialias,
+            Subpixel = true,
+            Hinting = SKFontHinting.Full
         };
 
         return font;
