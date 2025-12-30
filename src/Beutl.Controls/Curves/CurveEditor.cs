@@ -124,10 +124,9 @@ public class CurveEditor : Control
                     {
                         // ハンドルをリセット
                         DragStarted?.Invoke(this, EventArgs.Empty);
-                        if (target == DragTarget.LeftHandle)
-                            Points[index] = point.WithLeftHandle(default);
-                        else
-                            Points[index] = point.WithRightHandle(default);
+                        Points[index] = target == DragTarget.LeftHandle
+                            ? point.WithLeftHandle(default)
+                            : point.WithRightHandle(default);
                         DragCompleted?.Invoke(this, EventArgs.Empty);
                         InvalidateVisual();
                         return;
@@ -136,17 +135,14 @@ public class CurveEditor : Control
                     target = DragTarget.Point;
                 }
 
-                if (target == DragTarget.Point)
+                if (target == DragTarget.Point && index > 0 && index < Points.Count - 1)
                 {
                     // 端点は削除不可
-                    if (index > 0 && index < Points.Count - 1)
-                    {
-                        DragStarted?.Invoke(this, EventArgs.Empty);
-                        Points.RemoveAt(index);
-                        _selectedIndex = -1;
-                        DragCompleted?.Invoke(this, EventArgs.Empty);
-                        InvalidateVisual();
-                    }
+                    DragStarted?.Invoke(this, EventArgs.Empty);
+                    Points.RemoveAt(index);
+                    _selectedIndex = -1;
+                    DragCompleted?.Invoke(this, EventArgs.Empty);
+                    InvalidateVisual();
                 }
             }
             else if (pointerPoint.Properties.IsLeftButtonPressed)

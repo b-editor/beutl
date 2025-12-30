@@ -232,9 +232,9 @@ public abstract class ScopeControlBase : Control
         {
             var destRect = new Rect(axisMargin, 0, contentWidth, contentHeight);
             using (context.PushRenderOptions(new RenderOptions
-                   {
-                       BitmapInterpolationMode = BitmapInterpolationMode.HighQuality
-                   }))
+            {
+                BitmapInterpolationMode = BitmapInterpolationMode.HighQuality
+            }))
             {
                 context.DrawImage(bitmap, destRect);
             }
@@ -326,12 +326,9 @@ public abstract class ScopeControlBase : Control
     {
         base.OnDetachedFromVisualTree(e);
 
-        lock (_renderLock)
-        {
-            _renderCts?.Cancel();
-            _renderCts?.Dispose();
-            _renderCts = null;
-        }
+        _renderCts?.Cancel();
+        _renderCts?.Dispose();
+        _renderCts = null;
 
         _frontBuffer?.Dispose();
         _frontBuffer = null;

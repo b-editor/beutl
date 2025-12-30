@@ -118,22 +118,18 @@ public class GradingColorPicker : TemplatedControl
 
         foreach (ColorSlider? item in GetColorSliders())
         {
-            if (item != null)
-            {
-                item.ColorChanged += OnColorSliderColorChanged;
-                item.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-                item.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
-            }
+            if (item == null) continue;
+            item.ColorChanged += OnColorSliderColorChanged;
+            item.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
+            item.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
         }
 
         foreach (GradingWheel? item in GetWheels())
         {
-            if (item != null)
-            {
-                item.DragStarted += OnWheelDragStarted;
-                item.DragDelta += OnWheelDragDelta;
-                item.DragCompleted += OnWheelDragCompleted;
-            }
+            if (item == null) continue;
+            item.DragStarted += OnWheelDragStarted;
+            item.DragDelta += OnWheelDragDelta;
+            item.DragCompleted += OnWheelDragCompleted;
         }
 
         if (_componentsBox != null)
@@ -210,26 +206,20 @@ public class GradingColorPicker : TemplatedControl
 
     private void OnComponentsBoxValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (_componentsBox != null)
+        if (_componentsBox != null && e is PropertyEditorValueChangedEventArgs<(float, float, float)> ee)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(float, float, float)> ee)
-            {
-                var oldValue = _componentsBox.ToGradingColorFromTuple(ee.OldValue);
-                var newValue = _componentsBox.ToGradingColorFromTuple(ee.NewValue);
-                ColorConfirmed?.Invoke(this, (oldValue, newValue));
-            }
+            var oldValue = _componentsBox.ToGradingColorFromTuple(ee.OldValue);
+            var newValue = _componentsBox.ToGradingColorFromTuple(ee.NewValue);
+            ColorConfirmed?.Invoke(this, (oldValue, newValue));
         }
     }
 
     private void OnComponentsBoxValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (_componentsBox != null && !_ignoreColorChange)
+        if (_componentsBox != null && !_ignoreColorChange && e is PropertyEditorValueChangedEventArgs<(float, float, float)> ee)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(float, float, float)> ee)
-            {
-                var newValue = _componentsBox.GetGradingColorOrUnboundedHsv(ee.NewValue);
-                UpdateColor(newValue, ignoreComponents: true);
-            }
+            var newValue = _componentsBox.GetGradingColorOrUnboundedHsv(ee.NewValue);
+            UpdateColor(newValue, ignoreComponents: true);
         }
     }
 
@@ -283,7 +273,7 @@ public class GradingColorPicker : TemplatedControl
             InputType = _colorType.SelectedIndex switch
             {
                 1 => GradingColorPickerInputType.Hsv,
-                0 or _ => GradingColorPickerInputType.Rgb,
+                _ => GradingColorPickerInputType.Rgb,
             };
         }
     }
@@ -353,11 +343,8 @@ public class GradingColorPicker : TemplatedControl
 
             HsvColor hsv = HsvColor.FromHsv(newHsv.H, newHsv.S, newHsv.V);
 
-            if (_ringSpectrum != null)
-                _ringSpectrum.HsvColor = hsv;
-
-            if (_previewer != null)
-                _previewer.HsvColor = hsv;
+            _ringSpectrum?.HsvColor = hsv;
+            _previewer?.HsvColor = hsv;
 
             foreach (ColorSlider? item in GetColorSliders())
             {
@@ -406,22 +393,20 @@ public class GradingColorPicker : TemplatedControl
 
         foreach (ColorSlider? item in GetColorSliders())
         {
-            if (item != null)
-            {
-                item.ColorChanged -= OnColorSliderColorChanged;
-                item.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
-                item.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
-            }
+            if (item == null) continue;
+
+            item.ColorChanged -= OnColorSliderColorChanged;
+            item.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
+            item.RemoveHandler(PointerReleasedEvent, OnSpectrumPointerReleased);
         }
 
         foreach (GradingWheel? item in GetWheels())
         {
-            if (item != null)
-            {
-                item.DragStarted -= OnWheelDragStarted;
-                item.DragDelta -= OnWheelDragDelta;
-                item.DragCompleted -= OnWheelDragCompleted;
-            }
+            if (item == null) continue;
+
+            item.DragStarted -= OnWheelDragStarted;
+            item.DragDelta -= OnWheelDragDelta;
+            item.DragCompleted -= OnWheelDragCompleted;
         }
     }
 }
