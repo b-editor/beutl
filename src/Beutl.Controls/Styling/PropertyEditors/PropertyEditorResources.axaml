@@ -4,7 +4,10 @@
                     xmlns:icons="using:FluentIcons.FluentAvalonia"
                     xmlns:intv="using:Avalonia.Xaml.Interactivity"
                     xmlns:local="using:Beutl.Controls.Styling.PropertyEditors"
+                    xmlns:pe="using:Beutl.Controls.PropertyEditors"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
+
+    <pe:GradingColorBrushConverter x:Key="GradingColorBrushConv" />
     <Design.PreviewWith>
         <Border Width="300">
             <ToggleButton Margin="8,4"

@@ -14,6 +14,7 @@ public static class AnimatorRegistry
         (type => typeof(byte).IsAssignableFrom(type), typeof(ByteAnimator)),
         (type => typeof(Color).IsAssignableFrom(type), typeof(ColorAnimator)),
         (type => typeof(CornerRadius).IsAssignableFrom(type), typeof(CornerRadiusAnimator)),
+        (type => typeof(GradingColor).IsAssignableFrom(type), typeof(GradingColorAnimator)),
         (type => typeof(decimal).IsAssignableFrom(type), typeof(DecimalAnimator)),
         (type => typeof(double).IsAssignableFrom(type), typeof(DoubleAnimator)),
         (type => typeof(float).IsAssignableFrom(type), typeof(FloatAnimator)),

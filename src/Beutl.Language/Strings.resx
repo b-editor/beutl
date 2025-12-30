@@ -120,6 +120,36 @@
   <data name="File" xml:space="preserve">
     <value>File</value>
   </data>
+  <data name="BlueCurve" xml:space="preserve">
+    <value>Blue curve</value>
+  </data>
+  <data name="Curves" xml:space="preserve">
+    <value>Curves</value>
+  </data>
+  <data name="CustomCurve" xml:space="preserve">
+    <value>Custom (RGB)</value>
+  </data>
+  <data name="GreenCurve" xml:space="preserve">
+    <value>Green curve</value>
+  </data>
+  <data name="HueVsHue" xml:space="preserve">
+    <value>Hue vs Hue</value>
+  </data>
+  <data name="HueVsLuminance" xml:space="preserve">
+    <value>Hue vs Luminance</value>
+  </data>
+  <data name="HueVsSaturation" xml:space="preserve">
+    <value>Hue vs Saturation</value>
+  </data>
+  <data name="LuminanceVsSaturation" xml:space="preserve">
+    <value>Luminance vs Saturation</value>
+  </data>
+  <data name="RedCurve" xml:space="preserve">
+    <value>Red curve</value>
+  </data>
+  <data name="SaturationVsSaturation" xml:space="preserve">
+    <value>Saturation vs Saturation</value>
+  </data>
   <data name="CreateNew" xml:space="preserve">
     <value>Create New</value>
   </data>
@@ -140,6 +170,9 @@
   </data>
   <data name="Close" xml:space="preserve">
     <value>Close</value>
+  </data>
+  <data name="ColorScopes" xml:space="preserve">
+    <value>Scopes</value>
   </data>
   <data name="CloseProject" xml:space="preserve">
     <value>Close Project</value>
@@ -687,6 +720,45 @@
   <data name="Gamma" xml:space="preserve">
     <value>Gamma</value>
   </data>
+  <data name="ColorGrading" xml:space="preserve">
+    <value>Color Grading</value>
+  </data>
+  <data name="ColorGrading_Missing" xml:space="preserve">
+    <value>No Color Grading effect is selected.</value>
+  </data>
+  <data name="ColorCurves_Missing" xml:space="preserve">
+    <value>No Color Curves effect is selected.</value>
+  </data>
+  <data name="Temperature" xml:space="preserve">
+    <value>Temperature</value>
+  </data>
+  <data name="Tint" xml:space="preserve">
+    <value>Tint</value>
+  </data>
+  <data name="Exposure" xml:space="preserve">
+    <value>Exposure</value>
+  </data>
+  <data name="LowRange" xml:space="preserve">
+    <value>Low Range</value>
+  </data>
+  <data name="HighRange" xml:space="preserve">
+    <value>High Range</value>
+  </data>
+  <data name="Shadows" xml:space="preserve">
+    <value>Shadows</value>
+  </data>
+  <data name="Midtones" xml:space="preserve">
+    <value>Midtones</value>
+  </data>
+  <data name="Highlights" xml:space="preserve">
+    <value>Highlights</value>
+  </data>
+  <data name="Lift" xml:space="preserve">
+    <value>Lift</value>
+  </data>
+  <data name="Gain" xml:space="preserve">
+    <value>Gain</value>
+  </data>
   <data name="Invert" xml:space="preserve">
     <value>Invert</value>
   </data>
@@ -713,6 +785,9 @@
   </data>
   <data name="Contrast" xml:space="preserve">
     <value>Contrast</value>
+  </data>
+  <data name="ContrastPivot" xml:space="preserve">
+    <value>Contrast Pivot</value>
   </data>
   <data name="Addition" xml:space="preserve">
     <value>Addition</value>
@@ -1008,11 +1083,20 @@
   <data name="Blue" xml:space="preserve">
     <value>Blue</value>
   </data>
+  <data name="Master" xml:space="preserve">
+    <value>Master</value>
+  </data>
   <data name="Hue" xml:space="preserve">
     <value>Hue</value>
   </data>
+  <data name="Intensity" xml:space="preserve">
+    <value>Intensity</value>
+  </data>
   <data name="Saturation" xml:space="preserve">
     <value>Saturation</value>
+  </data>
+  <data name="Vibrance" xml:space="preserve">
+    <value>Vibrance</value>
   </data>
   <data name="ShowSliders" xml:space="preserve">
     <value>Show sliders</value>
@@ -1485,5 +1569,29 @@ Random: Random(seed), Random(seed, min, max), FrameRandom(), FrameRandom(min, ma
     <value>Reference other properties:
 GetProperty&lt;T&gt;("path") or GetProperty&lt;T&gt;(guid, "propertyName")
 Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
+  </data>
+  <data name="Histogram" xml:space="preserve">
+    <value>Histogram</value>
+  </data>
+  <data name="Vectorscope" xml:space="preserve">
+    <value>Vectorscope</value>
+  </data>
+  <data name="Waveform" xml:space="preserve">
+    <value>Waveform</value>
+  </data>
+  <data name="Mode" xml:space="preserve">
+    <value>Mode</value>
+  </data>
+  <data name="Luma" xml:space="preserve">
+    <value>Luma</value>
+  </data>
+  <data name="RgbOverlay" xml:space="preserve">
+    <value>RGB Overlay</value>
+  </data>
+  <data name="RgbParade" xml:space="preserve">
+    <value>RGB Parade</value>
+  </data>
+  <data name="ShowGrid" xml:space="preserve">
+    <value>Show Grid</value>
   </data>
 </root>
