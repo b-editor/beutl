@@ -42,6 +42,10 @@
                 <RadioButton IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="範囲選択">
                     <icons:SymbolIcon FontSize="16" Symbol="Crop" />
                 </RadioButton>
+                <!--  Todo: ローカライズ  -->
+                <RadioButton IsChecked="{Binding IsCameraMode.Value}" ToolTip.Tip="3Dカメラ操作">
+                    <icons:SymbolIcon FontSize="16" Symbol="Video" />
+                </RadioButton>
                 <RadioButton Margin="0,8,0,0"
                              Click="ToggleDragModeClick"
                              GroupName="PathEditor_DragMode"
