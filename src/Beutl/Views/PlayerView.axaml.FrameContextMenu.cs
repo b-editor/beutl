@@ -66,6 +66,12 @@ public partial class PlayerView
 
     private void FrameContextMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        if (DataContext is PlayerViewModel viewModel && viewModel.IsCameraMode.Value)
+        {
+            e.Cancel = true;
+            return;
+        }
+
         if (_saveElementAsImage != null)
         {
             _saveElementAsImage.IsEnabled = _lastSelected.TryGetTarget(out _);

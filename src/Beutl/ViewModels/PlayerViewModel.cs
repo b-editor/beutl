@@ -181,6 +181,8 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
     public ReactivePropertySlim<bool> IsCropMode { get; } = new(false);
 
+    public ReactivePropertySlim<bool> IsCameraMode { get; } = new(false);
+
     public ReactivePropertySlim<Matrix> FrameMatrix { get; } = new(Matrix.Identity);
 
     public event EventHandler? PreviewInvalidated;

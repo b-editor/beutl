@@ -1,7 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
-
 using Beutl.Animation;
 using Beutl.Controls;
 using Beutl.Engine;
@@ -17,11 +16,12 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Beutl.ViewModels.Tools;
-
 using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.Logging;
-
+using System.Numerics;
+using Beutl.Graphics3D;
+using Beutl.Graphics3D.Camera;
+using Beutl.Operators.Source;
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
 using AvaRect = Avalonia.Rect;
@@ -35,11 +35,11 @@ public partial class PlayerView
         return Math.Sqrt((point.X * point.X) + (point.Y * point.Y));
     }
 
-    private sealed class KeyFrameState(KeyFrame<float>? previous, KeyFrame<float>? next)
+    private sealed class KeyFrameState<T>(KeyFrame<T>? previous, KeyFrame<T>? next)
     {
-        public KeyFrame<float>? Previous { get; } = previous;
+        public KeyFrame<T>? Previous { get; } = previous;
 
-        public KeyFrame<float>? Next { get; } = next;
+        public KeyFrame<T>? Next { get; } = next;
     }
 
     private interface IMouseControlHandler
@@ -51,6 +51,14 @@ public partial class PlayerView
         void OnReleased(PointerReleasedEventArgs e);
 
         void OnWheelChanged(PointerWheelEventArgs e)
+        {
+        }
+
+        void OnKeyDown(KeyEventArgs e)
+        {
+        }
+
+        void OnKeyUp(KeyEventArgs e)
         {
         }
     }
@@ -128,8 +136,8 @@ public partial class PlayerView
         private AvaPoint _scaledStartPosition;
         private TranslateTransform? _translateTransform;
         private Matrix _preMatrix = Matrix.Identity;
-        private KeyFrameState? _xKeyFrame;
-        private KeyFrameState? _yKeyFrame;
+        private KeyFrameState<float>? _xKeyFrame;
+        private KeyFrameState<float>? _yKeyFrame;
 
         public required PlayerView View { get; init; }
 
@@ -183,7 +191,7 @@ public partial class PlayerView
             return (null, Matrix.Identity);
         }
 
-        private KeyFrameState? FindKeyFramePairOrNull(IProperty<float> property)
+        private KeyFrameState<float>? FindKeyFramePairOrNull(IProperty<float> property)
         {
             int rate = EditViewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
             TimeSpan globalkeyTime = EditViewModel.CurrentTime.Value;
@@ -229,6 +237,7 @@ public partial class PlayerView
                         _yKeyFrame = FindKeyFramePairOrNull(_translateTransform.Y);
                     }
                 }
+
                 if (_preMatrix.TryInvert(out Matrix inverted))
                 {
                     Avalonia.Matrix avaInverted = inverted.ToAvaMatrix();
@@ -259,12 +268,13 @@ public partial class PlayerView
 
                     EditViewModel.FrameCacheManager.Value.DeleteAndUpdateBlocks([(st, ed)]);
                 }
+
                 e.Handled = true;
             }
         }
 
         // keyframesが両方nullの場合、falseを返す
-        private static bool SetKeyFrameValue(KeyFrameState? keyframes, float delta)
+        private static bool SetKeyFrameValue(KeyFrameState<float>? keyframes, float delta)
         {
             switch ((keyframes?.Previous, keyframes?.Next))
             {
@@ -344,10 +354,12 @@ public partial class PlayerView
                 {
                     foreach (SourceOperatorViewModel item in tab.Items)
                     {
-                        IPropertyEditorContext? prop = item.Properties.FirstOrDefault(v => v is GeometryEditorViewModel);
+                        IPropertyEditorContext?
+                            prop = item.Properties.FirstOrDefault(v => v is GeometryEditorViewModel);
                         if (prop is GeometryEditorViewModel geometryEditorViewModel)
                         {
-                            EditViewModel.Player.PathEditor.StartEdit(shape, geometryEditorViewModel, _scaledStartPosition);
+                            EditViewModel.Player.PathEditor.StartEdit(shape, geometryEditorViewModel,
+                                _scaledStartPosition);
                             break;
                         }
                     }
@@ -445,19 +457,11 @@ public partial class PlayerView
                 {
                     var copyAsString = new MenuFlyoutItem()
                     {
-                        Text = Strings.Copy,
-                        IconSource = new SymbolIconSource()
-                        {
-                            Symbol = Symbol.Copy
-                        }
+                        Text = Strings.Copy, IconSource = new SymbolIconSource() { Symbol = Symbol.Copy }
                     };
                     var saveAsImage = new MenuFlyoutItem()
                     {
-                        Text = Strings.SaveAsImage,
-                        IconSource = new SymbolIconSource()
-                        {
-                            Symbol = Symbol.SaveAs
-                        }
+                        Text = Strings.SaveAsImage, IconSource = new SymbolIconSource() { Symbol = Symbol.SaveAs }
                     };
                     copyAsString.Click += (s, e) =>
                     {
@@ -500,21 +504,16 @@ public partial class PlayerView
                         var copyAsImage = new MenuFlyoutItem()
                         {
                             Text = Strings.CopyAsImage,
-                            IconSource = new SymbolIconSource()
-                            {
-                                Symbol = Symbol.ImageCopy
-                            }
+                            IconSource = new SymbolIconSource() { Symbol = Symbol.ImageCopy }
                         };
                         copyAsImage.Click += (s, e) => OnCopyAsImageClicked(rect);
 
                         list.Add(copyAsImage);
                     }
+
                     list.AddRange([copyAsString, saveAsImage]);
 
-                    var f = new FAMenuFlyout
-                    {
-                        ItemsSource = list
-                    };
+                    var f = new FAMenuFlyout { ItemsSource = list };
 
                     f.ShowAt(Player, true);
                 }
@@ -564,6 +563,211 @@ public partial class PlayerView
         }
     }
 
+    private sealed class MouseControl3DCamera : IMouseControlHandler
+    {
+        private bool _rightPressed;
+        private AvaPoint _lastPosition;
+        private Scene3D? _scene3D;
+        private Camera3D? _camera;
+        private float _yaw;
+        private float _pitch;
+        private readonly HashSet<Key> _pressedKeys = [];
+
+        private const float RotationSpeed = 0.005f;
+        private const float MoveSpeed = 0.1f;
+
+        public required PlayerView View { get; init; }
+
+        public required PlayerViewModel ViewModel { get; init; }
+
+        public EditViewModel EditViewModel => ViewModel.EditViewModel;
+
+        private AvaImage Image => View.image;
+
+        public void OnPressed(PointerPressedEventArgs e)
+        {
+            PointerPoint pointerPoint = e.GetCurrentPoint(Image);
+            if (pointerPoint.Properties.IsRightButtonPressed)
+            {
+                _rightPressed = true;
+                _lastPosition = pointerPoint.Position;
+
+                // カメラとシーンを見つける
+                FindScene3DAndCamera();
+
+                if (_camera != null)
+                {
+                    // カメラの方向からYawとPitchを計算する
+                    var position = _camera.Position.CurrentValue;
+                    var target = _camera.Target.CurrentValue;
+                    var forward = Vector3.Normalize(target - position);
+
+                    _yaw = MathF.Atan2(forward.X, forward.Z);
+                    _pitch = MathF.Asin(-forward.Y);
+                }
+
+                e.Handled = true;
+            }
+        }
+
+        public void OnMoved(PointerEventArgs e)
+        {
+            if (_rightPressed && _camera != null)
+            {
+                AvaPoint position = e.GetPosition(Image);
+                AvaPoint delta = position - _lastPosition;
+
+                // マウスの動きに応じてYawとPitchを更新
+                _yaw += (float)delta.X * RotationSpeed;
+                _pitch += (float)delta.Y * RotationSpeed;
+
+                _pitch = Math.Clamp(_pitch, (-MathF.PI / 2) + 0.1f, (MathF.PI / 2) - 0.1f);
+
+                // 新しいforward directionを計算する
+                var forward = new Vector3(
+                    MathF.Sin(_yaw) * MathF.Cos(_pitch),
+                    -MathF.Sin(_pitch),
+                    MathF.Cos(_yaw) * MathF.Cos(_pitch)
+                );
+
+                // カメラのターゲットを更新する
+                var cameraPosition = _camera.Position.CurrentValue;
+                _camera.Target.CurrentValue = cameraPosition + forward;
+
+                _lastPosition = position;
+                e.Handled = true;
+            }
+        }
+
+        public void OnReleased(PointerReleasedEventArgs e)
+        {
+            if (_rightPressed && e.InitialPressMouseButton == MouseButton.Right)
+            {
+                _rightPressed = false;
+                EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
+            }
+        }
+
+        public void OnWheelChanged(PointerWheelEventArgs e)
+        {
+            if (_camera != null)
+            {
+                var position = _camera.Position.CurrentValue;
+                var target = _camera.Target.CurrentValue;
+                var forward = Vector3.Normalize(target - position);
+
+                float speed = (float)e.Delta.Y * MoveSpeed * 3;
+                position += forward * speed;
+                target += forward * speed;
+
+                _camera.Position.CurrentValue = position;
+                _camera.Target.CurrentValue = target;
+
+                EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
+                e.Handled = true;
+            }
+        }
+
+        public void OnKeyDown(KeyEventArgs e)
+        {
+            if (!_rightPressed || _camera == null)
+                return;
+
+            _pressedKeys.Add(e.Key);
+            ProcessMovement();
+            e.Handled = true;
+        }
+
+        public void OnKeyUp(KeyEventArgs e)
+        {
+            _pressedKeys.Remove(e.Key);
+        }
+
+        private void ProcessMovement()
+        {
+            if (_camera == null)
+                return;
+
+            var position = _camera.Position.CurrentValue;
+            var target = _camera.Target.CurrentValue;
+            var forward = Vector3.Normalize(target - position);
+            var up = _camera.Up.CurrentValue;
+            var right = Vector3.Normalize(Vector3.Cross(forward, up));
+
+            var movement = Vector3.Zero;
+
+            foreach (Key key in _pressedKeys)
+            {
+                switch (key)
+                {
+                    case Key.W:
+                        movement += forward * MoveSpeed;
+                        break;
+                    case Key.S:
+                        movement -= forward * MoveSpeed;
+                        break;
+                    case Key.A:
+                        movement -= right * MoveSpeed;
+                        break;
+                    case Key.D:
+                        movement += right * MoveSpeed;
+                        break;
+                    case Key.E:
+                        movement += up * MoveSpeed;
+                        break;
+                    case Key.Q:
+                        movement -= up * MoveSpeed;
+                        break;
+                }
+            }
+
+            if (movement != Vector3.Zero)
+            {
+                position += movement;
+                target += movement;
+
+                _camera.Position.CurrentValue = position;
+                _camera.Target.CurrentValue = target;
+            }
+        }
+
+        private void FindScene3DAndCamera()
+        {
+            _scene3D = null;
+            _camera = null;
+
+            // 選択されているオブジェクトから探す
+            if (EditViewModel.SelectedObject.Value is Element element)
+            {
+                foreach (var op in element.Operation.Children)
+                {
+                    if (op is Scene3DOperator scene3DOp)
+                    {
+                        _scene3D = scene3DOp.Value;
+                        _camera = _scene3D.Camera.CurrentValue;
+                        return;
+                    }
+                }
+            }
+
+            // マウス位置から探す
+            Scene scene = EditViewModel.Scene;
+            AvaPoint pos = _lastPosition;
+            double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
+            var scaledPos = pos / scaleX;
+
+            var drawable = RenderThread.Dispatcher.Invoke(() =>
+                EditViewModel.Renderer.Value.HitTest(
+                    new((float)scaledPos.X, (float)scaledPos.Y)));
+
+            if (drawable is Scene3D scene3D)
+            {
+                _scene3D = scene3D;
+                _camera = scene3D.Camera.CurrentValue;
+            }
+        }
+    }
+
     private readonly WeakReference<Drawable?> _lastSelected = new(null);
     private IMouseControlHandler? _mouseState;
     private int _lastMouseMode = -1;
@@ -581,6 +785,10 @@ public partial class PlayerView
         else if (viewModel.IsCropMode.Value)
         {
             return 2;
+        }
+        else if (viewModel.IsCameraMode.Value)
+        {
+            return 3;
         }
         else
         {
@@ -601,6 +809,9 @@ public partial class PlayerView
             case 2:
                 viewModel.IsCropMode.Value = value;
                 break;
+            case 3:
+                viewModel.IsCameraMode.Value = value;
+                break;
         }
     }
 
@@ -610,6 +821,16 @@ public partial class PlayerView
         {
             CreateMouseHandler(viewModel).OnWheelChanged(e);
         }
+    }
+
+    private void OnFrameKeyDown(object? sender, KeyEventArgs e)
+    {
+        _mouseState?.OnKeyDown(e);
+    }
+
+    private void OnFrameKeyUp(object? sender, KeyEventArgs e)
+    {
+        _mouseState?.OnKeyUp(e);
     }
 
     private void OnFramePointerMoved(object? sender, PointerEventArgs e)
@@ -635,50 +856,55 @@ public partial class PlayerView
     {
         if (viewModel.IsMoveMode.Value)
         {
-            return new MouseControlMove
-            {
-                ViewModel = viewModel,
-                View = this
-            };
+            return new MouseControlMove { ViewModel = viewModel, View = this };
         }
         else if (viewModel.IsHandMode.Value)
         {
-            return new MouseControlHand
-            {
-                ViewModel = viewModel,
-                View = this
-            };
+            return new MouseControlHand { ViewModel = viewModel, View = this };
+        }
+        else if (viewModel.IsCameraMode.Value)
+        {
+            return new MouseControl3DCamera { ViewModel = viewModel, View = this };
         }
         else
         {
-            return new MouseControlCrop
-            {
-                ViewModel = viewModel,
-                View = this
-            };
+            return new MouseControlCrop { ViewModel = viewModel, View = this };
         }
     }
 
     private void OnFramePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var point = e.GetCurrentPoint(null);
-        if (DataContext is PlayerViewModel viewModel
-            && (point.Properties.IsLeftButtonPressed
-            || point.Properties.IsMiddleButtonPressed))
+        if (DataContext is PlayerViewModel viewModel)
         {
-            if (point.Properties.IsMiddleButtonPressed)
+            if (viewModel.IsCameraMode.Value)
             {
-                _lastMouseMode = GetMouseModeIndex(viewModel);
-                viewModel.IsHandMode.Value = true;
+                if (point.Properties.IsLeftButtonPressed || point.Properties.IsRightButtonPressed)
+                {
+                    _mouseState = CreateMouseHandler(viewModel);
+                    _mouseState.OnPressed(e);
+                    framePanel.Focus();
+                }
+
+                return;
             }
 
-            _mouseState = CreateMouseHandler(viewModel);
-
-            _mouseState.OnPressed(e);
-            // Todo: 抽象化する
-            if (_mouseState is MouseControlMove move)
+            if (point.Properties.IsLeftButtonPressed || point.Properties.IsMiddleButtonPressed)
             {
-                _lastSelected.SetTarget(move.Drawable);
+                if (point.Properties.IsMiddleButtonPressed)
+                {
+                    _lastMouseMode = GetMouseModeIndex(viewModel);
+                    viewModel.IsHandMode.Value = true;
+                }
+
+                _mouseState = CreateMouseHandler(viewModel);
+
+                _mouseState.OnPressed(e);
+                // Todo: 抽象化する
+                if (_mouseState is MouseControlMove move)
+                {
+                    _lastSelected.SetTarget(move.Drawable);
+                }
             }
         }
     }
