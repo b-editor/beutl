@@ -572,6 +572,8 @@ public partial class PlayerView
         private float _yaw;
         private float _pitch;
         private readonly HashSet<Key> _pressedKeys = [];
+        private KeyFrameState<Vector3>? _positionKeyFrame;
+        private KeyFrameState<Vector3>? _targetKeyFrame;
 
         private const float RotationSpeed = 0.005f;
         private const float MoveSpeed = 0.1f;
@@ -582,7 +584,56 @@ public partial class PlayerView
 
         public EditViewModel EditViewModel => ViewModel.EditViewModel;
 
+        private RenderContext RenderContext => field ??= new(EditViewModel.CurrentTime.Value);
+
         private AvaImage Image => View.image;
+
+        private KeyFrameState<Vector3>? FindKeyFramePairOrNull(IProperty<Vector3> property)
+        {
+            int rate = EditViewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            TimeSpan globalKeyTime = EditViewModel.CurrentTime.Value;
+            TimeSpan localKeyTime = _scene3D != null ? globalKeyTime - _scene3D.TimeRange.Start : globalKeyTime;
+
+            if (property.Animation is KeyFrameAnimation<Vector3> animation)
+            {
+                TimeSpan keyTime = animation.UseGlobalClock ? globalKeyTime : localKeyTime;
+                keyTime = keyTime.RoundToRate(rate);
+
+                (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(keyTime);
+
+                if (next?.KeyTime == keyTime)
+                    return new(next as KeyFrame<Vector3>, null);
+
+                return new(prev as KeyFrame<Vector3>, next as KeyFrame<Vector3>);
+            }
+
+            return default;
+        }
+
+        // キーフレームがない場合はfalseを返す
+        private static bool SetKeyFrameValue(KeyFrameState<Vector3>? keyframes, Vector3 delta)
+        {
+            switch ((keyframes?.Previous, keyframes?.Next))
+            {
+                case (null, null):
+                    return false;
+
+                case ({ } prev, { } next):
+                    prev.Value += delta;
+                    next.Value += delta;
+                    break;
+
+                case ({ } prev, null):
+                    prev.Value += delta;
+                    break;
+
+                case (null, { } next):
+                    next.Value += delta;
+                    break;
+            }
+
+            return true;
+        }
 
         public void OnPressed(PointerPressedEventArgs e)
         {
@@ -598,12 +649,16 @@ public partial class PlayerView
                 if (_camera != null)
                 {
                     // カメラの方向からYawとPitchを計算する
-                    var position = _camera.Position.CurrentValue;
-                    var target = _camera.Target.CurrentValue;
+                    var position = _camera.Position.GetValue(RenderContext);
+                    var target = _camera.Target.GetValue(RenderContext);
                     var forward = Vector3.Normalize(target - position);
 
                     _yaw = MathF.Atan2(forward.X, forward.Z);
                     _pitch = MathF.Asin(-forward.Y);
+
+                    // キーフレームを探す
+                    _positionKeyFrame = FindKeyFramePairOrNull(_camera.Position);
+                    _targetKeyFrame = FindKeyFramePairOrNull(_camera.Target);
                 }
 
                 e.Handled = true;
@@ -631,8 +686,14 @@ public partial class PlayerView
                 );
 
                 // カメラのターゲットを更新する
-                var cameraPosition = _camera.Position.CurrentValue;
-                _camera.Target.CurrentValue = cameraPosition + forward;
+                var cameraPosition = _camera.Position.GetValue(RenderContext);
+                var newTarget = cameraPosition + forward;
+                var targetDelta = newTarget - _camera.Target.GetValue(RenderContext);
+
+                if (!SetKeyFrameValue(_targetKeyFrame, targetDelta))
+                {
+                    _camera.Target.CurrentValue = newTarget;
+                }
 
                 _lastPosition = position;
                 e.Handled = true;
@@ -644,6 +705,8 @@ public partial class PlayerView
             if (_rightPressed && e.InitialPressMouseButton == MouseButton.Right)
             {
                 _rightPressed = false;
+                _positionKeyFrame = default;
+                _targetKeyFrame = default;
                 EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
             }
         }
@@ -652,16 +715,34 @@ public partial class PlayerView
         {
             if (_camera != null)
             {
-                var position = _camera.Position.CurrentValue;
-                var target = _camera.Target.CurrentValue;
+                // カメラとシーンを探す（ホイール操作は単独で行われる可能性があるため）
+                if (_scene3D == null)
+                {
+                    FindScene3DAndCamera();
+                }
+
+                if (_camera == null) return;
+
+                // キーフレームを探す
+                var posKeyFrame = FindKeyFramePairOrNull(_camera.Position);
+                var targetKeyFrame = FindKeyFramePairOrNull(_camera.Target);
+
+                var position = _camera.Position.GetValue(RenderContext);
+                var target = _camera.Target.GetValue(RenderContext);
                 var forward = Vector3.Normalize(target - position);
 
                 float speed = (float)e.Delta.Y * MoveSpeed * 3;
-                position += forward * speed;
-                target += forward * speed;
+                var movement = forward * speed;
 
-                _camera.Position.CurrentValue = position;
-                _camera.Target.CurrentValue = target;
+                if (!SetKeyFrameValue(posKeyFrame, movement))
+                {
+                    _camera.Position.CurrentValue = position + movement;
+                }
+
+                if (!SetKeyFrameValue(targetKeyFrame, movement))
+                {
+                    _camera.Target.CurrentValue = target + movement;
+                }
 
                 EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
                 e.Handled = true;
@@ -688,10 +769,10 @@ public partial class PlayerView
             if (_camera == null)
                 return;
 
-            var position = _camera.Position.CurrentValue;
-            var target = _camera.Target.CurrentValue;
+            var position = _camera.Position.GetValue(RenderContext);
+            var target = _camera.Target.GetValue(RenderContext);
             var forward = Vector3.Normalize(target - position);
-            var up = _camera.Up.CurrentValue;
+            var up = _camera.Up.GetValue(RenderContext);
             var right = Vector3.Normalize(Vector3.Cross(forward, up));
 
             var movement = Vector3.Zero;
@@ -723,11 +804,15 @@ public partial class PlayerView
 
             if (movement != Vector3.Zero)
             {
-                position += movement;
-                target += movement;
+                if (!SetKeyFrameValue(_positionKeyFrame, movement))
+                {
+                    _camera.Position.CurrentValue = position + movement;
+                }
 
-                _camera.Position.CurrentValue = position;
-                _camera.Target.CurrentValue = target;
+                if (!SetKeyFrameValue(_targetKeyFrame, movement))
+                {
+                    _camera.Target.CurrentValue = target + movement;
+                }
             }
         }
 
