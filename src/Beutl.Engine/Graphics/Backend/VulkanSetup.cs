@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 

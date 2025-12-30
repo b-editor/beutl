@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
@@ -85,7 +85,8 @@ public sealed class NodeItemOperationObserver : IOperationObserver
         var operation =
             new UpdateNodeItemOperation(_nodeItem,
                 string.IsNullOrEmpty(_propertyPath) ? "Expression" : $"{_propertyPath}.Expression", t.NewValue,
-                t.OldValue) { SequenceNumber = _sequenceNumberGenerator.GetNext() };
+                t.OldValue)
+            { SequenceNumber = _sequenceNumberGenerator.GetNext() };
         _operations.OnNext(operation);
     }
 

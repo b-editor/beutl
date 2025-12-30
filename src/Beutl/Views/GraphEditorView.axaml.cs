@@ -57,7 +57,7 @@ public partial class GraphEditorView : UserControl
 
     private void OnDrap(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Easing) is {  } typeName
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Easing) is { } typeName
             && TypeFormat.ToType(typeName) is { } type
             && Activator.CreateInstance(type) is Easing easing
             && DataContext is GraphEditorViewModel { Options.Value.Scale: { } scale } viewModel)
@@ -203,7 +203,8 @@ public partial class GraphEditorView : UserControl
             Vector2 originalOffset = viewModel.Options.Value.Offset;
             viewModel.Options.Value = viewModel.Options.Value with
             {
-                Scale = scale, Offset = new Vector2(offset.X, originalOffset.Y)
+                Scale = scale,
+                Offset = new Vector2(offset.X, originalOffset.Y)
             };
 
             viewModel.ScrollOffset.Value = new(offset.X, offset.Y);
@@ -260,7 +261,8 @@ public partial class GraphEditorView : UserControl
             Vector2 originalOffset = viewModel.Options.Value.Offset;
             viewModel.Options.Value = viewModel.Options.Value with
             {
-                Scale = scale, Offset = new Vector2(offset.X, originalOffset.Y)
+                Scale = scale,
+                Offset = new Vector2(offset.X, originalOffset.Y)
             };
 
             viewModel.ScrollOffset.Value = new(offset.X, offset.Y);

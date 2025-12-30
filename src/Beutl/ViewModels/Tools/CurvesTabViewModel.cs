@@ -1,13 +1,12 @@
-using System.Text.Json.Nodes;
-
+﻿using System.Text.Json.Nodes;
+using Avalonia.Media.Imaging;
 using Beutl.Controls.Curves;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
-using Avalonia.Media.Imaging;
-using Beutl.Editor;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 

@@ -104,7 +104,7 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
     {
         if (context is BaseEditorViewModel { PropertyAdapter: { } adapter })
         {
-            return adapter.GetAttributes().FirstOrDefault(i=> i is DisplayAttribute) as DisplayAttribute;
+            return adapter.GetAttributes().FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute;
         }
         else
         {

@@ -1,4 +1,4 @@
-namespace Beutl.Editor;
+﻿namespace Beutl.Editor;
 
 // IOperationObserverの通知を抑制
 public static class PublishingSuppression

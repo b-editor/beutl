@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Engine.Expressions;
@@ -92,7 +92,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
 
     public event Action<IExpression<T>?>? ExpressionChanged;
 
-    public void operator <<= (T value)
+    public void operator <<=(T value)
     {
         CurrentValue = value;
     }

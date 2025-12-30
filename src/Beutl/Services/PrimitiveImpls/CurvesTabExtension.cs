@@ -1,12 +1,11 @@
-using System.Diagnostics.CodeAnalysis;
-
+﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
 using FluentAvalonia.UI.Controls;
-using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 using Symbol = FluentIcons.Common.Symbol;
+using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 

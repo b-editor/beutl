@@ -33,7 +33,7 @@ public class FilterEffectRenderNodeTest
     [Test]
     public void Process_ShouldApplyFilterEffect()
     {
-        var effect = new Blur() { Sigma = {CurrentValue = new(10, 10) } };
+        var effect = new Blur() { Sigma = { CurrentValue = new(10, 10) } };
         var resource = effect.ToResource(RenderContext.Default);
         var node = new FilterEffectRenderNode(resource);
         var context = CreateRenderNodeContext();

@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;

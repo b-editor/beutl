@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Reflection;
 using Beutl.Animation;
@@ -129,7 +129,7 @@ public class AnimatableProperty<T> : IProperty<T>
 
     public event Action<IExpression<T>?>? ExpressionChanged;
 
-    public void operator <<= (T value)
+    public void operator <<=(T value)
     {
         CurrentValue = value;
     }

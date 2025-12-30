@@ -1,4 +1,4 @@
-using Beutl.Collections;
+﻿using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.Engine;

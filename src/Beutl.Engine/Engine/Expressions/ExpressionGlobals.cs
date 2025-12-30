@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 
 namespace Beutl.Engine.Expressions;
 
@@ -69,7 +69,7 @@ public class ExpressionGlobals
     public T Clamp<T>(T value, T min, T max) where T : INumber<T> => T.Clamp(value, min, max);
     public int Sign<T>(T x) where T : INumber<T> => T.Sign(x);
     public T Truncate<T>(T x) where T : IFloatingPointIeee754<T> => T.Truncate(x);
-    
+
     public T Lerp<T>(T a, T b, T t) where T : IFloatingPointIeee754<T> => T.Lerp(a, b, t);
 
     public T InverseLerp<T>(T a, T b, T value) where T : IFloatingPointIeee754<T> => (value - a) / (b - a);

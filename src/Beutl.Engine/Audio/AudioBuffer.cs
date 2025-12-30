@@ -1,4 +1,4 @@
-using System.Buffers;
+﻿using System.Buffers;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 

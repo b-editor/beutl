@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Reactive.Subjects;
 using Beutl.Animation;
 using Beutl.Editor.Infrastructure;

@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Reflection;

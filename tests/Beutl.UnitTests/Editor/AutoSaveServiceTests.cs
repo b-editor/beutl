@@ -1,4 +1,4 @@
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Collections;

@@ -203,7 +203,8 @@ public class BeutlApiApplication
 
             AuthResponse authResponse = await Account.Exchange(new ExchangeRequest
             {
-                Code = code, SessionId = authUriRes.SessionId
+                Code = code,
+                SessionId = authUriRes.SessionId
             });
             activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
@@ -247,7 +248,8 @@ public class BeutlApiApplication
 
                 AuthResponse authResponse = await Account.Exchange(new ExchangeRequest
                 {
-                    Code = code, SessionId = authUriRes.SessionId
+                    Code = code,
+                    SessionId = authUriRes.SessionId
                 });
                 activity?.AddEvent(new("Done_CodeToJwtAsync"));
 

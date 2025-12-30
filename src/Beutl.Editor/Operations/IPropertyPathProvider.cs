@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Operations;
+﻿namespace Beutl.Editor.Operations;
 
 public interface IPropertyPathProvider
 {

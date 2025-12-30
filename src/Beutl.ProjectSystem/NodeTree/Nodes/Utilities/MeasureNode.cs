@@ -28,7 +28,7 @@ public class MeasureNode : Node
             var processor = new RenderNodeProcessor(renderNode, true);
             RenderNodeOperation[] list = processor.PullToRoot();
             Rect rect = Rect.Empty;
-            
+
             foreach (RenderNodeOperation item in list)
             {
                 rect = rect.Union(item.Bounds);

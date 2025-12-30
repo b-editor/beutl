@@ -4,6 +4,7 @@ using Avalonia.Styling;
 using FluentAvalonia.Styling;
 
 namespace Beutl.Pages.SettingsPages;
+
 public partial class SignInScreen : UserControl
 {
     public SignInScreen()

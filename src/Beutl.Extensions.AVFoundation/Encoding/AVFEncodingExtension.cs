@@ -1,8 +1,8 @@
-﻿using System.Runtime.Versioning;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Beutl.Extensibility;
 using MonoMac.AppKit;
-using System.ComponentModel.DataAnnotations;
-using System.Runtime.InteropServices;
 
 namespace Beutl.Extensions.AVFoundation.Encoding;
 

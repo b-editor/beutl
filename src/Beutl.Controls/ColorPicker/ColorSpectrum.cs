@@ -1,15 +1,15 @@
-﻿using Avalonia;
-using System;
-using SkiaSharp;
+﻿using System;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Skia;
-using Avalonia.Input;
-using FluentAvalonia.UI.Media;
-using System.Threading.Tasks;
-using FluentAvalonia.Core;
 using Avalonia.Media.Immutable;
 using Avalonia.Platform;
+using Avalonia.Skia;
+using FluentAvalonia.Core;
+using FluentAvalonia.UI.Media;
+using SkiaSharp;
 
 namespace FluentAvalonia.UI.Controls;
 

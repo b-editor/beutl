@@ -18,7 +18,8 @@ public partial class MainWindow : Window
         InitializeComponent();
         _text = new TextBlock()
         {
-            Size = { CurrentValue = 70 }, Fill = { CurrentValue = Brushes.White }
+            Size = { CurrentValue = 70 },
+            Fill = { CurrentValue = Brushes.White }
         };
 
         _resource = _text.ToResource(RenderContext.Default);

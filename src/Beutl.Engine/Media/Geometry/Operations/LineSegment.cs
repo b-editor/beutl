@@ -10,7 +10,7 @@ public sealed partial class LineSegment : PathSegment
         ScanProperties<LineSegment>();
     }
 
-    public LineSegment(Point point):this()
+    public LineSegment(Point point) : this()
     {
         Point.CurrentValue = point;
     }

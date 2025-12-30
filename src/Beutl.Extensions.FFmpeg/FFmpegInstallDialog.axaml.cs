@@ -1,4 +1,4 @@
-using FluentAvalonia.UI.Controls;
+﻿using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Extensions.FFmpeg;
 

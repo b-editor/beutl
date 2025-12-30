@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Reflection;
@@ -94,7 +94,7 @@ public class ListProperty<T> : IListProperty<T>
 
     public event EventHandler? Edited;
 
-    public void operator <<= (ICoreList<T> value)
+    public void operator <<=(ICoreList<T> value)
     {
         CurrentValue = value;
     }

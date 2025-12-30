@@ -1,4 +1,4 @@
-namespace Beutl.Editor;
+﻿namespace Beutl.Editor;
 
 // HistoryMangerが記録するのを抑制
 public static class RecordingSuppression

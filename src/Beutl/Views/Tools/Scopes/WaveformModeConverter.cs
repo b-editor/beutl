@@ -1,4 +1,4 @@
-using Avalonia.Data.Converters;
+﻿using Avalonia.Data.Converters;
 
 namespace Beutl.Views.Tools.Scopes;
 

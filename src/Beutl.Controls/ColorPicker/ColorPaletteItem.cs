@@ -1,5 +1,6 @@
 ﻿// https://github.com/amwx/FluentAvalonia/blob/9e35813b3e3e649ad254ff6be4a35e52ac96d051/src/FluentAvalonia/UI/Controls/ColorPicker/ColorPaletteItem.cs
 
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -7,7 +8,6 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Utilities;
 using Avalonia.VisualTree;
-using System;
 
 namespace FluentAvalonia.UI.Controls;
 
@@ -105,8 +105,8 @@ public partial class ColorPaletteItem : Control
             // v2p6.1 - no longer have access to this, always default to false
             // (probably was the case anyway)
             _backendSupportsIndividualCorners = false;
-                //??= AvaloniaLocator.Current.GetService<IPlatformRenderInterface>()
-                //.SupportsIndividualRoundRects;
+            //??= AvaloniaLocator.Current.GetService<IPlatformRenderInterface>()
+            //.SupportsIndividualRoundRects;
             _size = finalSize;
             _borderThickness = borderThickness;
             _cornerRadius = cornerRadius;

@@ -1,11 +1,11 @@
-﻿using Avalonia;
+﻿using System;
+using Avalonia;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using FluentAvalonia.UI.Media;
-using System;
 using AvColor = Avalonia.Media.Color;
 
 namespace FluentAvalonia.UI.Controls;

@@ -1,4 +1,4 @@
-using Beutl.Editor.Operations;
+﻿using Beutl.Editor.Operations;
 
 namespace Beutl.Editor;
 
@@ -49,7 +49,8 @@ public sealed class RecordingScope<TState> : IDisposable
         return new CustomOperation(
             _ => _applyState(toState),
             _ => _applyState(fromState),
-            _description) { SequenceNumber = _sequenceGenerator.GetNext() };
+            _description)
+        { SequenceNumber = _sequenceGenerator.GetNext() };
     }
 
     public void Dispose()

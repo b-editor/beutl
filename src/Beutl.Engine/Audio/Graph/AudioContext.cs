@@ -1,4 +1,4 @@
-using Beutl.Audio.Effects;
+﻿using Beutl.Audio.Effects;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
 using Beutl.Media.Source;
@@ -149,7 +149,7 @@ public sealed class AudioContext : IDisposable
         if (_previousNodes != null)
         {
             var existing = _previousNodes.OfType<ShiftNode>()
-                .FirstOrDefault(n => n.Shift==shift);
+                .FirstOrDefault(n => n.Shift == shift);
             if (existing != null)
             {
                 _previousNodes.Remove(existing);

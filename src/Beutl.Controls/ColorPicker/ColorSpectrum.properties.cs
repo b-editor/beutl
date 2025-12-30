@@ -1,6 +1,6 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
-using Avalonia;
 
 namespace FluentAvalonia.UI.Controls;
 

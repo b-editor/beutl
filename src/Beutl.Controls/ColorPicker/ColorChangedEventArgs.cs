@@ -1,5 +1,5 @@
-﻿using FluentAvalonia.UI.Media;
-using System;
+﻿using System;
+using FluentAvalonia.UI.Media;
 
 namespace FluentAvalonia.UI.Controls;
 
