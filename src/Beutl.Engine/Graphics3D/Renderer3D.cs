@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Numerics;
+using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
@@ -29,6 +30,10 @@ internal sealed class Renderer3D : IRenderer3D
 
     // Final output for Skia integration
     private ISharedTexture? _outputTexture;
+
+    // Cached render state for hit testing
+    private Camera3D.Resource? _lastCamera;
+    private IReadOnlyList<Object3D.Resource>? _lastObjects;
 
     public Renderer3D(IGraphicsContext context)
     {
@@ -102,6 +107,10 @@ internal sealed class Renderer3D : IRenderer3D
 
         if (_geometryPass == null || _lightingPass == null || _flipPass == null || _shadowManager == null)
             return;
+
+        // Cache for hit testing
+        _lastCamera = camera;
+        _lastObjects = objects;
 
         float aspectRatio = (float)Width / Height;
 
@@ -215,6 +224,16 @@ internal sealed class Renderer3D : IRenderer3D
     public byte[] DownloadPixels()
     {
         return _outputTexture?.DownloadPixels() ?? [];
+    }
+
+    public Object3D.Resource? HitTest(Point screenPoint)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (_lastCamera == null || _lastObjects == null || _lastObjects.Count == 0)
+            return null;
+
+        return HitTester3D.HitTest(screenPoint, Width, Height, _lastCamera, _lastObjects);
     }
 
     public void Dispose()
