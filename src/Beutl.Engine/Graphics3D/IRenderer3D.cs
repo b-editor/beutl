@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
+using Beutl.Graphics;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Media;
@@ -65,4 +67,11 @@ public interface IRenderer3D : IDisposable
     /// </summary>
     /// <returns>The pixel data as a byte array.</returns>
     byte[] DownloadPixels();
+
+    /// <summary>
+    /// Performs a hit test at the specified screen point.
+    /// </summary>
+    /// <param name="screenPoint">The point in screen coordinates.</param>
+    /// <returns>The 3D object at that point, or null if none.</returns>
+    Object3D.Resource? HitTest(Point screenPoint);
 }
