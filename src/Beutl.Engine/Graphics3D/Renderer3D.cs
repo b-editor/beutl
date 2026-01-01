@@ -260,6 +260,22 @@ internal sealed class Renderer3D : IRenderer3D
         return HitTester3D.HitTest(screenPoint, Width, Height, _lastCamera, _lastObjects);
     }
 
+    public GizmoAxis GizmoHitTest(Point screenPoint, Object3D.Resource? gizmoTarget, GizmoMode gizmoMode)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (_lastCamera == null || gizmoTarget == null || gizmoMode == GizmoMode.None)
+            return GizmoAxis.None;
+
+        return GizmoHitTester.HitTest(
+            screenPoint,
+            Width,
+            Height,
+            _lastCamera,
+            gizmoTarget.Position,
+            gizmoMode);
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
