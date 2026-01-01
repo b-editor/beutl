@@ -3,6 +3,7 @@ using Beutl.Audio.Effects;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics3D;
 using Beutl.Language;
 using Beutl.Media;
 // using Beutl.NodeTree.Nodes.Transform;
@@ -74,6 +75,29 @@ public static class LibraryRegistrar
                 .BindSourceOperator<Source.SourceSoundOperator>()
                 .BindSound<SourceSound>()
             );
+
+        LibraryService.Current.RegisterGroup("3D", g => g
+            .AddMultiple("Scene3D", m => m
+                .BindSourceOperator<Source.Scene3DOperator>()
+                .BindDrawable<Scene3D>()
+            )
+            .AddMultiple("Cube", m => m
+                .BindSourceOperator<Source.Cube3DOperator>()
+            )
+            .AddMultiple("Sphere", m => m
+                .BindSourceOperator<Source.Sphere3DOperator>()
+            )
+            // Lights
+            .AddMultiple("Directional Light", m => m
+                .BindSourceOperator<Source.DirectionalLight3DOperator>()
+            )
+            .AddMultiple("Point Light", m => m
+                .BindSourceOperator<Source.PointLight3DOperator>()
+            )
+            .AddMultiple("Spot Light", m => m
+                .BindSourceOperator<Source.SpotLight3DOperator>()
+            )
+        );
 
         LibraryService.Current
             .AddMultiple("下位N個の要素を取得", m => m

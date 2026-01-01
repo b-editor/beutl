@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Graphics.Backend;
 
-internal enum TextureFormat
+public enum TextureFormat
 {
     RGBA8Unorm,
     BGRA8Unorm,
@@ -8,5 +8,7 @@ internal enum TextureFormat
     RGBA32Float,
     R8Unorm,
     R16Float,
-    R32Float
+    R32Float,
+    Depth32Float,
+    Depth24Stencil8
 }

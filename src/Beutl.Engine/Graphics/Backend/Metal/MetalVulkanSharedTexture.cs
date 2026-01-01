@@ -4,7 +4,9 @@ using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
+
+namespace Beutl.Graphics.Backend.Metal;
 
 using Image = Silk.NET.Vulkan.Image;
 
@@ -15,10 +17,13 @@ internal sealed unsafe class MetalVulkanSharedTexture : ISharedTexture
     private readonly VulkanContext _vulkanContext;
     private readonly Image _vulkanImage;
     private readonly DeviceMemory _vulkanMemory;
+    private readonly ImageView _vulkanImageView;
     private readonly IntPtr _metalTexture;
     private readonly int _width;
     private readonly int _height;
     private readonly TextureFormat _format;
+    private readonly ulong _allocationSize;
+    private ImageLayout _currentLayout = ImageLayout.Undefined;
     private bool _disposed;
 
     public MetalVulkanSharedTexture(
@@ -50,7 +55,7 @@ internal sealed unsafe class MetalVulkanSharedTexture : ISharedTexture
             SType = StructureType.ImageCreateInfo,
             PNext = &exportCreateInfo,
             ImageType = ImageType.Type2D,
-            Format = GetVulkanFormat(format),
+            Format = format.ToVulkanFormat(),
             Extent = new Extent3D((uint)width, (uint)height, 1),
             MipLevels = 1,
             ArrayLayers = 1,
@@ -73,13 +78,14 @@ internal sealed unsafe class MetalVulkanSharedTexture : ISharedTexture
         // Get memory requirements
         MemoryRequirements memReqs;
         vk.GetImageMemoryRequirements(device, _vulkanImage, &memReqs);
+        _allocationSize = memReqs.Size;
 
         // Allocate device memory
         var allocInfo = new MemoryAllocateInfo
         {
             SType = StructureType.MemoryAllocateInfo,
             AllocationSize = memReqs.Size,
-            MemoryTypeIndex = FindMemoryType(vulkanContext, memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
+            MemoryTypeIndex = vulkanContext.FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
         };
 
         DeviceMemory memory;
@@ -100,8 +106,38 @@ internal sealed unsafe class MetalVulkanSharedTexture : ISharedTexture
             throw new InvalidOperationException($"Failed to bind image memory: {result}");
         }
 
+        // Create image view
+        var viewInfo = new ImageViewCreateInfo
+        {
+            SType = StructureType.ImageViewCreateInfo,
+            Image = _vulkanImage,
+            ViewType = ImageViewType.Type2D,
+            Format = format.ToVulkanFormat(),
+            SubresourceRange = new ImageSubresourceRange
+            {
+                AspectMask = ImageAspectFlags.ColorBit,
+                BaseMipLevel = 0,
+                LevelCount = 1,
+                BaseArrayLayer = 0,
+                LayerCount = 1
+            }
+        };
+
+        ImageView imageView;
+        result = vk.CreateImageView(device, &viewInfo, null, &imageView);
+        if (result != Result.Success)
+        {
+            vk.FreeMemory(device, _vulkanMemory, null);
+            vk.DestroyImage(device, _vulkanImage, null);
+            throw new InvalidOperationException($"Failed to create Vulkan image view: {result}");
+        }
+        _vulkanImageView = imageView;
+
         // Export Metal texture from Vulkan image using VK_EXT_metal_objects
         _metalTexture = ExportMetalTexture(vulkanContext);
+
+        // Transition to initial layout
+        TransitionTo(ImageLayout.ColorAttachmentOptimal);
     }
 
     public int Width => _width;
@@ -111,6 +147,27 @@ internal sealed unsafe class MetalVulkanSharedTexture : ISharedTexture
     public TextureFormat Format => _format;
 
     public IntPtr VulkanImageHandle => (IntPtr)_vulkanImage.Handle;
+
+    public IntPtr VulkanImageViewHandle => (IntPtr)_vulkanImageView.Handle;
+
+    public void PrepareForRender()
+    {
+        TransitionTo(ImageLayout.ColorAttachmentOptimal);
+    }
+
+    public void PrepareForSampling()
+    {
+        TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+    }
+
+    private void TransitionTo(ImageLayout layout)
+    {
+        if (_currentLayout == layout)
+            return;
+
+        _vulkanContext.TransitionImageLayout(_vulkanImage, _currentLayout, layout);
+        _currentLayout = layout;
+    }
 
     private IntPtr ExportMetalTexture(VulkanContext vulkanContext)
     {
@@ -127,7 +184,7 @@ internal sealed unsafe class MetalVulkanSharedTexture : ISharedTexture
         {
             SType = StructureType.ExportMetalTextureInfoExt,
             Image = _vulkanImage,
-            ImageView = default, // We're exporting the image directly
+            ImageView = _vulkanImageView,
             BufferView = default,
             Plane = ImageAspectFlags.ColorBit
         };
@@ -141,38 +198,6 @@ internal sealed unsafe class MetalVulkanSharedTexture : ISharedTexture
         metalObjects.ExportMetalObjects(vulkanContext.Device, &exportInfo);
 
         return exportTextureInfo.MtlTexture;
-    }
-
-    private static uint FindMemoryType(VulkanContext context, uint typeFilter, MemoryPropertyFlags properties)
-    {
-        PhysicalDeviceMemoryProperties memProps;
-        context.Vk.GetPhysicalDeviceMemoryProperties(context.PhysicalDevice, &memProps);
-
-        for (uint i = 0; i < memProps.MemoryTypeCount; i++)
-        {
-            if ((typeFilter & (1u << (int)i)) != 0 &&
-                (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
-            {
-                return i;
-            }
-        }
-
-        throw new InvalidOperationException("Failed to find suitable memory type");
-    }
-
-    private static Format GetVulkanFormat(TextureFormat textureFormat)
-    {
-        return textureFormat switch
-        {
-            TextureFormat.RGBA8Unorm => Silk.NET.Vulkan.Format.R8G8B8A8Unorm,
-            TextureFormat.BGRA8Unorm => Silk.NET.Vulkan.Format.B8G8R8A8Unorm,
-            TextureFormat.RGBA16Float => Silk.NET.Vulkan.Format.R16G16B16A16Sfloat,
-            TextureFormat.RGBA32Float => Silk.NET.Vulkan.Format.R32G32B32A32Sfloat,
-            TextureFormat.R8Unorm => Silk.NET.Vulkan.Format.R8Unorm,
-            TextureFormat.R16Float => Silk.NET.Vulkan.Format.R16Sfloat,
-            TextureFormat.R32Float => Silk.NET.Vulkan.Format.R32Sfloat,
-            _ => Silk.NET.Vulkan.Format.R8G8B8A8Unorm
-        };
     }
 
     public SKSurface CreateSkiaSurface()
@@ -192,22 +217,67 @@ internal sealed unsafe class MetalVulkanSharedTexture : ISharedTexture
             backendTexture,
             GRSurfaceOrigin.TopLeft,
             1,
-            GetSkiaColorType(_format));
+            _format.ToSkiaColorType());
     }
 
-    private static SKColorType GetSkiaColorType(TextureFormat format)
+
+    public unsafe byte[] DownloadPixels()
     {
-        return format switch
+        // Transition to transfer source
+        TransitionTo(ImageLayout.TransferSrcOptimal);
+
+        int bytesPerPixel = _format switch
         {
-            TextureFormat.RGBA8Unorm => SKColorType.Rgba8888,
-            TextureFormat.BGRA8Unorm => SKColorType.Bgra8888,
-            TextureFormat.RGBA16Float => SKColorType.RgbaF16,
-            TextureFormat.RGBA32Float => SKColorType.RgbaF32,
-            TextureFormat.R8Unorm => SKColorType.Gray8,
-            TextureFormat.R16Float => SKColorType.AlphaF16,
-            TextureFormat.R32Float => SKColorType.RgbaF32,
-            _ => SKColorType.Rgba8888
+            TextureFormat.RGBA8Unorm or TextureFormat.BGRA8Unorm => 4,
+            TextureFormat.RGBA16Float => 8,
+            TextureFormat.RGBA32Float => 16,
+            TextureFormat.R8Unorm => 1,
+            TextureFormat.R16Float => 2,
+            TextureFormat.R32Float => 4,
+            _ => 4
         };
+
+        ulong bufferSize = (ulong)(_width * _height * bytesPerPixel);
+        var pixelData = new byte[bufferSize];
+
+        // Create staging buffer
+        using var stagingBuffer = new VulkanBuffer(
+            _vulkanContext,
+            bufferSize,
+            BufferUsage.TransferDestination,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+
+        // Copy image to buffer
+        _vulkanContext.SubmitImmediateCommands(cmd =>
+        {
+            var region = new BufferImageCopy
+            {
+                BufferOffset = 0,
+                BufferRowLength = 0,
+                BufferImageHeight = 0,
+                ImageSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = ImageAspectFlags.ColorBit,
+                    MipLevel = 0,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
+                },
+                ImageOffset = new Offset3D(0, 0, 0),
+                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
+            };
+
+            _vulkanContext.Vk.CmdCopyImageToBuffer(cmd, _vulkanImage, ImageLayout.TransferSrcOptimal, stagingBuffer.Handle, 1, &region);
+        });
+
+        // Read data from staging buffer
+        var srcPtr = stagingBuffer.Map();
+        System.Runtime.InteropServices.Marshal.Copy(srcPtr, pixelData, 0, (int)bufferSize);
+        stagingBuffer.Unmap();
+
+        // Transition back to color attachment
+        TransitionTo(ImageLayout.ColorAttachmentOptimal);
+
+        return pixelData;
     }
 
     public void Dispose()
@@ -217,6 +287,11 @@ internal sealed unsafe class MetalVulkanSharedTexture : ISharedTexture
 
         var vk = _vulkanContext.Vk;
         var device = _vulkanContext.Device;
+
+        if (_vulkanImageView.Handle != 0)
+        {
+            vk.DestroyImageView(device, _vulkanImageView, null);
+        }
 
         if (_vulkanImage.Handle != 0)
         {
