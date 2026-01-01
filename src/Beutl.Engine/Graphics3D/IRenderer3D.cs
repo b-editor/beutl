@@ -79,4 +79,13 @@ public interface IRenderer3D : IDisposable
     /// <param name="screenPoint">The point in screen coordinates.</param>
     /// <returns>The 3D object at that point, or null if none.</returns>
     Object3D.Resource? HitTest(Point screenPoint);
+
+    /// <summary>
+    /// Performs a gizmo hit test at the specified screen point.
+    /// </summary>
+    /// <param name="screenPoint">The point in screen coordinates.</param>
+    /// <param name="gizmoTarget">The object that the gizmo is displayed for.</param>
+    /// <param name="gizmoMode">The current gizmo mode.</param>
+    /// <returns>The gizmo axis that was hit, or None if no axis was hit.</returns>
+    GizmoAxis GizmoHitTest(Point screenPoint, Object3D.Resource? gizmoTarget, GizmoMode gizmoMode);
 }
