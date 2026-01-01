@@ -70,6 +70,14 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         objectResources.AddRange(scene.Objects.Where(obj => obj.IsEnabled));
         lightResources.AddRange(scene.Lights.Where(light => light.IsEnabled));
 
+        // Find gizmo target object
+        Object3D.Resource? gizmoTarget = null;
+        if (scene.GizmoTarget.HasValue)
+        {
+            gizmoTarget = objectResources.FirstOrDefault(
+                o => o.GetOriginal()?.Id == scene.GizmoTarget.Value);
+        }
+
         // Render
         renderer.Render(
             cameraResource,
@@ -77,7 +85,9 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             lightResources,
             scene.BackgroundColor,
             scene.AmbientColor,
-            scene.AmbientIntensity);
+            scene.AmbientIntensity,
+            gizmoTarget,
+            scene.GizmoMode);
 
         // Get the rendered surface
         var surface = renderer.CreateSkiaSurface();
