@@ -34,6 +34,7 @@ public static class GizmoHitTester
     /// <param name="height">The viewport height.</param>
     /// <param name="camera">The camera resource.</param>
     /// <param name="gizmoPosition">The world position of the gizmo (target object's position).</param>
+    /// <param name="gizmoRotation">The rotation of the object (Euler angles in degrees). Used for Scale mode.</param>
     /// <param name="gizmoMode">The current gizmo mode.</param>
     /// <returns>The axis that was hit, or None if no axis was hit.</returns>
     public static GizmoAxis HitTest(
@@ -42,6 +43,7 @@ public static class GizmoHitTester
         int height,
         Camera3D.Resource camera,
         Vector3 gizmoPosition,
+        Vector3 gizmoRotation,
         GizmoMode gizmoMode)
     {
         if (gizmoMode == GizmoMode.None)
@@ -51,8 +53,29 @@ public static class GizmoHitTester
         if (!HitTester3D.TryCreateRayFromScreen(screenPoint, width, height, camera, out var ray))
             return GizmoAxis.None;
 
-        // Transform ray to gizmo local space (gizmo is at gizmoPosition with no rotation)
-        var localRay = new Ray3D(ray.Origin - gizmoPosition, ray.Direction);
+        // Transform ray to gizmo local space
+        Ray3D localRay;
+        if (gizmoMode == GizmoMode.Scale)
+        {
+            // For Scale mode, apply inverse rotation to transform ray into object's local space
+            var rotationMatrix = Matrix4x4.CreateFromYawPitchRoll(
+                gizmoRotation.Y * MathF.PI / 180f,
+                gizmoRotation.X * MathF.PI / 180f,
+                gizmoRotation.Z * MathF.PI / 180f);
+
+            // Invert the rotation matrix
+            Matrix4x4.Invert(rotationMatrix, out var inverseRotation);
+
+            // Transform ray origin and direction by inverse rotation
+            var localOrigin = Vector3.Transform(ray.Origin - gizmoPosition, inverseRotation);
+            var localDirection = Vector3.TransformNormal(ray.Direction, inverseRotation);
+            localRay = new Ray3D(localOrigin, Vector3.Normalize(localDirection));
+        }
+        else
+        {
+            // For Translate and Rotate modes, gizmo is world-aligned
+            localRay = new Ray3D(ray.Origin - gizmoPosition, ray.Direction);
+        }
 
         GizmoAxis closestAxis = GizmoAxis.None;
         float closestDistance = float.MaxValue;

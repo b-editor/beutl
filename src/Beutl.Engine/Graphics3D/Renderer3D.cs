@@ -273,6 +273,7 @@ internal sealed class Renderer3D : IRenderer3D
             Height,
             _lastCamera,
             gizmoTarget.Position,
+            gizmoTarget.Rotation,
             gizmoMode);
     }
 

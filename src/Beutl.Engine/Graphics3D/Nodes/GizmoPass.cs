@@ -119,8 +119,7 @@ public sealed class GizmoPass : GraphicsNode3D
             vertexSpirv,
             fragmentSpirv,
             descriptorBindings,
-            GizmoVertex.GetVertexInputDescription(),
-            PipelineOptions.Default);
+            GizmoVertex.GetVertexInputDescription());
 
         // Create descriptor set
         var poolSizes = new DescriptorPoolSize[]
@@ -216,10 +215,29 @@ public sealed class GizmoPass : GraphicsNode3D
         if (vertexBuffer == null || indexBuffer == null || indexCount == 0)
             return;
 
+        // Create model matrix
+        // For Scale mode, apply object's rotation so the gizmo aligns with the object
+        Matrix4x4 modelMatrix;
+        if (gizmoMode == GizmoMode.Scale)
+        {
+            // Apply rotation then translation
+            var rotation = gizmoTarget.Rotation;
+            var rotationMatrix = Matrix4x4.CreateFromYawPitchRoll(
+                rotation.Y * MathF.PI / 180f,
+                rotation.X * MathF.PI / 180f,
+                rotation.Z * MathF.PI / 180f);
+            modelMatrix = rotationMatrix * Matrix4x4.CreateTranslation(gizmoTarget.Position);
+        }
+        else
+        {
+            // Translate and Rotate modes use world-aligned gizmo
+            modelMatrix = Matrix4x4.CreateTranslation(gizmoTarget.Position);
+        }
+
         // Update uniform buffer
         var ubo = new GizmoUBO
         {
-            Model = Matrix4x4.CreateTranslation(gizmoTarget.Position),
+            Model = modelMatrix,
             View = camera.GetViewMatrix(),
             Projection = camera.GetProjectionMatrix(aspectRatio)
         };

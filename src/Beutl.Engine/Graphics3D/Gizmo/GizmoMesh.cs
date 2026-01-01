@@ -359,14 +359,14 @@ internal static class GizmoMesh
         // 8 cube vertices
         Vector3[] cubeVerts =
         [
-            center + new Vector3(-half, -half, -half),
-            center + new Vector3(half, -half, -half),
-            center + new Vector3(half, half, -half),
-            center + new Vector3(-half, half, -half),
             center + new Vector3(-half, -half, half),
             center + new Vector3(half, -half, half),
             center + new Vector3(half, half, half),
-            center + new Vector3(-half, half, half)
+            center + new Vector3(-half, half, half),
+            center + new Vector3(half, -half, -half),
+            center + new Vector3(-half, -half, -half),
+            center + new Vector3(-half, half, -half),
+            center + new Vector3(half, half, -half)
         ];
 
         foreach (var v in cubeVerts)
@@ -377,18 +377,12 @@ internal static class GizmoMesh
         // 12 triangles (36 indices)
         uint[] cubeIndices =
         [
-            // Front
-            4, 6, 5, 4, 7, 6,
-            // Back
             0, 2, 1, 0, 3, 2,
-            // Top
-            3, 6, 2, 3, 7, 6,
-            // Bottom
-            0, 5, 1, 0, 4, 5,
-            // Right
-            1, 6, 2, 1, 5, 6,
-            // Left
-            0, 7, 3, 0, 4, 7
+            4, 6, 5, 4, 7, 6,
+            3, 7, 2, 3, 6, 7,
+            5, 1, 4, 5, 0, 1,
+            1, 7, 4, 1, 2, 7,
+            5, 3, 0, 5, 6, 3
         ];
 
         foreach (var idx in cubeIndices)
