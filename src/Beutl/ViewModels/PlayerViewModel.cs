@@ -8,6 +8,7 @@ using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics3D.Gizmo;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Music;
@@ -135,6 +136,59 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
         PathEditor = new PathEditorViewModel(_editViewModel, this)
             .DisposeWith(_disposables);
+
+        // カメラモードが解除されたらGizmoを非表示にする
+        IsCameraMode.Subscribe(isCameraMode =>
+            {
+                if (!isCameraMode)
+                {
+                    ClearAllGizmoTargets();
+                }
+            })
+            .DisposeWith(_disposables);
+
+        // GizmoModeが変更されたらScene3Dに反映する
+        SelectedGizmoMode.Subscribe(mode =>
+            {
+                if (IsCameraMode.Value)
+                {
+                    UpdateAllGizmoModes(mode);
+                }
+            })
+            .DisposeWith(_disposables);
+    }
+
+    private void ClearAllGizmoTargets()
+    {
+        foreach (var element in Scene?.Children ?? [])
+        {
+            foreach (var op in element.Operation.Children)
+            {
+                if (op is Operators.Source.Scene3DOperator scene3DOp && scene3DOp.Value != null)
+                {
+                    scene3DOp.Value.GizmoTarget.CurrentValue = null;
+                    scene3DOp.Value.GizmoMode.CurrentValue = GizmoMode.None;
+                }
+            }
+        }
+    }
+
+    private void UpdateAllGizmoModes(GizmoMode mode)
+    {
+        foreach (var element in Scene.Children)
+        {
+            foreach (var op in element.Operation.Children)
+            {
+                if (op is Operators.Source.Scene3DOperator scene3DOp && scene3DOp.Value != null)
+                {
+                    // GizmoTargetが設定されている場合のみモードを更新
+                    if (scene3DOp.Value.GizmoTarget.CurrentValue.HasValue)
+                    {
+                        scene3DOp.Value.GizmoMode.CurrentValue = mode;
+                    }
+                }
+            }
+        }
     }
 
     private void OnSceneEdited(object? sender, EventArgs e)
@@ -182,6 +236,8 @@ public sealed class PlayerViewModel : IAsyncDisposable
     public ReactivePropertySlim<bool> IsCropMode { get; } = new(false);
 
     public ReactivePropertySlim<bool> IsCameraMode { get; } = new(false);
+
+    public ReactivePropertySlim<GizmoMode> SelectedGizmoMode { get; } = new(GizmoMode.Translate);
 
     public ReactivePropertySlim<Matrix> FrameMatrix { get; } = new(Matrix.Identity);
 

@@ -21,6 +21,7 @@ using Microsoft.Extensions.Logging;
 using System.Numerics;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Camera;
+using Beutl.Graphics3D.Gizmo;
 using Beutl.Operators.Source;
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
@@ -566,6 +567,7 @@ public partial class PlayerView
     private sealed class MouseControl3DCamera : IMouseControlHandler
     {
         private bool _rightPressed;
+        private bool _leftPressed;
         private AvaPoint _lastPosition;
         private Scene3D? _scene3D;
         private Camera3D? _camera;
@@ -575,8 +577,19 @@ public partial class PlayerView
         private KeyFrameState<Vector3>? _positionKeyFrame;
         private KeyFrameState<Vector3>? _targetKeyFrame;
 
+        // Left button object manipulation
+        private Object3D? _selectedObject;
+        private KeyFrameState<Vector3>? _objectPositionKeyFrame;
+        private KeyFrameState<Vector3>? _objectRotationKeyFrame;
+        private KeyFrameState<Vector3>? _objectScaleKeyFrame;
+        private GizmoMode _currentGizmoMode;
+        private GizmoAxis _selectedGizmoAxis;
+
         private const float RotationSpeed = 0.005f;
         private const float MoveSpeed = 0.1f;
+        private const float ObjectMoveSpeed = 0.01f;
+        private const float ObjectRotateSpeed = 0.5f;
+        private const float ObjectScaleSpeed = 0.01f;
 
         public required PlayerView View { get; init; }
 
@@ -607,7 +620,7 @@ public partial class PlayerView
                 return new(prev as KeyFrame<Vector3>, next as KeyFrame<Vector3>);
             }
 
-            return default;
+            return null;
         }
 
         // キーフレームがない場合はfalseを返す
@@ -638,13 +651,102 @@ public partial class PlayerView
         public void OnPressed(PointerPressedEventArgs e)
         {
             PointerPoint pointerPoint = e.GetCurrentPoint(Image);
-            if (pointerPoint.Properties.IsRightButtonPressed)
+            _lastPosition = pointerPoint.Position;
+
+            // カメラとシーンを見つける
+            FindScene3DAndCamera();
+
+            if (pointerPoint.Properties.IsLeftButtonPressed)
+            {
+                _leftPressed = true;
+                _selectedGizmoAxis = GizmoAxis.None;
+
+                if (_scene3D == null)
+                    return;
+
+                var sceneResource = FindScene3DResource();
+                if (sceneResource?.Renderer == null)
+                    return;
+
+                Scene scene = EditViewModel.Scene;
+                double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
+                var scaledPos = _lastPosition / scaleX;
+                var screenPoint = new Point((float)scaledPos.X, (float)scaledPos.Y);
+
+                // まず、既存のGizmoがクリックされたかチェック
+                var currentGizmoTarget = _scene3D.GizmoTarget.CurrentValue;
+                var currentGizmoMode = _scene3D.GizmoMode.CurrentValue;
+
+                if (currentGizmoTarget.HasValue && currentGizmoMode != GizmoMode.None)
+                {
+                    // 現在表示されているGizmoのターゲットオブジェクトを探す
+                    var existingTarget = RenderThread.Dispatcher.Invoke(() =>
+                    {
+                        var objects = sceneResource.Objects.Where(o => o.IsEnabled).ToList();
+                        return objects.FirstOrDefault(o => o.GetOriginal()?.Id == currentGizmoTarget.Value);
+                    });
+
+                    if (existingTarget != null)
+                    {
+                        // GizmoのヒットテストをRenderThreadで実行
+                        var gizmoAxis = RenderThread.Dispatcher.Invoke(() =>
+                            sceneResource.Renderer.GizmoHitTest(screenPoint, existingTarget, currentGizmoMode));
+
+                        if (gizmoAxis != GizmoAxis.None)
+                        {
+                            // Gizmoがクリックされた - そのオブジェクトを操作開始
+                            _selectedGizmoAxis = gizmoAxis;
+                            _selectedObject = existingTarget.GetOriginal();
+                            _currentGizmoMode = currentGizmoMode;
+
+                            if (_selectedObject != null)
+                            {
+                                _objectPositionKeyFrame = FindKeyFramePairOrNull(_selectedObject.Position);
+                                _objectRotationKeyFrame = FindKeyFramePairOrNull(_selectedObject.Rotation);
+                                _objectScaleKeyFrame = FindKeyFramePairOrNull(_selectedObject.Scale);
+                            }
+
+                            e.Handled = true;
+                            return;
+                        }
+                    }
+                }
+
+                // Gizmoがクリックされなかった場合、オブジェクトのヒットテストを行う
+                var hitResult = RenderThread.Dispatcher.Invoke(() =>
+                    sceneResource.Renderer.HitTest(screenPoint));
+
+                if (hitResult != null)
+                {
+                    _selectedObject = hitResult.GetOriginal();
+
+                    if (_selectedObject != null)
+                    {
+                        // GizmoTargetを設定
+                        _scene3D.GizmoTarget.CurrentValue = _selectedObject.Id;
+
+                        // ViewModelのSelectedGizmoModeを使用
+                        _currentGizmoMode = ViewModel.SelectedGizmoMode.Value;
+                        _scene3D.GizmoMode.CurrentValue = _currentGizmoMode;
+
+                        // キーフレームを探す
+                        _objectPositionKeyFrame = FindKeyFramePairOrNull(_selectedObject.Position);
+                        _objectRotationKeyFrame = FindKeyFramePairOrNull(_selectedObject.Rotation);
+                        _objectScaleKeyFrame = FindKeyFramePairOrNull(_selectedObject.Scale);
+                    }
+                }
+                else
+                {
+                    // 何もないところをクリックしたらGizmoを解除
+                    _scene3D.GizmoTarget.CurrentValue = null;
+                    _selectedObject = null;
+                }
+
+                e.Handled = true;
+            }
+            else if (pointerPoint.Properties.IsRightButtonPressed)
             {
                 _rightPressed = true;
-                _lastPosition = pointerPoint.Position;
-
-                // カメラとシーンを見つける
-                FindScene3DAndCamera();
 
                 if (_camera != null)
                 {
@@ -667,11 +769,124 @@ public partial class PlayerView
 
         public void OnMoved(PointerEventArgs e)
         {
-            if (_rightPressed && _camera != null)
-            {
-                AvaPoint position = e.GetPosition(Image);
-                AvaPoint delta = position - _lastPosition;
+            AvaPoint position = e.GetPosition(Image);
+            AvaPoint delta = position - _lastPosition;
 
+            if (_leftPressed && _selectedObject != null && _camera != null)
+            {
+                // カメラの向きに基づいて移動方向を計算
+                var cameraPosition = _camera.Position.GetValue(RenderContext);
+                var cameraTarget = _camera.Target.GetValue(RenderContext);
+                var forward = Vector3.Normalize(cameraTarget - cameraPosition);
+                var up = _camera.Up.GetValue(RenderContext);
+                var right = Vector3.Normalize(Vector3.Cross(forward, up));
+                var cameraUp = Vector3.Normalize(Vector3.Cross(right, forward));
+
+                switch (_currentGizmoMode)
+                {
+                    case GizmoMode.Translate:
+                        {
+                            Vector3 movement;
+
+                            if (_selectedGizmoAxis != GizmoAxis.None)
+                            {
+                                // 軸拘束移動: 選択した軸に沿って移動
+                                var axisDirection = _selectedGizmoAxis switch
+                                {
+                                    GizmoAxis.X => Vector3.UnitX,
+                                    GizmoAxis.Y => Vector3.UnitY,
+                                    GizmoAxis.Z => Vector3.UnitZ,
+                                    _ => Vector3.Zero
+                                };
+
+                                // マウス移動をカメラ平面上の移動に変換
+                                var screenMovement = (right * (float)delta.X + cameraUp * -(float)delta.Y) * ObjectMoveSpeed;
+                                // 軸方向に投影
+                                float projection = Vector3.Dot(screenMovement, axisDirection);
+                                movement = axisDirection * projection;
+                            }
+                            else
+                            {
+                                // 自由移動: カメラ平面上を移動
+                                movement = (right * (float)delta.X + cameraUp * -(float)delta.Y) * ObjectMoveSpeed;
+                            }
+
+                            if (!SetKeyFrameValue(_objectPositionKeyFrame, movement))
+                            {
+                                _selectedObject.Position.CurrentValue += movement;
+                            }
+                        }
+                        break;
+
+                    case GizmoMode.Rotate:
+                        {
+                            Vector3 rotation;
+
+                            if (_selectedGizmoAxis != GizmoAxis.None)
+                            {
+                                // 軸拘束回転: 選択した軸周りのみ回転
+                                float rotationAmount = ((float)delta.X + (float)delta.Y) * ObjectRotateSpeed;
+                                rotation = _selectedGizmoAxis switch
+                                {
+                                    GizmoAxis.X => new Vector3(rotationAmount, 0, 0),
+                                    GizmoAxis.Y => new Vector3(0, rotationAmount, 0),
+                                    GizmoAxis.Z => new Vector3(0, 0, rotationAmount),
+                                    _ => Vector3.Zero
+                                };
+                            }
+                            else
+                            {
+                                // 自由回転: X移動→Y軸回転、Y移動→X軸回転
+                                rotation = new Vector3(
+                                    (float)delta.Y * ObjectRotateSpeed,
+                                    (float)delta.X * ObjectRotateSpeed,
+                                    0);
+                            }
+
+                            if (!SetKeyFrameValue(_objectRotationKeyFrame, rotation))
+                            {
+                                _selectedObject.Rotation.CurrentValue += rotation;
+                            }
+                        }
+                        break;
+
+                    case GizmoMode.Scale:
+                        {
+                            float scaleFactor = 1.0f + (float)delta.Y * ObjectScaleSpeed;
+                            var currentScale = _selectedObject.Scale.CurrentValue;
+                            Vector3 scaleDelta;
+
+                            if (_selectedGizmoAxis != GizmoAxis.None)
+                            {
+                                // 軸拘束スケール: 選択した軸のみスケール
+                                float axisScale = scaleFactor - 1.0f;
+                                scaleDelta = _selectedGizmoAxis switch
+                                {
+                                    GizmoAxis.X => new Vector3(currentScale.X * axisScale, 0, 0),
+                                    GizmoAxis.Y => new Vector3(0, currentScale.Y * axisScale, 0),
+                                    GizmoAxis.Z => new Vector3(0, 0, currentScale.Z * axisScale),
+                                    _ => Vector3.Zero
+                                };
+                            }
+                            else
+                            {
+                                // 均一スケール
+                                scaleDelta = currentScale * (scaleFactor - 1.0f);
+                            }
+
+                            if (!SetKeyFrameValue(_objectScaleKeyFrame, scaleDelta))
+                            {
+                                _selectedObject.Scale.CurrentValue = currentScale + scaleDelta;
+                            }
+                        }
+                        break;
+                }
+
+                _lastPosition = position;
+                e.Handled = true;
+            }
+            else if (_rightPressed && _camera != null)
+            {
                 // マウスの動きに応じてYawとPitchを更新
                 _yaw += (float)delta.X * RotationSpeed;
                 _pitch += (float)delta.Y * RotationSpeed;
@@ -702,11 +917,26 @@ public partial class PlayerView
 
         public void OnReleased(PointerReleasedEventArgs e)
         {
-            if (_rightPressed && e.InitialPressMouseButton == MouseButton.Right)
+            if (_leftPressed && e.InitialPressMouseButton == MouseButton.Left)
+            {
+                _leftPressed = false;
+
+                if (_selectedObject != null)
+                {
+                    EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
+                }
+
+                _selectedObject = null;
+                _objectPositionKeyFrame = null;
+                _objectRotationKeyFrame = null;
+                _objectScaleKeyFrame = null;
+                _selectedGizmoAxis = GizmoAxis.None;
+            }
+            else if (_rightPressed && e.InitialPressMouseButton == MouseButton.Right)
             {
                 _rightPressed = false;
-                _positionKeyFrame = default;
-                _targetKeyFrame = default;
+                _positionKeyFrame = null;
+                _targetKeyFrame = null;
                 EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
             }
         }
@@ -849,6 +1079,36 @@ public partial class PlayerView
             {
                 _scene3D = scene3D;
                 _camera = scene3D.Camera.CurrentValue;
+            }
+        }
+
+        private Scene3D.Resource? FindScene3DResource()
+        {
+            var renderer = EditViewModel.Renderer.Value;
+
+            var layer = renderer.RenderScene[_scene3D!.ZIndex];
+            var node = layer.FindRenderNode(_scene3D);
+            return node == null ? null : FindScene3DRenderNode(node)?.Scene?.Resource;
+
+            Scene3DRenderNode? FindScene3DRenderNode(RenderNode rn)
+            {
+                if (rn is Scene3DRenderNode sceneNode)
+                {
+                    return sceneNode;
+                }
+                else if (rn is ContainerRenderNode container)
+                {
+                    foreach (var child in container.Children)
+                    {
+                        var result = FindScene3DRenderNode(child);
+                        if (result != null)
+                        {
+                            return result;
+                        }
+                    }
+                }
+
+                return null;
             }
         }
     }
