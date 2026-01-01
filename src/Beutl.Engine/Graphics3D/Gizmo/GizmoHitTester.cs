@@ -18,6 +18,14 @@ public static class GizmoHitTester
     private const float ScaleLineLength = 0.8f;
     private const float ScaleCubeSize = 0.12f; // Larger than visual for easier clicking
 
+    // Plane dimensions for translate mode (must match GizmoMesh)
+    private const float PlaneOffset = 0.0f;
+    private const float PlaneSize = 0.2f;
+    private const float PlaneHitPadding = 0.05f; // Extra padding for easier clicking
+
+    // Center cube for uniform scale (must match GizmoMesh)
+    private const float CenterCubeSize = 0.15f; // Slightly larger for easier clicking
+
     /// <summary>
     /// Performs a hit test on the gizmo at the specified screen point.
     /// </summary>
@@ -71,6 +79,53 @@ public static class GizmoHitTester
             }
         }
 
+        // Test plane indicators for translate mode
+        if (gizmoMode == GizmoMode.Translate)
+        {
+            // XY plane
+            if (RayIntersectsPlaneQuad(localRay, Vector3.UnitX, Vector3.UnitY, out float xyDistance))
+            {
+                if (xyDistance < closestDistance)
+                {
+                    closestDistance = xyDistance;
+                    closestAxis = GizmoAxis.XY;
+                }
+            }
+
+            // YZ plane
+            if (RayIntersectsPlaneQuad(localRay, Vector3.UnitY, Vector3.UnitZ, out float yzDistance))
+            {
+                if (yzDistance < closestDistance)
+                {
+                    closestDistance = yzDistance;
+                    closestAxis = GizmoAxis.YZ;
+                }
+            }
+
+            // ZX plane
+            if (RayIntersectsPlaneQuad(localRay, Vector3.UnitZ, Vector3.UnitX, out float zxDistance))
+            {
+                if (zxDistance < closestDistance)
+                {
+                    closestDistance = zxDistance;
+                    closestAxis = GizmoAxis.ZX;
+                }
+            }
+        }
+
+        // Test center cube for uniform scale mode
+        if (gizmoMode == GizmoMode.Scale)
+        {
+            if (RayIntersectsBox(localRay, Vector3.Zero, CenterCubeSize, out float centerDistance))
+            {
+                if (centerDistance < closestDistance)
+                {
+                    closestDistance = centerDistance;
+                    closestAxis = GizmoAxis.All;
+                }
+            }
+        }
+
         return closestAxis;
     }
 
@@ -83,10 +138,10 @@ public static class GizmoHitTester
 
         // Project the problem to 2D by removing the axis component
         // For simplicity, use a capsule approximation (cylinder with spherical caps)
-        
+
         // Calculate the closest point on the cylinder axis to the ray
         var w = ray.Origin - origin;
-        
+
         float a = Vector3.Dot(ray.Direction, ray.Direction) - MathF.Pow(Vector3.Dot(ray.Direction, direction), 2);
         float b = 2 * (Vector3.Dot(ray.Direction, w) - Vector3.Dot(ray.Direction, direction) * Vector3.Dot(w, direction));
         float c = Vector3.Dot(w, w) - MathF.Pow(Vector3.Dot(w, direction), 2) - radius * radius;
@@ -134,10 +189,10 @@ public static class GizmoHitTester
 
         // Simplified ring hit test: check intersection with a flat annulus (disc with hole)
         // Then check if the hit point is within the torus tube radius
-        
+
         // Find intersection with the plane perpendicular to the axis
         float denom = Vector3.Dot(ray.Direction, axis);
-        
+
         // If ray is nearly parallel to the plane, check from the side
         if (MathF.Abs(denom) < 0.001f)
         {
@@ -150,7 +205,7 @@ public static class GizmoHitTester
             return false;
 
         var hitPoint = ray.GetPoint(t);
-        
+
         // Remove axis component
         var flatPoint = hitPoint - axis * Vector3.Dot(hitPoint, axis);
         float distFromCenter = flatPoint.Length();
@@ -265,5 +320,50 @@ public static class GizmoHitTester
 
         var bbox = new BoundingBox(min, max);
         return HitTester3D.RayIntersectsBoundingBox(ray, bbox, out distance);
+    }
+
+    /// <summary>
+    /// Tests if a ray intersects with a plane quad defined by two axes.
+    /// The quad is positioned at (PlaneOffset, PlaneOffset) in the plane.
+    /// </summary>
+    private static bool RayIntersectsPlaneQuad(Ray3D ray, Vector3 axis1, Vector3 axis2, out float distance)
+    {
+        distance = float.MaxValue;
+
+        // Calculate the normal of the plane (perpendicular to both axes)
+        var normal = Vector3.Cross(axis1, axis2);
+        if (normal.LengthSquared() < 0.0001f)
+            return false;
+        normal = Vector3.Normalize(normal);
+
+        // Find intersection with the plane
+        float denom = Vector3.Dot(ray.Direction, normal);
+        if (MathF.Abs(denom) < 0.0001f)
+            return false; // Ray is parallel to plane
+
+        // The plane passes through the center of the quad
+        var quadCenter = axis1 * (PlaneOffset + PlaneSize * 0.5f) + axis2 * (PlaneOffset + PlaneSize * 0.5f);
+        float t = Vector3.Dot(quadCenter - ray.Origin, normal) / denom;
+
+        if (t < 0)
+            return false;
+
+        var hitPoint = ray.GetPoint(t);
+
+        // Check if hit point is within the quad bounds (with padding)
+        float proj1 = Vector3.Dot(hitPoint, axis1);
+        float proj2 = Vector3.Dot(hitPoint, axis2);
+
+        float minBound = PlaneOffset - PlaneHitPadding;
+        float maxBound = PlaneOffset + PlaneSize + PlaneHitPadding;
+
+        if (proj1 >= minBound && proj1 <= maxBound &&
+            proj2 >= minBound && proj2 <= maxBound)
+        {
+            distance = t;
+            return true;
+        }
+
+        return false;
     }
 }

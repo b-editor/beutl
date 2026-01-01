@@ -790,20 +790,40 @@ public partial class PlayerView
 
                             if (_selectedGizmoAxis != GizmoAxis.None)
                             {
-                                // 軸拘束移動: 選択した軸に沿って移動
-                                var axisDirection = _selectedGizmoAxis switch
-                                {
-                                    GizmoAxis.X => Vector3.UnitX,
-                                    GizmoAxis.Y => Vector3.UnitY,
-                                    GizmoAxis.Z => Vector3.UnitZ,
-                                    _ => Vector3.Zero
-                                };
-
                                 // マウス移動をカメラ平面上の移動に変換
                                 var screenMovement = (right * (float)delta.X + cameraUp * -(float)delta.Y) * ObjectMoveSpeed;
-                                // 軸方向に投影
-                                float projection = Vector3.Dot(screenMovement, axisDirection);
-                                movement = axisDirection * projection;
+
+                                if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
+                                {
+                                    // 軸拘束移動: 選択した軸に沿って移動
+                                    var axisDirection = _selectedGizmoAxis switch
+                                    {
+                                        GizmoAxis.X => Vector3.UnitX,
+                                        GizmoAxis.Y => Vector3.UnitY,
+                                        GizmoAxis.Z => Vector3.UnitZ,
+                                        _ => Vector3.Zero
+                                    };
+
+                                    // 軸方向に投影
+                                    float projection = Vector3.Dot(screenMovement, axisDirection);
+                                    movement = axisDirection * projection;
+                                }
+                                else
+                                {
+                                    // 平面拘束移動: 選択した平面上を移動
+                                    var (axis1, axis2) = _selectedGizmoAxis switch
+                                    {
+                                        GizmoAxis.XY => (Vector3.UnitX, Vector3.UnitY),
+                                        GizmoAxis.YZ => (Vector3.UnitY, Vector3.UnitZ),
+                                        GizmoAxis.ZX => (Vector3.UnitZ, Vector3.UnitX),
+                                        _ => (Vector3.Zero, Vector3.Zero)
+                                    };
+
+                                    // 平面に投影
+                                    float proj1 = Vector3.Dot(screenMovement, axis1);
+                                    float proj2 = Vector3.Dot(screenMovement, axis2);
+                                    movement = axis1 * proj1 + axis2 * proj2;
+                                }
                             }
                             else
                             {
@@ -856,7 +876,12 @@ public partial class PlayerView
                             var currentScale = _selectedObject.Scale.CurrentValue;
                             Vector3 scaleDelta;
 
-                            if (_selectedGizmoAxis != GizmoAxis.None)
+                            if (_selectedGizmoAxis == GizmoAxis.All)
+                            {
+                                // 均一スケール（中央キューブ）
+                                scaleDelta = currentScale * (scaleFactor - 1.0f);
+                            }
+                            else if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
                             {
                                 // 軸拘束スケール: 選択した軸のみスケール
                                 float axisScale = scaleFactor - 1.0f;
@@ -870,7 +895,7 @@ public partial class PlayerView
                             }
                             else
                             {
-                                // 均一スケール
+                                // デフォルト: 均一スケール
                                 scaleDelta = currentScale * (scaleFactor - 1.0f);
                             }
 
