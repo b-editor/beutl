@@ -66,6 +66,12 @@ internal static class GizmoMesh
     public static readonly Vector3 YAxisColor = new(0.2f, 1f, 0.2f); // Green
     public static readonly Vector3 ZAxisColor = new(0.2f, 0.4f, 1f); // Blue
 
+    // Plane colors (mixed colors with alpha indicated by reduced intensity)
+    public static readonly Vector3 XYPlaneColor = ZAxisColor;
+    public static readonly Vector3 YZPlaneColor = XAxisColor;
+    public static readonly Vector3 ZXPlaneColor = YAxisColor;
+    public static readonly Vector3 CenterColor = new(0.9f, 0.9f, 0.9f); // White/Gray for center
+
     // Gizmo dimensions
     private const float ArrowLength = 1.0f;
     private const float ArrowShaftRadius = 0.02f;
@@ -80,8 +86,15 @@ internal static class GizmoMesh
     private const float ScaleLineLength = 0.8f;
     private const float ScaleCubeSize = 0.08f;
 
+    // Plane dimensions for translate mode
+    private const float PlaneOffset = 0.0f; // Distance from center
+    private const float PlaneSize = 0.2f; // Size of plane indicator
+
+    // Center cube for uniform scale
+    private const float CenterCubeSize = 0.12f;
+
     /// <summary>
-    /// Creates translation gizmo geometry (3 arrows along X, Y, Z axes).
+    /// Creates translation gizmo geometry (3 arrows along X, Y, Z axes plus plane indicators).
     /// </summary>
     public static void CreateTranslateGizmo(out GizmoVertex[] vertices, out uint[] indices)
     {
@@ -96,6 +109,15 @@ internal static class GizmoMesh
 
         // Z axis arrow (blue)
         CreateArrow(Vector3.Zero, Vector3.UnitZ, ZAxisColor, vertexList, indexList);
+
+        // XY plane indicator (yellow)
+        CreatePlaneQuad(Vector3.UnitX, Vector3.UnitY, XYPlaneColor, vertexList, indexList);
+
+        // YZ plane indicator (cyan)
+        CreatePlaneQuad(Vector3.UnitY, Vector3.UnitZ, YZPlaneColor, vertexList, indexList);
+
+        // ZX plane indicator (magenta)
+        CreatePlaneQuad(Vector3.UnitZ, Vector3.UnitX, ZXPlaneColor, vertexList, indexList);
 
         vertices = vertexList.ToArray();
         indices = indexList.ToArray();
@@ -123,7 +145,7 @@ internal static class GizmoMesh
     }
 
     /// <summary>
-    /// Creates scale gizmo geometry (3 lines with cubes at the end).
+    /// Creates scale gizmo geometry (3 lines with cubes at the end plus center cube for uniform scale).
     /// </summary>
     public static void CreateScaleGizmo(out GizmoVertex[] vertices, out uint[] indices)
     {
@@ -138,6 +160,9 @@ internal static class GizmoMesh
 
         // Z axis (blue)
         CreateScaleAxis(Vector3.UnitZ, ZAxisColor, vertexList, indexList);
+
+        // Center cube for uniform scale (white/gray)
+        CreateCube(Vector3.Zero, CenterCubeSize, CenterColor, vertexList, indexList);
 
         vertices = vertexList.ToArray();
         indices = indexList.ToArray();
@@ -370,5 +395,44 @@ internal static class GizmoMesh
         {
             indices.Add(baseIndex + idx);
         }
+    }
+
+    /// <summary>
+    /// Creates a plane indicator quad for translation gizmo.
+    /// The quad is positioned at (PlaneOffset, PlaneOffset) in the plane defined by axis1 and axis2.
+    /// </summary>
+    private static void CreatePlaneQuad(Vector3 axis1, Vector3 axis2, Vector3 color, List<GizmoVertex> vertices, List<uint> indices)
+    {
+        uint baseIndex = (uint)vertices.Count;
+
+        // Create a small quad in the plane defined by axis1 and axis2
+        // Positioned at offset from center
+        var corner = axis1 * PlaneOffset + axis2 * PlaneOffset;
+        var v0 = corner;
+        var v1 = corner + axis1 * PlaneSize;
+        var v2 = corner + axis1 * PlaneSize + axis2 * PlaneSize;
+        var v3 = corner + axis2 * PlaneSize;
+
+        vertices.Add(new GizmoVertex(v0, color));
+        vertices.Add(new GizmoVertex(v1, color));
+        vertices.Add(new GizmoVertex(v2, color));
+        vertices.Add(new GizmoVertex(v3, color));
+
+        // Two triangles for the quad (both sides for double-sided rendering)
+        // Front face
+        indices.Add(baseIndex + 0);
+        indices.Add(baseIndex + 1);
+        indices.Add(baseIndex + 2);
+        indices.Add(baseIndex + 0);
+        indices.Add(baseIndex + 2);
+        indices.Add(baseIndex + 3);
+
+        // Back face
+        indices.Add(baseIndex + 0);
+        indices.Add(baseIndex + 2);
+        indices.Add(baseIndex + 1);
+        indices.Add(baseIndex + 0);
+        indices.Add(baseIndex + 3);
+        indices.Add(baseIndex + 2);
     }
 }
