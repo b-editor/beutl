@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using Beutl.Graphics;
 using Beutl.Graphics3D.Camera;
+using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Media;
 using SkiaSharp;
@@ -48,13 +49,17 @@ public interface IRenderer3D : IDisposable
     /// <param name="backgroundColor">The background clear color.</param>
     /// <param name="ambientColor">The ambient light color.</param>
     /// <param name="ambientIntensity">The ambient light intensity.</param>
+    /// <param name="gizmoTarget">The object to display gizmo for, or null.</param>
+    /// <param name="gizmoMode">The gizmo visualization mode.</param>
     void Render(
         Camera3D.Resource camera,
         IReadOnlyList<Object3D.Resource> objects,
         IReadOnlyList<Light3D.Resource> lights,
         Color backgroundColor,
         Color ambientColor,
-        float ambientIntensity);
+        float ambientIntensity,
+        Object3D.Resource? gizmoTarget = null,
+        GizmoMode gizmoMode = GizmoMode.None);
 
     /// <summary>
     /// Creates a SkiaSharp surface from the rendered output.

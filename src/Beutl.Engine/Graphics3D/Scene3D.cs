@@ -4,6 +4,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Camera;
+using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Language;
 using Beutl.Media;
@@ -63,6 +64,16 @@ public partial class Scene3D : Drawable
     /// Gets the background color of the 3D scene.
     /// </summary>
     public IProperty<Color> BackgroundColor { get; } = Property.CreateAnimatable(Colors.Black);
+
+    /// <summary>
+    /// Gets the target object ID for gizmo visualization.
+    /// </summary>
+    public IProperty<Guid?> GizmoTarget { get; } = Property.Create<Guid?>();
+
+    /// <summary>
+    /// Gets the gizmo visualization mode.
+    /// </summary>
+    public IProperty<GizmoMode> GizmoMode { get; } = Property.Create(Gizmo.GizmoMode.None);
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
