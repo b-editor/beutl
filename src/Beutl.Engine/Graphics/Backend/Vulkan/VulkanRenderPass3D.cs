@@ -24,10 +24,14 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
     /// <param name="context">The Vulkan context.</param>
     /// <param name="colorFormats">Formats for each color attachment.</param>
     /// <param name="depthFormat">Format for the depth attachment.</param>
+    /// <param name="colorLoadOp">The load operation for color attachments.</param>
+    /// <param name="depthLoadOp">The load operation for the depth attachment.</param>
     public VulkanRenderPass3D(
         VulkanContext context,
         IReadOnlyList<Format> colorFormats,
-        Format depthFormat = Format.D32Sfloat)
+        Format depthFormat = Format.D32Sfloat,
+        AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
+        AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
     {
         if (colorFormats.Count == 0)
         {
@@ -46,15 +50,18 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         var attachments = stackalloc AttachmentDescription[totalAttachments];
         var colorAttachmentRefs = stackalloc AttachmentReference[colorFormats.Count];
 
+        var vulkanColorLoadOp = ToVulkanLoadOp(colorLoadOp);
+        var vulkanDepthLoadOp = ToVulkanLoadOp(depthLoadOp);
+
         for (int i = 0; i < colorFormats.Count; i++)
         {
             attachments[i] = new AttachmentDescription
             {
                 Format = colorFormats[i],
                 Samples = SampleCountFlags.Count1Bit,
-                LoadOp = AttachmentLoadOp.Clear,
+                LoadOp = vulkanColorLoadOp,
                 StoreOp = AttachmentStoreOp.Store,
-                StencilLoadOp = AttachmentLoadOp.DontCare,
+                StencilLoadOp = Silk.NET.Vulkan.AttachmentLoadOp.DontCare,
                 StencilStoreOp = AttachmentStoreOp.DontCare,
                 InitialLayout = ImageLayout.ColorAttachmentOptimal,
                 FinalLayout = ImageLayout.ColorAttachmentOptimal
@@ -72,9 +79,9 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         {
             Format = depthFormat,
             Samples = SampleCountFlags.Count1Bit,
-            LoadOp = AttachmentLoadOp.Clear,
+            LoadOp = vulkanDepthLoadOp,
             StoreOp = AttachmentStoreOp.Store, // Store depth for shadow mapping
-            StencilLoadOp = AttachmentLoadOp.DontCare,
+            StencilLoadOp = Silk.NET.Vulkan.AttachmentLoadOp.DontCare,
             StencilStoreOp = AttachmentStoreOp.DontCare,
             InitialLayout = ImageLayout.DepthStencilAttachmentOptimal,
             FinalLayout = ImageLayout.DepthStencilAttachmentOptimal
@@ -356,5 +363,16 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         _disposed = true;
 
         _context.Vk.DestroyRenderPass(_context.Device, _renderPass, null);
+    }
+
+    private static Silk.NET.Vulkan.AttachmentLoadOp ToVulkanLoadOp(AttachmentLoadOp loadOp)
+    {
+        return loadOp switch
+        {
+            AttachmentLoadOp.Load => Silk.NET.Vulkan.AttachmentLoadOp.Load,
+            AttachmentLoadOp.Clear => Silk.NET.Vulkan.AttachmentLoadOp.Clear,
+            AttachmentLoadOp.DontCare => Silk.NET.Vulkan.AttachmentLoadOp.DontCare,
+            _ => Silk.NET.Vulkan.AttachmentLoadOp.Clear
+        };
     }
 }

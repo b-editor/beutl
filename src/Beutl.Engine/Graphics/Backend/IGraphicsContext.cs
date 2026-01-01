@@ -61,11 +61,17 @@ public interface IGraphicsContext : IDisposable
     IShaderCompiler CreateShaderCompiler();
 
     /// <summary>
-    /// Creates a new 3D render pass with multiple color attachments.
+    /// Creates a new 3D render pass with multiple color attachments and specified load operations.
     /// </summary>
     /// <param name="colorFormats">Formats for each color attachment.</param>
     /// <param name="depthFormat">Format for the depth attachment.</param>
-    IRenderPass3D CreateRenderPass3D(IReadOnlyList<TextureFormat> colorFormats, TextureFormat depthFormat = TextureFormat.Depth32Float);
+    /// <param name="colorLoadOp">The load operation for color attachments.</param>
+    /// <param name="depthLoadOp">The load operation for the depth attachment.</param>
+    IRenderPass3D CreateRenderPass3D(
+        IReadOnlyList<TextureFormat> colorFormats,
+        TextureFormat depthFormat = TextureFormat.Depth32Float,
+        AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
+        AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear);
 
     /// <summary>
     /// Creates a new 3D framebuffer with multiple color attachments.
