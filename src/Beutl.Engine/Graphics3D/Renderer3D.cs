@@ -3,6 +3,7 @@ using System.Numerics;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Camera;
+using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Nodes;
 using Beutl.Media;
@@ -23,6 +24,7 @@ internal sealed class Renderer3D : IRenderer3D
     // Render passes
     private GeometryPass? _geometryPass;
     private LightingPass? _lightingPass;
+    private GizmoPass? _gizmoPass;
     private FlipPass? _flipPass;
 
     // Shadow management
@@ -60,6 +62,10 @@ internal sealed class Renderer3D : IRenderer3D
         _lightingPass = new LightingPass(_context, _shaderCompiler, _geometryPass.DepthTexture!);
         _lightingPass.Initialize(width, height);
 
+        // Create gizmo pass (uses depth texture from geometry pass)
+        _gizmoPass = new GizmoPass(_context, _shaderCompiler, _geometryPass.DepthTexture!);
+        _gizmoPass.Initialize(width, height);
+
         // Create flip pass (corrects vertical orientation)
         _flipPass = new FlipPass(_context, _shaderCompiler);
         _flipPass.Initialize(width, height);
@@ -87,6 +93,14 @@ internal sealed class Renderer3D : IRenderer3D
             _lightingPass.Initialize(width, height);
         }
 
+        // Recreate gizmo pass to use new depth texture
+        _gizmoPass?.Dispose();
+        if (_geometryPass?.DepthTexture != null)
+        {
+            _gizmoPass = new GizmoPass(_context, _shaderCompiler, _geometryPass.DepthTexture);
+            _gizmoPass.Initialize(width, height);
+        }
+
         // Resize flip pass
         _flipPass?.Resize(width, height);
 
@@ -101,11 +115,13 @@ internal sealed class Renderer3D : IRenderer3D
         IReadOnlyList<Light3D.Resource> lights,
         Color backgroundColor,
         Color ambientColor,
-        float ambientIntensity)
+        float ambientIntensity,
+        Object3D.Resource? gizmoTarget = null,
+        GizmoMode gizmoMode = GizmoMode.None)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (_geometryPass == null || _lightingPass == null || _flipPass == null || _shadowManager == null)
+        if (_geometryPass == null || _lightingPass == null || _gizmoPass == null || _flipPass == null || _shadowManager == null)
             return;
 
         // Cache for hit testing
@@ -157,6 +173,14 @@ internal sealed class Renderer3D : IRenderer3D
         _lightingPass.BindShadowMaps(_shadowManager);
         _lightingPass.Execute(camera, lightDataList, backgroundColor, ambientColor, ambientIntensity, shadowUbo);
         _lightingPass.PrepareForSampling();
+
+        // === GIZMO PASS ===
+        if (gizmoTarget != null && gizmoMode != GizmoMode.None)
+        {
+            _gizmoPass.SetColorTexture(_lightingPass.OutputTexture!);
+            _gizmoPass.Execute(camera, gizmoTarget, gizmoMode, aspectRatio);
+            _gizmoPass.PrepareForSampling();
+        }
 
         // === FLIP PASS ===
         _flipPass.SetInputTexture(_lightingPass.OutputTexture!);
@@ -242,6 +266,7 @@ internal sealed class Renderer3D : IRenderer3D
         _disposed = true;
 
         _flipPass?.Dispose();
+        _gizmoPass?.Dispose();
         _lightingPass?.Dispose();
         _geometryPass?.Dispose();
         _shadowManager?.Dispose();
