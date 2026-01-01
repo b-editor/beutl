@@ -55,9 +55,9 @@ public static class GizmoHitTester
 
         // Transform ray to gizmo local space
         Ray3D localRay;
-        if (gizmoMode == GizmoMode.Scale)
+        if (gizmoMode is GizmoMode.Rotate or GizmoMode.Scale)
         {
-            // For Scale mode, apply inverse rotation to transform ray into object's local space
+            // For Rotate and Scale modes, apply inverse rotation to transform ray into object's local space
             var rotationMatrix = Matrix4x4.CreateFromYawPitchRoll(
                 gizmoRotation.Y * MathF.PI / 180f,
                 gizmoRotation.X * MathF.PI / 180f,
@@ -73,7 +73,7 @@ public static class GizmoHitTester
         }
         else
         {
-            // For Translate and Rotate modes, gizmo is world-aligned
+            // For Translate mode, gizmo is world-aligned
             localRay = new Ray3D(ray.Origin - gizmoPosition, ray.Direction);
         }
 
