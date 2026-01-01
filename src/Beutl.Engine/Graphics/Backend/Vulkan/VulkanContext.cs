@@ -157,10 +157,14 @@ internal sealed class VulkanContext : IGraphicsContext
         return new VulkanShaderCompiler();
     }
 
-    public IRenderPass3D CreateRenderPass3D(IReadOnlyList<TextureFormat> colorFormats, TextureFormat depthFormat = TextureFormat.Depth32Float)
+    public IRenderPass3D CreateRenderPass3D(
+        IReadOnlyList<TextureFormat> colorFormats,
+        TextureFormat depthFormat = TextureFormat.Depth32Float,
+        AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
+        AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
     {
         var vulkanColorFormats = colorFormats.Select(f => f.ToVulkanFormat()).ToList();
-        return new VulkanRenderPass3D(this, vulkanColorFormats, depthFormat.ToVulkanFormat());
+        return new VulkanRenderPass3D(this, vulkanColorFormats, depthFormat.ToVulkanFormat(), colorLoadOp, depthLoadOp);
     }
 
     public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D depthTexture)

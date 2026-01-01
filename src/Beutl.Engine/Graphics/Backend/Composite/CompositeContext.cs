@@ -75,9 +75,13 @@ internal sealed class CompositeContext : IGraphicsContext
         return Vulkan.CreateShaderCompiler();
     }
 
-    public IRenderPass3D CreateRenderPass3D(IReadOnlyList<TextureFormat> colorFormats, TextureFormat depthFormat = TextureFormat.Depth32Float)
+    public IRenderPass3D CreateRenderPass3D(
+        IReadOnlyList<TextureFormat> colorFormats,
+        TextureFormat depthFormat = TextureFormat.Depth32Float,
+        AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
+        AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
     {
-        return Vulkan.CreateRenderPass3D(colorFormats, depthFormat);
+        return Vulkan.CreateRenderPass3D(colorFormats, depthFormat, colorLoadOp, depthLoadOp);
     }
 
     public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D depthTexture)
