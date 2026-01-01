@@ -216,9 +216,9 @@ public sealed class GizmoPass : GraphicsNode3D
             return;
 
         // Create model matrix
-        // For Scale mode, apply object's rotation so the gizmo aligns with the object
+        // For Rotate and Scale modes, apply object's rotation so the gizmo aligns with the object
         Matrix4x4 modelMatrix;
-        if (gizmoMode == GizmoMode.Scale)
+        if (gizmoMode is GizmoMode.Rotate or GizmoMode.Scale)
         {
             // Apply rotation then translation
             var rotation = gizmoTarget.Rotation;
@@ -230,7 +230,7 @@ public sealed class GizmoPass : GraphicsNode3D
         }
         else
         {
-            // Translate and Rotate modes use world-aligned gizmo
+            // Translate mode uses world-aligned gizmo
             modelMatrix = Matrix4x4.CreateTranslation(gizmoTarget.Position);
         }
 
