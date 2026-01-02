@@ -1599,4 +1599,109 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ShowGrid" xml:space="preserve">
     <value>グリッドを表示</value>
   </data>
+  <data name="Decorator" xml:space="preserve">
+    <value>デコレーター</value>
+  </data>
+  <data name="DelayTime" xml:space="preserve">
+    <value>ディレイタイム (ms)</value>
+  </data>
+  <data name="Feedback" xml:space="preserve">
+    <value>フィードバック (%)</value>
+  </data>
+  <data name="DryMix" xml:space="preserve">
+    <value>ドライミックス (%)</value>
+  </data>
+  <data name="WetMix" xml:space="preserve">
+    <value>ウェットミックス (%)</value>
+  </data>
+  <data name="AVFoundationEncoder" xml:space="preserve">
+    <value>AVFoundation エンコーダー</value>
+  </data>
+  <data name="AVFoundationDecoder" xml:space="preserve">
+    <value>AVFoundation デコーダー</value>
+  </data>
+  <data name="UniformValue" xml:space="preserve">
+    <value>一定な値</value>
+  </data>
+  <data name="Null" xml:space="preserve">
+    <value>なし</value>
+  </data>
+  <data name="OpenInTab" xml:space="preserve">
+    <value>タブで開く</value>
+  </data>
+  <data name="VulkanVersion" xml:space="preserve">
+    <value>Vulkanバージョン</value>
+  </data>
+  <data name="SelectedGPU" xml:space="preserve">
+    <value>選択されたGPU</value>
+  </data>
+  <data name="AvailableMemory" xml:space="preserve">
+    <value>使用可能なメモリ</value>
+  </data>
+  <data name="AvailableGPUs" xml:space="preserve">
+    <value>使用可能なGPU</value>
+  </data>
+  <data name="EnabledExtensions" xml:space="preserve">
+    <value>有効な拡張機能</value>
+  </data>
+  <data name="Previous" xml:space="preserve">
+    <value>前</value>
+  </data>
+  <data name="Current" xml:space="preserve">
+    <value>現在</value>
+  </data>
+  <data name="Result" xml:space="preserve">
+    <value>結果</value>
+  </data>
+  <data name="ElapsedTime" xml:space="preserve">
+    <value>経過時間</value>
+  </data>
+  <data name="Difference" xml:space="preserve">
+    <value>差</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>エラー</value>
+  </data>
+  <data name="APIError" xml:space="preserve">
+    <value>APIエラー</value>
+  </data>
+  <data name="FailedToCopyKeyframe" xml:space="preserve">
+    <value>キーフレームのコピーに失敗しました</value>
+  </data>
+  <data name="FailedToPasteKeyframe" xml:space="preserve">
+    <value>キーフレームの貼り付けに失敗しました</value>
+  </data>
+  <data name="FailedToCopyAnimation" xml:space="preserve">
+    <value>アニメーションのコピーに失敗しました</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat" xml:space="preserve">
+    <value>無効なキーフレームデータ形式です。</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat_MissingType" xml:space="preserve">
+    <value>無効なキーフレームデータ形式です。$typeがありません。</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat_TypeIsNotKeyFrame" xml:space="preserve">
+    <value>無効なキーフレームデータ形式です。$typeがKeyFrameではありません。</value>
+  </data>
+  <data name="KeyframePropertyTypeMismatch_EasingApplied" xml:space="preserve">
+    <value>貼り付けたキーフレームのプロパティタイプが一致しません。イージングのみが適用されました。</value>
+  </data>
+  <data name="InvalidJSON_MissingType" xml:space="preserve">
+    <value>無効なJSON: $typeがありません</value>
+  </data>
+  <data name="InvalidJSON_TypeIsNotKeyFrameAnimation" xml:space="preserve">
+    <value>無効なJSON: $typeがKeyFrameAnimationではありません</value>
+  </data>
+  <data name="InvalidJSON_TypeIsNotKeyFrame" xml:space="preserve">
+    <value>無効なJSON: $typeがKeyFrameではありません</value>
+  </data>
+  <data name="AnimationPropertyTypeMismatch" xml:space="preserve">
+    <value>貼り付けたアニメーションのプロパティタイプが一致しません。(期待: {0}, 実際: {1})</value>
+  </data>
+  <data name="KeyframeExistsAtPastePosition" xml:space="preserve">
+    <value>貼り付け位置にキーフレームが既に存在します。イージングと値が更新されました。</value>
+  </data>
+  <data name="Website" xml:space="preserve">
+    <value>ウェブサイト</value>
+  </data>
 </root>

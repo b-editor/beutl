@@ -1,11 +1,12 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
+using Beutl.Language;
 
 namespace Beutl.Graphics;
 
 // Drawable継承しているが、Drawableのメソッドは使っていない
-[Display(Name = "Decorator")]
+[Display(Name = nameof(Strings.Decorator), ResourceType = typeof(Strings))]
 public sealed partial class DrawableDecorator : Drawable
 {
     public DrawableDecorator()

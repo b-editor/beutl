@@ -95,19 +95,19 @@
                             </Style>
                         </StackPanel.Styles>
                         <Grid ColumnDefinitions="*,*">
-                            <TextBlock Text="Vulkan Version" />
+                            <TextBlock Text="{x:Static lang:Strings.VulkanVersion}" />
                             <SelectableTextBlock Grid.Column="1" Text="{Binding VulkanVersion.Value}" />
                         </Grid>
                         <Grid ColumnDefinitions="*,*">
-                            <TextBlock Text="Selected GPU" />
+                            <TextBlock Text="{x:Static lang:Strings.SelectedGPU}" />
                             <SelectableTextBlock Grid.Column="1" Text="{Binding SelectedGpu.Value}" />
                         </Grid>
                         <Grid ColumnDefinitions="*,*">
-                            <TextBlock Text="Available Memory" />
+                            <TextBlock Text="{x:Static lang:Strings.AvailableMemory}" />
                             <SelectableTextBlock Grid.Column="1" Text="{Binding AvailableMemory.Value}" />
                         </Grid>
                         <Grid RowDefinitions="Auto,Auto">
-                            <TextBlock Text="Available GPUs" />
+                            <TextBlock Text="{x:Static lang:Strings.AvailableGPUs}" />
                             <ItemsControl Grid.Row="1"
                                           Margin="16,0"
                                           ItemsSource="{Binding AvailableGpus.Value}">
@@ -119,7 +119,7 @@
                             </ItemsControl>
                         </Grid>
                         <Grid RowDefinitions="Auto,Auto">
-                            <TextBlock Text="Enabled Extensions" />
+                            <TextBlock Text="{x:Static lang:Strings.EnabledExtensions}" />
                             <ItemsControl Grid.Row="1"
                                           Margin="16,0"
                                           ItemsSource="{Binding EnabledExtensions.Value}">

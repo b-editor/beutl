@@ -1,12 +1,13 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.Media.Decoding;
 using MonoMac.AppKit;
 
 namespace Beutl.Extensions.AVFoundation.Decoding;
 
 [Export]
-[Display(Name = "AVFoundation Decoding")]
+[Display(Name = nameof(Strings.AVFoundationDecoder), ResourceType = typeof(Strings))]
 public class AVFDecodingExtension : DecodingExtension
 {
     public override AVFDecodingSettings? Settings { get; } = new();

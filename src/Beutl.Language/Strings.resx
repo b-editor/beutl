@@ -1594,4 +1594,109 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="ShowGrid" xml:space="preserve">
     <value>Show Grid</value>
   </data>
+  <data name="Decorator" xml:space="preserve">
+    <value>Decorator</value>
+  </data>
+  <data name="DelayTime" xml:space="preserve">
+    <value>Delay Time (ms)</value>
+  </data>
+  <data name="Feedback" xml:space="preserve">
+    <value>Feedback (%)</value>
+  </data>
+  <data name="DryMix" xml:space="preserve">
+    <value>Dry Mix (%)</value>
+  </data>
+  <data name="WetMix" xml:space="preserve">
+    <value>Wet Mix (%)</value>
+  </data>
+  <data name="AVFoundationEncoder" xml:space="preserve">
+    <value>AVFoundation Encoder</value>
+  </data>
+  <data name="AVFoundationDecoder" xml:space="preserve">
+    <value>AVFoundation Decoder</value>
+  </data>
+  <data name="UniformValue" xml:space="preserve">
+    <value>Uniform value</value>
+  </data>
+  <data name="Null" xml:space="preserve">
+    <value>Null</value>
+  </data>
+  <data name="OpenInTab" xml:space="preserve">
+    <value>Open in tab</value>
+  </data>
+  <data name="VulkanVersion" xml:space="preserve">
+    <value>Vulkan Version</value>
+  </data>
+  <data name="SelectedGPU" xml:space="preserve">
+    <value>Selected GPU</value>
+  </data>
+  <data name="AvailableMemory" xml:space="preserve">
+    <value>Available Memory</value>
+  </data>
+  <data name="AvailableGPUs" xml:space="preserve">
+    <value>Available GPUs</value>
+  </data>
+  <data name="EnabledExtensions" xml:space="preserve">
+    <value>Enabled Extensions</value>
+  </data>
+  <data name="Previous" xml:space="preserve">
+    <value>Previous</value>
+  </data>
+  <data name="Current" xml:space="preserve">
+    <value>Current</value>
+  </data>
+  <data name="Result" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="ElapsedTime" xml:space="preserve">
+    <value>Elapsed time</value>
+  </data>
+  <data name="Difference" xml:space="preserve">
+    <value>Difference</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="APIError" xml:space="preserve">
+    <value>API Error</value>
+  </data>
+  <data name="FailedToCopyKeyframe" xml:space="preserve">
+    <value>Failed to copy keyframe</value>
+  </data>
+  <data name="FailedToPasteKeyframe" xml:space="preserve">
+    <value>Failed to paste keyframe</value>
+  </data>
+  <data name="FailedToCopyAnimation" xml:space="preserve">
+    <value>Failed to copy animation</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat" xml:space="preserve">
+    <value>Invalid keyframe data format.</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat_MissingType" xml:space="preserve">
+    <value>Invalid keyframe data format. missing $type.</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat_TypeIsNotKeyFrame" xml:space="preserve">
+    <value>Invalid keyframe data format. $type is not KeyFrame.</value>
+  </data>
+  <data name="KeyframePropertyTypeMismatch_EasingApplied" xml:space="preserve">
+    <value>The property type of the pasted keyframe does not match. Only the easing is applied.</value>
+  </data>
+  <data name="InvalidJSON_MissingType" xml:space="preserve">
+    <value>Invalid JSON: missing $type</value>
+  </data>
+  <data name="InvalidJSON_TypeIsNotKeyFrameAnimation" xml:space="preserve">
+    <value>Invalid JSON: $type is not a KeyFrameAnimation</value>
+  </data>
+  <data name="InvalidJSON_TypeIsNotKeyFrame" xml:space="preserve">
+    <value>Invalid JSON: $type is not a KeyFrame</value>
+  </data>
+  <data name="AnimationPropertyTypeMismatch" xml:space="preserve">
+    <value>The property type of the pasted animation does not match. (Expected: {0}, Actual: {1})</value>
+  </data>
+  <data name="KeyframeExistsAtPastePosition" xml:space="preserve">
+    <value>A keyframe already exists at the paste position. The easing and value have been updated.</value>
+  </data>
+  <data name="Website" xml:space="preserve">
+    <value>Website</value>
+  </data>
 </root>

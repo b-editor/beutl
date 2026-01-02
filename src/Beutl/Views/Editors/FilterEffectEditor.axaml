@@ -27,7 +27,7 @@
                                        Text="{x:Static lang:Strings.Change}" />
                     <ui:MenuFlyoutItem Click="SetNullClick"
                                        FontWeight="Normal"
-                                       Text="Null" />
+                                       Text="{x:Static lang:Strings.Null}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>

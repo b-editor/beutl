@@ -147,7 +147,7 @@
             </Button>
             <Button Click="SocialClick"
                     Tag="Url"
-                    ToolTip.Tip="Project">
+                    ToolTip.Tip="{x:Static lang:Strings.Website}">
                 <ui:SymbolIcon Width="24"
                                Height="24"
                                FontSize="20"

@@ -78,7 +78,7 @@
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                         Tag="Null"
-                                                        Text="Null" />
+                                                        Text="{x:Static lang:Strings.Null}" />
                             </ui:FAMenuFlyout>
                         </Button.ContextFlyout>
                         <icons:SymbolIcon Symbol="Compose" />

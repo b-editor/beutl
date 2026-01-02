@@ -2,6 +2,7 @@
 using Beutl.Media.Decoding;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Extensions.FFmpeg;
+using Beutl.Extensions.FFmpeg.Properties;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Decoding;
@@ -10,7 +11,7 @@ namespace Beutl.Extensions.FFmpeg.Decoding;
 #endif
 
 [Export]
-[Display(Name = "FFmpeg Decoder")]
+[Display(Name = nameof(Strings.FFmpegDecoder), ResourceType = typeof(Strings))]
 public class FFmpegDecodingExtension : DecodingExtension
 {
     public override FFmpegDecodingSettings Settings { get; } = new FFmpegDecodingSettings();

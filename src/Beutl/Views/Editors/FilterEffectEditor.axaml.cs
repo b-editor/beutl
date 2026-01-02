@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Language;
 using Beutl.Models;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
@@ -99,7 +100,7 @@ public partial class FilterEffectEditor : UserControl
                 }
                 catch (Exception ex)
                 {
-                    NotificationService.ShowError("Error", ex.Message);
+                    NotificationService.ShowError(Strings.Error, ex.Message);
                 }
             }
         }
@@ -160,7 +161,7 @@ public partial class FilterEffectEditor : UserControl
         }
         catch (Exception ex)
         {
-            NotificationService.ShowError("Error", ex.Message);
+            NotificationService.ShowError(Strings.Error, ex.Message);
         }
     }
 

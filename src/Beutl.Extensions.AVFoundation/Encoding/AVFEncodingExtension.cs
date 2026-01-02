@@ -1,5 +1,6 @@
 ﻿using System.Runtime.Versioning;
 using Beutl.Extensibility;
+using Beutl.Language;
 using MonoMac.AppKit;
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
@@ -8,7 +9,7 @@ namespace Beutl.Extensions.AVFoundation.Encoding;
 
 [Export]
 [SupportedOSPlatform("macos")]
-[Display(Name = "AVFoundation Encoder")]
+[Display(Name = nameof(Strings.AVFoundationEncoder), ResourceType = typeof(Strings))]
 public class AVFEncodingExtension : ControllableEncodingExtension
 {
     public override void Load()

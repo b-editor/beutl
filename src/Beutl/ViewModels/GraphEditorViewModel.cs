@@ -9,6 +9,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor;
 using Beutl.Helpers;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -327,7 +328,7 @@ public abstract class GraphEditorViewModel : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to copy all keyframes");
-            NotificationService.ShowError("Copy", "Failed to copy animation");
+            NotificationService.ShowError(Strings.Copy, Strings.FailedToCopyAnimation);
         }
     }
 
@@ -349,12 +350,12 @@ public abstract class GraphEditorViewModel : IDisposable
                 return;
             }
 
-            NotificationService.ShowWarning("", "Invalid keyframe data format.");
+            NotificationService.ShowWarning("", Strings.InvalidKeyframeDataFormat);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to paste keyframe at position");
-            NotificationService.ShowError("Paste", "Failed to paste keyframe");
+            NotificationService.ShowError(Strings.Paste, Strings.FailedToPasteKeyframe);
         }
     }
 
@@ -364,21 +365,21 @@ public abstract class GraphEditorViewModel : IDisposable
         if (JsonNode.Parse(json) is not JsonObject newJson)
         {
             _logger.LogError("Invalid JSON");
-            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON");
+            NotificationService.ShowError(Strings.GraphEditor, Strings.InvalidJson);
             return;
         }
 
         if (!newJson.TryGetDiscriminator(out Type? discriminator))
         {
             _logger.LogError("Invalid JSON: missing $type");
-            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON: missing $type");
+            NotificationService.ShowError(Strings.GraphEditor, Strings.InvalidJSON_MissingType);
             return;
         }
 
         if (!discriminator.IsAssignableTo(typeof(IKeyFrameAnimation)))
         {
             _logger.LogError("Invalid JSON: $type is not a KeyFrameAnimation");
-            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON: $type is not a KeyFrameAnimation");
+            NotificationService.ShowError(Strings.GraphEditor, Strings.InvalidJSON_TypeIsNotKeyFrameAnimation);
             return;
         }
 
@@ -390,7 +391,7 @@ public abstract class GraphEditorViewModel : IDisposable
             if (discriminator.GenericTypeArguments[0] != animation.ValueType)
             {
                 _logger.LogError("The property type of the pasted animation does not match.");
-                NotificationService.ShowError(Strings.GraphEditor, $"The property type of the pasted animation does not match. (Expected: {animation.ValueType.Name}, Actual: {discriminator.GenericTypeArguments[0].Name})");
+                NotificationService.ShowError(Strings.GraphEditor, string.Format(Strings.AnimationPropertyTypeMismatch, animation.ValueType.Name, discriminator.GenericTypeArguments[0].Name));
                 return;
             }
 
@@ -416,21 +417,21 @@ public abstract class GraphEditorViewModel : IDisposable
         if (JsonNode.Parse(json) is not JsonObject newJson)
         {
             _logger.LogError("Invalid JSON");
-            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON");
+            NotificationService.ShowError(Strings.GraphEditor, Strings.InvalidJson);
             return;
         }
 
         if (!newJson.TryGetDiscriminator(out Type? discriminator))
         {
             _logger.LogError("Invalid JSON: missing $type");
-            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON: missing $type");
+            NotificationService.ShowError(Strings.GraphEditor, Strings.InvalidJSON_MissingType);
             return;
         }
 
         if (!discriminator.IsAssignableTo(typeof(KeyFrame)))
         {
             _logger.LogError("Invalid JSON: $type is not a KeyFrame");
-            NotificationService.ShowError(Strings.GraphEditor, "Invalid JSON: $type is not a KeyFrame");
+            NotificationService.ShowError(Strings.GraphEditor, Strings.InvalidJSON_TypeIsNotKeyFrame);
             return;
         }
 
@@ -445,7 +446,7 @@ public abstract class GraphEditorViewModel : IDisposable
             if (discriminator.GenericTypeArguments[0] != animation.ValueType)
             {
                 InsertKeyFrame(newKeyFrame.Easing, pointerPosition);
-                NotificationService.ShowWarning(Strings.GraphEditor, "The property type of the pasted keyframe does not match. Only the easing is applied.");
+                NotificationService.ShowWarning(Strings.GraphEditor, Strings.KeyframePropertyTypeMismatch_EasingApplied);
                 return;
             }
 
@@ -456,7 +457,7 @@ public abstract class GraphEditorViewModel : IDisposable
                 existingKeyFrame.Easing = newKeyFrame.Easing;
                 existingKeyFrame.Value = ((IKeyFrame)newKeyFrame).Value;
                 history.Commit(CommandNames.PasteKeyFrame);
-                NotificationService.ShowWarning(Strings.GraphEditor, "A keyframe already exists at the paste position. The easing and value have been updated.");
+                NotificationService.ShowWarning(Strings.GraphEditor, Strings.KeyframeExistsAtPastePosition);
             }
             else
             {

@@ -3,6 +3,7 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Services;
@@ -54,7 +55,7 @@ public partial class GeometryEditor : UserControl
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while adding item to group.");
-                NotificationService.ShowError("Error", ex.Message);
+                NotificationService.ShowError(Strings.Error, ex.Message);
             }
         }
         else

@@ -2978,5 +2978,215 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("ShowGrid", resourceCulture);
             }
         }
+        
+        public static string Decorator {
+            get {
+                return ResourceManager.GetString("Decorator", resourceCulture);
+            }
+        }
+        
+        public static string DelayTime {
+            get {
+                return ResourceManager.GetString("DelayTime", resourceCulture);
+            }
+        }
+        
+        public static string Feedback {
+            get {
+                return ResourceManager.GetString("Feedback", resourceCulture);
+            }
+        }
+        
+        public static string DryMix {
+            get {
+                return ResourceManager.GetString("DryMix", resourceCulture);
+            }
+        }
+        
+        public static string WetMix {
+            get {
+                return ResourceManager.GetString("WetMix", resourceCulture);
+            }
+        }
+        
+        public static string AVFoundationEncoder {
+            get {
+                return ResourceManager.GetString("AVFoundationEncoder", resourceCulture);
+            }
+        }
+        
+        public static string AVFoundationDecoder {
+            get {
+                return ResourceManager.GetString("AVFoundationDecoder", resourceCulture);
+            }
+        }
+        
+        public static string UniformValue {
+            get {
+                return ResourceManager.GetString("UniformValue", resourceCulture);
+            }
+        }
+        
+        public static string Null {
+            get {
+                return ResourceManager.GetString("Null", resourceCulture);
+            }
+        }
+        
+        public static string OpenInTab {
+            get {
+                return ResourceManager.GetString("OpenInTab", resourceCulture);
+            }
+        }
+        
+        public static string VulkanVersion {
+            get {
+                return ResourceManager.GetString("VulkanVersion", resourceCulture);
+            }
+        }
+        
+        public static string SelectedGPU {
+            get {
+                return ResourceManager.GetString("SelectedGPU", resourceCulture);
+            }
+        }
+        
+        public static string AvailableMemory {
+            get {
+                return ResourceManager.GetString("AvailableMemory", resourceCulture);
+            }
+        }
+        
+        public static string AvailableGPUs {
+            get {
+                return ResourceManager.GetString("AvailableGPUs", resourceCulture);
+            }
+        }
+        
+        public static string EnabledExtensions {
+            get {
+                return ResourceManager.GetString("EnabledExtensions", resourceCulture);
+            }
+        }
+        
+        public static string Previous {
+            get {
+                return ResourceManager.GetString("Previous", resourceCulture);
+            }
+        }
+        
+        public static string Current {
+            get {
+                return ResourceManager.GetString("Current", resourceCulture);
+            }
+        }
+        
+        public static string Result {
+            get {
+                return ResourceManager.GetString("Result", resourceCulture);
+            }
+        }
+        
+        public static string ElapsedTime {
+            get {
+                return ResourceManager.GetString("ElapsedTime", resourceCulture);
+            }
+        }
+        
+        public static string Difference {
+            get {
+                return ResourceManager.GetString("Difference", resourceCulture);
+            }
+        }
+        
+        public static string Error {
+            get {
+                return ResourceManager.GetString("Error", resourceCulture);
+            }
+        }
+        
+        public static string APIError {
+            get {
+                return ResourceManager.GetString("APIError", resourceCulture);
+            }
+        }
+        
+        public static string FailedToCopyKeyframe {
+            get {
+                return ResourceManager.GetString("FailedToCopyKeyframe", resourceCulture);
+            }
+        }
+        
+        public static string FailedToPasteKeyframe {
+            get {
+                return ResourceManager.GetString("FailedToPasteKeyframe", resourceCulture);
+            }
+        }
+        
+        public static string FailedToCopyAnimation {
+            get {
+                return ResourceManager.GetString("FailedToCopyAnimation", resourceCulture);
+            }
+        }
+        
+        public static string InvalidKeyframeDataFormat {
+            get {
+                return ResourceManager.GetString("InvalidKeyframeDataFormat", resourceCulture);
+            }
+        }
+        
+        public static string InvalidKeyframeDataFormat_MissingType {
+            get {
+                return ResourceManager.GetString("InvalidKeyframeDataFormat_MissingType", resourceCulture);
+            }
+        }
+        
+        public static string InvalidKeyframeDataFormat_TypeIsNotKeyFrame {
+            get {
+                return ResourceManager.GetString("InvalidKeyframeDataFormat_TypeIsNotKeyFrame", resourceCulture);
+            }
+        }
+        
+        public static string KeyframePropertyTypeMismatch_EasingApplied {
+            get {
+                return ResourceManager.GetString("KeyframePropertyTypeMismatch_EasingApplied", resourceCulture);
+            }
+        }
+        
+        public static string InvalidJSON_MissingType {
+            get {
+                return ResourceManager.GetString("InvalidJSON_MissingType", resourceCulture);
+            }
+        }
+        
+        public static string InvalidJSON_TypeIsNotKeyFrameAnimation {
+            get {
+                return ResourceManager.GetString("InvalidJSON_TypeIsNotKeyFrameAnimation", resourceCulture);
+            }
+        }
+        
+        public static string InvalidJSON_TypeIsNotKeyFrame {
+            get {
+                return ResourceManager.GetString("InvalidJSON_TypeIsNotKeyFrame", resourceCulture);
+            }
+        }
+        
+        public static string AnimationPropertyTypeMismatch {
+            get {
+                return ResourceManager.GetString("AnimationPropertyTypeMismatch", resourceCulture);
+            }
+        }
+        
+        public static string KeyframeExistsAtPastePosition {
+            get {
+                return ResourceManager.GetString("KeyframeExistsAtPastePosition", resourceCulture);
+            }
+        }
+        
+        public static string Website {
+            get {
+                return ResourceManager.GetString("Website", resourceCulture);
+            }
+        }
     }
 }
