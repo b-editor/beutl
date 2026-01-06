@@ -2,6 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:avconv="using:Avalonia.Controls.Converters"
                     xmlns:conv="using:FluentAvalonia.Converters"
+                    xmlns:lang="using:Beutl.Language"
                     xmlns:sty="using:FluentAvalonia.Styling"
                     xmlns:ui="using:FluentAvalonia.UI.Controls"
                     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
@@ -361,12 +362,12 @@
                                   RowDefinitions="Auto,*">
                                 <TextBlock HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
-                                           Text="Previous" />
+                                           Text="{x:Static lang:Strings.Previous}" />
                                 <TextBlock Grid.Column="2"
                                            Grid.ColumnSpan="5"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
-                                           Text="Current" />
+                                           Text="{x:Static lang:Strings.Current}" />
 
                                 <Border Name="PreviousColorPreviewBackground"
                                         Grid.Row="1"
@@ -792,17 +793,17 @@
                                             <MenuItem Header="-" />
                                             <MenuItem x:Name="TextBoxContextMenuCutItem"
                                                       Command="{Binding $parent[TextBox].Cut}"
-                                                      Header="Cut"
+                                                      Header="{x:Static lang:Strings.Cut}"
                                                       InputGesture="{x:Static TextBox.CutGesture}"
                                                       IsEnabled="{Binding $parent[TextBox].CanCut}" />
                                             <MenuItem x:Name="TextBoxContextMenuCopyItem"
                                                       Command="{Binding $parent[TextBox].Copy}"
-                                                      Header="Copy"
+                                                      Header="{x:Static lang:Strings.Copy}"
                                                       InputGesture="{x:Static TextBox.CopyGesture}"
                                                       IsEnabled="{Binding $parent[TextBox].CanCopy}" />
                                             <MenuItem x:Name="TextBoxContextMenuPasteItem"
                                                       Command="{Binding $parent[TextBox].Paste}"
-                                                      Header="Paste"
+                                                      Header="{x:Static lang:Strings.Paste}"
                                                       InputGesture="{x:Static TextBox.PasteGesture}"
                                                       IsEnabled="{Binding $parent[TextBox].CanPaste}" />
                                         </MenuFlyout>

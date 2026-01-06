@@ -1,6 +1,7 @@
 ﻿using Beutl.Extensibility;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Extensions.FFmpeg;
+using Beutl.Extensions.FFmpeg.Properties;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Encoding;
@@ -9,7 +10,7 @@ namespace Beutl.Extensions.FFmpeg.Encoding;
 #endif
 
 [Export]
-[Display(Name = "FFmpeg Encoder")]
+[Display(Name = nameof(Strings.FFmpegEncoder), ResourceType = typeof(Strings))]
 public class FFmpegControlledEncodingExtension : ControllableEncodingExtension
 {
     public override FFmpegEncodingSettings Settings { get; } = new();

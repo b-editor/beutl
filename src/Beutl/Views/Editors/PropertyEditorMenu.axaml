@@ -40,7 +40,7 @@
                                          IsChecked="{ReflectionBinding IsUniformEditorEnabled.Value,
                                                                        Mode=TwoWay}"
                                          IsVisible="False"
-                                         Text="一定な値" />
+                                         Text="{x:Static lang:Strings.UniformValue}" />
                 <ui:MenuFlyoutSeparator x:Name="expressionSeparator" IsVisible="False" />
                 <ui:MenuFlyoutItem x:Name="editExpressionItem"
                                    Click="EditExpression_Click"

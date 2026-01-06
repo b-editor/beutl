@@ -44,7 +44,7 @@ public sealed class AuthenticationTask : StartupTask
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "Error while handling API error: {ApiContent}", error.Content);
-                            NotificationService.ShowError("API Error", error.Message);
+                            NotificationService.ShowError(Strings.APIError, error.Message);
                         }
                     }
                     else

@@ -5,6 +5,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor;
 using Beutl.Helpers;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.Serialization;
@@ -79,7 +80,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to copy keyframe");
-            NotificationService.ShowError("Copy", "Failed to copy keyframe");
+            NotificationService.ShowError(Strings.Copy, Strings.FailedToCopyKeyframe);
         }
     }
 
@@ -95,13 +96,13 @@ public sealed class InlineKeyFrameViewModel : IDisposable
             {
                 if (!jsonObj.TryGetDiscriminator(out Type? type))
                 {
-                    NotificationService.ShowWarning("", "Invalid keyframe data format. missing $type.");
+                    NotificationService.ShowWarning(Strings.Paste, Strings.InvalidKeyframeDataFormat_MissingType);
                     return;
                 }
 
                 if (!type.IsAssignableTo(typeof(KeyFrame)))
                 {
-                    NotificationService.ShowWarning("", "Invalid keyframe data format. $type is not KeyFrame.");
+                    NotificationService.ShowWarning(Strings.Paste, Strings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame);
                     return;
                 }
 
@@ -115,7 +116,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                     Model.Easing = newKeyFrame.Easing;
                     history.Commit(CommandNames.ChangeEasing);
                     NotificationService.ShowWarning(Strings.GraphEditor,
-                        "The property type of the pasted keyframe does not match. Only the easing is applied.");
+                        Strings.KeyframePropertyTypeMismatch_EasingApplied);
                 }
                 else
                 {
@@ -129,12 +130,12 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                 return;
             }
 
-            NotificationService.ShowWarning("", "Invalid keyframe data format.");
+            NotificationService.ShowWarning(Strings.Paste, Strings.InvalidKeyframeDataFormat);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to paste keyframe");
-            NotificationService.ShowError("Paste", "Failed to paste keyframe");
+            NotificationService.ShowError(Strings.Paste, Strings.FailedToPasteKeyframe);
         }
     }
 

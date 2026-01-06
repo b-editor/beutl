@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Beutl.Language;
 using Beutl.ViewModels;
 using ReDocking;
 
@@ -41,11 +42,11 @@ public class CustomSideBarButtonMenuFlyout : MenuFlyout
         if (dockHost.IsFloatingEnabled)
         {
             var displayMenu = new MenuItem();
-            displayMenu.Header = "Display mode";
+            displayMenu.Header = Strings.DisplayMode;
             displayMenu.ItemsSource = new List<Control>
             {
-                new MenuItem { Header = "Docked", Tag = DockableDisplayMode.Docked },
-                new MenuItem { Header = "Floating", Tag = DockableDisplayMode.Floating },
+                new MenuItem { Header = Strings.Docked, Tag = DockableDisplayMode.Docked },
+                new MenuItem { Header = Strings.Floating, Tag = DockableDisplayMode.Floating },
             };
             displayMenu.AddHandler(MenuItem.ClickEvent, OnDisplayModeClick);
             list.Add(displayMenu);

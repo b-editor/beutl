@@ -25,10 +25,10 @@
                                        Text="{x:Static lang:Strings.Change}" />
                     <ui:MenuFlyoutItem Click="SetNullClick"
                                        FontWeight="Normal"
-                                       Text="Null" />
+                                       Text="{x:Static lang:Strings.Null}" />
                     <ui:MenuFlyoutItem Click="Navigate_Click"
                                        FontWeight="Normal"
-                                       Text="Open in tab" />
+                                       Text="{x:Static lang:Strings.OpenInTab}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>

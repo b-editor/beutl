@@ -1,4 +1,5 @@
 ﻿using Beutl.Api.Clients;
+using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Refit;
@@ -16,17 +17,17 @@ public static class DefaultExceptionHandler
             try
             {
                 var err = await apiError.GetContentAsAsync<ApiErrorResponse>();
-                NotificationService.ShowError("API Error", err?.Message ?? apiError.Message);
+                NotificationService.ShowError(Strings.APIError, err?.Message ?? apiError.Message);
             }
             catch (Exception ex)
             {
                 s_logger.LogError(ex, "Error while handling API error: {ApiContent}", apiError.Content);
-                NotificationService.ShowError("API Error", apiError.Message);
+                NotificationService.ShowError(Strings.APIError, apiError.Message);
             }
         }
         else if (exception is not OperationCanceledException)
         {
-            NotificationService.ShowError("Error", exception.Message);
+            NotificationService.ShowError(Strings.Error, exception.Message);
         }
     }
 }

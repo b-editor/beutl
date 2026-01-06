@@ -61,7 +61,7 @@ public class UpdateDialogViewModel
         catch (Exception e)
         {
             _logger.LogError(e, "Failed to handle primary button click");
-            NotificationService.ShowError("Error", e.Message);
+            NotificationService.ShowError(Strings.Error, e.Message);
         }
     }
 

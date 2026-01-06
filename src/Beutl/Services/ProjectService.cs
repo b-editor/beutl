@@ -84,7 +84,7 @@ public sealed class ProjectService
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to open the project. File: {File}", file);
-            NotificationService.ShowInformation("", Message.CouldNotOpenProject);
+            NotificationService.ShowInformation(Strings.Project, Message.CouldNotOpenProject);
         }
     }
 

@@ -186,4 +186,10 @@
   <data name="Failed_to_install_Homebrew" xml:space="preserve">
     <value>Failed to install Homebrew: {0}</value>
   </data>
+  <data name="FFmpegEncoder" xml:space="preserve">
+    <value>FFmpeg Encoder</value>
+  </data>
+  <data name="FFmpegDecoder" xml:space="preserve">
+    <value>FFmpeg Decoder</value>
+  </data>
 </root>

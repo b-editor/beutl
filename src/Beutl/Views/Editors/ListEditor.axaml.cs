@@ -10,6 +10,7 @@ using Avalonia.Media.Transformation;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Language;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
@@ -374,7 +375,7 @@ public sealed class ListEditor<TItem> : ListEditor
             }
             catch (InvalidOperationException ex)
             {
-                NotificationService.ShowError("Error", ex.Message);
+                NotificationService.ShowError(Strings.Error, ex.Message);
             }
         }
     }
@@ -389,7 +390,7 @@ public sealed class ListEditor<TItem> : ListEditor
             }
             catch (InvalidOperationException ex)
             {
-                NotificationService.ShowError("Error", ex.Message);
+                NotificationService.ShowError(Strings.Error, ex.Message);
             }
         }
     }
@@ -466,7 +467,7 @@ public sealed class ListEditor<TItem> : ListEditor
                     }
                     else
                     {
-                        NotificationService.ShowError("Error", "ListEditor<TItem>.OnAddClick");
+                        NotificationService.ShowError(Strings.Error, "ListEditor<TItem>.OnAddClick");
                     }
                 });
 

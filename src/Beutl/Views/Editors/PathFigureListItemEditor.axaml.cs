@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -127,7 +128,7 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
             }
             catch (Exception ex)
             {
-                NotificationService.ShowError("Error", ex.Message);
+                NotificationService.ShowError(Strings.Error, ex.Message);
             }
         }
     }

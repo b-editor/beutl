@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Configuration;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Pages;
 using Beutl.Services;
@@ -339,11 +340,8 @@ public sealed partial class MainView : UserControl
         str = (deltaBytes >= 0 ? "+" : "-") + str;
 
         NotificationService.ShowInformation(
-            "結果",
-            $"""
-             経過時間: {elapsed.TotalMilliseconds}ms
-             差: {str}
-             """);
+            Strings.Result,
+            $"{Strings.ElapsedTime}: {elapsed.TotalMilliseconds}ms\n{Strings.Difference}: {str}");
     }
 
     [Conditional("DEBUG")]

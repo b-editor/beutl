@@ -28,9 +28,7 @@
                         VerticalAlignment="Stretch"
                         Orientation="Vertical"
                         Spacing="16">
-                <TextBlock Margin="0,16,0,0" Text="{x:Static lang:SettingsPage.DecoderPriority_Description}">
-                    デコーダーの優先順位を変更できます。上のデコーダーが優先されます。
-                </TextBlock>
+                <TextBlock Margin="0,16,0,0" Text="{x:Static lang:SettingsPage.DecoderPriority_Description}" />
 
                 <ListBox x:Name="listBox" ItemsSource="{Binding Items}">
                     <ListBox.ItemTemplate>

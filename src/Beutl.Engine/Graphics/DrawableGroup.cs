@@ -2,11 +2,12 @@
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Graphics;
 
-[Display(Name = "Group")]
+[Display(Name = nameof(Strings.Group), ResourceType = typeof(Strings))]
 public sealed partial class DrawableGroup : Drawable
 {
     public DrawableGroup()

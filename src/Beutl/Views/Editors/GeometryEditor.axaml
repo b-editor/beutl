@@ -23,7 +23,7 @@
                 <ui:FAMenuFlyout>
                     <ui:MenuFlyoutItem Click="SetNullClick"
                                        FontWeight="Normal"
-                                       Text="Null" />
+                                       Text="{x:Static lang:Strings.Null}" />
                     <ui:MenuFlyoutItem Click="InitializeClick"
                                        FontWeight="Normal"
                                        Text="{x:Static lang:Strings.Initialize}" />

@@ -38,8 +38,7 @@
                 <RadioButton IsChecked="{Binding IsHandMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Hand}">
                     <icons:SymbolIcon FontSize="16" Symbol="HandLeft" />
                 </RadioButton>
-                <!--  Todo: ローカライズ  -->
-                <RadioButton IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="範囲選択">
+                <RadioButton IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="{x:Static lang:Strings.CropSelection}">
                     <icons:SymbolIcon FontSize="16" Symbol="Crop" />
                 </RadioButton>
                 <RadioButton Margin="0,8,0,0"
