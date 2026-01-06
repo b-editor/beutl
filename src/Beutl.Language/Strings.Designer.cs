@@ -3188,5 +3188,53 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Website", resourceCulture);
             }
         }
+        
+        public static string DisplayMode {
+            get {
+                return ResourceManager.GetString("DisplayMode", resourceCulture);
+            }
+        }
+        
+        public static string Docked {
+            get {
+                return ResourceManager.GetString("Docked", resourceCulture);
+            }
+        }
+        
+        public static string Floating {
+            get {
+                return ResourceManager.GetString("Floating", resourceCulture);
+            }
+        }
+        
+        public static string CropSelection {
+            get {
+                return ResourceManager.GetString("CropSelection", resourceCulture);
+            }
+        }
+        
+        public static string Portal {
+            get {
+                return ResourceManager.GetString("Portal", resourceCulture);
+            }
+        }
+        
+        public static string Layer {
+            get {
+                return ResourceManager.GetString("Layer", resourceCulture);
+            }
+        }
+        
+        public static string AudioEffect {
+            get {
+                return ResourceManager.GetString("AudioEffect", resourceCulture);
+            }
+        }
+        
+        public static string Delay {
+            get {
+                return ResourceManager.GetString("Delay", resourceCulture);
+            }
+        }
     }
 }

@@ -1699,4 +1699,28 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Website" xml:space="preserve">
     <value>Website</value>
   </data>
+  <data name="DisplayMode" xml:space="preserve">
+    <value>Display mode</value>
+  </data>
+  <data name="Docked" xml:space="preserve">
+    <value>Docked</value>
+  </data>
+  <data name="Floating" xml:space="preserve">
+    <value>Floating</value>
+  </data>
+  <data name="CropSelection" xml:space="preserve">
+    <value>Crop selection</value>
+  </data>
+  <data name="Portal" xml:space="preserve">
+    <value>Portal</value>
+  </data>
+  <data name="Layer" xml:space="preserve">
+    <value>Layer</value>
+  </data>
+  <data name="AudioEffect" xml:space="preserve">
+    <value>Audio Effect</value>
+  </data>
+  <data name="Delay" xml:space="preserve">
+    <value>Delay</value>
+  </data>
 </root>

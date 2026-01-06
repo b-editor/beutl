@@ -96,13 +96,13 @@ public sealed class InlineKeyFrameViewModel : IDisposable
             {
                 if (!jsonObj.TryGetDiscriminator(out Type? type))
                 {
-                    NotificationService.ShowWarning("", Strings.InvalidKeyframeDataFormat_MissingType);
+                    NotificationService.ShowWarning(Strings.Paste, Strings.InvalidKeyframeDataFormat_MissingType);
                     return;
                 }
 
                 if (!type.IsAssignableTo(typeof(KeyFrame)))
                 {
-                    NotificationService.ShowWarning("", Strings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame);
+                    NotificationService.ShowWarning(Strings.Paste, Strings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame);
                     return;
                 }
 
@@ -130,7 +130,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                 return;
             }
 
-            NotificationService.ShowWarning("", Strings.InvalidKeyframeDataFormat);
+            NotificationService.ShowWarning(Strings.Paste, Strings.InvalidKeyframeDataFormat);
         }
         catch (Exception ex)
         {

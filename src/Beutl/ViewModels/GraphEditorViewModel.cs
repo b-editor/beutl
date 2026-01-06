@@ -350,7 +350,7 @@ public abstract class GraphEditorViewModel : IDisposable
                 return;
             }
 
-            NotificationService.ShowWarning("", Strings.InvalidKeyframeDataFormat);
+            NotificationService.ShowWarning(Strings.Paste, Strings.InvalidKeyframeDataFormat);
         }
         catch (Exception ex)
         {

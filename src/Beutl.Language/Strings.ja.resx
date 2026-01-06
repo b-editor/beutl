@@ -1704,4 +1704,28 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Website" xml:space="preserve">
     <value>ウェブサイト</value>
   </data>
+  <data name="DisplayMode" xml:space="preserve">
+    <value>表示モード</value>
+  </data>
+  <data name="Docked" xml:space="preserve">
+    <value>ドック</value>
+  </data>
+  <data name="Floating" xml:space="preserve">
+    <value>フローティング</value>
+  </data>
+  <data name="CropSelection" xml:space="preserve">
+    <value>範囲選択</value>
+  </data>
+  <data name="Portal" xml:space="preserve">
+    <value>ポータル</value>
+  </data>
+  <data name="Layer" xml:space="preserve">
+    <value>レイヤー</value>
+  </data>
+  <data name="AudioEffect" xml:space="preserve">
+    <value>音声エフェクト</value>
+  </data>
+  <data name="Delay" xml:space="preserve">
+    <value>ディレイ</value>
+  </data>
 </root>

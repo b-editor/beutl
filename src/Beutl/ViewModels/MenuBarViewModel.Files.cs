@@ -44,7 +44,7 @@ public partial class MenuBarViewModel
         {
             if (!File.Exists(file))
             {
-                NotificationService.ShowInformation("", Message.FileDoesNotExist);
+                NotificationService.ShowInformation(Strings.File, Message.FileDoesNotExist);
             }
             else
             {

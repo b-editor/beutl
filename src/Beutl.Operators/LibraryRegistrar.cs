@@ -76,17 +76,17 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
-            .AddMultiple("下位N個の要素を取得", m => m
+            .AddMultiple(Strings.Portal, m => m
                 .BindSourceOperator<TakeAfterOperator>()
             );
 
         LibraryService.Current
-            .AddMultiple("デコレーター", m => m
+            .AddMultiple(Strings.Decorator, m => m
                 .BindSourceOperator<DecorateOperator>()
             );
 
         LibraryService.Current
-            .AddMultiple("グループ", m => m
+            .AddMultiple(Strings.Group, m => m
                 .BindSourceOperator<GroupOperator>()
             );
 
@@ -148,7 +148,7 @@ public static class LibraryRegistrar
                 .AddFilterEffect<ShakeEffect>(Strings.ShakeEffect)
                 .AddFilterEffect<DisplacementMapEffect>(Strings.DisplacementMap)
                 .AddFilterEffect<PathFollowEffect>(Strings.PathFollowEffect)
-                .AddFilterEffect<LayerEffect>("Layer")
+                .AddFilterEffect<LayerEffect>(Strings.Layer)
                 .AddGroup("OpenCV", gg => gg
                     .AddFilterEffect<Graphics.Effects.OpenCv.Blur>("CvBlur")
                     .AddFilterEffect<Graphics.Effects.OpenCv.GaussianBlur>("CvGaussianBlur")
@@ -157,8 +157,8 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
-            .RegisterGroup("Audio Effect", g => g
-                .AddAudioEffect<DelayEffect>("Delay")
+            .RegisterGroup(Strings.AudioEffect, g => g
+                .AddAudioEffect<DelayEffect>(Strings.Delay)
             );
     }
 }
