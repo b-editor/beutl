@@ -80,6 +80,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
         // Render
         renderer.Render(
+            new RenderContext(scene.Time),
             cameraResource,
             objectResources,
             lightResources,

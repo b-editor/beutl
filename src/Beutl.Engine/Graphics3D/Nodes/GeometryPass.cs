@@ -99,6 +99,7 @@ public sealed class GeometryPass : GraphicsNode3D
     /// Executes the geometry pass, rendering all objects to the G-Buffer.
     /// </summary>
     public void Execute(
+        RenderContext renderContext,
         Camera.Camera3D.Resource camera,
         IReadOnlyList<Object3D.Resource> objects,
         float aspectRatio,
@@ -110,7 +111,7 @@ public sealed class GeometryPass : GraphicsNode3D
             return;
 
         // Create render context for materials
-        var renderContext = new RenderContext3D(
+        var renderContext3D = new RenderContext3D(
             Context,
             RenderPass,
             ShaderCompiler,
@@ -118,7 +119,8 @@ public sealed class GeometryPass : GraphicsNode3D
             camera.GetProjectionMatrix(aspectRatio),
             camera.Position,
             new Vector3(ambientColor.R / 255f, ambientColor.G / 255f, ambientColor.B / 255f) * ambientIntensity,
-            lightDataList);
+            lightDataList,
+            renderContext);
 
         // Clear colors for G-Buffer (black/zero for most, except normal which should be (0,0,1) for up)
         Span<Color> clearColors =
@@ -155,10 +157,10 @@ public sealed class GeometryPass : GraphicsNode3D
                 continue;
 
             // Ensure material pipeline is created
-            materialResource.EnsurePipeline(renderContext);
+            materialResource.EnsurePipeline(renderContext3D);
 
             // Bind material (pipeline, uniforms, descriptor sets)
-            materialResource.Bind(renderContext, obj);
+            materialResource.Bind(renderContext3D, obj);
 
             // Bind vertex and index buffers
             RenderPass.BindVertexBuffer(meshResource.VertexBuffer);

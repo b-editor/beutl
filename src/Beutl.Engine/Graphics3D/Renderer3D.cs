@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
@@ -110,6 +111,7 @@ internal sealed class Renderer3D : IRenderer3D
     }
 
     public void Render(
+        RenderContext renderContext,
         Camera3D.Resource camera,
         IReadOnlyList<Object3D.Resource> objects,
         IReadOnlyList<Light3D.Resource> lights,
@@ -165,7 +167,7 @@ internal sealed class Renderer3D : IRenderer3D
         }
 
         // === GEOMETRY PASS ===
-        _geometryPass.Execute(camera, objects, aspectRatio, lightDataList, ambientColor, ambientIntensity);
+        _geometryPass.Execute(renderContext, camera, objects, aspectRatio, lightDataList, ambientColor, ambientIntensity);
         _geometryPass.PrepareForSampling();
 
         // === LIGHTING PASS ===
