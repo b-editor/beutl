@@ -99,12 +99,23 @@ public partial class Scene3D : Drawable
     {
         internal IRenderer3D? Renderer { get; set; }
 
+        public TimeSpan Time { get; set; } = TimeSpan.Zero;
+
         partial void PostDispose(bool disposing)
         {
             if (disposing)
             {
                 Renderer?.Dispose();
                 Renderer = null;
+            }
+        }
+
+        partial void PostUpdate(Scene3D _, RenderContext context)
+        {
+            if (Time != context.Time)
+            {
+                Time = context.Time;
+                Version++;
             }
         }
     }
