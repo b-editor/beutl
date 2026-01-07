@@ -14,7 +14,6 @@ namespace Beutl.Operators.Source;
 
 public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElementThumbnailsProvider
 {
-    private Uri? _uri;
     private EventHandler? _handler;
 
     public ElementThumbnailsKind ThumbnailsKind => ElementThumbnailsKind.Video;
@@ -49,12 +48,6 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
         }
 
         _handler = null;
-
-        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } v) return;
-
-        _uri = uri;
-        v.Source.CurrentValue = null;
-        source.Dispose();
     }
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
@@ -68,18 +61,11 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
         value.OffsetPosition.Edited += _handler;
         value.Speed.Edited += _handler;
         value.IsLoop.Edited += _handler;
-
-        if (_uri is null) return;
-
-        if (VideoSource.TryOpen(_uri, out VideoSource? source))
-        {
-            value.Source.CurrentValue = source;
-        }
     }
 
     public override bool HasOriginalLength()
     {
-        return Value?.Source.CurrentValue?.IsDisposed == false;
+        return Value?.Source.CurrentValue != null;
     }
 
     public override bool TryGetOriginalLength(out TimeSpan timeSpan)
@@ -116,7 +102,7 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
         int maxHeight,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (Value.Source.CurrentValue is not { IsDisposed: false } source)
+        if (Value.Source.CurrentValue is not { } source)
             yield break;
 
         if (source.Duration <= TimeSpan.Zero)

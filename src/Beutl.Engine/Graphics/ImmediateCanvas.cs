@@ -176,7 +176,7 @@ public partial class ImmediateCanvas : ICanvas
         }
     }
 
-    public void DrawImageSource(IImageSource source, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
     {
         if (source.TryGetRef(out Ref<IBitmap>? bitmap))
         {
@@ -187,14 +187,14 @@ public partial class ImmediateCanvas : ICanvas
         }
     }
 
-    public void DrawVideoSource(IVideoSource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
     {
         Rational rate = source.FrameRate;
         double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
         DrawVideoSource(source, (int)frameNum, fill, pen);
     }
 
-    public void DrawVideoSource(IVideoSource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
         if (source.Read(frame, out IBitmap? bitmap))
         {

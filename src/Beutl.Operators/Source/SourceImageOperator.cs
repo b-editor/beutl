@@ -8,8 +8,6 @@ namespace Beutl.Operators.Source;
 
 public sealed class SourceImageOperator : PublishOperator<SourceImage>
 {
-    private Uri? _uri;
-
     protected override void FillProperties()
     {
         AddProperty(Value.Source);
@@ -20,27 +18,5 @@ public sealed class SourceImageOperator : PublishOperator<SourceImage>
         AddProperty(Value.FilterEffect, new FilterEffectGroup());
         AddProperty(Value.BlendMode);
         AddProperty(Value.Opacity);
-    }
-
-    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnDetachedFromHierarchy(args);
-        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } value) return;
-
-        _uri = uri;
-        value.Source.CurrentValue = null;
-        source.Dispose();
-    }
-
-    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnAttachedToHierarchy(args);
-        if (_uri is null) return;
-        if (Value is not { } value) return;
-
-        if (BitmapSource.TryOpen(_uri, out BitmapSource? imageSource))
-        {
-            value.Source.CurrentValue = imageSource;
-        }
     }
 }

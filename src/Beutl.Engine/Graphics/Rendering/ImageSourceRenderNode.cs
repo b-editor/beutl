@@ -1,28 +1,28 @@
-﻿using Beutl.Media;
+using Beutl.Engine;
+using Beutl.Media;
 using Beutl.Media.Source;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class ImageSourceRenderNode(IImageSource source, Brush.Resource? fill, Pen.Resource? pen)
+public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
     : BrushRenderNode(fill, pen)
 {
-    public IImageSource Source { get; private set; } = source.Clone();
+    public (ImageSource.Resource Resource, int Version)? Source { get; private set; } = source.Capture();
 
     public Rect Bounds { get; private set; } = PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen);
 
-    public bool Update(IImageSource source, Brush.Resource? fill, Pen.Resource? pen)
+    public bool Update(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
     {
         bool changed = Update(fill, pen);
-        if (!Source.Equals(source))
+        if (source.Compare(Source))
         {
-            Source.Dispose();
-            Source = source.Clone();
+            Source = source.Capture();
             changed = true;
         }
 
-        if (changed)
+        if (changed && Source.HasValue)
         {
-            Bounds = PenHelper.GetBounds(new Rect(default, Source.FrameSize.ToSize(1)), Pen?.Resource);
+            Bounds = PenHelper.GetBounds(new Rect(default, Source.Value.Resource.FrameSize.ToSize(1)), Pen?.Resource);
         }
 
         HasChanges = changed;
@@ -31,13 +31,15 @@ public sealed class ImageSourceRenderNode(IImageSource source, Brush.Resource? f
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
+        if (!Source.HasValue) return [];
+
         return
         [
             RenderNodeOperation.CreateLambda(
                 bounds: Bounds,
                 render: canvas =>
                 {
-                    if (!Source.TryGetRef(out Ref<IBitmap>? bitmap)) return;
+                    if (!Source.Value.Resource.TryGetRef(out Ref<IBitmap>? bitmap)) return;
 
                     using (bitmap)
                     {
@@ -47,12 +49,6 @@ public sealed class ImageSourceRenderNode(IImageSource source, Brush.Resource? f
                 hitTest: HitTest
             )
         ];
-    }
-
-    protected override void OnDispose(bool disposing)
-    {
-        base.OnDispose(disposing);
-        Source.Dispose();
     }
 
     private bool HitTest(Point point)

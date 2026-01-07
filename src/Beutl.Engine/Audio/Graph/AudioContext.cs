@@ -81,9 +81,9 @@ public sealed class AudioContext : IDisposable
     /// <summary>
     /// Creates and adds a source node to the context.
     /// </summary>
-    /// <param name="source">The sound source.</param>
+    /// <param name="source">The sound source resource.</param>
     /// <returns>The created source node.</returns>
-    public SourceNode CreateSourceNode(ISoundSource source)
+    public SourceNode CreateSourceNode(SoundSource source)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(source, nameof(source));
@@ -92,7 +92,7 @@ public sealed class AudioContext : IDisposable
         if (_previousNodes != null)
         {
             var existing = _previousNodes.OfType<SourceNode>()
-                .FirstOrDefault(n => n.Source?.Uri == source.Uri);
+                .FirstOrDefault(n => n.Source == source);
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
@@ -100,7 +100,7 @@ public sealed class AudioContext : IDisposable
             }
         }
 
-        var node = new SourceNode { Source = source.Clone() };
+        var node = new SourceNode { Source = source };
         return AddNode(node);
     }
 

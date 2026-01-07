@@ -25,9 +25,7 @@ public abstract class Sound : EngineObject
 
     public IProperty<AudioEffect?> Effect { get; } = Property.Create<AudioEffect?>();
 
-    public TimeSpan Duration { get; private set; }
-
-    protected abstract ISoundSource? GetSoundSource();
+    protected abstract SoundSource? GetSoundSource();
 
     public virtual void Compose(AudioContext context)
     {
@@ -66,11 +64,4 @@ public abstract class Sound : EngineObject
         context.Connect(currentNode, clipNode);
         context.MarkAsOutput(clipNode);
     }
-
-    public void Time(TimeSpan available)
-    {
-        Duration = TimeCore(available);
-    }
-
-    protected abstract TimeSpan TimeCore(TimeSpan available);
 }

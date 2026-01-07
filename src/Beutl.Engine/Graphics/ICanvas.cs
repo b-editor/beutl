@@ -18,11 +18,11 @@ public interface ICanvas : IDisposable, IPopable
 
     void Clear(Color color);
 
-    void DrawImageSource(IImageSource source, Brush.Resource? fill, Pen.Resource? pen);
+    void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen);
 
-    void DrawVideoSource(IVideoSource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen);
+    void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen);
 
-    void DrawVideoSource(IVideoSource source, int frame, Brush.Resource? fill, Pen.Resource? pen);
+    void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen);
 
     void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen);
 

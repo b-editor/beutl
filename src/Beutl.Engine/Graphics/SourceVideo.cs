@@ -23,7 +23,7 @@ public partial class SourceVideo : Drawable
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
-    public IProperty<IVideoSource?> Source { get; } = Property.CreateAnimatable<IVideoSource?>();
+    public IProperty<VideoSource?> Source { get; } = Property.CreateAnimatable<VideoSource?>();
 
     [Display(Name = nameof(Strings.IsLoop), ResourceType = typeof(Strings))]
     public IProperty<bool> IsLoop { get; } = Property.CreateAnimatable<bool>();
@@ -68,7 +68,7 @@ public partial class SourceVideo : Drawable
 
     public TimeSpan? CalculateOriginalTime()
     {
-        if (Source.CurrentValue?.IsDisposed != false) return null;
+        if (Source.CurrentValue == null) return null;
 
         var duration = Source.CurrentValue.Duration;
 
