@@ -1,4 +1,4 @@
-﻿using Beutl.IO;
+using Beutl.IO;
 
 namespace Beutl.Media.Source;
 
@@ -6,13 +6,13 @@ public sealed class ImageSourceJsonConverter : FileSourceJsonConverter
 {
     public override bool CanConvert(Type typeToConvert)
     {
-        return typeToConvert.IsAssignableTo(typeof(IImageSource));
+        return typeToConvert.IsAssignableTo(typeof(ImageSource));
     }
 
     public override IFileSource? CreateInstance(Type typeToConvert)
     {
-        return typeToConvert == typeof(IImageSource)
-                ? new BitmapSource()
-                : Activator.CreateInstance(typeToConvert) as IImageSource;
+        return typeToConvert == typeof(ImageSource)
+            ? new ImageSource()
+            : Activator.CreateInstance(typeToConvert) as ImageSource;
     }
 }

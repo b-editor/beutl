@@ -1,43 +1,97 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
+using Beutl.Engine;
+using Beutl.Graphics.Rendering;
+using Beutl.Media.Pixel;
+using Beutl.Serialization;
 
 namespace Beutl.Media.Source;
 
-public abstract class ImageSource : IImageSource
+[JsonConverter(typeof(ImageSourceJsonConverter))]
+[SuppressResourceClassGeneration]
+public sealed class ImageSource : MediaSource
 {
-    ~ImageSource()
+    public ImageSource()
     {
-        if (!IsDisposed)
-        {
-            OnDispose(false);
-            IsDisposed = true;
-        }
     }
 
-    public abstract PixelSize FrameSize { get; }
-
-    public abstract bool IsGenerated { get; }
-
-    public abstract Uri Uri { get; }
-
-    public bool IsDisposed { get; private set; }
-
-    public abstract IImageSource Clone();
-
-    public abstract bool Read([NotNullWhen(true)] out IBitmap? bitmap);
-
-    public abstract bool TryGetRef([NotNullWhen(true)] out Ref<IBitmap>? bitmap);
-
-    public abstract void ReadFrom(Uri uri);
-
-    protected abstract void OnDispose(bool disposing);
-
-    public void Dispose()
+    public override void ReadFrom(Uri uri)
     {
-        if (!IsDisposed)
+        Uri = uri;
+    }
+
+    public override EngineObject.Resource ToResource(RenderContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = true;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : MediaSource.Resource
+    {
+        private Ref<IBitmap>? _bitmap;
+        private Uri? _loadedUri;
+
+        public PixelSize FrameSize { get; private set; }
+
+        public bool TryGetRef([NotNullWhen(true)] out Ref<IBitmap>? bitmap)
         {
-            OnDispose(true);
-            GC.SuppressFinalize(this);
-            IsDisposed = true;
+            if (IsDisposed || _bitmap == null)
+            {
+                bitmap = null;
+                return false;
+            }
+
+            bitmap = _bitmap.Clone();
+            return true;
+        }
+
+        public bool Read([NotNullWhen(true)] out IBitmap? bitmap)
+        {
+            if (IsDisposed || _bitmap == null)
+            {
+                bitmap = null;
+                return false;
+            }
+
+            bitmap = _bitmap.Value.Clone();
+            return true;
+        }
+
+        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        {
+            base.Update(obj, context, ref updateOnly);
+
+            if (obj is not ImageSource imageSource)
+                throw new ArgumentException("Expected ImageSource", nameof(obj));
+
+            // Load bitmap if URI changed
+            if (_loadedUri != imageSource.Uri && imageSource.HasUri)
+            {
+                _bitmap?.Dispose();
+                using var stream = UriHelper.ResolveStream(imageSource.Uri);
+                var bitmap = Bitmap<Bgra8888>.FromStream(stream);
+                FrameSize = new PixelSize(bitmap.Width, bitmap.Height);
+                _bitmap = Ref<IBitmap>.Create(bitmap);
+                _loadedUri = imageSource.Uri;
+
+                if (!updateOnly)
+                {
+                    Version++;
+                    updateOnly = true;
+                }
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            if (disposing)
+            {
+                _bitmap?.Dispose();
+                _bitmap = null;
+            }
         }
     }
 }
