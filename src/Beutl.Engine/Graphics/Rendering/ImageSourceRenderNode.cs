@@ -39,12 +39,7 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
                 bounds: Bounds,
                 render: canvas =>
                 {
-                    if (!Source.Value.Resource.TryGetRef(out Ref<IBitmap>? bitmap)) return;
-
-                    using (bitmap)
-                    {
-                        canvas.DrawBitmap(bitmap.Value, Fill?.Resource, Pen?.Resource);
-                    }
+                    canvas.DrawImageSource(Source.Value.Resource, Fill?.Resource, Pen?.Resource);
                 },
                 hitTest: HitTest
             )

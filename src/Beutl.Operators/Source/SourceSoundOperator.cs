@@ -55,9 +55,10 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
 
     public override bool TryGetOriginalLength(out TimeSpan timeSpan)
     {
-        if (Value?.Source.CurrentValue is { } source)
+        using var resource = Value.Source.CurrentValue?.ToResource(RenderContext.Default);
+        if (resource != null)
         {
-            timeSpan = source.Duration;
+            timeSpan = resource.Duration;
             return true;
         }
         else
@@ -95,17 +96,18 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
         int samplesPerChunk,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (Value?.Source.CurrentValue is not { } source)
+        using var resource = Value.Source.CurrentValue?.ToResource(RenderContext.Default);
+        if (resource == null)
             yield break;
 
         if (chunkCount <= 0 || samplesPerChunk <= 0)
             yield break;
 
-        var duration = source.Duration;
+        var duration = resource.Duration;
         if (duration <= TimeSpan.Zero)
             yield break;
 
-        int sampleRate = source.SampleRate;
+        int sampleRate = resource.SampleRate;
         int totalSamples = (int)(duration.TotalSeconds * sampleRate);
 
         using var composer = new Composer { SampleRate = sampleRate };

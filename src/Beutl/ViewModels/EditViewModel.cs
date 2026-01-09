@@ -1,12 +1,12 @@
 ﻿using System.ComponentModel;
 using System.Numerics;
 using System.Text.Json.Nodes;
-using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
@@ -21,10 +21,12 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.Threading;
 using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+using Dispatcher = Avalonia.Threading.Dispatcher;
 using LibraryService = Beutl.Services.LibraryService;
 
 namespace Beutl.ViewModels;
@@ -111,7 +113,8 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             .DisposeWith(_disposables);
 
         _autoSaveService.SaveError
-            .Subscribe(_ => NotificationService.ShowError(string.Empty, Message.An_exception_occurred_while_saving_the_file))
+            .Subscribe(_ =>
+                NotificationService.ShowError(string.Empty, Message.An_exception_occurred_while_saving_the_file))
             .DisposeWith(_disposables);
         _autoSaveService.DisposeWith(_disposables);
 
@@ -286,6 +289,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             {
                 yield return range.Value;
             }
+
             yield break;
         }
 
@@ -300,8 +304,9 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             }
 
             // Itemsから複数のElementを探す
-            foreach (Element? item in collectionOp.Items.Select(i => i is CoreObject coreObj ? FindElementFromObject(coreObj) : null)
-                .Where(i => i != null))
+            foreach (Element? item in collectionOp.Items
+                         .Select(i => i is CoreObject coreObj ? FindElementFromObject(coreObj) : null)
+                         .Where(i => i != null))
             {
                 yield return item!.Range;
             }
@@ -641,7 +646,22 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             }
         }
 
+        T? TrySetDuration<T>(Element element, Func<T> init, Func<T, TimeSpan> getDuration)
+        {
+            try
+            {
+                var state = init();
+                element.Length = getDuration(state);
+                return state;
+            }
+            catch
+            {
+                return default;
+            }
+        }
+
         TimelineViewModel? timeline = FindToolTab<TimelineViewModel>();
+        using var compositeDisposable = new CompositeDisposable();
 
         if (desc.FileName != null)
         {
@@ -665,8 +685,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             {
                 _logger.LogDebug("File is an image.");
                 Element element = CreateElementFor(out SourceImageOperator t);
-                BitmapSource.TryOpen(desc.FileName, out BitmapSource? image);
-                t.Value.Source.CurrentValue = image;
+                t.Value.Source.CurrentValue = ImageSource.Open(desc.FileName);
 
                 CoreSerializer.StoreToUri(element, element.Uri!);
                 Scene.AddChild(element);
@@ -678,15 +697,29 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 Element element1 = CreateElementFor(out SourceVideoOperator t1);
                 Element element2 = CreateElementFor(out SourceSoundOperator t2);
                 element2.ZIndex++;
-                VideoSource.TryOpen(desc.FileName, out VideoSource? video);
+                var video = VideoSource.Open(desc.FileName);
                 t1.Value.Source.CurrentValue = video;
-                if (video != null)
-                    element1.Length = video.Duration;
+                var videoResource = TrySetDuration(
+                    element1,
+                    () => video.ToResource(RenderContext.Default),
+                    v => v.Duration);
 
-                SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
+                var sound = SoundSource.Open(desc.FileName);
                 t2.Value.Source.CurrentValue = sound;
-                if (sound != null)
-                    element2.Length = sound.Duration;
+                var soundResource = TrySetDuration(
+                    element2,
+                    () => sound.ToResource(RenderContext.Default),
+                    v => v.Duration);
+                // VideoSource.Resource, SoundSource.ResourceのMediaReaderは参照カウンターで管理され、Resource間で共有される
+                // すぐに解放してしまうとこのDuration設定時とレンダリング時の2回MediaReaderが生成されてしまう
+                // 作成 -> 参照カウントを引く -> 解放 -> レンダラ側で作成 のようになってしまう
+                // これを以下のようにさせる
+                // 作成 -> レンダラ側で参照カウントを追加 -> 以下のDisposeで参照カウントを引く -> 実体は解放されない
+                compositeDisposable.Add(Disposable.Create(() => RenderThread.Dispatcher.Dispatch(() =>
+                {
+                    videoResource?.Dispose();
+                    soundResource?.Dispose();
+                }, DispatchPriority.Low)));
 
                 CoreSerializer.StoreToUri(element1, element1.Uri!);
                 CoreSerializer.StoreToUri(element2, element2.Uri!);
@@ -700,12 +733,14 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             {
                 _logger.LogDebug("File is an audio.");
                 Element element = CreateElementFor(out SourceSoundOperator t);
-                SoundSource.TryOpen(desc.FileName, out SoundSource? sound);
+                var sound = SoundSource.Open(desc.FileName);
                 t.Value.Source.CurrentValue = sound;
-                if (sound != null)
-                {
-                    element.Length = sound.Duration;
-                }
+                var soundResource = TrySetDuration(
+                    element,
+                    () => sound.ToResource(RenderContext.Default),
+                    v => v.Duration);
+                compositeDisposable.Add(Disposable.Create(() =>
+                    RenderThread.Dispatcher.Dispatch(() => soundResource?.Dispose(), DispatchPriority.Low)));
 
                 CoreSerializer.StoreToUri(element, element.Uri!);
                 Scene.AddChild(element);

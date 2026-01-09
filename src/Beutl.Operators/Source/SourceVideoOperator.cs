@@ -70,7 +70,8 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
 
     public override bool TryGetOriginalLength(out TimeSpan timeSpan)
     {
-        var ts = Value.CalculateOriginalTime();
+        using var resource = Value.ToResource(RenderContext.Default);
+        var ts = Value.CalculateOriginalTime(resource);
         if (ts.HasValue)
         {
             timeSpan = ts.Value - Value.OffsetPosition.CurrentValue;
@@ -102,10 +103,12 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
         int maxHeight,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (Value.Source.CurrentValue is not { } source)
+        using var resource = Value.ToResource(RenderContext.Default);
+
+        if (resource.Source is not { } source)
             yield break;
 
-        if (source.Duration <= TimeSpan.Zero)
+        if (resource.Source.Duration <= TimeSpan.Zero)
             yield break;
         var duration = Value.TimeRange.Duration;
 
@@ -114,9 +117,8 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
         float thumbWidth = maxHeight * aspectRatio;
         int count = (int)MathF.Ceiling(maxWidth / thumbWidth);
         double interval = duration.TotalSeconds / count;
-        SourceVideo.Resource? resource = null;
-        DrawableRenderNode? node = null;
-        RenderNodeProcessor? processor = null;
+        var node = new DrawableRenderNode(resource);
+        var processor = new RenderNodeProcessor(node, false);
 
         try
         {
@@ -133,25 +135,17 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
                         return null;
 
                     var ctx = new RenderContext(time + Value.TimeRange.Start);
-                    if (resource == null)
-                    {
-                        resource = Value.ToResource(ctx);
-                        node = new DrawableRenderNode(resource);
-                        processor = new RenderNodeProcessor(node, false);
-                    }
-                    else
-                    {
-                        bool updateOnly = false;
-                        resource.Update(Value, ctx, ref updateOnly);
-                    }
+                    bool updateOnly = false;
+                    resource.Update(Value, ctx, ref updateOnly);
 
-                    using (var gctx = new GraphicsContext2D(node!, new PixelSize((int)thumbWidth, maxHeight)))
-                    using (gctx.PushTransform(Matrix.CreateScale(thumbWidth / frameSize.Width, (float)maxHeight / frameSize.Height)))
+                    using (var gctx = new GraphicsContext2D(node, new PixelSize((int)thumbWidth, maxHeight)))
+                    using (gctx.PushTransform(Matrix.CreateScale(thumbWidth / frameSize.Width,
+                               (float)maxHeight / frameSize.Height)))
                     {
                         Value.DrawInternal(gctx, resource);
                     }
 
-                    return processor!.RasterizeAndConcat();
+                    return processor.RasterizeAndConcat();
                 }, DispatchPriority.Medium, cancellationToken);
 
                 if (thumbnail != null)
@@ -164,8 +158,7 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
         {
             RenderThread.Dispatcher.Dispatch(() =>
             {
-                node?.Dispose();
-                resource?.Dispose();
+                node.Dispose();
             }, ct: CancellationToken.None);
         }
     }

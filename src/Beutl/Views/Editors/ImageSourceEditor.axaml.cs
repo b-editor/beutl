@@ -1,4 +1,4 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media.Source;
 using Beutl.ViewModels.Editors;
@@ -19,10 +19,7 @@ public partial class ImageSourceEditor : UserControl
         if (DataContext is not ImageSourceEditorViewModel { IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
-        // 画像を開く
-        if (!BitmapSource.TryOpen(fi.FullName, out BitmapSource? bitmapSource)) return;
-
-        IImageSource? oldValue = vm.PropertyAdapter.GetValue();
-        vm.SetValueAndDispose(oldValue, bitmapSource);
+        ImageSource? oldValue = vm.PropertyAdapter.GetValue();
+        vm.SetValueAndDispose(oldValue, ImageSource.Open(fi.FullName));
     }
 }

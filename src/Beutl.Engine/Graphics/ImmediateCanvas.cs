@@ -178,12 +178,10 @@ public partial class ImmediateCanvas : ICanvas
 
     public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
     {
-        if (source.TryGetRef(out Ref<IBitmap>? bitmap))
+        var bitmap = source.Bitmap;
+        if (bitmap != null)
         {
-            using (bitmap)
-            {
-                DrawBitmap(bitmap.Value, fill, pen);
-            }
+            DrawBitmap(bitmap, fill, pen);
         }
     }
 

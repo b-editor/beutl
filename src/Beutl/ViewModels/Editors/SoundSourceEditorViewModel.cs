@@ -1,14 +1,14 @@
-﻿using Beutl.Media.Source;
+using Beutl.Media.Source;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSource?>
+public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<SoundSource?>
 {
-    public SoundSourceEditorViewModel(IPropertyAdapter<ISoundSource?> property)
+    public SoundSourceEditorViewModel(IPropertyAdapter<SoundSource?> property)
         : base(property)
     {
-        FullName = Value.Select(x => x?.Uri.LocalPath)
+        FullName = Value.Select(x => x?.HasUri == true ? x.Uri.LocalPath : null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -21,13 +21,12 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<ISoundSour
 
     public ReadOnlyReactivePropertySlim<FileInfo?> FileInfo { get; }
 
-    public void SetValueAndDispose(ISoundSource? oldValue, ISoundSource? newValue)
+    public void SetValueAndDispose(SoundSource? oldValue, SoundSource? newValue)
     {
-        if (!EqualityComparer<ISoundSource?>.Default.Equals(oldValue, newValue))
+        if (!EqualityComparer<SoundSource?>.Default.Equals(oldValue, newValue))
         {
             if (EditingKeyFrame.Value is { } kf)
             {
-                // TODO: MediaSource.Openがされた状態ではUnmanagedなリソースを作成せず，EngineObject.Resourceが作成，更新されたときにリソースの作成などを行う
                 kf.Value = newValue;
             }
             else

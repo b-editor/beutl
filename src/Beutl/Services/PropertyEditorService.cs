@@ -198,9 +198,9 @@ public static class PropertyEditorService
 
             new(typeof(TimeSpan), new(_ => new TimeSpanEditor(), s => new TimeSpanEditorViewModel(s.ToTyped<TimeSpan>()))),
 
-            new(typeof(IImageSource), new(_ => new ImageSourceEditor(), s => new ImageSourceEditorViewModel(s.ToTyped<IImageSource?>()))),
-            new(typeof(IVideoSource), new(_ => new VideoSourceEditor(), s => new VideoSourceEditorViewModel(s.ToTyped<IVideoSource?>()))),
-            new(typeof(ISoundSource), new(_ => new SoundSourceEditor(), s => new SoundSourceEditorViewModel(s.ToTyped<ISoundSource?>()))),
+            new(typeof(ImageSource), new(_ => new ImageSourceEditor(), s => new ImageSourceEditorViewModel(s.ToTyped<ImageSource?>()))),
+            new(typeof(VideoSource), new(_ => new VideoSourceEditor(), s => new VideoSourceEditorViewModel(s.ToTyped<VideoSource?>()))),
+            new(typeof(SoundSource), new(_ => new SoundSourceEditor(), s => new SoundSourceEditorViewModel(s.ToTyped<SoundSource?>()))),
 
             new(typeof(Brush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s.ToTyped<Brush?>()))),
             new(typeof(Pen), new(_ => new PenEditor(), s => new PenEditorViewModel(s.ToTyped<Pen?>()))),

@@ -206,13 +206,10 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
         PixelSize pixelSize;
 
         if (tileBrush is ImageBrush.Resource imageBrush
-            && imageBrush.Source?.TryGetRef(out Ref<IBitmap>? bitmap) == true)
+            && imageBrush.Source?.Bitmap is { } bitmap)
         {
-            using (bitmap)
-            {
-                skImage = bitmap.Value.ToSKImage();
-                pixelSize = new(bitmap.Value.Width, bitmap.Value.Height);
-            }
+            skImage = bitmap.ToSKImage();
+            pixelSize = new(bitmap.Width, bitmap.Height);
         }
         else if (tileBrush is DrawableBrush.Resource drawableBrush)
         {
@@ -267,7 +264,8 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
                 canvas.Canvas.ClipRect(calc.IntermediateClip.ToSKRect());
                 canvas.Canvas.SetMatrix(calc.IntermediateTransform.ToSKMatrix());
 
-                canvas.Canvas.DrawImage(skImage, 0, 0, tileBrush.BitmapInterpolationMode.ToSKSamplingOptions(), paintTmp);
+                canvas.Canvas.DrawImage(skImage, 0, 0, tileBrush.BitmapInterpolationMode.ToSKSamplingOptions(),
+                    paintTmp);
 
                 canvas.Canvas.Restore();
             }
