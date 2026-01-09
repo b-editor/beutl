@@ -38,11 +38,16 @@ public abstract class Sound : EngineObject
 
         // Create source node
         var sourceNode = context.CreateSourceNode(soundSource);
+        if (sourceNode.Resource == null)
+        {
+            context.Clear();
+            return;
+        }
 
         var shiftNode = context.CreateShiftNode(OffsetPosition.CurrentValue);
         context.Connect(sourceNode, shiftNode);
 
-        var resampleNode = context.CreateResampleNode(soundSource.SampleRate);
+        var resampleNode = context.CreateResampleNode(sourceNode.Resource.SampleRate);
         context.Connect(shiftNode, resampleNode);
 
         var speedNode = context.CreateSpeedNode(Speed);

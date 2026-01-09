@@ -8,35 +8,34 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class SourceNode : AudioNode
 {
-    private SoundSource.Resource? _resource;
-
-    public string SourceName { get; set; } = string.Empty;
-
     public SoundSource? Source
     {
-        get => (SoundSource?)_resource?.GetOriginal();
+        get;
         set
         {
-            if (Source != value)
+            if (field != value)
             {
-                _resource?.Dispose();
-                _resource = value?.ToResource(RenderContext.Default);
+                field = value;
+                Resource?.Dispose();
+                Resource = value?.ToResource(RenderContext.Default);
             }
         }
     }
 
+    public SoundSource.Resource? Resource { get; private set; }
+
     public override AudioBuffer Process(AudioProcessContext context)
     {
-        if (_resource == null)
+        if (Resource == null)
             throw new InvalidOperationException("Source is not set.");
 
         var sampleCount = context.GetSampleCount();
         var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
-        var start = (int)(context.TimeRange.Start.TotalSeconds * _resource.SampleRate);
-        var length = (int)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * _resource.SampleRate);
+        var start = (int)(context.TimeRange.Start.TotalSeconds * Resource.SampleRate);
+        var length = (int)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * Resource.SampleRate);
 
         // Read PCM data from source
-        if (_resource.Read(start, length, out var pcm))
+        if (Resource.Read(start, length, out var pcm))
         {
             using (pcm)
             {
@@ -102,7 +101,7 @@ public sealed class SourceNode : AudioNode
         if (disposing)
         {
             // Resource is managed externally, don't dispose here
-            _resource = null;
+            Resource = null;
         }
 
         base.Dispose(disposing);
