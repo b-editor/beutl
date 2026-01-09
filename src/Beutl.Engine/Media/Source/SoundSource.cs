@@ -11,6 +11,8 @@ namespace Beutl.Media.Source;
 [SuppressResourceClassGeneration]
 public sealed class SoundSource : MediaSource
 {
+    private WeakReference<Counter<MediaReader>>? _mediaReaderRef;
+
     public SoundSource()
     {
     }
@@ -32,7 +34,7 @@ public sealed class SoundSource : MediaSource
 
     public new sealed class Resource : MediaSource.Resource
     {
-        private Ref<MediaReader>? _mediaReader;
+        private Counter<MediaReader>? _counter;
         private Uri? _loadedUri;
 
         public TimeSpan Duration { get; private set; }
@@ -41,48 +43,50 @@ public sealed class SoundSource : MediaSource
 
         public int NumChannels { get; private set; }
 
+        public MediaReader? MediaReader => _counter?.Value;
+
         public bool Read(int start, int length, [NotNullWhen(true)] out IPcm? sound)
         {
-            if (IsDisposed || _mediaReader == null)
+            if (IsDisposed || _counter == null)
             {
                 sound = null;
                 return false;
             }
 
-            return _mediaReader.Value.ReadAudio(start, length, out sound);
+            return _counter.Value.ReadAudio(start, length, out sound);
         }
 
         public bool Read(TimeSpan start, TimeSpan length, [NotNullWhen(true)] out IPcm? sound)
         {
-            if (IsDisposed || _mediaReader == null)
+            if (IsDisposed || _counter == null)
             {
                 sound = null;
                 return false;
             }
 
-            return _mediaReader.Value.ReadAudio(ToSamples(start), ToSamples(length), out sound);
+            return _counter.Value.ReadAudio(ToSamples(start), ToSamples(length), out sound);
         }
 
         public bool Read(TimeSpan start, int length, [NotNullWhen(true)] out IPcm? sound)
         {
-            if (IsDisposed || _mediaReader == null)
+            if (IsDisposed || _counter == null)
             {
                 sound = null;
                 return false;
             }
 
-            return _mediaReader.Value.ReadAudio(ToSamples(start), length, out sound);
+            return _counter.Value.ReadAudio(ToSamples(start), length, out sound);
         }
 
         public bool Read(int start, TimeSpan length, [NotNullWhen(true)] out IPcm? sound)
         {
-            if (IsDisposed || _mediaReader == null)
+            if (IsDisposed || _counter == null)
             {
                 sound = null;
                 return false;
             }
 
-            return _mediaReader.Value.ReadAudio(start, ToSamples(length), out sound);
+            return _counter.Value.ReadAudio(start, ToSamples(length), out sound);
         }
 
         private int ToSamples(TimeSpan timeSpan)
@@ -93,19 +97,28 @@ public sealed class SoundSource : MediaSource
         public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
-
-            if (obj is not SoundSource soundSource)
-                throw new ArgumentException("Expected SoundSource", nameof(obj));
+            var soundSource = (SoundSource)obj;
 
             // Load media reader if URI changed
             if (_loadedUri != soundSource.Uri && soundSource.HasUri)
             {
-                _mediaReader?.Dispose();
-                var reader = MediaReader.Open(soundSource.Uri.LocalPath, new(MediaMode.Audio));
-                Duration = TimeSpan.FromSeconds(reader.AudioInfo.Duration.ToDouble());
-                SampleRate = reader.AudioInfo.SampleRate;
-                NumChannels = reader.AudioInfo.NumChannels;
-                _mediaReader = Ref<MediaReader>.Create(reader);
+                _counter?.Release();
+                _counter = null;
+                if(soundSource._mediaReaderRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+                {
+                    _counter = counter;
+                    counter.AddRef();
+                }
+                else
+                {
+                    var reader = MediaReader.Open(soundSource.Uri.LocalPath, new(MediaMode.Audio));
+                    _counter = new Counter<MediaReader>(reader, null);
+                    soundSource._mediaReaderRef = new WeakReference<Counter<MediaReader>>(_counter);
+                }
+
+                Duration = TimeSpan.FromSeconds(_counter.Value.AudioInfo.Duration.ToDouble());
+                SampleRate = _counter.Value.AudioInfo.SampleRate;
+                NumChannels = _counter.Value.AudioInfo.NumChannels;
                 _loadedUri = soundSource.Uri;
 
                 if (!updateOnly)
@@ -119,11 +132,8 @@ public sealed class SoundSource : MediaSource
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
-            if (disposing)
-            {
-                _mediaReader?.Dispose();
-                _mediaReader = null;
-            }
+            _counter?.Release();
+            _counter = null;
         }
     }
 }

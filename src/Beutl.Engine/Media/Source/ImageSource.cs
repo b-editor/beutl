@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
@@ -11,6 +10,8 @@ namespace Beutl.Media.Source;
 [SuppressResourceClassGeneration]
 public sealed class ImageSource : MediaSource
 {
+    private WeakReference<Counter<IBitmap>>? _bitmapRef;
+
     public ImageSource()
     {
     }
@@ -20,7 +21,7 @@ public sealed class ImageSource : MediaSource
         Uri = uri;
     }
 
-    public override EngineObject.Resource ToResource(RenderContext context)
+    public override Resource ToResource(RenderContext context)
     {
         var resource = new Resource();
         bool updateOnly = true;
@@ -30,50 +31,37 @@ public sealed class ImageSource : MediaSource
 
     public new sealed class Resource : MediaSource.Resource
     {
-        private Ref<IBitmap>? _bitmap;
+        private Counter<IBitmap>? _counter;
         private Uri? _loadedUri;
 
         public PixelSize FrameSize { get; private set; }
 
-        public bool TryGetRef([NotNullWhen(true)] out Ref<IBitmap>? bitmap)
-        {
-            if (IsDisposed || _bitmap == null)
-            {
-                bitmap = null;
-                return false;
-            }
-
-            bitmap = _bitmap.Clone();
-            return true;
-        }
-
-        public bool Read([NotNullWhen(true)] out IBitmap? bitmap)
-        {
-            if (IsDisposed || _bitmap == null)
-            {
-                bitmap = null;
-                return false;
-            }
-
-            bitmap = _bitmap.Value.Clone();
-            return true;
-        }
+        public IBitmap? Bitmap => _counter?.Value;
 
         public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
-
-            if (obj is not ImageSource imageSource)
-                throw new ArgumentException("Expected ImageSource", nameof(obj));
+            var imageSource = (ImageSource)obj;
 
             // Load bitmap if URI changed
             if (_loadedUri != imageSource.Uri && imageSource.HasUri)
             {
-                _bitmap?.Dispose();
-                using var stream = UriHelper.ResolveStream(imageSource.Uri);
-                var bitmap = Bitmap<Bgra8888>.FromStream(stream);
-                FrameSize = new PixelSize(bitmap.Width, bitmap.Height);
-                _bitmap = Ref<IBitmap>.Create(bitmap);
+                _counter?.Release();
+                _counter = null;
+                if (imageSource._bitmapRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+                {
+                    _counter = counter;
+                    counter.AddRef();
+                }
+                else
+                {
+                    using var stream = UriHelper.ResolveStream(imageSource.Uri);
+                    var bitmap = Bitmap<Bgra8888>.FromStream(stream);
+                    _counter = new Counter<IBitmap>(bitmap, null);
+                    imageSource._bitmapRef = new(_counter);
+                }
+
+                FrameSize = new PixelSize(_counter.Value.Width, _counter.Value.Height);
                 _loadedUri = imageSource.Uri;
 
                 if (!updateOnly)
@@ -87,11 +75,8 @@ public sealed class ImageSource : MediaSource
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
-            if (disposing)
-            {
-                _bitmap?.Dispose();
-                _bitmap = null;
-            }
+            _counter?.Release();
+            _counter = null;
         }
     }
 }

@@ -10,6 +10,8 @@ namespace Beutl.Media.Source;
 [SuppressResourceClassGeneration]
 public sealed class VideoSource : MediaSource
 {
+    private WeakReference<Counter<MediaReader>>? _mediaReaderRef;
+
     public VideoSource()
     {
     }
@@ -21,7 +23,7 @@ public sealed class VideoSource : MediaSource
         Uri = uri;
     }
 
-    public override EngineObject.Resource ToResource(RenderContext context)
+    public override Resource ToResource(RenderContext context)
     {
         var resource = new Resource();
         bool updateOnly = true;
@@ -31,7 +33,7 @@ public sealed class VideoSource : MediaSource
 
     public new sealed class Resource : MediaSource.Resource
     {
-        private Ref<MediaReader>? _mediaReader;
+        private Counter<MediaReader>? _counter;
         private Uri? _loadedUri;
 
         public TimeSpan Duration { get; private set; }
@@ -40,9 +42,11 @@ public sealed class VideoSource : MediaSource
 
         public PixelSize FrameSize { get; private set; }
 
+        public MediaReader? MediaReader => _counter?.Value;
+
         public bool Read(TimeSpan frame, [NotNullWhen(true)] out IBitmap? bitmap)
         {
-            if (IsDisposed || _mediaReader == null)
+            if (IsDisposed || _counter == null)
             {
                 bitmap = null;
                 return false;
@@ -50,37 +54,45 @@ public sealed class VideoSource : MediaSource
 
             double frameRate = FrameRate.ToDouble();
             double frameNum = frame.TotalSeconds * frameRate;
-            return _mediaReader.Value.ReadVideo((int)frameNum, out bitmap);
+            return _counter.Value.ReadVideo((int)frameNum, out bitmap);
         }
 
         public bool Read(int frame, [NotNullWhen(true)] out IBitmap? bitmap)
         {
-            if (IsDisposed || _mediaReader == null)
+            if (IsDisposed || _counter == null)
             {
                 bitmap = null;
                 return false;
             }
 
-            return _mediaReader.Value.ReadVideo(frame, out bitmap);
+            return _counter.Value.ReadVideo(frame, out bitmap);
         }
 
         public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
-
-            if (obj is not VideoSource videoSource)
-                throw new ArgumentException("Expected VideoSource", nameof(obj));
+            var videoSource = (VideoSource)obj;
 
             // Load media reader if URI changed
             if (_loadedUri != videoSource.Uri && videoSource.HasUri)
             {
-                _mediaReader?.Dispose();
-                var reader = MediaReader.Open(videoSource.Uri.LocalPath, new(MediaMode.Video));
-                Duration = TimeSpan.FromSeconds(reader.VideoInfo.Duration.ToDouble());
-                FrameRate = reader.VideoInfo.FrameRate;
-                FrameSize = reader.VideoInfo.FrameSize;
+                _counter?.Release();
+                _counter = null;
+                if (videoSource._mediaReaderRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+                {
+                    _counter = counter;
+                    counter.AddRef();
+                }
+                else
+                {
+                    var reader = MediaReader.Open(videoSource.Uri.LocalPath, new(MediaMode.Video));
+                    _counter = new Counter<MediaReader>(reader, null);
+                    videoSource._mediaReaderRef = new(_counter);
+                }
 
-                _mediaReader = Ref<MediaReader>.Create(reader);
+                Duration = TimeSpan.FromSeconds(_counter.Value.VideoInfo.Duration.ToDouble());
+                FrameRate = _counter.Value.VideoInfo.FrameRate;
+                FrameSize = _counter.Value.VideoInfo.FrameSize;
                 _loadedUri = videoSource.Uri;
 
                 if (!updateOnly)
@@ -94,11 +106,8 @@ public sealed class VideoSource : MediaSource
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
-            if (disposing)
-            {
-                _mediaReader?.Dispose();
-                _mediaReader = null;
-            }
+            _counter?.Release();
+            _counter = null;
         }
     }
 }

@@ -66,11 +66,11 @@ public partial class SourceVideo : Drawable
         return TimeSpan.FromTicks((long)(timeSpan.Ticks * (kf.Value / 100.0)));
     }
 
-    public TimeSpan? CalculateOriginalTime()
+    public TimeSpan? CalculateOriginalTime(Resource resource)
     {
-        if (Source.CurrentValue == null) return null;
+        if (resource.Source == null) return null;
 
-        var duration = Source.CurrentValue.Duration;
+        var duration = resource.Source.Duration;
 
         var anm = Speed.Animation;
 
