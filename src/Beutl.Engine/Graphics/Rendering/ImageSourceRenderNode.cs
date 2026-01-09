@@ -14,7 +14,7 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
     public bool Update(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
     {
         bool changed = Update(fill, pen);
-        if (source.Compare(Source))
+        if (!source.Compare(Source))
         {
             Source = source.Capture();
             changed = true;

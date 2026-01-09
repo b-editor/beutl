@@ -20,7 +20,7 @@ public sealed class VideoSourceRenderNode(
     public bool Update(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
         bool changed = Update(fill, pen);
-        if (source.Compare(Source))
+        if (!source.Compare(Source))
         {
             Source = source.Capture();
             changed = true;
