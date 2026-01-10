@@ -98,11 +98,8 @@ public sealed class SourceNode : AudioNode
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
-        {
-            // Resource is managed externally, don't dispose here
-            Resource = null;
-        }
+        Resource?.Dispose();
+        Resource = null;
 
         base.Dispose(disposing);
     }
