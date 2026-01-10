@@ -112,9 +112,18 @@ public sealed class SoundSource : MediaSource
                 }
                 else
                 {
-                    var reader = MediaReader.Open(soundSource.Uri.LocalPath, new(MediaMode.Audio));
-                    _counter = new Counter<MediaReader>(reader, null);
-                    Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
+                    try
+                    {
+                        var reader = MediaReader.Open(soundSource.Uri.LocalPath, new(MediaMode.Audio));
+                        _counter = new Counter<MediaReader>(reader, null);
+                        Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
+                    }
+                    catch
+                    {
+                        _counter = null;
+                        _loadedUri = soundSource.Uri;
+                        return;
+                    }
                 }
 
                 Duration = TimeSpan.FromSeconds(_counter.Value.AudioInfo.Duration.ToDouble());

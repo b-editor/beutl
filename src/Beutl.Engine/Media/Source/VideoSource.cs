@@ -86,9 +86,18 @@ public sealed class VideoSource : MediaSource
                 }
                 else
                 {
-                    var reader = MediaReader.Open(videoSource.Uri.LocalPath, new(MediaMode.Video));
-                    _counter = new Counter<MediaReader>(reader, null);
-                    Volatile.Write(ref videoSource._mediaReaderRef, new(_counter));
+                    try
+                    {
+                        var reader = MediaReader.Open(videoSource.Uri.LocalPath, new(MediaMode.Video));
+                        _counter = new Counter<MediaReader>(reader, null);
+                        Volatile.Write(ref videoSource._mediaReaderRef, new(_counter));
+                    }
+                    catch
+                    {
+                        _counter = null;
+                        _loadedUri = videoSource.Uri;
+                        return;
+                    }
                 }
 
                 Duration = TimeSpan.FromSeconds(_counter.Value.VideoInfo.Duration.ToDouble());

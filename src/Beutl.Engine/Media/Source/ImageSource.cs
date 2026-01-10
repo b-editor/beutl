@@ -56,10 +56,19 @@ public sealed class ImageSource : MediaSource
                 }
                 else
                 {
-                    using var stream = UriHelper.ResolveStream(imageSource.Uri);
-                    var bitmap = Bitmap<Bgra8888>.FromStream(stream);
-                    _counter = new Counter<IBitmap>(bitmap, null);
-                    Volatile.Write(ref imageSource._bitmapRef, new(_counter));
+                    try
+                    {
+                        using var stream = UriHelper.ResolveStream(imageSource.Uri);
+                        var bitmap = Bitmap<Bgra8888>.FromStream(stream);
+                        _counter = new Counter<IBitmap>(bitmap, null);
+                        Volatile.Write(ref imageSource._bitmapRef, new(_counter));
+                    }
+                    catch
+                    {
+                        _counter = null;
+                        _loadedUri = imageSource.Uri;
+                        return;
+                    }
                 }
 
                 FrameSize = new PixelSize(_counter.Value.Width, _counter.Value.Height);
