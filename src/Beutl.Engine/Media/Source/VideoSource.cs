@@ -78,7 +78,8 @@ public sealed class VideoSource : MediaSource
             {
                 _counter?.Release();
                 _counter = null;
-                if (videoSource._mediaReaderRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+                var localRef = Volatile.Read(ref videoSource._mediaReaderRef);
+                if (localRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
                 {
                     _counter = counter;
                     counter.AddRef();
@@ -87,7 +88,7 @@ public sealed class VideoSource : MediaSource
                 {
                     var reader = MediaReader.Open(videoSource.Uri.LocalPath, new(MediaMode.Video));
                     _counter = new Counter<MediaReader>(reader, null);
-                    videoSource._mediaReaderRef = new(_counter);
+                    Volatile.Write(ref videoSource._mediaReaderRef, new(_counter));
                 }
 
                 Duration = TimeSpan.FromSeconds(_counter.Value.VideoInfo.Duration.ToDouble());

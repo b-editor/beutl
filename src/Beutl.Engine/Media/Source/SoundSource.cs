@@ -104,7 +104,8 @@ public sealed class SoundSource : MediaSource
             {
                 _counter?.Release();
                 _counter = null;
-                if(soundSource._mediaReaderRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+                var localRef = Volatile.Read(ref soundSource._mediaReaderRef);
+                if (localRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
                 {
                     _counter = counter;
                     counter.AddRef();
@@ -113,7 +114,7 @@ public sealed class SoundSource : MediaSource
                 {
                     var reader = MediaReader.Open(soundSource.Uri.LocalPath, new(MediaMode.Audio));
                     _counter = new Counter<MediaReader>(reader, null);
-                    soundSource._mediaReaderRef = new WeakReference<Counter<MediaReader>>(_counter);
+                    Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
                 }
 
                 Duration = TimeSpan.FromSeconds(_counter.Value.AudioInfo.Duration.ToDouble());

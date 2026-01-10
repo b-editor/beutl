@@ -48,7 +48,8 @@ public sealed class ImageSource : MediaSource
             {
                 _counter?.Release();
                 _counter = null;
-                if (imageSource._bitmapRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+                var localRef = Volatile.Read(ref imageSource._bitmapRef);
+                if (localRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
                 {
                     _counter = counter;
                     counter.AddRef();
@@ -58,7 +59,7 @@ public sealed class ImageSource : MediaSource
                     using var stream = UriHelper.ResolveStream(imageSource.Uri);
                     var bitmap = Bitmap<Bgra8888>.FromStream(stream);
                     _counter = new Counter<IBitmap>(bitmap, null);
-                    imageSource._bitmapRef = new(_counter);
+                    Volatile.Write(ref imageSource._bitmapRef, new(_counter));
                 }
 
                 FrameSize = new PixelSize(_counter.Value.Width, _counter.Value.Height);
