@@ -3,15 +3,17 @@ using System.Reactive;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Beutl.IO;
 
 namespace Beutl.Serialization;
 
 public partial class JsonSerializationContext
 {
+    // TODO: JsonConverterで対応できるものはそちらに移す
     private static JsonNode? Serialize(
         string name, object value, Type actualType, Type baseType, ICoreSerializationContext? parent)
     {
-        if (value is string)
+        if (value is string || value is IFileSource)
         {
             goto UseJsonSerializer;
         }
