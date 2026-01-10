@@ -51,15 +51,13 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         {
             if (sender is not Drawable senderDrawable) return;
 
-            if (weakRef.TryGetTarget(out RenderLayer? layer))
+            if (weakRef.TryGetTarget(out RenderLayer? layer)
+                && layer._cache.TryGetValue(senderDrawable, out Entry? entry))
             {
-                if (layer._cache.TryGetValue(senderDrawable, out Entry? entry))
-                {
-                    RenderNodeCacheContext.ClearCache(entry.Node);
-                    entry.Node.Drawable?.Resource.Dispose();
-                    entry.Dispose();
-                    layer._cache.Remove(senderDrawable);
-                }
+                RenderNodeCacheContext.ClearCache(entry.Node);
+                entry.Node.Drawable?.Resource.Dispose();
+                entry.Dispose();
+                layer._cache.Remove(senderDrawable);
             }
 
             senderDrawable.DetachedFromHierarchy -= Handler;
