@@ -55,6 +55,7 @@ public class EngineObject : Hierarchical, INotifyEdited
 
     public virtual IReadOnlyList<IProperty> Properties => _properties;
 
+    [NotAutoSerialized]
     public bool IsTimeAnchor
     {
         get => _isTimeAnchor;
@@ -67,17 +68,23 @@ public class EngineObject : Hierarchical, INotifyEdited
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
+    [NotAutoSerialized]
     public int ZIndex
     {
         get => _zIndex;
         set => SetAndRaise(ZIndexProperty, ref _zIndex, value);
     }
 
+    [NotAutoSerialized]
     public TimeRange TimeRange
     {
         get => _timeRange;
         set => SetAndRaise(TimeRangeProperty, ref _timeRange, value);
     }
+
+    public TimeSpan Start => TimeRange.Start;
+
+    public TimeSpan Duration => TimeRange.Duration;
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
@@ -137,6 +144,14 @@ public class EngineObject : Hierarchical, INotifyEdited
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
+        var start = context.GetValue<Optional<TimeSpan>>(nameof(TimeRange.Start));
+        var duration = context.GetValue<Optional<TimeSpan>>(nameof(TimeRange.Duration));
+        var zIndex = context.GetValue<Optional<int>>(nameof(ZIndex));
+        if (start.HasValue && duration.HasValue)
+            TimeRange = new TimeRange(start.Value, duration.Value);
+        if (zIndex.HasValue)
+            ZIndex = zIndex.Value;
+        IsTimeAnchor = start.HasValue && duration.HasValue && zIndex.HasValue;
 
         Dictionary<string, IAnimation>? animations
             = context.GetValue<Dictionary<string, IAnimation>>("Animations");
@@ -168,6 +183,13 @@ public class EngineObject : Hierarchical, INotifyEdited
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
+        if (IsTimeAnchor)
+        {
+            context.SetValue(nameof(TimeRange.Start), TimeRange.Start);
+            context.SetValue(nameof(TimeRange.Duration), TimeRange.Duration);
+            context.SetValue(nameof(ZIndex), ZIndex);
+        }
+
         Dictionary<string, IAnimation> animations = _properties
             .Where(p => p is { IsAnimatable: true, Animation: not null })
             .ToDictionary(p => p.Name, p => p.Animation!);
