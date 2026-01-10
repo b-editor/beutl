@@ -43,8 +43,31 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         _currentFrame?.Clear();
     }
 
-    // TODO: DrawableがDetachされたときにキャッシュを削除する仕組みを入れる
-    // Drawable
+    private void AddDetachedHandler(Drawable drawable)
+    {
+        var weakRef = new WeakReference<RenderLayer>(this);
+
+        void Handler(object? sender, HierarchyAttachmentEventArgs e)
+        {
+            if (sender is not Drawable senderDrawable) return;
+
+            if (weakRef.TryGetTarget(out RenderLayer? layer))
+            {
+                if (layer._cache.TryGetValue(senderDrawable, out Entry? entry))
+                {
+                    RenderNodeCacheContext.ClearCache(entry.Node);
+                    entry.Node.Drawable?.Resource.Dispose();
+                    entry.Dispose();
+                    layer._cache.Remove(senderDrawable);
+                }
+            }
+
+            senderDrawable.DetachedFromHierarchy -= Handler;
+        }
+
+        drawable.DetachedFromHierarchy += Handler;
+    }
+
     public void Add(Drawable drawable, TimeSpan time)
     {
         var renderContext = new RenderContext(time);
@@ -52,6 +75,7 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         bool shouldRender;
         if (!_cache.TryGetValue(drawable, out Entry? entry))
         {
+            AddDetachedHandler(drawable);
             resource = drawable.ToResource(renderContext);
             entry = new Entry(new DrawableRenderNode(resource));
             _cache.Add(drawable, entry);
