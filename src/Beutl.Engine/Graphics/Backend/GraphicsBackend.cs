@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Graphics.Backend;
 
-internal enum GraphicsBackend
+public enum GraphicsBackend
 {
     Vulkan,
     Metal

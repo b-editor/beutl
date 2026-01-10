@@ -2,7 +2,7 @@
 using Silk.NET.Vulkan;
 using SkiaSharp;
 
-namespace Beutl.Graphics.Backend;
+namespace Beutl.Graphics.Backend.Vulkan;
 
 using Image = Silk.NET.Vulkan.Image;
 
@@ -33,7 +33,7 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
         {
             SType = StructureType.ImageCreateInfo,
             ImageType = ImageType.Type2D,
-            Format = ConvertFormat(format),
+            Format = format.ToVulkanFormat(),
             Extent = new Extent3D { Width = (uint)width, Height = (uint)height, Depth = 1 },
             MipLevels = 1,
             ArrayLayers = 1,
@@ -62,7 +62,7 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
         {
             SType = StructureType.MemoryAllocateInfo,
             AllocationSize = memReqs.Size,
-            MemoryTypeIndex = FindMemoryType(context, memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
+            MemoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
         };
 
         fixed (DeviceMemory* pMemory = &_memory)
@@ -81,7 +81,7 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
             SType = StructureType.ImageViewCreateInfo,
             Image = _image,
             ViewType = ImageViewType.Type2D,
-            Format = ConvertFormat(format),
+            Format = format.ToVulkanFormat(),
             SubresourceRange = new ImageSubresourceRange
             {
                 AspectMask = ImageAspectFlags.ColorBit,
@@ -110,6 +110,8 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
 
     public IntPtr VulkanImageHandle => (IntPtr)_image.Handle;
 
+    public IntPtr VulkanImageViewHandle => (IntPtr)_imageView.Handle;
+
     public void PrepareForRender()
     {
         TransitionTo(ImageLayout.ColorAttachmentOptimal);
@@ -125,7 +127,7 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
         // On macOS, use raster surface (Metal interop handles rendering separately)
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            var info = new SKImageInfo(_width, _height, GetSkiaColorType(_format), SKAlphaType.Premul);
+            var info = new SKImageInfo(_width, _height, _format.ToSkiaColorType(), SKAlphaType.Premul);
             return SKSurface.Create(info);
         }
 
@@ -135,7 +137,7 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
             Alloc = new GRVkAlloc { Memory = (ulong)_memory.Handle, Offset = 0, Size = _allocationSize },
             ImageTiling = (uint)ImageTiling.Optimal,
             ImageLayout = (uint)ImageLayout.ColorAttachmentOptimal,
-            Format = (uint)ConvertFormat(_format),
+            Format = (uint)_format.ToVulkanFormat(),
             ImageUsageFlags = (uint)(ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
                                      ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit),
             SampleCount = 1,
@@ -149,7 +151,7 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
 
         var grContext = _context.SkiaContext;
         var surface = SKSurface.Create(grContext, backendRenderTarget, GRSurfaceOrigin.TopLeft,
-            GetSkiaColorType(_format));
+            _format.ToSkiaColorType());
 
         if (surface == null)
         {
@@ -159,51 +161,64 @@ internal sealed unsafe class VulkanSharedTexture : ISharedTexture
         return surface;
     }
 
-    private static Silk.NET.Vulkan.Format ConvertFormat(TextureFormat format)
+
+    public unsafe byte[] DownloadPixels()
     {
-        return format switch
+        // Transition to transfer source
+        TransitionTo(ImageLayout.TransferSrcOptimal);
+
+        int bytesPerPixel = _format switch
         {
-            TextureFormat.RGBA8Unorm => Silk.NET.Vulkan.Format.R8G8B8A8Unorm,
-            TextureFormat.BGRA8Unorm => Silk.NET.Vulkan.Format.B8G8R8A8Unorm,
-            TextureFormat.RGBA16Float => Silk.NET.Vulkan.Format.R16G16B16A16Sfloat,
-            TextureFormat.RGBA32Float => Silk.NET.Vulkan.Format.R32G32B32A32Sfloat,
-            TextureFormat.R8Unorm => Silk.NET.Vulkan.Format.R8Unorm,
-            TextureFormat.R16Float => Silk.NET.Vulkan.Format.R16Sfloat,
-            TextureFormat.R32Float => Silk.NET.Vulkan.Format.R32Sfloat,
-            _ => throw new ArgumentException($"Unsupported format: {format}")
+            TextureFormat.RGBA8Unorm or TextureFormat.BGRA8Unorm => 4,
+            TextureFormat.RGBA16Float => 8,
+            TextureFormat.RGBA32Float => 16,
+            TextureFormat.R8Unorm => 1,
+            TextureFormat.R16Float => 2,
+            TextureFormat.R32Float => 4,
+            _ => 4
         };
-    }
 
-    private static SKColorType GetSkiaColorType(TextureFormat format)
-    {
-        return format switch
+        ulong bufferSize = (ulong)(_width * _height * bytesPerPixel);
+        var pixelData = new byte[bufferSize];
+
+        // Create staging buffer
+        using var stagingBuffer = new VulkanBuffer(
+            _context,
+            bufferSize,
+            BufferUsage.TransferDestination,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+
+        // Copy image to buffer
+        _context.SubmitImmediateCommands(cmd =>
         {
-            TextureFormat.RGBA8Unorm => SKColorType.Rgba8888,
-            TextureFormat.BGRA8Unorm => SKColorType.Bgra8888,
-            TextureFormat.RGBA16Float => SKColorType.RgbaF16,
-            TextureFormat.RGBA32Float => SKColorType.RgbaF32,
-            TextureFormat.R8Unorm => SKColorType.Gray8,
-            TextureFormat.R16Float => SKColorType.AlphaF16,
-            TextureFormat.R32Float => SKColorType.RgbaF32, // Fallback: no single-channel F32
-            _ => SKColorType.Rgba8888
-        };
-    }
-
-    private static uint FindMemoryType(VulkanContext context, uint typeFilter, MemoryPropertyFlags properties)
-    {
-        PhysicalDeviceMemoryProperties memProps;
-        context.Vk.GetPhysicalDeviceMemoryProperties(context.PhysicalDevice, &memProps);
-
-        for (uint i = 0; i < memProps.MemoryTypeCount; i++)
-        {
-            if ((typeFilter & (1u << (int)i)) != 0 &&
-                (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
+            var region = new BufferImageCopy
             {
-                return i;
-            }
-        }
+                BufferOffset = 0,
+                BufferRowLength = 0,
+                BufferImageHeight = 0,
+                ImageSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = ImageAspectFlags.ColorBit,
+                    MipLevel = 0,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
+                },
+                ImageOffset = new Offset3D(0, 0, 0),
+                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
+            };
 
-        throw new InvalidOperationException("Failed to find suitable memory type");
+            _context.Vk.CmdCopyImageToBuffer(cmd, _image, ImageLayout.TransferSrcOptimal, stagingBuffer.Handle, 1, &region);
+        });
+
+        // Read data from staging buffer
+        var srcPtr = stagingBuffer.Map();
+        System.Runtime.InteropServices.Marshal.Copy(srcPtr, pixelData, 0, (int)bufferSize);
+        stagingBuffer.Unmap();
+
+        // Transition back to color attachment
+        TransitionTo(ImageLayout.ColorAttachmentOptimal);
+
+        return pixelData;
     }
 
     private void TransitionTo(ImageLayout layout)
