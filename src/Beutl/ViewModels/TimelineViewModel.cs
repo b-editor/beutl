@@ -604,7 +604,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
         imageData.Save(imageFile);
 
         var sp = new SourceImageOperator();
-        sp.Value.Source.CurrentValue = BitmapSource.Open(imageFile);
+        sp.Value.Source.CurrentValue = ImageSource.Open(imageFile);
         var newElement = new Element
         {
             Start = ClickedFrame,

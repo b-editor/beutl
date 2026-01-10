@@ -52,5 +52,14 @@ internal sealed class Counter<T>
         }
     }
 
+    public T Value
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_refs == 0, this);
+            return _value!;
+        }
+    }
+
     public int RefCount => _refs;
 }

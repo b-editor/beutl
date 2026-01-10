@@ -1,43 +1,92 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
+using Beutl.Engine;
+using Beutl.Graphics.Rendering;
+using Beutl.Media.Pixel;
+using Beutl.Serialization;
 
 namespace Beutl.Media.Source;
 
-public abstract class ImageSource : IImageSource
+[JsonConverter(typeof(ImageSourceJsonConverter))]
+[SuppressResourceClassGeneration]
+public sealed class ImageSource : MediaSource
 {
-    ~ImageSource()
+    private WeakReference<Counter<IBitmap>>? _bitmapRef;
+
+    public ImageSource()
     {
-        if (!IsDisposed)
-        {
-            OnDispose(false);
-            IsDisposed = true;
-        }
     }
 
-    public abstract PixelSize FrameSize { get; }
-
-    public abstract bool IsGenerated { get; }
-
-    public abstract Uri Uri { get; }
-
-    public bool IsDisposed { get; private set; }
-
-    public abstract IImageSource Clone();
-
-    public abstract bool Read([NotNullWhen(true)] out IBitmap? bitmap);
-
-    public abstract bool TryGetRef([NotNullWhen(true)] out Ref<IBitmap>? bitmap);
-
-    public abstract void ReadFrom(Uri uri);
-
-    protected abstract void OnDispose(bool disposing);
-
-    public void Dispose()
+    public override void ReadFrom(Uri uri)
     {
-        if (!IsDisposed)
+        Uri = uri;
+    }
+
+    public override Resource ToResource(RenderContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = true;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : MediaSource.Resource
+    {
+        private Counter<IBitmap>? _counter;
+        private Uri? _loadedUri;
+
+        public PixelSize FrameSize { get; private set; }
+
+        public IBitmap? Bitmap => _counter?.Value;
+
+        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
         {
-            OnDispose(true);
-            GC.SuppressFinalize(this);
-            IsDisposed = true;
+            base.Update(obj, context, ref updateOnly);
+            var imageSource = (ImageSource)obj;
+
+            // Load bitmap if URI changed
+            if (_loadedUri != imageSource.Uri && imageSource.HasUri)
+            {
+                _counter?.Release();
+                _counter = null;
+                var localRef = Volatile.Read(ref imageSource._bitmapRef);
+                if (localRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+                {
+                    _counter = counter;
+                    counter.AddRef();
+                }
+                else
+                {
+                    try
+                    {
+                        using var stream = UriHelper.ResolveStream(imageSource.Uri);
+                        var bitmap = Bitmap<Bgra8888>.FromStream(stream);
+                        _counter = new Counter<IBitmap>(bitmap, null);
+                        Volatile.Write(ref imageSource._bitmapRef, new(_counter));
+                    }
+                    catch
+                    {
+                        _counter = null;
+                        _loadedUri = imageSource.Uri;
+                        return;
+                    }
+                }
+
+                FrameSize = new PixelSize(_counter.Value.Width, _counter.Value.Height);
+                _loadedUri = imageSource.Uri;
+
+                if (!updateOnly)
+                {
+                    Version++;
+                    updateOnly = true;
+                }
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            _counter?.Release();
+            _counter = null;
         }
     }
 }

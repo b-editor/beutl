@@ -1,4 +1,5 @@
 using System;
+using Beutl.Graphics.Rendering;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
@@ -7,35 +8,34 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class SourceNode : AudioNode
 {
-    private ISoundSource? _source;
-
-    public string SourceName { get; set; } = string.Empty;
-
-    public ISoundSource? Source
+    public SoundSource? Source
     {
-        get => _source;
+        get;
         set
         {
-            if (_source != value)
+            if (field != value)
             {
-                _source?.Dispose();
-                _source = value;
+                field = value;
+                Resource?.Dispose();
+                Resource = value?.ToResource(RenderContext.Default);
             }
         }
     }
 
+    public SoundSource.Resource? Resource { get; private set; }
+
     public override AudioBuffer Process(AudioProcessContext context)
     {
-        if (_source == null)
+        if (Resource == null)
             throw new InvalidOperationException("Source is not set.");
 
         var sampleCount = context.GetSampleCount();
         var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
-        var start = (int)(context.TimeRange.Start.TotalSeconds * _source.SampleRate);
-        var length = (int)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * _source.SampleRate);
+        var start = (int)(context.TimeRange.Start.TotalSeconds * Resource.SampleRate);
+        var length = (int)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * Resource.SampleRate);
 
         // Read PCM data from source
-        if (_source.Read(start, length, out var pcm))
+        if (Resource.Read(start, length, out var pcm))
         {
             using (pcm)
             {
@@ -98,11 +98,8 @@ public sealed class SourceNode : AudioNode
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
-        {
-            _source?.Dispose();
-            _source = null;
-        }
+        Resource?.Dispose();
+        Resource = null;
 
         base.Dispose(disposing);
     }

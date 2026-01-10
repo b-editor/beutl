@@ -1,31 +1,46 @@
-﻿using Beutl.Graphics;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
-using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 [TestFixture]
 public class ImageSourceRenderNodeTest
 {
-    public IImageSource CreateMockImageSource()
-    {
-        var source = new Mock<IImageSource>();
-        source.Setup(x => x.FrameSize).Returns(new PixelSize(100, 100));
-        source.Setup(x => x.Clone()).Returns(() => source.Object);
+    private ImageSource? _imageSource;
+    private ImageSource.Resource? _imageSourceResource;
 
-        return source.Object;
+    [SetUp]
+    public void SetUp()
+    {
+        var uri = TestMediaHelper.CreateTestImageUri(100, 100, Colors.White);
+        _imageSource = new ImageSource();
+        _imageSource.ReadFrom(uri);
+        _imageSourceResource = _imageSource.ToResource(RenderContext.Default);
+    }
+
+    [TearDown]
+    public void TearDown()
+    {
+        _imageSourceResource?.Dispose();
+        _imageSourceResource = null;
+        _imageSource = null;
+    }
+
+    public ImageSource.Resource GetTestImageSourceResource()
+    {
+        return _imageSourceResource!;
     }
 
     [Test]
     public void Update_ShouldReturnFalse_WhenAllPropertiesMatch()
     {
-        IImageSource source = CreateMockImageSource();
+        ImageSource.Resource source = GetTestImageSourceResource();
         var fill = Brushes.Resource.White;
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
-        pen.Thickness.CurrentValue= 1;
+        pen.Thickness.CurrentValue = 1;
         var penResource = pen.ToResource(RenderContext.Default);
         var node = new ImageSourceRenderNode(source, fill, penResource);
 
@@ -35,7 +50,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void Update_ShouldReturnTrue_WhenPropertiesDoNotMatch()
     {
-        IImageSource source = CreateMockImageSource();
+        ImageSource.Resource source = GetTestImageSourceResource();
         var fill = Brushes.Resource.White;
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
@@ -55,7 +70,7 @@ public class ImageSourceRenderNodeTest
     {
         var context = new RenderNodeContext([]);
 
-        IImageSource source = CreateMockImageSource();
+        ImageSource.Resource source = GetTestImageSourceResource();
         var node = new ImageSourceRenderNode(source, null, null);
         var operations = node.Process(context);
 
@@ -66,10 +81,10 @@ public class ImageSourceRenderNodeTest
     public void Process_WithInput_ShouldReturnExpectedRenderNodeOperation()
     {
         var context = new RenderNodeContext([
-            RenderNodeOperation.CreateLambda(default, _ => {  })
+            RenderNodeOperation.CreateLambda(default, _ => { })
         ]);
 
-        IImageSource source = CreateMockImageSource();
+        ImageSource.Resource source = GetTestImageSourceResource();
         var node = new ImageSourceRenderNode(source, null, null);
         var operations = node.Process(context);
 
@@ -79,7 +94,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideStroke()
     {
-        IImageSource source = CreateMockImageSource();
+        ImageSource.Resource source = GetTestImageSourceResource();
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
@@ -96,7 +111,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnFalse_WhenPointIsOutsideStroke()
     {
-        IImageSource source = CreateMockImageSource();
+        ImageSource.Resource source = GetTestImageSourceResource();
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
@@ -113,7 +128,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideFill()
     {
-        IImageSource source = CreateMockImageSource();
+        ImageSource.Resource source = GetTestImageSourceResource();
         Brush.Resource fill = Brushes.Resource.White;
         var context = new RenderNodeContext([]);
 
@@ -127,7 +142,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnFalse_WhenPointIsOutsideFill()
     {
-        IImageSource source = CreateMockImageSource();
+        ImageSource.Resource source = GetTestImageSourceResource();
         Brush.Resource fill = Brushes.Resource.White;
         var context = new RenderNodeContext([]);
 

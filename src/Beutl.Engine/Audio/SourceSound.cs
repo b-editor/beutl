@@ -10,22 +10,10 @@ public sealed class SourceSound : Sound
         ScanProperties<SourceSound>();
     }
 
-    public IProperty<ISoundSource?> Source { get; } = Property.Create<ISoundSource?>();
+    public IProperty<SoundSource?> Source { get; } = Property.Create<SoundSource?>();
 
-    protected override ISoundSource? GetSoundSource()
+    protected override SoundSource? GetSoundSource()
     {
         return Source.CurrentValue;
-    }
-
-    protected override TimeSpan TimeCore(TimeSpan available)
-    {
-        if (Source.CurrentValue != null)
-        {
-            return Source.CurrentValue.Duration;
-        }
-        else
-        {
-            return available;
-        }
     }
 }

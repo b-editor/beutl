@@ -121,7 +121,7 @@ public sealed class GraphicsContext2D(
         ++_drawOperationindex;
     }
 
-    public void DrawImageSource(IImageSource source, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
     {
         if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
         if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
@@ -142,7 +142,7 @@ public sealed class GraphicsContext2D(
         ++_drawOperationindex;
     }
 
-    public void DrawVideoSource(IVideoSource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
     {
         if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
         if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
@@ -154,7 +154,7 @@ public sealed class GraphicsContext2D(
         DrawVideoSource(source, (int)frameNum, fill, pen);
     }
 
-    public void DrawVideoSource(IVideoSource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
         if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
         if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);

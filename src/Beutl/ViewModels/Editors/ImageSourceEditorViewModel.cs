@@ -1,14 +1,14 @@
-﻿using Beutl.Media.Source;
+using Beutl.Media.Source;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSource?>
+public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<ImageSource?>
 {
-    public ImageSourceEditorViewModel(IPropertyAdapter<IImageSource?> property)
+    public ImageSourceEditorViewModel(IPropertyAdapter<ImageSource?> property)
         : base(property)
     {
-        FullName = Value.Select(x => x?.Uri.LocalPath)
+        FullName = Value.Select(x => x?.HasUri == true ? x.Uri.LocalPath : null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -21,13 +21,12 @@ public sealed class ImageSourceEditorViewModel : ValueEditorViewModel<IImageSour
 
     public ReadOnlyReactivePropertySlim<FileInfo?> FileInfo { get; }
 
-    public void SetValueAndDispose(IImageSource? oldValue, IImageSource? newValue)
+    public void SetValueAndDispose(ImageSource? oldValue, ImageSource? newValue)
     {
-        if (!EqualityComparer<IImageSource?>.Default.Equals(oldValue, newValue))
+        if (!EqualityComparer<ImageSource?>.Default.Equals(oldValue, newValue))
         {
             if (EditingKeyFrame.Value is { } kf)
             {
-                // TODO: MediaSource.Openがされた状態ではUnmanagedなリソースを作成せず，EngineObject.Resourceが作成，更新されたときにリソースの作成などを行う
                 kf.Value = newValue;
             }
             else

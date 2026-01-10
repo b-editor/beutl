@@ -1,149 +1,123 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
+using Beutl.Engine;
+using Beutl.Graphics.Rendering;
 using Beutl.Media.Decoding;
-using Beutl.Serialization;
 
 namespace Beutl.Media.Source;
 
-public sealed class VideoSource : IVideoSource
+[JsonConverter(typeof(VideoSourceJsonConverter))]
+[SuppressResourceClassGeneration]
+public sealed class VideoSource : MediaSource
 {
-    private Ref<MediaReader>? _mediaReader;
-    private Uri? _uri;
+    private WeakReference<Counter<MediaReader>>? _mediaReaderRef;
 
     public VideoSource()
     {
     }
 
-    ~VideoSource()
-    {
-        Dispose();
-    }
-
-    public TimeSpan Duration =>
-        _mediaReader?.Value.VideoInfo.Duration != null
-            ? TimeSpan.FromSeconds(_mediaReader.Value.VideoInfo.Duration.ToDouble())
-            : throw new InvalidOperationException("MediaReader is not set.");
-
-    public Rational FrameRate => _mediaReader?.Value.VideoInfo.FrameRate ??
-                                 throw new InvalidOperationException("MediaReader is not set.");
-
-    public PixelSize FrameSize => _mediaReader?.Value.VideoInfo.FrameSize ??
-                                  throw new InvalidOperationException("MediaReader is not set.");
-
-    public bool IsDisposed { get; private set; }
-
-    public Uri Uri => _uri ?? throw new InvalidOperationException("URI is not set.");
-
-    public static VideoSource Open(string fileName)
-    {
-        var reader = MediaReader.Open(fileName, new(MediaMode.Video));
-        return new VideoSource
-        {
-            _mediaReader = Ref<MediaReader>.Create(reader),
-            _uri = UriHelper.CreateFromPath(fileName)
-        };
-    }
-
-    public static bool TryOpen(string fileName, out VideoSource? result)
-    {
-        try
-        {
-            result = Open(fileName);
-            return true;
-        }
-        catch
-        {
-            result = null;
-            return false;
-        }
-    }
-
-    public static VideoSource Open(Uri uri)
-    {
-        var source = new VideoSource();
-        source.ReadFrom(uri);
-        return source;
-    }
-
-    public static bool TryOpen(Uri uri, out VideoSource? result)
-    {
-        try
-        {
-            result = Open(uri);
-            return true;
-        }
-        catch
-        {
-            result = null;
-            return false;
-        }
-    }
-
-    public void ReadFrom(Uri uri)
+    public override void ReadFrom(Uri uri)
     {
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
 
-        _mediaReader?.Dispose();
-        _mediaReader = null;
-        var reader = MediaReader.Open(uri.LocalPath, new(MediaMode.Video));
-        _mediaReader = Ref<MediaReader>.Create(reader);
-        _uri = uri;
+        Uri = uri;
     }
 
-    public void Dispose()
+    public override Resource ToResource(RenderContext context)
     {
-        if (!IsDisposed)
+        var resource = new Resource();
+        bool updateOnly = true;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : MediaSource.Resource
+    {
+        private Counter<MediaReader>? _counter;
+        private Uri? _loadedUri;
+
+        public TimeSpan Duration { get; private set; }
+
+        public Rational FrameRate { get; private set; }
+
+        public PixelSize FrameSize { get; private set; }
+
+        public MediaReader? MediaReader => _counter?.Value;
+
+        public bool Read(TimeSpan frame, [NotNullWhen(true)] out IBitmap? bitmap)
         {
-            _mediaReader?.Dispose();
-            GC.SuppressFinalize(this);
-            IsDisposed = true;
-        }
-    }
+            if (IsDisposed || _counter == null)
+            {
+                bitmap = null;
+                return false;
+            }
 
-    public VideoSource Clone()
-    {
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-
-        return new VideoSource { _mediaReader = _mediaReader?.Clone(), _uri = _uri };
-    }
-
-    public bool Read(TimeSpan frame, [NotNullWhen(true)] out IBitmap? bitmap)
-    {
-        if (IsDisposed || _mediaReader == null)
-        {
-            bitmap = null;
-            return false;
-        }
-
-        double frameRate = FrameRate.ToDouble();
-        double frameNum = frame.TotalSeconds * frameRate;
-        return _mediaReader.Value.ReadVideo((int)frameNum, out bitmap);
-    }
-
-    public bool Read(int frame, [NotNullWhen(true)] out IBitmap? bitmap)
-    {
-        if (IsDisposed || _mediaReader == null)
-        {
-            bitmap = null;
-            return false;
+            double frameRate = FrameRate.ToDouble();
+            double frameNum = frame.TotalSeconds * frameRate;
+            return _counter.Value.ReadVideo((int)frameNum, out bitmap);
         }
 
-        return _mediaReader.Value.ReadVideo(frame, out bitmap);
+        public bool Read(int frame, [NotNullWhen(true)] out IBitmap? bitmap)
+        {
+            if (IsDisposed || _counter == null)
+            {
+                bitmap = null;
+                return false;
+            }
+
+            return _counter.Value.ReadVideo(frame, out bitmap);
+        }
+
+        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        {
+            base.Update(obj, context, ref updateOnly);
+            var videoSource = (VideoSource)obj;
+
+            // Load media reader if URI changed
+            if (_loadedUri != videoSource.Uri && videoSource.HasUri)
+            {
+                _counter?.Release();
+                _counter = null;
+                var localRef = Volatile.Read(ref videoSource._mediaReaderRef);
+                if (localRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+                {
+                    _counter = counter;
+                    counter.AddRef();
+                }
+                else
+                {
+                    try
+                    {
+                        var reader = MediaReader.Open(videoSource.Uri.LocalPath, new(MediaMode.Video));
+                        _counter = new Counter<MediaReader>(reader, null);
+                        Volatile.Write(ref videoSource._mediaReaderRef, new(_counter));
+                    }
+                    catch
+                    {
+                        _counter = null;
+                        _loadedUri = videoSource.Uri;
+                        return;
+                    }
+                }
+
+                Duration = TimeSpan.FromSeconds(_counter.Value.VideoInfo.Duration.ToDouble());
+                FrameRate = _counter.Value.VideoInfo.FrameRate;
+                FrameSize = _counter.Value.VideoInfo.FrameSize;
+                _loadedUri = videoSource.Uri;
+
+                if (!updateOnly)
+                {
+                    Version++;
+                    updateOnly = true;
+                }
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            _counter?.Release();
+            _counter = null;
+        }
     }
-
-    public override bool Equals(object? obj)
-    {
-        return obj is VideoSource source
-               && !IsDisposed && !source.IsDisposed
-               && ReferenceEquals(_mediaReader?.Value, source._mediaReader?.Value);
-    }
-
-    public override int GetHashCode()
-    {
-        // ReSharper disable once NonReadonlyMemberInGetHashCode
-        return HashCode.Combine(!IsDisposed ? _mediaReader?.Value : null);
-    }
-
-    IVideoSource IVideoSource.Clone() => Clone();
-
-    IMediaSource IMediaSource.Clone() => Clone();
 }

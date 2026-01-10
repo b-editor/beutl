@@ -13,6 +13,12 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 public class GraphicsContext2DTests
 {
+    [OneTimeSetUp]
+    public void OneTimeSetUp()
+    {
+        TestMediaHelper.RegisterTestDecoder();
+    }
+
     [SetUp]
     public void Setup()
     {
@@ -90,11 +96,13 @@ public class GraphicsContext2DTests
     {
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
-        var image = new Mock<IImageSource>();
-        image.Setup(i => i.FrameSize).Returns(new PixelSize(100, 100));
-        image.Setup(i => i.Clone()).Returns(() => image.Object);
 
-        context.DrawImageSource(image.Object, Brushes.Resource.White, null);
+        var imageUri = TestMediaHelper.CreateTestImageUri(100, 100, Colors.White);
+        var imageSource = new ImageSource();
+        imageSource.ReadFrom(imageUri);
+        using var imageResource = imageSource.ToResource(RenderContext.Default);
+
+        context.DrawImageSource(imageResource, Brushes.Resource.White, null);
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<ImageSourceRenderNode>());
@@ -105,12 +113,13 @@ public class GraphicsContext2DTests
     {
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
-        var video = new Mock<IVideoSource>();
-        video.Setup(v => v.FrameSize).Returns(new PixelSize(100, 100));
-        video.Setup(v => v.FrameRate).Returns(new Rational(30));
-        video.Setup(v => v.Clone()).Returns(() => video.Object);
 
-        context.DrawVideoSource(video.Object, TimeSpan.Zero, Brushes.Resource.White, null);
+        var videoPath = TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30), 300);
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(videoPath));
+        using var videoResource = videoSource.ToResource(RenderContext.Default);
+
+        context.DrawVideoSource(videoResource, TimeSpan.Zero, Brushes.Resource.White, null);
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<VideoSourceRenderNode>());

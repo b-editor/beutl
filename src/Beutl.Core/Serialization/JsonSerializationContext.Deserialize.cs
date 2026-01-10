@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Beutl.IO;
 
 namespace Beutl.Serialization;
 
@@ -26,6 +27,7 @@ public partial class JsonSerializationContext
         }
     }
 
+    // TODO: JsonConverterで対応できるものはそちらに移す
     private static object? Deserialize(
         JsonNode node, Type baseType, string propertyName, ICoreSerializationContext? parent)
     {
@@ -101,8 +103,11 @@ public partial class JsonSerializationContext
                 {
                     return Activator.CreateInstance(baseType, id);
                 }
+
+                // ICoreSerializableを実装していても、IFileSourceを実装している場合はJsonConverterで処理されるのでここでは処理しない
                 if (jsonValue.TryGetValue(out string? uriString)
-                    && typeof(ICoreSerializable).IsAssignableFrom(baseType))
+                    && typeof(ICoreSerializable).IsAssignableFrom(baseType)
+                    && !typeof(IFileSource).IsAssignableFrom(baseType))
                 {
                     return DeserializeObjectFile(uriString, baseType, parent);
                 }

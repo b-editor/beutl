@@ -12,7 +12,6 @@ namespace Beutl.Operators.Source;
 
 public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElementThumbnailsProvider
 {
-    private Uri? _uri;
     private EventHandler? _handler;
 
     public ElementThumbnailsKind ThumbnailsKind => ElementThumbnailsKind.Audio;
@@ -21,7 +20,7 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
 
     public override bool HasOriginalLength()
     {
-        return Value?.Source.CurrentValue?.IsDisposed == false;
+        return Value?.Source.CurrentValue != null;
     }
 
     protected override void FillProperties()
@@ -43,12 +42,6 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
         }
 
         _handler = null;
-
-        if (Value is not { Source.CurrentValue: { Uri: { } uri } source } v) return;
-
-        _uri = uri;
-        v.Source.CurrentValue = null;
-        source.Dispose();
     }
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
@@ -58,20 +51,14 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
 
         _handler = (_, _) => ThumbnailsInvalidated?.Invoke(this, EventArgs.Empty);
         value.Edited += _handler;
-
-        if (_uri is null) return;
-
-        if (SoundSource.TryOpen(_uri, out SoundSource? source))
-        {
-            value.Source.CurrentValue = source;
-        }
     }
 
     public override bool TryGetOriginalLength(out TimeSpan timeSpan)
     {
-        if (Value?.Source.CurrentValue?.IsDisposed == false)
+        using var resource = Value.Source.CurrentValue?.ToResource(RenderContext.Default);
+        if (resource != null)
         {
-            timeSpan = Value.Source.CurrentValue.Duration;
+            timeSpan = resource.Duration;
             return true;
         }
         else
@@ -109,17 +96,18 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
         int samplesPerChunk,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (Value?.Source.CurrentValue is not { IsDisposed: false } source)
+        using var resource = Value.Source.CurrentValue?.ToResource(RenderContext.Default);
+        if (resource == null)
             yield break;
 
         if (chunkCount <= 0 || samplesPerChunk <= 0)
             yield break;
 
-        var duration = source.Duration;
+        var duration = resource.Duration;
         if (duration <= TimeSpan.Zero)
             yield break;
 
-        int sampleRate = source.SampleRate;
+        int sampleRate = resource.SampleRate;
         int totalSamples = (int)(duration.TotalSeconds * sampleRate);
 
         using var composer = new Composer { SampleRate = sampleRate };
