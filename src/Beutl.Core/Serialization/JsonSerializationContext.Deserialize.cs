@@ -194,7 +194,8 @@ public partial class JsonSerializationContext
 
     public T? GetValue<T>(string name)
     {
-        return (T?)GetValueCore(name, typeof(T), useOptionalDefault: true);
+        var value = GetValueCore(name, typeof(T), useOptionalDefault: true);
+        return value is T t ? t : default;
     }
 
     public object? GetValue(string name, Type type)
