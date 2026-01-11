@@ -1,4 +1,4 @@
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.NodeTree;

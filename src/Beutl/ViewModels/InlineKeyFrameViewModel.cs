@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Beutl.Animation;

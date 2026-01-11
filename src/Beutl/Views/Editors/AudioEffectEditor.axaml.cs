@@ -46,7 +46,7 @@ public partial class AudioEffectEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.AudioEffect) is {  } typeName
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.AudioEffect) is { } typeName
             && TypeFormat.ToType(typeName) is { } type
             && DataContext is AudioEffectEditorViewModel { IsDisposed: false } viewModel)
         {

@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;

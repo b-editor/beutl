@@ -63,7 +63,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             .WithSubscribe(() =>
             {
                 if (TimeSpan.TryParse(StartInput.Value, out TimeSpan start)
-                    &&TimeSpan.TryParse(DurationInput.Value, out TimeSpan duration))
+                    && TimeSpan.TryParse(DurationInput.Value, out TimeSpan duration))
                 {
                     if (Width.Value != _scene.FrameSize.Width
                         || Height.Value != _scene.FrameSize.Height

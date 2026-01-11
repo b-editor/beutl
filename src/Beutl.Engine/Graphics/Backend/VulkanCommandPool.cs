@@ -1,9 +1,9 @@
-using Silk.NET.Vulkan;
+﻿using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics.Backend;
 
-using Semaphore = Silk.NET.Vulkan.Semaphore;
 using Image = Silk.NET.Vulkan.Image;
+using Semaphore = Silk.NET.Vulkan.Semaphore;
 
 internal sealed unsafe class VulkanCommandPool : IDisposable
 {
@@ -98,7 +98,8 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
 
         CommandBufferBeginInfo beginInfo = new()
         {
-            SType = StructureType.CommandBufferBeginInfo, Flags = CommandBufferUsageFlags.OneTimeSubmitBit
+            SType = StructureType.CommandBufferBeginInfo,
+            Flags = CommandBufferUsageFlags.OneTimeSubmitBit
         };
 
         _vk.BeginCommandBuffer(commandBuffer, &beginInfo);
@@ -107,7 +108,9 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
 
         SubmitInfo submitInfo = new()
         {
-            SType = StructureType.SubmitInfo, CommandBufferCount = 1, PCommandBuffers = &commandBuffer
+            SType = StructureType.SubmitInfo,
+            CommandBufferCount = 1,
+            PCommandBuffers = &commandBuffer
         };
 
         fixed (Semaphore* submissionSemaphore = &_submissionSemaphore)

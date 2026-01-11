@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 
 namespace Beutl;
+
 public static class ArtifactProvider
 {
     public static string GetArtifactDirectory()

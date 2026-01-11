@@ -113,7 +113,7 @@ public sealed partial class Timeline : UserControl
                 }
 
                 if (e is Element element && FindElementView(element) is
-                        { DataContext: ElementViewModel viewModel } newView)
+                    { DataContext: ElementViewModel viewModel } newView)
                 {
                     _selectedElement = newView;
                     ViewModel.SelectElement(viewModel);

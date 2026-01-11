@@ -108,7 +108,7 @@ public partial class InlineAnimationLayer : UserControl
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if(DataContext is not InlineAnimationLayerViewModel viewModel) return;
+        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
         Point point = e.GetPosition(this);
         viewModel.UpdatePointerPosition(point.X);
     }

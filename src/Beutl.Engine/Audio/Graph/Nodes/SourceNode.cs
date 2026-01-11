@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Beutl.Graphics.Rendering;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;

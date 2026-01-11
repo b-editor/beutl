@@ -1,12 +1,12 @@
-﻿using Avalonia;
+﻿using System;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Media;
-using System;
-using FluentAvalonia.UI.Media;
-using FluentAvalonia.Core;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using FluentAvalonia.Core;
+using FluentAvalonia.UI.Media;
 
 namespace FluentAvalonia.UI.Controls;
 

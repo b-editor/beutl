@@ -510,7 +510,7 @@ public static class PropertyEditorService
                         control = new EnumEditor();
                         return true;
                     }
-                    if (property.GetCoreProperty() is { Id: var propId } )
+                    if (property.GetCoreProperty() is { Id: var propId })
                     {
                         if (s_editorsOverride.TryGetValue(propId, out Editor editorOverrided))
                         {

@@ -1,4 +1,4 @@
-using System.Reactive;
+﻿using System.Reactive;
 using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Editor.Observers;

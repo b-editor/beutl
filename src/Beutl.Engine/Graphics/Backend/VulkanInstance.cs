@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Core;
@@ -239,7 +239,8 @@ internal sealed unsafe class VulkanInstance : IDisposable
 
             var createInfo = new InstanceCreateInfo
             {
-                SType = StructureType.InstanceCreateInfo, PApplicationInfo = &appInfo
+                SType = StructureType.InstanceCreateInfo,
+                PApplicationInfo = &appInfo
             };
 
             fixed (byte** ppExtensions = extensionPtrs)

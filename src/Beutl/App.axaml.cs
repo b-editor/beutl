@@ -4,7 +4,6 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
-using ReactiveUI.Avalonia;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Api.Services;
@@ -20,6 +19,7 @@ using Beutl.Views;
 using FluentAvalonia.Core;
 using FluentAvalonia.Styling;
 using Reactive.Bindings;
+using ReactiveUI.Avalonia;
 
 namespace Beutl;
 

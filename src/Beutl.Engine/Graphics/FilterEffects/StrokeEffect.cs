@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
@@ -84,7 +84,7 @@ public partial class StrokeEffect : FilterEffect
             return skpath;
         }
 
-        if (data.Pen is {  } pen)
+        if (data.Pen is { } pen)
         {
             for (int i = 0; i < context.Targets.Count; i++)
             {

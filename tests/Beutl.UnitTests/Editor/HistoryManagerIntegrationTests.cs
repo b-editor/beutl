@@ -1,10 +1,10 @@
-using Beutl.Collections;
-using static Beutl.Collections.ResetBehavior;
+﻿using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
+using static Beutl.Collections.ResetBehavior;
 
 namespace Beutl.UnitTests.Editor;
 

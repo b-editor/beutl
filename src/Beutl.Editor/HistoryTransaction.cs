@@ -1,4 +1,4 @@
-using Beutl.Editor.Operations;
+﻿using Beutl.Editor.Operations;
 
 namespace Beutl.Editor;
 

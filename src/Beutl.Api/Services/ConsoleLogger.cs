@@ -1,6 +1,7 @@
 ﻿using NuGet.Common;
 
 namespace Beutl.Api.Services;
+
 public class ConsoleLogger : LoggerBase
 {
     public static readonly ConsoleLogger Instance = new();

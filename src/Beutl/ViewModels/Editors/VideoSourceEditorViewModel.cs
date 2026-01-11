@@ -1,4 +1,4 @@
-using Beutl.Media.Source;
+﻿using Beutl.Media.Source;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;

@@ -67,7 +67,7 @@ public partial class TransformEditor : UserControl
                 return KnownTransformType.Unknown;
         }
 
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is {  } typeName
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is { } typeName
             && TypeFormat.ToType(typeName) is { } type
             && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
         {

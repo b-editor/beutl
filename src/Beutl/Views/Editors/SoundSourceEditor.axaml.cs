@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media.Decoding;
@@ -53,7 +53,7 @@ public partial class SoundSourceEditor : UserControl
 
     private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not SoundSourceEditorViewModel{ IsDisposed: false } vm) return;
+        if (DataContext is not SoundSourceEditorViewModel { IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
         SoundSource? oldValue = vm.PropertyAdapter.GetValue();

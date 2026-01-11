@@ -1,7 +1,7 @@
-﻿using Beutl.Extensibility;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Extensibility;
 using Beutl.Extensions.MediaFoundation.Properties;
 using Beutl.Media.Decoding;
-using System.ComponentModel.DataAnnotations;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
