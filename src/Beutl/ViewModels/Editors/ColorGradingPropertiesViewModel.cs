@@ -39,7 +39,7 @@ public class ColorGradingPropertiesViewModel : IPropertyEditorContext, IServiceP
 
     public ColorGrading? TryGetColorGrading()
     {
-        if(_props.Count == 0) return null;
+        if (_props.Count == 0) return null;
         return _props[0].GetEngineProperty()?.GetOwnerObject() as ColorGrading;
     }
 

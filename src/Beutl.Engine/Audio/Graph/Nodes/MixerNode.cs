@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 
 namespace Beutl.Audio.Graph.Nodes;
@@ -44,16 +44,16 @@ public sealed class MixerNode : AudioNode
         for (int ch = 0; ch < output.ChannelCount; ch++)
         {
             var outData = output.GetChannelData(ch);
-            
+
             // Clear output buffer (already cleared in constructor, but being explicit)
             outData.Clear();
-            
+
             // Mix each input
             for (int i = 0; i < buffers.Length; i++)
             {
                 var gain = i < _gains.Length ? _gains[i] : 1.0f;
                 var inData = buffers[i].GetChannelData(ch);
-                
+
                 // Add with gain
                 for (int s = 0; s < output.SampleCount; s++)
                 {

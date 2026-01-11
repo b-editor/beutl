@@ -149,7 +149,7 @@ public abstract class PublishOperator<T> : SourceOperator, IPublishOperator
             {
                 Value.ZIndex = _element.ZIndex;
             }
-            else if (args.Property.Id == Element.StartProperty.Id || 
+            else if (args.Property.Id == Element.StartProperty.Id ||
                      args.Property.Id == Element.LengthProperty.Id)
             {
                 Value.TimeRange = new TimeRange(_element.Start, _element.Length);

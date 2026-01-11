@@ -196,7 +196,7 @@ public class ContextCommandManager(
                 // プラットフォームが指定されていない場合、先頭に追加する
                 entry.KeyGestures.Add(i);
 
-                NextItem: ;
+            NextItem:;
             }
         }
     }

@@ -1,4 +1,4 @@
-using Beutl.Engine;
+﻿using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;

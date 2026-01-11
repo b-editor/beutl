@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;

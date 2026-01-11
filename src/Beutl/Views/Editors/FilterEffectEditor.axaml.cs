@@ -59,7 +59,7 @@ public partial class FilterEffectEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.FilterEffect) is {  } typeName
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.FilterEffect) is { } typeName
             && TypeFormat.ToType(typeName) is { } type
             && DataContext is FilterEffectEditorViewModel { IsDisposed: false } viewModel)
         {

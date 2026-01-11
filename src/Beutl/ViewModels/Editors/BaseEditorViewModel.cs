@@ -449,7 +449,9 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             T initialValue = animatableProperty.GetValue()!;
             newAnimation.KeyFrames.Add(new KeyFrame<T>
             {
-                Value = initialValue, Easing = new SplineEasing(), KeyTime = TimeSpan.Zero
+                Value = initialValue,
+                Easing = new SplineEasing(),
+                KeyTime = TimeSpan.Zero
             });
 
             animatableProperty.Animation = newAnimation;

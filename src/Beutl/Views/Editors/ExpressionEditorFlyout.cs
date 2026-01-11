@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Beutl.Controls.PropertyEditors;
@@ -13,7 +13,7 @@ public sealed class ExpressionEditorFlyout : PickerFlyoutBase
 
     public string? ExpressionText
     {
-        get => _presenter?.ExpressionText?? field;
+        get => _presenter?.ExpressionText ?? field;
         set
         {
             field = value;

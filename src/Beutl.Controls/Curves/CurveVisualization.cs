@@ -1,4 +1,4 @@
-namespace Beutl.Controls.Curves;
+﻿namespace Beutl.Controls.Curves;
 
 public enum CurveVisualization
 {

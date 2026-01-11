@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Operations;
+﻿namespace Beutl.Editor.Operations;
 
 public sealed class CustomOperation : ChangeOperation
 {
@@ -40,7 +40,8 @@ public sealed class CustomOperation : ChangeOperation
         return new CustomOperation(
             _ => doAction(),
             _ => undoAction(),
-            description) { SequenceNumber = sequenceGenerator.GetNext() };
+            description)
+        { SequenceNumber = sequenceGenerator.GetNext() };
     }
 
     public static StateCapturingOperationBuilder<TState> CaptureState<TState>(
@@ -93,6 +94,7 @@ public sealed class StateCapturingOperationBuilder<TState>
         return new CustomOperation(
             _ => _applyState(toState),
             _ => _applyState(fromState),
-            _description) { SequenceNumber = _sequenceGenerator.GetNext() };
+            _description)
+        { SequenceNumber = _sequenceGenerator.GetNext() };
     }
 }

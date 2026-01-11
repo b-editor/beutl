@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.Api;

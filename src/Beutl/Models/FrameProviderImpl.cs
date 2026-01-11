@@ -48,7 +48,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     private Bitmap<Bgra8888> RenderCore(TimeSpan time)
     {
         int retry = 0;
-        Retry:
+    Retry:
         if (_renderer.Render(time + _scene.Start))
         {
             return _renderer.Snapshot();

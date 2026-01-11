@@ -55,7 +55,7 @@ public sealed partial class SourceOperatorsTab : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is {  } typeName
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is { } typeName
             && TypeFormat.ToType(typeName) is { } item
             && DataContext is SourceOperatorsTabViewModel vm
             && vm.Element.Value is Element element)

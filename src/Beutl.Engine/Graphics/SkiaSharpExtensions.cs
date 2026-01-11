@@ -10,9 +10,9 @@ internal static class SkiaSharpExtensions
     {
         return interpolationMode switch
         {
-            BitmapInterpolationMode.LowQuality => new SKSamplingOptions (SKFilterMode.Linear, SKMipmapMode.None),
-            BitmapInterpolationMode.MediumQuality => new SKSamplingOptions (SKFilterMode.Linear, SKMipmapMode.Linear),
-            BitmapInterpolationMode.HighQuality or BitmapInterpolationMode.Default => new SKSamplingOptions (SKCubicResampler.Mitchell),
+            BitmapInterpolationMode.LowQuality => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None),
+            BitmapInterpolationMode.MediumQuality => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear),
+            BitmapInterpolationMode.HighQuality or BitmapInterpolationMode.Default => new SKSamplingOptions(SKCubicResampler.Mitchell),
             _ => throw new ArgumentOutOfRangeException(nameof(interpolationMode), interpolationMode, null),
         };
     }

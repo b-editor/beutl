@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Beutl.Language;
 using Beutl.Media;
 using FluentAvalonia.UI.Media;

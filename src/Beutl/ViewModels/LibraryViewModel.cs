@@ -35,7 +35,7 @@ public class LibraryItemViewModel
         string? description = null;
         object? data = null;
         string? typeName = null;
-    
+
         if (registryItem is NodeRegistry.RegistryItem draggable)
         {
             DisplayAttribute? att = draggable.Type.GetCustomAttribute<DisplayAttribute>();
@@ -43,7 +43,7 @@ public class LibraryItemViewModel
             data = draggable;
             typeName = draggable.Type.Name;
         }
-    
+
         var obj = new LibraryItemViewModel()
         {
             DisplayName = registryItem.DisplayName,
@@ -54,12 +54,12 @@ public class LibraryItemViewModel
                 ? $"{parentFullName} / {registryItem.DisplayName}"
                 : registryItem.DisplayName
         };
-    
+
         if (registryItem is NodeRegistry.GroupableRegistryItem group)
         {
             obj.Children.AddRange(group.Items.Select(x => CreateFromNodeRegistryItem(x, obj.FullDisplayName)));
         }
-    
+
         return obj;
     }
 
