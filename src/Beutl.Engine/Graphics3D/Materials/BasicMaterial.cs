@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics3D.Meshes;
+using Beutl.Graphics3D.Textures;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -25,6 +26,11 @@ public sealed partial class BasicMaterial : Material3D
     /// </summary>
     [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
     public IProperty<Color> DiffuseColor { get; } = Property.CreateAnimatable(Colors.White);
+
+    /// <summary>
+    /// Gets the diffuse texture map.
+    /// </summary>
+    public IProperty<TextureSource?> DiffuseMap { get; } = Property.Create<TextureSource?>(null);
 
     /// <summary>
     /// Gets the ambient color contribution.
@@ -48,6 +54,10 @@ public sealed partial class BasicMaterial : Material3D
         private IPipeline3D? _pipeline;
         private IDescriptorSet? _descriptorSet;
         private IBuffer? _uniformBuffer;
+        private ISampler? _sampler;
+
+        // Default texture (1x1 pixel)
+        private ITexture2D? _defaultWhiteTexture;
 
         internal override IPipeline3D? Pipeline => _pipeline;
 
@@ -65,14 +75,26 @@ public sealed partial class BasicMaterial : Material3D
                 BufferUsage.UniformBuffer,
                 MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
+            // Create sampler for texture
+            _sampler = graphicsContext.CreateSampler(
+                SamplerFilter.Linear,
+                SamplerFilter.Linear,
+                SamplerAddressMode.Repeat,
+                SamplerAddressMode.Repeat);
+
+            // Create default white texture
+            _defaultWhiteTexture = graphicsContext.CreateTexture2D(1, 1, TextureFormat.BGRA8Unorm);
+            _defaultWhiteTexture.Upload([255, 255, 255, 255]);
+
             // Compile shaders for G-Buffer output
             var vertexSpirv = shaderCompiler.CompileToSpirv(VertexShaderSource, ShaderStage.Vertex);
             var fragmentSpirv = shaderCompiler.CompileToSpirv(FragmentShaderSource, ShaderStage.Fragment);
 
-            // Create descriptor bindings
+            // Create descriptor bindings (UBO + 1 texture sampler)
             var descriptorBindings = new DescriptorBinding[]
             {
-                new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Vertex | ShaderStage.Fragment)
+                new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Vertex | ShaderStage.Fragment),
+                new(1, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment), // diffuseMap
             };
 
             // Create pipeline with vertex input for Vertex3D
@@ -86,21 +108,31 @@ public sealed partial class BasicMaterial : Material3D
             // Create descriptor set
             var poolSizes = new DescriptorPoolSize[]
             {
-                new(DescriptorType.UniformBuffer, 1)
+                new(DescriptorType.UniformBuffer, 1),
+                new(DescriptorType.CombinedImageSampler, 1)
             };
 
             _descriptorSet = graphicsContext.CreateDescriptorSet(_pipeline, poolSizes);
             _descriptorSet.UpdateBuffer(0, _uniformBuffer);
+            _descriptorSet.UpdateTexture(1, _defaultWhiteTexture, _sampler);
 
             IsPipelineInitialized = true;
         }
 
         public override void Bind(RenderContext3D context, Object3D.Resource obj)
         {
-            if (_pipeline == null || _descriptorSet == null || _uniformBuffer == null)
+            if (_pipeline == null || _descriptorSet == null || _uniformBuffer == null || _sampler == null)
                 return;
 
             var renderPass = context.RenderPass;
+            var graphicsContext = context.GraphicsContext;
+
+            // Get texture
+            ITexture2D? diffuseTex = DiffuseMap?.GetTexture(graphicsContext);
+            int hasTexture = diffuseTex != null ? 1 : 0;
+
+            // Update texture binding
+            _descriptorSet.UpdateTexture(1, diffuseTex ?? _defaultWhiteTexture!, _sampler);
 
             // Convert shininess to roughness (inverse relationship)
             // Shininess 1 -> Roughness 1.0, Shininess 256 -> Roughness ~0.04
@@ -118,7 +150,8 @@ public sealed partial class BasicMaterial : Material3D
                     DiffuseColor.G / 255f,
                     DiffuseColor.B / 255f,
                     DiffuseColor.A / 255f),
-                Roughness = roughness
+                Roughness = roughness,
+                HasTexture = hasTexture
             };
 
             _uniformBuffer.Upload(new ReadOnlySpan<BasicMaterialUBO>(ref ubo));
@@ -134,6 +167,12 @@ public sealed partial class BasicMaterial : Material3D
             _descriptorSet = null;
             _uniformBuffer?.Dispose();
             _uniformBuffer = null;
+            _sampler?.Dispose();
+            _sampler = null;
+
+            _defaultWhiteTexture?.Dispose();
+            _defaultWhiteTexture = null;
+
             _pipeline?.Dispose();
             _pipeline = null;
         }
@@ -149,7 +188,8 @@ public sealed partial class BasicMaterial : Material3D
             public Matrix4x4 Projection;
             public Vector4 Albedo;
             public float Roughness;
-            private Vector3 _pad;
+            public int HasTexture;
+            private Vector2 _pad;
         }
 
         /// <summary>
@@ -161,6 +201,7 @@ public sealed partial class BasicMaterial : Material3D
             layout(location = 0) in vec3 inPosition;
             layout(location = 1) in vec3 inNormal;
             layout(location = 2) in vec2 inTexCoord;
+            layout(location = 3) in vec4 inTangent;
 
             layout(binding = 0) uniform MaterialUBO {
                 mat4 model;
@@ -168,7 +209,8 @@ public sealed partial class BasicMaterial : Material3D
                 mat4 projection;
                 vec4 albedo;
                 float roughness;
-                vec3 _pad;
+                int hasTexture;
+                vec2 _pad;
             } material;
 
             layout(location = 0) out vec3 fragWorldPos;
@@ -202,8 +244,11 @@ public sealed partial class BasicMaterial : Material3D
                 mat4 projection;
                 vec4 albedo;
                 float roughness;
-                vec3 _pad;
+                int hasTexture;
+                vec2 _pad;
             } material;
+
+            layout(binding = 1) uniform sampler2D diffuseMap;
 
             // G-Buffer outputs
             layout(location = 0) out vec4 outPosition;       // World position (RGB) + Valid flag (A)
@@ -214,6 +259,13 @@ public sealed partial class BasicMaterial : Material3D
             void main() {
                 vec3 N = normalize(fragNormal);
 
+                // Sample diffuse texture if available
+                vec4 finalAlbedo = material.albedo;
+                if (material.hasTexture != 0) {
+                    vec4 texColor = texture(diffuseMap, fragTexCoord);
+                    finalAlbedo *= texColor;
+                }
+
                 // Output world position with valid flag
                 outPosition = vec4(fragWorldPos, 1.0);
 
@@ -221,7 +273,7 @@ public sealed partial class BasicMaterial : Material3D
                 outNormalMetallic = vec4(N * 0.5 + 0.5, 0.0);
 
                 // Output albedo with roughness
-                outAlbedoRoughness = vec4(material.albedo.rgb, material.roughness);
+                outAlbedoRoughness = vec4(finalAlbedo.rgb, material.roughness);
 
                 // Output no emission with full ambient occlusion
                 outEmissionAO = vec4(0.0, 0.0, 0.0, 1.0);

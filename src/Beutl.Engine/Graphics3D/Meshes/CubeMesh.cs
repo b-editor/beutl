@@ -48,44 +48,52 @@ public sealed partial class CubeMesh : Mesh
         float halfH = height * 0.5f;
         float halfD = depth * 0.5f;
 
-        // 24 vertices (4 per face, 6 faces) with unique normals
+        // Tangent vectors for each face (aligned with UV U direction)
+        var tangentFront = new Vector4(1, 0, 0, 1);   // Front (Z+): tangent along X+
+        var tangentBack = new Vector4(-1, 0, 0, 1);  // Back (Z-): tangent along X-
+        var tangentTop = new Vector4(1, 0, 0, 1);    // Top (Y+): tangent along X+
+        var tangentBottom = new Vector4(1, 0, 0, 1); // Bottom (Y-): tangent along X+
+        var tangentRight = new Vector4(0, 0, -1, 1); // Right (X+): tangent along Z-
+        var tangentLeft = new Vector4(0, 0, 1, 1);   // Left (X-): tangent along Z+
+
+        // 24 vertices (4 per face, 6 faces) with unique normals and tangents
         vertices =
         [
             // Front face (Z+)
-            new(new Vector3(-halfW, -halfH, halfD), new Vector3(0, 0, 1), new Vector2(0, 1)),
-            new(new Vector3(halfW, -halfH, halfD), new Vector3(0, 0, 1), new Vector2(1, 1)),
-            new(new Vector3(halfW, halfH, halfD), new Vector3(0, 0, 1), new Vector2(1, 0)),
-            new(new Vector3(-halfW, halfH, halfD), new Vector3(0, 0, 1), new Vector2(0, 0)),
+            new(new Vector3(-halfW, -halfH, halfD), new Vector3(0, 0, 1), new Vector2(0, 1), tangentFront),
+            new(new Vector3(halfW, -halfH, halfD), new Vector3(0, 0, 1), new Vector2(1, 1), tangentFront),
+            new(new Vector3(halfW, halfH, halfD), new Vector3(0, 0, 1), new Vector2(1, 0), tangentFront),
+            new(new Vector3(-halfW, halfH, halfD), new Vector3(0, 0, 1), new Vector2(0, 0), tangentFront),
 
             // Back face (Z-)
-            new(new Vector3(halfW, -halfH, -halfD), new Vector3(0, 0, -1), new Vector2(0, 1)),
-            new(new Vector3(-halfW, -halfH, -halfD), new Vector3(0, 0, -1), new Vector2(1, 1)),
-            new(new Vector3(-halfW, halfH, -halfD), new Vector3(0, 0, -1), new Vector2(1, 0)),
-            new(new Vector3(halfW, halfH, -halfD), new Vector3(0, 0, -1), new Vector2(0, 0)),
+            new(new Vector3(halfW, -halfH, -halfD), new Vector3(0, 0, -1), new Vector2(0, 1), tangentBack),
+            new(new Vector3(-halfW, -halfH, -halfD), new Vector3(0, 0, -1), new Vector2(1, 1), tangentBack),
+            new(new Vector3(-halfW, halfH, -halfD), new Vector3(0, 0, -1), new Vector2(1, 0), tangentBack),
+            new(new Vector3(halfW, halfH, -halfD), new Vector3(0, 0, -1), new Vector2(0, 0), tangentBack),
 
             // Top face (Y+)
-            new(new Vector3(-halfW, halfH, halfD), new Vector3(0, 1, 0), new Vector2(0, 1)),
-            new(new Vector3(halfW, halfH, halfD), new Vector3(0, 1, 0), new Vector2(1, 1)),
-            new(new Vector3(halfW, halfH, -halfD), new Vector3(0, 1, 0), new Vector2(1, 0)),
-            new(new Vector3(-halfW, halfH, -halfD), new Vector3(0, 1, 0), new Vector2(0, 0)),
+            new(new Vector3(-halfW, halfH, halfD), new Vector3(0, 1, 0), new Vector2(0, 1), tangentTop),
+            new(new Vector3(halfW, halfH, halfD), new Vector3(0, 1, 0), new Vector2(1, 1), tangentTop),
+            new(new Vector3(halfW, halfH, -halfD), new Vector3(0, 1, 0), new Vector2(1, 0), tangentTop),
+            new(new Vector3(-halfW, halfH, -halfD), new Vector3(0, 1, 0), new Vector2(0, 0), tangentTop),
 
             // Bottom face (Y-)
-            new(new Vector3(-halfW, -halfH, -halfD), new Vector3(0, -1, 0), new Vector2(0, 1)),
-            new(new Vector3(halfW, -halfH, -halfD), new Vector3(0, -1, 0), new Vector2(1, 1)),
-            new(new Vector3(halfW, -halfH, halfD), new Vector3(0, -1, 0), new Vector2(1, 0)),
-            new(new Vector3(-halfW, -halfH, halfD), new Vector3(0, -1, 0), new Vector2(0, 0)),
+            new(new Vector3(-halfW, -halfH, -halfD), new Vector3(0, -1, 0), new Vector2(0, 1), tangentBottom),
+            new(new Vector3(halfW, -halfH, -halfD), new Vector3(0, -1, 0), new Vector2(1, 1), tangentBottom),
+            new(new Vector3(halfW, -halfH, halfD), new Vector3(0, -1, 0), new Vector2(1, 0), tangentBottom),
+            new(new Vector3(-halfW, -halfH, halfD), new Vector3(0, -1, 0), new Vector2(0, 0), tangentBottom),
 
             // Right face (X+)
-            new(new Vector3(halfW, -halfH, halfD), new Vector3(1, 0, 0), new Vector2(0, 1)),
-            new(new Vector3(halfW, -halfH, -halfD), new Vector3(1, 0, 0), new Vector2(1, 1)),
-            new(new Vector3(halfW, halfH, -halfD), new Vector3(1, 0, 0), new Vector2(1, 0)),
-            new(new Vector3(halfW, halfH, halfD), new Vector3(1, 0, 0), new Vector2(0, 0)),
+            new(new Vector3(halfW, -halfH, halfD), new Vector3(1, 0, 0), new Vector2(0, 1), tangentRight),
+            new(new Vector3(halfW, -halfH, -halfD), new Vector3(1, 0, 0), new Vector2(1, 1), tangentRight),
+            new(new Vector3(halfW, halfH, -halfD), new Vector3(1, 0, 0), new Vector2(1, 0), tangentRight),
+            new(new Vector3(halfW, halfH, halfD), new Vector3(1, 0, 0), new Vector2(0, 0), tangentRight),
 
             // Left face (X-)
-            new(new Vector3(-halfW, -halfH, -halfD), new Vector3(-1, 0, 0), new Vector2(0, 1)),
-            new(new Vector3(-halfW, -halfH, halfD), new Vector3(-1, 0, 0), new Vector2(1, 1)),
-            new(new Vector3(-halfW, halfH, halfD), new Vector3(-1, 0, 0), new Vector2(1, 0)),
-            new(new Vector3(-halfW, halfH, -halfD), new Vector3(-1, 0, 0), new Vector2(0, 0)),
+            new(new Vector3(-halfW, -halfH, -halfD), new Vector3(-1, 0, 0), new Vector2(0, 1), tangentLeft),
+            new(new Vector3(-halfW, -halfH, halfD), new Vector3(-1, 0, 0), new Vector2(1, 1), tangentLeft),
+            new(new Vector3(-halfW, halfH, halfD), new Vector3(-1, 0, 0), new Vector2(1, 0), tangentLeft),
+            new(new Vector3(-halfW, halfH, -halfD), new Vector3(-1, 0, 0), new Vector2(0, 0), tangentLeft),
         ];
 
         // 36 indices (6 per face, 6 faces) - counter-clockwise winding for front faces

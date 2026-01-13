@@ -74,7 +74,22 @@ public sealed partial class SphereMesh : Mesh
                 var normal = new Vector3(x, y, z); // Normal is same as position direction for sphere
                 var texCoord = new Vector2(u, v);
 
-                vertexList.Add(new Vertex3D(position, normal, texCoord));
+                // Tangent is in the direction of increasing theta (horizontal/U direction)
+                // dPosition/dTheta = (-sinPhi * sinTheta, 0, sinPhi * cosTheta)
+                // Normalized: (-sinTheta, 0, cosTheta)
+                Vector3 tangentDir;
+                if (MathF.Abs(sinPhi) > 0.0001f)
+                {
+                    tangentDir = Vector3.Normalize(new Vector3(-sinTheta, 0, cosTheta));
+                }
+                else
+                {
+                    // At poles, use arbitrary tangent perpendicular to normal
+                    tangentDir = new Vector3(1, 0, 0);
+                }
+                var tangent = new Vector4(tangentDir, 1.0f);
+
+                vertexList.Add(new Vertex3D(position, normal, texCoord, tangent));
             }
         }
 
