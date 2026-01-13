@@ -2,26 +2,61 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:editor="using:Beutl.Controls.PropertyEditors"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
-             xmlns:editor="using:Beutl.Controls.PropertyEditors"
+             x:Name="root"
              d:DesignWidth="300"
              x:CompileBindings="True"
              x:DataType="vm:TextureSourceEditorViewModel"
              mc:Ignorable="d">
-    <StackPanel>
-        <editor:StorageFileEditor x:Name="FileEditor"
-                                  Value="{Binding FileInfo.Value}"
-                                  KeyFrameCount="{Binding KeyFrameCount.Value}"
-                                  KeyFrameIndex="{Binding KeyFrameIndex.Value}"
-                                  IsReadOnly="{Binding IsReadOnly.Value}"
-                                  Header="{Binding Header, Mode=OneTime}"
-                                  Description="{Binding Description, Mode=OneTime}">
-            <editor:StorageFileEditor.MenuContent>
-                <local:PropertyEditorMenu />
-            </editor:StorageFileEditor.MenuContent>
-        </editor:StorageFileEditor>
-        <TextBlock x:Name="message" Theme="{StaticResource ErrorTextBlockStyle}" IsVisible="False" />
-    </StackPanel>
+    <Grid RowDefinitions="Auto,Auto">
+        <ToggleButton x:Name="expandToggle"
+                      Margin="8,4"
+                      Content="{Binding Header, FallbackValue=TextureSource}"
+                      IsChecked="{Binding IsExpanded.Value}"
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+            <ToggleButton.Tag>
+                <Button Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Classes="size-24x24"
+                        Click="Menu_Click"
+                        Theme="{StaticResource TransparentButton}">
+                    <Button.ContextFlyout>
+                        <ui:FAMenuFlyout>
+                            <ui:RadioMenuFlyoutItem Click="ChangeTextureSourceType"
+                                                    IsChecked="{Binding IsImageTextureSource.Value, Mode=OneWay}"
+                                                    Tag="Image"
+                                                    Text="{x:Static lang:Strings.Image}" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeTextureSourceType"
+                                                    IsChecked="{Binding IsDrawableTextureSource.Value, Mode=OneWay}"
+                                                    Tag="Drawable"
+                                                    Text="{x:Static lang:Strings.Drawable}" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeTextureSourceType"
+                                                    IsChecked="{Binding !Value.Value, Mode=OneWay}"
+                                                    Tag="Null"
+                                                    Text="{x:Static lang:Strings.Null}" />
+                        </ui:FAMenuFlyout>
+                    </Button.ContextFlyout>
+                    <icons:SymbolIcon Symbol="Compose" />
+                </Button>
+            </ToggleButton.Tag>
+        </ToggleButton>
+
+        <!--  Drawable Properties  -->
+        <Panel x:Name="content"
+               Grid.Row="1"
+               Margin="16,0,0,0">
+            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
+
+            <local:PropertiesEditor Padding="0"
+                                    DataContext="{Binding ChildContext.Value}"
+                                    IsEnabled="{ReflectionBinding #root.DataContext.CanEdit.Value}" />
+        </Panel>
+    </Grid>
 </UserControl>

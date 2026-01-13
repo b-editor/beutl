@@ -36,6 +36,8 @@ public class RenderTarget : IDisposable
 
     public bool IsDisposed { get; private set; }
 
+    internal ITexture2D? Texture => _texture?.Value;
+
     public static RenderTarget? Create(int width, int height)
     {
         try
@@ -133,6 +135,7 @@ public class RenderTarget : IDisposable
         VerifyAccess();
 
         _surface.Value!.Flush(true, true);
+        _texture?.Value?.PrepareForRender();
     }
 
     private sealed class SKSurfaceCounter<T>(T value)
