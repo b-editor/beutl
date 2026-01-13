@@ -17,13 +17,11 @@ public interface IGraphicsContext : IDisposable
     bool Supports3DRendering { get; }
 
     /// <summary>
-    /// Creates a shared texture (for Skia interop).
+    /// Creates a 2D texture.
     /// </summary>
-    ISharedTexture CreateTexture(int width, int height, TextureFormat format);
-
-    /// <summary>
-    /// Creates an internal texture (not shared with Skia).
-    /// </summary>
+    /// <param name="width">The width of the texture.</param>
+    /// <param name="height">The height of the texture.</param>
+    /// <param name="format">The texture format.</param>
     ITexture2D CreateTexture2D(int width, int height, TextureFormat format);
 
     /// <summary>
@@ -126,8 +124,8 @@ public interface IGraphicsContext : IDisposable
     /// Copies texture data from source to destination.
     /// </summary>
     /// <param name="source">The source texture.</param>
-    /// <param name="destination">The destination shared texture.</param>
-    void CopyTexture(ITexture2D source, ISharedTexture destination);
+    /// <param name="destination">The destination texture.</param>
+    void CopyTexture(ITexture2D source, ITexture2D destination);
 
     /// <summary>
     /// Copies a 2D texture to a specific face of a cube map.

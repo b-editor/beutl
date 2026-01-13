@@ -32,7 +32,7 @@ internal sealed class Renderer3D : IRenderer3D
     private ShadowManager? _shadowManager;
 
     // Final output for Skia integration
-    private ISharedTexture? _outputTexture;
+    private ITexture2D? _outputTexture;
 
     // Cached render state for hit testing
     private Camera3D.Resource? _lastCamera;
@@ -72,7 +72,7 @@ internal sealed class Renderer3D : IRenderer3D
         _flipPass.Initialize(width, height);
 
         // Create output texture for Skia integration
-        _outputTexture = _context.CreateTexture(width, height, TextureFormat.BGRA8Unorm);
+        _outputTexture = _context.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
     }
 
     public void Resize(int width, int height)
@@ -107,7 +107,7 @@ internal sealed class Renderer3D : IRenderer3D
 
         // Recreate output texture
         _outputTexture?.Dispose();
-        _outputTexture = _context.CreateTexture(width, height, TextureFormat.BGRA8Unorm);
+        _outputTexture = _context.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
     }
 
     public void Render(
@@ -238,7 +238,7 @@ internal sealed class Renderer3D : IRenderer3D
         if (_flipPass?.OutputTexture == null || _outputTexture == null)
             return;
 
-        // Copy from flip pass output (ITexture2D) to shared output texture (ISharedTexture)
+        // Copy from flip pass output to shared output texture
         _context.CopyTexture(_flipPass.OutputTexture, _outputTexture);
     }
 

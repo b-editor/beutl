@@ -37,16 +37,13 @@ internal sealed class CompositeContext : IGraphicsContext
 
     public bool Supports3DRendering => Vulkan.Supports3DRendering;
 
-    public ISharedTexture CreateTexture(int width, int height, TextureFormat format)
-    {
-        if (Metal == null)
-            return Vulkan.CreateTexture(width, height, format);
-
-        return new MetalVulkanSharedTexture(Metal, Vulkan, width, height, format);
-    }
-
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
+        if (Metal != null && !format.IsDepthFormat())
+        {
+            return new MetalVulkanTexture2D(Metal, Vulkan, width, height, format);
+        }
+
         return Vulkan.CreateTexture2D(width, height, format);
     }
 
@@ -120,7 +117,7 @@ internal sealed class CompositeContext : IGraphicsContext
     }
 
 
-    public void CopyTexture(ITexture2D source, ISharedTexture destination)
+    public void CopyTexture(ITexture2D source, ITexture2D destination)
     {
         Vulkan.CopyTexture(source, destination);
     }
