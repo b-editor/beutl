@@ -1,53 +1,187 @@
+using System.Text.Json.Nodes;
+using Beutl.Graphics;
 using Beutl.Graphics3D.Textures;
+using Beutl.Language;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class TextureSourceEditorViewModel : ValueEditorViewModel<TextureSource?>
+public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
 {
     public TextureSourceEditorViewModel(IPropertyAdapter<TextureSource?> property)
         : base(property)
     {
-        FullName = Value.Select(GetFilePath)
+        Value = property.GetObservable()
+            .ToReadOnlyReactiveProperty()
+            .DisposeWith(Disposables);
+
+        IsImageTextureSource = Value.Select(v => v is ImageTextureSource)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        FileInfo = FullName.Select(p => p != null ? new FileInfo(p) : null)
+        IsDrawableTextureSource = Value.Select(v => v is DrawableTextureSource)
             .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        ChildContext = Value.Select(v => v)
+            .Select(x => x != null ? new PropertiesEditorViewModel(x) : null)
+            .DisposePreviousValue()
+            .Do(AcceptChildren)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        DrawableName = Value.Select(v => v as DrawableTextureSource)
+            .Select(x => x?.Drawable.CurrentValue?.GetType())
+            .Select(GetDrawableDisplayName)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        Value.CombineWithPrevious()
+            .Select(v => v.OldValue)
+            .Where(v => v != null)
+            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<string?> FullName { get; }
+    public ReadOnlyReactiveProperty<TextureSource?> Value { get; }
 
-    public ReadOnlyReactivePropertySlim<FileInfo?> FileInfo { get; }
+    public ReadOnlyReactivePropertySlim<bool> IsImageTextureSource { get; }
 
-    private static string? GetFilePath(TextureSource? source)
+    public ReadOnlyReactivePropertySlim<bool> IsDrawableTextureSource { get; }
+
+    public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> ChildContext { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> DrawableName { get; }
+
+    public ReactivePropertySlim<bool> IsExpanded { get; } = new();
+
+    private static string GetDrawableDisplayName(Type? type)
     {
-        if (source is ImageTextureSource imageSource)
+        if (type == null)
         {
-            var imgSource = imageSource.Source.CurrentValue;
-            if (imgSource?.HasUri == true)
+            return Strings.CreateNew;
+        }
+
+        return LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
+    }
+
+    private void AcceptChildren(PropertiesEditorViewModel? obj)
+    {
+        if (obj != null)
+        {
+            var visitor = new Visitor(this);
+            foreach (IPropertyEditorContext item in obj.Properties)
             {
-                return imgSource.Uri.LocalPath;
+                item.Accept(visitor);
             }
         }
-        return null;
     }
 
-    public void SetValueAndDispose(TextureSource? oldValue, TextureSource? newValue)
+    public override void Reset()
+    {
+        if (GetDefaultValue() is { } defaultValue)
+        {
+            SetValue(Value.Value, (TextureSource?)defaultValue);
+        }
+    }
+
+    public void SetValue(TextureSource? oldValue, TextureSource? newValue)
     {
         if (!EqualityComparer<TextureSource?>.Default.Equals(oldValue, newValue))
         {
-            if (EditingKeyFrame.Value is { } kf)
+            PropertyAdapter.SetValue(newValue);
+            Commit();
+        }
+    }
+
+    public void ChangeToImageTextureSource()
+    {
+        var oldValue = Value.Value;
+        var newValue = new ImageTextureSource();
+        SetValue(oldValue, newValue);
+    }
+
+    public void ChangeToDrawableTextureSource()
+    {
+        var oldValue = Value.Value;
+        var newValue = new DrawableTextureSource();
+        SetValue(oldValue, newValue);
+    }
+
+    public void ChangeToNull()
+    {
+        var oldValue = Value.Value;
+        SetValue(oldValue, null);
+    }
+
+    public void SetDrawableType(Type type)
+    {
+        if (Value.Value is DrawableTextureSource drawableSource)
+        {
+            var drawable = (Drawable?)Activator.CreateInstance(type);
+            drawableSource.Drawable.CurrentValue = drawable;
+            Commit();
+        }
+    }
+
+    public override void Accept(IPropertyEditorContextVisitor visitor)
+    {
+        base.Accept(visitor);
+        if (visitor is IServiceProvider)
+        {
+            AcceptChildren(ChildContext.Value);
+        }
+    }
+
+    public override void ReadFromJson(JsonObject json)
+    {
+        base.ReadFromJson(json);
+        try
+        {
+            if (json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
+                && isExpandedNode is JsonValue isExpanded)
             {
-                kf.Value = newValue;
-            }
-            else
-            {
-                PropertyAdapter.SetValue(newValue);
+                IsExpanded.Value = (bool)isExpanded;
             }
 
-            Commit();
+            ChildContext.Value?.ReadFromJson(json);
+        }
+        catch
+        {
+        }
+    }
+
+    public override void WriteToJson(JsonObject json)
+    {
+        base.WriteToJson(json);
+        try
+        {
+            json[nameof(IsExpanded)] = IsExpanded.Value;
+            ChildContext.Value?.WriteToJson(json);
+        }
+        catch
+        {
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        ChildContext.Value?.Dispose();
+    }
+
+    private sealed record Visitor(TextureSourceEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    {
+        public object? GetService(Type serviceType)
+        {
+            return Obj.GetService(serviceType);
+        }
+
+        public void Visit(IPropertyEditorContext context)
+        {
         }
     }
 }
