@@ -10,11 +10,11 @@ namespace Beutl.Graphics.Rendering;
 public class RenderTarget : IDisposable
 {
     private readonly SKSurfaceCounter<SKSurface> _surface;
-    private readonly SKSurfaceCounter<ISharedTexture>? _texture;
+    private readonly SKSurfaceCounter<ITexture2D>? _texture;
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
 
     private RenderTarget(SKSurfaceCounter<SKSurface> surface, int width, int height,
-        SKSurfaceCounter<ISharedTexture>? texture = null)
+        SKSurfaceCounter<ITexture2D>? texture = null)
     {
         _surface = surface;
         Width = width;
@@ -41,7 +41,7 @@ public class RenderTarget : IDisposable
         try
         {
             SKSurface? surface;
-            ISharedTexture? sharedTexture = null;
+            ITexture2D? sharedTexture = null;
             if (Dispatcher.Current == null)
             {
                 surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
@@ -53,7 +53,7 @@ public class RenderTarget : IDisposable
 
                 if (context != null)
                 {
-                    sharedTexture = context.CreateTexture(width, height, TextureFormat.BGRA8Unorm);
+                    sharedTexture = context.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
                     surface = sharedTexture.CreateSkiaSurface();
                 }
                 else
@@ -63,7 +63,7 @@ public class RenderTarget : IDisposable
                 }
             }
 
-            var textureRef = sharedTexture != null ? new SKSurfaceCounter<ISharedTexture>(sharedTexture) : null;
+            var textureRef = sharedTexture != null ? new SKSurfaceCounter<ITexture2D>(sharedTexture) : null;
             return surface == null
                 ? null
                 : new RenderTarget(new SKSurfaceCounter<SKSurface>(surface), width, height, textureRef);
@@ -125,10 +125,7 @@ public class RenderTarget : IDisposable
     {
         VerifyAccess();
 
-        if (_texture?.Value is VulkanSharedTexture vulkanTexture)
-        {
-            vulkanTexture.PrepareForRender();
-        }
+        _texture?.Value?.PrepareForRender();
     }
 
     internal void PrepareForSampling()

@@ -1,4 +1,5 @@
 using System;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Backend;
 
@@ -23,13 +24,40 @@ public interface ITexture2D : IDisposable
     TextureFormat Format { get; }
 
     /// <summary>
-    /// Gets the native handle of the texture.
+    /// Gets the native handle of the texture (Vulkan Image handle).
     /// </summary>
     IntPtr NativeHandle { get; }
+
+    /// <summary>
+    /// Gets the native view handle of the texture (Vulkan ImageView handle).
+    /// </summary>
+    IntPtr NativeViewHandle { get; }
 
     /// <summary>
     /// Uploads pixel data to the texture.
     /// </summary>
     /// <param name="data">The pixel data to upload.</param>
     void Upload(ReadOnlySpan<byte> data);
+
+    /// <summary>
+    /// Downloads pixel data from the texture to a byte array.
+    /// </summary>
+    /// <returns>The pixel data.</returns>
+    byte[] DownloadPixels();
+
+    /// <summary>
+    /// Creates a SkiaSharp surface that can render to this texture.
+    /// </summary>
+    /// <returns>A SkiaSharp surface.</returns>
+    SKSurface CreateSkiaSurface();
+
+    /// <summary>
+    /// Prepares the texture for rendering (transitions to color attachment layout).
+    /// </summary>
+    void PrepareForRender();
+
+    /// <summary>
+    /// Prepares the texture for sampling (transitions to shader read-only layout).
+    /// </summary>
+    void PrepareForSampling();
 }

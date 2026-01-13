@@ -142,6 +142,7 @@ Console.WriteLine();
 // Render
 Console.WriteLine("Rendering PBR grid...");
 renderer.Render(
+    renderContext,
     cameraResource,
     objects,
     lights,
@@ -329,6 +330,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
 
     Console.WriteLine("  Rendering...");
     renderer.Render(
+        renderContext,
         cameraResource,
         objects,
         lights,
@@ -373,6 +375,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
 
     Console.WriteLine("  Rendering...");
     renderer.Render(
+        renderContext,
         cameraResource,
         objects,
         lights,
@@ -415,6 +418,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
 
     Console.WriteLine("  Rendering...");
     renderer.Render(
+        renderContext,
         cameraResource,
         objects,
         lights,
@@ -462,6 +466,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
 
     Console.WriteLine("  Rendering...");
     renderer.Render(
+        renderContext,
         cameraResource,
         objects,
         lights,

@@ -1,22 +1,25 @@
 using System;
+using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
 /// <summary>
 /// Vulkan implementation of <see cref="ITexture2D"/>.
 /// </summary>
-internal sealed unsafe class VulkanTexture2D : ITexture2D
+internal unsafe class VulkanTexture2D : ITexture2D
 {
-    private readonly VulkanContext _context;
-    private readonly Silk.NET.Vulkan.Image _image;
-    private readonly DeviceMemory _memory;
-    private readonly ImageView _imageView;
-    private readonly int _width;
-    private readonly int _height;
-    private readonly TextureFormat _format;
-    private ImageLayout _currentLayout = ImageLayout.Undefined;
-    private bool _disposed;
+    protected readonly VulkanContext _context;
+    protected readonly Silk.NET.Vulkan.Image _image;
+    protected readonly DeviceMemory _memory;
+    protected readonly ImageView _imageView;
+    protected readonly int _width;
+    protected readonly int _height;
+    protected readonly TextureFormat _format;
+    protected readonly ulong _allocationSize;
+    protected ImageLayout _currentLayout = ImageLayout.Undefined;
+    protected bool _disposed;
 
     public VulkanTexture2D(
         VulkanContext context,
@@ -24,6 +27,17 @@ internal sealed unsafe class VulkanTexture2D : ITexture2D
         int height,
         TextureFormat format,
         ImageUsageFlags usage = ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit)
+        : this(context, width, height, format, usage, null)
+    {
+    }
+
+    protected VulkanTexture2D(
+        VulkanContext context,
+        int width,
+        int height,
+        TextureFormat format,
+        ImageUsageFlags usage,
+        void* pNext)
     {
         _context = context;
         _width = width;
@@ -37,6 +51,7 @@ internal sealed unsafe class VulkanTexture2D : ITexture2D
         var imageInfo = new ImageCreateInfo
         {
             SType = StructureType.ImageCreateInfo,
+            PNext = pNext,
             ImageType = ImageType.Type2D,
             Format = format.ToVulkanFormat(),
             Extent = new Extent3D((uint)width, (uint)height, 1),
@@ -60,6 +75,7 @@ internal sealed unsafe class VulkanTexture2D : ITexture2D
         // Get memory requirements
         MemoryRequirements memReqs;
         vk.GetImageMemoryRequirements(device, _image, &memReqs);
+        _allocationSize = memReqs.Size;
 
         // Allocate memory
         var allocInfo = new MemoryAllocateInfo
@@ -123,6 +139,8 @@ internal sealed unsafe class VulkanTexture2D : ITexture2D
 
     public IntPtr NativeHandle => (IntPtr)_image.Handle;
 
+    public IntPtr NativeViewHandle => (IntPtr)_imageView.Handle;
+
     public Silk.NET.Vulkan.Image ImageHandle => _image;
 
     public ImageView ImageViewHandle => _imageView;
@@ -177,6 +195,118 @@ internal sealed unsafe class VulkanTexture2D : ITexture2D
         }
     }
 
+    public byte[] DownloadPixels()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // Transition to transfer source
+        TransitionTo(ImageLayout.TransferSrcOptimal);
+
+        int bytesPerPixel = _format switch
+        {
+            TextureFormat.RGBA8Unorm or TextureFormat.BGRA8Unorm => 4,
+            TextureFormat.RGBA16Float => 8,
+            TextureFormat.RGBA32Float => 16,
+            TextureFormat.R8Unorm => 1,
+            TextureFormat.R16Float => 2,
+            TextureFormat.R32Float => 4,
+            _ => 4
+        };
+
+        ulong bufferSize = (ulong)(_width * _height * bytesPerPixel);
+        var pixelData = new byte[bufferSize];
+
+        // Create staging buffer
+        using var stagingBuffer = new VulkanBuffer(
+            _context,
+            bufferSize,
+            BufferUsage.TransferDestination,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+
+        // Copy image to buffer
+        _context.SubmitImmediateCommands(cmd =>
+        {
+            var region = new BufferImageCopy
+            {
+                BufferOffset = 0,
+                BufferRowLength = 0,
+                BufferImageHeight = 0,
+                ImageSubresource = new ImageSubresourceLayers
+                {
+                    AspectMask = ImageAspectFlags.ColorBit,
+                    MipLevel = 0,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
+                },
+                ImageOffset = new Offset3D(0, 0, 0),
+                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
+            };
+
+            _context.Vk.CmdCopyImageToBuffer(cmd, _image, ImageLayout.TransferSrcOptimal, stagingBuffer.Handle, 1, &region);
+        });
+
+        // Read data from staging buffer
+        var srcPtr = stagingBuffer.Map();
+        Marshal.Copy(srcPtr, pixelData, 0, (int)bufferSize);
+        stagingBuffer.Unmap();
+
+        // Transition back to shader read
+        TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+
+        return pixelData;
+    }
+
+    public virtual SKSurface CreateSkiaSurface()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // On macOS, use raster surface (Metal interop handles rendering separately)
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            var info = new SKImageInfo(_width, _height, _format.ToSkiaColorType(), SKAlphaType.Premul);
+            return SKSurface.Create(info);
+        }
+
+        var vkImageInfo = new GRVkImageInfo
+        {
+            Image = _image.Handle,
+            Alloc = new GRVkAlloc { Memory = (ulong)_memory.Handle, Offset = 0, Size = _allocationSize },
+            ImageTiling = (uint)ImageTiling.Optimal,
+            ImageLayout = (uint)ImageLayout.ColorAttachmentOptimal,
+            Format = (uint)_format.ToVulkanFormat(),
+            ImageUsageFlags = (uint)(ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
+                                     ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit),
+            SampleCount = 1,
+            LevelCount = 1,
+            CurrentQueueFamily = _context.GraphicsQueueFamilyIndex,
+            Protected = false,
+            SharingMode = (uint)SharingMode.Exclusive
+        };
+
+        using var backendRenderTarget = new GRBackendRenderTarget(_width, _height, vkImageInfo);
+
+        var grContext = _context.SkiaContext;
+        var surface = SKSurface.Create(grContext, backendRenderTarget, GRSurfaceOrigin.TopLeft,
+            _format.ToSkiaColorType());
+
+        if (surface == null)
+        {
+            throw new InvalidOperationException("Failed to create SkiaSharp surface from Vulkan backend render target");
+        }
+
+        return surface;
+    }
+
+    public void PrepareForRender()
+    {
+        TransitionTo(ImageLayout.ColorAttachmentOptimal);
+    }
+
+    public void PrepareForSampling()
+    {
+        TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
+    }
+
     public void TransitionTo(ImageLayout layout)
     {
         if (_currentLayout == layout)
@@ -186,7 +316,7 @@ internal sealed unsafe class VulkanTexture2D : ITexture2D
         _currentLayout = layout;
     }
 
-    public void Dispose()
+    public virtual void Dispose()
     {
         if (_disposed) return;
         _disposed = true;

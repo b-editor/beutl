@@ -110,16 +110,19 @@ internal sealed class VulkanContext : IGraphicsContext
 
     public bool Supports3DRendering => true;
 
-    public ISharedTexture CreateTexture(int width, int height, TextureFormat format)
-    {
-        return new VulkanSharedTexture(this, width, height, format);
-    }
-
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
-        var usage = format.IsDepthFormat()
-            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
+        ImageUsageFlags usage;
+        if (format.IsDepthFormat())
+        {
+            usage = ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit |
+                    ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
+        }
+        else
+        {
+            usage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
+                    ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
+        }
         return new VulkanTexture2D(this, width, height, format, usage);
     }
 
@@ -235,16 +238,15 @@ internal sealed class VulkanContext : IGraphicsContext
     }
 
 
-    public unsafe void CopyTexture(ITexture2D source, ISharedTexture destination)
+    public unsafe void CopyTexture(ITexture2D source, ITexture2D destination)
     {
         var vulkanSource = (VulkanTexture2D)source;
-        var vulkanDestImageHandle = new Image((ulong)destination.VulkanImageHandle);
+        var vulkanDest = (VulkanTexture2D)destination;
 
         // Transition source to transfer source layout
         vulkanSource.TransitionTo(ImageLayout.TransferSrcOptimal);
 
-        // Prepare destination for rendering (this transitions to ColorAttachmentOptimal)
-        // Then transition to transfer destination
+        // Transition destination to transfer destination
         SubmitImmediateCommands(cmd =>
         {
             // Transition destination to transfer destination
@@ -255,7 +257,7 @@ internal sealed class VulkanContext : IGraphicsContext
                 NewLayout = ImageLayout.TransferDstOptimal,
                 SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
                 DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                Image = vulkanDestImageHandle,
+                Image = vulkanDest.ImageHandle,
                 SubresourceRange = new ImageSubresourceRange
                 {
                     AspectMask = ImageAspectFlags.ColorBit,
@@ -305,7 +307,7 @@ internal sealed class VulkanContext : IGraphicsContext
                 cmd,
                 vulkanSource.ImageHandle,
                 ImageLayout.TransferSrcOptimal,
-                vulkanDestImageHandle,
+                vulkanDest.ImageHandle,
                 ImageLayout.TransferDstOptimal,
                 1,
                 &blitRegion,
