@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Threading;
 using Avalonia.Platform.Storage;
 using Beutl.Animation;
 using Beutl.Controls;
@@ -574,6 +575,7 @@ public partial class PlayerView
         private float _yaw;
         private float _pitch;
         private readonly HashSet<Key> _pressedKeys = [];
+        private DispatcherTimer? _movementTimer;
         private KeyFrameState<Vector3>? _positionKeyFrame;
         private KeyFrameState<Vector3>? _targetKeyFrame;
 
@@ -962,6 +964,8 @@ public partial class PlayerView
                 _rightPressed = false;
                 _positionKeyFrame = null;
                 _targetKeyFrame = null;
+                StopMovementTimer();
+                _pressedKeys.Clear();
                 EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
             }
         }
@@ -1010,13 +1014,18 @@ public partial class PlayerView
                 return;
 
             _pressedKeys.Add(e.Key);
-            ProcessMovement();
+            StartMovementTimer();
             e.Handled = true;
         }
 
         public void OnKeyUp(KeyEventArgs e)
         {
             _pressedKeys.Remove(e.Key);
+
+            if (_pressedKeys.Count == 0)
+            {
+                StopMovementTimer();
+            }
         }
 
         private void ProcessMovement()
@@ -1069,6 +1078,40 @@ public partial class PlayerView
                     _camera.Target.CurrentValue = target + movement;
                 }
             }
+        }
+
+        private void StartMovementTimer()
+        {
+            if (_movementTimer != null)
+                return;
+
+            _movementTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(16) // ~60fps
+            };
+            _movementTimer.Tick += OnMovementTimerTick;
+            _movementTimer.Start();
+        }
+
+        private void StopMovementTimer()
+        {
+            if (_movementTimer == null)
+                return;
+
+            _movementTimer.Stop();
+            _movementTimer.Tick -= OnMovementTimerTick;
+            _movementTimer = null;
+        }
+
+        private void OnMovementTimerTick(object? sender, EventArgs e)
+        {
+            if (_camera == null || _pressedKeys.Count == 0 || !_rightPressed)
+            {
+                StopMovementTimer();
+                return;
+            }
+
+            ProcessMovement();
         }
 
         private void FindScene3DAndCamera()
