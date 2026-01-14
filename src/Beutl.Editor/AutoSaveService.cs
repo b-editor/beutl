@@ -1,10 +1,8 @@
 ﻿using System.Reactive.Linq;
 using System.Reactive.Subjects;
-
 using Beutl.Editor.Operations;
 using Beutl.Logging;
 using Beutl.Serialization;
-
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor;
@@ -41,6 +39,8 @@ public sealed class AutoSaveService : IDisposable
         {
             try
             {
+                if (obj is IHierarchical hierarchical && hierarchical.HierarchicalRoot == null) continue;
+
                 _logger.LogTrace(
                     "Auto-saving object ({TypeName}, {ObjectId}).",
                     TypeFormat.ToString(obj.GetType()),
