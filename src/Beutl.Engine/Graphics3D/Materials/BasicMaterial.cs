@@ -119,7 +119,7 @@ public sealed partial class BasicMaterial : Material3D
             IsPipelineInitialized = true;
         }
 
-        public override void Bind(RenderContext3D context, Object3D.Resource obj)
+        public override void Bind(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
         {
             if (_pipeline == null || _descriptorSet == null || _uniformBuffer == null || _sampler == null)
                 return;
@@ -142,7 +142,7 @@ public sealed partial class BasicMaterial : Material3D
             // Update uniform buffer
             var ubo = new BasicMaterialUBO
             {
-                Model = obj.GetWorldMatrix(),
+                Model = worldMatrix,
                 View = context.ViewMatrix,
                 Projection = context.ProjectionMatrix,
                 Albedo = new Vector4(

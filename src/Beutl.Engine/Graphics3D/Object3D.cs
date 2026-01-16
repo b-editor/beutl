@@ -69,5 +69,11 @@ public abstract partial class Object3D : EngineObject
         /// </summary>
         /// <returns>The mesh resource, or null if not available.</returns>
         public abstract Mesh.Resource? GetMesh();
+
+        /// <summary>
+        /// Gets the child resources of this object.
+        /// </summary>
+        /// <returns>The child resources, or an empty list if this object has no children.</returns>
+        public virtual IReadOnlyList<Resource> GetChildResources() => [];
     }
 }

@@ -137,40 +137,61 @@ public sealed class GeometryPass : GraphicsNode3D
         // Render each object
         foreach (var obj in objects)
         {
-            if (!obj.IsEnabled)
-                continue;
-
-            // Get mesh resource from object
-            var meshResource = obj.GetMesh();
-            if (meshResource == null)
-                continue;
-
-            // Ensure GPU buffers are created/updated
-            EnsureMeshBuffers(meshResource);
-
-            if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
-                continue;
-
-            // Get material resource (use default if not set)
-            var materialResource = obj.Material ?? _defaultMaterialResource;
-            if (materialResource == null)
-                continue;
-
-            // Ensure material pipeline is created
-            materialResource.EnsurePipeline(renderContext3D);
-
-            // Bind material (pipeline, uniforms, descriptor sets)
-            materialResource.Bind(renderContext3D, obj);
-
-            // Bind vertex and index buffers
-            RenderPass.BindVertexBuffer(meshResource.VertexBuffer);
-            RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
-
-            // Draw the mesh
-            RenderPass.DrawIndexed((uint)meshResource.IndexCount);
+            RenderObject(renderContext3D, obj, Matrix4x4.Identity);
         }
 
         EndPass();
+    }
+
+    private void RenderObject(RenderContext3D renderContext3D, Object3D.Resource obj, Matrix4x4 parentMatrix)
+    {
+        if (!obj.IsEnabled)
+            return;
+
+        // Calculate combined world matrix
+        var worldMatrix = obj.GetWorldMatrix() * parentMatrix;
+
+        // Render children if any
+        var children = obj.GetChildResources();
+        foreach (var child in children)
+        {
+            RenderObject(renderContext3D, child, worldMatrix);
+        }
+
+        // Render this object's mesh if any
+        RenderMesh(renderContext3D, obj, worldMatrix);
+    }
+
+    private void RenderMesh(RenderContext3D renderContext3D, Object3D.Resource obj, Matrix4x4 worldMatrix)
+    {
+        // Get mesh resource from object
+        var meshResource = obj.GetMesh();
+        if (meshResource == null)
+            return;
+
+        // Ensure GPU buffers are created/updated
+        EnsureMeshBuffers(meshResource);
+
+        if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
+            return;
+
+        // Get material resource (use default if not set)
+        var materialResource = obj.Material ?? _defaultMaterialResource;
+        if (materialResource == null)
+            return;
+
+        // Ensure material pipeline is created
+        materialResource.EnsurePipeline(renderContext3D);
+
+        // Bind material (pipeline, uniforms, descriptor sets) with combined matrix
+        materialResource.Bind(renderContext3D, obj, worldMatrix);
+
+        // Bind vertex and index buffers
+        RenderPass!.BindVertexBuffer(meshResource.VertexBuffer);
+        RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
+
+        // Draw the mesh
+        RenderPass.DrawIndexed((uint)meshResource.IndexCount);
     }
 
     private void EnsureMeshBuffers(Mesh.Resource meshResource)
