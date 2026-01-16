@@ -241,35 +241,56 @@ void main() {
         // Render each object
         foreach (var obj in objects)
         {
-            if (!obj.IsEnabled)
-                continue;
-
-            var meshResource = obj.GetMesh();
-            if (meshResource == null)
-                continue;
-
-            EnsureMeshBuffers(meshResource);
-
-            if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
-                continue;
-
-            // Set push constants with model and light VP matrices
-            var pushConstants = new ShadowPushConstants
-            {
-                Model = obj.GetWorldMatrix(),
-                LightViewProjection = lightVP
-            };
-            RenderPass.SetPushConstants(pushConstants);
-
-            // Bind vertex and index buffers
-            RenderPass.BindVertexBuffer(meshResource.VertexBuffer);
-            RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
-
-            // Draw the mesh
-            RenderPass.DrawIndexed((uint)meshResource.IndexCount);
+            RenderObject(obj, lightVP, Matrix4x4.Identity);
         }
 
         EndPass();
+    }
+
+    private void RenderObject(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 parentMatrix)
+    {
+        if (!obj.IsEnabled)
+            return;
+
+        // Calculate combined world matrix
+        var worldMatrix = obj.GetWorldMatrix() * parentMatrix;
+
+        // Render children if any
+        var children = obj.GetChildResources();
+        foreach (var child in children)
+        {
+            RenderObject(child, lightVP, worldMatrix);
+        }
+
+        // Render this object's mesh if any
+        RenderMesh(obj, lightVP, worldMatrix);
+    }
+
+    private void RenderMesh(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 worldMatrix)
+    {
+        var meshResource = obj.GetMesh();
+        if (meshResource == null)
+            return;
+
+        EnsureMeshBuffers(meshResource);
+
+        if (meshResource.VertexBuffer == null || meshResource.IndexBuffer == null)
+            return;
+
+        // Set push constants with model and light VP matrices
+        var pushConstants = new ShadowPushConstants
+        {
+            Model = worldMatrix,
+            LightViewProjection = lightVP
+        };
+        RenderPass!.SetPushConstants(pushConstants);
+
+        // Bind vertex and index buffers
+        RenderPass.BindVertexBuffer(meshResource.VertexBuffer);
+        RenderPass.BindIndexBuffer(meshResource.IndexBuffer);
+
+        // Draw the mesh
+        RenderPass.DrawIndexed((uint)meshResource.IndexCount);
     }
 
     private void EnsureMeshBuffers(Mesh.Resource meshResource)

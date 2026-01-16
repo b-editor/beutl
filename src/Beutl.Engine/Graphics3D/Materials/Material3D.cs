@@ -1,3 +1,4 @@
+using System.Numerics;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
 
@@ -33,11 +34,12 @@ public abstract partial class Material3D : EngineObject
         public abstract void EnsurePipeline(RenderContext3D context);
 
         /// <summary>
-        /// Binds this material for rendering an object.
+        /// Binds this material for rendering an object with an explicit world matrix.
         /// Updates uniforms and binds the pipeline and descriptor sets.
         /// </summary>
         /// <param name="context">The 3D rendering context.</param>
         /// <param name="obj">The object being rendered.</param>
-        public abstract void Bind(RenderContext3D context, Object3D.Resource obj);
+        /// <param name="worldMatrix">The world matrix to use for rendering.</param>
+        public abstract void Bind(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix);
     }
 }

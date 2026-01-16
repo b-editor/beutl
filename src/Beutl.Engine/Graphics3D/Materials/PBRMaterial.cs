@@ -183,7 +183,7 @@ public sealed partial class PBRMaterial : Material3D
             _defaultBlackTexture.Upload([0, 0, 0, 255]);
         }
 
-        public override void Bind(RenderContext3D context, Object3D.Resource obj)
+        public override void Bind(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
         {
             if (_pipeline == null || _descriptorSet == null || _uniformBuffer == null || _sampler == null)
                 return;
@@ -215,7 +215,7 @@ public sealed partial class PBRMaterial : Material3D
             // Update material uniform buffer
             var ubo = new PBRMaterialUBO
             {
-                Model = obj.GetWorldMatrix(),
+                Model = worldMatrix,
                 View = context.ViewMatrix,
                 Projection = context.ProjectionMatrix,
                 Albedo = new Vector4(
