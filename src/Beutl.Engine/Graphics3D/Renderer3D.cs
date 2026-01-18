@@ -262,6 +262,21 @@ internal sealed class Renderer3D : IRenderer3D
         return HitTester3D.HitTest(screenPoint, Width, Height, _lastCamera, _lastObjects);
     }
 
+    /// <summary>
+    /// Performs hit testing and returns the path from root to the hit object.
+    /// </summary>
+    /// <param name="screenPoint">The point in screen coordinates.</param>
+    /// <returns>A list representing the path from root to the hit object, or empty if none.</returns>
+    public IReadOnlyList<Object3D.Resource> HitTestWithPath(Point screenPoint)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (_lastCamera == null || _lastObjects == null || _lastObjects.Count == 0)
+            return [];
+
+        return HitTester3D.HitTestWithPath(screenPoint, Width, Height, _lastCamera, _lastObjects);
+    }
+
     public GizmoAxis GizmoHitTest(Point screenPoint, Object3D.Resource? gizmoTarget, GizmoMode gizmoMode)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
