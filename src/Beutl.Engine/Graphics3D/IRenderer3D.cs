@@ -84,6 +84,13 @@ public interface IRenderer3D : IDisposable
     Object3D.Resource? HitTest(Point screenPoint);
 
     /// <summary>
+    /// Performs a hit test and returns the path from root to the hit object.
+    /// </summary>
+    /// <param name="screenPoint">The point in screen coordinates.</param>
+    /// <returns>A list representing the path from root to the hit object, or empty if none.</returns>
+    IReadOnlyList<Object3D.Resource> HitTestWithPath(Point screenPoint);
+
+    /// <summary>
     /// Performs a gizmo hit test at the specified screen point.
     /// </summary>
     /// <param name="screenPoint">The point in screen coordinates.</param>

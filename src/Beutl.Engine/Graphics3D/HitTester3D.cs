@@ -38,7 +38,7 @@ public readonly struct Ray3D
 public static class HitTester3D
 {
     /// <summary>
-    /// Performs a hit test at the specified screen point.
+    /// Performs a hit test at the specified screen point (recursively searches children).
     /// </summary>
     /// <param name="screenPoint">The point in screen coordinates.</param>
     /// <param name="width">The viewport width.</param>
@@ -60,7 +60,7 @@ public static class HitTester3D
         if (!TryCreateRayFromScreen(screenPoint, width, height, camera, out var ray))
             return null;
 
-        // Test intersection with each object
+        // Test intersection with each object recursively
         Object3D.Resource? closestObject = null;
         float closestDistance = float.MaxValue;
 
@@ -69,36 +69,179 @@ public static class HitTester3D
             if (!obj.IsEnabled)
                 continue;
 
-            var mesh = obj.GetMesh();
-            if (mesh == null)
-                continue;
-
-            var worldMatrix = obj.GetWorldMatrix();
-            if (!Matrix4x4.Invert(worldMatrix, out var invWorld))
-                continue;
-
-            // Transform ray to object local space
-            var localRay = TransformRay(ray, invWorld);
-
-            // First, test against bounding box for early rejection
-            var bbox = mesh.GetBoundingBox();
-            if (!RayIntersectsBoundingBox(localRay, bbox, out float bboxDistance))
-                continue;
-
-            // Test against mesh triangles
-            if (RayIntersectsMesh(localRay, mesh, out float meshDistance))
+            // Recursively hit test this object and its children
+            var (hitObj, distance) = HitTestRecursive(ray, obj, Matrix4x4.Identity);
+            if (hitObj != null && distance < closestDistance)
             {
-                // Use bounding box distance as approximation for sorting
-                float worldDistance = bboxDistance;
-                if (worldDistance < closestDistance)
-                {
-                    closestDistance = worldDistance;
-                    closestObject = obj;
-                }
+                closestDistance = distance;
+                closestObject = hitObj;
             }
         }
 
         return closestObject;
+    }
+
+    /// <summary>
+    /// Recursively performs hit testing on an object and its children.
+    /// </summary>
+    private static (Object3D.Resource? obj, float distance) HitTestRecursive(
+        Ray3D ray,
+        Object3D.Resource obj,
+        Matrix4x4 parentMatrix)
+    {
+        if (!obj.IsEnabled)
+            return (null, float.MaxValue);
+
+        Object3D.Resource? closestObject = null;
+        float closestDistance = float.MaxValue;
+
+        // Combine with parent matrix
+        var worldMatrix = obj.GetWorldMatrix() * parentMatrix;
+
+        // Recursively test children
+        var children = obj.GetChildResources();
+        foreach (var child in children)
+        {
+            var (hitObj, distance) = HitTestRecursive(ray, child, worldMatrix);
+            if (hitObj != null && distance < closestDistance)
+            {
+                closestDistance = distance;
+                closestObject = hitObj;
+            }
+        }
+
+        // Test this object's mesh
+        var mesh = obj.GetMesh();
+        if (mesh != null)
+        {
+            if (Matrix4x4.Invert(worldMatrix, out var invWorld))
+            {
+                var localRay = TransformRay(ray, invWorld);
+                var bbox = mesh.GetBoundingBox();
+
+                if (RayIntersectsBoundingBox(localRay, bbox, out float bboxDistance))
+                {
+                    if (RayIntersectsMesh(localRay, mesh, out float meshDistance))
+                    {
+                        // Use mesh distance for more accurate sorting
+                        if (meshDistance < closestDistance)
+                        {
+                            closestDistance = meshDistance;
+                            closestObject = obj;
+                        }
+                    }
+                }
+            }
+        }
+
+        return (closestObject, closestDistance);
+    }
+
+    /// <summary>
+    /// Performs a hit test and returns the path from root to the hit object.
+    /// </summary>
+    /// <param name="screenPoint">The point in screen coordinates.</param>
+    /// <param name="width">The viewport width.</param>
+    /// <param name="height">The viewport height.</param>
+    /// <param name="camera">The camera resource.</param>
+    /// <param name="objects">The list of 3D objects to test against.</param>
+    /// <returns>A list representing the path from root to the closest hit object, or empty if none.</returns>
+    public static IReadOnlyList<Object3D.Resource> HitTestWithPath(
+        Point screenPoint,
+        int width,
+        int height,
+        Camera3D.Resource camera,
+        IReadOnlyList<Object3D.Resource> objects)
+    {
+        if (objects.Count == 0)
+            return [];
+
+        // Create ray from screen point
+        if (!TryCreateRayFromScreen(screenPoint, width, height, camera, out var ray))
+            return [];
+
+        // Test intersection with each object recursively
+        List<Object3D.Resource>? closestPath = null;
+        float closestDistance = float.MaxValue;
+
+        foreach (var obj in objects)
+        {
+            if (!obj.IsEnabled)
+                continue;
+
+            // Recursively hit test this object and its children, collecting the path
+            var currentPath = new List<Object3D.Resource>();
+            var (hitPath, distance) = HitTestRecursiveWithPath(ray, obj, Matrix4x4.Identity, currentPath);
+            if (hitPath != null && distance < closestDistance)
+            {
+                closestDistance = distance;
+                closestPath = hitPath;
+            }
+        }
+
+        return closestPath ?? [];
+    }
+
+    /// <summary>
+    /// Recursively performs hit testing and collects the path to the hit object.
+    /// </summary>
+    private static (List<Object3D.Resource>? path, float distance) HitTestRecursiveWithPath(
+        Ray3D ray,
+        Object3D.Resource obj,
+        Matrix4x4 parentMatrix,
+        List<Object3D.Resource> currentPath)
+    {
+        if (!obj.IsEnabled)
+            return (null, float.MaxValue);
+
+        // Add this object to the current path
+        currentPath.Add(obj);
+
+        List<Object3D.Resource>? closestPath = null;
+        float closestDistance = float.MaxValue;
+
+        // Combine with parent matrix
+        var worldMatrix = obj.GetWorldMatrix() * parentMatrix;
+
+        // Recursively test children
+        var children = obj.GetChildResources();
+        foreach (var child in children)
+        {
+            // Create a copy of the current path for each child branch
+            var childPath = new List<Object3D.Resource>(currentPath);
+            var (hitPath, distance) = HitTestRecursiveWithPath(ray, child, worldMatrix, childPath);
+            if (hitPath != null && distance < closestDistance)
+            {
+                closestDistance = distance;
+                closestPath = hitPath;
+            }
+        }
+
+        // Test this object's mesh
+        var mesh = obj.GetMesh();
+        if (mesh != null)
+        {
+            if (Matrix4x4.Invert(worldMatrix, out var invWorld))
+            {
+                var localRay = TransformRay(ray, invWorld);
+                var bbox = mesh.GetBoundingBox();
+
+                if (RayIntersectsBoundingBox(localRay, bbox, out float bboxDistance))
+                {
+                    if (RayIntersectsMesh(localRay, mesh, out float meshDistance))
+                    {
+                        // If this mesh is closer than any child hits, use this path
+                        if (meshDistance < closestDistance)
+                        {
+                            closestDistance = meshDistance;
+                            closestPath = new List<Object3D.Resource>(currentPath);
+                        }
+                    }
+                }
+            }
+        }
+
+        return (closestPath, closestDistance);
     }
 
     /// <summary>
