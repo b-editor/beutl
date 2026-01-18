@@ -74,8 +74,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         Object3D.Resource? gizmoTarget = null;
         if (scene.GizmoTarget.HasValue)
         {
-            gizmoTarget = objectResources.FirstOrDefault(
-                o => o.GetOriginal()?.Id == scene.GizmoTarget.Value);
+            gizmoTarget = FindObjectById(objectResources, scene.GizmoTarget.Value);
         }
 
         // Render
@@ -102,6 +101,23 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             surface);
 
         return [operation];
+    }
+
+    private static Object3D.Resource? FindObjectById(IEnumerable<Object3D.Resource> objects, Guid targetId)
+    {
+        foreach (var obj in objects)
+        {
+            if (obj.GetOriginal()?.Id == targetId)
+                return obj;
+
+            // Recursively search children
+            var children = obj.GetChildResources();
+            var found = FindObjectById(children, targetId);
+            if (found != null)
+                return found;
+        }
+
+        return null;
     }
 
     protected override void OnDispose(bool disposing)
