@@ -715,12 +715,56 @@ public partial class PlayerView
                 }
 
                 // Gizmoがクリックされなかった場合、オブジェクトのヒットテストを行う
-                var hitResult = RenderThread.Dispatcher.Invoke(() =>
-                    sceneResource.Renderer.HitTest(screenPoint));
+                // HitTestWithPathを使用して階層パスを取得
+                var hitPath = RenderThread.Dispatcher.Invoke(() =>
+                    sceneResource.Renderer.HitTestWithPath(screenPoint));
 
-                if (hitResult != null)
+                if (hitPath.Count > 0)
                 {
-                    _selectedObject = hitResult.GetOriginal();
+                    // 階層的選択: シングルクリックでルート、ダブルクリックで1階層下を選択
+                    Object3D.Resource? targetResource = null;
+                    bool isDoubleClick = e.ClickCount >= 2;
+
+                    // 現在の選択がパスに含まれているか確認
+                    int currentIndex = -1;
+                    if (currentGizmoTarget.HasValue)
+                    {
+                        for (int i = 0; i < hitPath.Count; i++)
+                        {
+                            if (hitPath[i].GetOriginal()?.Id == currentGizmoTarget.Value)
+                            {
+                                currentIndex = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (isDoubleClick && currentIndex >= 0)
+                    {
+                        // ダブルクリック: 現在の選択から1階層下を選択
+                        if (currentIndex < hitPath.Count - 1)
+                        {
+                            // 1階層下を選択
+                            targetResource = hitPath[currentIndex + 1];
+                        }
+                        else
+                        {
+                            // 最深部の場合は維持
+                            targetResource = hitPath[currentIndex];
+                        }
+                    }
+                    else if (currentIndex >= 0)
+                    {
+                        // シングルクリック: 現在の選択がパスに含まれている場合は維持
+                        targetResource = hitPath[currentIndex];
+                    }
+                    else
+                    {
+                        // 現在の選択がパスに含まれていない場合はルートを選択
+                        targetResource = hitPath[0];
+                    }
+
+                    _selectedObject = targetResource?.GetOriginal();
 
                     if (_selectedObject != null)
                     {
