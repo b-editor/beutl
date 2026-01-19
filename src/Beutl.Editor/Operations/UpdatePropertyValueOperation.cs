@@ -59,7 +59,7 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
         }
         else if (updateExpression)
         {
-            if (engineProperty.IsAnimatable)
+            if (engineProperty.SupportsExpression)
             {
                 engineProperty.Expression = value as IExpression;
             }
