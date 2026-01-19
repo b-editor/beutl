@@ -16,6 +16,13 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
 
     public void ConfigurePaint(SKPaint paint)
     {
+        // Handle BrushPresenter by delegating to the target brush
+        if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
+        {
+            new BrushConstructor(Bounds, presenter.Target, BlendMode).ConfigurePaint(paint);
+            return;
+        }
+
         float opacity = (Brush?.Opacity ?? 0) / 100f;
         paint.IsAntialias = true;
         paint.BlendMode = (SKBlendMode)BlendMode;
@@ -46,6 +53,12 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
 
     public SKShader? CreateShader()
     {
+        // Handle BrushPresenter by delegating to the target brush
+        if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
+        {
+            return new BrushConstructor(Bounds, presenter.Target, BlendMode).CreateShader();
+        }
+
         float opacity = (Brush?.Opacity ?? 0) / 100f;
         if (Brush is SolidColorBrush.Resource solid)
         {
