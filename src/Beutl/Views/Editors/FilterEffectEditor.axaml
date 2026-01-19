@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Editors.FilterEffectEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
@@ -67,14 +68,17 @@
 
         <Panel x:Name="content"
                Grid.Row="1"
-               MinHeight="32">
-            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
+               MinHeight="24">
+            <TextBlock Margin="16,0,0,0"
+                       IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}"
+                       Text="{x:Static lang:Message.Property_is_unset}" />
 
-            <local:PropertiesEditor Margin="16,0,0,0"
-                                    Padding="0"
-                                    DataContext="{Binding Properties.Value}"
-                                    IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
-                                                                  Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <controls:TreeLineDecorator LineBrush="{DynamicResource TreeLineBrush}">
+                <local:PropertiesEditor Padding="0"
+                                        DataContext="{Binding Properties.Value}"
+                                        IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
+                                                                      Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </controls:TreeLineDecorator>
 
             <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
