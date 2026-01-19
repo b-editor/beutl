@@ -36,6 +36,8 @@ public class AnimatableProperty<T> : IProperty<T>
 
     public bool IsAnimatable { get; }
 
+    public bool SupportsExpression { get; } = true;
+
     public T DefaultValue { get; }
 
     public T CurrentValue

@@ -34,6 +34,8 @@ public interface IProperty : INotifyEdited
 
     bool IsAnimatable { get; }
 
+    bool SupportsExpression { get; }
+
     bool HasLocalValue { get; }
 
     bool HasExpression { get; }

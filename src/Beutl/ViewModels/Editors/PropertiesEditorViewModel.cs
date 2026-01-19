@@ -91,13 +91,18 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable
     private void InitializeEngineObject(EngineObject obj, Func<IProperty, bool>? predicate = null)
     {
         Type adapterType = typeof(EnginePropertyAdapter<>);
+        Type simpleAdapterType = typeof(SimplePropertyAdapter<>);
         Type animatableAdapterType = typeof(AnimatablePropertyAdapter<>);
 
         List<IProperty> cprops = [.. obj.Properties];
         cprops.RemoveAll(x => !(predicate?.Invoke(x) ?? true));
         List<IPropertyAdapter> props = cprops.ConvertAll(x =>
         {
-            Type determinedType = x.IsAnimatable ? animatableAdapterType : adapterType;
+            Type determinedType = x.IsAnimatable
+                ? animatableAdapterType
+                : x.SupportsExpression
+                    ? simpleAdapterType
+                    : adapterType;
             Type adapterGType = determinedType.MakeGenericType(x.ValueType);
             return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
         });
