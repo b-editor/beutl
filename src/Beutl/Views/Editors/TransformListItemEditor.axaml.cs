@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
-
+using Beutl.Graphics.Transformation;
 using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;
@@ -36,13 +36,39 @@ public partial class TransformListItemEditor : UserControl, IListItemEditor
             });
     }
 
-    public Control? ReorderHandle => reorderHandle;
+    public Control? ReorderHandle =>
+        (DataContext as TransformEditorViewModel)?.IsPresenter.Value == true
+            ? presenterReorderHandle
+            : reorderHandle;
 
     public event EventHandler? DeleteRequested;
 
     private void DeleteClick(object? sender, RoutedEventArgs e)
     {
         DeleteRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private async void SelectTarget_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not TransformEditorViewModel { IsDisposed: false } vm) return;
+
+        var targets = vm.GetAvailableTargets();
+        var pickerVm = new TargetPickerFlyoutViewModel();
+        pickerVm.Initialize(targets);
+
+        var flyout = new TargetPickerFlyout(pickerVm);
+        flyout.ShowAt(this);
+
+        var tcs = new TaskCompletionSource<Transform?>();
+        flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
+        flyout.Confirmed += (_, _) => tcs.TrySetResult(
+            (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as Transform);
+
+        var result = await tcs.Task;
+        if (result != null)
+        {
+            vm.SetTarget(result);
+        }
     }
 
     private sealed class TransformTypeToIconConverter : IValueConverter

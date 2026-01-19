@@ -2,6 +2,8 @@
 using Beutl.Animation;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.ProjectSystem;
+using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -62,6 +64,26 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             .Where(v => v != null)
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
+
+        IsPresenter = Value.Select(v => v is BrushPresenter)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        CurrentTargetName = Value.Select(v =>
+            {
+                if (v is BrushPresenter presenter)
+                {
+                    var target = presenter.Target.CurrentValue.Value;
+                    if (target != null)
+                    {
+                        return GetDisplayName(target);
+                    }
+                    return Message.Property_is_unset;
+                }
+                return null;
+            })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
     }
 
     private void AcceptChildren(PropertiesEditorViewModel? obj)
@@ -93,6 +115,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     public ReadOnlyReactivePropertySlim<bool> IsPerlinNoise { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsDrawable { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
@@ -168,6 +194,45 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
                 Commit();
             }
         }
+    }
+
+    public void SetTarget(Brush? target)
+    {
+        if (Value.Value is BrushPresenter presenter)
+        {
+            presenter.Target.CurrentValue = target != null
+                ? new Reference<Brush>(target)
+                : new Reference<Brush>();
+            Commit();
+        }
+    }
+
+    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
+    {
+        var scene = this.GetService<EditViewModel>()?.Scene;
+        if (scene == null) return [];
+
+        var searcher = new ObjectSearcher(scene, obj =>
+            obj is Brush && obj is not BrushPresenter);
+
+        return searcher.SearchAll()
+            .Cast<Brush>()
+            .Select(b => new TargetObjectInfo(GetDisplayName(b), b, GetOwnerElement(b)))
+            .ToList();
+    }
+
+    private static string GetDisplayName(CoreObject obj)
+    {
+        var element = (obj as IHierarchical)?.FindHierarchicalParent<Element>();
+        var typeName = LibraryService.Current.FindItem(obj.GetType())?.DisplayName
+            ?? obj.GetType().Name;
+
+        return element != null ? $"{element.Name} - {typeName}" : typeName;
+    }
+
+    private static Element? GetOwnerElement(CoreObject obj)
+    {
+        return (obj as IHierarchical)?.FindHierarchicalParent<Element>();
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)

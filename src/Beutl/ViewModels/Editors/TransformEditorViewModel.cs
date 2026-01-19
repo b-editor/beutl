@@ -3,6 +3,8 @@
 using Beutl.Animation;
 using Beutl.Graphics.Transformation;
 using Beutl.Operation;
+using Beutl.ProjectSystem;
+using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
@@ -132,6 +134,26 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
             .Where(v => v != null)
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
+
+        IsPresenter = Value.Select(v => v is TransformPresenter)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        CurrentTargetName = Value.Select(v =>
+            {
+                if (v is TransformPresenter presenter)
+                {
+                    var target = presenter.Target.CurrentValue.Value;
+                    if (target != null)
+                    {
+                        return GetDisplayName(target);
+                    }
+                    return Message.Property_is_unset;
+                }
+                return null;
+            })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<string?> TransformName { get; }
@@ -149,6 +171,10 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
     public ReactivePropertySlim<ListEditorViewModel<Transform?>?> Group { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -192,6 +218,45 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
     public void SetNull()
     {
         SetValue(Value.Value, null);
+    }
+
+    public void SetTarget(Transform? target)
+    {
+        if (Value.Value is TransformPresenter presenter)
+        {
+            presenter.Target.CurrentValue = target != null
+                ? new Reference<Transform>(target)
+                : new Reference<Transform>();
+            Commit();
+        }
+    }
+
+    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
+    {
+        var scene = this.GetService<EditViewModel>()?.Scene;
+        if (scene == null) return [];
+
+        var searcher = new ObjectSearcher(scene, obj =>
+            obj is Transform && obj is not TransformPresenter);
+
+        return searcher.SearchAll()
+            .Cast<Transform>()
+            .Select(t => new TargetObjectInfo(GetDisplayName(t), t, GetOwnerElement(t)))
+            .ToList();
+    }
+
+    private static string GetDisplayName(CoreObject obj)
+    {
+        var element = (obj as IHierarchical)?.FindHierarchicalParent<Element>();
+        var typeName = LibraryService.Current.FindItem(obj.GetType())?.DisplayName
+            ?? obj.GetType().Name;
+
+        return element != null ? $"{element.Name} - {typeName}" : typeName;
+    }
+
+    private static Element? GetOwnerElement(CoreObject obj)
+    {
+        return (obj as IHierarchical)?.FindHierarchicalParent<Element>();
     }
 
     public override void ReadFromJson(JsonObject json)

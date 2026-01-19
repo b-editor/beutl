@@ -358,4 +358,36 @@ public sealed partial class BrushEditor : UserControl
 
         expandToggle.IsChecked = true;
     }
+
+    private async void SelectTarget_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not BrushEditorViewModel { IsDisposed: false } vm) return;
+        if (_flyoutOpen) return;
+
+        try
+        {
+            _flyoutOpen = true;
+            var targets = vm.GetAvailableTargets();
+            var pickerVm = new TargetPickerFlyoutViewModel();
+            pickerVm.Initialize(targets);
+
+            var flyout = new TargetPickerFlyout(pickerVm);
+            flyout.ShowAt(this);
+
+            var tcs = new TaskCompletionSource<Brush?>();
+            flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
+            flyout.Confirmed += (_, _) => tcs.TrySetResult(
+                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as Brush);
+
+            var result = await tcs.Task;
+            if (result != null)
+            {
+                vm.SetTarget(result);
+            }
+        }
+        finally
+        {
+            _flyoutOpen = false;
+        }
+    }
 }

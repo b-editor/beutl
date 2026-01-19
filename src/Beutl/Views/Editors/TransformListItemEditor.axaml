@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Editors.TransformListItemEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:local="using:Beutl.Views.Editors"
@@ -11,7 +12,9 @@
              d:DesignWidth="400"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid Margin="8,0,0,0" ColumnDefinitions="*,Auto,Auto">
+        <Grid Margin="8,0,0,0"
+              ColumnDefinitions="*,Auto,Auto"
+              IsVisible="{Binding !IsPresenter.Value}">
             <ToggleButton x:Name="reorderHandle"
                           Content="{Binding TransformName.Value}"
                           Cursor="SizeNorthSouth"
@@ -39,7 +42,39 @@
             </Button>
         </Grid>
 
-        <Panel x:Name="content" Grid.Row="2">
+        <Grid Margin="8,0,0,0"
+              ColumnDefinitions="Auto,*,Auto,Auto"
+              IsVisible="{Binding IsPresenter.Value}">
+            <Border x:Name="presenterReorderHandle"
+                    Cursor="SizeNorthSouth"
+                    Theme="{StaticResource PropertyEditorReorderHandle}" />
+
+            <DropDownButton Grid.Column="1"
+                            Margin="0,4"
+                            HorizontalAlignment="Stretch"
+                            Click="SelectTarget_Click"
+                            Content="{Binding CurrentTargetName.Value}" />
+
+            <ToggleButton Grid.Column="2"
+                          Margin="4,0,0,0"
+                          Padding="0"
+                          Classes="size-24x24"
+                          IsChecked="{Binding IsEnabled.Value}"
+                          Theme="{StaticResource VisibilityToggleButtonStyle}" />
+
+            <Button Grid.Column="3"
+                    Margin="4,0,8,0"
+                    Padding="0"
+                    Classes="size-24x24"
+                    Click="DeleteClick"
+                    Theme="{StaticResource TransparentButton}">
+                <icons:SymbolIcon Symbol="Delete" />
+            </Button>
+        </Grid>
+
+        <Panel x:Name="content"
+               Grid.Row="1"
+               IsVisible="{Binding !IsPresenter.Value}">
             <local:PropertiesEditor Margin="16,0,0,0"
                                     Padding="0"
                                     DataContext="{Binding Properties.Value}"
