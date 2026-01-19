@@ -55,18 +55,18 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             using var props = new PooledList<IPropertyAdapter>();
             Span<IPropertyAdapter> span = props.AddSpan(4);
             span[0] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.Thickness, pen);
-            span[1] = new EnginePropertyAdapter<StrokeJoin>(pen.StrokeJoin, pen);
-            span[2] = new EnginePropertyAdapter<StrokeAlignment>(pen.StrokeAlignment, pen);
-            span[3] = new EnginePropertyAdapter<Brush?>(pen.Brush, pen);
+            span[1] = new SimplePropertyAdapter<StrokeJoin>((SimpleProperty<StrokeJoin>)pen.StrokeJoin, pen);
+            span[2] = new SimplePropertyAdapter<StrokeAlignment>((SimpleProperty<StrokeAlignment>)pen.StrokeAlignment, pen);
+            span[3] = new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)pen.Brush, pen);
 
             CreateContexts(props, MajorProperties);
 
             props.Clear();
             span = props.AddSpan(4);
             span[0] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.MiterLimit, pen);
-            span[1] = new EnginePropertyAdapter<StrokeCap>(pen.StrokeCap, pen);
-            span[2] = new EnginePropertyAdapter<CoreList<float>?>(pen.DashArray, pen);
-            span[3] = new EnginePropertyAdapter<float>(pen.DashOffset, pen);
+            span[1] = new SimplePropertyAdapter<StrokeCap>((SimpleProperty<StrokeCap>)pen.StrokeCap, pen);
+            span[2] = new SimplePropertyAdapter<CoreList<float>?>((SimpleProperty<CoreList<float>?>)pen.DashArray, pen);
+            span[3] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.DashOffset, pen);
 
             CreateContexts(props, MinorProperties);
         }

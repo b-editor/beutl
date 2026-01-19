@@ -16,12 +16,16 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
     private PropertyInfo? _propertyInfo;
     private string? _name;
     private EngineObject? _owner;
+    private IExpression<T>? _expression;
+    private PropertyLookup? _propertyLookup;
 
     public string Name => _name ?? throw new InvalidOperationException("Property is not initialized.");
 
     public Type ValueType { get; } = typeof(T);
 
     public bool IsAnimatable { get; } = false;
+
+    public bool SupportsExpression { get; } = true;
 
     public T DefaultValue { get; } = defaultValue;
 
@@ -71,20 +75,21 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
 
     public IExpression<T>? Expression
     {
-        get => null;
+        get => _expression;
         set
         {
-            if (value != null)
+            if (_expression != value)
             {
-                throw new InvalidOperationException(
-                    $"Property '{Name}' does not support expressions. Use Property.CreateAnimatable<T>() to create animatable properties.");
+                _expression = value;
+                ExpressionChanged?.Invoke(_expression);
+                Edited?.Invoke(this, EventArgs.Empty);
             }
         }
     }
 
     public bool HasLocalValue { get; private set; }
 
-    public bool HasExpression => false;
+    public bool HasExpression => _expression != null;
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
@@ -104,7 +109,35 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
 
     public T GetValue(RenderContext context)
     {
-        // SimplePropertyは式をサポートしないため、常に現在値を返す
+        if (_expression != null)
+        {
+            _propertyLookup ??= new PropertyLookup(
+                _owner?.FindHierarchicalRoot() as ICoreObject ?? BeutlApplication.Current);
+
+            ExpressionContext expressionContext;
+            if (context is ExpressionContext ec)
+            {
+                if (ec.IsEvaluating(this))
+                    return DefaultValue;
+                expressionContext = ec;
+            }
+            else
+            {
+                expressionContext = new ExpressionContext(context.Time, this, _propertyLookup);
+            }
+
+            expressionContext.BeginEvaluation(this);
+            try
+            {
+                T value = _expression.Evaluate(expressionContext);
+                return ValidateAndCoerce(value);
+            }
+            finally
+            {
+                expressionContext.EndEvaluation(this);
+            }
+        }
+
         return _currentValue;
     }
 
@@ -134,6 +167,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
     public void SetOwnerObject(EngineObject? owner)
     {
         if (_owner == owner) return;
+        _propertyLookup = null;
 
         if (owner is IModifiableHierarchical ownerHierarchical)
         {
@@ -184,12 +218,15 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
     {
         CurrentValue = DefaultValue;
         HasLocalValue = false;
+        Expression = null;
     }
 
     public bool HasValidator => _validator != null;
 
     public override string ToString() =>
-        $"{Name}: {_currentValue} (Default: {DefaultValue}, Simple)";
+        _expression != null
+            ? $"{Name}: {_currentValue} (Default: {DefaultValue}, Simple, Expression: {_expression.ExpressionString})"
+            : $"{Name}: {_currentValue} (Default: {DefaultValue}, Simple)";
 
     public void DeserializeValue(ICoreSerializationContext context)
     {

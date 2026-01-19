@@ -56,6 +56,8 @@ public class ListProperty<T> : IListProperty<T>
 
     public bool IsAnimatable => false;
 
+    public bool SupportsExpression => false;
+
     public ICoreList<T> DefaultValue => null!;
 
     public ICoreList<T> CurrentValue
