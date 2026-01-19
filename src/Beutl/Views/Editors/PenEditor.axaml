@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Editors.PenEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
@@ -40,9 +41,10 @@
             </ToggleButton.Tag>
         </ToggleButton>
 
-        <StackPanel x:Name="content"
-                    Grid.Row="1"
-                    Margin="16,0,0,0">
+        <controls:TreeLineDecorator x:Name="content"
+                                     Grid.Row="1"
+                                     LineBrush="{DynamicResource TreeLineBrush}">
+            <StackPanel>
             <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
 
             <ItemsControl ItemsSource="{Binding MajorProperties}">
@@ -72,6 +74,7 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-        </StackPanel>
+            </StackPanel>
+        </controls:TreeLineDecorator>
     </Grid>
 </UserControl>

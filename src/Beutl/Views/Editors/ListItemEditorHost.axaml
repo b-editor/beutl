@@ -10,7 +10,7 @@
              d:DesignWidth="400"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid ColumnDefinitions="Auto,*,Auto">
+        <Grid Margin="8,0,0,0" ColumnDefinitions="Auto,*,Auto">
             <Border Name="reorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
 
             <TextBlock Grid.Column="1"

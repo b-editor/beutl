@@ -8,6 +8,7 @@
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
 
     <pe:GradingColorBrushConverter x:Key="GradingColorBrushConv" />
+    <SolidColorBrush x:Key="TreeLineBrush" Color="{DynamicResource TextFillColorTertiary}" Opacity="0.3" />
     <Design.PreviewWith>
         <Border Width="300">
             <ToggleButton Margin="8,4"

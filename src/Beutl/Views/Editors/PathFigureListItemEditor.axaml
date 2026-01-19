@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Editors.PathFigureListItemEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
@@ -15,7 +16,7 @@
              Background="Transparent"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid ColumnDefinitions="*,Auto">
+        <Grid Margin="8,0,0,0" ColumnDefinitions="*,Auto">
             <ToggleButton x:Name="reorderHandle"
                           Cursor="SizeNorthSouth"
                           IsChecked="{Binding IsExpanded.Value}"
@@ -92,7 +93,7 @@
 
         <StackPanel x:Name="content"
                     Grid.Row="1"
-                    MinHeight="32"
+                    MinHeight="24"
                     Margin="16,0,0,0">
             <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
 
@@ -101,13 +102,18 @@
                                     IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
                                                                   Converter={x:Static ObjectConverters.IsNotNull}}" />
 
-            <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <local:ListItemEditor />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+
+            <controls:TreeLineDecorator LineBrush="{DynamicResource TreeLineBrush}">
+                <ItemsControl Margin="-16,0,0,0"
+                              DataContext="{Binding Group.Value}"
+                              ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <local:ListItemEditor />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </controls:TreeLineDecorator>
         </StackPanel>
     </Grid>
 </UserControl>
