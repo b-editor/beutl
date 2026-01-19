@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Graphics.Effects;
 using Beutl.Language;
 using Beutl.Models;
 using Beutl.Services;
@@ -170,5 +171,37 @@ public partial class FilterEffectEditor : UserControl
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
         viewModel.SetNull();
+    }
+
+    private async void SelectTarget_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } vm) return;
+        if (_flyoutOpen) return;
+
+        try
+        {
+            _flyoutOpen = true;
+            var targets = vm.GetAvailableTargets();
+            var pickerVm = new TargetPickerFlyoutViewModel();
+            pickerVm.Initialize(targets);
+
+            var flyout = new TargetPickerFlyout(pickerVm);
+            flyout.ShowAt(this);
+
+            var tcs = new TaskCompletionSource<FilterEffect?>();
+            flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
+            flyout.Confirmed += (_, _) => tcs.TrySetResult(
+                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as FilterEffect);
+
+            var result = await tcs.Task;
+            if (result != null)
+            {
+                vm.SetTarget(result);
+            }
+        }
+        finally
+        {
+            _flyoutOpen = false;
+        }
     }
 }

@@ -3,6 +3,7 @@ using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Helpers;
 using Beutl.Operation;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -93,6 +94,26 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .Where(v => v != null)
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
+
+        IsPresenter = Value.Select(v => v is FilterEffectPresenter)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        CurrentTargetName = Value.Select(v =>
+            {
+                if (v is FilterEffectPresenter presenter)
+                {
+                    var target = presenter.Target.CurrentValue.Value;
+                    if (target != null)
+                    {
+                        return GetDisplayName(target);
+                    }
+                    return Message.Property_is_unset;
+                }
+                return null;
+            })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<string?> FilterName { get; }
@@ -112,6 +133,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
     public ReactivePropertySlim<ListEditorViewModel<FilterEffect>?> Group { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -154,6 +179,45 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     public void SetNull()
     {
         SetValue(Value.Value, null);
+    }
+
+    public void SetTarget(FilterEffect? target)
+    {
+        if (Value.Value is FilterEffectPresenter presenter)
+        {
+            presenter.Target.CurrentValue = target != null
+                ? new Reference<FilterEffect>(target)
+                : new Reference<FilterEffect>();
+            Commit();
+        }
+    }
+
+    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
+    {
+        var scene = this.GetService<EditViewModel>()?.Scene;
+        if (scene == null) return [];
+
+        var searcher = new ObjectSearcher(scene, obj =>
+            obj is FilterEffect && obj is not FilterEffectPresenter);
+
+        return searcher.SearchAll()
+            .Cast<FilterEffect>()
+            .Select(fe => new TargetObjectInfo(GetDisplayName(fe), fe, GetOwnerElement(fe)))
+            .ToList();
+    }
+
+    private static string GetDisplayName(CoreObject obj)
+    {
+        var element = (obj as IHierarchical)?.FindHierarchicalParent<Element>();
+        var typeName = LibraryService.Current.FindItem(obj.GetType())?.DisplayName
+            ?? obj.GetType().Name;
+
+        return element != null ? $"{element.Name} - {typeName}" : typeName;
+    }
+
+    private static Element? GetOwnerElement(CoreObject obj)
+    {
+        return (obj as IHierarchical)?.FindHierarchicalParent<Element>();
     }
 
     public override void ReadFromJson(JsonObject json)
