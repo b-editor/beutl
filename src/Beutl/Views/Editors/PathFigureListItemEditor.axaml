@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Editors.PathFigureListItemEditor"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
@@ -101,13 +102,18 @@
                                     IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
                                                                   Converter={x:Static ObjectConverters.IsNotNull}}" />
 
-            <ItemsControl DataContext="{Binding Group.Value}" ItemsSource="{Binding Items}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <local:ListItemEditor />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+
+            <controls:TreeLineDecorator LineBrush="{DynamicResource TreeLineBrush}">
+                <ItemsControl Margin="-16,0,0,0"
+                              DataContext="{Binding Group.Value}"
+                              ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <local:ListItemEditor />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </controls:TreeLineDecorator>
         </StackPanel>
     </Grid>
 </UserControl>
