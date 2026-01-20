@@ -4,7 +4,7 @@ using Beutl.Graphics.Rendering;
 namespace Beutl.Media;
 
 [SuppressResourceClassGeneration]
-public sealed class BrushPresenter : Brush
+public sealed class BrushPresenter : Brush, IPresenter<Brush>
 {
     public BrushPresenter()
     {
