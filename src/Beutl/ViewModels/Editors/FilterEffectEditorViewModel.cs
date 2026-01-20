@@ -99,19 +99,11 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        CurrentTargetName = Value.Select(v =>
-            {
-                if (v is FilterEffectPresenter presenter)
-                {
-                    var target = presenter.Target.CurrentValue.Value;
-                    if (target != null)
-                    {
-                        return GetDisplayName(target);
-                    }
-                    return Message.Property_is_unset;
-                }
-                return null;
-            })
+        CurrentTargetName = Value.Select(v => v is FilterEffectPresenter presenter
+                ? presenter.Target.SubscribeCurrentValueChange()
+                : Observable.ReturnThenNever<Reference<FilterEffect>>(default))
+            .Switch()
+            .Select(r => r.Value != null ? GetDisplayName(r.Value) : Message.Property_is_unset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -210,7 +202,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     {
         var element = (obj as IHierarchical)?.FindHierarchicalParent<Element>();
         var typeName = LibraryService.Current.FindItem(obj.GetType())?.DisplayName
-            ?? obj.GetType().Name;
+                       ?? obj.GetType().Name;
 
         return element != null ? $"{element.Name} - {typeName}" : typeName;
     }

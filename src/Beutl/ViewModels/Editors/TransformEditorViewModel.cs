@@ -139,19 +139,11 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        CurrentTargetName = Value.Select(v =>
-            {
-                if (v is TransformPresenter presenter)
-                {
-                    var target = presenter.Target.CurrentValue.Value;
-                    if (target != null)
-                    {
-                        return GetDisplayName(target);
-                    }
-                    return Message.Property_is_unset;
-                }
-                return null;
-            })
+        CurrentTargetName = Value.Select(v => v is TransformPresenter presenter
+                ? presenter.Target.SubscribeCurrentValueChange()
+                : Observable.ReturnThenNever<Reference<Transform>>(default))
+            .Switch()
+            .Select(r => r.Value != null ? GetDisplayName(r.Value) : Message.Property_is_unset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }

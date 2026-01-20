@@ -69,19 +69,11 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        CurrentTargetName = Value.Select(v =>
-            {
-                if (v is BrushPresenter presenter)
-                {
-                    var target = presenter.Target.CurrentValue.Value;
-                    if (target != null)
-                    {
-                        return GetDisplayName(target);
-                    }
-                    return Message.Property_is_unset;
-                }
-                return null;
-            })
+        CurrentTargetName = Value.Select(v => v is BrushPresenter presenter
+                ? presenter.Target.SubscribeCurrentValueChange()
+                : Observable.ReturnThenNever<Reference<Brush>>(default))
+            .Switch()
+            .Select(r => r.Value != null ? GetDisplayName(r.Value) : Message.Property_is_unset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
