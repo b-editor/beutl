@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -65,11 +66,11 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
 
-        IsPresenter = Value.Select(v => v is BrushPresenter)
+        IsPresenter = Value.Select(v => v is IPresenter<Brush>)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        CurrentTargetName = Value.Select(v => v is BrushPresenter presenter
+        CurrentTargetName = Value.Select(v => v is IPresenter<Brush> presenter
                 ? presenter.Target.SubscribeCurrentValueChange()
                 : Observable.ReturnThenNever<Reference<Brush>>(default))
             .Switch()
@@ -190,7 +191,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
     public void SetTarget(Brush? target)
     {
-        if (Value.Value is BrushPresenter presenter)
+        if (Value.Value is IPresenter<Brush> presenter)
         {
             presenter.Target.CurrentValue = target != null
                 ? new Reference<Brush>(target)
@@ -205,7 +206,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         if (scene == null) return [];
 
         var searcher = new ObjectSearcher(scene, obj =>
-            obj is Brush && obj is not BrushPresenter);
+            obj is Brush && obj is not IPresenter<Brush>);
 
         return searcher.SearchAll()
             .Cast<Brush>()

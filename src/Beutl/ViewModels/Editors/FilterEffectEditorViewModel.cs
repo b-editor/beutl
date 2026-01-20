@@ -95,11 +95,11 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
 
-        IsPresenter = Value.Select(v => v is FilterEffectPresenter)
+        IsPresenter = Value.Select(v => v is IPresenter<FilterEffect>)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        CurrentTargetName = Value.Select(v => v is FilterEffectPresenter presenter
+        CurrentTargetName = Value.Select(v => v is IPresenter<FilterEffect> presenter
                 ? presenter.Target.SubscribeCurrentValueChange()
                 : Observable.ReturnThenNever<Reference<FilterEffect>>(default))
             .Switch()
@@ -175,7 +175,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public void SetTarget(FilterEffect? target)
     {
-        if (Value.Value is FilterEffectPresenter presenter)
+        if (Value.Value is IPresenter<FilterEffect> presenter)
         {
             presenter.Target.CurrentValue = target != null
                 ? new Reference<FilterEffect>(target)
@@ -190,7 +190,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         if (scene == null) return [];
 
         var searcher = new ObjectSearcher(scene, obj =>
-            obj is FilterEffect && obj is not FilterEffectPresenter);
+            obj is FilterEffect && obj is not IPresenter<FilterEffect>);
 
         return searcher.SearchAll()
             .Cast<FilterEffect>()

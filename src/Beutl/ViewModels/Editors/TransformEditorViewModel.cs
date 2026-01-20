@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Graphics.Transformation;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
@@ -135,11 +136,11 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
 
-        IsPresenter = Value.Select(v => v is TransformPresenter)
+        IsPresenter = Value.Select(v => v is IPresenter<Transform>)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        CurrentTargetName = Value.Select(v => v is TransformPresenter presenter
+        CurrentTargetName = Value.Select(v => v is IPresenter<Transform> presenter
                 ? presenter.Target.SubscribeCurrentValueChange()
                 : Observable.ReturnThenNever<Reference<Transform>>(default))
             .Switch()
@@ -214,7 +215,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
 
     public void SetTarget(Transform? target)
     {
-        if (Value.Value is TransformPresenter presenter)
+        if (Value.Value is IPresenter<Transform> presenter)
         {
             presenter.Target.CurrentValue = target != null
                 ? new Reference<Transform>(target)
@@ -229,7 +230,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
         if (scene == null) return [];
 
         var searcher = new ObjectSearcher(scene, obj =>
-            obj is Transform && obj is not TransformPresenter);
+            obj is Transform && obj is not IPresenter<Transform>);
 
         return searcher.SearchAll()
             .Cast<Transform>()
