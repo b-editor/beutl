@@ -4,7 +4,7 @@ using Beutl.Graphics.Rendering;
 namespace Beutl.Graphics.Effects;
 
 [SuppressResourceClassGeneration]
-public sealed class FilterEffectPresenter : FilterEffect
+public sealed class FilterEffectPresenter : FilterEffect, IPresenter<FilterEffect>
 {
     public FilterEffectPresenter()
     {

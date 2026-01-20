@@ -4,7 +4,7 @@ using Beutl.Graphics.Rendering;
 namespace Beutl.Graphics;
 
 [SuppressResourceClassGeneration]
-public sealed class DrawablePresenter : Drawable
+public sealed class DrawablePresenter : Drawable, IPresenter<Drawable>
 {
     public DrawablePresenter()
     {

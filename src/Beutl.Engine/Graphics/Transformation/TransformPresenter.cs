@@ -4,7 +4,7 @@ using Beutl.Graphics.Rendering;
 namespace Beutl.Graphics.Transformation;
 
 [SuppressResourceClassGeneration]
-public sealed class TransformPresenter : Transform
+public sealed class TransformPresenter : Transform, IPresenter<Transform>
 {
     public TransformPresenter()
     {
