@@ -52,6 +52,15 @@ public static class AvaloniaTypeConverter
         return new GradientStop.Resource { Color = obj.Color.ToMedia(), Offset = (float)obj.Offset, };
     }
 
+    public static IObservable<T> SubscribeCurrentValueChange<T>(this IProperty<T> property)
+    {
+        return Observable.FromEventPattern<PropertyValueChangedEventArgs<T>>(
+                h => property.ValueChanged += h,
+                h => property.ValueChanged -= h)
+            .Select(s => s.EventArgs.NewValue)
+            .Publish(property.CurrentValue).RefCount();
+    }
+
     public static IObservable<T> SubscribeEngineProperty<T>(
         this IProperty<T> property, EngineObject obj, IObservable<TimeSpan> time)
     {
