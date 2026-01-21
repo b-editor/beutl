@@ -49,7 +49,7 @@ public partial class FilterEffectListItemEditor : UserControl, IListItemEditor
 
     public Control? ReorderHandle =>
         (DataContext as FilterEffectEditorViewModel)?.IsPresenter.Value == true
-            ? presenterReorderHandle
+            ? presenterEditor.ReorderHandle
             : reorderHandle;
 
     public event EventHandler? DeleteRequested;
@@ -59,7 +59,7 @@ public partial class FilterEffectListItemEditor : UserControl, IListItemEditor
         DeleteRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    private async void SelectTarget_Click(object? sender, RoutedEventArgs e)
+    private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } vm) return;
 

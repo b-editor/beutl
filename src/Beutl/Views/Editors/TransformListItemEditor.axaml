@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:local="using:Beutl.Views.Editors"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
@@ -42,35 +43,29 @@
             </Button>
         </Grid>
 
-        <Grid Margin="8,0,0,0"
-              ColumnDefinitions="Auto,*,Auto,Auto"
-              IsVisible="{Binding IsPresenter.Value}">
-            <Border x:Name="presenterReorderHandle"
-                    Cursor="SizeNorthSouth"
-                    Theme="{StaticResource PropertyEditorReorderHandle}" />
-
-            <DropDownButton Grid.Column="1"
-                            Margin="0,4"
-                            HorizontalAlignment="Stretch"
-                            Click="SelectTarget_Click"
-                            Content="{Binding CurrentTargetName.Value}" />
-
-            <ToggleButton Grid.Column="2"
-                          Margin="4,0,0,0"
-                          Padding="0"
-                          Classes="size-24x24"
-                          IsChecked="{Binding IsEnabled.Value}"
-                          Theme="{StaticResource VisibilityToggleButtonStyle}" />
-
-            <Button Grid.Column="3"
-                    Margin="4,0,8,0"
-                    Padding="0"
-                    Classes="size-24x24"
-                    Click="DeleteClick"
-                    Theme="{StaticResource TransparentButton}">
-                <icons:SymbolIcon Symbol="Delete" />
-            </Button>
-        </Grid>
+        <pe:ReferenceEditor x:Name="presenterEditor"
+                             Margin="8,0,0,0"
+                             EditorStyle="ListItem"
+                             IsVisible="{Binding IsPresenter.Value}"
+                             TargetName="{Binding CurrentTargetName.Value}"
+                             SelectTargetRequested="SelectTarget_Requested">
+            <pe:ReferenceEditor.MenuContent>
+                <StackPanel Orientation="Horizontal">
+                    <ToggleButton Margin="4,0,0,0"
+                                  Padding="0"
+                                  Classes="size-24x24"
+                                  IsChecked="{Binding IsEnabled.Value}"
+                                  Theme="{StaticResource VisibilityToggleButtonStyle}" />
+                    <Button Margin="4,0,8,0"
+                            Padding="0"
+                            Classes="size-24x24"
+                            Click="DeleteClick"
+                            Theme="{StaticResource TransparentButton}">
+                        <icons:SymbolIcon Symbol="Delete" />
+                    </Button>
+                </StackPanel>
+            </pe:ReferenceEditor.MenuContent>
+        </pe:ReferenceEditor>
 
         <Panel x:Name="content"
                Grid.Row="1"

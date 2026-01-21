@@ -3237,6 +3237,12 @@ namespace Beutl.Language {
             }
         }
         
+        public static string Presenter {
+            get {
+                return ResourceManager.GetString("Presenter", resourceCulture);
+            }
+        }
+        
         public static string Script {
             get {
                 return ResourceManager.GetString("Script", resourceCulture);

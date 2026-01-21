@@ -7,6 +7,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
              x:Name="root"
@@ -61,49 +62,30 @@
             <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Transform}" />
         </ToggleButton>
 
-        <Grid Margin="8,0" IsVisible="{Binding IsPresenter.Value}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <TextBlock Margin="4,0,0,0"
-                       HorizontalAlignment="Left"
-                       VerticalAlignment="Center"
-                       ClipToBounds="False"
-                       Text="{Binding Header, FallbackValue=Transform}"
-                       TextTrimming="CharacterEllipsis" />
-
-            <GridSplitter Grid.Column="1" Background="Transparent" />
-
-            <DropDownButton x:Name="targetPickerButton"
-                            Grid.Column="2"
-                            MinWidth="120"
-                            Margin="4"
-                            HorizontalAlignment="Stretch"
-                            Click="SelectTarget_Click"
-                            Content="{Binding CurrentTargetName.Value}" />
-
-            <Button Grid.Column="3"
-                    Padding="0"
-                    Classes="size-24x24"
-                    Theme="{StaticResource TransparentButton}">
-                <Button.Flyout>
-                    <ui:FAMenuFlyout>
-                        <ui:MenuFlyoutSubItem x:Name="PresenterChangeTypeMenu"
-                                              FontWeight="Normal"
-                                              IconSource="New"
-                                              Text="{x:Static lang:Strings.Change}" />
-                        <ui:MenuFlyoutItem Click="SetNullClick"
-                                           FontWeight="Normal"
-                                           Text="{x:Static lang:Strings.Null}" />
-                    </ui:FAMenuFlyout>
-                </Button.Flyout>
-                <icons:SymbolIcon Symbol="MoreVertical" />
-            </Button>
-        </Grid>
+        <pe:ReferenceEditor Header="{Binding Header, FallbackValue=Transform}"
+                            IsVisible="{Binding IsPresenter.Value}"
+                            SelectTargetRequested="SelectTarget_Requested"
+                            TargetName="{Binding CurrentTargetName.Value}">
+            <pe:ReferenceEditor.MenuContent>
+                <Button Margin="0,0,4,0"
+                        Padding="0"
+                        Classes="size-24x24"
+                        Theme="{StaticResource TransparentButton}">
+                    <Button.Flyout>
+                        <ui:FAMenuFlyout>
+                            <ui:MenuFlyoutSubItem x:Name="PresenterChangeTypeMenu"
+                                                  FontWeight="Normal"
+                                                  IconSource="New"
+                                                  Text="{x:Static lang:Strings.Change}" />
+                            <ui:MenuFlyoutItem Click="SetNullClick"
+                                               FontWeight="Normal"
+                                               Text="{x:Static lang:Strings.Null}" />
+                        </ui:FAMenuFlyout>
+                    </Button.Flyout>
+                    <icons:SymbolIcon Symbol="MoreVertical" />
+                </Button>
+            </pe:ReferenceEditor.MenuContent>
+        </pe:ReferenceEditor>
 
         <Panel x:Name="content"
                Grid.Row="1"

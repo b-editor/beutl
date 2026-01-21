@@ -173,7 +173,7 @@ public partial class FilterEffectEditor : UserControl
         viewModel.SetNull();
     }
 
-    private async void SelectTarget_Click(object? sender, RoutedEventArgs e)
+    private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } vm) return;
         if (_flyoutOpen) return;
