@@ -233,6 +233,12 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
         var optional = context.GetValue<Optional<T>>(Name);
         if (optional.HasValue)
         {
+            if (optional.Value is IReference { IsNull: false } reference)
+            {
+                context.Resolve(reference.Id,
+                    resolved => CurrentValue = (T)reference.Resolved((CoreObject)resolved));
+            }
+
             CurrentValue = optional.Value;
         }
     }
