@@ -71,14 +71,10 @@
                                             HorizontalAlignment="Stretch"
                                             Content="{TemplateBinding TargetName}" />
 
-                            <Button Name="PART_DeleteButton"
-                                    Grid.Column="2"
-                                    Margin="4,0"
-                                    Padding="0"
-                                    Classes="size-24x24"
-                                    Theme="{StaticResource TransparentButton}">
-                                <icons:SymbolIcon VerticalAlignment="Center" Symbol="Delete" />
-                            </Button>
+                            <ContentPresenter Name="PART_MenuContentPresenter"
+                                              Grid.Column="2"
+                                              Content="{TemplateBinding MenuContent}"
+                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
                         </Grid>
                     </Border>
                 </ControlTemplate>
