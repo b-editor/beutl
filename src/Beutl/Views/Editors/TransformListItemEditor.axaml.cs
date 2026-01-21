@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Graphics.Transformation;
 using Beutl.ViewModels.Editors;
 
@@ -11,6 +12,11 @@ namespace Beutl.Views.Editors;
 
 public partial class TransformListItemEditor : UserControl, IListItemEditor
 {
+    public static readonly DirectProperty<TransformListItemEditor, Control?> ReorderHandleProperty =
+        AvaloniaProperty.RegisterDirect<TransformListItemEditor, Control?>(
+            nameof(ReorderHandle),
+            o => o.ReorderHandle);
+
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(167));
     private CancellationTokenSource? _lastTransitionCts;
 
@@ -34,12 +40,27 @@ public partial class TransformListItemEditor : UserControl, IListItemEditor
                     await s_transition.Start(content, null, localToken);
                 }
             });
+
+        this.GetObservable(DataContextProperty)
+            .Select(x => x as TransformEditorViewModel)
+            .Select(x => x?.IsPresenter ?? Observable.Return(false))
+            .Switch()
+            .CombineLatest(presenterEditor.GetObservable(PropertyEditor.ReorderHandleProperty))
+            .Subscribe(t => UpdateReorderHandle(t.First, t.Second));
     }
 
-    public Control? ReorderHandle =>
-        (DataContext as TransformEditorViewModel)?.IsPresenter.Value == true
-            ? presenterEditor.ReorderHandle
+    public Control? ReorderHandle
+    {
+        get;
+        private set => SetAndRaise(ReorderHandleProperty, ref field, value);
+    }
+
+    private void UpdateReorderHandle(bool isPresenter, Control? presenterReorderHandle)
+    {
+        ReorderHandle = isPresenter
+            ? presenterReorderHandle
             : reorderHandle;
+    }
 
     public event EventHandler? DeleteRequested;
 
