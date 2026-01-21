@@ -21,6 +21,7 @@ public enum KnownTransformType
     Scale,
     Skew,
     Rotation3D,
+    Presenter
 }
 
 public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
@@ -35,6 +36,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
             ScaleTransform => KnownTransformType.Scale,
             SkewTransform => KnownTransformType.Skew,
             Rotation3DTransform => KnownTransformType.Rotation3D,
+            IPresenter<Transform> => KnownTransformType.Presenter,
             _ => KnownTransformType.Unknown
         };
     }
@@ -49,6 +51,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
             KnownTransformType.Scale => new ScaleTransform(),
             KnownTransformType.Skew => new SkewTransform(),
             KnownTransformType.Rotation3D => new Rotation3DTransform(),
+            KnownTransformType.Presenter => new TransformPresenter(),
             _ => null
         };
     }
@@ -63,6 +66,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
             KnownTransformType.Scale => Strings.Scale,
             KnownTransformType.Skew => Strings.Skew,
             KnownTransformType.Rotation3D => Strings.Rotation3D,
+            KnownTransformType.Presenter => Strings.Presenter,
             _ => "Null"
         };
     }

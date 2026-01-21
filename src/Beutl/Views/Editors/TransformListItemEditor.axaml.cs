@@ -38,7 +38,7 @@ public partial class TransformListItemEditor : UserControl, IListItemEditor
 
     public Control? ReorderHandle =>
         (DataContext as TransformEditorViewModel)?.IsPresenter.Value == true
-            ? presenterReorderHandle
+            ? presenterEditor.ReorderHandle
             : reorderHandle;
 
     public event EventHandler? DeleteRequested;
@@ -48,7 +48,7 @@ public partial class TransformListItemEditor : UserControl, IListItemEditor
         DeleteRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    private async void SelectTarget_Click(object? sender, RoutedEventArgs e)
+    private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not TransformEditorViewModel { IsDisposed: false } vm) return;
 

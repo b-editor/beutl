@@ -260,6 +260,10 @@ public sealed partial class BrushEditor : UserControl
         {
             viewModel.SetValue(viewModel.Value.Value, new DrawableBrush());
         }
+        else if (e == BrushType.Presenter)
+        {
+            viewModel.SetValue(viewModel.Value.Value, new BrushPresenter());
+        }
     }
 
     private void OnColorConfirmed(object? sender, (Color2 OldValue, Color2 NewValue) e)
@@ -352,6 +356,7 @@ public sealed partial class BrushEditor : UserControl
                 "ConicGradient" => BrushType.ConicGradientBrush,
                 "RadialGradient" => BrushType.RadialGradientBrush,
                 "Drawable" => BrushType.DrawableBrush,
+                "Presenter" => BrushType.Presenter,
                 _ => BrushType.Null
             });
         }
@@ -359,7 +364,7 @@ public sealed partial class BrushEditor : UserControl
         expandToggle.IsChecked = true;
     }
 
-    private async void SelectTarget_Click(object? sender, RoutedEventArgs e)
+    private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not BrushEditorViewModel { IsDisposed: false } vm) return;
         if (_flyoutOpen) return;

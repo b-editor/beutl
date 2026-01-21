@@ -109,6 +109,7 @@ public partial class TransformEditor : UserControl
             (KnownTransformType.Scale, Strings.Scale, "ScaleTransformIconData"),
             (KnownTransformType.Skew, Strings.Skew, "SkewTransformIconData"),
             (KnownTransformType.Rotation3D, Strings.Rotation3D, "Rotation3DTransformIconData"),
+            (KnownTransformType.Presenter, Strings.Presenter, null)
         };
         return items.Select(x =>
             {
@@ -194,7 +195,7 @@ public partial class TransformEditor : UserControl
         }
     }
 
-    private async void SelectTarget_Click(object? sender, RoutedEventArgs e)
+    private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not TransformEditorViewModel { IsDisposed: false } vm) return;
 
