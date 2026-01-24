@@ -1728,4 +1728,13 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Delay" xml:space="preserve">
     <value>ディレイ</value>
   </data>
+  <data name="Script" xml:space="preserve">
+    <value>スクリプト</value>
+  </data>
+  <data name="SKSLScriptEffect" xml:space="preserve">
+    <value>SKSLスクリプト</value>
+  </data>
+  <data name="CSharpScriptEffect" xml:space="preserve">
+    <value>C#スクリプト</value>
+  </data>
 </root>
