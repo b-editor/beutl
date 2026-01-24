@@ -11,11 +11,11 @@ public sealed class TransformPresenter : Transform, IPresenter<Transform>
         ScanProperties<TransformPresenter>();
     }
 
-    public IProperty<Reference<Transform>> Target { get; } = Property.Create<Reference<Transform>>();
+    public IProperty<Transform?> Target { get; } = Property.Create<Transform?>();
 
     public override Matrix CreateMatrix(RenderContext context)
     {
-        var target = context.Get(Target).Value;
+        var target = context.Get(Target);
         return target?.CreateMatrix(context) ?? Matrix.Identity;
     }
 }

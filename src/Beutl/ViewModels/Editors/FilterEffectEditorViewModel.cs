@@ -1,6 +1,8 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
@@ -95,15 +97,25 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
 
-        IsPresenter = Value.Select(v => v is IPresenter<FilterEffect>)
+        var expressionObservable = Value
+            .Select(v => v switch
+            {
+                IPresenter<FilterEffect> presenter => presenter.Target.SubscribeExpressionChange()
+                    .Select(exp => (presenter, exp))!,
+                _ => Observable.ReturnThenNever(
+                    ((IPresenter<FilterEffect>?)null, (IExpression<FilterEffect?>?)null))
+            })
+            .Switch();
+        IsPresenter = expressionObservable
+            .Select(t => t is { Item1: not null, Item2: ReferenceExpression<FilterEffect> or null })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        CurrentTargetName = Value.Select(v => v is IPresenter<FilterEffect> presenter
-                ? presenter.Target.SubscribeCurrentValueChange()
-                : Observable.ReturnThenNever<Reference<FilterEffect>>(default))
-            .Switch()
-            .Select(r => r.Value != null ? GetDisplayName(r.Value) : Message.Property_is_unset)
+        CurrentTargetName = expressionObservable
+            .Select(t => t.Item2 is ReferenceExpression<FilterEffect>
+                ? t.Item1?.Target.GetValue(RenderContext.Default)
+                : null)
+            .Select(fe => fe != null ? GetDisplayName(fe) : Message.Property_is_unset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -177,9 +189,17 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     {
         if (Value.Value is IPresenter<FilterEffect> presenter)
         {
-            presenter.Target.CurrentValue = target != null
-                ? new Reference<FilterEffect>(target)
-                : new Reference<FilterEffect>();
+            if (target != null)
+            {
+                var expression = Expression.CreateReference<FilterEffect>(target.Id);
+                presenter.Target.Expression = expression;
+            }
+            else
+            {
+                presenter.Target.Expression = null;
+                presenter.Target.CurrentValue = null;
+            }
+
             Commit();
         }
     }

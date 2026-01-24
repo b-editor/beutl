@@ -1,7 +1,9 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 
 using Beutl.Animation;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
@@ -140,15 +142,25 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
 
-        IsPresenter = Value.Select(v => v is IPresenter<Transform>)
+        var expressionObservable = Value
+            .Select(v => v switch
+            {
+                IPresenter<Transform> presenter => presenter.Target.SubscribeExpressionChange()
+                    .Select(exp => (presenter, exp))!,
+                _ => Observable.ReturnThenNever(
+                    ((IPresenter<Transform>?)null, (IExpression<Transform?>?)null))
+            })
+            .Switch();
+        IsPresenter = expressionObservable
+            .Select(t => t is { Item1: not null, Item2: ReferenceExpression<Transform> or null })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        CurrentTargetName = Value.Select(v => v is IPresenter<Transform> presenter
-                ? presenter.Target.SubscribeCurrentValueChange()
-                : Observable.ReturnThenNever<Reference<Transform>>(default))
-            .Switch()
-            .Select(r => r.Value != null ? GetDisplayName(r.Value) : Message.Property_is_unset)
+        CurrentTargetName = expressionObservable
+            .Select(t => t.Item2 is ReferenceExpression<Transform>
+                ? t.Item1?.Target.GetValue(RenderContext.Default)
+                : null)
+            .Select(fe => fe != null ? GetDisplayName(fe) : Message.Property_is_unset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -221,9 +233,16 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
     {
         if (Value.Value is IPresenter<Transform> presenter)
         {
-            presenter.Target.CurrentValue = target != null
-                ? new Reference<Transform>(target)
-                : new Reference<Transform>();
+            if (target != null)
+            {
+                var expression = Expression.CreateReference<Transform>(target.Id);
+                presenter.Target.Expression = expression;
+            }
+            else
+            {
+                presenter.Target.Expression = null;
+                presenter.Target.CurrentValue = null;
+            }
             Commit();
         }
     }
