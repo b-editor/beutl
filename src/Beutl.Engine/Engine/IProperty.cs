@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Engine.Expressions;
@@ -55,6 +56,10 @@ public interface IProperty : INotifyEdited
     IValidator CreateValidator(PropertyInfo propertyInfo);
 
     void SetValidator(IValidator validator);
+
+    void DeserializeExpression(JsonNode expressionNode);
+
+    JsonNode? SerializeExpression();
 }
 
 public interface IProperty<T> : IProperty

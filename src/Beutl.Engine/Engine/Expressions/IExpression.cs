@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Engine.Expressions;
 
-public interface IExpression<T> : IExpression
+public interface IExpression<out T> : IExpression
 {
     T Evaluate(ExpressionContext context);
 

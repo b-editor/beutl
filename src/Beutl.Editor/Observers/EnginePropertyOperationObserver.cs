@@ -70,12 +70,12 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
                 _animation = animatable.Animation;
                 animatable.AnimationChanged += OnAnimationChanged;
             }
+        }
 
-            if (propertiesToTrack?.Contains("Expression") != false)
-            {
-                _expression = animatable.Expression;
-                animatable.ExpressionChanged += OnExpressionChanged;
-            }
+        if (_property.SupportsExpression && propertiesToTrack?.Contains("Expression") != false)
+        {
+            _expression = _property.Expression;
+            _property.ExpressionChanged += OnExpressionChanged;
         }
     }
 
@@ -87,9 +87,12 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
         if (_property is AnimatableProperty<T> animatable)
         {
             _animation = null;
-            _expression = null;
-            animatable.ExpressionChanged -= OnExpressionChanged;
             animatable.AnimationChanged -= OnAnimationChanged;
+        }
+        if (_property.SupportsExpression)
+        {
+            _expression = null;
+            _property.ExpressionChanged -= OnExpressionChanged;
         }
 
         _valuePublisher?.Dispose();
@@ -103,7 +106,8 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
         if (value is IList list)
         {
             var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
-            if (elementType == null) throw new InvalidOperationException("Could not determine the element type of the list.");
+            if (elementType == null)
+                throw new InvalidOperationException("Could not determine the element type of the list.");
             var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(elementType);
 
             _valuePublisher = (IOperationObserver)Activator.CreateInstance(observerType,
