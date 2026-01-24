@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics.Rendering;
@@ -246,6 +247,16 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
     public void SerializeValue(ICoreSerializationContext context)
     {
         context.SetValue(Name, CurrentValue);
+    }
+
+    public void DeserializeExpression(JsonNode expressionNode)
+    {
+        Expression = Expressions.Expression.CreateFromNode<T>(expressionNode);
+    }
+
+    public JsonNode? SerializeExpression()
+    {
+        return Expression == null ? null : Expressions.Expression.ToNode(Expression);
     }
 }
 
