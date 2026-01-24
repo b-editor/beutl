@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Transformation;
 
-[Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings))]
+[Display(Name = nameof(Strings.Translate), ResourceType = typeof(Strings))]
 public sealed class TranslateTransform : Transform
 {
     public TranslateTransform()
