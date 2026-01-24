@@ -8,8 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[SuppressResourceClassGeneration]
-public class SKSLScriptEffect : FilterEffect
+public sealed partial class SKSLScriptEffect : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<SKSLScriptEffect>();
 
@@ -114,22 +113,11 @@ public class SKSLScriptEffect : FilterEffect
         }
     }
 
-    public override Resource ToResource(RenderContext context)
+    public new partial class Resource
     {
-        var resource = new Resource();
-        bool updateOnly = true;
-        resource.Update(this, context, ref updateOnly);
-        return resource;
-    }
-
-    public new class Resource : FilterEffect.Resource
-    {
-        private string _script = string.Empty;
         private float _progress;
         private float _duration;
         private float _time;
-
-        public string Script => _script;
 
         public float Progress => _progress;
 
@@ -137,29 +125,16 @@ public class SKSLScriptEffect : FilterEffect
 
         public float Time => _time;
 
-        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        partial void PostUpdate(SKSLScriptEffect obj, RenderContext context)
         {
-            base.Update(obj, context, ref updateOnly);
-
-            CompareAndUpdate(context, ((SKSLScriptEffect)obj).Script, ref _script, ref updateOnly);
-
             float duration = (float)obj.TimeRange.Duration.TotalSeconds;
             float time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;
             float progress = duration > 0 ? time / duration : 0;
 
-            PostUpdate(duration, time, progress, ref updateOnly);
-        }
-
-        private void PostUpdate(float duration, float time, float progress, ref bool updateOnly)
-        {
             // ReSharper disable CompareOfFloatsByEqualityOperator
-            if (!updateOnly)
+            if (_duration != duration || _time != time || _progress != progress)
             {
-                if (_duration != duration || _time != time || _progress != progress)
-                {
-                    Version++;
-                    updateOnly = true;
-                }
+                Version++;
             }
             // ReSharper restore CompareOfFloatsByEqualityOperator
 
