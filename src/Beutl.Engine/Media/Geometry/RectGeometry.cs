@@ -1,8 +1,11 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Language;
 
 namespace Beutl.Media;
 
+[Display(Name = nameof(Strings.Rectangle), ResourceType = typeof(Strings))]
 public sealed partial class RectGeometry : Geometry
 {
     public RectGeometry()
@@ -10,8 +13,10 @@ public sealed partial class RectGeometry : Geometry
         ScanProperties<RectGeometry>();
     }
 
+    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
     public IProperty<float> Width { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>();
 
     public override void ApplyTo(IGeometryContext context, Geometry.Resource resource)

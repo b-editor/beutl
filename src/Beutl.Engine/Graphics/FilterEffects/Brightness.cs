@@ -5,6 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Brightness), ResourceType = typeof(Strings))]
 public sealed partial class Brightness : FilterEffect
 {
     public Brightness()

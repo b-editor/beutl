@@ -5,6 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.SplitEquallyEffect), ResourceType = typeof(Strings))]
 public partial class SplitEffect : FilterEffect
 {
     public SplitEffect()

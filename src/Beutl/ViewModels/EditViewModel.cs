@@ -761,11 +761,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             Element element = CreateElement();
             if (desc.InitialOperator != null)
             {
-                LibraryItem? item = LibraryService.Current.FindItem(desc.InitialOperator);
-                if (item != null)
-                {
-                    element.Name = item.DisplayName;
-                }
+                element.Name = TypeDisplayHelpers.GetLocalizedName(desc.InitialOperator);
 
                 //Todo: レイヤーのアクセントカラー
                 //sLayer.AccentColor = item.InitialOperator.AccentColor;

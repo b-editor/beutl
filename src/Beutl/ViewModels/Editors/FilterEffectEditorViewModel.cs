@@ -28,7 +28,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
                 if (v != null)
                 {
                     Type type = v.GetType();
-                    return LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
+                    return TypeDisplayHelpers.GetLocalizedName(type);
                 }
                 else
                 {

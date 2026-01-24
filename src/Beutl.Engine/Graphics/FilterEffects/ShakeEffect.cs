@@ -8,6 +8,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.ShakeEffect), ResourceType = typeof(Strings))]
 [SuppressResourceClassGeneration]
 public class ShakeEffect : FilterEffect
 {

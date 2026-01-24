@@ -1,8 +1,10 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.CompilerServices;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Operation;
@@ -10,6 +12,7 @@ using Beutl.Threading;
 
 namespace Beutl.Operators.Source;
 
+[Display(Name = nameof(Strings.Sound), ResourceType = typeof(Strings))]
 public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElementThumbnailsProvider
 {
     private EventHandler? _handler;

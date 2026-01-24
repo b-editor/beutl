@@ -5,6 +5,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.InnerShadow), ResourceType = typeof(Strings))]
 public partial class InnerShadow : FilterEffect
 {
     public InnerShadow()

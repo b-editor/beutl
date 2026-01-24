@@ -103,7 +103,7 @@ public partial class PlayerView
 
                 FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
                 Type type = drawable.GetType();
-                string addtional = LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
+                string addtional = TypeDisplayHelpers.GetLocalizedName(type);
                 IStorageFile? file = await SaveImageFilePicker(addtional, storage);
 
                 if (file != null)

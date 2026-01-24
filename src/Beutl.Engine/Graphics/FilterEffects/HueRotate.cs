@@ -5,6 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.HueRotate), ResourceType = typeof(Strings))]
 public sealed partial class HueRotate : FilterEffect
 {
     public HueRotate()

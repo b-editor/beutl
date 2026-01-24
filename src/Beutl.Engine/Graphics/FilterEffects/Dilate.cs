@@ -4,6 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Dilate), ResourceType = typeof(Strings))]
 public sealed partial class Dilate : FilterEffect
 {
     public Dilate()

@@ -1,10 +1,13 @@
-﻿using System.Numerics;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Numerics;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
+using Beutl.Language;
 using Beutl.Utilities;
 
 namespace Beutl.Graphics.Transformation;
 
+[Display(Name = nameof(Strings.Rotation3D), ResourceType = typeof(Strings))]
 public sealed class Rotation3DTransform : Transform
 {
     public Rotation3DTransform()

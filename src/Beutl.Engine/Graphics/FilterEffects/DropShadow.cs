@@ -5,6 +5,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.DropShadow), ResourceType = typeof(Strings))]
 public sealed partial class DropShadow : FilterEffect
 {
     public DropShadow()

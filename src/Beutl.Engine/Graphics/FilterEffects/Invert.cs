@@ -5,6 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Invert), ResourceType = typeof(Strings))]
 public sealed partial class Invert : FilterEffect
 {
     public Invert()

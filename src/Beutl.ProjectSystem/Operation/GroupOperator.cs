@@ -1,11 +1,14 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
+[Display(Name = nameof(Strings.Group), ResourceType = typeof(Strings))]
 public sealed class GroupOperator : PublishOperator<DrawableGroup>
 {
     protected override void FillProperties()

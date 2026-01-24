@@ -8,6 +8,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with a radial gradient.
 /// </summary>
+[Display(Name = nameof(Strings.Brush_RadialGradient), ResourceType = typeof(Strings))]
 public sealed partial class RadialGradientBrush : GradientBrush
 {
     public RadialGradientBrush()

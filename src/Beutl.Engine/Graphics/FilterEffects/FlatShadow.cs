@@ -10,6 +10,7 @@ using Cv = OpenCvSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.FlatShadow), ResourceType = typeof(Strings))]
 public partial class FlatShadow : FilterEffect
 {
     public FlatShadow()

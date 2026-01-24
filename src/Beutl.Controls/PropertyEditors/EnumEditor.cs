@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Reflection;
+﻿using System.Reflection;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -31,7 +30,7 @@ public class EnumEditor<TEnum> : EnumEditor
         s_enumStrings = Enum.GetNames<TEnum>()
             .Select(typeof(TEnum).GetField)
             .Where(x => x != null)
-            .Select(x => x.GetCustomAttribute<DisplayAttribute>()?.GetName() ?? x.Name)
+            .Select(x => TypeDisplayHelpers.GetLocalizedName(x!))
             .ToArray();
 
         ItemsProperty.OverrideDefaultValue<EnumEditor<TEnum>>(s_enumStrings);

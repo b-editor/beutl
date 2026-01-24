@@ -86,12 +86,7 @@ public sealed partial class SourceOperatorView : UserControl
             {
                 SourceOperator operation = viewModel.Model;
                 Type type = operation.GetType();
-                LibraryItem? item = LibraryService.Current.FindItem(type);
-
-                if (item != null)
-                {
-                    headerText.Text = item.DisplayName;
-                }
+                headerText.Text = TypeDisplayHelpers.GetLocalizedName(type);
 
                 if (panel.Children.Count == 2)
                 {

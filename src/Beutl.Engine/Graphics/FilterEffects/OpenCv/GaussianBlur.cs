@@ -7,6 +7,7 @@ using OpenCvSharp;
 
 namespace Beutl.Graphics.Effects.OpenCv;
 
+[Display(Name = "CvGaussianBlur")]
 public partial class GaussianBlur : FilterEffect
 {
     public GaussianBlur()

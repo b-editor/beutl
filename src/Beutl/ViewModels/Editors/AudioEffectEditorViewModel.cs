@@ -22,7 +22,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
                 if (v != null)
                 {
                     Type type = v.GetType();
-                    return LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
+                    return TypeDisplayHelpers.GetLocalizedName(type);
                 }
                 else
                 {

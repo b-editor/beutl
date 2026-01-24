@@ -5,6 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Saturate), ResourceType = typeof(Strings))]
 public sealed partial class Saturate : FilterEffect
 {
     public Saturate()

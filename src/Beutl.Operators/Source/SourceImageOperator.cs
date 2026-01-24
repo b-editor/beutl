@@ -1,11 +1,13 @@
-﻿using Beutl.Graphics;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
-using Beutl.Media.Source;
+using Beutl.Language;
 using Beutl.Operation;
 
 namespace Beutl.Operators.Source;
 
+[Display(Name = nameof(Strings.Image), ResourceType = typeof(Strings))]
 public sealed class SourceImageOperator : PublishOperator<SourceImage>
 {
     protected override void FillProperties()

@@ -1,8 +1,11 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Language;
 
 namespace Beutl.Media;
 
+[Display(Name = nameof(Strings.QuadraticBezierCurve), ResourceType = typeof(Strings))]
 public sealed partial class QuadraticBezierSegment : PathSegment
 {
     public QuadraticBezierSegment()

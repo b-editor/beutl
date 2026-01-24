@@ -1,9 +1,12 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Language;
 using Beutl.Utilities;
 
 namespace Beutl.Media;
 
+[Display(Name = nameof(Strings.RoundedRect), ResourceType = typeof(Strings))]
 public sealed partial class RoundedRectGeometry : Geometry
 {
     public RoundedRectGeometry()
@@ -11,12 +14,16 @@ public sealed partial class RoundedRectGeometry : Geometry
         ScanProperties<RoundedRectGeometry>();
     }
 
+    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
     public IProperty<float> Width { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.CornerRadius), ResourceType = typeof(Strings))]
     public IProperty<CornerRadius> CornerRadius { get; } = Property.CreateAnimatable<CornerRadius>();
 
+    [Display(Name = nameof(Strings.Smoothing), ResourceType = typeof(Strings))]
     public IProperty<float> Smoothing { get; } = Property.CreateAnimatable<float>();
 
     // https://github.com/yjb94/react-native-squircle-skia

@@ -7,6 +7,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Clipping), ResourceType = typeof(Strings))]
 public sealed partial class Clipping : FilterEffect
 {
     public Clipping()
