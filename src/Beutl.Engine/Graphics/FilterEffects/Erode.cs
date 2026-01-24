@@ -4,6 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Erode), ResourceType = typeof(Strings))]
 public sealed partial class Erode : FilterEffect
 {
     public Erode()

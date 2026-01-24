@@ -1,9 +1,11 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.CompilerServices;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Operation;
@@ -12,6 +14,7 @@ using SkiaSharp;
 
 namespace Beutl.Operators.Source;
 
+[Display(Name = nameof(Strings.Video), ResourceType = typeof(Strings))]
 public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElementThumbnailsProvider
 {
     private EventHandler? _handler;

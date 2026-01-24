@@ -1,9 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 using Beutl.Engine;
+using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Negaposi), ResourceType = typeof(Strings))]
 public partial class Negaposi : FilterEffect
 {
     public Negaposi()

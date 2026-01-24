@@ -1,13 +1,16 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.CompilerServices;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.Operation;
 
+[Display(Name = nameof(Strings.Decorator), ResourceType = typeof(Strings))]
 public sealed class DecorateOperator : PublishOperator<DrawableDecorator>
 {
     protected override void FillProperties()

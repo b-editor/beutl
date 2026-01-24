@@ -1,9 +1,12 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
+using Beutl.Language;
 using Beutl.Utilities;
 
 namespace Beutl.Graphics.Transformation;
 
+[Display(Name = nameof(Strings.Skew), ResourceType = typeof(Strings))]
 public sealed class SkewTransform : Transform
 {
     public SkewTransform(float skewX, float skewY) : this()

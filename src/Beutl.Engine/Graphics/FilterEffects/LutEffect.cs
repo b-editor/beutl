@@ -7,6 +7,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.LUT_Cube_File), ResourceType = typeof(Strings))]
 public sealed partial class LutEffect : FilterEffect
 {
     private static readonly ILogger<LutEffect> s_logger =

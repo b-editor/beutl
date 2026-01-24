@@ -10,6 +10,7 @@ using Cv = OpenCvSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.StrokeEffect), ResourceType = typeof(Strings))]
 public partial class StrokeEffect : FilterEffect
 {
     public enum StrokeStyles

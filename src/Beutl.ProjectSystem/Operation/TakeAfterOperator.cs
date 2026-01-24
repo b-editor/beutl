@@ -1,9 +1,12 @@
-﻿using Beutl.Collections.Pooled;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Collections.Pooled;
 using Beutl.Engine;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Operation;
 
+[Display(Name = nameof(Strings.Portal), ResourceType = typeof(Strings))]
 public sealed class TakeAfterOperator : SourceOperator
 {
     public static readonly CoreProperty<int> CountProperty;

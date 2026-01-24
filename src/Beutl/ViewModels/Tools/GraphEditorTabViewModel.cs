@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Reflection;
+﻿using System.Reflection;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Engine;
@@ -80,8 +79,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
             var propInfo = prop.GetPropertyInfo();
             if (propInfo == null || prop.Animation is not KeyFrameAnimation anm) continue;
 
-            var displayAttribute = propInfo.GetCustomAttribute<DisplayAttribute>();
-            string name = displayAttribute?.GetName() ?? propInfo.Name;
+            string name = TypeDisplayHelpers.GetLocalizedName(propInfo);
             var item = new GraphEditorItemViewModel(
                 name,
                 anm);

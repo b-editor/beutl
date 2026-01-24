@@ -1,12 +1,14 @@
-﻿using Beutl.Graphics;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Operation;
 
 namespace Beutl.Operators.Source;
 
+[Display(Name = nameof(Strings.Rectangle), ResourceType = typeof(Strings))]
 public sealed class RectOperator : PublishOperator<RectShape>
 {
     protected override void FillProperties()

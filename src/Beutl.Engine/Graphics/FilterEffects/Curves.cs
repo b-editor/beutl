@@ -8,6 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Curves), ResourceType = typeof(Strings))]
 public sealed partial class Curves : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<Curves>();

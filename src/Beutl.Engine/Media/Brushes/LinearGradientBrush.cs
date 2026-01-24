@@ -8,6 +8,7 @@ namespace Beutl.Media;
 /// <summary>
 /// A brush that draws with a linear gradient.
 /// </summary>
+[Display(Name = nameof(Strings.Brush_LinearGradient), ResourceType = typeof(Strings))]
 public sealed partial class LinearGradientBrush : GradientBrush
 {
     public LinearGradientBrush()

@@ -103,8 +103,8 @@ public partial class PlayerView
 
                 FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
                 Type type = drawable.GetType();
-                string addtional = LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
-                IStorageFile? file = await SaveImageFilePicker(addtional, storage);
+                string additional = TypeDisplayHelpers.GetLocalizedName(type);
+                IStorageFile? file = await SaveImageFilePicker(additional, storage);
 
                 if (file != null)
                 {
@@ -130,8 +130,8 @@ public partial class PlayerView
             {
                 Task<Bitmap<Bgra8888>> renderTask = viewModel.DrawFrame();
 
-                string addtional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
-                IStorageFile? file = await SaveImageFilePicker(addtional, storage);
+                string additional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
+                IStorageFile? file = await SaveImageFilePicker(additional, storage);
 
                 if (file != null)
                 {

@@ -1,4 +1,6 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
@@ -6,6 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.ColorShift), ResourceType = typeof(Strings))]
 public partial class ColorShift : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ColorShift>();

@@ -86,7 +86,7 @@ public class SelectLibraryItemDialogViewModel
                         LibraryItem? item = LibraryService.Current.FindItem(type);
                         item ??= new SingleTypeLibraryItem(
                             _format, type,
-                            type.FullName ?? type.Name);
+                            TypeDisplayHelpers.GetLocalizedName(type));
                         return new PinnableLibraryItem(item.DisplayName, false, item);
                     })
                     .ToArray();

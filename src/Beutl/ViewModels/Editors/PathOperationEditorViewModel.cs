@@ -29,7 +29,7 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
                     if (name == null)
                     {
                         Type type = v.GetType();
-                        name = LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
+                        name = TypeDisplayHelpers.GetLocalizedName(type);
                     }
 
                     return name;

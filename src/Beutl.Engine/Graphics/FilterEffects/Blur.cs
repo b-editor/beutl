@@ -4,6 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Blur), ResourceType = typeof(Strings))]
 public sealed partial class Blur : FilterEffect
 {
     public Blur()

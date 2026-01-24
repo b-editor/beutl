@@ -1,11 +1,14 @@
-﻿using System.Reactive;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Reactive;
 using Beutl.Graphics.Rendering;
+using Beutl.Language;
 using SkiaSharp;
 
 using Cv = OpenCvSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.SplitByPartsEffect), ResourceType = typeof(Strings))]
 public partial class PartsSplitEffect : FilterEffect
 {
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

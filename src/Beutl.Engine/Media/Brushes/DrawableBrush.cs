@@ -1,11 +1,14 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Language;
 
 namespace Beutl.Media;
 
 /// <summary>
 /// Paints an area with an <see cref="Drawable"/>.
 /// </summary>
+[Display(Name = nameof(Strings.Drawable), ResourceType = typeof(Strings))]
 public partial class DrawableBrush : TileBrush
 {
     /// <summary>
@@ -28,5 +31,6 @@ public partial class DrawableBrush : TileBrush
     /// <summary>
     /// Gets or sets the visual to draw.
     /// </summary>
+    [Display(Name = nameof(Strings.Drawable), ResourceType = typeof(Strings))]
     public IProperty<Drawable?> Drawable { get; } = Property.Create<Drawable?>();
 }

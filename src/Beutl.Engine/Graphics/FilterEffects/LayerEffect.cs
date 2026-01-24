@@ -1,7 +1,10 @@
-﻿using System.Reactive;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Reactive;
+using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Layer), ResourceType = typeof(Strings))]
 public partial class LayerEffect : FilterEffect
 {
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

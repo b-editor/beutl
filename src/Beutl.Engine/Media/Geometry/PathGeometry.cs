@@ -1,10 +1,13 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Language;
 using SkiaSharp;
 
 namespace Beutl.Media;
 
+[Display(Name = nameof(Strings.Geometry), ResourceType = typeof(Strings))]
 public sealed partial class PathGeometry : Geometry
 {
     public PathGeometry()

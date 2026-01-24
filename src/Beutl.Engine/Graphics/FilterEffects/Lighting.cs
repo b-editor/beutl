@@ -5,6 +5,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Lighting), ResourceType = typeof(Strings))]
 public sealed partial class Lighting : FilterEffect
 {
     public Lighting()

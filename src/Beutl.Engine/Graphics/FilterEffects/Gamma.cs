@@ -5,6 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Gamma), ResourceType = typeof(Strings))]
 public sealed partial class Gamma : FilterEffect
 {
     public Gamma()

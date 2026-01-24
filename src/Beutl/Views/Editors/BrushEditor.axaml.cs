@@ -124,7 +124,7 @@ public sealed partial class BrushEditor : UserControl
         }
 
         var type = drawable.GetType();
-        return LibraryService.Current.FindItem(type)?.DisplayName ?? type.Name;
+        return TypeDisplayHelpers.GetLocalizedName(type);
     }
 
     private async Task<Type?> SelectType()

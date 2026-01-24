@@ -1,10 +1,13 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Language;
 using Beutl.Serialization;
 
 namespace Beutl.Media;
 
+[Display(Name = nameof(Strings.Figure), ResourceType = typeof(Strings))]
 public sealed partial class PathFigure : EngineObject
 {
     public PathFigure()

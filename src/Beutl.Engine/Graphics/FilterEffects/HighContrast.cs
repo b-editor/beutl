@@ -4,6 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.HighContrast), ResourceType = typeof(Strings))]
 public sealed partial class HighContrast : FilterEffect
 {
     public HighContrast()

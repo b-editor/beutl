@@ -32,7 +32,14 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>
 
     public Type PropertyType => Property.ValueType;
 
-    public string DisplayName => _displayAttribute.Value?.GetName() ?? Property.Name;
+    public string DisplayName
+    {
+        get
+        {
+            var info = Property.GetPropertyInfo();
+            return info != null ? TypeDisplayHelpers.GetLocalizedName(info) : Property.Name;
+        }
+    }
 
     public string? Description => _displayAttribute.Value?.GetDescription();
 

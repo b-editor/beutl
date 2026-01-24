@@ -6,6 +6,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.PathFollowEffect), ResourceType = typeof(Strings))]
 public sealed partial class PathFollowEffect : FilterEffect
 {
     public PathFollowEffect()

@@ -7,6 +7,7 @@ using OpenCvSharp;
 
 namespace Beutl.Graphics.Effects.OpenCv;
 
+[Display(Name = "CvMedianBlur")]
 public partial class MedianBlur : FilterEffect
 {
     public MedianBlur()

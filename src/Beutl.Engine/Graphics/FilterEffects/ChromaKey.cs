@@ -8,6 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.ChromaKey), ResourceType = typeof(Strings))]
 public partial class ChromaKey : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ChromaKey>();

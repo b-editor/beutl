@@ -4,6 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Threshold), ResourceType = typeof(Strings))]
 public sealed partial class Threshold : FilterEffect
 {
     public Threshold()

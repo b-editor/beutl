@@ -7,6 +7,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Fills an area with a solid color.
 /// </summary>
+[Display(Name = nameof(Strings.Brush_Solid), ResourceType = typeof(Strings))]
 public partial class SolidColorBrush : Brush
 {
     /// <summary>

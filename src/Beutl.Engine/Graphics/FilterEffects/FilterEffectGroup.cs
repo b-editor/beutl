@@ -1,7 +1,10 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
+using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.Group), ResourceType = typeof(Strings))]
 public sealed partial class FilterEffectGroup : FilterEffect
 {
     public FilterEffectGroup()

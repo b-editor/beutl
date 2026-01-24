@@ -8,6 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(Strings.ColorKey), ResourceType = typeof(Strings))]
 public partial class ColorKey : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ColorKey>();

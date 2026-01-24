@@ -8,6 +8,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with a swept circular gradient.
 /// </summary>
+[Display(Name = nameof(Strings.Brush_ConicalGradient), ResourceType = typeof(Strings))]
 public sealed partial class ConicGradientBrush : GradientBrush
 {
     public ConicGradientBrush()

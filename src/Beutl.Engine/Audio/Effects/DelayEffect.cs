@@ -6,6 +6,7 @@ using Beutl.Language;
 
 namespace Beutl.Audio.Effects;
 
+[Display(Name = nameof(Strings.Delay), ResourceType = typeof(Strings))]
 public sealed partial class DelayEffect : AudioEffect
 {
     private const float MaxDelayTime = 5000f; // 5 seconds in milliseconds

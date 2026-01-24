@@ -1,8 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
+using Beutl.Language;
 
 namespace Beutl.Media;
 
+[Display(Name = nameof(Strings.Brush_PerlinNoise), ResourceType = typeof(Strings))]
 public sealed partial class PerlinNoiseBrush : Brush
 {
     public PerlinNoiseBrush()
