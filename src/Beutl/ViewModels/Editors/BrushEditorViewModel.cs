@@ -1,7 +1,9 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -66,15 +68,25 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
 
-        IsPresenter = Value.Select(v => v is IPresenter<Brush>)
+        var expressionObservable = Value
+            .Select(v => v switch
+            {
+                IPresenter<Brush> presenter => presenter.Target.SubscribeExpressionChange()
+                    .Select(exp => (presenter, exp))!,
+                _ => Observable.ReturnThenNever(
+                    ((IPresenter<Brush>?)null, (IExpression<Brush?>?)null))
+            })
+            .Switch();
+        IsPresenter = expressionObservable
+            .Select(t => t is { Item1: not null, Item2: ReferenceExpression<Brush> or null })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        CurrentTargetName = Value.Select(v => v is IPresenter<Brush> presenter
-                ? presenter.Target.SubscribeCurrentValueChange()
-                : Observable.ReturnThenNever<Reference<Brush>>(default))
-            .Switch()
-            .Select(r => r.Value != null ? GetDisplayName(r.Value) : Message.Property_is_unset)
+        CurrentTargetName = expressionObservable
+            .Select(t => t.Item2 is ReferenceExpression<Brush>
+                ? t.Item1?.Target.GetValue(RenderContext.Default)
+                : null)
+            .Select(fe => fe != null ? GetDisplayName(fe) : Message.Property_is_unset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -193,9 +205,16 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     {
         if (Value.Value is IPresenter<Brush> presenter)
         {
-            presenter.Target.CurrentValue = target != null
-                ? new Reference<Brush>(target)
-                : new Reference<Brush>();
+            if (target != null)
+            {
+                var expression = Expression.CreateReference<Brush>(target.Id);
+                presenter.Target.Expression = expression;
+            }
+            else
+            {
+                presenter.Target.Expression = null;
+                presenter.Target.CurrentValue = null;
+            }
             Commit();
         }
     }
