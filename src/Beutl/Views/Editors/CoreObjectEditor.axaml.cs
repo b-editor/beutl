@@ -51,6 +51,10 @@ public partial class CoreObjectEditor : UserControl
     {
     }
 
+    protected virtual void OnSelectTargetRequested()
+    {
+    }
+
     private void Navigate_Click(object? sender, RoutedEventArgs e)
     {
         OnNavigate();
@@ -73,11 +77,18 @@ public partial class CoreObjectEditor : UserControl
     {
         OnDelete();
     }
+
+    private void SelectTarget_Requested(object? sender, RoutedEventArgs e)
+    {
+        OnSelectTargetRequested();
+    }
 }
 
 public sealed class CoreObjectEditor<T> : CoreObjectEditor
-    where T : ICoreObject
+    where T : CoreObject
 {
+    private bool _flyoutOpen;
+
     protected override void OnNavigate()
     {
         if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return;
@@ -152,5 +163,44 @@ public sealed class CoreObjectEditor<T> : CoreObjectEditor
         });
 
         //progress.IsVisible = false;
+    }
+
+    protected override void OnDelete()
+    {
+        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return;
+
+        viewModel.SetNull();
+    }
+
+    protected override async void OnSelectTargetRequested()
+    {
+        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } vm) return;
+        if (_flyoutOpen) return;
+
+        try
+        {
+            _flyoutOpen = true;
+            var targets = vm.GetAvailableTargets();
+            var pickerVm = new TargetPickerFlyoutViewModel();
+            pickerVm.Initialize(targets);
+
+            var flyout = new TargetPickerFlyout(pickerVm);
+            flyout.ShowAt(this);
+
+            var tcs = new TaskCompletionSource<T?>();
+            flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
+            flyout.Confirmed += (_, _) => tcs.TrySetResult(
+                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as T);
+
+            var result = await tcs.Task;
+            if (result != null)
+            {
+                vm.SetTarget(result);
+            }
+        }
+        finally
+        {
+            _flyoutOpen = false;
+        }
     }
 }

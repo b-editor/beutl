@@ -144,7 +144,7 @@ public static class PropertyEditorService
             { typeof(PathFigure), new(_ => new PathFigureListItemEditor(), s => new PathFigureEditorViewModel(s.ToTyped<PathFigure>())) },
             { typeof(AudioEffect), new(_ => new AudioEffectListItemEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<AudioEffect?>())) },
             { typeof(Transform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<Transform?>())) },
-            { typeof(ICoreObject), new(CreateCoreObjectListItemEditor, CreateCoreObjectEditorViewModel) }
+            { typeof(CoreObject), new(CreateCoreObjectListItemEditor, CreateCoreObjectEditorViewModel) }
         };
 
         private static readonly Dictionary<int, Editor> s_editorsOverride =
@@ -212,7 +212,7 @@ public static class PropertyEditorService
             new(typeof(ICoreList<GradientStop>), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<ICoreList<GradientStop>>()))),
             new(typeof(DisplacementMapTransform), new(_ => new DisplacementMapTransformEditor(), s => new DisplacementMapTransformEditorViewModel(s.ToTyped<DisplacementMapTransform?>()))),
             new(typeof(IList), new(CreateListEditor, CreateListEditorViewModel)),
-            new(typeof(ICoreObject), new(CreateCoreObjectEditor, CreateCoreObjectEditorViewModel)),
+            new(typeof(CoreObject), new(CreateCoreObjectEditor, CreateCoreObjectEditorViewModel)),
             new(typeof(IParsable<>), new(CreateParsableEditor, CreateParsableEditorViewModel)),
         }.ToFrozenDictionary();
 

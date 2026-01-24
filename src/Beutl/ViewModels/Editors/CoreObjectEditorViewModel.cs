@@ -1,4 +1,11 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Engine;
+using Beutl.Engine.Expressions;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
+using Beutl.ProjectSystem;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -18,11 +25,15 @@ public interface ICoreObjectEditorViewModel
 
     ReadOnlyReactivePropertySlim<bool> IsNotSetAndCanWrite { get; }
 
+    ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
+
+    ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
+
     bool CanWrite { get; }
 }
 
 public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICoreObjectEditorViewModel
-    where T : ICoreObject
+    where T : CoreObject
 {
     public CoreObjectEditorViewModel(IPropertyAdapter<T> property)
         : base(property)
@@ -48,6 +59,28 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             .Do(AcceptProperties)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
+
+        var expressionObservable = Value
+            .Select(v => v switch
+            {
+                IPresenter<T> presenter => presenter.Target.SubscribeExpressionChange()
+                    .Select(exp => (presenter, exp))!,
+                _ => Observable.ReturnThenNever(
+                    ((IPresenter<T>?)null, (IExpression<T?>?)null))
+            })
+            .Switch();
+        IsPresenter = expressionObservable
+            .Select(t => t is { Item1: not null, Item2: ReferenceExpression<T> or null })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        CurrentTargetName = expressionObservable
+            .Select(t => t.Item2 is ReferenceExpression<T>
+                ? t.Item1?.Target.GetValue(RenderContext.Default)
+                : null)
+            .Select(obj => obj != null ? GetDisplayName(obj) : Message.Property_is_unset)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<T?> Value { get; }
@@ -60,7 +93,64 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public ReadOnlyReactivePropertySlim<bool> IsNotSetAndCanWrite { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
+
     public bool CanWrite { get; }
+
+    public void SetNull()
+    {
+        SetValue(Value.Value, null);
+    }
+
+    public void SetTarget(T? target)
+    {
+        if (Value.Value is IPresenter<T> presenter)
+        {
+            if (target != null)
+            {
+                var expression = Expression.CreateReference<T>(target.Id);
+                presenter.Target.Expression = expression;
+            }
+            else
+            {
+                presenter.Target.Expression = null;
+                presenter.Target.CurrentValue = null;
+            }
+
+            Commit();
+        }
+    }
+
+    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
+    {
+        var scene = this.GetService<EditViewModel>()?.Scene;
+        if (scene == null) return [];
+
+        var searcher = new ObjectSearcher(scene, obj =>
+            obj is T && obj is not IPresenter<T>);
+
+        return searcher.SearchAll()
+            .Cast<T>()
+            .Select(obj => new TargetObjectInfo(GetDisplayName(obj), obj, GetOwnerElement(obj)))
+            .ToList();
+    }
+
+    private static string GetDisplayName(CoreObject obj)
+    {
+        var type = obj.GetType();
+        var element = (obj as IHierarchical)?.FindHierarchicalParent<Element>();
+        var typeName = LibraryService.Current.FindItem(type)?.DisplayName
+                       ?? obj.GetType().Name;
+
+        return element != null ? $"{element.Name} - {typeName}" : typeName;
+    }
+
+    private static Element? GetOwnerElement(CoreObject obj)
+    {
+        return (obj as IHierarchical)?.FindHierarchicalParent<Element>();
+    }
 
     private void AcceptProperties(PropertiesEditorViewModel? obj)
     {
