@@ -1723,4 +1723,13 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Delay" xml:space="preserve">
     <value>Delay</value>
   </data>
+  <data name="Script" xml:space="preserve">
+    <value>Script</value>
+  </data>
+  <data name="SKSLScriptEffect" xml:space="preserve">
+    <value>SKSL Script</value>
+  </data>
+  <data name="CSharpScriptEffect" xml:space="preserve">
+    <value>C# Script</value>
+  </data>
 </root>

@@ -3236,5 +3236,23 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Delay", resourceCulture);
             }
         }
+        
+        public static string Script {
+            get {
+                return ResourceManager.GetString("Script", resourceCulture);
+            }
+        }
+        
+        public static string SKSLScriptEffect {
+            get {
+                return ResourceManager.GetString("SKSLScriptEffect", resourceCulture);
+            }
+        }
+        
+        public static string CSharpScriptEffect {
+            get {
+                return ResourceManager.GetString("CSharpScriptEffect", resourceCulture);
+            }
+        }
     }
 }

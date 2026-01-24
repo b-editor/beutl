@@ -93,24 +93,24 @@ public static class LibraryRegistrar
         LibraryService.Current
             .RegisterGroup(Strings.Transform, g => g
                 .AddMultiple(Strings.Translate, m => m
-                    .BindTransform<TranslateTransform>()
-                // .BindNode<TranslateTransformNode>()
+                        .BindTransform<TranslateTransform>()
+                    // .BindNode<TranslateTransformNode>()
                 )
                 .AddMultiple(Strings.Skew, m => m
-                    .BindTransform<SkewTransform>()
-                // .BindNode<SkewTransformNode>()
+                        .BindTransform<SkewTransform>()
+                    // .BindNode<SkewTransformNode>()
                 )
                 .AddMultiple(Strings.Scale, m => m
-                    .BindTransform<ScaleTransform>()
-                // .BindNode<ScaleTransformNode>()
+                        .BindTransform<ScaleTransform>()
+                    // .BindNode<ScaleTransformNode>()
                 )
                 .AddMultiple(Strings.Rotation, m => m
-                    .BindTransform<RotationTransform>()
-                // .BindNode<RotationTransformNode>()
+                        .BindTransform<RotationTransform>()
+                    // .BindNode<RotationTransformNode>()
                 )
                 .AddMultiple(Strings.Rotation3D, m => m
-                    .BindTransform<Rotation3DTransform>()
-                // .BindNode<Rotation3DTransformNode>()
+                        .BindTransform<Rotation3DTransform>()
+                    // .BindNode<Rotation3DTransformNode>()
                 )
             );
 
@@ -149,6 +149,10 @@ public static class LibraryRegistrar
                 .AddFilterEffect<DisplacementMapEffect>(Strings.DisplacementMap)
                 .AddFilterEffect<PathFollowEffect>(Strings.PathFollowEffect)
                 .AddFilterEffect<LayerEffect>(Strings.Layer)
+                .AddGroup(Strings.Script, gg => gg
+                    .AddFilterEffect<CSharpScriptEffect>(Strings.CSharpScriptEffect)
+                    .AddFilterEffect<SKSLScriptEffect>(Strings.SKSLScriptEffect)
+                )
                 .AddGroup("OpenCV", gg => gg
                     .AddFilterEffect<Graphics.Effects.OpenCv.Blur>("CvBlur")
                     .AddFilterEffect<Graphics.Effects.OpenCv.GaussianBlur>("CvGaussianBlur")
