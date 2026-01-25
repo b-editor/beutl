@@ -1,5 +1,10 @@
-﻿namespace Beutl;
+﻿using System.ComponentModel;
+using System.Text.Json.Serialization;
+using Beutl.JsonConverters;
 
+namespace Beutl;
+
+[JsonConverter(typeof(ReferenceJsonConverter))]
 public interface IReference
 {
     Guid Id { get; }
@@ -13,6 +18,7 @@ public interface IReference
     IReference Resolved(CoreObject obj);
 }
 
+[JsonConverter(typeof(ReferenceJsonConverter))]
 public readonly struct Reference<TObject> : IEquatable<Reference<TObject>>, IReference
     where TObject : notnull, CoreObject
 {

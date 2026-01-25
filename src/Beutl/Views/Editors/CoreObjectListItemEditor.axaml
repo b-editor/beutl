@@ -6,13 +6,16 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              d:DesignHeight="450"
              d:DesignWidth="400"
              x:DataType="vm:ICoreObjectEditorViewModel"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
-        <Grid Margin="8,0,0,0" ColumnDefinitions="*,Auto,Auto">
+        <Grid Margin="8,0,0,0"
+              ColumnDefinitions="*,Auto,Auto"
+              IsVisible="{Binding !IsPresenter.Value}">
             <ToggleButton x:Name="reorderHandle"
                           Content="{x:Static lang:Strings.Item}"
                           Cursor="SizeNorthSouth"
@@ -40,7 +43,33 @@
             </Button>
         </Grid>
 
-        <Panel x:Name="content" Grid.Row="2">
+        <pe:ReferenceEditor x:Name="presenterEditor"
+                            Margin="8,0,0,0"
+                            EditorStyle="ListItem"
+                            IsVisible="{Binding IsPresenter.Value}"
+                            SelectTargetRequested="SelectTarget_Requested"
+                            TargetName="{Binding CurrentTargetName.Value}">
+            <pe:ReferenceEditor.MenuContent>
+                <StackPanel Orientation="Horizontal">
+                    <ToggleButton Margin="4,0,0,0"
+                                  Padding="0"
+                                  Classes="size-24x24"
+                                  IsChecked="{Binding IsEnabled.Value}"
+                                  Theme="{StaticResource VisibilityToggleButtonStyle}" />
+                    <Button Margin="4,0,8,0"
+                            Padding="0"
+                            Classes="size-24x24"
+                            Click="DeleteClick"
+                            Theme="{StaticResource TransparentButton}">
+                        <icons:SymbolIcon Symbol="Delete" />
+                    </Button>
+                </StackPanel>
+            </pe:ReferenceEditor.MenuContent>
+        </pe:ReferenceEditor>
+
+        <Panel x:Name="content"
+               Grid.Row="2"
+               IsVisible="{Binding !IsPresenter.Value}">
             <local:PropertiesEditor Margin="16,0,0,0"
                                     Padding="0"
                                     DataContext="{Binding Properties.Value}"

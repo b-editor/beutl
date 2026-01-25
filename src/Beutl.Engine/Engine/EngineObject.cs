@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using Beutl;
 using Beutl.Animation;
 using Beutl.Engine.Expressions;
@@ -156,8 +157,8 @@ public class EngineObject : Hierarchical, INotifyEdited
         Dictionary<string, IAnimation>? animations
             = context.GetValue<Dictionary<string, IAnimation>>("Animations");
 
-        Dictionary<string, string>? expressions
-            = context.GetValue<Dictionary<string, string>>("Expressions");
+        Dictionary<string, JsonNode>? expressions
+            = context.GetValue<Dictionary<string, JsonNode>>("Expressions");
 
         foreach (IProperty property in _properties)
         {
@@ -167,17 +168,11 @@ public class EngineObject : Hierarchical, INotifyEdited
                 property.Animation = animation;
             }
 
-            if (expressions?.TryGetValue(property.Name, out string? expressionString) == true)
+            if (expressions?.TryGetValue(property.Name, out JsonNode? expressionNode) == true)
             {
-                property.Expression = CreateExpression(property.ValueType, expressionString);
+                property.DeserializeExpression(expressionNode);
             }
         }
-    }
-
-    private static IExpression? CreateExpression(Type valueType, string expressionString)
-    {
-        var expressionType = typeof(Expression<>).MakeGenericType(valueType);
-        return Activator.CreateInstance(expressionType, expressionString) as IExpression;
     }
 
     public override void Serialize(ICoreSerializationContext context)
@@ -196,9 +191,10 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         context.SetValue("Animations", animations);
 
-        Dictionary<string, string> expressions = _properties
-            .Where(p => p.Expression is not null)
-            .ToDictionary(p => p.Name, p => p.Expression!.ExpressionString);
+        Dictionary<string, JsonNode> expressions = _properties
+            .Select(p => (Name: p.Name, Node: p.SerializeExpression()))
+            .Where(p => p.Node is not null)
+            .ToDictionary(p => p.Name, p => p.Node!);
 
         context.SetValue("Expressions", expressions);
 

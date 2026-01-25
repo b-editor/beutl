@@ -8,7 +8,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:pe="using:Beutl.Controls.Styling.PropertyEditors"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              x:Name="root"
@@ -26,6 +26,7 @@
                       Content="{Binding Header, FallbackValue=Brush}"
                       FontWeight="DemiBold"
                       IsChecked="{Binding IsExpanded.Value}"
+                      IsVisible="{Binding !IsPresenter.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.Tag>
                 <Grid ColumnDefinitions="*,4,Auto">
@@ -77,6 +78,10 @@
                                                         Tag="Drawable"
                                                         Text="{x:Static lang:Strings.Drawable}" />
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                        IsChecked="{Binding IsPresenter.Value, Mode=OneWay}"
+                                                        Tag="Presenter"
+                                                        Text="{x:Static lang:Strings.Presenter}" />
+                                <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                         Tag="Null"
                                                         Text="{x:Static lang:Strings.Null}" />
@@ -86,19 +91,70 @@
                     </Button>
                 </Grid>
             </ToggleButton.Tag>
-
         </ToggleButton>
 
+        <pe:ReferenceEditor Header="{Binding Header, FallbackValue=Brush}"
+                            IsVisible="{Binding IsPresenter.Value}"
+                            SelectTargetRequested="SelectTarget_Requested"
+                            TargetName="{Binding CurrentTargetName.Value}">
+            <pe:ReferenceEditor.MenuContent>
+                <Button Margin="0,0,4,0"
+                        Padding="0"
+                        Classes="size-24x24"
+                        Theme="{StaticResource TransparentButton}">
+                    <Button.Flyout>
+                        <ui:FAMenuFlyout>
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
+                                                    Tag="Solid"
+                                                    Text="{x:Static lang:Strings.Brush_Solid}" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsLinearGradient.Value, Mode=OneWay}"
+                                                    Tag="LinearGradient"
+                                                    Text="{x:Static lang:Strings.Brush_LinearGradient}" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsConicGradient.Value, Mode=OneWay}"
+                                                    Tag="ConicGradient"
+                                                    Text="{x:Static lang:Strings.Brush_ConicalGradient}" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsRadialGradient.Value, Mode=OneWay}"
+                                                    Tag="RadialGradient"
+                                                    Text="{x:Static lang:Strings.Brush_RadialGradient}" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsPerlinNoise.Value, Mode=OneWay}"
+                                                    Tag="PerlinNoise"
+                                                    Text="{x:Static lang:Strings.Brush_PerlinNoise}" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsDrawable.Value, Mode=OneWay}"
+                                                    Tag="Drawable"
+                                                    Text="{x:Static lang:Strings.Drawable}" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding IsPresenter.Value, Mode=OneWay}"
+                                                    Tag="Presenter"
+                                                    Text="{x:Static lang:Strings.Presenter}" />
+                            <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
+                                                    IsChecked="{Binding !Value.Value, Mode=OneWay}"
+                                                    Tag="Null"
+                                                    Text="{x:Static lang:Strings.Null}" />
+                        </ui:FAMenuFlyout>
+                    </Button.Flyout>
+                    <icons:SymbolIcon Symbol="MoreVertical" />
+                </Button>
+            </pe:ReferenceEditor.MenuContent>
+        </pe:ReferenceEditor>
+
         <controls:TreeLineDecorator x:Name="content"
-                                     Grid.Row="1"
-                                     LineBrush="{DynamicResource TreeLineBrush}">
+                                    Grid.Row="1"
+                                    IsVisible="{Binding !IsPresenter.Value}"
+                                    LineBrush="{DynamicResource TreeLineBrush}">
             <Panel>
                 <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
 
                 <local:PropertiesEditor Padding="0"
                                         DataContext="{Binding ChildContext.Value}"
                                         IsEnabled="{ReflectionBinding #root.DataContext.CanEdit.Value}"
-                                        IsVisible="{ReflectionBinding #root.DataContext.Value.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                        IsVisible="{ReflectionBinding #root.DataContext.Value.Value,
+                                                                      Converter={x:Static ObjectConverters.IsNotNull}}" />
             </Panel>
         </controls:TreeLineDecorator>
     </Grid>

@@ -1,8 +1,13 @@
-﻿namespace Beutl.Engine.Expressions;
+namespace Beutl.Engine.Expressions;
 
 public class PropertyLookup(ICoreObject root)
 {
     private readonly ICoreObject _root = root ?? throw new ArgumentNullException(nameof(root));
+
+    public ICoreObject? FindById(Guid id)
+    {
+        return _root.FindById(id);
+    }
 
     public bool TryGetPropertyValue<T>(string path, ExpressionContext context, out T? value)
     {

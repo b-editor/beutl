@@ -1,7 +1,12 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.ProjectSystem;
+using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -62,6 +67,28 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             .Where(v => v != null)
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
+
+        var expressionObservable = Value
+            .Select(v => v switch
+            {
+                IPresenter<Brush> presenter => presenter.Target.SubscribeExpressionChange()
+                    .Select(exp => (presenter, exp))!,
+                _ => Observable.ReturnThenNever(
+                    ((IPresenter<Brush>?)null, (IExpression<Brush?>?)null))
+            })
+            .Switch();
+        IsPresenter = expressionObservable
+            .Select(t => t is { Item1: not null, Item2: ReferenceExpression<Brush> or null })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        CurrentTargetName = expressionObservable
+            .Select(t => t.Item2 is ReferenceExpression<Brush>
+                ? t.Item1?.Target.GetValue(RenderContext.Default)
+                : null)
+            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : Message.Property_is_unset)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
     }
 
     private void AcceptChildren(PropertiesEditorViewModel? obj)
@@ -93,6 +120,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     public ReadOnlyReactivePropertySlim<bool> IsPerlinNoise { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsDrawable { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
@@ -169,6 +200,40 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             }
         }
     }
+
+    public void SetTarget(Brush? target)
+    {
+        if (Value.Value is IPresenter<Brush> presenter)
+        {
+            if (target != null)
+            {
+                var expression = Expression.CreateReference<Brush>(target.Id);
+                presenter.Target.Expression = expression;
+            }
+            else
+            {
+                presenter.Target.Expression = null;
+                presenter.Target.CurrentValue = null;
+            }
+            Commit();
+        }
+    }
+
+    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
+    {
+        var scene = this.GetService<EditViewModel>()?.Scene;
+        if (scene == null) return [];
+
+        var searcher = new ObjectSearcher(scene, obj =>
+            obj is Brush && obj is not IPresenter<Brush>);
+
+        return searcher.SearchAll()
+            .Cast<Brush>()
+            .Select(b => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(b), b, CoreObjectHelper.GetOwnerElement(b)))
+            .ToList();
+    }
+
+
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {

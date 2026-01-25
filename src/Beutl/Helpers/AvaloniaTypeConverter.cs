@@ -7,6 +7,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Reactive;
@@ -50,6 +51,24 @@ public static class AvaloniaTypeConverter
     public static GradientStop.Resource ToBtlImmutableGradientStop(this Avalonia.Media.IGradientStop obj)
     {
         return new GradientStop.Resource { Color = obj.Color.ToMedia(), Offset = (float)obj.Offset, };
+    }
+
+    public static IObservable<IExpression<T>?> SubscribeExpressionChange<T>(this IProperty<T> property)
+    {
+        return Observable.FromEvent<IExpression<T>?>(
+                h => property.ExpressionChanged += h,
+                h => property.ExpressionChanged -= h)
+            .Select(s => s)
+            .Publish(property.Expression).RefCount();
+    }
+
+    public static IObservable<T> SubscribeCurrentValueChange<T>(this IProperty<T> property)
+    {
+        return Observable.FromEventPattern<PropertyValueChangedEventArgs<T>>(
+                h => property.ValueChanged += h,
+                h => property.ValueChanged -= h)
+            .Select(s => s.EventArgs.NewValue)
+            .Publish(property.CurrentValue).RefCount();
     }
 
     public static IObservable<T> SubscribeEngineProperty<T>(

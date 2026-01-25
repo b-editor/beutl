@@ -9,7 +9,7 @@ public class ExpressionTests
     public void Constructor_WithValidExpression_ShouldNotThrow()
     {
         // Arrange & Act
-        var expression = new Expression<double>("1 + 2");
+        var expression = new StringExpression<double>("1 + 2");
 
         // Assert
         Assert.That(expression.ExpressionString, Is.EqualTo("1 + 2"));
@@ -19,14 +19,14 @@ public class ExpressionTests
     public void Constructor_WithNullExpression_ShouldThrowArgumentNullException()
     {
         // Arrange & Act & Assert
-        Assert.Throws<ArgumentNullException>(() => new Expression<double>(null!));
+        Assert.Throws<ArgumentNullException>(() => new StringExpression<double>(null!));
     }
 
     [Test]
     public void ResultType_ShouldReturnCorrectType()
     {
         // Arrange
-        var expression = new Expression<double>("1.0");
+        IExpression expression = new StringExpression<double>("1.0");
 
         // Assert
         Assert.That(expression.ResultType, Is.EqualTo(typeof(double)));
@@ -36,7 +36,7 @@ public class ExpressionTests
     public void Validate_WithValidExpression_ShouldReturnTrue()
     {
         // Arrange
-        var expression = new Expression<double>("1 + 2 * 3");
+        var expression = new StringExpression<double>("1 + 2 * 3");
 
         // Act
         bool result = expression.Validate(out string? error);
@@ -50,7 +50,7 @@ public class ExpressionTests
     public void Validate_WithInvalidExpression_ShouldReturnFalse()
     {
         // Arrange
-        var expression = new Expression<double>("invalid syntax ++");
+        var expression = new StringExpression<double>("invalid syntax ++");
 
         // Act
         bool result = expression.Validate(out string? error);
@@ -64,7 +64,7 @@ public class ExpressionTests
     public void Evaluate_WithSimpleArithmetic_ShouldReturnCorrectResult()
     {
         // Arrange
-        var expression = new Expression<double>("1 + 2 * 3");
+        var expression = new StringExpression<double>("1 + 2 * 3");
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
 
         // Act
@@ -78,7 +78,7 @@ public class ExpressionTests
     public void Evaluate_WithMathFunctions_ShouldWork()
     {
         // Arrange
-        var expression = new Expression<double>("Sin(0.0)");
+        var expression = new StringExpression<double>("Sin(0.0)");
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
 
         // Act
@@ -92,7 +92,7 @@ public class ExpressionTests
     public void Evaluate_WithTimeProperty_ShouldWork()
     {
         // Arrange
-        var expression = new Expression<double>("Time");
+        var expression = new StringExpression<double>("Time");
         var context = TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(5));
 
         // Act
@@ -106,7 +106,7 @@ public class ExpressionTests
     public void Evaluate_WithInvalidExpression_ShouldThrowExpressionException()
     {
         // Arrange
-        var expression = new Expression<double>("invalid syntax ++");
+        var expression = new StringExpression<double>("invalid syntax ++");
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
 
         // Act & Assert
@@ -117,7 +117,7 @@ public class ExpressionTests
     public void Evaluate_WithIntReturnType_ShouldConvertToDouble()
     {
         // Arrange
-        var expression = new Expression<double>("1 + 2");
+        var expression = new StringExpression<double>("1 + 2");
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
 
         // Act
@@ -131,7 +131,7 @@ public class ExpressionTests
     public void Evaluate_WithIntExpression_ShouldWork()
     {
         // Arrange
-        var expression = new Expression<int>("1 + 2");
+        var expression = new StringExpression<int>("1 + 2");
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
 
         // Act
@@ -145,7 +145,7 @@ public class ExpressionTests
     public void Evaluate_WithBoolExpression_ShouldWork()
     {
         // Arrange
-        var expression = new Expression<bool>("1 > 0");
+        var expression = new StringExpression<bool>("1 > 0");
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
 
         // Act
@@ -159,7 +159,7 @@ public class ExpressionTests
     public void Evaluate_WithStringExpression_ShouldWork()
     {
         // Arrange
-        var expression = new Expression<string>("\"Hello\"");
+        var expression = new StringExpression<string>("\"Hello\"");
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
 
         // Act
@@ -173,7 +173,7 @@ public class ExpressionTests
     public void ToString_ShouldReturnExpressionString()
     {
         // Arrange
-        var expression = new Expression<double>("1 + 2");
+        var expression = new StringExpression<double>("1 + 2");
 
         // Act
         string result = expression.ToString();

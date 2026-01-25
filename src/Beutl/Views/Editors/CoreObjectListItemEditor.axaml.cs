@@ -10,7 +10,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
-public abstract partial class CoreObjectListItemEditor : UserControl, IListItemEditor
+public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(167));
     private CancellationTokenSource? _lastTransitionCts;
@@ -50,12 +50,25 @@ public abstract partial class CoreObjectListItemEditor : UserControl, IListItemE
         OnNew();
     }
 
-    protected abstract void OnNew();
+    protected virtual void OnNew()
+    {
+    }
+
+    protected virtual void OnSelectTargetRequested()
+    {
+    }
+
+    private void SelectTarget_Requested(object? sender, RoutedEventArgs e)
+    {
+        OnSelectTargetRequested();
+    }
 }
 
 public sealed class CoreObjectListItemEditor<T> : CoreObjectListItemEditor
-    where T : ICoreObject
+    where T : CoreObject
 {
+    private bool _flyoutOpen;
+
     protected override async void OnNew()
     {
         //progress.IsVisible = true;
@@ -116,5 +129,37 @@ public sealed class CoreObjectListItemEditor<T> : CoreObjectListItemEditor
         });
 
         //progress.IsVisible = false;
+    }
+
+    protected override async void OnSelectTargetRequested()
+    {
+        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } vm) return;
+        if (_flyoutOpen) return;
+
+        try
+        {
+            _flyoutOpen = true;
+            var targets = vm.GetAvailableTargets();
+            var pickerVm = new TargetPickerFlyoutViewModel();
+            pickerVm.Initialize(targets);
+
+            var flyout = new TargetPickerFlyout(pickerVm);
+            flyout.ShowAt(this);
+
+            var tcs = new TaskCompletionSource<T?>();
+            flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
+            flyout.Confirmed += (_, _) => tcs.TrySetResult(
+                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as T);
+
+            var result = await tcs.Task;
+            if (result != null)
+            {
+                vm.SetTarget(result);
+            }
+        }
+        finally
+        {
+            _flyoutOpen = false;
+        }
     }
 }

@@ -1,0 +1,84 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors">
+    <Design.PreviewWith>
+        <Border Width="300">
+            <StackPanel>
+                <local:ReferenceEditor Header="Filter" TargetName="DropShadow" />
+                <local:ReferenceEditor EditorStyle="ListItem" TargetName="BlurEffect" />
+            </StackPanel>
+        </Border>
+    </Design.PreviewWith>
+
+    <ControlTheme x:Key="{x:Type local:ReferenceEditor}" TargetType="local:ReferenceEditor">
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
+
+        <!--  Normal Style Template  -->
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{TemplateBinding Padding}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Margin="4,0,0,0"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   ClipToBounds="False"
+                                   Text="{TemplateBinding Header}"
+                                   TextTrimming="CharacterEllipsis" />
+
+                        <GridSplitter Grid.Column="1" Background="Transparent" />
+
+                        <DropDownButton x:Name="PART_TargetPickerButton"
+                                        Grid.Column="2"
+                                        MinWidth="120"
+                                        Margin="4"
+                                        HorizontalAlignment="Stretch"
+                                        Content="{TemplateBinding TargetName}" />
+
+                        <ContentPresenter Name="PART_MenuContentPresenter"
+                                          Grid.Column="3"
+                                          Content="{TemplateBinding MenuContent}"
+                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <!--  ListItem Style Template  -->
+        <Style Selector="^:list-item">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Name="PART_ReorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
+
+                            <DropDownButton x:Name="PART_TargetPickerButton"
+                                            Grid.Column="1"
+                                            Margin="0,4"
+                                            HorizontalAlignment="Stretch"
+                                            Content="{TemplateBinding TargetName}" />
+
+                            <ContentPresenter Name="PART_MenuContentPresenter"
+                                              Grid.Column="2"
+                                              Content="{TemplateBinding MenuContent}"
+                                              ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

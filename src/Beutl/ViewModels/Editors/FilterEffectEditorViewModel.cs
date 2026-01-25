@@ -1,8 +1,11 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics.Effects;
+using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
 using Beutl.Operation;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -93,6 +96,28 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .Where(v => v != null)
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
+
+        var expressionObservable = Value
+            .Select(v => v switch
+            {
+                IPresenter<FilterEffect> presenter => presenter.Target.SubscribeExpressionChange()
+                    .Select(exp => (presenter, exp))!,
+                _ => Observable.ReturnThenNever(
+                    ((IPresenter<FilterEffect>?)null, (IExpression<FilterEffect?>?)null))
+            })
+            .Switch();
+        IsPresenter = expressionObservable
+            .Select(t => t is { Item1: not null, Item2: ReferenceExpression<FilterEffect> or null })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        CurrentTargetName = expressionObservable
+            .Select(t => t.Item2 is ReferenceExpression<FilterEffect>
+                ? t.Item1?.Target.GetValue(RenderContext.Default)
+                : null)
+            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : Message.Property_is_unset)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<string?> FilterName { get; }
@@ -112,6 +137,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
     public ReactivePropertySlim<ListEditorViewModel<FilterEffect>?> Group { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -155,6 +184,41 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     {
         SetValue(Value.Value, null);
     }
+
+    public void SetTarget(FilterEffect? target)
+    {
+        if (Value.Value is IPresenter<FilterEffect> presenter)
+        {
+            if (target != null)
+            {
+                var expression = Expression.CreateReference<FilterEffect>(target.Id);
+                presenter.Target.Expression = expression;
+            }
+            else
+            {
+                presenter.Target.Expression = null;
+                presenter.Target.CurrentValue = null;
+            }
+
+            Commit();
+        }
+    }
+
+    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
+    {
+        var scene = this.GetService<EditViewModel>()?.Scene;
+        if (scene == null) return [];
+
+        var searcher = new ObjectSearcher(scene, obj =>
+            obj is FilterEffect && obj is not IPresenter<FilterEffect>);
+
+        return searcher.SearchAll()
+            .Cast<FilterEffect>()
+            .Select(fe => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(fe), fe, CoreObjectHelper.GetOwnerElement(fe)))
+            .ToList();
+    }
+
+
 
     public override void ReadFromJson(JsonObject json)
     {

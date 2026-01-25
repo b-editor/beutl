@@ -1,8 +1,13 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 
 using Beutl.Animation;
+using Beutl.Engine;
+using Beutl.Engine.Expressions;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Operation;
+using Beutl.ProjectSystem;
+using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
@@ -18,6 +23,7 @@ public enum KnownTransformType
     Scale,
     Skew,
     Rotation3D,
+    Presenter
 }
 
 public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
@@ -32,6 +38,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
             ScaleTransform => KnownTransformType.Scale,
             SkewTransform => KnownTransformType.Skew,
             Rotation3DTransform => KnownTransformType.Rotation3D,
+            IPresenter<Transform> => KnownTransformType.Presenter,
             _ => KnownTransformType.Unknown
         };
     }
@@ -46,6 +53,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
             KnownTransformType.Scale => new ScaleTransform(),
             KnownTransformType.Skew => new SkewTransform(),
             KnownTransformType.Rotation3D => new Rotation3DTransform(),
+            KnownTransformType.Presenter => new TransformPresenter(),
             _ => null
         };
     }
@@ -60,6 +68,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
             KnownTransformType.Scale => Strings.Scale,
             KnownTransformType.Skew => Strings.Skew,
             KnownTransformType.Rotation3D => Strings.Rotation3D,
+            KnownTransformType.Presenter => Strings.Presenter,
             _ => "Null"
         };
     }
@@ -132,6 +141,28 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
             .Where(v => v != null)
             .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
+
+        var expressionObservable = Value
+            .Select(v => v switch
+            {
+                IPresenter<Transform> presenter => presenter.Target.SubscribeExpressionChange()
+                    .Select(exp => (presenter, exp))!,
+                _ => Observable.ReturnThenNever(
+                    ((IPresenter<Transform>?)null, (IExpression<Transform?>?)null))
+            })
+            .Switch();
+        IsPresenter = expressionObservable
+            .Select(t => t is { Item1: not null, Item2: ReferenceExpression<Transform> or null })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        CurrentTargetName = expressionObservable
+            .Select(t => t.Item2 is ReferenceExpression<Transform>
+                ? t.Item1?.Target.GetValue(RenderContext.Default)
+                : null)
+            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : Message.Property_is_unset)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<string?> TransformName { get; }
@@ -149,6 +180,10 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
     public ReactivePropertySlim<ListEditorViewModel<Transform?>?> Group { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -193,6 +228,40 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
     {
         SetValue(Value.Value, null);
     }
+
+    public void SetTarget(Transform? target)
+    {
+        if (Value.Value is IPresenter<Transform> presenter)
+        {
+            if (target != null)
+            {
+                var expression = Expression.CreateReference<Transform>(target.Id);
+                presenter.Target.Expression = expression;
+            }
+            else
+            {
+                presenter.Target.Expression = null;
+                presenter.Target.CurrentValue = null;
+            }
+            Commit();
+        }
+    }
+
+    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
+    {
+        var scene = this.GetService<EditViewModel>()?.Scene;
+        if (scene == null) return [];
+
+        var searcher = new ObjectSearcher(scene, obj =>
+            obj is Transform && obj is not IPresenter<Transform>);
+
+        return searcher.SearchAll()
+            .Cast<Transform>()
+            .Select(t => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(t), t, CoreObjectHelper.GetOwnerElement(t)))
+            .ToList();
+    }
+
+
 
     public override void ReadFromJson(JsonObject json)
     {

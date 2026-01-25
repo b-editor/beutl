@@ -2,6 +2,7 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Engine.Expressions;
@@ -154,6 +155,15 @@ public class ListProperty<T> : IListProperty<T>
     public void SerializeValue(ICoreSerializationContext context)
     {
         context.SetValue(Name, CurrentValue);
+    }
+
+    public void DeserializeExpression(JsonNode expressionNode)
+    {
+    }
+
+    public JsonNode? SerializeExpression()
+    {
+        return null;
     }
 
     public EngineObject? GetOwnerObject()
