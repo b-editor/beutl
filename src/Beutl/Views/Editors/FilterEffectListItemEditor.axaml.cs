@@ -84,22 +84,10 @@ public partial class FilterEffectListItemEditor : UserControl, IListItemEditor
     {
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } vm) return;
 
-        var targets = vm.GetAvailableTargets();
-        var pickerVm = new TargetPickerFlyoutViewModel();
-        pickerVm.Initialize(targets);
-
-        var flyout = new TargetPickerFlyout(pickerVm);
-        flyout.ShowAt(this);
-
-        var tcs = new TaskCompletionSource<FilterEffect?>();
-        flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
-        flyout.Confirmed += (_, _) => tcs.TrySetResult(
-            (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as FilterEffect);
-
-        var result = await tcs.Task;
-        if (result != null)
-        {
-            vm.SetTarget(result);
-        }
+        await TargetSelectionHelper.HandleSelectTargetRequestAsync<FilterEffectEditorViewModel, FilterEffect>(
+            this,
+            vm,
+            vm => vm.GetAvailableTargets(),
+            (vm, target) => vm.SetTarget(target));
     }
 }

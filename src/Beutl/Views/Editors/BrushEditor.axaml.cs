@@ -372,23 +372,11 @@ public sealed partial class BrushEditor : UserControl
         try
         {
             _flyoutOpen = true;
-            var targets = vm.GetAvailableTargets();
-            var pickerVm = new TargetPickerFlyoutViewModel();
-            pickerVm.Initialize(targets);
-
-            var flyout = new TargetPickerFlyout(pickerVm);
-            flyout.ShowAt(this);
-
-            var tcs = new TaskCompletionSource<Brush?>();
-            flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
-            flyout.Confirmed += (_, _) => tcs.TrySetResult(
-                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as Brush);
-
-            var result = await tcs.Task;
-            if (result != null)
-            {
-                vm.SetTarget(result);
-            }
+            await TargetSelectionHelper.HandleSelectTargetRequestAsync<BrushEditorViewModel, Brush>(
+                this,
+                vm,
+                vm => vm.GetAvailableTargets(),
+                (vm, target) => vm.SetTarget(target));
         }
         finally
         {
