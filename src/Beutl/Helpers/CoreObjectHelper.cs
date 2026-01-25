@@ -17,8 +17,7 @@ internal static class CoreObjectHelper
     public static string GetDisplayName(CoreObject obj)
     {
         var element = (obj as IHierarchical)?.FindHierarchicalParent<Element>();
-        var typeName = LibraryService.Current.FindItem(obj.GetType())?.DisplayName
-                       ?? obj.GetType().Name;
+        var typeName = TypeDisplayHelpers.GetLocalizedName(obj.GetType());
 
         return element != null ? $"{element.Name} - {typeName}" : typeName;
     }
