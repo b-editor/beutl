@@ -160,7 +160,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
             .Select(t => t.Item2 is ReferenceExpression<Transform>
                 ? t.Item1?.Target.GetValue(RenderContext.Default)
                 : null)
-            .Select(fe => fe != null ? GetDisplayName(fe) : Message.Property_is_unset)
+            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : Message.Property_is_unset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -257,23 +257,11 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
 
         return searcher.SearchAll()
             .Cast<Transform>()
-            .Select(t => new TargetObjectInfo(GetDisplayName(t), t, GetOwnerElement(t)))
+            .Select(t => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(t), t, CoreObjectHelper.GetOwnerElement(t)))
             .ToList();
     }
 
-    private static string GetDisplayName(CoreObject obj)
-    {
-        var element = (obj as IHierarchical)?.FindHierarchicalParent<Element>();
-        var typeName = LibraryService.Current.FindItem(obj.GetType())?.DisplayName
-            ?? obj.GetType().Name;
 
-        return element != null ? $"{element.Name} - {typeName}" : typeName;
-    }
-
-    private static Element? GetOwnerElement(CoreObject obj)
-    {
-        return (obj as IHierarchical)?.FindHierarchicalParent<Element>();
-    }
 
     public override void ReadFromJson(JsonObject json)
     {

@@ -78,7 +78,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             .Select(t => t.Item2 is ReferenceExpression<T>
                 ? t.Item1?.Target.GetValue(RenderContext.Default)
                 : null)
-            .Select(obj => obj != null ? GetDisplayName(obj) : Message.Property_is_unset)
+            .Select(obj => obj != null ? CoreObjectHelper.GetDisplayName(obj) : Message.Property_is_unset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -133,24 +133,11 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
         return searcher.SearchAll()
             .Cast<T>()
-            .Select(obj => new TargetObjectInfo(GetDisplayName(obj), obj, GetOwnerElement(obj)))
+            .Select(obj => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(obj), obj, CoreObjectHelper.GetOwnerElement(obj)))
             .ToList();
     }
 
-    private static string GetDisplayName(CoreObject obj)
-    {
-        var type = obj.GetType();
-        var element = (obj as IHierarchical)?.FindHierarchicalParent<Element>();
-        var typeName = LibraryService.Current.FindItem(type)?.DisplayName
-                       ?? obj.GetType().Name;
 
-        return element != null ? $"{element.Name} - {typeName}" : typeName;
-    }
-
-    private static Element? GetOwnerElement(CoreObject obj)
-    {
-        return (obj as IHierarchical)?.FindHierarchicalParent<Element>();
-    }
 
     private void AcceptProperties(PropertiesEditorViewModel? obj)
     {
