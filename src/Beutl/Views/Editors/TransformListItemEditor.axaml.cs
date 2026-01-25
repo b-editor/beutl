@@ -73,23 +73,11 @@ public partial class TransformListItemEditor : UserControl, IListItemEditor
     {
         if (DataContext is not TransformEditorViewModel { IsDisposed: false } vm) return;
 
-        var targets = vm.GetAvailableTargets();
-        var pickerVm = new TargetPickerFlyoutViewModel();
-        pickerVm.Initialize(targets);
-
-        var flyout = new TargetPickerFlyout(pickerVm);
-        flyout.ShowAt(this);
-
-        var tcs = new TaskCompletionSource<Transform?>();
-        flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
-        flyout.Confirmed += (_, _) => tcs.TrySetResult(
-            (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as Transform);
-
-        var result = await tcs.Task;
-        if (result != null)
-        {
-            vm.SetTarget(result);
-        }
+        await TargetSelectionHelper.HandleSelectTargetRequestAsync<TransformEditorViewModel, Transform>(
+            this,
+            vm,
+            vm => vm.GetAvailableTargets(),
+            (vm, target) => vm.SetTarget(target));
     }
 
     private sealed class TransformTypeToIconConverter : IValueConverter
