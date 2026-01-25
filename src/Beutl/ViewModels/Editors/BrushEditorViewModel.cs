@@ -86,7 +86,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             .Select(t => t.Item2 is ReferenceExpression<Brush>
                 ? t.Item1?.Target.GetValue(RenderContext.Default)
                 : null)
-            .Select(fe => fe != null ? GetDisplayName(fe) : Message.Property_is_unset)
+            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : Message.Property_is_unset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -229,23 +229,11 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
         return searcher.SearchAll()
             .Cast<Brush>()
-            .Select(b => new TargetObjectInfo(GetDisplayName(b), b, GetOwnerElement(b)))
+            .Select(b => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(b), b, CoreObjectHelper.GetOwnerElement(b)))
             .ToList();
     }
 
-    private static string GetDisplayName(CoreObject obj)
-    {
-        var element = (obj as IHierarchical)?.FindHierarchicalParent<Element>();
-        var typeName = LibraryService.Current.FindItem(obj.GetType())?.DisplayName
-            ?? obj.GetType().Name;
 
-        return element != null ? $"{element.Name} - {typeName}" : typeName;
-    }
-
-    private static Element? GetOwnerElement(CoreObject obj)
-    {
-        return (obj as IHierarchical)?.FindHierarchicalParent<Element>();
-    }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
