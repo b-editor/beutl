@@ -5,12 +5,12 @@ namespace Beutl.Audio.Graph.Nodes;
 
 /// <summary>
 /// Audio node that performs time stretching while preserving pitch using WSOLA algorithm.
+/// Unlike SpeedNode which uses resampling (changes pitch), this node maintains the original pitch.
 /// </summary>
 public sealed class TimeStretchNode : AudioNode
 {
     private TimeStretchProcessor? _processor;
     private int _lastSampleRate;
-    private TimeSpan? _lastTimeRangeStart;
 
     /// <summary>
     /// Speed percentage (25-400). 100 = normal speed.
@@ -22,64 +22,54 @@ public sealed class TimeStretchNode : AudioNode
         if (Inputs.Count != 1)
             throw new InvalidOperationException("TimeStretch node requires exactly one input.");
 
-        var input = Inputs[0].Process(context);
+        // Calculate the expected output sample count based on the context's time range
+        var expectedOutputSampleCount = context.GetSampleCount();
 
-        // Speed 100% = no change, pass through
-        float speed = (Speed?.CurrentValue ?? 100f) / 100f;
-        if (Math.Abs(speed - 1.0f) < float.Epsilon)
-        {
-            return input;
-        }
-
-        // Initialize processor if needed or sample rate changed
+        // Initialize processor if needed
         if (_processor == null || _lastSampleRate != context.SampleRate)
         {
             _processor?.Dispose();
-            _processor = new TimeStretchProcessor(context.SampleRate, input.ChannelCount);
+            _processor = new TimeStretchProcessor(context.SampleRate, 2, this);
             _lastSampleRate = context.SampleRate;
         }
 
-        // Reset on seek
-        if (!_lastTimeRangeStart.HasValue || _lastTimeRangeStart.Value > context.TimeRange.Start)
-        {
-            _processor.Reset();
-            _lastTimeRangeStart = context.TimeRange.Start;
-        }
-
-        // Check for animation
-        bool hasAnimation = Speed?.IsAnimatable == true;
-
-        if (!hasAnimation)
-        {
-            return ProcessStaticSpeed(input, context, speed);
-        }
-
-        return ProcessAnimatedSpeed(input, context);
+        return ProcessStaticSpeed(context, expectedOutputSampleCount);
     }
 
-    private AudioBuffer ProcessStaticSpeed(AudioBuffer input, AudioProcessContext context, float speed)
+    private AudioBuffer ProcessStaticSpeed(AudioProcessContext context, int expectedOutputSampleCount)
     {
-        return _processor!.Process(input, speed);
+        float speed = (Speed?.CurrentValue ?? 100f) / 100f;
+
+        // If speed is 1.0, use normal processing
+        if (Math.Abs(speed - 1.0f) < float.Epsilon)
+        {
+            return Inputs[0].Process(context);
+        }
+
+        // Calculate source time range from output time range
+        // For speed > 1: we need more input to produce the same output
+        // For speed < 1: we need less input to produce the same output
+        var sourceTimeRange = CalculateSourceTimeRange(context.TimeRange, speed);
+
+        // Create input context with calculated source time range
+        var inputContext = new AudioProcessContext(
+            sourceTimeRange,
+            context.SampleRate,
+            context.AnimationSampler,
+            context.OriginalTimeRange);
+
+        // Process with WSOLA to get the expected output length
+        return _processor!.ProcessBuffer(inputContext, speed, expectedOutputSampleCount);
     }
 
-    private AudioBuffer ProcessAnimatedSpeed(AudioBuffer input, AudioProcessContext context)
+    private TimeRange CalculateSourceTimeRange(TimeRange outputTimeRange, float speed)
     {
-        // For animated speed, sample the speed values
-        int sampleCount = input.SampleCount;
-        Span<float> speeds = stackalloc float[Math.Min(sampleCount, 1024)];
+        // Source start time scales with speed
+        var sourceStart = outputTimeRange.Start * speed;
+        // Source duration scales with speed (need more input for faster playback)
+        var sourceDuration = outputTimeRange.Duration * speed;
 
-        context.AnimationSampler.SampleBuffer(Speed, context.TimeRange, context.SampleRate, speeds[..Math.Min(sampleCount, speeds.Length)]);
-
-        // Use average speed for this block
-        float avgSpeed = 0f;
-        int count = Math.Min(sampleCount, speeds.Length);
-        for (int i = 0; i < count; i++)
-        {
-            avgSpeed += speeds[i];
-        }
-        avgSpeed = (avgSpeed / count) / 100f;
-
-        return _processor!.Process(input, avgSpeed);
+        return new TimeRange(sourceStart, sourceDuration);
     }
 
     protected override void Dispose(bool disposing)
@@ -99,43 +89,42 @@ public sealed class TimeStretchNode : AudioNode
     private sealed class TimeStretchProcessor : IDisposable
     {
         private readonly int _sampleRate;
-        private readonly int _channelCount;
+        private readonly int _channels;
+        private readonly TimeStretchNode _node;
         private readonly WsolaProcessor[] _channelProcessors;
         private readonly WsolaConfig _config;
 
-        public TimeStretchProcessor(int sampleRate, int channelCount)
+        public TimeStretchProcessor(int sampleRate, int channels, TimeStretchNode node)
         {
             _sampleRate = sampleRate;
-            _channelCount = channelCount;
+            _channels = channels;
+            _node = node;
             _config = WsolaConfig.Default;
 
-            _channelProcessors = new WsolaProcessor[channelCount];
-            for (int i = 0; i < channelCount; i++)
+            _channelProcessors = new WsolaProcessor[channels];
+            for (int i = 0; i < channels; i++)
             {
                 _channelProcessors[i] = new WsolaProcessor(sampleRate, _config);
             }
         }
 
-        public AudioBuffer Process(AudioBuffer input, float speed)
+        public AudioBuffer ProcessBuffer(AudioProcessContext context, float speed, int expectedOutputSamples)
         {
             // Clamp speed to valid range
             speed = Math.Clamp(speed, 0.25f, 4.0f);
 
-            // Calculate expected output length based on speed
-            int inputSamples = input.SampleCount;
-            int expectedOutputSamples = (int)(inputSamples / speed);
+            // Get input from the node's input
+            var input = _node.Inputs[0].Process(context);
 
-            var output = new AudioBuffer(_sampleRate, _channelCount, expectedOutputSamples);
+            var output = new AudioBuffer(_sampleRate, _channels, expectedOutputSamples);
 
-            for (int ch = 0; ch < Math.Min(input.ChannelCount, _channelCount); ch++)
+            for (int ch = 0; ch < Math.Min(input.ChannelCount, _channels); ch++)
             {
                 var inData = input.GetChannelData(ch);
                 var outData = output.GetChannelData(ch);
 
-                // Convert to span for WSOLA processing
-                ReadOnlySpan<float> inputSpan = inData;
-
-                int written = _channelProcessors[ch].Process(inputSpan, speed, outData);
+                // Process with WSOLA
+                int written = _channelProcessors[ch].Process(inData, speed, outData);
 
                 // Fill remaining with last sample if needed
                 if (written < expectedOutputSamples && written > 0)
