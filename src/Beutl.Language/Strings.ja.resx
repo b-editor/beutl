@@ -1773,6 +1773,24 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="CSharpScriptEffect" xml:space="preserve">
     <value>C#スクリプト</value>
   </data>
+  <data name="ExportProject" xml:space="preserve">
+    <value>プロジェクトをエクスポート...</value>
+  </data>
+  <data name="ImportProject" xml:space="preserve">
+    <value>プロジェクトをインポート...</value>
+  </data>
+  <data name="ExportingProject" xml:space="preserve">
+    <value>プロジェクトをエクスポート中...</value>
+  </data>
+  <data name="ImportingProject" xml:space="preserve">
+    <value>プロジェクトをインポート中...</value>
+  </data>
+  <data name="ProjectPackage" xml:space="preserve">
+    <value>プロジェクトパッケージ</value>
+  </data>
+  <data name="SelectDestinationFolder" xml:space="preserve">
+    <value>展開先フォルダを選択</value>
+  </data>
   <data name="Target" xml:space="preserve">
     <value>ターゲット</value>
   </data>

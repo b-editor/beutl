@@ -63,6 +63,12 @@ namespace Beutl.Language {
             }
         }
         
+        public static string OperationCompletedSuccessfully {
+            get {
+                return ResourceManager.GetString("OperationCompletedSuccessfully", resourceCulture);
+            }
+        }
+        
         public static string DoYouWantToDeleteThisDirectory {
             get {
                 return ResourceManager.GetString("DoYouWantToDeleteThisDirectory", resourceCulture);
