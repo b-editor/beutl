@@ -1735,4 +1735,25 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="CSharpScriptEffect" xml:space="preserve">
     <value>C# Script</value>
   </data>
+  <data name="Equalizer" xml:space="preserve">
+    <value>Equalizer</value>
+  </data>
+  <data name="EqualizerBand" xml:space="preserve">
+    <value>Equalizer Band</value>
+  </data>
+  <data name="FilterType" xml:space="preserve">
+    <value>Filter Type</value>
+  </data>
+  <data name="Frequency" xml:space="preserve">
+    <value>Frequency (Hz)</value>
+  </data>
+  <data name="Q" xml:space="preserve">
+    <value>Q</value>
+  </data>
+  <data name="BandCount" xml:space="preserve">
+    <value>Band Count</value>
+  </data>
+  <data name="Bands" xml:space="preserve">
+    <value>Bands</value>
+  </data>
 </root>

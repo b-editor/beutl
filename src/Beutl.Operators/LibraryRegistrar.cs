@@ -163,6 +163,7 @@ public static class LibraryRegistrar
         LibraryService.Current
             .RegisterGroup(Strings.AudioEffect, g => g
                 .AddAudioEffect<DelayEffect>(Strings.Delay)
+                .AddAudioEffect<EqualizerEffect>(Strings.Equalizer)
             );
     }
 }

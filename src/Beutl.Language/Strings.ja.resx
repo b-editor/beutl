@@ -1740,4 +1740,25 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="CSharpScriptEffect" xml:space="preserve">
     <value>C#スクリプト</value>
   </data>
+  <data name="Equalizer" xml:space="preserve">
+    <value>グラフィックイコライザー</value>
+  </data>
+  <data name="EqualizerBand" xml:space="preserve">
+    <value>イコライザーバンド</value>
+  </data>
+  <data name="FilterType" xml:space="preserve">
+    <value>フィルタータイプ</value>
+  </data>
+  <data name="Frequency" xml:space="preserve">
+    <value>周波数 (Hz)</value>
+  </data>
+  <data name="Q" xml:space="preserve">
+    <value>Q値</value>
+  </data>
+  <data name="BandCount" xml:space="preserve">
+    <value>バンド数</value>
+  </data>
+  <data name="Bands" xml:space="preserve">
+    <value>バンド</value>
+  </data>
 </root>

@@ -3260,5 +3260,47 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("CSharpScriptEffect", resourceCulture);
             }
         }
+        
+        public static string Equalizer {
+            get {
+                return ResourceManager.GetString("Equalizer", resourceCulture);
+            }
+        }
+        
+        public static string EqualizerBand {
+            get {
+                return ResourceManager.GetString("EqualizerBand", resourceCulture);
+            }
+        }
+        
+        public static string FilterType {
+            get {
+                return ResourceManager.GetString("FilterType", resourceCulture);
+            }
+        }
+        
+        public static string Frequency {
+            get {
+                return ResourceManager.GetString("Frequency", resourceCulture);
+            }
+        }
+        
+        public static string Q {
+            get {
+                return ResourceManager.GetString("Q", resourceCulture);
+            }
+        }
+        
+        public static string BandCount {
+            get {
+                return ResourceManager.GetString("BandCount", resourceCulture);
+            }
+        }
+        
+        public static string Bands {
+            get {
+                return ResourceManager.GetString("Bands", resourceCulture);
+            }
+        }
     }
 }
