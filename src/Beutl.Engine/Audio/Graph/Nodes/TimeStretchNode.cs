@@ -123,13 +123,24 @@ public sealed class TimeStretchNode : AudioNode
                 var inData = input.GetChannelData(ch);
                 var outData = output.GetChannelData(ch);
 
-                // Process with WSOLA
-                int written = _channelProcessors[ch].Process(inData, speed, outData);
+                // Process with WSOLA, retry until we have enough output
+                int totalWritten = 0;
+                bool firstPass = true;
 
-                // Fill remaining samples with silence (zero)
-                for (int i = written; i < expectedOutputSamples; i++)
+                while (totalWritten < expectedOutputSamples)
                 {
-                    outData[i] = 0f;
+                    // On first pass, provide input data; on subsequent passes, use empty input
+                    // (WSOLA processor has internal buffer that may still produce output)
+                    var inputSpan = firstPass ? (ReadOnlySpan<float>)inData : ReadOnlySpan<float>.Empty;
+                    var outputSpan = outData.Slice(totalWritten);
+
+                    int written = _channelProcessors[ch].Process(inputSpan, speed, outputSpan);
+
+                    if (written == 0)
+                        break; // No more output possible
+
+                    totalWritten += written;
+                    firstPass = false;
                 }
             }
 
