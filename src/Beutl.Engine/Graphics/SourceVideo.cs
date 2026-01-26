@@ -222,18 +222,18 @@ public partial class SourceVideo : Drawable
             }
         }
 
-        internal (int Key, double Value) TryGetSpeedCache(int sec)
+        internal (int Key, double Value) TryGetSpeedCache(int targetSec)
         {
             if (_speedIntegralCache == null) return (-1, 0);
 
             // キャッシュヒット確認（指定秒数以下で最大のキャッシュを探す）
-            do
+            for (int sec = targetSec; sec >= 0; sec--)
             {
-                if (_speedIntegralCache.TryGetValue(sec--, out double result))
+                if (_speedIntegralCache.TryGetValue(sec, out double result))
                 {
-                    return (sec + 1, result);
+                    return (sec, result);
                 }
-            } while (sec >= 0);
+            }
 
             return (-1, 0);
         }
