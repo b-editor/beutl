@@ -96,6 +96,7 @@ public sealed class AudioContext : IDisposable
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
+                existing.ClearInputs();
                 return AddNode(existing);
             }
         }
@@ -124,6 +125,7 @@ public sealed class AudioContext : IDisposable
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
+                existing.ClearInputs();
                 existing.Gain = gain;
                 return AddNode(existing);
             }
@@ -153,6 +155,7 @@ public sealed class AudioContext : IDisposable
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
+                existing.ClearInputs();
                 return AddNode(existing);
             }
         }
@@ -183,6 +186,7 @@ public sealed class AudioContext : IDisposable
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
+                existing.ClearInputs();
                 return AddNode(existing);
             }
         }
@@ -237,6 +241,7 @@ public sealed class AudioContext : IDisposable
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
+                existing.ClearInputs();
                 return AddNode(existing);
             }
         }
@@ -265,6 +270,7 @@ public sealed class AudioContext : IDisposable
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
+                existing.ClearInputs();
                 existing.Speed = speed;
                 return AddNode(existing);
             }
