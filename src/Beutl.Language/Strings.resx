@@ -1723,6 +1723,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Delay" xml:space="preserve">
     <value>Delay</value>
   </data>
+  <data name="TimeStretch" xml:space="preserve">
+    <value>Time Stretch</value>
+  </data>
   <data name="Presenter" xml:space="preserve">
     <value>Presenter</value>
   </data>

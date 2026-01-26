@@ -1728,6 +1728,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Delay" xml:space="preserve">
     <value>ディレイ</value>
   </data>
+  <data name="TimeStretch" xml:space="preserve">
+    <value>タイムストレッチ</value>
+  </data>
   <data name="Presenter" xml:space="preserve">
     <value>プレセンター</value>
   </data>
