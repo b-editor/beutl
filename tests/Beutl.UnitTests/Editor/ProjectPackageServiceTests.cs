@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Beutl.Editor;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
@@ -135,7 +136,7 @@ public class ProjectPackageServiceTests
         Project project = CreateAndSaveTestProject();
         string outputPath = Path.Combine(_exportDir, "test.zip");
 
-        List<double> progressValues = [];
+        ConcurrentBag<double> progressValues = [];
         var progress = new Progress<(string Message, double Progress)>(p => progressValues.Add(p.Progress));
 
         // Act
