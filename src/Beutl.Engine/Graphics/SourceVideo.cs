@@ -20,6 +20,7 @@ public partial class SourceVideo : Drawable
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
     [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
@@ -105,10 +106,23 @@ public partial class SourceVideo : Drawable
 
         // 二分探索で、CalculateVideoTime(t) == duration となる t を求める
         TimeSpan low = TimeSpan.Zero;
-        // 最大速度を考慮した上限（速度が最小でも10%程度と仮定）
-        TimeSpan high = TimeSpan.FromTicks(duration.Ticks * 10);
+        // 上限は、CalculateVideoTime(high) >= duration となるまで徐々に拡大する
+        TimeSpan high = duration;
+        TimeSpan videoTimeAtHigh = CalculateVideoTime(high, resource);
         const int maxIterations = 50;
         const double toleranceSeconds = 1.0 / 60.0; // 1フレーム以下の精度
+
+        // 速度が非常に遅い場合に備えて high を段階的に拡大する
+        const int maxHighExpansions = 20;
+        int expansionCount = 0;
+        while (videoTimeAtHigh < duration
+               && expansionCount < maxHighExpansions
+               && high <= TimeSpan.FromTicks(TimeSpan.MaxValue.Ticks / 2))
+        {
+            high = TimeSpan.FromTicks(high.Ticks * 2);
+            videoTimeAtHigh = CalculateVideoTime(high, resource);
+            expansionCount++;
+        }
 
         for (int i = 0; i < maxIterations; i++)
         {
@@ -222,6 +236,17 @@ public partial class SourceVideo : Drawable
             } while (sec >= 0);
 
             return (-1, 0);
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            // イベント購読解除（メモリリーク防止）
+            if (_cachedAnimation != null)
+            {
+                _cachedAnimation.Edited -= OnAnimationEdited;
+                _cachedAnimation = null;
+            }
+            _speedIntegralCache = null;
         }
 
         partial void PostUpdate(SourceVideo obj, RenderContext context)

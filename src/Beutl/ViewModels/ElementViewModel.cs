@@ -180,6 +180,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 Width.Select(_ => Unit.Default),
                 _thumbnailsInvalidatedSubject.AsObservable())
             .Throttle(TimeSpan.FromMilliseconds(500))
+            .ObserveOnUIDispatcher()
             .Subscribe(_ => UpdateThumbnailsAsync())
             .AddTo(_disposables);
     }

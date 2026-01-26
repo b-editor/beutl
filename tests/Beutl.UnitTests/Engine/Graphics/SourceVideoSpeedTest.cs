@@ -304,4 +304,66 @@ public class SourceVideoSpeedTest
         Assert.That(originalTime, Is.Not.Null);
         Assert.That(originalTime!.Value.TotalSeconds, Is.GreaterThan(0));
     }
+
+    [Test]
+    public void CalculateVideoTime_WithVerySmallTimeSpan_ShouldHandleCorrectly()
+    {
+        // Arrange: 非常に小さいtimeSpan（1/60秒未満）でのテスト
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.Zero });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+
+        // 1ミリ秒時点でリソースを更新（1/60秒 ≈ 16.67ミリ秒より小さい）
+        var context = new RenderContext(TimeSpan.FromMilliseconds(1));
+        var updateOnly = false;
+        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+
+        // Assert: 非常に小さい値でも正しく計算される
+        // Speed=200なので、1ミリ秒の再生時刻 = 2ミリ秒の映像時刻
+        Assert.That(_sourceVideoResource.RequestedPosition.TotalMilliseconds, Is.EqualTo(2.0).Within(0.5));
+    }
+
+    [Test]
+    public void CalculateVideoTime_WithVerySlowSpeed_ShouldHandleCorrectly()
+    {
+        // Arrange: 非常に遅い速度（5%）でのテスト
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 5f, KeyTime = TimeSpan.Zero });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+
+        // 2秒時点でリソースを更新
+        var context = new RenderContext(TimeSpan.FromSeconds(2));
+        var updateOnly = false;
+        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+
+        // Assert: Speed=5なので、2秒の再生時刻 = 0.1秒の映像時刻
+        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(0.1).Within(0.02));
+    }
+
+    [Test]
+    public void CalculateOriginalTime_WithVerySlowSpeed_ShouldExpandUpperBound()
+    {
+        // Arrange: 非常に遅い速度（5%）でのテスト - 上限拡大が必要
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 5f, KeyTime = TimeSpan.Zero });
+        _sourceVideo!.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+
+        // 初期化のための更新
+        var initContext = new RenderContext(TimeSpan.Zero);
+        var updateOnly = false;
+        _sourceVideoResource.Update(_sourceVideo, initContext, ref updateOnly);
+
+        // Act
+        var originalTime = _sourceVideo.CalculateOriginalTime(_sourceVideoResource);
+
+        // Assert: 10秒の動画を5%速度で再生すると、元の時間は200秒
+        Assert.That(originalTime, Is.Not.Null);
+        Assert.That(originalTime!.Value.TotalSeconds, Is.EqualTo(200.0).Within(5.0));
+    }
 }
