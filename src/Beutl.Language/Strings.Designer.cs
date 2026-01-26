@@ -3488,5 +3488,420 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("SweepClockwise", resourceCulture);
             }
         }
+        
+        // 3D Graphics
+        public static string OrthographicCamera {
+            get {
+                return ResourceManager.GetString("OrthographicCamera", resourceCulture);
+            }
+        }
+        
+        public static string PerspectiveCamera {
+            get {
+                return ResourceManager.GetString("PerspectiveCamera", resourceCulture);
+            }
+        }
+        
+        public static string DirectionalLight3D {
+            get {
+                return ResourceManager.GetString("DirectionalLight3D", resourceCulture);
+            }
+        }
+        
+        public static string PointLight3D {
+            get {
+                return ResourceManager.GetString("PointLight3D", resourceCulture);
+            }
+        }
+        
+        public static string SpotLight3D {
+            get {
+                return ResourceManager.GetString("SpotLight3D", resourceCulture);
+            }
+        }
+        
+        public static string BasicMaterial {
+            get {
+                return ResourceManager.GetString("BasicMaterial", resourceCulture);
+            }
+        }
+        
+        public static string PBRMaterial {
+            get {
+                return ResourceManager.GetString("PBRMaterial", resourceCulture);
+            }
+        }
+        
+        public static string CubeMesh {
+            get {
+                return ResourceManager.GetString("CubeMesh", resourceCulture);
+            }
+        }
+        
+        public static string SphereMesh {
+            get {
+                return ResourceManager.GetString("SphereMesh", resourceCulture);
+            }
+        }
+        
+        public static string MeshObject3D {
+            get {
+                return ResourceManager.GetString("MeshObject3D", resourceCulture);
+            }
+        }
+        
+        public static string ModelMesh {
+            get {
+                return ResourceManager.GetString("ModelMesh", resourceCulture);
+            }
+        }
+        
+        public static string Cube3D {
+            get {
+                return ResourceManager.GetString("Cube3D", resourceCulture);
+            }
+        }
+        
+        public static string Sphere3D {
+            get {
+                return ResourceManager.GetString("Sphere3D", resourceCulture);
+            }
+        }
+        
+        public static string DrawableTextureSource {
+            get {
+                return ResourceManager.GetString("DrawableTextureSource", resourceCulture);
+            }
+        }
+        
+        public static string ImageTextureSource {
+            get {
+                return ResourceManager.GetString("ImageTextureSource", resourceCulture);
+            }
+        }
+        
+        public static string Group3D {
+            get {
+                return ResourceManager.GetString("Group3D", resourceCulture);
+            }
+        }
+        
+        public static string Scene3D {
+            get {
+                return ResourceManager.GetString("Scene3D", resourceCulture);
+            }
+        }
+        
+        public static string FieldOfView {
+            get {
+                return ResourceManager.GetString("FieldOfView", resourceCulture);
+            }
+        }
+        
+        public static string NearPlane {
+            get {
+                return ResourceManager.GetString("NearPlane", resourceCulture);
+            }
+        }
+        
+        public static string FarPlane {
+            get {
+                return ResourceManager.GetString("FarPlane", resourceCulture);
+            }
+        }
+        
+        public static string Up {
+            get {
+                return ResourceManager.GetString("Up", resourceCulture);
+            }
+        }
+        
+        public static string Direction {
+            get {
+                return ResourceManager.GetString("Direction", resourceCulture);
+            }
+        }
+        
+        public static string CastsShadow {
+            get {
+                return ResourceManager.GetString("CastsShadow", resourceCulture);
+            }
+        }
+        
+        public static string ShadowBias {
+            get {
+                return ResourceManager.GetString("ShadowBias", resourceCulture);
+            }
+        }
+        
+        public static string ShadowNormalBias {
+            get {
+                return ResourceManager.GetString("ShadowNormalBias", resourceCulture);
+            }
+        }
+        
+        public static string ShadowStrength {
+            get {
+                return ResourceManager.GetString("ShadowStrength", resourceCulture);
+            }
+        }
+        
+        public static string ShadowDistance {
+            get {
+                return ResourceManager.GetString("ShadowDistance", resourceCulture);
+            }
+        }
+        
+        public static string ShadowMapSize {
+            get {
+                return ResourceManager.GetString("ShadowMapSize", resourceCulture);
+            }
+        }
+        
+        public static string ConstantAttenuation {
+            get {
+                return ResourceManager.GetString("ConstantAttenuation", resourceCulture);
+            }
+        }
+        
+        public static string LinearAttenuation {
+            get {
+                return ResourceManager.GetString("LinearAttenuation", resourceCulture);
+            }
+        }
+        
+        public static string QuadraticAttenuation {
+            get {
+                return ResourceManager.GetString("QuadraticAttenuation", resourceCulture);
+            }
+        }
+        
+        public static string Range {
+            get {
+                return ResourceManager.GetString("Range", resourceCulture);
+            }
+        }
+        
+        public static string InnerConeAngle {
+            get {
+                return ResourceManager.GetString("InnerConeAngle", resourceCulture);
+            }
+        }
+        
+        public static string OuterConeAngle {
+            get {
+                return ResourceManager.GetString("OuterConeAngle", resourceCulture);
+            }
+        }
+        
+        public static string DiffuseColor {
+            get {
+                return ResourceManager.GetString("DiffuseColor", resourceCulture);
+            }
+        }
+        
+        public static string DiffuseMap {
+            get {
+                return ResourceManager.GetString("DiffuseMap", resourceCulture);
+            }
+        }
+        
+        public static string AmbientColor {
+            get {
+                return ResourceManager.GetString("AmbientColor", resourceCulture);
+            }
+        }
+        
+        public static string SpecularColor {
+            get {
+                return ResourceManager.GetString("SpecularColor", resourceCulture);
+            }
+        }
+        
+        public static string Shininess {
+            get {
+                return ResourceManager.GetString("Shininess", resourceCulture);
+            }
+        }
+        
+        public static string Albedo {
+            get {
+                return ResourceManager.GetString("Albedo", resourceCulture);
+            }
+        }
+        
+        public static string AlbedoMap {
+            get {
+                return ResourceManager.GetString("AlbedoMap", resourceCulture);
+            }
+        }
+        
+        public static string Metallic {
+            get {
+                return ResourceManager.GetString("Metallic", resourceCulture);
+            }
+        }
+        
+        public static string Roughness {
+            get {
+                return ResourceManager.GetString("Roughness", resourceCulture);
+            }
+        }
+        
+        public static string MetallicRoughnessMap {
+            get {
+                return ResourceManager.GetString("MetallicRoughnessMap", resourceCulture);
+            }
+        }
+        
+        public static string AmbientOcclusion {
+            get {
+                return ResourceManager.GetString("AmbientOcclusion", resourceCulture);
+            }
+        }
+        
+        public static string AOMap {
+            get {
+                return ResourceManager.GetString("AOMap", resourceCulture);
+            }
+        }
+        
+        public static string Emissive {
+            get {
+                return ResourceManager.GetString("Emissive", resourceCulture);
+            }
+        }
+        
+        public static string EmissiveIntensity {
+            get {
+                return ResourceManager.GetString("EmissiveIntensity", resourceCulture);
+            }
+        }
+        
+        public static string EmissiveMap {
+            get {
+                return ResourceManager.GetString("EmissiveMap", resourceCulture);
+            }
+        }
+        
+        public static string NormalMap {
+            get {
+                return ResourceManager.GetString("NormalMap", resourceCulture);
+            }
+        }
+        
+        public static string NormalMapStrength {
+            get {
+                return ResourceManager.GetString("NormalMapStrength", resourceCulture);
+            }
+        }
+        
+        public static string Segments {
+            get {
+                return ResourceManager.GetString("Segments", resourceCulture);
+            }
+        }
+        
+        public static string Rings {
+            get {
+                return ResourceManager.GetString("Rings", resourceCulture);
+            }
+        }
+        
+        public static string Mesh {
+            get {
+                return ResourceManager.GetString("Mesh", resourceCulture);
+            }
+        }
+        
+        public static string Vertices {
+            get {
+                return ResourceManager.GetString("Vertices", resourceCulture);
+            }
+        }
+        
+        public static string Indices {
+            get {
+                return ResourceManager.GetString("Indices", resourceCulture);
+            }
+        }
+        
+        public static string TextureWidth {
+            get {
+                return ResourceManager.GetString("TextureWidth", resourceCulture);
+            }
+        }
+        
+        public static string TextureHeight {
+            get {
+                return ResourceManager.GetString("TextureHeight", resourceCulture);
+            }
+        }
+        
+        public static string Children {
+            get {
+                return ResourceManager.GetString("Children", resourceCulture);
+            }
+        }
+        
+        public static string Camera {
+            get {
+                return ResourceManager.GetString("Camera", resourceCulture);
+            }
+        }
+        
+        public static string Objects {
+            get {
+                return ResourceManager.GetString("Objects", resourceCulture);
+            }
+        }
+        
+        public static string Lights {
+            get {
+                return ResourceManager.GetString("Lights", resourceCulture);
+            }
+        }
+        
+        public static string AmbientIntensity {
+            get {
+                return ResourceManager.GetString("AmbientIntensity", resourceCulture);
+            }
+        }
+        
+        public static string RenderWidth {
+            get {
+                return ResourceManager.GetString("RenderWidth", resourceCulture);
+            }
+        }
+        
+        public static string RenderHeight {
+            get {
+                return ResourceManager.GetString("RenderHeight", resourceCulture);
+            }
+        }
+        
+        public static string BackgroundColor {
+            get {
+                return ResourceManager.GetString("BackgroundColor", resourceCulture);
+            }
+        }
+        
+        public static string Material {
+            get {
+                return ResourceManager.GetString("Material", resourceCulture);
+            }
+        }
+        
+        public static string CastShadows {
+            get {
+                return ResourceManager.GetString("CastShadows", resourceCulture);
+            }
+        }
+        
+        public static string ReceiveShadows {
+            get {
+                return ResourceManager.GetString("ReceiveShadows", resourceCulture);
+            }
+        }
     }
 }
