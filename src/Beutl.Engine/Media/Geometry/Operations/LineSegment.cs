@@ -23,6 +23,7 @@ public sealed partial class LineSegment : PathSegment
     {
     }
 
+    [Display(Name = nameof(Strings.Point), ResourceType = typeof(Strings))]
     public IProperty<Point> Point { get; } = Property.CreateAnimatable<Point>();
 
     public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)

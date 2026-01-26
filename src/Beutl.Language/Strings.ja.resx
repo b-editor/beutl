@@ -1740,4 +1740,118 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="CSharpScriptEffect" xml:space="preserve">
     <value>C#スクリプト</value>
   </data>
+  <data name="Target" xml:space="preserve">
+    <value>ターゲット</value>
+  </data>
+  <data name="ScaleX" xml:space="preserve">
+    <value>X拡大率</value>
+  </data>
+  <data name="ScaleY" xml:space="preserve">
+    <value>Y拡大率</value>
+  </data>
+  <data name="SkewX" xml:space="preserve">
+    <value>X傾き</value>
+  </data>
+  <data name="SkewY" xml:space="preserve">
+    <value>Y傾き</value>
+  </data>
+  <data name="X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+  <data name="RotationX" xml:space="preserve">
+    <value>X回転</value>
+  </data>
+  <data name="RotationY" xml:space="preserve">
+    <value>Y回転</value>
+  </data>
+  <data name="RotationZ" xml:space="preserve">
+    <value>Z回転</value>
+  </data>
+  <data name="CenterX" xml:space="preserve">
+    <value>中心X</value>
+  </data>
+  <data name="CenterY" xml:space="preserve">
+    <value>中心Y</value>
+  </data>
+  <data name="CenterZ" xml:space="preserve">
+    <value>中心Z</value>
+  </data>
+  <data name="Depth" xml:space="preserve">
+    <value>深度</value>
+  </data>
+  <data name="Matrix" xml:space="preserve">
+    <value>行列</value>
+  </data>
+  <data name="MatrixTransform" xml:space="preserve">
+    <value>行列変形</value>
+  </data>
+  <data name="OffsetPosition" xml:space="preserve">
+    <value>オフセット位置</value>
+  </data>
+  <data name="Effect" xml:space="preserve">
+    <value>エフェクト</value>
+  </data>
+  <data name="RedOffset" xml:space="preserve">
+    <value>赤オフセット</value>
+  </data>
+  <data name="GreenOffset" xml:space="preserve">
+    <value>緑オフセット</value>
+  </data>
+  <data name="BlueOffset" xml:space="preserve">
+    <value>青オフセット</value>
+  </data>
+  <data name="AlphaOffset" xml:space="preserve">
+    <value>透明度オフセット</value>
+  </data>
+  <data name="BaseFrequencyX" xml:space="preserve">
+    <value>基本周波数X</value>
+  </data>
+  <data name="BaseFrequencyY" xml:space="preserve">
+    <value>基本周波数Y</value>
+  </data>
+  <data name="Octaves" xml:space="preserve">
+    <value>オクターブ</value>
+  </data>
+  <data name="Seed" xml:space="preserve">
+    <value>シード</value>
+  </data>
+  <data name="PerlinNoiseType" xml:space="preserve">
+    <value>ノイズタイプ</value>
+  </data>
+  <data name="FillType" xml:space="preserve">
+    <value>塗りつぶしタイプ</value>
+  </data>
+  <data name="IsClosed" xml:space="preserve">
+    <value>閉じる</value>
+  </data>
+  <data name="Point" xml:space="preserve">
+    <value>点</value>
+  </data>
+  <data name="ControlPoint" xml:space="preserve">
+    <value>制御点</value>
+  </data>
+  <data name="ControlPoint1" xml:space="preserve">
+    <value>制御点1</value>
+  </data>
+  <data name="ControlPoint2" xml:space="preserve">
+    <value>制御点2</value>
+  </data>
+  <data name="Weight" xml:space="preserve">
+    <value>重み</value>
+  </data>
+  <data name="Data" xml:space="preserve">
+    <value>データ</value>
+  </data>
+  <data name="RotationAngle" xml:space="preserve">
+    <value>回転角度</value>
+  </data>
+  <data name="IsLargeArc" xml:space="preserve">
+    <value>大弧</value>
+  </data>
+  <data name="SweepClockwise" xml:space="preserve">
+    <value>時計回り</value>
+  </data>
 </root>

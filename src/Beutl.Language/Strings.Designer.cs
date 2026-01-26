@@ -3260,5 +3260,233 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("CSharpScriptEffect", resourceCulture);
             }
         }
+        
+        public static string Target {
+            get {
+                return ResourceManager.GetString("Target", resourceCulture);
+            }
+        }
+        
+        public static string ScaleX {
+            get {
+                return ResourceManager.GetString("ScaleX", resourceCulture);
+            }
+        }
+        
+        public static string ScaleY {
+            get {
+                return ResourceManager.GetString("ScaleY", resourceCulture);
+            }
+        }
+        
+        public static string SkewX {
+            get {
+                return ResourceManager.GetString("SkewX", resourceCulture);
+            }
+        }
+        
+        public static string SkewY {
+            get {
+                return ResourceManager.GetString("SkewY", resourceCulture);
+            }
+        }
+        
+        public static string X {
+            get {
+                return ResourceManager.GetString("X", resourceCulture);
+            }
+        }
+        
+        public static string Y {
+            get {
+                return ResourceManager.GetString("Y", resourceCulture);
+            }
+        }
+        
+        public static string RotationX {
+            get {
+                return ResourceManager.GetString("RotationX", resourceCulture);
+            }
+        }
+        
+        public static string RotationY {
+            get {
+                return ResourceManager.GetString("RotationY", resourceCulture);
+            }
+        }
+        
+        public static string RotationZ {
+            get {
+                return ResourceManager.GetString("RotationZ", resourceCulture);
+            }
+        }
+        
+        public static string CenterX {
+            get {
+                return ResourceManager.GetString("CenterX", resourceCulture);
+            }
+        }
+        
+        public static string CenterY {
+            get {
+                return ResourceManager.GetString("CenterY", resourceCulture);
+            }
+        }
+        
+        public static string CenterZ {
+            get {
+                return ResourceManager.GetString("CenterZ", resourceCulture);
+            }
+        }
+        
+        public static string Depth {
+            get {
+                return ResourceManager.GetString("Depth", resourceCulture);
+            }
+        }
+        
+        public static string Matrix {
+            get {
+                return ResourceManager.GetString("Matrix", resourceCulture);
+            }
+        }
+        
+        public static string MatrixTransform {
+            get {
+                return ResourceManager.GetString("MatrixTransform", resourceCulture);
+            }
+        }
+        
+        public static string OffsetPosition {
+            get {
+                return ResourceManager.GetString("OffsetPosition", resourceCulture);
+            }
+        }
+        
+        public static string Effect {
+            get {
+                return ResourceManager.GetString("Effect", resourceCulture);
+            }
+        }
+        
+        public static string RedOffset {
+            get {
+                return ResourceManager.GetString("RedOffset", resourceCulture);
+            }
+        }
+        
+        public static string GreenOffset {
+            get {
+                return ResourceManager.GetString("GreenOffset", resourceCulture);
+            }
+        }
+        
+        public static string BlueOffset {
+            get {
+                return ResourceManager.GetString("BlueOffset", resourceCulture);
+            }
+        }
+        
+        public static string AlphaOffset {
+            get {
+                return ResourceManager.GetString("AlphaOffset", resourceCulture);
+            }
+        }
+        
+        public static string BaseFrequencyX {
+            get {
+                return ResourceManager.GetString("BaseFrequencyX", resourceCulture);
+            }
+        }
+        
+        public static string BaseFrequencyY {
+            get {
+                return ResourceManager.GetString("BaseFrequencyY", resourceCulture);
+            }
+        }
+        
+        public static string Octaves {
+            get {
+                return ResourceManager.GetString("Octaves", resourceCulture);
+            }
+        }
+        
+        public static string Seed {
+            get {
+                return ResourceManager.GetString("Seed", resourceCulture);
+            }
+        }
+        
+        public static string PerlinNoiseType {
+            get {
+                return ResourceManager.GetString("PerlinNoiseType", resourceCulture);
+            }
+        }
+        
+        public static string FillType {
+            get {
+                return ResourceManager.GetString("FillType", resourceCulture);
+            }
+        }
+        
+        public static string IsClosed {
+            get {
+                return ResourceManager.GetString("IsClosed", resourceCulture);
+            }
+        }
+        
+        public static string Point {
+            get {
+                return ResourceManager.GetString("Point", resourceCulture);
+            }
+        }
+        
+        public static string ControlPoint {
+            get {
+                return ResourceManager.GetString("ControlPoint", resourceCulture);
+            }
+        }
+        
+        public static string ControlPoint1 {
+            get {
+                return ResourceManager.GetString("ControlPoint1", resourceCulture);
+            }
+        }
+        
+        public static string ControlPoint2 {
+            get {
+                return ResourceManager.GetString("ControlPoint2", resourceCulture);
+            }
+        }
+        
+        public static string Weight {
+            get {
+                return ResourceManager.GetString("Weight", resourceCulture);
+            }
+        }
+        
+        public static string Data {
+            get {
+                return ResourceManager.GetString("Data", resourceCulture);
+            }
+        }
+        
+        public static string RotationAngle {
+            get {
+                return ResourceManager.GetString("RotationAngle", resourceCulture);
+            }
+        }
+        
+        public static string IsLargeArc {
+            get {
+                return ResourceManager.GetString("IsLargeArc", resourceCulture);
+            }
+        }
+        
+        public static string SweepClockwise {
+            get {
+                return ResourceManager.GetString("SweepClockwise", resourceCulture);
+            }
+        }
     }
 }

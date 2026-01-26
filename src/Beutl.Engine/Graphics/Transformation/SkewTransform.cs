@@ -20,8 +20,10 @@ public sealed class SkewTransform : Transform
         ScanProperties<SkewTransform>();
     }
 
+    [Display(Name = nameof(Strings.SkewX), ResourceType = typeof(Strings))]
     public IProperty<float> SkewX { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.SkewY), ResourceType = typeof(Strings))]
     public IProperty<float> SkewY { get; } = Property.CreateAnimatable<float>();
 
     public override Matrix CreateMatrix(RenderContext context)

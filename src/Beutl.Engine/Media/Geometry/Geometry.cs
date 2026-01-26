@@ -1,7 +1,9 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
+using Beutl.Language;
 using SkiaSharp;
 
 namespace Beutl.Media;
@@ -12,8 +14,10 @@ public abstract partial class Geometry : EngineObject
     {
     }
 
+    [Display(Name = nameof(Strings.FillType), ResourceType = typeof(Strings))]
     public IProperty<PathFillType> FillType { get; } = Property.Create<PathFillType>();
 
+    [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings))]
     public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>(null);
 
     public virtual void ApplyTo(IGeometryContext context, Resource resource)

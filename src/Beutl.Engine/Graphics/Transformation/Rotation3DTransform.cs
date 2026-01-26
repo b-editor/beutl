@@ -31,18 +31,25 @@ public sealed class Rotation3DTransform : Transform
         CenterZ.CurrentValue = centerZ;
     }
 
+    [Display(Name = nameof(Strings.RotationX), ResourceType = typeof(Strings))]
     public IProperty<float> RotationX { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.RotationY), ResourceType = typeof(Strings))]
     public IProperty<float> RotationY { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.RotationZ), ResourceType = typeof(Strings))]
     public IProperty<float> RotationZ { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.CenterX), ResourceType = typeof(Strings))]
     public IProperty<float> CenterX { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.CenterY), ResourceType = typeof(Strings))]
     public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.CenterZ), ResourceType = typeof(Strings))]
     public IProperty<float> CenterZ { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.Depth), ResourceType = typeof(Strings))]
     public IProperty<float> Depth { get; } = Property.CreateAnimatable(500f);
 
     public override Matrix CreateMatrix(RenderContext context)

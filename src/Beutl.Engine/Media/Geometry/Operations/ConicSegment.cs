@@ -20,10 +20,13 @@ public sealed partial class ConicSegment : PathSegment
         Weight.CurrentValue = weight;
     }
 
+    [Display(Name = nameof(Strings.ControlPoint), ResourceType = typeof(Strings))]
     public IProperty<Point> ControlPoint { get; } = Property.CreateAnimatable<Point>();
 
+    [Display(Name = nameof(Strings.EndPoint), ResourceType = typeof(Strings))]
     public IProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
 
+    [Display(Name = nameof(Strings.Weight), ResourceType = typeof(Strings))]
     public IProperty<float> Weight { get; } = Property.CreateAnimatable<float>(1);
 
     public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)

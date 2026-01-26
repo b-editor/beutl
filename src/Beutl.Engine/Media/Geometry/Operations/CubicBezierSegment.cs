@@ -20,10 +20,13 @@ public sealed partial class CubicBezierSegment : PathSegment
         EndPoint.CurrentValue = endPoint;
     }
 
+    [Display(Name = nameof(Strings.ControlPoint1), ResourceType = typeof(Strings))]
     public IProperty<Point> ControlPoint1 { get; } = Property.CreateAnimatable<Point>();
 
+    [Display(Name = nameof(Strings.ControlPoint2), ResourceType = typeof(Strings))]
     public IProperty<Point> ControlPoint2 { get; } = Property.CreateAnimatable<Point>();
 
+    [Display(Name = nameof(Strings.EndPoint), ResourceType = typeof(Strings))]
     public IProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
 
     public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)

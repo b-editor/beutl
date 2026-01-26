@@ -1,4 +1,6 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
+using Beutl.Language;
 using Beutl.Media.Source;
 
 namespace Beutl.Media;
@@ -28,5 +30,6 @@ public partial class ImageBrush : TileBrush
     /// <summary>
     /// Gets or sets the image to draw.
     /// </summary>
+    [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
     public IProperty<ImageSource?> Source { get; } = Property.Create<ImageSource?>();
 }

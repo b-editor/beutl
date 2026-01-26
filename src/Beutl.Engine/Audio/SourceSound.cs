@@ -13,6 +13,7 @@ public sealed class SourceSound : Sound
         ScanProperties<SourceSound>();
     }
 
+    [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
     public IProperty<SoundSource?> Source { get; } = Property.Create<SoundSource?>();
 
     protected override SoundSource? GetSoundSource()

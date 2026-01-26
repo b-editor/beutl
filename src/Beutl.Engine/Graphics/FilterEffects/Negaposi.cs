@@ -13,13 +13,17 @@ public partial class Negaposi : FilterEffect
         ScanProperties<Negaposi>();
     }
 
+    [Display(Name = nameof(Strings.Red), ResourceType = typeof(Strings))]
     public IProperty<byte> Red { get; } = Property.CreateAnimatable<byte>();
 
+    [Display(Name = nameof(Strings.Green), ResourceType = typeof(Strings))]
     public IProperty<byte> Green { get; } = Property.CreateAnimatable<byte>();
 
+    [Display(Name = nameof(Strings.Blue), ResourceType = typeof(Strings))]
     public IProperty<byte> Blue { get; } = Property.CreateAnimatable<byte>();
 
     [Range(0, 100)]
+    [Display(Name = nameof(Strings.Strength), ResourceType = typeof(Strings))]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

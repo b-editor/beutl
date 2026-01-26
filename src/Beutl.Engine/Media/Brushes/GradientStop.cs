@@ -1,4 +1,6 @@
-﻿using Beutl.Engine;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Engine;
+using Beutl.Language;
 
 namespace Beutl.Media;
 
@@ -26,7 +28,9 @@ public sealed partial class GradientStop : EngineObject
         Offset.CurrentValue = offset;
     }
 
+    [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
     public IProperty<float> Offset { get; } = Property.Create<float>();
 
+    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
     public IProperty<Color> Color { get; } = Property.Create<Color>();
 }
