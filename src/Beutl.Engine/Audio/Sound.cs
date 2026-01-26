@@ -3,6 +3,7 @@ using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Language;
 using Beutl.Media.Source;
 
 namespace Beutl.Audio;
@@ -15,14 +16,18 @@ public abstract class Sound : EngineObject
         ScanProperties<Sound>();
     }
 
+    [Display(Name = nameof(Strings.OffsetPosition), ResourceType = typeof(Strings))]
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
     [Range(0, float.MaxValue)]
+    [Display(Name = nameof(Strings.Gain), ResourceType = typeof(Strings))]
     public IProperty<float> Gain { get; } = Property.CreateAnimatable(100f);
 
     [Range(0, float.MaxValue)]
+    [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
+    [Display(Name = nameof(Strings.Effect), ResourceType = typeof(Strings))]
     public IProperty<AudioEffect?> Effect { get; } = Property.Create<AudioEffect?>();
 
     protected abstract SoundSource? GetSoundSource();

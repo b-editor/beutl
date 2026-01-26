@@ -15,6 +15,7 @@ public partial class SourceImage : Drawable
         ScanProperties<SourceImage>();
     }
 
+    [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
     public IProperty<ImageSource?> Source { get; } = Property.Create<ImageSource?>();
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)

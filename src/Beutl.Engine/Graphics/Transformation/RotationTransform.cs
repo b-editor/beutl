@@ -19,6 +19,7 @@ public sealed class RotationTransform : Transform
         Rotation.CurrentValue = rotation;
     }
 
+    [Display(Name = nameof(Strings.Rotation), ResourceType = typeof(Strings))]
     public IProperty<float> Rotation { get; } = Property.CreateAnimatable<float>();
 
     public override Matrix CreateMatrix(RenderContext context)

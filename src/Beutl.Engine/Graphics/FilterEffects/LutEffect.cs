@@ -127,6 +127,7 @@ public sealed partial class LutEffect : FilterEffect
         Source.ValueChanged += (_, args) => UpdateCube(args.NewValue);
     }
 
+    [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
     public IProperty<FileInfo?> Source { get; } = Property.Create<FileInfo?>();
 
     [Display(Name = nameof(Strings.Strength), ResourceType = typeof(Strings))]

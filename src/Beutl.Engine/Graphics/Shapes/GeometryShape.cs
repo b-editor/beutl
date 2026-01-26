@@ -13,6 +13,7 @@ public sealed partial class GeometryShape : Shape
         ScanProperties<GeometryShape>();
     }
 
+    [Display(Name = nameof(Strings.Data), ResourceType = typeof(Strings))]
     public IProperty<Geometry?> Data { get; } = Property.Create<Geometry?>();
 
     public partial class Resource

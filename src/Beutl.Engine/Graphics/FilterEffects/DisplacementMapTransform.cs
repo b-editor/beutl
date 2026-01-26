@@ -54,8 +54,10 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
         ScanProperties<DisplacementMapTranslateTransform>();
     }
 
+    [Display(Name = nameof(Strings.X), ResourceType = typeof(Strings))]
     public IProperty<float> X { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.Y), ResourceType = typeof(Strings))]
     public IProperty<float> Y { get; } = Property.CreateAnimatable<float>();
 
     internal override void ApplyTo(
@@ -147,14 +149,19 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
         ScanProperties<DisplacementMapScaleTransform>();
     }
 
+    [Display(Name = nameof(Strings.Scale), ResourceType = typeof(Strings))]
     public IProperty<float> Scale { get; } = Property.CreateAnimatable<float>(100);
 
+    [Display(Name = nameof(Strings.ScaleX), ResourceType = typeof(Strings))]
     public IProperty<float> ScaleX { get; } = Property.CreateAnimatable<float>(100);
 
+    [Display(Name = nameof(Strings.ScaleY), ResourceType = typeof(Strings))]
     public IProperty<float> ScaleY { get; } = Property.CreateAnimatable<float>(100);
 
+    [Display(Name = nameof(Strings.CenterX), ResourceType = typeof(Strings))]
     public IProperty<float> CenterX { get; } = Property.CreateAnimatable<float>();
 
+    [Display(Name = nameof(Strings.CenterY), ResourceType = typeof(Strings))]
     public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>();
 
     internal override void ApplyTo(
@@ -252,10 +259,13 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
         ScanProperties<DisplacementMapRotationTransform>();
     }
 
+    [Display(Name = nameof(Strings.Rotation), ResourceType = typeof(Strings))]
     public IProperty<float> Rotation { get; } = Property.CreateAnimatable<float>(0);
 
+    [Display(Name = nameof(Strings.CenterX), ResourceType = typeof(Strings))]
     public IProperty<float> CenterX { get; } = Property.CreateAnimatable<float>(0);
 
+    [Display(Name = nameof(Strings.CenterY), ResourceType = typeof(Strings))]
     public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>(0);
 
     internal override void ApplyTo(

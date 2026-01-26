@@ -31,8 +31,10 @@ public sealed class TranslateTransform : Transform
         Y.CurrentValue = point.Y;
     }
 
+    [Display(Name = nameof(Strings.X), ResourceType = typeof(Strings))]
     public IProperty<float> X { get; } = Property.CreateAnimatable(0f);
 
+    [Display(Name = nameof(Strings.Y), ResourceType = typeof(Strings))]
     public IProperty<float> Y { get; } = Property.CreateAnimatable(0f);
 
     public override Matrix CreateMatrix(RenderContext context)

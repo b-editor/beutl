@@ -27,10 +27,13 @@ public sealed class ScaleTransform : Transform
         ScaleY.CurrentValue = y;
     }
 
+    [Display(Name = nameof(Strings.Scale), ResourceType = typeof(Strings))]
     public IProperty<float> Scale { get; } = Property.CreateAnimatable(100f);
 
+    [Display(Name = nameof(Strings.ScaleX), ResourceType = typeof(Strings))]
     public IProperty<float> ScaleX { get; } = Property.CreateAnimatable(100f);
 
+    [Display(Name = nameof(Strings.ScaleY), ResourceType = typeof(Strings))]
     public IProperty<float> ScaleY { get; } = Property.CreateAnimatable(100f);
 
     public override Matrix CreateMatrix(RenderContext context)

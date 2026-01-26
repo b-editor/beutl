@@ -1735,4 +1735,118 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="CSharpScriptEffect" xml:space="preserve">
     <value>C# Script</value>
   </data>
+  <data name="Target" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="ScaleX" xml:space="preserve">
+    <value>Scale X</value>
+  </data>
+  <data name="ScaleY" xml:space="preserve">
+    <value>Scale Y</value>
+  </data>
+  <data name="SkewX" xml:space="preserve">
+    <value>Skew X</value>
+  </data>
+  <data name="SkewY" xml:space="preserve">
+    <value>Skew Y</value>
+  </data>
+  <data name="X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+  <data name="RotationX" xml:space="preserve">
+    <value>Rotation X</value>
+  </data>
+  <data name="RotationY" xml:space="preserve">
+    <value>Rotation Y</value>
+  </data>
+  <data name="RotationZ" xml:space="preserve">
+    <value>Rotation Z</value>
+  </data>
+  <data name="CenterX" xml:space="preserve">
+    <value>Center X</value>
+  </data>
+  <data name="CenterY" xml:space="preserve">
+    <value>Center Y</value>
+  </data>
+  <data name="CenterZ" xml:space="preserve">
+    <value>Center Z</value>
+  </data>
+  <data name="Depth" xml:space="preserve">
+    <value>Depth</value>
+  </data>
+  <data name="Matrix" xml:space="preserve">
+    <value>Matrix</value>
+  </data>
+  <data name="MatrixTransform" xml:space="preserve">
+    <value>Matrix Transform</value>
+  </data>
+  <data name="OffsetPosition" xml:space="preserve">
+    <value>Offset Position</value>
+  </data>
+  <data name="Effect" xml:space="preserve">
+    <value>Effect</value>
+  </data>
+  <data name="RedOffset" xml:space="preserve">
+    <value>Red Offset</value>
+  </data>
+  <data name="GreenOffset" xml:space="preserve">
+    <value>Green Offset</value>
+  </data>
+  <data name="BlueOffset" xml:space="preserve">
+    <value>Blue Offset</value>
+  </data>
+  <data name="AlphaOffset" xml:space="preserve">
+    <value>Alpha Offset</value>
+  </data>
+  <data name="BaseFrequencyX" xml:space="preserve">
+    <value>Base Frequency X</value>
+  </data>
+  <data name="BaseFrequencyY" xml:space="preserve">
+    <value>Base Frequency Y</value>
+  </data>
+  <data name="Octaves" xml:space="preserve">
+    <value>Octaves</value>
+  </data>
+  <data name="Seed" xml:space="preserve">
+    <value>Seed</value>
+  </data>
+  <data name="PerlinNoiseType" xml:space="preserve">
+    <value>Noise Type</value>
+  </data>
+  <data name="FillType" xml:space="preserve">
+    <value>Fill Type</value>
+  </data>
+  <data name="IsClosed" xml:space="preserve">
+    <value>Is Closed</value>
+  </data>
+  <data name="Point" xml:space="preserve">
+    <value>Point</value>
+  </data>
+  <data name="ControlPoint" xml:space="preserve">
+    <value>Control Point</value>
+  </data>
+  <data name="ControlPoint1" xml:space="preserve">
+    <value>Control Point 1</value>
+  </data>
+  <data name="ControlPoint2" xml:space="preserve">
+    <value>Control Point 2</value>
+  </data>
+  <data name="Weight" xml:space="preserve">
+    <value>Weight</value>
+  </data>
+  <data name="Data" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="RotationAngle" xml:space="preserve">
+    <value>Rotation Angle</value>
+  </data>
+  <data name="IsLargeArc" xml:space="preserve">
+    <value>Is Large Arc</value>
+  </data>
+  <data name="SweepClockwise" xml:space="preserve">
+    <value>Sweep Clockwise</value>
+  </data>
 </root>

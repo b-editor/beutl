@@ -19,8 +19,10 @@ public sealed partial class QuadraticBezierSegment : PathSegment
         EndPoint.CurrentValue = endPoint;
     }
 
+    [Display(Name = nameof(Strings.ControlPoint), ResourceType = typeof(Strings))]
     public IProperty<Point> ControlPoint { get; } = Property.CreateAnimatable<Point>();
 
+    [Display(Name = nameof(Strings.EndPoint), ResourceType = typeof(Strings))]
     public IProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
 
     public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)
