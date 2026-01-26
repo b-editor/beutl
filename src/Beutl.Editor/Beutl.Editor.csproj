@@ -6,6 +6,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="Beutl.UnitTests" />
+    </ItemGroup>
+
+    <ItemGroup>
       <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
       <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
       <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />

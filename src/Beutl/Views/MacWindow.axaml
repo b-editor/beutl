@@ -72,6 +72,13 @@
                                     Header="{x:Static lang:Strings.SaveAll}"
                                     IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
                     <NativeMenuItemSeparator />
+                    <!--  プロジェクトをエクスポート  -->
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.ExportProject}"
+                                    Header="{x:Static lang:Strings.ExportProject}"
+                                    IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                    <!--  プロジェクトをインポート  -->
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.ImportProject}" Header="{x:Static lang:Strings.ImportProject}" />
+                    <NativeMenuItemSeparator />
                     <!--  最近使ったプロジェクト  -->
                     <NativeMenuItem Header="{x:Static lang:Strings.RecentFiles}">
                         <NativeMenu />
