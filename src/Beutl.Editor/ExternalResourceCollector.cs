@@ -9,8 +9,8 @@ namespace Beutl.Editor;
 /// </summary>
 public sealed class ExternalResourceCollector
 {
-    private readonly List<(IFileSource Source, Uri OriginalUri)> _fileSources = [];
-    private readonly List<FontFamily> _fontFamilies = [];
+    private readonly HashSet<(Guid Object, string PropertyName, Uri OriginalUri)> _fileSources = [];
+    private readonly HashSet<FontFamily> _fontFamilies = [];
 
     private ExternalResourceCollector()
     {
@@ -19,12 +19,12 @@ public sealed class ExternalResourceCollector
     /// <summary>
     /// 収集されたファイルソースのリスト。
     /// </summary>
-    public IReadOnlyList<(IFileSource Source, Uri OriginalUri)> FileSources => _fileSources;
+    public IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> FileSources => _fileSources;
 
     /// <summary>
     /// 収集されたフォントファミリーのリスト。
     /// </summary>
-    public IReadOnlyList<FontFamily> FontFamilies => _fontFamilies;
+    public IEnumerable<FontFamily> FontFamilies => _fontFamilies;
 
     /// <summary>
     /// 階層内のすべてのリソース参照を収集します。
@@ -38,57 +38,73 @@ public sealed class ExternalResourceCollector
         ArgumentNullException.ThrowIfNull(projectDirectory);
 
         ExternalResourceCollector collector = new();
-        HashSet<Uri> processedUris = [];
-        HashSet<string> processedFonts = [];
 
         // 階層内のすべてのEngineObjectを走査
-        foreach (EngineObject obj in root.EnumerateAllChildren<EngineObject>())
+        foreach (CoreObject obj in root.EnumerateAllChildren<CoreObject>())
         {
-            collector.CollectFromObject(obj, projectDirectory, processedUris, processedFonts);
+            collector.CollectFromObject(obj, projectDirectory);
         }
 
         // ルート自体がEngineObjectの場合も処理
-        if (root is EngineObject rootObj)
+        if (root is CoreObject rootObj)
         {
-            collector.CollectFromObject(rootObj, projectDirectory, processedUris, processedFonts);
+            collector.CollectFromObject(rootObj, projectDirectory);
         }
 
         return collector;
     }
 
-    private void CollectFromObject(EngineObject obj, string projectDirectory, HashSet<Uri> processedUris, HashSet<string> processedFonts)
+    private void CollectFromObject(CoreObject obj, string projectDirectory)
+    {
+        if (obj is EngineObject engineObj)
+        {
+            CollectFromEngineObject(engineObj, projectDirectory);
+        }
+
+        if (obj.Uri != null && IsExternalFile(obj.Uri, projectDirectory))
+        {
+            _fileSources.Add((obj.Id, "Uri", obj.Uri));
+        }
+
+        var props = PropertyRegistry.GetRegistered(obj.GetType());
+        foreach (var prop in props)
+        {
+            if (prop.PropertyType.IsValueType) continue;
+            object? value = obj.GetValue(prop);
+            switch (value)
+            {
+                case IFileSource fileSource:
+                    if (fileSource.Uri != null && IsExternalFile(fileSource.Uri, projectDirectory))
+                    {
+                        _fileSources.Add((obj.Id, prop.Name, fileSource.Uri));
+                    }
+
+                    break;
+                case FontFamily fontFamily:
+                    _fontFamilies.Add(fontFamily);
+                    break;
+            }
+        }
+    }
+
+    private void CollectFromEngineObject(EngineObject obj, string projectDirectory)
     {
         foreach (IProperty property in obj.Properties)
         {
-            // IFileSourceの収集
-            if (typeof(IFileSource).IsAssignableFrom(property.ValueType))
+            switch (property.CurrentValue)
             {
-                if (property.CurrentValue is IFileSource fileSource && fileSource.Uri != null)
-                {
-                    if (IsExternalFile(fileSource.Uri, projectDirectory) && processedUris.Add(fileSource.Uri))
+                // IFileSourceの収集
+                case IFileSource fileSource when fileSource.Uri != null:
+                    if (IsExternalFile(fileSource.Uri, projectDirectory))
                     {
-                        _fileSources.Add((fileSource, fileSource.Uri));
+                        _fileSources.Add((obj.Id, property.Name, fileSource.Uri));
                     }
-                }
-            }
-            // FontFamilyの収集
-            else if (property.ValueType == typeof(FontFamily) || (Nullable.GetUnderlyingType(property.ValueType) == typeof(FontFamily)))
-            {
-                if (property.CurrentValue is FontFamily fontFamily && fontFamily.Name != null)
-                {
-                    if (processedFonts.Add(fontFamily.Name))
-                    {
-                        _fontFamilies.Add(fontFamily);
-                    }
-                }
-            }
-            // ネストされたオブジェクトの処理
-            else if (property.CurrentValue is IHierarchical hierarchical)
-            {
-                foreach (EngineObject child in hierarchical.EnumerateAllChildren<EngineObject>())
-                {
-                    CollectFromObject(child, projectDirectory, processedUris, processedFonts);
-                }
+
+                    break;
+                // FontFamilyの収集
+                case FontFamily fontFamily:
+                    _fontFamilies.Add(fontFamily);
+                    break;
             }
         }
     }

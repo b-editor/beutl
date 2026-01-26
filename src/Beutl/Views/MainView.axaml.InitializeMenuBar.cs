@@ -245,7 +245,8 @@ public partial class MainView
         string defaultFileName = Path.GetFileNameWithoutExtension(project.Uri.LocalPath);
         var options = new FilePickerSaveOptions
         {
-            SuggestedFileName = $"{defaultFileName}.{Constants.ProjectPackageExtension}",
+            SuggestedFileName = defaultFileName,
+            DefaultExtension = Constants.ProjectPackageExtension,
             FileTypeChoices =
             [
                 new FilePickerFileType(Strings.ProjectPackage)

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
 using Beutl.Language;
 using Beutl.Logging;
@@ -51,35 +52,35 @@ public sealed class ProjectPackageService
             tempDir = Path.Combine(Path.GetTempPath(), $"beutl_export_{Guid.NewGuid():N}");
             Directory.CreateDirectory(tempDir);
 
+            // Step 4: プロジェクトディレクトリをコピー
             string projectDir = Path.GetDirectoryName(project.Uri.LocalPath)!;
             string tempProjectDir = Path.Combine(tempDir, Path.GetFileName(projectDir));
-
-            // Step 2: プロジェクトディレクトリをコピー
             progress?.Report((Strings.ExportingProject, 0.1));
             await CopyDirectoryAsync(projectDir, tempProjectDir, cancellationToken);
 
-            // Step 3: コピーしたプロジェクトを開く
-            progress?.Report((Strings.ExportingProject, 0.2));
+            // Step 2: 一時的なプロジェクトを開く
             string tempProjectFile = Path.Combine(tempProjectDir, Path.GetFileName(project.Uri.LocalPath));
             Uri tempProjectUri = new(tempProjectFile);
+            progress?.Report((Strings.ExportingProject, 0.2));
             Project tempProject = CoreSerializer.RestoreFromUri<Project>(tempProjectUri);
 
-            // Step 4: 仮想ルートにアタッチ
+            // Step 3: 仮想ルートにアタッチ
             progress?.Report((Strings.ExportingProject, 0.3));
             VirtualProjectRoot virtualRoot = new();
             virtualRoot.AttachProject(tempProject);
 
-            // Step 5-6: 外部ファイルを収集してコピー
+            // Step 5: 外部ファイルを収集してコピー
             progress?.Report((Strings.ExportingProject, 0.4));
-            ExternalResourceCollector collector = ExternalResourceCollector.Collect(virtualRoot, tempProjectDir);
+            ExternalResourceCollector collector = ExternalResourceCollector.Collect(project, projectDir);
 
             int fileCount = await _relocationService.RelocateFileSourcesAsync(
                 collector.FileSources,
+                tempProject,
                 tempProjectDir,
                 cancellationToken);
             _logger.LogInformation("Relocated {Count} external files", fileCount);
 
-            // Step 7: フォントをコピー
+            // Step 6: フォントをコピー
             progress?.Report((Strings.ExportingProject, 0.6));
             int fontCount = await _relocationService.RelocateFontsAsync(
                 collector.FontFamilies,
@@ -87,18 +88,9 @@ public sealed class ProjectPackageService
                 cancellationToken);
             _logger.LogInformation("Relocated {Count} font files", fontCount);
 
-            // Step 8: プロジェクトを保存
+            // Step 7: プロジェクトを保存
             progress?.Report((Strings.ExportingProject, 0.8));
             CoreSerializer.StoreToUri(tempProject, tempProjectUri);
-
-            // アイテムも保存
-            foreach (ProjectItem item in tempProject.Items)
-            {
-                if (item.Uri != null)
-                {
-                    CoreSerializer.StoreToUri(item, item.Uri);
-                }
-            }
 
             // 仮想ルートからデタッチ
             virtualRoot.DetachProject();
@@ -119,27 +111,44 @@ public sealed class ProjectPackageService
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Export operation was cancelled");
+            LogExportCancelled();
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to export project");
-            return false;
+            return LogExportError(ex);
         }
         finally
         {
-            // 一時ディレクトリをクリーンアップ
-            if (tempDir != null && Directory.Exists(tempDir))
+            CleanupTempDirectory(tempDir);
+        }
+    }
+
+    [ExcludeFromCodeCoverage]
+    private void LogExportCancelled()
+    {
+        _logger.LogInformation("Export operation was cancelled");
+    }
+
+    [ExcludeFromCodeCoverage]
+    private bool LogExportError(Exception ex)
+    {
+        _logger.LogError(ex, "Failed to export project");
+        return false;
+    }
+
+    [ExcludeFromCodeCoverage]
+    private void CleanupTempDirectory(string? tempDir)
+    {
+        if (tempDir != null && Directory.Exists(tempDir))
+        {
+            try
             {
-                try
-                {
-                    Directory.Delete(tempDir, recursive: true);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to cleanup temp directory: {TempDir}", tempDir);
-                }
+                Directory.Delete(tempDir, recursive: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to cleanup temp directory: {TempDir}", tempDir);
             }
         }
     }
@@ -202,14 +211,26 @@ public sealed class ProjectPackageService
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("Import operation was cancelled");
+            LogImportCancelled();
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to import project");
-            return null;
+            return LogImportError(ex);
         }
+    }
+
+    [ExcludeFromCodeCoverage]
+    private void LogImportCancelled()
+    {
+        _logger.LogInformation("Import operation was cancelled");
+    }
+
+    [ExcludeFromCodeCoverage]
+    private Project? LogImportError(Exception ex)
+    {
+        _logger.LogError(ex, "Failed to import project");
+        return null;
     }
 
     /// <summary>
