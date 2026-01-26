@@ -14,6 +14,7 @@ namespace Beutl.Graphics3D.Materials;
 /// <summary>
 /// A basic material with diffuse color using Blinn-Phong lighting.
 /// </summary>
+[Display(Name = nameof(Strings.BasicMaterial), ResourceType = typeof(Strings))]
 public sealed partial class BasicMaterial : Material3D
 {
     public BasicMaterial()
@@ -24,28 +25,32 @@ public sealed partial class BasicMaterial : Material3D
     /// <summary>
     /// Gets the diffuse color of the material.
     /// </summary>
-    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(Strings.DiffuseColor), ResourceType = typeof(Strings))]
     public IProperty<Color> DiffuseColor { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>
     /// Gets the diffuse texture map.
     /// </summary>
+    [Display(Name = nameof(Strings.DiffuseMap), ResourceType = typeof(Strings))]
     public IProperty<TextureSource?> DiffuseMap { get; } = Property.Create<TextureSource?>(null);
 
     /// <summary>
     /// Gets the ambient color contribution.
     /// </summary>
+    [Display(Name = nameof(Strings.AmbientColor), ResourceType = typeof(Strings))]
     public IProperty<Color> AmbientColor { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>
     /// Gets the specular color for highlights.
     /// </summary>
+    [Display(Name = nameof(Strings.SpecularColor), ResourceType = typeof(Strings))]
     public IProperty<Color> SpecularColor { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>
     /// Gets the shininess factor for specular highlights.
     /// Higher values create sharper highlights. Converted to roughness for PBR.
     /// </summary>
+    [Display(Name = nameof(Strings.Shininess), ResourceType = typeof(Strings))]
     [Range(1f, 256f)]
     public IProperty<float> Shininess { get; } = Property.CreateAnimatable(32f);
 

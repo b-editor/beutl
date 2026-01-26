@@ -1,12 +1,14 @@
 using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using Beutl.Engine;
+using Beutl.Language;
 
 namespace Beutl.Graphics3D.Meshes;
 
 /// <summary>
 /// A procedural cube mesh.
 /// </summary>
+[Display(Name = nameof(Strings.CubeMesh), ResourceType = typeof(Strings))]
 public sealed partial class CubeMesh : Mesh
 {
     public CubeMesh()
@@ -17,18 +19,21 @@ public sealed partial class CubeMesh : Mesh
     /// <summary>
     /// Gets the width of the cube (X-axis).
     /// </summary>
+    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the height of the cube (Y-axis).
     /// </summary>
+    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the depth of the cube (Z-axis).
     /// </summary>
+    [Display(Name = nameof(Strings.Depth), ResourceType = typeof(Strings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Depth { get; } = Property.CreateAnimatable(1f);
 

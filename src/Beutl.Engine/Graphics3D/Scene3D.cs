@@ -14,6 +14,7 @@ namespace Beutl.Graphics3D;
 /// <summary>
 /// A Drawable that renders a 3D scene.
 /// </summary>
+[Display(Name = nameof(Strings.Scene3D), ResourceType = typeof(Strings))]
 public partial class Scene3D : Drawable
 {
     public Scene3D()
@@ -24,45 +25,52 @@ public partial class Scene3D : Drawable
     /// <summary>
     /// Gets the camera for this scene.
     /// </summary>
+    [Display(Name = nameof(Strings.Camera), ResourceType = typeof(Strings))]
     public IProperty<Camera3D?> Camera { get; } = Property.Create<Camera3D?>();
 
     /// <summary>
     /// Gets the 3D objects in this scene.
     /// </summary>
+    [Display(Name = nameof(Strings.Objects), ResourceType = typeof(Strings))]
     public IListProperty<Object3D> Objects { get; } = Property.CreateList<Object3D>();
 
     /// <summary>
     /// Gets the lights in this scene.
     /// </summary>
+    [Display(Name = nameof(Strings.Lights), ResourceType = typeof(Strings))]
     public IListProperty<Light3D> Lights { get; } = Property.CreateList<Light3D>();
 
     /// <summary>
     /// Gets the ambient color of the scene.
     /// </summary>
-    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(Strings.AmbientColor), ResourceType = typeof(Strings))]
     public IProperty<Color> AmbientColor { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>
     /// Gets the ambient light intensity.
     /// </summary>
+    [Display(Name = nameof(Strings.AmbientIntensity), ResourceType = typeof(Strings))]
     [Range(0f, 1f)]
     public IProperty<float> AmbientIntensity { get; } = Property.CreateAnimatable(0.1f);
 
     /// <summary>
     /// Gets the width of the 3D render target.
     /// </summary>
+    [Display(Name = nameof(Strings.RenderWidth), ResourceType = typeof(Strings))]
     [Range(1f, 8192f)]
     public IProperty<float> RenderWidth { get; } = Property.CreateAnimatable(1920f);
 
     /// <summary>
     /// Gets the height of the 3D render target.
     /// </summary>
+    [Display(Name = nameof(Strings.RenderHeight), ResourceType = typeof(Strings))]
     [Range(1f, 8192f)]
     public IProperty<float> RenderHeight { get; } = Property.CreateAnimatable(1080f);
 
     /// <summary>
     /// Gets the background color of the 3D scene.
     /// </summary>
+    [Display(Name = nameof(Strings.BackgroundColor), ResourceType = typeof(Strings))]
     public IProperty<Color> BackgroundColor { get; } = Property.CreateAnimatable(Colors.Black);
 
     /// <summary>

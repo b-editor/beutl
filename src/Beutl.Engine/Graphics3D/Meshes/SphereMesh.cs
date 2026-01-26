@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using Beutl.Engine;
+using Beutl.Language;
 
 namespace Beutl.Graphics3D.Meshes;
 
 /// <summary>
 /// A procedural UV sphere mesh.
 /// </summary>
+[Display(Name = nameof(Strings.SphereMesh), ResourceType = typeof(Strings))]
 public sealed partial class SphereMesh : Mesh
 {
     public SphereMesh()
@@ -19,18 +21,21 @@ public sealed partial class SphereMesh : Mesh
     /// <summary>
     /// Gets the radius of the sphere.
     /// </summary>
+    [Display(Name = nameof(Strings.Radius), ResourceType = typeof(Strings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Radius { get; } = Property.CreateAnimatable(0.5f);
 
     /// <summary>
     /// Gets the number of horizontal segments (longitude).
     /// </summary>
+    [Display(Name = nameof(Strings.Segments), ResourceType = typeof(Strings))]
     [Range(3, 128)]
     public IProperty<int> Segments { get; } = Property.CreateAnimatable(32);
 
     /// <summary>
     /// Gets the number of vertical rings (latitude).
     /// </summary>
+    [Display(Name = nameof(Strings.Rings), ResourceType = typeof(Strings))]
     [Range(2, 128)]
     public IProperty<int> Rings { get; } = Property.CreateAnimatable(16);
 

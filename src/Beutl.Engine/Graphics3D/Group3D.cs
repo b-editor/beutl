@@ -1,5 +1,7 @@
+using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Graphics3D.Meshes;
+using Beutl.Language;
 
 namespace Beutl.Graphics3D;
 
@@ -7,6 +9,7 @@ namespace Beutl.Graphics3D;
 /// A container that holds multiple 3D objects as children.
 /// The group's transform is applied to all children.
 /// </summary>
+[Display(Name = nameof(Strings.Group3D), ResourceType = typeof(Strings))]
 public partial class Group3D : Object3D
 {
     public Group3D()
@@ -18,6 +21,7 @@ public partial class Group3D : Object3D
     /// <summary>
     /// Gets the child objects in this group.
     /// </summary>
+    [Display(Name = nameof(Strings.Children), ResourceType = typeof(Strings))]
     public IListProperty<Object3D> Children { get; } = Property.CreateList<Object3D>();
 
     public partial class Resource

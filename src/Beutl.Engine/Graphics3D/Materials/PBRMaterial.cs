@@ -13,6 +13,7 @@ namespace Beutl.Graphics3D.Materials;
 /// <summary>
 /// A Physically Based Rendering (PBR) material using the metallic-roughness workflow.
 /// </summary>
+[Display(Name = nameof(Strings.PBRMaterial), ResourceType = typeof(Strings))]
 public sealed partial class PBRMaterial : Material3D
 {
     public PBRMaterial()
@@ -23,23 +24,26 @@ public sealed partial class PBRMaterial : Material3D
     /// <summary>
     /// Gets the base color (albedo) of the material.
     /// </summary>
-    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(Strings.Albedo), ResourceType = typeof(Strings))]
     public IProperty<Color> Albedo { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>
     /// Gets the albedo/base color texture map.
     /// </summary>
+    [Display(Name = nameof(Strings.AlbedoMap), ResourceType = typeof(Strings))]
     public IProperty<TextureSource?> AlbedoMap { get; } = Property.Create<TextureSource?>(null);
 
     /// <summary>
     /// Gets the metallic factor (0 = dielectric, 1 = metal).
     /// </summary>
+    [Display(Name = nameof(Strings.Metallic), ResourceType = typeof(Strings))]
     [Range(0f, 1f)]
     public IProperty<float> Metallic { get; } = Property.CreateAnimatable(0f);
 
     /// <summary>
     /// Gets the roughness factor (0 = smooth, 1 = rough).
     /// </summary>
+    [Display(Name = nameof(Strings.Roughness), ResourceType = typeof(Strings))]
     [Range(0f, 1f)]
     public IProperty<float> Roughness { get; } = Property.CreateAnimatable(0.5f);
 
@@ -47,43 +51,51 @@ public sealed partial class PBRMaterial : Material3D
     /// Gets the metallic-roughness texture map.
     /// Red channel: unused, Green channel: roughness, Blue channel: metallic.
     /// </summary>
+    [Display(Name = nameof(Strings.MetallicRoughnessMap), ResourceType = typeof(Strings))]
     public IProperty<TextureSource?> MetallicRoughnessMap { get; } = Property.Create<TextureSource?>(null);
 
     /// <summary>
     /// Gets the ambient occlusion factor.
     /// </summary>
+    [Display(Name = nameof(Strings.AmbientOcclusion), ResourceType = typeof(Strings))]
     [Range(0f, 1f)]
     public IProperty<float> AmbientOcclusion { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the ambient occlusion texture map (red channel used).
     /// </summary>
+    [Display(Name = nameof(Strings.AOMap), ResourceType = typeof(Strings))]
     public IProperty<TextureSource?> AOMap { get; } = Property.Create<TextureSource?>(null);
 
     /// <summary>
     /// Gets the emissive color.
     /// </summary>
+    [Display(Name = nameof(Strings.Emissive), ResourceType = typeof(Strings))]
     public IProperty<Color> Emissive { get; } = Property.CreateAnimatable(Colors.Black);
 
     /// <summary>
     /// Gets the emissive intensity.
     /// </summary>
+    [Display(Name = nameof(Strings.EmissiveIntensity), ResourceType = typeof(Strings))]
     [Range(0f, float.MaxValue)]
     public IProperty<float> EmissiveIntensity { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the emissive texture map.
     /// </summary>
+    [Display(Name = nameof(Strings.EmissiveMap), ResourceType = typeof(Strings))]
     public IProperty<TextureSource?> EmissiveMap { get; } = Property.Create<TextureSource?>(null);
 
     /// <summary>
     /// Gets the normal map for surface detail.
     /// </summary>
+    [Display(Name = nameof(Strings.NormalMap), ResourceType = typeof(Strings))]
     public IProperty<TextureSource?> NormalMap { get; } = Property.Create<TextureSource?>(null);
 
     /// <summary>
     /// Gets the normal map strength (0 = flat, 1 = full effect).
     /// </summary>
+    [Display(Name = nameof(Strings.NormalMapStrength), ResourceType = typeof(Strings))]
     [Range(0f, 2f)]
     public IProperty<float> NormalMapStrength { get; } = Property.CreateAnimatable(1f);
 

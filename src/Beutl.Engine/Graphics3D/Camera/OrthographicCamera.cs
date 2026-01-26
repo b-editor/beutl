@@ -1,12 +1,14 @@
 using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using Beutl.Engine;
+using Beutl.Language;
 
 namespace Beutl.Graphics3D.Camera;
 
 /// <summary>
 /// An orthographic projection camera for 3D scenes.
 /// </summary>
+[Display(Name = nameof(Strings.OrthographicCamera), ResourceType = typeof(Strings))]
 public partial class OrthographicCamera : Camera3D
 {
     public OrthographicCamera()
@@ -17,6 +19,7 @@ public partial class OrthographicCamera : Camera3D
     /// <summary>
     /// Gets the width of the orthographic view volume.
     /// </summary>
+    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable(10f);
 

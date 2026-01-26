@@ -24,23 +24,26 @@ public abstract partial class Camera3D : EngineObject
     /// <summary>
     /// Gets the target point the camera is looking at.
     /// </summary>
-    [Display(Name = nameof(Strings.Position), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(Strings.Target), ResourceType = typeof(Strings))]
     public IProperty<Vector3> Target { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
     /// Gets the up direction of the camera.
     /// </summary>
+    [Display(Name = nameof(Strings.Up), ResourceType = typeof(Strings))]
     public IProperty<Vector3> Up { get; } = Property.CreateAnimatable(Vector3.UnitY);
 
     /// <summary>
     /// Gets the near clipping plane distance.
     /// </summary>
+    [Display(Name = nameof(Strings.NearPlane), ResourceType = typeof(Strings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> NearPlane { get; } = Property.CreateAnimatable(0.1f);
 
     /// <summary>
     /// Gets the far clipping plane distance.
     /// </summary>
+    [Display(Name = nameof(Strings.FarPlane), ResourceType = typeof(Strings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> FarPlane { get; } = Property.CreateAnimatable(1000f);
 

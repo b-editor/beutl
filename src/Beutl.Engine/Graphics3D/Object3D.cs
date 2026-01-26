@@ -34,21 +34,25 @@ public abstract partial class Object3D : EngineObject
     /// <summary>
     /// Gets the scale of the object.
     /// </summary>
+    [Display(Name = nameof(Strings.Scale), ResourceType = typeof(Strings))]
     public IProperty<Vector3> Scale { get; } = Property.CreateAnimatable(Vector3.One);
 
     /// <summary>
     /// Gets the material applied to this object.
     /// </summary>
+    [Display(Name = nameof(Strings.Material), ResourceType = typeof(Strings))]
     public IProperty<Material3D?> Material { get; } = Property.Create<Material3D?>();
 
     /// <summary>
     /// Gets whether this object casts shadows.
     /// </summary>
+    [Display(Name = nameof(Strings.CastShadows), ResourceType = typeof(Strings))]
     public IProperty<bool> CastShadows { get; } = Property.CreateAnimatable(true);
 
     /// <summary>
     /// Gets whether this object receives shadows.
     /// </summary>
+    [Display(Name = nameof(Strings.ReceiveShadows), ResourceType = typeof(Strings))]
     public IProperty<bool> ReceiveShadows { get; } = Property.CreateAnimatable(true);
 
     public abstract partial class Resource

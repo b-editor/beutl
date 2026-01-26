@@ -1,12 +1,14 @@
 using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using Beutl.Engine;
+using Beutl.Language;
 
 namespace Beutl.Graphics3D.Lighting;
 
 /// <summary>
 /// A directional light that simulates sunlight.
 /// </summary>
+[Display(Name = nameof(Strings.DirectionalLight3D), ResourceType = typeof(Strings))]
 public partial class DirectionalLight3D : Light3D
 {
     public DirectionalLight3D()
@@ -18,6 +20,7 @@ public partial class DirectionalLight3D : Light3D
     /// Gets the direction of the light. This is the direction the light is pointing,
     /// not where it's coming from.
     /// </summary>
+    [Display(Name = nameof(Strings.Direction), ResourceType = typeof(Strings))]
     public IProperty<Vector3> Direction { get; } = Property.CreateAnimatable(new Vector3(0, -1, 0));
 
     /// <summary>
@@ -32,6 +35,7 @@ public partial class DirectionalLight3D : Light3D
     /// <summary>
     /// Gets the maximum distance from the camera at which shadows are rendered.
     /// </summary>
+    [Display(Name = nameof(Strings.ShadowDistance), ResourceType = typeof(Strings))]
     [Range(1f, 1000f)]
     public IProperty<float> ShadowDistance { get; } = Property.CreateAnimatable(50f);
 
@@ -39,6 +43,7 @@ public partial class DirectionalLight3D : Light3D
     /// Gets the size of the shadow map frustum (orthographic projection width/height).
     /// Larger values cover more area but reduce shadow quality.
     /// </summary>
+    [Display(Name = nameof(Strings.ShadowMapSize), ResourceType = typeof(Strings))]
     [Range(1f, 500f)]
     public IProperty<float> ShadowMapSize { get; } = Property.CreateAnimatable(20f);
 }

@@ -1,9 +1,12 @@
+using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
+using Beutl.Language;
 using Beutl.Media.Source;
 
 namespace Beutl.Graphics3D.Textures;
 
+[Display(Name = nameof(Strings.ImageTextureSource), ResourceType = typeof(Strings))]
 public sealed partial class ImageTextureSource : TextureSource
 {
     public ImageTextureSource()
@@ -11,6 +14,7 @@ public sealed partial class ImageTextureSource : TextureSource
         ScanProperties<ImageTextureSource>();
     }
 
+    [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
     public IProperty<ImageSource?> Source { get; } = Property.Create<ImageSource?>(null);
 
     public partial class Resource

@@ -1849,4 +1849,212 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="SweepClockwise" xml:space="preserve">
     <value>Sweep Clockwise</value>
   </data>
+  <!-- 3D Graphics -->
+  <data name="OrthographicCamera" xml:space="preserve">
+    <value>Orthographic Camera</value>
+  </data>
+  <data name="PerspectiveCamera" xml:space="preserve">
+    <value>Perspective Camera</value>
+  </data>
+  <data name="DirectionalLight3D" xml:space="preserve">
+    <value>Directional Light</value>
+  </data>
+  <data name="PointLight3D" xml:space="preserve">
+    <value>Point Light</value>
+  </data>
+  <data name="SpotLight3D" xml:space="preserve">
+    <value>Spot Light</value>
+  </data>
+  <data name="BasicMaterial" xml:space="preserve">
+    <value>Basic Material</value>
+  </data>
+  <data name="PBRMaterial" xml:space="preserve">
+    <value>PBR Material</value>
+  </data>
+  <data name="CubeMesh" xml:space="preserve">
+    <value>Cube Mesh</value>
+  </data>
+  <data name="SphereMesh" xml:space="preserve">
+    <value>Sphere Mesh</value>
+  </data>
+  <data name="MeshObject3D" xml:space="preserve">
+    <value>Mesh Object</value>
+  </data>
+  <data name="ModelMesh" xml:space="preserve">
+    <value>Model Mesh</value>
+  </data>
+  <data name="Cube3D" xml:space="preserve">
+    <value>Cube</value>
+  </data>
+  <data name="Sphere3D" xml:space="preserve">
+    <value>Sphere</value>
+  </data>
+  <data name="DrawableTextureSource" xml:space="preserve">
+    <value>Drawable Texture</value>
+  </data>
+  <data name="ImageTextureSource" xml:space="preserve">
+    <value>Image Texture</value>
+  </data>
+  <data name="Group3D" xml:space="preserve">
+    <value>Group</value>
+  </data>
+  <data name="Scene3D" xml:space="preserve">
+    <value>3D Scene</value>
+  </data>
+  <data name="FieldOfView" xml:space="preserve">
+    <value>Field of View</value>
+  </data>
+  <data name="NearPlane" xml:space="preserve">
+    <value>Near Plane</value>
+  </data>
+  <data name="FarPlane" xml:space="preserve">
+    <value>Far Plane</value>
+  </data>
+  <data name="Up" xml:space="preserve">
+    <value>Up</value>
+  </data>
+  <data name="Direction" xml:space="preserve">
+    <value>Direction</value>
+  </data>
+  <data name="CastsShadow" xml:space="preserve">
+    <value>Casts Shadow</value>
+  </data>
+  <data name="ShadowBias" xml:space="preserve">
+    <value>Shadow Bias</value>
+  </data>
+  <data name="ShadowNormalBias" xml:space="preserve">
+    <value>Shadow Normal Bias</value>
+  </data>
+  <data name="ShadowStrength" xml:space="preserve">
+    <value>Shadow Strength</value>
+  </data>
+  <data name="ShadowDistance" xml:space="preserve">
+    <value>Shadow Distance</value>
+  </data>
+  <data name="ShadowMapSize" xml:space="preserve">
+    <value>Shadow Map Size</value>
+  </data>
+  <data name="ConstantAttenuation" xml:space="preserve">
+    <value>Constant Attenuation</value>
+  </data>
+  <data name="LinearAttenuation" xml:space="preserve">
+    <value>Linear Attenuation</value>
+  </data>
+  <data name="QuadraticAttenuation" xml:space="preserve">
+    <value>Quadratic Attenuation</value>
+  </data>
+  <data name="Range" xml:space="preserve">
+    <value>Range</value>
+  </data>
+  <data name="InnerConeAngle" xml:space="preserve">
+    <value>Inner Cone Angle</value>
+  </data>
+  <data name="OuterConeAngle" xml:space="preserve">
+    <value>Outer Cone Angle</value>
+  </data>
+  <data name="DiffuseColor" xml:space="preserve">
+    <value>Diffuse Color</value>
+  </data>
+  <data name="DiffuseMap" xml:space="preserve">
+    <value>Diffuse Map</value>
+  </data>
+  <data name="AmbientColor" xml:space="preserve">
+    <value>Ambient Color</value>
+  </data>
+  <data name="SpecularColor" xml:space="preserve">
+    <value>Specular Color</value>
+  </data>
+  <data name="Shininess" xml:space="preserve">
+    <value>Shininess</value>
+  </data>
+  <data name="Albedo" xml:space="preserve">
+    <value>Albedo</value>
+  </data>
+  <data name="AlbedoMap" xml:space="preserve">
+    <value>Albedo Map</value>
+  </data>
+  <data name="Metallic" xml:space="preserve">
+    <value>Metallic</value>
+  </data>
+  <data name="Roughness" xml:space="preserve">
+    <value>Roughness</value>
+  </data>
+  <data name="MetallicRoughnessMap" xml:space="preserve">
+    <value>Metallic/Roughness Map</value>
+  </data>
+  <data name="AmbientOcclusion" xml:space="preserve">
+    <value>Ambient Occlusion</value>
+  </data>
+  <data name="AOMap" xml:space="preserve">
+    <value>AO Map</value>
+  </data>
+  <data name="Emissive" xml:space="preserve">
+    <value>Emissive</value>
+  </data>
+  <data name="EmissiveIntensity" xml:space="preserve">
+    <value>Emissive Intensity</value>
+  </data>
+  <data name="EmissiveMap" xml:space="preserve">
+    <value>Emissive Map</value>
+  </data>
+  <data name="NormalMap" xml:space="preserve">
+    <value>Normal Map</value>
+  </data>
+  <data name="NormalMapStrength" xml:space="preserve">
+    <value>Normal Map Strength</value>
+  </data>
+  <data name="Segments" xml:space="preserve">
+    <value>Segments</value>
+  </data>
+  <data name="Rings" xml:space="preserve">
+    <value>Rings</value>
+  </data>
+  <data name="Mesh" xml:space="preserve">
+    <value>Mesh</value>
+  </data>
+  <data name="Vertices" xml:space="preserve">
+    <value>Vertices</value>
+  </data>
+  <data name="Indices" xml:space="preserve">
+    <value>Indices</value>
+  </data>
+  <data name="TextureWidth" xml:space="preserve">
+    <value>Texture Width</value>
+  </data>
+  <data name="TextureHeight" xml:space="preserve">
+    <value>Texture Height</value>
+  </data>
+  <data name="Children" xml:space="preserve">
+    <value>Children</value>
+  </data>
+  <data name="Camera" xml:space="preserve">
+    <value>Camera</value>
+  </data>
+  <data name="Objects" xml:space="preserve">
+    <value>Objects</value>
+  </data>
+  <data name="Lights" xml:space="preserve">
+    <value>Lights</value>
+  </data>
+  <data name="AmbientIntensity" xml:space="preserve">
+    <value>Ambient Intensity</value>
+  </data>
+  <data name="RenderWidth" xml:space="preserve">
+    <value>Render Width</value>
+  </data>
+  <data name="RenderHeight" xml:space="preserve">
+    <value>Render Height</value>
+  </data>
+  <data name="BackgroundColor" xml:space="preserve">
+    <value>Background Color</value>
+  </data>
+  <data name="Material" xml:space="preserve">
+    <value>Material</value>
+  </data>
+  <data name="CastShadows" xml:space="preserve">
+    <value>Cast Shadows</value>
+  </data>
+  <data name="ReceiveShadows" xml:space="preserve">
+    <value>Receive Shadows</value>
+  </data>
 </root>

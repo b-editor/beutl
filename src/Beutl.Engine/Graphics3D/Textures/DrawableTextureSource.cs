@@ -3,10 +3,12 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
+using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Graphics3D.Textures;
 
+[Display(Name = nameof(Strings.DrawableTextureSource), ResourceType = typeof(Strings))]
 public sealed partial class DrawableTextureSource : TextureSource
 {
     public DrawableTextureSource()
@@ -14,11 +16,16 @@ public sealed partial class DrawableTextureSource : TextureSource
         ScanProperties<DrawableTextureSource>();
     }
 
+    [Display(Name = nameof(Strings.Drawable), ResourceType = typeof(Strings))]
     public IProperty<Drawable?> Drawable { get; } = Property.Create<Drawable?>(null);
 
-    [Range(1, 8192)] public IProperty<int> TextureWidth { get; } = Property.CreateAnimatable(256);
+    [Display(Name = nameof(Strings.TextureWidth), ResourceType = typeof(Strings))]
+    [Range(1, 8192)]
+    public IProperty<int> TextureWidth { get; } = Property.CreateAnimatable(256);
 
-    [Range(1, 8192)] public IProperty<int> TextureHeight { get; } = Property.CreateAnimatable(256);
+    [Display(Name = nameof(Strings.TextureHeight), ResourceType = typeof(Strings))]
+    [Range(1, 8192)]
+    public IProperty<int> TextureHeight { get; } = Property.CreateAnimatable(256);
 
     public partial class Resource
     {
