@@ -126,14 +126,10 @@ public sealed class TimeStretchNode : AudioNode
                 // Process with WSOLA
                 int written = _channelProcessors[ch].Process(inData, speed, outData);
 
-                // Fill remaining with last sample if needed
-                if (written < expectedOutputSamples && written > 0)
+                // Fill remaining samples with silence (zero)
+                for (int i = written; i < expectedOutputSamples; i++)
                 {
-                    float lastSample = outData[written - 1];
-                    for (int i = written; i < expectedOutputSamples; i++)
-                    {
-                        outData[i] = lastSample;
-                    }
+                    outData[i] = 0f;
                 }
             }
 
