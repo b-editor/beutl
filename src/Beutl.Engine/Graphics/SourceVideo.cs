@@ -20,6 +20,7 @@ public partial class SourceVideo : Drawable
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
     [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
@@ -28,16 +29,11 @@ public partial class SourceVideo : Drawable
     [Display(Name = nameof(Strings.IsLoop), ResourceType = typeof(Strings))]
     public IProperty<bool> IsLoop { get; } = Property.CreateAnimatable<bool>();
 
+    // 積分単位: 60サンプル/秒（フレームレート相当）
+    private const int IntegrationRate = 60;
+
     private TimeSpan CalculateVideoTime(TimeSpan timeSpan, Resource resource)
     {
-        // 最初のキーフレームが100, 00:00
-        // 2のキーフレームが100, 00:10
-        // 3のキーフレームが200, 00:10.033
-        // 3の時点では動画の時間は00:10.033が自然
-        // でも実際には00:10.033 * 2倍 = 00:20.066になってしまう
-
-        // 手前（KeyTime <= timeSpan）のキーフレームを取得しその時点での自然な動画時間を取得、(CurrentTime - KeyTime) * Speedを加算したものをRequestedPositionに設定
-
         var anm = Speed.Animation;
         if (anm is not KeyFrameAnimation<float> keyFrameAnimation)
             return timeSpan;
@@ -48,22 +44,50 @@ public partial class SourceVideo : Drawable
             return TimeSpan.FromTicks((long)(timeSpan.Ticks * (resource.Speed / 100.0)));
         }
 
-        int kfi = keyFrameAnimation.KeyFrames.IndexAt(timeSpan);
-        var kf = (KeyFrame<float>)keyFrameAnimation.KeyFrames[kfi];
+        // キャッシュ初期化・イベント購読
+        resource.EnsureSpeedCache(anm);
 
-        // 前のキーフレームが存在する場合は、その区間分を再帰的に累積計算する
-        if (kfi > 0 &&
-            keyFrameAnimation.KeyFrames[kfi - 1] is KeyFrame<float> prevKf)
+        // 開始秒数とキャッシュからの累積値取得
+        int targetSec = (int)timeSpan.TotalSeconds;
+        (int cachedSec, double cachedSum) = resource.TryGetSpeedCache(targetSec);
+
+        // キャッシュから目標秒数まで積分を継続
+        double sum = cachedSum;
+        int startSec = cachedSec < 0 ? 0 : cachedSec;
+
+        // startSecからtargetSecまで、1秒単位で速度を積分
+        for (int sec = startSec; sec < targetSec; sec++)
         {
-            var baseVideoTime = CalculateVideoTime(prevKf.KeyTime, resource);
-            var deltaTicks = (timeSpan - prevKf.KeyTime).Ticks;
-            // kf.Value がマイナスの場合は、deltaTicks に対して乗算すると符号反転し、逆再生となる
-            long videoTicks = (long)(deltaTicks * (kf.Value / 100.0));
-            return baseVideoTime + TimeSpan.FromTicks(videoTicks);
+            // 1秒間をIntegrationRateサンプルに分割して積分
+            for (int i = 0; i < IntegrationRate; i++)
+            {
+                double t = sec + (i / (double)IntegrationRate);
+                float speed = keyFrameAnimation.Interpolate(TimeSpan.FromSeconds(t));
+                sum += (speed / 100.0) / IntegrationRate;
+            }
+            resource._speedIntegralCache![sec + 1] = sum;
         }
 
-        // 最初のキーフレームの場合
-        return TimeSpan.FromTicks((long)(timeSpan.Ticks * (kf.Value / 100.0)));
+        // 目標秒数から目標時刻までの残り積分
+        int targetInSamples = (int)(timeSpan.TotalSeconds * IntegrationRate);
+        int secStartInSamples = targetSec * IntegrationRate;
+
+        for (int i = secStartInSamples; i < targetInSamples; i++)
+        {
+            double t = i / (double)IntegrationRate;
+            float speed = keyFrameAnimation.Interpolate(TimeSpan.FromSeconds(t));
+            sum += (speed / 100.0) / IntegrationRate;
+        }
+
+        // 最後のサンプルから正確な時刻までの補間（端数処理）
+        double fractionalSamples = (timeSpan.TotalSeconds * IntegrationRate) - targetInSamples;
+        if (fractionalSamples > 0)
+        {
+            float speed = keyFrameAnimation.Interpolate(timeSpan);
+            sum += (speed / 100.0) * fractionalSamples / IntegrationRate;
+        }
+
+        return TimeSpan.FromSeconds(sum);
     }
 
     public TimeSpan? CalculateOriginalTime(Resource resource)
@@ -80,62 +104,47 @@ public partial class SourceVideo : Drawable
             return TimeSpan.FromTicks((long)(duration.Ticks / (Speed.CurrentValue / 100.0)));
         }
 
-        // 0時点を起点とした各セグメントを構築する
-        // セグメントごとに、[startOriginal, endOriginal] と [startVideo, endVideo] の線形関係がある
-        var segments =
-            new List<(TimeSpan startOriginal, TimeSpan endOriginal, TimeSpan startVideo, TimeSpan endVideo)>();
+        // 二分探索で、CalculateVideoTime(t) == duration となる t を求める
+        TimeSpan low = TimeSpan.Zero;
+        // 上限は、CalculateVideoTime(high) >= duration となるまで徐々に拡大する
+        TimeSpan high = duration;
+        TimeSpan videoTimeAtHigh = CalculateVideoTime(high, resource);
+        const int maxIterations = 50;
+        const double toleranceSeconds = 1.0 / 60.0; // 1フレーム以下の精度
 
-        TimeSpan currentOriginal = TimeSpan.Zero;
-        TimeSpan currentVideo = TimeSpan.Zero;
-
-        // 最初のキーフレームのセグメント
-        var firstKf = (KeyFrame<float>)keyFrameAnimation.KeyFrames[0];
-        double firstSpeed = firstKf.Value / 100.0;
-        TimeSpan firstEndOriginal = firstKf.KeyTime;
-        TimeSpan firstEndVideo = currentVideo +
-                                 TimeSpan.FromTicks((long)((firstEndOriginal - currentOriginal).Ticks * firstSpeed));
-        segments.Add((currentOriginal, firstEndOriginal, currentVideo, firstEndVideo));
-        currentOriginal = firstEndOriginal;
-        currentVideo = firstEndVideo;
-
-        // 残りのキーフレームのセグメントを構築
-        for (int i = 1; i < keyFrameAnimation.KeyFrames.Count; i++)
+        // 速度が非常に遅い場合に備えて high を段階的に拡大する
+        const int maxHighExpansions = 20;
+        int expansionCount = 0;
+        while (videoTimeAtHigh < duration
+               && expansionCount < maxHighExpansions
+               && high <= TimeSpan.FromTicks(TimeSpan.MaxValue.Ticks / 2))
         {
-            var kf = (KeyFrame<float>)keyFrameAnimation.KeyFrames[i];
-            double speed = kf.Value / 100.0;
-            TimeSpan endOriginal = kf.KeyTime;
-            TimeSpan endVideo =
-                currentVideo + TimeSpan.FromTicks((long)((endOriginal - currentOriginal).Ticks * speed));
-            segments.Add((currentOriginal, endOriginal, currentVideo, endVideo));
-            currentOriginal = endOriginal;
-            currentVideo = endVideo;
+            high = TimeSpan.FromTicks(high.Ticks * 2);
+            videoTimeAtHigh = CalculateVideoTime(high, resource);
+            expansionCount++;
         }
 
-        // 各セグメント内で、duration がどの区間に位置するかを線形補間で求める
-        foreach (var seg in segments)
+        for (int i = 0; i < maxIterations; i++)
         {
-            // セグメント内の映像時間の範囲（正順・逆順の両方に対応）
-            TimeSpan minVideo = seg.startVideo < seg.endVideo ? seg.startVideo : seg.endVideo;
-            TimeSpan maxVideo = seg.startVideo > seg.endVideo ? seg.startVideo : seg.endVideo;
-            if (duration >= minVideo && duration <= maxVideo)
+            TimeSpan mid = TimeSpan.FromTicks((low.Ticks + high.Ticks) / 2);
+            TimeSpan videoTime = CalculateVideoTime(mid, resource);
+
+            if (Math.Abs((videoTime - duration).TotalSeconds) < toleranceSeconds)
             {
-                // 線形補間により、元の実時間を逆算する
-                long videoRange = (seg.endVideo - seg.startVideo).Ticks;
-                if (videoRange == 0) return seg.startOriginal;
-                double ratio = (double)(duration - seg.startVideo).Ticks / videoRange;
-                long originalRange = (seg.endOriginal - seg.startOriginal).Ticks;
-                long offset = (long)(ratio * originalRange);
-                return seg.startOriginal + TimeSpan.FromTicks(offset);
+                return mid;
+            }
+
+            if (videoTime < duration)
+            {
+                low = mid;
+            }
+            else
+            {
+                high = mid;
             }
         }
 
-        // duration が全セグメントを外れる場合（最後のキーフレーム以降）
-        var lastKf = (KeyFrame<float>)keyFrameAnimation.KeyFrames.Last();
-        double lastSpeed = lastKf.Value / 100.0;
-        if (lastSpeed == 0) return currentOriginal;
-        // 最後の区間は線形関係： duration = currentVideo + (original - currentOriginal) * lastSpeed
-        long offsetTicks = (long)((duration - currentVideo).Ticks / lastSpeed);
-        return currentOriginal + TimeSpan.FromTicks(offsetTicks);
+        return TimeSpan.FromTicks((low.Ticks + high.Ticks) / 2);
     }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
@@ -176,9 +185,69 @@ public partial class SourceVideo : Drawable
 
     public partial class Resource
     {
+        // 積分キャッシュ: 秒数 -> 累積ビデオ時間（秒単位）
+        internal Dictionary<int, double>? _speedIntegralCache;
+        private IAnimation<float>? _cachedAnimation;
+
         public TimeSpan RenderedPosition { get; internal set; }
 
         public TimeSpan RequestedPosition { get; internal set; }
+
+        internal void InvalidateSpeedCache()
+        {
+            _speedIntegralCache?.Clear();
+        }
+
+        private void OnAnimationEdited(object? sender, EventArgs e)
+        {
+            InvalidateSpeedCache();
+        }
+
+        internal void EnsureSpeedCache(IAnimation<float>? animation)
+        {
+            _speedIntegralCache ??= new Dictionary<int, double>();
+
+            // アニメーションが変わった場合はキャッシュをクリアしイベントを再登録
+            if (!ReferenceEquals(_cachedAnimation, animation))
+            {
+                _speedIntegralCache.Clear();
+
+                if (_cachedAnimation != null)
+                    _cachedAnimation.Edited -= OnAnimationEdited;
+
+                if (animation != null)
+                    animation.Edited += OnAnimationEdited;
+
+                _cachedAnimation = animation;
+            }
+        }
+
+        internal (int Key, double Value) TryGetSpeedCache(int targetSec)
+        {
+            if (_speedIntegralCache == null) return (-1, 0);
+
+            // キャッシュヒット確認（指定秒数以下で最大のキャッシュを探す）
+            for (int sec = targetSec; sec >= 0; sec--)
+            {
+                if (_speedIntegralCache.TryGetValue(sec, out double result))
+                {
+                    return (sec, result);
+                }
+            }
+
+            return (-1, 0);
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            // イベント購読解除（メモリリーク防止）
+            if (_cachedAnimation != null)
+            {
+                _cachedAnimation.Edited -= OnAnimationEdited;
+                _cachedAnimation = null;
+            }
+            _speedIntegralCache = null;
+        }
 
         partial void PostUpdate(SourceVideo obj, RenderContext context)
         {
