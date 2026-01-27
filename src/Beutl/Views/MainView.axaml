@@ -115,6 +115,22 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
+                    <!--  プロジェクトをエクスポート  -->
+                    <MenuItem Command="{CompiledBinding MenuBar.ExportProject}"
+                              Header="{x:Static lang:Strings.ExportProject}"
+                              IsEnabled="{CompiledBinding IsProjectOpened.Value}">
+                        <MenuItem.Icon>
+                            <icons:SymbolIcon Symbol="ArrowExportLtr" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <!--  プロジェクトをインポート  -->
+                    <MenuItem Command="{CompiledBinding MenuBar.ImportProject}"
+                              Header="{x:Static lang:Strings.ImportProject}">
+                        <MenuItem.Icon>
+                            <icons:SymbolIcon Symbol="ArrowImport" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
                     <!--  最近使ったプロジェクト  -->
                     <MenuItem x:Name="recentFiles" Header="{x:Static lang:Strings.RecentFiles}" />
                     <MenuItem x:Name="recentProjects" Header="{x:Static lang:Strings.RecentProjects}" />

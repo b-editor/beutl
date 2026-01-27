@@ -9,7 +9,7 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    [MemberNotNull(nameof(CloseFile), nameof(CloseProject), nameof(Save), nameof(SaveAll))]
+    [MemberNotNull(nameof(CloseFile), nameof(CloseProject), nameof(Save), nameof(SaveAll), nameof(ExportProject))]
     private void InitializeFilesCommands()
     {
         CloseFile = new ReactiveCommandSlim(EditorService.Current.SelectedTabItem.Select(i => i != null))
@@ -26,6 +26,8 @@ public partial class MenuBarViewModel
 
         SaveAll = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnSaveAll);
+
+        ExportProject = new AsyncReactiveCommand(IsProjectOpened);
 
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.RecentFiles.ForEachItem(
@@ -94,6 +96,10 @@ public partial class MenuBarViewModel
     public CoreList<string> RecentProjectItems { get; } = [];
 
     public ReactiveCommandSlim Exit { get; } = new();
+
+    public AsyncReactiveCommand ExportProject { get; private set; } = null!;
+
+    public AsyncReactiveCommand ImportProject { get; } = new();
 
     private async Task OnSaveAll()
     {
