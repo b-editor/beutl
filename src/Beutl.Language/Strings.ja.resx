@@ -2137,4 +2137,22 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="NoMediaFilesFound" xml:space="preserve">
     <value>メディアファイルが見つかりません</value>
   </data>
+  <data name="TimeController" xml:space="preserve">
+    <value>タイムコントローラー</value>
+  </data>
+  <data name="AdjustTimeRange" xml:space="preserve">
+    <value>時間範囲を調整</value>
+  </data>
+  <data name="Loop" xml:space="preserve">
+    <value>ループ</value>
+  </data>
+  <data name="Reverse" xml:space="preserve">
+    <value>逆再生</value>
+  </data>
+  <data name="HoldFirstFrame" xml:space="preserve">
+    <value>最初のフレームを保持</value>
+  </data>
+  <data name="HoldLastFrame" xml:space="preserve">
+    <value>最後のフレームを保持</value>
+  </data>
 </root>
