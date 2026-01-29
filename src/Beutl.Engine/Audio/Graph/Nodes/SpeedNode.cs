@@ -11,33 +11,14 @@ public sealed class SpeedNode : AudioNode
     private SpeedProcessor? _processor;
     private int _lastSampleRate;
 
-    // 秒数 -> サンプルオフセット
-    private Dictionary<int, double> _cache = new();
-    private IAnimation<float>? _animation;
+    private readonly SpeedIntegrator _integrator;
 
-    public IProperty<float>? Speed
+    public SpeedNode()
     {
-        get;
-        set
-        {
-            field = value;
-            if (!ReferenceEquals(field, value))
-            {
-                InvalidateCache();
-            }
-        }
+        _integrator = new SpeedIntegrator(0, () => _processor = null);
     }
 
-    private void InvalidateCache()
-    {
-        _cache.Clear();
-        _processor = null;
-    }
-
-    private void OnAnimationEdited(object? sender, EventArgs e)
-    {
-        InvalidateCache();
-    }
+    public IProperty<float>? Speed { get; set; }
 
     public override AudioBuffer Process(AudioProcessContext context)
     {
@@ -48,17 +29,8 @@ public sealed class SpeedNode : AudioNode
         var expectedOutputSampleCount = context.GetSampleCount();
 
         var animation = Speed?.Animation;
-        if (!ReferenceEquals(animation, _animation))
-        {
-            InvalidateCache();
-            if (_animation != null)
-                _animation.Edited -= OnAnimationEdited;
-
-            if (animation != null)
-                animation.Edited += OnAnimationEdited;
-
-            _animation = animation;
-        }
+        _integrator.EnsureCache(animation);
+        _integrator.SampleRate = context.SampleRate;
 
         // Initialize processor if needed
         if (_processor == null || _lastSampleRate != context.SampleRate)
@@ -98,80 +70,36 @@ public sealed class SpeedNode : AudioNode
         return _processor!.ProcessBuffer(inputContext, speed, expectedOutputSampleCount);
     }
 
-    private (int Key, double Value) TryGetCache(int sec)
-    {
-        // キャッシュヒット確認
-        do
-        {
-            if (_cache.TryGetValue(sec--, out double result))
-            {
-                return (sec + 1, result);
-            }
-        } while (sec >= 0);
-
-        return (-1, 0);
-    }
-
     private AudioBuffer ProcessAnimatedSpeed(AudioProcessContext context, int expectedOutputSampleCount)
     {
-        var origStartSec = (int)context.TimeRange.Start.TotalSeconds;
-
-        (int startSec, double startConvTime) = TryGetCache(origStartSec);
-
-        // 見つからなかった場合、-1が帰ってくるので0にする
-        if (startSec < 0) startSec++;
-        // 元々の開始秒数と見つかった秒数が違う場合その間の値を計算する
-        double sum = startConvTime;
-
-        // startSecが-1の時は[-1,0]をsumが0になるようにサンプリング
         var animation = Speed?.Animation!;
-        for (; startSec < origStartSec;)
-        {
-            // ここで計算してキャッシュに保存する
-            if (startSec >= 0)
-            {
-                for (int i = 0; i < context.SampleRate; i++)
-                {
-                    sum += animation.Interpolate(TimeSpan.FromSeconds((i / (double)context.SampleRate) + startSec)) /
-                           100.0;
-                }
-            }
 
-            _cache[++startSec] = sum;
-        }
+        // SpeedIntegrator で開始時間を計算
+        var sourceStartTime = _integrator.Integrate(
+            context.TimeRange.Start, (KeyFrameAnimation<float>)animation);
 
+        // per-sample速度収集（オーディオ固有のロジック）
         var startInSamples = (int)(context.TimeRange.Start.TotalSeconds * context.SampleRate);
-        for (int i = origStartSec * context.SampleRate; i < startInSamples; i++)
+        Span<double> speeds = new double[expectedOutputSampleCount];
+        double sum = 0;
+        for (int i = 0; i < expectedOutputSampleCount; i++)
         {
-            sum += animation.Interpolate(TimeSpan.FromSeconds(i / (double)context.SampleRate)) / 100.0;
-        }
-
-        // ここでsumはcontext.TimeRange.Startの変換後の時間を表す。つまりsourceTimeRangeの開始時間
-        var sourceStartTime = TimeSpan.FromSeconds(sum / context.SampleRate);
-        // Durationが1秒を超えると、その分のキャッシュが作成されないため非効率
-        var durationInSamples = expectedOutputSampleCount;
-        Span<double> speeds = new double[durationInSamples];
-        for (int i = 0; i < durationInSamples; i++)
-        {
-            var value = animation.Interpolate(TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) /
-                        100.0;
+            var value = animation.Interpolate(
+                TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
             speeds[i] = value;
             sum += value;
         }
 
-        var sourceEndTime = TimeSpan.FromSeconds(sum / context.SampleRate);
-        var actualSpeeds = speeds;
+        var sourceEndTime = sourceStartTime + TimeSpan.FromSeconds(sum / context.SampleRate);
         var sourceTimeRange = TimeRange.FromRange(sourceStartTime, sourceEndTime);
 
-        // Create input context with calculated source time range
         var inputContext = new AudioProcessContext(
             sourceTimeRange,
             context.SampleRate,
             context.AnimationSampler,
             context.OriginalTimeRange);
 
-        // Process with variable speed to get the expected output length
-        return _processor!.ProcessBufferWithVariableSpeed(inputContext, actualSpeeds, expectedOutputSampleCount);
+        return _processor!.ProcessBufferWithVariableSpeed(inputContext, speeds, expectedOutputSampleCount);
     }
 
     private TimeRange CalculateSourceTimeRange(TimeRange outputTimeRange, float speed)
@@ -184,6 +112,7 @@ public sealed class SpeedNode : AudioNode
 
     protected override void Dispose(bool disposing)
     {
+        _integrator.Dispose();
         _processor = null;
         base.Dispose(disposing);
     }
