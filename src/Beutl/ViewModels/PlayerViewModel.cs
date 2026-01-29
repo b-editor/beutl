@@ -16,12 +16,12 @@ using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Models;
+using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using OpenTK.Audio.OpenAL;
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 using Vortice.Multimedia;
 
 namespace Beutl.ViewModels;
@@ -175,18 +175,16 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
     private void UpdateAllGizmoModes(GizmoMode mode)
     {
-        foreach (var element in Scene.Children)
+        if (Scene == null) return;
+
+        foreach (var op in Scene.Children
+                     .SelectMany(e => e.Operation.Children)
+                     .OfType<Scene3DOperator>())
         {
-            foreach (var op in element.Operation.Children)
+            // GizmoTargetが設定されている場合のみモードを更新
+            if (op.Value.GizmoTarget.CurrentValue.HasValue)
             {
-                if (op is Operators.Source.Scene3DOperator scene3DOp && scene3DOp.Value != null)
-                {
-                    // GizmoTargetが設定されている場合のみモードを更新
-                    if (scene3DOp.Value.GizmoTarget.CurrentValue.HasValue)
-                    {
-                        scene3DOp.Value.GizmoMode.CurrentValue = mode;
-                    }
-                }
+                op.Value.GizmoMode.CurrentValue = mode;
             }
         }
     }
@@ -692,12 +690,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
             Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
             if (boundary.Length > 0)
             {
-                var pen = new Pen.Resource()
-                {
-                    Brush = Brushes.Resource.White,
-                    Thickness = scale,
-                    MiterLimit = 10
-                };
+                var pen = new Pen.Resource() { Brush = Brushes.Resource.White, Thickness = scale, MiterLimit = 10 };
                 bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries;
 
                 foreach (Rect item in boundary)
