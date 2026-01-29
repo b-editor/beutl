@@ -85,15 +85,11 @@ public sealed class ThumbnailStripControl : Control
         double slotWidth = width / count;
         lock (_lock)
         {
-            var firstImgSize = _thumbnails.TryGetValue(0, out var firstImg) && firstImg != null
-                ? firstImg.Size
-                : (Size?)null;
-
             // 可視範囲を計算
             int startIndex = 0;
             int endIndex = count - 1;
 
-            if (_scrollViewer != null && firstImgSize.HasValue)
+            if (_scrollViewer != null)
             {
                 var topLeft = this.TranslatePoint(Bounds.TopLeft, _scrollViewer);
                 var bottomRight = this.TranslatePoint(Bounds.BottomRight, _scrollViewer);
