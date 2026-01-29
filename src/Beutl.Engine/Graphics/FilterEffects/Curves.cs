@@ -176,14 +176,16 @@ public sealed partial class Curves : FilterEffect
             builder.Children["lumaVsSat"] = lumSat;
             builder.Children["satVsSat"] = satSat;
 
-            using SKShader finalShader = builder.Build();
-            using var paint = new SKPaint { Shader = finalShader };
-
             EffectTarget newTarget = context.CreateTarget(target.Bounds);
-            var canvas = newTarget.RenderTarget!.Value.Canvas;
-            canvas.DrawRect(new SKRect(0, 0, newTarget.Bounds.Width, newTarget.Bounds.Height), paint);
+            using (SKShader finalShader = builder.Build())
+            using (var paint = new SKPaint { Shader = finalShader })
+            using (var canvas = context.Open(newTarget))
+            {
+                canvas.Clear();
+                canvas.Canvas.DrawRect(new SKRect(0, 0, newTarget.Bounds.Width, newTarget.Bounds.Height), paint);
+                context.Targets[i] = newTarget;
+            }
 
-            context.Targets[i] = newTarget;
             target.Dispose();
         }
     }
