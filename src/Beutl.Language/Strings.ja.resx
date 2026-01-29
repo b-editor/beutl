@@ -2083,4 +2083,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="ReceiveShadows" xml:space="preserve">
     <value>影を受ける</value>
   </data>
+  <data name="Model3D" xml:space="preserve">
+    <value>モデル</value>
+  </data>
+  <data name="Experimental" xml:space="preserve">
+    <value>実験的</value>
+  </data>
 </root>

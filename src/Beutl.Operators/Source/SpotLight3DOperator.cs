@@ -1,8 +1,11 @@
-﻿using Beutl.Graphics3D.Lighting;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Graphics3D.Lighting;
+using Beutl.Language;
 using Beutl.Operation;
 
 namespace Beutl.Operators.Source;
 
+[Display(Name = nameof(Strings.SpotLight3D), ResourceType = typeof(Strings))]
 public sealed class SpotLight3DOperator : PublishOperator<SpotLight3D>
 {
     protected override void FillProperties()

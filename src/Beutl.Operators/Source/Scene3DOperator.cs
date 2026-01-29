@@ -1,13 +1,16 @@
-﻿using Beutl.Graphics.Effects;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Lighting;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Operation;
 using Beutl.Serialization;
 
 namespace Beutl.Operators.Source;
 
+[Display(Name = nameof(Strings.Scene3D), ResourceType = typeof(Strings))]
 public sealed class Scene3DOperator : PublishOperator<Scene3D>
 {
     protected override void FillProperties()

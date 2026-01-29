@@ -417,24 +417,6 @@ namespace Beutl.Language {
             }
         }
         
-        public static string ColorMap {
-            get {
-                return ResourceManager.GetString("ColorMap", resourceCulture);
-            }
-        }
-        
-        public static string IndexOfRefraction {
-            get {
-                return ResourceManager.GetString("IndexOfRefraction", resourceCulture);
-            }
-        }
-        
-        public static string TransparentMaterial {
-            get {
-                return ResourceManager.GetString("TransparentMaterial", resourceCulture);
-            }
-        }
-        
         public static string Element {
             get {
                 return ResourceManager.GetString("Element", resourceCulture);
@@ -3507,7 +3489,6 @@ namespace Beutl.Language {
             }
         }
         
-        // 3D Graphics
         public static string OrthographicCamera {
             get {
                 return ResourceManager.GetString("OrthographicCamera", resourceCulture);
@@ -3550,6 +3531,24 @@ namespace Beutl.Language {
             }
         }
         
+        public static string TransparentMaterial {
+            get {
+                return ResourceManager.GetString("TransparentMaterial", resourceCulture);
+            }
+        }
+        
+        public static string ColorMap {
+            get {
+                return ResourceManager.GetString("ColorMap", resourceCulture);
+            }
+        }
+        
+        public static string IndexOfRefraction {
+            get {
+                return ResourceManager.GetString("IndexOfRefraction", resourceCulture);
+            }
+        }
+        
         public static string CubeMesh {
             get {
                 return ResourceManager.GetString("CubeMesh", resourceCulture);
@@ -3583,6 +3582,12 @@ namespace Beutl.Language {
         public static string Sphere3D {
             get {
                 return ResourceManager.GetString("Sphere3D", resourceCulture);
+            }
+        }
+        
+        public static string Model3D {
+            get {
+                return ResourceManager.GetString("Model3D", resourceCulture);
             }
         }
         
@@ -3943,6 +3948,12 @@ namespace Beutl.Language {
         public static string ReceiveShadows {
             get {
                 return ResourceManager.GetString("ReceiveShadows", resourceCulture);
+            }
+        }
+        
+        public static string Experimental {
+            get {
+                return ResourceManager.GetString("Experimental", resourceCulture);
             }
         }
     }

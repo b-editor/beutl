@@ -11,6 +11,7 @@ namespace Beutl.Graphics3D.Models;
 /// <summary>
 /// A 3D object that renders a model loaded from a file.
 /// </summary>
+[Display(Name = nameof(Strings.Model3D), ResourceType = typeof(Strings))]
 public sealed partial class Model3D : Group3D
 {
     private bool _deserializing;

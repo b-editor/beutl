@@ -76,31 +76,31 @@ public static class LibraryRegistrar
                 .BindSound<SourceSound>()
             );
 
-        LibraryService.Current.RegisterGroup("3D", g => g
-            .AddMultiple("Scene3D", m => m
+        LibraryService.Current.RegisterGroup($"3D ({Strings.Experimental})", g => g
+            .AddMultiple(Strings.Scene3D, m => m
                 .BindSourceOperator<Source.Scene3DOperator>()
                 .BindDrawable<Scene3D>()
             )
-            .AddMultiple("Cube", m => m
+            .AddMultiple(Strings.Cube3D, m => m
                 .BindSourceOperator<Source.Cube3DOperator>()
             )
-            .AddMultiple("Sphere", m => m
+            .AddMultiple(Strings.Sphere3D, m => m
                 .BindSourceOperator<Source.Sphere3DOperator>()
             )
-            .AddMultiple("Plane", m => m
+            .AddMultiple(Strings.Plane3D, m => m
                 .BindSourceOperator<Source.Plane3DOperator>()
             )
-            .AddMultiple("Model", m => m
+            .AddMultiple(Strings.Model3D, m => m
                 .BindSourceOperator<Source.Model3DOperator>()
             )
             // Lights
-            .AddMultiple("Directional Light", m => m
+            .AddMultiple(Strings.DirectionalLight3D, m => m
                 .BindSourceOperator<Source.DirectionalLight3DOperator>()
             )
-            .AddMultiple("Point Light", m => m
+            .AddMultiple(Strings.PointLight3D, m => m
                 .BindSourceOperator<Source.PointLight3DOperator>()
             )
-            .AddMultiple("Spot Light", m => m
+            .AddMultiple(Strings.SpotLight3D, m => m
                 .BindSourceOperator<Source.SpotLight3DOperator>()
             )
         );
