@@ -221,6 +221,11 @@
                       ItemsSource="{Binding TreeRootItems}"
                       SelectedItem="{Binding SelectedItem.Value}"
                       SelectionMode="Single">
+                <TreeView.Styles>
+                    <Style Selector="TreeViewItem" x:DataType="vm:FileSystemItemViewModel">
+                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                    </Style>
+                </TreeView.Styles>
                 <TreeView.ItemTemplate>
                     <TreeDataTemplate ItemsSource="{Binding Children}">
                         <Border Background="Transparent"

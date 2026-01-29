@@ -33,6 +33,7 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
         if (isDirectory)
         {
             Children = [];
+            AddPlaceholderIfNeeded();
         }
     }
 
@@ -214,6 +215,28 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
             {
                 LoadChildren();
             }
+            else
+            {
+                AddPlaceholderIfNeeded();
+            }
+        }
+    }
+
+    private void AddPlaceholderIfNeeded()
+    {
+        try
+        {
+            var dirInfo = new DirectoryInfo(FullPath);
+            if (dirInfo.EnumerateFileSystemInfos().Any(
+                e => (e.Attributes & FileAttributes.Hidden) == 0))
+            {
+                // プレースホルダーを追加して展開矢印を表示させる
+                Children!.Add(new FileSystemItemViewModel(FullPath, false));
+            }
+        }
+        catch
+        {
+            // アクセスエラーの場合はプレースホルダーなし（展開矢印非表示）
         }
     }
 
