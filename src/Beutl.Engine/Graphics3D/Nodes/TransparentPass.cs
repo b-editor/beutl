@@ -95,7 +95,7 @@ public sealed class TransparentPass : GraphicsNode3D
     public void Execute(
         RenderContext renderContext,
         Camera.Camera3D.Resource camera,
-        List<TransparentObjectEntry> transparentObjects,
+        IReadOnlyList<TransparentObjectEntry> transparentObjects,
         IReadOnlyList<LightData> lights,
         Color ambientColor,
         float ambientIntensity,

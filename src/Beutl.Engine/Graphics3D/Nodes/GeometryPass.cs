@@ -103,7 +103,7 @@ public sealed class GeometryPass : GraphicsNode3D
         Camera.Camera3D.Resource camera,
         IReadOnlyList<Object3D.Resource> objects,
         float aspectRatio,
-        List<LightData> lightDataList,
+        IReadOnlyList<LightData> lightDataList,
         Color ambientColor,
         float ambientIntensity)
     {

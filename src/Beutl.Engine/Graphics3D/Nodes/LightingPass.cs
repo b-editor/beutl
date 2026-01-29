@@ -215,7 +215,7 @@ public sealed class LightingPass : GraphicsNode3D
     /// </summary>
     public void Execute(
         Camera.Camera3D.Resource camera,
-        List<LightData> lightDataList,
+        IReadOnlyList<LightData> lightDataList,
         Color backgroundColor,
         Color ambientColor,
         float ambientIntensity,

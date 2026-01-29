@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Numerics;
+using Beutl.Collections.Pooled;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
@@ -147,7 +148,10 @@ internal sealed class Renderer3D : IRenderer3D
         float aspectRatio = (float)Width / Height;
 
         // Separate objects into opaque and transparent
-        var (opaqueObjects, transparentObjects) = SeparateObjectsByTransparency(objects, camera);
+
+        using var opaqueObjects = new PooledList<Object3D.Resource>();
+        using var transparentObjects = new PooledList<TransparentObjectEntry>();
+        SeparateObjectsByTransparency(objects, camera, opaqueObjects, transparentObjects);
 
         // Calculate scene bounds for shadow mapping
         var (sceneCenter, sceneRadius) = CalculateSceneBounds(objects);
@@ -158,7 +162,7 @@ internal sealed class Renderer3D : IRenderer3D
         _shadowManager.PrepareForSampling();
 
         // Convert light resources to shader-compatible LightData
-        var lightDataList = new List<LightData>();
+        using var lightDataList = new PooledList<LightData>();
         int lightIndex = 0;
         foreach (var light in lights)
         {
@@ -227,12 +231,10 @@ internal sealed class Renderer3D : IRenderer3D
     /// Separates objects into opaque and transparent lists.
     /// Transparent objects are sorted by distance from camera (far to near).
     /// </summary>
-    private static (IReadOnlyList<Object3D.Resource> Opaque, List<TransparentObjectEntry> Transparent)
-        SeparateObjectsByTransparency(IReadOnlyList<Object3D.Resource> objects, Camera3D.Resource camera)
+    private static void SeparateObjectsByTransparency(
+        IReadOnlyList<Object3D.Resource> objects, Camera3D.Resource camera,
+        PooledList<Object3D.Resource> opaqueObjects, PooledList<TransparentObjectEntry> transparentEntries)
     {
-        var opaqueObjects = new List<Object3D.Resource>();
-        var transparentEntries = new List<TransparentObjectEntry>();
-
         foreach (var obj in objects)
         {
             if (!obj.IsEnabled)
@@ -257,8 +259,6 @@ internal sealed class Renderer3D : IRenderer3D
 
         // Sort transparent objects from far to near (painter's algorithm)
         transparentEntries.Sort((a, b) => b.DistanceToCamera.CompareTo(a.DistanceToCamera));
-
-        return (opaqueObjects, transparentEntries);
     }
 
     /// <summary>
