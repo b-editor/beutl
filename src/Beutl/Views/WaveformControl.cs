@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using Beutl.Operation;
 
 namespace Beutl.Views;
@@ -15,6 +16,7 @@ public sealed class WaveformControl : Control
 
     private readonly Dictionary<int, WaveformChunk> _chunks = new();
     private readonly Lock _lock = new();
+    private ScrollViewer? _scrollViewer;
 
     static WaveformControl()
     {
@@ -87,12 +89,35 @@ public sealed class WaveformControl : Control
 
         lock (_lock)
         {
+            // 可視範囲を計算
+            int startIndex = 0;
+            int endIndex = count - 1;
+
+            if (_scrollViewer != null)
+            {
+                var topLeft = this.TranslatePoint(Bounds.TopLeft, _scrollViewer);
+                var bottomRight = this.TranslatePoint(Bounds.BottomRight, _scrollViewer);
+                if (topLeft.HasValue && bottomRight.HasValue)
+                {
+                    var translatedBounds = new Rect(topLeft.Value, bottomRight.Value);
+                    double minX = Math.Max(0, -translatedBounds.Left);
+                    double maxX = _scrollViewer.Viewport.Width - translatedBounds.Left;
+
+                    // 少し余裕を持たせる(1スロット分)
+                    startIndex = Math.Max(0, (int)(minX / slotWidth) - 1);
+                    endIndex = Math.Min(count - 1, (int)Math.Ceiling(maxX / slotWidth) + 1);
+
+                    // Console.WriteLine($"minX: {minX}, maxX: {maxX}, startIndex: {startIndex}, endIndex: {endIndex}");
+                }
+            }
+
             foreach (var kvp in _chunks)
             {
                 int i = kvp.Key;
                 var chunk = kvp.Value;
 
-                if (i < 0 || i >= count)
+                // 範囲外はスキップ
+                if (i < startIndex || i > endIndex)
                     continue;
 
                 double slotX = i * slotWidth;
@@ -110,9 +135,27 @@ public sealed class WaveformControl : Control
         }
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _scrollViewer = this.FindAncestorOfType<ScrollViewer>();
+        _scrollViewer?.PropertyChanged += OnScrollViewerPropertyChanged;
+    }
+
+    private void OnScrollViewerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == ScrollViewer.OffsetProperty ||
+            e.Property == ScrollViewer.ViewportProperty)
+        {
+            InvalidateVisual();
+        }
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
         ClearChunks();
+        _scrollViewer?.PropertyChanged -= OnScrollViewerPropertyChanged;
+        _scrollViewer = null;
     }
 }
