@@ -1898,6 +1898,18 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Sphere3D" xml:space="preserve">
     <value>Sphere</value>
   </data>
+  <data name="Plane3D" xml:space="preserve">
+    <value>Plane</value>
+  </data>
+  <data name="PlaneMesh" xml:space="preserve">
+    <value>Plane Mesh</value>
+  </data>
+  <data name="WidthSegments" xml:space="preserve">
+    <value>Width Segments</value>
+  </data>
+  <data name="HeightSegments" xml:space="preserve">
+    <value>Height Segments</value>
+  </data>
   <data name="DrawableTextureSource" xml:space="preserve">
     <value>Drawable Texture</value>
   </data>

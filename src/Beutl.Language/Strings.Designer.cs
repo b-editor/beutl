@@ -3586,6 +3586,30 @@ namespace Beutl.Language {
             }
         }
         
+        public static string Plane3D {
+            get {
+                return ResourceManager.GetString("Plane3D", resourceCulture);
+            }
+        }
+        
+        public static string PlaneMesh {
+            get {
+                return ResourceManager.GetString("PlaneMesh", resourceCulture);
+            }
+        }
+        
+        public static string WidthSegments {
+            get {
+                return ResourceManager.GetString("WidthSegments", resourceCulture);
+            }
+        }
+        
+        public static string HeightSegments {
+            get {
+                return ResourceManager.GetString("HeightSegments", resourceCulture);
+            }
+        }
+        
         public static string DrawableTextureSource {
             get {
                 return ResourceManager.GetString("DrawableTextureSource", resourceCulture);

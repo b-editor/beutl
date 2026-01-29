@@ -1903,6 +1903,18 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Sphere3D" xml:space="preserve">
     <value>球体</value>
   </data>
+  <data name="Plane3D" xml:space="preserve">
+    <value>平面</value>
+  </data>
+  <data name="PlaneMesh" xml:space="preserve">
+    <value>平面メッシュ</value>
+  </data>
+  <data name="WidthSegments" xml:space="preserve">
+    <value>幅の分割数</value>
+  </data>
+  <data name="HeightSegments" xml:space="preserve">
+    <value>高さの分割数</value>
+  </data>
   <data name="DrawableTextureSource" xml:space="preserve">
     <value>描画テクスチャ</value>
   </data>

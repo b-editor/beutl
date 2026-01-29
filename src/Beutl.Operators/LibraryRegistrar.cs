@@ -87,6 +87,9 @@ public static class LibraryRegistrar
             .AddMultiple("Sphere", m => m
                 .BindSourceOperator<Source.Sphere3DOperator>()
             )
+            .AddMultiple("Plane", m => m
+                .BindSourceOperator<Source.Plane3DOperator>()
+            )
             .AddMultiple("Model", m => m
                 .BindSourceOperator<Source.Model3DOperator>()
             )
