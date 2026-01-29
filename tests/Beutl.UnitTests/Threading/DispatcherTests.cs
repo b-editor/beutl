@@ -470,4 +470,37 @@ public class DispatcherTests
         });
         dispatcher.Shutdown();
     }
+
+    // Regression test for the race condition where an operation posted just before
+    // WaitForPendingOperations acquires the lock would be missed, causing the
+    // dispatcher thread to block unnecessarily.
+    [Test]
+    public async Task Post_BeforeWaitTokenCreated_OperationExecutedPromptly()
+    {
+        var dispatcher = Dispatcher.Spawn();
+
+        // Run multiple iterations to increase the chance of hitting the race window
+        // between ExecuteAvailableOperations returning and WaitForPendingOperations
+        // acquiring the lock.
+        for (int i = 0; i < 50; i++)
+        {
+            var operationExecuted = new TaskCompletionSource();
+
+            // Invoke ensures the dispatcher thread processes the no-op and then
+            // transitions back to: ExecuteAvailableOperations (empty) -> WaitForPendingOperations.
+            dispatcher.Invoke(() => { });
+
+            // Immediately dispatch from this (non-dispatcher) thread.
+            // This targets the window where the queue has been drained but the wait token
+            // has not yet been created. Without the early-return check inside the lock,
+            // the dispatcher would block on WaitOne and never process this operation.
+            dispatcher.Dispatch(() => operationExecuted.SetResult());
+
+            var completed = await Task.WhenAny(operationExecuted.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+            Assert.That(completed, Is.EqualTo(operationExecuted.Task),
+                $"Iteration {i}: Dispatched operation was not executed promptly; dispatcher may have blocked in WaitForPendingOperations");
+        }
+
+        dispatcher.Shutdown();
+    }
 }

@@ -75,6 +75,14 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
 
         lock (this)
         {
+            // このロックに入る前にPostされた可能性があるため、再度確認する
+            if (_operationQueue.Any(DispatchPriority.Low))
+            {
+                _waitToken?.Cancel();
+                _waitToken = null;
+                return;
+            }
+
             _waitToken = new CancellationTokenSource();
 
             if (_timerQueue.Next is { } next)
