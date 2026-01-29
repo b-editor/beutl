@@ -3,6 +3,10 @@
     <RootNameSpace>Beutl</RootNameSpace>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Beutl.Graphics3DTests" />
+    <InternalsVisibleTo Include="Beutl.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Remove="Graphics\VertexMode.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -38,5 +42,8 @@
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" />
+    <PackageReference Include="Silk.NET.Shaderc" />
+    <PackageReference Include="Silk.NET.Shaderc.Native" />
+    <PackageReference Include="Silk.NET.Assimp" />
   </ItemGroup>
 </Project>

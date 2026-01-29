@@ -41,6 +41,38 @@
                 <RadioButton IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="{x:Static lang:Strings.CropSelection}">
                     <icons:SymbolIcon FontSize="16" Symbol="Crop" />
                 </RadioButton>
+                <!--  Todo: ローカライズ  -->
+                <RadioButton IsChecked="{Binding IsCameraMode.Value}" ToolTip.Tip="3Dカメラ操作">
+                    <icons:SymbolIcon FontSize="16" Symbol="Video" />
+                </RadioButton>
+                <!--  Gizmo Mode Selection (visible only in Camera Mode)  -->
+                <Border Margin="0,8,0,0"
+                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                        BorderThickness="0,1,0,0"
+                        IsVisible="{Binding IsCameraMode.Value}" />
+                <RadioButton Margin="0,8,0,0"
+                             GroupName="GizmoMode"
+                             IsChecked="{Binding SelectedGizmoMode.Value, Converter={x:Static converters:GizmoModeConverters.IsTranslate}}"
+                             IsVisible="{Binding IsCameraMode.Value}"
+                             ToolTip.Tip="移動">
+                    <icons:SymbolIcon FontSize="16" Symbol="ArrowMove" />
+                </RadioButton>
+                <RadioButton GroupName="GizmoMode"
+                             IsChecked="{Binding SelectedGizmoMode.Value, Converter={x:Static converters:GizmoModeConverters.IsRotate}}"
+                             IsVisible="{Binding IsCameraMode.Value}"
+                             ToolTip.Tip="回転">
+                    <icons:SymbolIcon FontSize="16" Symbol="ArrowRotateClockwise" />
+                </RadioButton>
+                <RadioButton GroupName="GizmoMode"
+                             IsChecked="{Binding SelectedGizmoMode.Value, Converter={x:Static converters:GizmoModeConverters.IsScale}}"
+                             IsVisible="{Binding IsCameraMode.Value}"
+                             ToolTip.Tip="スケール">
+                    <icons:SymbolIcon FontSize="16" Symbol="ArrowExpand" />
+                </RadioButton>
+                <Border Margin="0,8,0,0"
+                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                        BorderThickness="0,1,0,0"
+                        IsVisible="{Binding PathEditor.Context.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
                 <RadioButton Margin="0,8,0,0"
                              Click="ToggleDragModeClick"
                              GroupName="PathEditor_DragMode"
