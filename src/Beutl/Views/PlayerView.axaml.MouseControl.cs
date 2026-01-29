@@ -837,7 +837,8 @@ public partial class PlayerView
                             if (_selectedGizmoAxis != GizmoAxis.None)
                             {
                                 // マウス移動をカメラ平面上の移動に変換
-                                var screenMovement = (right * (float)delta.X + cameraUp * -(float)delta.Y) * ObjectMoveSpeed;
+                                var screenMovement = (right * (float)delta.X + cameraUp * -(float)delta.Y) *
+                                                     ObjectMoveSpeed;
 
                                 if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
                                 {
@@ -1166,14 +1167,12 @@ public partial class PlayerView
             // 選択されているオブジェクトから探す
             if (EditViewModel.SelectedObject.Value is Element element)
             {
-                foreach (var op in element.Operation.Children)
+                var op = element.Operation.Children.OfType<Scene3DOperator>().FirstOrDefault();
+                if (op != null)
                 {
-                    if (op is Scene3DOperator scene3DOp)
-                    {
-                        _scene3D = scene3DOp.Value;
-                        _camera = _scene3D.Camera.CurrentValue;
-                        return;
-                    }
+                    _scene3D = op.Value;
+                    _camera = _scene3D.Camera.CurrentValue;
+                    return;
                 }
             }
 
