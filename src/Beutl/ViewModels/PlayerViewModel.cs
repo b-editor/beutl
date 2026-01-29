@@ -8,6 +8,7 @@ using Beutl.Configuration;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Graphics3D.Gizmo;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Music;
@@ -15,12 +16,12 @@ using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Models;
+using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using OpenTK.Audio.OpenAL;
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 using Vortice.Multimedia;
 
 namespace Beutl.ViewModels;
@@ -135,6 +136,55 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
         PathEditor = new PathEditorViewModel(_editViewModel, this)
             .DisposeWith(_disposables);
+
+        // カメラモードが解除されたらGizmoを非表示にする
+        IsCameraMode.Subscribe(isCameraMode =>
+            {
+                if (!isCameraMode)
+                {
+                    ClearAllGizmoTargets();
+                }
+            })
+            .DisposeWith(_disposables);
+
+        // GizmoModeが変更されたらScene3Dに反映する
+        SelectedGizmoMode.Subscribe(mode =>
+            {
+                if (IsCameraMode.Value)
+                {
+                    UpdateAllGizmoModes(mode);
+                }
+            })
+            .DisposeWith(_disposables);
+    }
+
+    private void ClearAllGizmoTargets()
+    {
+        foreach (var element in Scene?.Children ?? [])
+        {
+            foreach (var op in element.Operation.Children)
+            {
+                if (op is Operators.Source.Scene3DOperator scene3DOp && scene3DOp.Value != null)
+                {
+                    scene3DOp.Value.GizmoTarget.CurrentValue = null;
+                    scene3DOp.Value.GizmoMode.CurrentValue = GizmoMode.None;
+                }
+            }
+        }
+    }
+
+    private void UpdateAllGizmoModes(GizmoMode mode)
+    {
+        if (Scene == null) return;
+
+        foreach (var op in Scene.Children
+                     .SelectMany(e => e.Operation.Children)
+                     .OfType<Scene3DOperator>()
+                     .Where(op => op.Value.GizmoTarget.CurrentValue.HasValue))
+        {
+            // GizmoTargetが設定されている場合のみモードを更新
+            op.Value.GizmoMode.CurrentValue = mode;
+        }
     }
 
     private void OnSceneEdited(object? sender, EventArgs e)
@@ -180,6 +230,10 @@ public sealed class PlayerViewModel : IAsyncDisposable
     public ReactivePropertySlim<bool> IsHandMode { get; } = new(false);
 
     public ReactivePropertySlim<bool> IsCropMode { get; } = new(false);
+
+    public ReactivePropertySlim<bool> IsCameraMode { get; } = new(false);
+
+    public ReactivePropertySlim<GizmoMode> SelectedGizmoMode { get; } = new(GizmoMode.Translate);
 
     public ReactivePropertySlim<Matrix> FrameMatrix { get; } = new(Matrix.Identity);
 
@@ -634,12 +688,7 @@ public sealed class PlayerViewModel : IAsyncDisposable
             Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
             if (boundary.Length > 0)
             {
-                var pen = new Pen.Resource()
-                {
-                    Brush = Brushes.Resource.White,
-                    Thickness = scale,
-                    MiterLimit = 10
-                };
+                var pen = new Pen.Resource() { Brush = Brushes.Resource.White, Thickness = scale, MiterLimit = 10 };
                 bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries;
 
                 foreach (Rect item in boundary)

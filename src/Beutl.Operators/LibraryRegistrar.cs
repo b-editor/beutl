@@ -3,6 +3,7 @@ using Beutl.Audio.Effects;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics3D;
 using Beutl.Language;
 using Beutl.Media;
 // using Beutl.NodeTree.Nodes.Transform;
@@ -74,6 +75,35 @@ public static class LibraryRegistrar
                 .BindSourceOperator<Source.SourceSoundOperator>()
                 .BindSound<SourceSound>()
             );
+
+        LibraryService.Current.RegisterGroup($"3D ({Strings.Experimental})", g => g
+            .AddMultiple(Strings.Scene3D, m => m
+                .BindSourceOperator<Source.Scene3DOperator>()
+                .BindDrawable<Scene3D>()
+            )
+            .AddMultiple(Strings.Cube3D, m => m
+                .BindSourceOperator<Source.Cube3DOperator>()
+            )
+            .AddMultiple(Strings.Sphere3D, m => m
+                .BindSourceOperator<Source.Sphere3DOperator>()
+            )
+            .AddMultiple(Strings.Plane3D, m => m
+                .BindSourceOperator<Source.Plane3DOperator>()
+            )
+            .AddMultiple(Strings.Model3D, m => m
+                .BindSourceOperator<Source.Model3DOperator>()
+            )
+            // Lights
+            .AddMultiple(Strings.DirectionalLight3D, m => m
+                .BindSourceOperator<Source.DirectionalLight3DOperator>()
+            )
+            .AddMultiple(Strings.PointLight3D, m => m
+                .BindSourceOperator<Source.PointLight3DOperator>()
+            )
+            .AddMultiple(Strings.SpotLight3D, m => m
+                .BindSourceOperator<Source.SpotLight3DOperator>()
+            )
+        );
 
         LibraryService.Current
             .AddMultiple(Strings.Portal, m => m

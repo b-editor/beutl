@@ -25,29 +25,21 @@ public sealed class InformationPageViewModel : PageContext
                 GraphicsContextFactory.GetOrCreateShared();
 
                 // Available GPUs
-                var gpus = GraphicsContextFactory.GetAvailableGpus();
-                AvailableGpus.Value = gpus
-                    .Select(g => $"{g.Name} ({g.Type})")
+                var devices = GraphicsContextFactory.GetAvailableDevices();
+                AvailableGpus.Value = devices
+                    .Select(d => $"{d.Name} ({d.DeviceType})")
                     .ToArray();
 
                 // Selected GPU details
-                if (GraphicsContextFactory.GetSelectedGpuDetails() is { } selectedGpu)
+                if (GraphicsContextFactory.GetSelectedDevice() is { } selectedDevice)
                 {
-                    SelectedGpu.Value = $"{selectedGpu.Name} ({selectedGpu.Type})";
+                    SelectedGpu.Value = $"{selectedDevice.Name} ({selectedDevice.DeviceType})";
 
                     // Vulkan version
-                    if (selectedGpu.ApiVersion != null)
-                    {
-                        VulkanVersion.Value = selectedGpu.ApiVersion;
-                    }
+                    VulkanVersion.Value = selectedDevice.ApiVersion;
 
                     // Memory info
-                    if (selectedGpu.Memory != null)
-                    {
-                        var deviceMemoryMB = selectedGpu.Memory.DeviceLocalMemory / (1024 * 1024);
-                        var hostMemoryMB = selectedGpu.Memory.HostVisibleMemory / (1024 * 1024);
-                        AvailableMemory.Value = $"Device Local: {deviceMemoryMB:N0} MB, Host Visible: {hostMemoryMB:N0} MB";
-                    }
+                    AvailableMemory.Value = $"Total: {selectedDevice.TotalMemoryMB:N0} MB";
                 }
 
                 // Enabled extensions

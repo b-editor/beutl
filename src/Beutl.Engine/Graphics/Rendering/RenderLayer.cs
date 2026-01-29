@@ -248,6 +248,47 @@ public sealed class RenderLayer(RenderScene renderScene) : IDisposable
         return list;
     }
 
+    // DrawableからDrawableRenderNodeを取得
+    public DrawableRenderNode? FindRenderNode(Drawable drawable)
+    {
+        if (_cache.TryGetValue(drawable, out Entry? entry))
+        {
+            return entry.Node;
+        }
+
+        // 再帰的に探す
+        foreach (var item in _cache)
+        {
+            if (item.Value.Node is not ContainerRenderNode container) continue;
+
+            var result = FindChildRenderNode(container);
+            if (result != null)
+                return result;
+        }
+
+        return null;
+
+        DrawableRenderNode? FindChildRenderNode(ContainerRenderNode container)
+        {
+            foreach (var child in container.Children)
+            {
+                if (child is ContainerRenderNode childContainer)
+                {
+                    var result = FindChildRenderNode(childContainer);
+                    if (result != null)
+                        return result;
+                }
+                else if (child is DrawableRenderNode childDrawable &&
+                         childDrawable.Drawable?.Resource.GetOriginal() == drawable)
+                {
+                    return childDrawable;
+                }
+            }
+
+            return null;
+        }
+    }
+
     internal void ClearCache()
     {
         foreach (KeyValuePair<Drawable, Entry> item in _cache)

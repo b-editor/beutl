@@ -1854,4 +1854,239 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="SweepClockwise" xml:space="preserve">
     <value>時計回り</value>
   </data>
+  <!-- 3D Graphics -->
+  <data name="OrthographicCamera" xml:space="preserve">
+    <value>正射投影カメラ</value>
+  </data>
+  <data name="PerspectiveCamera" xml:space="preserve">
+    <value>透視投影カメラ</value>
+  </data>
+  <data name="DirectionalLight3D" xml:space="preserve">
+    <value>平行光源</value>
+  </data>
+  <data name="PointLight3D" xml:space="preserve">
+    <value>点光源</value>
+  </data>
+  <data name="SpotLight3D" xml:space="preserve">
+    <value>スポットライト</value>
+  </data>
+  <data name="BasicMaterial" xml:space="preserve">
+    <value>基本マテリアル</value>
+  </data>
+  <data name="PBRMaterial" xml:space="preserve">
+    <value>PBRマテリアル</value>
+  </data>
+  <data name="TransparentMaterial" xml:space="preserve">
+    <value>透明マテリアル</value>
+  </data>
+  <data name="ColorMap" xml:space="preserve">
+    <value>カラーマップ</value>
+  </data>
+  <data name="IndexOfRefraction" xml:space="preserve">
+    <value>屈折率</value>
+  </data>
+  <data name="CubeMesh" xml:space="preserve">
+    <value>立方体メッシュ</value>
+  </data>
+  <data name="SphereMesh" xml:space="preserve">
+    <value>球体メッシュ</value>
+  </data>
+  <data name="MeshObject3D" xml:space="preserve">
+    <value>メッシュオブジェクト</value>
+  </data>
+  <data name="ModelMesh" xml:space="preserve">
+    <value>モデルメッシュ</value>
+  </data>
+  <data name="Cube3D" xml:space="preserve">
+    <value>立方体</value>
+  </data>
+  <data name="Sphere3D" xml:space="preserve">
+    <value>球体</value>
+  </data>
+  <data name="Plane3D" xml:space="preserve">
+    <value>平面</value>
+  </data>
+  <data name="PlaneMesh" xml:space="preserve">
+    <value>平面メッシュ</value>
+  </data>
+  <data name="WidthSegments" xml:space="preserve">
+    <value>幅の分割数</value>
+  </data>
+  <data name="HeightSegments" xml:space="preserve">
+    <value>高さの分割数</value>
+  </data>
+  <data name="DrawableTextureSource" xml:space="preserve">
+    <value>描画テクスチャ</value>
+  </data>
+  <data name="ImageTextureSource" xml:space="preserve">
+    <value>画像テクスチャ</value>
+  </data>
+  <data name="Group3D" xml:space="preserve">
+    <value>グループ</value>
+  </data>
+  <data name="Scene3D" xml:space="preserve">
+    <value>3Dシーン</value>
+  </data>
+  <data name="FieldOfView" xml:space="preserve">
+    <value>視野角</value>
+  </data>
+  <data name="NearPlane" xml:space="preserve">
+    <value>近クリップ面</value>
+  </data>
+  <data name="FarPlane" xml:space="preserve">
+    <value>遠クリップ面</value>
+  </data>
+  <data name="Up" xml:space="preserve">
+    <value>上方向</value>
+  </data>
+  <data name="Direction" xml:space="preserve">
+    <value>方向</value>
+  </data>
+  <data name="CastsShadow" xml:space="preserve">
+    <value>影を投影</value>
+  </data>
+  <data name="ShadowBias" xml:space="preserve">
+    <value>シャドウバイアス</value>
+  </data>
+  <data name="ShadowNormalBias" xml:space="preserve">
+    <value>シャドウ法線バイアス</value>
+  </data>
+  <data name="ShadowStrength" xml:space="preserve">
+    <value>影の強度</value>
+  </data>
+  <data name="ShadowDistance" xml:space="preserve">
+    <value>影の距離</value>
+  </data>
+  <data name="ShadowMapSize" xml:space="preserve">
+    <value>シャドウマップサイズ</value>
+  </data>
+  <data name="ConstantAttenuation" xml:space="preserve">
+    <value>定数減衰</value>
+  </data>
+  <data name="LinearAttenuation" xml:space="preserve">
+    <value>線形減衰</value>
+  </data>
+  <data name="QuadraticAttenuation" xml:space="preserve">
+    <value>二次減衰</value>
+  </data>
+  <data name="Range" xml:space="preserve">
+    <value>範囲</value>
+  </data>
+  <data name="InnerConeAngle" xml:space="preserve">
+    <value>内側コーン角度</value>
+  </data>
+  <data name="OuterConeAngle" xml:space="preserve">
+    <value>外側コーン角度</value>
+  </data>
+  <data name="DiffuseColor" xml:space="preserve">
+    <value>拡散色</value>
+  </data>
+  <data name="DiffuseMap" xml:space="preserve">
+    <value>拡散マップ</value>
+  </data>
+  <data name="AmbientColor" xml:space="preserve">
+    <value>環境色</value>
+  </data>
+  <data name="SpecularColor" xml:space="preserve">
+    <value>鏡面反射色</value>
+  </data>
+  <data name="Shininess" xml:space="preserve">
+    <value>光沢度</value>
+  </data>
+  <data name="Albedo" xml:space="preserve">
+    <value>アルベド</value>
+  </data>
+  <data name="AlbedoMap" xml:space="preserve">
+    <value>アルベドマップ</value>
+  </data>
+  <data name="Metallic" xml:space="preserve">
+    <value>金属度</value>
+  </data>
+  <data name="Roughness" xml:space="preserve">
+    <value>粗さ</value>
+  </data>
+  <data name="MetallicRoughnessMap" xml:space="preserve">
+    <value>金属度/粗さマップ</value>
+  </data>
+  <data name="AmbientOcclusion" xml:space="preserve">
+    <value>環境遮蔽</value>
+  </data>
+  <data name="AOMap" xml:space="preserve">
+    <value>環境遮蔽マップ</value>
+  </data>
+  <data name="Emissive" xml:space="preserve">
+    <value>発光色</value>
+  </data>
+  <data name="EmissiveIntensity" xml:space="preserve">
+    <value>発光強度</value>
+  </data>
+  <data name="EmissiveMap" xml:space="preserve">
+    <value>発光マップ</value>
+  </data>
+  <data name="NormalMap" xml:space="preserve">
+    <value>法線マップ</value>
+  </data>
+  <data name="NormalMapStrength" xml:space="preserve">
+    <value>法線マップ強度</value>
+  </data>
+  <data name="Segments" xml:space="preserve">
+    <value>セグメント数</value>
+  </data>
+  <data name="Rings" xml:space="preserve">
+    <value>リング数</value>
+  </data>
+  <data name="Mesh" xml:space="preserve">
+    <value>メッシュ</value>
+  </data>
+  <data name="Vertices" xml:space="preserve">
+    <value>頂点</value>
+  </data>
+  <data name="Indices" xml:space="preserve">
+    <value>インデックス</value>
+  </data>
+  <data name="TextureWidth" xml:space="preserve">
+    <value>テクスチャ幅</value>
+  </data>
+  <data name="TextureHeight" xml:space="preserve">
+    <value>テクスチャ高さ</value>
+  </data>
+  <data name="Children" xml:space="preserve">
+    <value>子要素</value>
+  </data>
+  <data name="Camera" xml:space="preserve">
+    <value>カメラ</value>
+  </data>
+  <data name="Objects" xml:space="preserve">
+    <value>オブジェクト</value>
+  </data>
+  <data name="Lights" xml:space="preserve">
+    <value>ライト</value>
+  </data>
+  <data name="AmbientIntensity" xml:space="preserve">
+    <value>環境光強度</value>
+  </data>
+  <data name="RenderWidth" xml:space="preserve">
+    <value>レンダリング幅</value>
+  </data>
+  <data name="RenderHeight" xml:space="preserve">
+    <value>レンダリング高さ</value>
+  </data>
+  <data name="BackgroundColor" xml:space="preserve">
+    <value>背景色</value>
+  </data>
+  <data name="Material" xml:space="preserve">
+    <value>マテリアル</value>
+  </data>
+  <data name="CastShadows" xml:space="preserve">
+    <value>影を投影する</value>
+  </data>
+  <data name="ReceiveShadows" xml:space="preserve">
+    <value>影を受ける</value>
+  </data>
+  <data name="Model3D" xml:space="preserve">
+    <value>モデル</value>
+  </data>
+  <data name="Experimental" xml:space="preserve">
+    <value>実験的</value>
+  </data>
 </root>

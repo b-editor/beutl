@@ -277,14 +277,17 @@ public sealed partial class ColorGrading : FilterEffect
             builder.Uniforms["gain"] = ToColorVector(data.Gain, 0.0f);
             builder.Uniforms["offset"] = ToColorVector(data.Offset);
 
-            using SKShader finalShader = builder.Build();
-            using var paint = new SKPaint { Shader = finalShader };
-
             EffectTarget newTarget = context.CreateTarget(target.Bounds);
-            var canvas = newTarget.RenderTarget!.Value.Canvas;
-            canvas.DrawRect(new SKRect(0, 0, newTarget.Bounds.Width, newTarget.Bounds.Height), paint);
 
-            context.Targets[i] = newTarget;
+            using (SKShader finalShader = builder.Build())
+            using (var paint = new SKPaint { Shader = finalShader })
+            using (var canvas = context.Open(newTarget))
+            {
+                canvas.Clear();
+                canvas.Canvas.DrawRect(new SKRect(0, 0, newTarget.Bounds.Width, newTarget.Bounds.Height), paint);
+                context.Targets[i] = newTarget;
+            }
+
             target.Dispose();
         }
     }

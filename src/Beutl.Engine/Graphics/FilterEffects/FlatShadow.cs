@@ -124,20 +124,20 @@ public partial class FlatShadow : FilterEffect
             using (var brushPaint = new SKPaint())
             using (SKPath path = CreatePath(points))
             using (ImmediateCanvas newCanvas = context.Open(newTarget))
-            using (newCanvas.PushLayer())
-            using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2, (y2Abs - y2) / 2)))
             {
                 newCanvas.Clear();
-
-                var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn);
-                c.ConfigurePaint(brushPaint);
-
-                float lenAbs = Math.Abs(length);
-                int unit = Math.Sign(length);
-                for (int i = 0; i < lenAbs; i++)
+                using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2, (y2Abs - y2) / 2)))
                 {
-                    newCanvas.Transform = Matrix.CreateTranslation(x1 * unit, y1 * unit) * newCanvas.Transform;
-                    newCanvas.Canvas.DrawPath(path, paint);
+                    var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn);
+                    c.ConfigurePaint(brushPaint);
+
+                    float lenAbs = Math.Abs(length);
+                    int unit = Math.Sign(length);
+                    for (int i = 0; i < lenAbs; i++)
+                    {
+                        newCanvas.Transform = Matrix.CreateTranslation(x1 * unit, y1 * unit) * newCanvas.Transform;
+                        newCanvas.Canvas.DrawPath(path, paint);
+                    }
                 }
 
                 newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Size.ToSKSize()), brushPaint);
