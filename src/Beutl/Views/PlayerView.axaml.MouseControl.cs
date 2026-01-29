@@ -742,16 +742,9 @@ public partial class PlayerView
                     if (isDoubleClick && currentIndex >= 0)
                     {
                         // ダブルクリック: 現在の選択から1階層下を選択
-                        if (currentIndex < hitPath.Count - 1)
-                        {
-                            // 1階層下を選択
-                            targetResource = hitPath[currentIndex + 1];
-                        }
-                        else
-                        {
-                            // 最深部の場合は維持
-                            targetResource = hitPath[currentIndex];
-                        }
+                        targetResource = currentIndex < hitPath.Count - 1
+                            ? hitPath[currentIndex + 1] // 1階層下を選択
+                            : hitPath[currentIndex]; // 最深部の場合は維持
                     }
                     else if (currentIndex >= 0)
                     {
@@ -1209,14 +1202,10 @@ public partial class PlayerView
                 }
                 else if (rn is ContainerRenderNode container)
                 {
-                    foreach (var child in container.Children)
-                    {
-                        var result = FindScene3DRenderNode(child);
-                        if (result != null)
-                        {
-                            return result;
-                        }
-                    }
+                    return container.Children
+                        .Select(FindScene3DRenderNode)
+                        .OfType<Scene3DRenderNode>()
+                        .FirstOrDefault();
                 }
 
                 return null;
