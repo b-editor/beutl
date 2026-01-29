@@ -79,7 +79,7 @@ void main() {
     }
 
     // Cube face directions and up vectors
-    private static readonly (Vector3 Direction, Vector3 Up)[] CubeFaceDirections =
+    private static readonly (Vector3 Direction, Vector3 Up)[] s_cubeFaceDirections =
     [
         (Vector3.UnitX, -Vector3.UnitY),   // +X (Right)
         (-Vector3.UnitX, -Vector3.UnitY),  // -X (Left)
@@ -96,16 +96,16 @@ void main() {
     private byte[]? _fragmentShaderSpirv;
 
     // Per-face resources
-    private ITexture2D?[] _faceDummyTextures = new ITexture2D?[6];
-    private ITexture2D?[] _faceDepthTextures = new ITexture2D?[6];
-    private IFramebuffer3D?[] _faceFramebuffers = new IFramebuffer3D?[6];
+    private readonly ITexture2D?[] _faceDummyTextures = new ITexture2D?[6];
+    private readonly ITexture2D?[] _faceDepthTextures = new ITexture2D?[6];
+    private readonly IFramebuffer3D?[] _faceFramebuffers = new IFramebuffer3D?[6];
     private readonly Matrix4x4[] _lightViewMatrices = new Matrix4x4[6];
     private Matrix4x4 _lightProjectionMatrix;
     private Vector3 _lightPosition;
     private float _farPlane;
 
     // Minimal dummy color attachment format
-    private static readonly TextureFormat[] ShadowPassFormats = [TextureFormat.R8Unorm];
+    private static readonly TextureFormat[] s_shadowPassFormats = [TextureFormat.R8Unorm];
 
     public PointShadowPass(IGraphicsContext context, IShaderCompiler shaderCompiler)
         : base(context, shaderCompiler)
@@ -175,7 +175,7 @@ void main() {
         ShadowCubeTexture = Context.CreateTextureCube(faceSize, TextureFormat.Depth32Float);
 
         // Create render pass (shared for all faces)
-        RenderPass = Context.CreateRenderPass3D(ShadowPassFormats, TextureFormat.Depth32Float);
+        RenderPass = Context.CreateRenderPass3D(s_shadowPassFormats, TextureFormat.Depth32Float);
 
         // Create per-face resources
         for (int i = 0; i < 6; i++)
@@ -296,7 +296,7 @@ void main() {
         // Create view matrices for each cube face
         for (int i = 0; i < 6; i++)
         {
-            var (direction, up) = CubeFaceDirections[i];
+            var (direction, up) = s_cubeFaceDirections[i];
             var target = _lightPosition + direction;
             _lightViewMatrices[i] = Matrix4x4.CreateLookAt(_lightPosition, target, up);
         }
