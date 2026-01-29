@@ -14,7 +14,7 @@ internal sealed class Vector3JsonConverter : JsonConverter<Vector3>
         if (s == null)
             throw new Exception("Invalid Vector3.");
 
-        var tokenizer = new RefStringTokenizer(s, exceptionMessage: "Invalid Quaternion.");
+        var tokenizer = new RefStringTokenizer(s, exceptionMessage: "Invalid Vector3.");
         float x = tokenizer.ReadSingle();
         float y = tokenizer.ReadSingle();
         float z = tokenizer.ReadSingle();
