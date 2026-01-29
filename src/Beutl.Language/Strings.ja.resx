@@ -1876,6 +1876,15 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="PBRMaterial" xml:space="preserve">
     <value>PBRマテリアル</value>
   </data>
+  <data name="TransparentMaterial" xml:space="preserve">
+    <value>透明マテリアル</value>
+  </data>
+  <data name="ColorMap" xml:space="preserve">
+    <value>カラーマップ</value>
+  </data>
+  <data name="IndexOfRefraction" xml:space="preserve">
+    <value>屈折率</value>
+  </data>
   <data name="CubeMesh" xml:space="preserve">
     <value>立方体メッシュ</value>
   </data>

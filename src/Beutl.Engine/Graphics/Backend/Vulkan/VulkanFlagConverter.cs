@@ -191,4 +191,35 @@ internal static class VulkanFlagConverter
             Attributes = attributes
         };
     }
+
+    public static Silk.NET.Vulkan.BlendFactor ToVulkan(BlendFactor blendFactor)
+    {
+        return blendFactor switch
+        {
+            BlendFactor.Zero => Silk.NET.Vulkan.BlendFactor.Zero,
+            BlendFactor.One => Silk.NET.Vulkan.BlendFactor.One,
+            BlendFactor.SrcColor => Silk.NET.Vulkan.BlendFactor.SrcColor,
+            BlendFactor.OneMinusSrcColor => Silk.NET.Vulkan.BlendFactor.OneMinusSrcColor,
+            BlendFactor.DstColor => Silk.NET.Vulkan.BlendFactor.DstColor,
+            BlendFactor.OneMinusDstColor => Silk.NET.Vulkan.BlendFactor.OneMinusDstColor,
+            BlendFactor.SrcAlpha => Silk.NET.Vulkan.BlendFactor.SrcAlpha,
+            BlendFactor.OneMinusSrcAlpha => Silk.NET.Vulkan.BlendFactor.OneMinusSrcAlpha,
+            BlendFactor.DstAlpha => Silk.NET.Vulkan.BlendFactor.DstAlpha,
+            BlendFactor.OneMinusDstAlpha => Silk.NET.Vulkan.BlendFactor.OneMinusDstAlpha,
+            _ => Silk.NET.Vulkan.BlendFactor.One
+        };
+    }
+
+    public static Silk.NET.Vulkan.BlendOp ToVulkan(BlendOp blendOp)
+    {
+        return blendOp switch
+        {
+            BlendOp.Add => Silk.NET.Vulkan.BlendOp.Add,
+            BlendOp.Subtract => Silk.NET.Vulkan.BlendOp.Subtract,
+            BlendOp.ReverseSubtract => Silk.NET.Vulkan.BlendOp.ReverseSubtract,
+            BlendOp.Min => Silk.NET.Vulkan.BlendOp.Min,
+            BlendOp.Max => Silk.NET.Vulkan.BlendOp.Max,
+            _ => Silk.NET.Vulkan.BlendOp.Add
+        };
+    }
 }

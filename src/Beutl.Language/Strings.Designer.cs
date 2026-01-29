@@ -417,6 +417,24 @@ namespace Beutl.Language {
             }
         }
         
+        public static string ColorMap {
+            get {
+                return ResourceManager.GetString("ColorMap", resourceCulture);
+            }
+        }
+        
+        public static string IndexOfRefraction {
+            get {
+                return ResourceManager.GetString("IndexOfRefraction", resourceCulture);
+            }
+        }
+        
+        public static string TransparentMaterial {
+            get {
+                return ResourceManager.GetString("TransparentMaterial", resourceCulture);
+            }
+        }
+        
         public static string Element {
             get {
                 return ResourceManager.GetString("Element", resourceCulture);

@@ -1871,6 +1871,15 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="PBRMaterial" xml:space="preserve">
     <value>PBR Material</value>
   </data>
+  <data name="TransparentMaterial" xml:space="preserve">
+    <value>Transparent Material</value>
+  </data>
+  <data name="ColorMap" xml:space="preserve">
+    <value>Color Map</value>
+  </data>
+  <data name="IndexOfRefraction" xml:space="preserve">
+    <value>Index of Refraction</value>
+  </data>
   <data name="CubeMesh" xml:space="preserve">
     <value>Cube Mesh</value>
   </data>

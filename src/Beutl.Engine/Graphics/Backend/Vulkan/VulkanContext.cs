@@ -204,7 +204,14 @@ internal sealed class VulkanContext : IGraphicsContext
             pipelineOptions.DepthTestEnabled,
             pipelineOptions.DepthWriteEnabled,
             VulkanFlagConverter.ToVulkan(pipelineOptions.CullMode),
-            VulkanFlagConverter.ToVulkan(pipelineOptions.FrontFace));
+            VulkanFlagConverter.ToVulkan(pipelineOptions.FrontFace),
+            pipelineOptions.BlendEnabled,
+            VulkanFlagConverter.ToVulkan(pipelineOptions.SrcColorBlendFactor),
+            VulkanFlagConverter.ToVulkan(pipelineOptions.DstColorBlendFactor),
+            VulkanFlagConverter.ToVulkan(pipelineOptions.SrcAlphaBlendFactor),
+            VulkanFlagConverter.ToVulkan(pipelineOptions.DstAlphaBlendFactor),
+            VulkanFlagConverter.ToVulkan(pipelineOptions.ColorBlendOp),
+            VulkanFlagConverter.ToVulkan(pipelineOptions.AlphaBlendOp));
     }
 
     public IDescriptorSet CreateDescriptorSet(IPipeline3D pipeline, DescriptorPoolSize[] poolSizes)

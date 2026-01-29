@@ -68,7 +68,12 @@ public sealed class LightingPass : GraphicsNode3D
         OutputTexture = Context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
 
         // Create lighting render pass and framebuffer (single color attachment)
-        RenderPass = Context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], TextureFormat.Depth32Float);
+        // Use Load for depth to preserve GeometryPass depth for TransparentPass
+        RenderPass = Context.CreateRenderPass3D(
+            [TextureFormat.RGBA8Unorm],
+            TextureFormat.Depth32Float,
+            AttachmentLoadOp.Clear,  // Clear color for background
+            AttachmentLoadOp.Load);  // Preserve depth from GeometryPass
 
         // Reuse depth texture from geometry pass
         Framebuffer = Context.CreateFramebuffer3D(

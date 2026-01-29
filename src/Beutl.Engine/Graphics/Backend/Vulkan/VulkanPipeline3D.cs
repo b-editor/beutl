@@ -29,7 +29,14 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
         bool depthTestEnabled = true,
         bool depthWriteEnabled = true,
         CullModeFlags cullMode = CullModeFlags.BackBit,
-        Silk.NET.Vulkan.FrontFace frontFace = Silk.NET.Vulkan.FrontFace.CounterClockwise)
+        Silk.NET.Vulkan.FrontFace frontFace = Silk.NET.Vulkan.FrontFace.CounterClockwise,
+        bool blendEnabled = false,
+        Silk.NET.Vulkan.BlendFactor srcColorBlendFactor = Silk.NET.Vulkan.BlendFactor.One,
+        Silk.NET.Vulkan.BlendFactor dstColorBlendFactor = Silk.NET.Vulkan.BlendFactor.Zero,
+        Silk.NET.Vulkan.BlendFactor srcAlphaBlendFactor = Silk.NET.Vulkan.BlendFactor.One,
+        Silk.NET.Vulkan.BlendFactor dstAlphaBlendFactor = Silk.NET.Vulkan.BlendFactor.Zero,
+        Silk.NET.Vulkan.BlendOp colorBlendOp = Silk.NET.Vulkan.BlendOp.Add,
+        Silk.NET.Vulkan.BlendOp alphaBlendOp = Silk.NET.Vulkan.BlendOp.Add)
     {
         _context = context;
         var vk = context.Vk;
@@ -89,7 +96,11 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
         _pipelineLayout = pipelineLayout;
 
         // Create graphics pipeline
-        _pipeline = CreateGraphicsPipeline(vk, device, renderPass, vertexInputDescription, colorAttachmentCount, depthTestEnabled, depthWriteEnabled, cullMode, frontFace);
+        _pipeline = CreateGraphicsPipeline(
+            vk, device, renderPass, vertexInputDescription, colorAttachmentCount,
+            depthTestEnabled, depthWriteEnabled, cullMode, frontFace,
+            blendEnabled, srcColorBlendFactor, dstColorBlendFactor,
+            srcAlphaBlendFactor, dstAlphaBlendFactor, colorBlendOp, alphaBlendOp);
     }
 
     public Pipeline Handle => _pipeline;
@@ -98,7 +109,14 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
 
     public DescriptorSetLayout DescriptorSetLayoutHandle => _descriptorSetLayout;
 
-    private Pipeline CreateGraphicsPipeline(Vk vk, Device device, RenderPass renderPass, VulkanVertexInputDescription vertexInput, int colorAttachmentCount, bool depthTestEnabled, bool depthWriteEnabled, CullModeFlags cullMode, Silk.NET.Vulkan.FrontFace frontFace)
+    private Pipeline CreateGraphicsPipeline(
+        Vk vk, Device device, RenderPass renderPass, VulkanVertexInputDescription vertexInput,
+        int colorAttachmentCount, bool depthTestEnabled, bool depthWriteEnabled,
+        CullModeFlags cullMode, Silk.NET.Vulkan.FrontFace frontFace,
+        bool blendEnabled, Silk.NET.Vulkan.BlendFactor srcColorBlendFactor,
+        Silk.NET.Vulkan.BlendFactor dstColorBlendFactor, Silk.NET.Vulkan.BlendFactor srcAlphaBlendFactor,
+        Silk.NET.Vulkan.BlendFactor dstAlphaBlendFactor, Silk.NET.Vulkan.BlendOp colorBlendOp,
+        Silk.NET.Vulkan.BlendOp alphaBlendOp)
     {
         var mainBytes = System.Text.Encoding.UTF8.GetBytes("main\0");
         fixed (byte* mainPtr = mainBytes)
@@ -183,7 +201,13 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
                     {
                         ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit |
                                          ColorComponentFlags.BBit | ColorComponentFlags.ABit,
-                        BlendEnable = Vk.False
+                        BlendEnable = blendEnabled ? Vk.True : Vk.False,
+                        SrcColorBlendFactor = srcColorBlendFactor,
+                        DstColorBlendFactor = dstColorBlendFactor,
+                        ColorBlendOp = colorBlendOp,
+                        SrcAlphaBlendFactor = srcAlphaBlendFactor,
+                        DstAlphaBlendFactor = dstAlphaBlendFactor,
+                        AlphaBlendOp = alphaBlendOp
                     };
                 }
 

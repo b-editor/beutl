@@ -27,6 +27,12 @@ public abstract partial class Material3D : EngineObject
         internal abstract IPipeline3D? Pipeline { get; }
 
         /// <summary>
+        /// Gets whether this material is transparent and should use forward rendering.
+        /// Default is false (opaque, deferred rendering).
+        /// </summary>
+        public virtual bool IsTransparent => false;
+
+        /// <summary>
         /// Ensures the pipeline is created for this material.
         /// This method is called once before rendering.
         /// </summary>
