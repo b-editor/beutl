@@ -70,6 +70,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
         {
             throw new InvalidOperationException($"Failed to create Vulkan image: {result}");
         }
+
         _image = image;
 
         // Get memory requirements
@@ -92,6 +93,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
             vk.DestroyImage(device, _image, null);
             throw new InvalidOperationException($"Failed to allocate Vulkan image memory: {result}");
         }
+
         _memory = memory;
 
         // Bind memory to image
@@ -128,6 +130,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
             vk.DestroyImage(device, _image, null);
             throw new InvalidOperationException($"Failed to create Vulkan image view: {result}");
         }
+
         _imageView = imageView;
     }
 
@@ -150,49 +153,41 @@ internal unsafe class VulkanTexture2D : ITexture2D
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         // Create staging buffer
-        var stagingBuffer = new VulkanBuffer(
+        using var stagingBuffer = new VulkanBuffer(
             _context,
             (ulong)data.Length,
             BufferUsage.TransferSource,
             MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
-        try
+        // Copy data to staging buffer
+        stagingBuffer.Upload(data);
+
+        // Transition to transfer destination
+        TransitionTo(ImageLayout.TransferDstOptimal);
+
+        // Copy buffer to image
+        _context.SubmitImmediateCommands(cmd =>
         {
-            // Copy data to staging buffer
-            stagingBuffer.Upload(data);
-
-            // Transition to transfer destination
-            TransitionTo(ImageLayout.TransferDstOptimal);
-
-            // Copy buffer to image
-            _context.SubmitImmediateCommands(cmd =>
+            var region = new BufferImageCopy
             {
-                var region = new BufferImageCopy
+                BufferOffset = 0,
+                BufferRowLength = 0,
+                BufferImageHeight = 0,
+                ImageSubresource = new ImageSubresourceLayers
                 {
-                    BufferOffset = 0,
-                    BufferRowLength = 0,
-                    BufferImageHeight = 0,
-                    ImageSubresource = new ImageSubresourceLayers
-                    {
-                        AspectMask = ImageAspectFlags.ColorBit,
-                        MipLevel = 0,
-                        BaseArrayLayer = 0,
-                        LayerCount = 1
-                    },
-                    ImageOffset = new Offset3D(0, 0, 0),
-                    ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
-                };
+                    AspectMask = ImageAspectFlags.ColorBit, MipLevel = 0, BaseArrayLayer = 0, LayerCount = 1
+                },
+                ImageOffset = new Offset3D(0, 0, 0),
+                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
+            };
 
-                _context.Vk.CmdCopyBufferToImage(cmd, stagingBuffer.Handle, _image, ImageLayout.TransferDstOptimal, 1, &region);
-            });
+            // ReSharper disable once AccessToDisposedClosure
+            _context.Vk.CmdCopyBufferToImage(
+                cmd, stagingBuffer.Handle, _image, ImageLayout.TransferDstOptimal, 1, &region);
+        });
 
-            // Transition to shader read
-            TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
-        }
-        finally
-        {
-            stagingBuffer.Dispose();
-        }
+        // Transition to shader read
+        TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
     public byte[] DownloadPixels()
@@ -233,16 +228,15 @@ internal unsafe class VulkanTexture2D : ITexture2D
                 BufferImageHeight = 0,
                 ImageSubresource = new ImageSubresourceLayers
                 {
-                    AspectMask = ImageAspectFlags.ColorBit,
-                    MipLevel = 0,
-                    BaseArrayLayer = 0,
-                    LayerCount = 1
+                    AspectMask = ImageAspectFlags.ColorBit, MipLevel = 0, BaseArrayLayer = 0, LayerCount = 1
                 },
                 ImageOffset = new Offset3D(0, 0, 0),
                 ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
             };
 
-            _context.Vk.CmdCopyImageToBuffer(cmd, _image, ImageLayout.TransferSrcOptimal, stagingBuffer.Handle, 1, &region);
+            // ReSharper disable once AccessToDisposedClosure
+            _context.Vk.CmdCopyImageToBuffer(
+                cmd, _image, ImageLayout.TransferSrcOptimal, stagingBuffer.Handle, 1, &region);
         });
 
         // Read data from staging buffer

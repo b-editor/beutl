@@ -251,63 +251,57 @@ internal sealed unsafe class VulkanTextureArray : ITextureArray
             throw new ArgumentOutOfRangeException(nameof(layerIndex));
 
         // Create staging buffer
-        var stagingBuffer = new VulkanBuffer(
+        using var stagingBuffer = new VulkanBuffer(
             _context,
             (ulong)data.Length,
             BufferUsage.TransferSource,
             MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
 
-        try
+        // Copy data to staging buffer
+        stagingBuffer.Upload(data);
+
+        // Transition layer to transfer destination
+        _context.TransitionImageLayout(
+            _image,
+            _layerLayouts[layerIndex],
+            ImageLayout.TransferDstOptimal,
+            _format.GetAspectMask(),
+            baseArrayLayer: layerIndex,
+            layerCount: 1);
+
+        // Copy buffer to image
+        _context.SubmitImmediateCommands(cmd =>
         {
-            // Copy data to staging buffer
-            stagingBuffer.Upload(data);
-
-            // Transition layer to transfer destination
-            _context.TransitionImageLayout(
-                _image,
-                _layerLayouts[layerIndex],
-                ImageLayout.TransferDstOptimal,
-                _format.GetAspectMask(),
-                baseArrayLayer: layerIndex,
-                layerCount: 1);
-
-            // Copy buffer to image
-            _context.SubmitImmediateCommands(cmd =>
+            var region = new BufferImageCopy
             {
-                var region = new BufferImageCopy
+                BufferOffset = 0,
+                BufferRowLength = 0,
+                BufferImageHeight = 0,
+                ImageSubresource = new ImageSubresourceLayers
                 {
-                    BufferOffset = 0,
-                    BufferRowLength = 0,
-                    BufferImageHeight = 0,
-                    ImageSubresource = new ImageSubresourceLayers
-                    {
-                        AspectMask = _format.GetAspectMask(),
-                        MipLevel = 0,
-                        BaseArrayLayer = layerIndex,
-                        LayerCount = 1
-                    },
-                    ImageOffset = new Offset3D(0, 0, 0),
-                    ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
-                };
+                    AspectMask = _format.GetAspectMask(),
+                    MipLevel = 0,
+                    BaseArrayLayer = layerIndex,
+                    LayerCount = 1
+                },
+                ImageOffset = new Offset3D(0, 0, 0),
+                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
+            };
 
-                _context.Vk.CmdCopyBufferToImage(cmd, stagingBuffer.Handle, _image, ImageLayout.TransferDstOptimal, 1, &region);
-            });
+            // ReSharper disable once AccessToDisposedClosure
+            _context.Vk.CmdCopyBufferToImage(cmd, stagingBuffer.Handle, _image, ImageLayout.TransferDstOptimal, 1, &region);
+        });
 
-            // Transition to shader read
-            _context.TransitionImageLayout(
-                _image,
-                ImageLayout.TransferDstOptimal,
-                ImageLayout.ShaderReadOnlyOptimal,
-                _format.GetAspectMask(),
-                baseArrayLayer: layerIndex,
-                layerCount: 1);
+        // Transition to shader read
+        _context.TransitionImageLayout(
+            _image,
+            ImageLayout.TransferDstOptimal,
+            ImageLayout.ShaderReadOnlyOptimal,
+            _format.GetAspectMask(),
+            baseArrayLayer: layerIndex,
+            layerCount: 1);
 
-            _layerLayouts[layerIndex] = ImageLayout.ShaderReadOnlyOptimal;
-        }
-        finally
-        {
-            stagingBuffer.Dispose();
-        }
+        _layerLayouts[layerIndex] = ImageLayout.ShaderReadOnlyOptimal;
     }
 
     public IntPtr GetLayerView(uint layerIndex)
