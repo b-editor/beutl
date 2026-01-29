@@ -135,7 +135,7 @@ public class RenderTarget : IDisposable
         VerifyAccess();
 
         _surface.Value!.Flush(true, true);
-        _texture?.Value?.PrepareForRender();
+        _texture?.Value?.PrepareForSampling();
     }
 
     private sealed class SKSurfaceCounter<T>(T value)
