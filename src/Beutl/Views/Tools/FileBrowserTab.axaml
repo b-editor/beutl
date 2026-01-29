@@ -1,0 +1,264 @@
+<UserControl x:Class="Beutl.Views.Tools.FileBrowserTab"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.Tools"
+             Name="Root"
+             d:DesignHeight="450"
+             d:DesignWidth="300"
+             x:CompileBindings="True"
+             x:DataType="vm:FileBrowserTabViewModel"
+             mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <!-- アイコン/リスト表示用のItemTemplate -->
+        <DataTemplate x:Key="FileItemTemplate" x:DataType="vm:FileSystemItemViewModel">
+            <Border Padding="4"
+                    Background="Transparent"
+                    CornerRadius="4"
+                    DoubleTapped="OnItemDoubleTapped"
+                    PointerPressed="OnItemPointerPressed">
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Click="OnOpenClick"
+                                  Header="{x:Static lang:Strings.Open}">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="Open" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <Separator />
+                        <MenuItem Click="OnRenameClick"
+                                  Header="{x:Static lang:Strings.Rename}">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="Rename" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Click="OnDeleteClick"
+                                  Header="{x:Static lang:Strings.Delete}">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="Delete" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </ContextMenu>
+                </Border.ContextMenu>
+                <StackPanel Spacing="4">
+                    <!-- サムネイルまたはアイコン -->
+                    <Panel Width="64" Height="64">
+                        <Image IsVisible="{Binding HasThumbnail}"
+                               Source="{Binding Thumbnail}"
+                               Stretch="Uniform" />
+                        <icons:SymbolIcon FontSize="48"
+                                          IsVisible="{Binding !HasThumbnail}"
+                                          Symbol="{Binding IconSymbol}" />
+                    </Panel>
+                    <!-- ファイル名 -->
+                    <TextBlock HorizontalAlignment="Center"
+                               MaxWidth="80"
+                               Text="{Binding Name}"
+                               TextAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="Wrap"
+                               MaxLines="2" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- リスト表示用のItemTemplate -->
+        <DataTemplate x:Key="ListItemTemplate" x:DataType="vm:FileSystemItemViewModel">
+            <Border Padding="4,2"
+                    Background="Transparent"
+                    DoubleTapped="OnItemDoubleTapped"
+                    PointerPressed="OnItemPointerPressed">
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Click="OnOpenClick"
+                                  Header="{x:Static lang:Strings.Open}">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="Open" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <Separator />
+                        <MenuItem Click="OnRenameClick"
+                                  Header="{x:Static lang:Strings.Rename}">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="Rename" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Click="OnDeleteClick"
+                                  Header="{x:Static lang:Strings.Delete}">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="Delete" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </ContextMenu>
+                </Border.ContextMenu>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <icons:SymbolIcon FontSize="20"
+                                      Symbol="{Binding IconSymbol}" />
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding Name}"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- ツールバー -->
+        <Border Grid.Row="0"
+                Padding="4"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- 上へボタン -->
+                <Button Grid.Column="0"
+                        Click="OnNavigateUpClick"
+                        Padding="6"
+                        ToolTip.Tip="{x:Static lang:Strings.NavigateUp}"
+                        Theme="{StaticResource TransparentButton}">
+                    <icons:SymbolIcon FontSize="16" Symbol="ArrowUp" />
+                </Button>
+
+                <!-- パス表示 -->
+                <TextBlock Grid.Column="1"
+                           Margin="8,0"
+                           VerticalAlignment="Center"
+                           Text="{Binding RootPath.Value}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding RootPath.Value}" />
+
+                <!-- 表示モード切替とアクションボタン -->
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="2">
+                    <!-- リスト表示 -->
+                    <ToggleButton Classes="view-mode-button"
+                                  Click="OnViewModeListClick"
+                                  IsChecked="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
+                                  Padding="6"
+                                  ToolTip.Tip="{x:Static lang:Strings.ListView}"
+                                  Theme="{StaticResource TransparentButton}">
+                        <icons:SymbolIcon FontSize="16" Symbol="TextBulletListLtr" />
+                    </ToggleButton>
+
+                    <!-- ツリー表示 -->
+                    <ToggleButton Classes="view-mode-button"
+                                  Click="OnViewModeTreeClick"
+                                  IsChecked="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsTree}}"
+                                  Padding="6"
+                                  ToolTip.Tip="{x:Static lang:Strings.TreeView}"
+                                  Theme="{StaticResource TransparentButton}">
+                        <icons:SymbolIcon FontSize="16" Symbol="TextBulletListTree" />
+                    </ToggleButton>
+
+                    <!-- アイコン表示 -->
+                    <ToggleButton Classes="view-mode-button"
+                                  Click="OnViewModeIconClick"
+                                  IsChecked="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}"
+                                  Padding="6"
+                                  ToolTip.Tip="{x:Static lang:Strings.IconView}"
+                                  Theme="{StaticResource TransparentButton}">
+                        <icons:SymbolIcon FontSize="16" Symbol="Grid" />
+                    </ToggleButton>
+
+                    <Border Width="1"
+                            Height="16"
+                            Margin="4,0"
+                            Background="{DynamicResource CardStrokeColorDefaultBrush}" />
+
+                    <!-- 新規フォルダ -->
+                    <Button Click="OnNewFolderClick"
+                            Padding="6"
+                            ToolTip.Tip="{x:Static lang:Strings.NewFolder}"
+                            Theme="{StaticResource TransparentButton}">
+                        <icons:SymbolIcon FontSize="16" Symbol="FolderAdd" />
+                    </Button>
+
+                    <!-- 更新 -->
+                    <Button Click="OnRefreshClick"
+                            Padding="6"
+                            ToolTip.Tip="{x:Static lang:Strings.Refresh}"
+                            Theme="{StaticResource TransparentButton}">
+                        <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- コンテンツ領域 -->
+        <Panel Grid.Row="1">
+            <!-- アイコン表示 -->
+            <ScrollViewer IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}">
+                <ItemsControl ItemTemplate="{StaticResource FileItemTemplate}"
+                              ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Margin="4" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- リスト表示 -->
+            <ListBox IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
+                     ItemTemplate="{StaticResource ListItemTemplate}"
+                     ItemsSource="{Binding Items}"
+                     SelectedItem="{Binding SelectedItem.Value}"
+                     SelectionMode="Single">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="Padding" Value="4,2" />
+                    </Style>
+                </ListBox.Styles>
+            </ListBox>
+
+            <!-- ツリー表示 -->
+            <TreeView IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsTree}}"
+                      ItemsSource="{Binding TreeRootItems}"
+                      SelectedItem="{Binding SelectedItem.Value}"
+                      SelectionMode="Single">
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate ItemsSource="{Binding Children}">
+                        <Border Background="Transparent"
+                                DoubleTapped="OnItemDoubleTapped"
+                                PointerPressed="OnItemPointerPressed">
+                            <Border.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Click="OnOpenClick"
+                                              Header="{x:Static lang:Strings.Open}">
+                                        <MenuItem.Icon>
+                                            <icons:SymbolIcon Symbol="Open" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator />
+                                    <MenuItem Click="OnRenameClick"
+                                              Header="{x:Static lang:Strings.Rename}">
+                                        <MenuItem.Icon>
+                                            <icons:SymbolIcon Symbol="Rename" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Click="OnDeleteClick"
+                                              Header="{x:Static lang:Strings.Delete}">
+                                        <MenuItem.Icon>
+                                            <icons:SymbolIcon Symbol="Delete" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </ContextMenu>
+                            </Border.ContextMenu>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <icons:SymbolIcon FontSize="16"
+                                                  Symbol="{Binding IconSymbol}" />
+                                <TextBlock VerticalAlignment="Center"
+                                           Text="{Binding Name}" />
+                            </StackPanel>
+                        </Border>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+        </Panel>
+    </Grid>
+</UserControl>

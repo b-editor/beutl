@@ -660,6 +660,24 @@
   <data name="Library" xml:space="preserve">
     <value>Library</value>
   </data>
+  <data name="FileBrowser" xml:space="preserve">
+    <value>File Browser</value>
+  </data>
+  <data name="ListView" xml:space="preserve">
+    <value>List View</value>
+  </data>
+  <data name="TreeView" xml:space="preserve">
+    <value>Tree View</value>
+  </data>
+  <data name="IconView" xml:space="preserve">
+    <value>Icon View</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="NavigateUp" xml:space="preserve">
+    <value>Up</value>
+  </data>
   <data name="Clipping" xml:space="preserve">
     <value>Clipping</value>
   </data>

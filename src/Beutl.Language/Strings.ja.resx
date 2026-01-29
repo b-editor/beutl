@@ -665,6 +665,24 @@
   <data name="Library" xml:space="preserve">
     <value>ライブラリ</value>
   </data>
+  <data name="FileBrowser" xml:space="preserve">
+    <value>ファイルブラウザ</value>
+  </data>
+  <data name="ListView" xml:space="preserve">
+    <value>リスト表示</value>
+  </data>
+  <data name="TreeView" xml:space="preserve">
+    <value>ツリー表示</value>
+  </data>
+  <data name="IconView" xml:space="preserve">
+    <value>アイコン表示</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>更新</value>
+  </data>
+  <data name="NavigateUp" xml:space="preserve">
+    <value>上へ</value>
+  </data>
   <data name="Clipping" xml:space="preserve">
     <value>クリッピング</value>
   </data>
