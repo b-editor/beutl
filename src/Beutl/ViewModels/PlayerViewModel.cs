@@ -179,13 +179,11 @@ public sealed class PlayerViewModel : IAsyncDisposable
 
         foreach (var op in Scene.Children
                      .SelectMany(e => e.Operation.Children)
-                     .OfType<Scene3DOperator>())
+                     .OfType<Scene3DOperator>()
+                     .Where(op => op.Value.GizmoTarget.CurrentValue.HasValue))
         {
             // GizmoTargetが設定されている場合のみモードを更新
-            if (op.Value.GizmoTarget.CurrentValue.HasValue)
-            {
-                op.Value.GizmoMode.CurrentValue = mode;
-            }
+            op.Value.GizmoMode.CurrentValue = mode;
         }
     }
 
