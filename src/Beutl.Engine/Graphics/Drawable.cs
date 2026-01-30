@@ -10,6 +10,7 @@ using Beutl.Serialization;
 namespace Beutl.Graphics;
 
 [DummyType(typeof(DummyDrawable))]
+[PresenterType(typeof(DrawablePresenter))]
 public abstract partial class Drawable : EngineObject
 {
     public Drawable()

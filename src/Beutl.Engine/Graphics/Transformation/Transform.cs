@@ -4,6 +4,7 @@ using Beutl.Graphics.Rendering;
 namespace Beutl.Graphics.Transformation;
 
 [SuppressResourceClassGeneration]
+[PresenterType(typeof(TransformPresenter))]
 public abstract class Transform : EngineObject
 {
     public abstract Matrix CreateMatrix(RenderContext context);
