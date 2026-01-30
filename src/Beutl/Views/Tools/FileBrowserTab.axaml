@@ -15,13 +15,13 @@
              mc:Ignorable="d">
 
     <UserControl.Resources>
-        <!-- アイコン/リスト表示用のItemTemplate -->
+        <!-- アイコン表示用のItemTemplate -->
         <DataTemplate x:Key="FileItemTemplate" x:DataType="vm:FileSystemItemViewModel">
             <Border Padding="4"
                     Background="Transparent"
                     CornerRadius="4"
                     DoubleTapped="OnItemDoubleTapped"
-                    PointerPressed="OnItemPointerPressed">
+                    ToolTip.Tip="{Binding MediaInfoText}">
                 <Border.ContextMenu>
                     <ContextMenu>
                         <MenuItem Click="OnOpenClick"
@@ -72,7 +72,7 @@
             <Border Padding="4,2"
                     Background="Transparent"
                     DoubleTapped="OnItemDoubleTapped"
-                    PointerPressed="OnItemPointerPressed">
+                    ToolTip.Tip="{Binding MediaInfoText}">
                 <Border.ContextMenu>
                     <ContextMenu>
                         <MenuItem Click="OnOpenClick"
@@ -170,6 +170,27 @@
                             Margin="4,0"
                             Background="{DynamicResource CardStrokeColorDefaultBrush}" />
 
+                    <!-- お気に入りトグル -->
+                    <Button x:Name="FavoritesButton"
+                            Click="OnToggleFavoriteClick"
+                            Padding="6"
+                            ToolTip.Tip="{x:Static lang:Strings.Favorites}"
+                            Theme="{StaticResource TransparentButton}">
+                        <Panel>
+                            <icons:SymbolIcon FontSize="16"
+                                              IsVisible="{Binding !IsFavorite.Value}"
+                                              Symbol="Star" />
+                            <icons:SymbolIcon FontSize="16"
+                                              Foreground="{DynamicResource AccentFillColorDefaultBrush}"
+                                              IsFilled="True"
+                                              IsVisible="{Binding IsFavorite.Value}"
+                                              Symbol="Star" />
+                        </Panel>
+                        <Button.Flyout>
+                            <ui:FAMenuFlyout Placement="BottomEdgeAlignedRight" />
+                        </Button.Flyout>
+                    </Button>
+
                     <!-- 新規フォルダ -->
                     <Button Click="OnNewFolderClick"
                             Padding="6"
@@ -192,23 +213,31 @@
         <!-- コンテンツ領域 -->
         <Panel Grid.Row="1">
             <!-- アイコン表示 -->
-            <ScrollViewer IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}">
-                <ItemsControl ItemTemplate="{StaticResource FileItemTemplate}"
-                              ItemsSource="{Binding Items}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel Margin="4" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                </ItemsControl>
-            </ScrollViewer>
+            <ListBox x:Name="IconListBox"
+                     IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}"
+                     ItemTemplate="{StaticResource FileItemTemplate}"
+                     ItemsSource="{Binding Items}"
+                     SelectionChanged="OnSelectionChanged"
+                     SelectionMode="Multiple">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Margin="4" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="Padding" Value="0" />
+                    </Style>
+                </ListBox.Styles>
+            </ListBox>
 
             <!-- リスト表示 -->
-            <ListBox IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
+            <ListBox x:Name="ListViewListBox"
+                     IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
                      ItemTemplate="{StaticResource ListItemTemplate}"
                      ItemsSource="{Binding Items}"
-                     SelectedItem="{Binding SelectedItem.Value}"
-                     SelectionMode="Single">
+                     SelectionChanged="OnSelectionChanged"
+                     SelectionMode="Multiple">
                 <ListBox.Styles>
                     <Style Selector="ListBoxItem">
                         <Setter Property="Padding" Value="4,2" />
@@ -230,7 +259,7 @@
                     <TreeDataTemplate ItemsSource="{Binding Children}">
                         <Border Background="Transparent"
                                 DoubleTapped="OnItemDoubleTapped"
-                                PointerPressed="OnItemPointerPressed">
+                                ToolTip.Tip="{Binding MediaInfoText}">
                             <Border.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Click="OnOpenClick"

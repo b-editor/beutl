@@ -3,6 +3,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Beutl.ViewModels.Tools;
+using FluentAvalonia.UI.Controls;
+using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Views.Tools;
 
@@ -14,6 +16,8 @@ public partial class FileBrowserTab : UserControl
     }
 
     private FileBrowserTabViewModel? ViewModel => DataContext as FileBrowserTabViewModel;
+
+    private FAMenuFlyout? FavoritesFlyout => FavoritesButton?.Flyout as FAMenuFlyout;
 
     private void OnNavigateUpClick(object? sender, RoutedEventArgs e)
     {
@@ -63,12 +67,24 @@ public partial class FileBrowserTab : UserControl
         }
     }
 
-    private void OnItemPointerPressed(object? sender, PointerPressedEventArgs e)
+    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (sender is Control { DataContext: FileSystemItemViewModel item } && ViewModel != null)
+        if (ViewModel == null || sender is not ListBox listBox)
+            return;
+
+        ViewModel.SelectedItems.Clear();
+        foreach (var selectedItem in listBox.SelectedItems!)
         {
-            ViewModel.SelectedItem.Value = item;
+            if (selectedItem is FileSystemItemViewModel item)
+            {
+                ViewModel.SelectedItems.Add(item);
+            }
         }
+
+        // 後方互換: 先頭の選択アイテムをSelectedItemに設定
+        ViewModel.SelectedItem.Value = ViewModel.SelectedItems.Count > 0
+            ? ViewModel.SelectedItems[0]
+            : null;
     }
 
     private void OnOpenClick(object? sender, RoutedEventArgs e)
@@ -81,7 +97,15 @@ public partial class FileBrowserTab : UserControl
 
     private async void OnDeleteClick(object? sender, RoutedEventArgs e)
     {
-        if (GetItemFromMenuItem(sender) is { } item && ViewModel != null)
+        if (ViewModel == null)
+            return;
+
+        // 複数選択されている場合は一括削除
+        if (ViewModel.SelectedItems.Count > 1)
+        {
+            await ViewModel.DeleteItemsAsync(ViewModel.SelectedItems.ToList());
+        }
+        else if (GetItemFromMenuItem(sender) is { } item)
         {
             await ViewModel.DeleteItemAsync(item);
         }
@@ -92,6 +116,61 @@ public partial class FileBrowserTab : UserControl
         if (GetItemFromMenuItem(sender) is { } item && ViewModel != null)
         {
             StartRename(item, sender as Control);
+        }
+    }
+
+    private void OnToggleFavoriteClick(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel == null)
+            return;
+
+        ViewModel.ToggleFavorite();
+        UpdateFavoritesFlyout();
+    }
+
+    private void UpdateFavoritesFlyout()
+    {
+        if (ViewModel == null || FavoritesFlyout == null)
+            return;
+
+        FavoritesFlyout.Items.Clear();
+
+        if (ViewModel.Favorites.Count == 0)
+        {
+            var emptyItem = new MenuFlyoutItem
+            {
+                Text = Strings.NoFavorites,
+                IsEnabled = false
+            };
+            FavoritesFlyout.Items.Add(emptyItem);
+            return;
+        }
+
+        foreach (string path in ViewModel.Favorites)
+        {
+            var dirName = Path.GetFileName(path);
+            if (string.IsNullOrEmpty(dirName))
+            {
+                dirName = path;
+            }
+
+            var menuItem = new MenuFlyoutItem
+            {
+                Text = dirName,
+                Tag = path,
+                IconSource = new SymbolIconSource { Symbol = FluentIcons.Common.Symbol.Folder }
+            };
+            ToolTip.SetTip(menuItem, path);
+            menuItem.Click += OnFavoriteItemClick;
+            FavoritesFlyout.Items.Add(menuItem);
+        }
+    }
+
+    private void OnFavoriteItemClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem { Tag: string path } && ViewModel != null)
+        {
+            ViewModel.NavigateToFavorite(path);
         }
     }
 

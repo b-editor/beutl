@@ -1,9 +1,12 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Reactive.Disposables;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Data.Converters;
 using Avalonia.Threading;
+using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Services.PrimitiveImpls;
 using FluentAvalonia.UI.Controls;
@@ -38,6 +41,10 @@ public sealed class FileBrowserTabViewModel : IToolContext
     {
         _editViewModel = editViewModel;
 
+        // お気に入りをPreferencesから読み込み
+        LoadFavorites();
+        Favorites.CollectionChanged += OnFavoritesChanged;
+
         // シーンファイルの親ディレクトリを初期ルートとする
         if (editViewModel.Scene.Uri != null)
         {
@@ -53,6 +60,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             _rootPath = path;
             RefreshItems();
             SetupWatcher(path);
+            IsFavorite.Value = Favorites.Contains(path);
         }).AddTo(_disposables);
 
         ViewMode.Subscribe(_ => RefreshItems()).AddTo(_disposables);
@@ -91,9 +99,24 @@ public sealed class FileBrowserTabViewModel : IToolContext
     public ObservableCollection<FileSystemItemViewModel> TreeRootItems { get; } = [];
 
     /// <summary>
-    /// 選択中のアイテム
+    /// 選択中のアイテム（単一選択の後方互換）
     /// </summary>
     public ReactiveProperty<FileSystemItemViewModel?> SelectedItem { get; } = new();
+
+    /// <summary>
+    /// 選択中のアイテム（複数選択対応）
+    /// </summary>
+    public ObservableCollection<FileSystemItemViewModel> SelectedItems { get; } = [];
+
+    /// <summary>
+    /// お気に入りディレクトリのリスト
+    /// </summary>
+    public ObservableCollection<string> Favorites { get; } = [];
+
+    /// <summary>
+    /// 現在のディレクトリがお気に入りに含まれるか
+    /// </summary>
+    public ReactiveProperty<bool> IsFavorite { get; } = new(false);
 
     private void SetupWatcher(string path)
     {
@@ -145,6 +168,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
             item.Dispose();
         }
         TreeRootItems.Clear();
+
+        SelectedItems.Clear();
 
         if (string.IsNullOrEmpty(_rootPath) || !Directory.Exists(_rootPath))
             return;
@@ -264,6 +289,50 @@ public sealed class FileBrowserTabViewModel : IToolContext
         }
     }
 
+    public async Task DeleteItemsAsync(IReadOnlyList<FileSystemItemViewModel> items)
+    {
+        if (items.Count == 0)
+            return;
+
+        if (items.Count == 1)
+        {
+            await DeleteItemAsync(items[0]);
+            return;
+        }
+
+        var dialog = new ContentDialog
+        {
+            Title = Strings.Delete,
+            Content = string.Format(Strings.DeleteSelectedItems, items.Count),
+            PrimaryButtonText = Strings.Yes,
+            CloseButtonText = Strings.No,
+            DefaultButton = ContentDialogButton.Close
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+        {
+            foreach (var item in items)
+            {
+                try
+                {
+                    if (item.IsDirectory)
+                    {
+                        Directory.Delete(item.FullPath, true);
+                    }
+                    else
+                    {
+                        File.Delete(item.FullPath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete {Path}", item.FullPath);
+                }
+            }
+        }
+    }
+
     public void CreateNewFolder()
     {
         if (string.IsNullOrEmpty(_rootPath) || !Directory.Exists(_rootPath))
@@ -330,6 +399,86 @@ public sealed class FileBrowserTabViewModel : IToolContext
         RefreshItems();
     }
 
+    #region Favorites
+
+    public void ToggleFavorite()
+    {
+        if (string.IsNullOrEmpty(_rootPath))
+            return;
+
+        if (Favorites.Contains(_rootPath))
+        {
+            Favorites.Remove(_rootPath);
+            IsFavorite.Value = false;
+        }
+        else
+        {
+            Favorites.Add(_rootPath);
+            IsFavorite.Value = true;
+        }
+    }
+
+    public void RemoveFavorite(string path)
+    {
+        Favorites.Remove(path);
+        if (_rootPath == path)
+        {
+            IsFavorite.Value = false;
+        }
+    }
+
+    public void NavigateToFavorite(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            RootPath.Value = path;
+        }
+        else
+        {
+            // 存在しないお気に入りを自動削除
+            Favorites.Remove(path);
+        }
+    }
+
+    private void LoadFavorites()
+    {
+        try
+        {
+            string json = Preferences.Default.Get("FileBrowser.Favorites", "[]");
+            var paths = JsonSerializer.Deserialize<string[]>(json);
+            if (paths != null)
+            {
+                foreach (var p in paths)
+                {
+                    Favorites.Add(p);
+                }
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private void SaveFavorites()
+    {
+        try
+        {
+            Preferences.Default.Set("FileBrowser.Favorites", JsonSerializer.Serialize(Favorites.ToArray()));
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private void OnFavoritesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        SaveFavorites();
+    }
+
+    #endregion
+
     public void WriteToJson(JsonObject json)
     {
         json["RootPath"] = RootPath.Value;
@@ -363,6 +512,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void Dispose()
     {
+        Favorites.CollectionChanged -= OnFavoritesChanged;
         _watcher?.Dispose();
         _watcher = null;
 
