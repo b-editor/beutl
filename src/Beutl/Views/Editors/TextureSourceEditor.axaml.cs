@@ -85,17 +85,7 @@ public partial class TextureSourceEditor : UserControl
                 vm.SetDrawableType(type);
                 break;
             case Drawable target:
-                Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(Drawable));
-                if (presenterType != null
-                    && Activator.CreateInstance(presenterType) is Drawable presenterDrawable
-                    && presenterDrawable is IPresenter<Drawable> presenterInterface
-                    && vm.Value.Value is DrawableTextureSource drawableSource)
-                {
-                    var expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(target.Id);
-                    presenterInterface.Target.Expression = expression;
-                    drawableSource.Drawable.CurrentValue = presenterDrawable;
-                    vm.Commit();
-                }
+                vm.SetDrawableTarget(target);
                 break;
         }
     }

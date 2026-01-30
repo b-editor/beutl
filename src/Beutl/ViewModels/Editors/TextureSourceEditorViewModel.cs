@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics3D.Textures;
 using Beutl.Language;
@@ -123,6 +125,21 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
         {
             var drawable = (Drawable?)Activator.CreateInstance(type);
             drawableSource.Drawable.CurrentValue = drawable;
+            Commit();
+        }
+    }
+
+    public void SetDrawableTarget(Drawable target)
+    {
+        Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(Drawable));
+        if (presenterType != null
+            && Activator.CreateInstance(presenterType) is Drawable presenterDrawable
+            && presenterDrawable is IPresenter<Drawable> presenterInterface
+            && Value.Value is DrawableTextureSource drawableSource)
+        {
+            var expression = Expression.CreateReference<Drawable>(target.Id);
+            presenterInterface.Target.Expression = expression;
+            drawableSource.Drawable.CurrentValue = presenterDrawable;
             Commit();
         }
     }
