@@ -6,6 +6,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Engine;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
@@ -76,24 +77,38 @@ public sealed class CoreObjectListItemEditor<T> : CoreObjectListItemEditor
         if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return;
 
         Type propertyType = viewModel.PropertyAdapter.PropertyType;
-        Type? selectedType;
 
         if (propertyType.IsSealed)
         {
-            selectedType = propertyType;
-        }
-        else
-        {
-            selectedType = await SelectType();
+            if (propertyType.GetConstructor([])?.Invoke(null) is T typed)
+            {
+                viewModel.SetValue(viewModel.Value.Value, typed);
+            }
+            return;
         }
 
-        if (selectedType?.GetConstructor([])?.Invoke(null) is T typed)
+        object? result = await SelectTypeOrReference();
+
+        switch (result)
         {
-            viewModel.SetValue(viewModel.Value.Value, typed);
+            case Type selectedType:
+                if (selectedType.GetConstructor([])?.Invoke(null) is T typed)
+                {
+                    viewModel.SetValue(viewModel.Value.Value, typed);
+                }
+                break;
+            case T target:
+                Type? presenterType = PresenterTypeAttribute.GetPresenterType(propertyType);
+                if (presenterType?.GetConstructor([])?.Invoke(null) is T presenterInstance)
+                {
+                    viewModel.SetValue(viewModel.Value.Value, presenterInstance);
+                    viewModel.SetTarget(target);
+                }
+                break;
         }
     }
 
-    private async Task<Type?> SelectType()
+    private async Task<object?> SelectTypeOrReference()
     {
         if (_flyoutOpen) return null;
         if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return null;
@@ -104,9 +119,16 @@ public sealed class CoreObjectListItemEditor<T> : CoreObjectListItemEditor
             Type propertyType = viewModel.PropertyAdapter.PropertyType;
             string format = propertyType.FullName!;
             var selectVm = new SelectLibraryItemDialogViewModel(format, propertyType);
+
+            if (PresenterTypeAttribute.GetPresenterType(propertyType) != null)
+            {
+                var targets = viewModel.GetAvailableTargets();
+                selectVm.InitializeReferences(targets);
+            }
+
             var dialog = new LibraryItemPickerFlyout(selectVm);
             dialog.ShowAt(this);
-            var tcs = new TaskCompletionSource<Type?>();
+            var tcs = new TaskCompletionSource<object?>();
             dialog.Pinned += (_, item) => selectVm.Pin(item);
             dialog.Unpinned += (_, item) => selectVm.Unpin(item);
             dialog.Dismissed += (_, _) => tcs.SetResult(null);
@@ -114,6 +136,9 @@ public sealed class CoreObjectListItemEditor<T> : CoreObjectListItemEditor
             {
                 switch (selectVm.SelectedItem.Value?.UserData)
                 {
+                    case TargetObjectInfo target:
+                        tcs.SetResult(target.Object);
+                        break;
                     case SingleTypeLibraryItem single:
                         tcs.SetResult(single.ImplementationType);
                         break;

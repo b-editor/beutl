@@ -30,12 +30,16 @@ public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel vie
         pfp.Unpinned += item => Unpinned?.Invoke(this, item);
         pfp.Items = viewModel.Items;
         pfp.ShowAll = viewModel.ShowAll.Value;
+        pfp.ShowReferencesTab = viewModel.HasReferencesTab;
+        pfp.ReferenceItems = viewModel.ReferenceItems;
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SelectedItemProperty)
             .Subscribe(v => viewModel.SelectedItem.Value = v);
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowAllProperty)
             .Subscribe(v => viewModel.ShowAll.Value = v);
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SearchTextProperty)
             .Subscribe(v => viewModel.SearchText.Value = v);
+        pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowReferencesProperty)
+            .Subscribe(v => viewModel.ShowReferences.Value = v);
         viewModel.IsBusy.ObserveOnUIDispatcher()
             .Subscribe(v => pfp.IsBusy = v);
         pfp.KeyDown += (_, e) =>

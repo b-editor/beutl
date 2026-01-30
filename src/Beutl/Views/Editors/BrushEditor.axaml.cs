@@ -127,24 +127,35 @@ public sealed partial class BrushEditor : UserControl
         return TypeDisplayHelpers.GetLocalizedName(type);
     }
 
-    private async Task<Type?> SelectType()
+    private async Task<object?> SelectTypeOrReference()
     {
         if (_flyoutOpen) return null;
 
         try
         {
             _flyoutOpen = true;
-            var viewModel = new SelectDrawableTypeViewModel();
-            var dialog = new LibraryItemPickerFlyout(viewModel);
+            var selectVm = new SelectDrawableTypeViewModel();
+
+            if (DataContext is BrushEditorViewModel { IsDisposed: false } vm
+                && PresenterTypeAttribute.GetPresenterType(typeof(Brush)) != null)
+            {
+                var targets = vm.GetAvailableTargets();
+                selectVm.InitializeReferences(targets);
+            }
+
+            var dialog = new LibraryItemPickerFlyout(selectVm);
             dialog.ShowAt(this);
-            var tcs = new TaskCompletionSource<Type?>();
-            dialog.Pinned += (_, item) => viewModel.Pin(item);
-            dialog.Unpinned += (_, item) => viewModel.Unpin(item);
+            var tcs = new TaskCompletionSource<object?>();
+            dialog.Pinned += (_, item) => selectVm.Pin(item);
+            dialog.Unpinned += (_, item) => selectVm.Unpin(item);
             dialog.Dismissed += (_, _) => tcs.SetResult(null);
             dialog.Confirmed += (_, _) =>
             {
-                switch (viewModel.SelectedItem.Value?.UserData)
+                switch (selectVm.SelectedItem.Value?.UserData)
                 {
+                    case TargetObjectInfo target:
+                        tcs.SetResult(target.Object);
+                        break;
                     case SingleTypeLibraryItem single:
                         tcs.SetResult(single.ImplementationType);
                         break;
@@ -211,10 +222,21 @@ public sealed partial class BrushEditor : UserControl
     {
         if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
 
-        Type? type = await SelectType();
-        if (type != null)
+        object? result = await SelectTypeOrReference();
+
+        switch (result)
         {
-            viewModel.ChangeDrawableType(type);
+            case Type type:
+                viewModel.ChangeDrawableType(type);
+                break;
+            case Brush target:
+                Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(Brush));
+                if (presenterType?.GetConstructor([])?.Invoke(null) is Brush presenterInstance)
+                {
+                    viewModel.SetValue(viewModel.Value.Value, presenterInstance);
+                    viewModel.SetTarget(target);
+                }
+                break;
         }
     }
 

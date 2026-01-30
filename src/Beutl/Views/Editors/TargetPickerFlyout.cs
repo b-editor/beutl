@@ -19,13 +19,13 @@ public sealed class TargetPickerFlyout(TargetPickerFlyoutViewModel viewModel) : 
     {
         var presenter = new LibraryItemPickerFlyoutPresenter
         {
-            ShowSearchBox = true
+            ShowReferences = true
         };
 
         presenter.CloseClicked += OnFlyoutDismissed;
         presenter.Confirmed += OnFlyoutConfirmed;
         presenter.Dismissed += OnFlyoutDismissed;
-        presenter.Items = viewModel.Items;
+        presenter.ReferenceItems = viewModel.Items;
         presenter.SelectedItem = viewModel.SelectedItem.Value;
         AvaloniaObjectExtensions.GetObservable(presenter, LibraryItemPickerFlyoutPresenter.SelectedItemProperty)
             .Subscribe(v => viewModel.SelectedItem.Value = v);

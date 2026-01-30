@@ -180,6 +180,17 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         }
     }
 
+    public void AddTarget(Type presenterType, FilterEffect target)
+    {
+        if (Value.Value is FilterEffectGroup group
+            && Activator.CreateInstance(presenterType) is IPresenter<FilterEffect> presenter)
+        {
+            presenter.Target.Expression = Expression.CreateReference<FilterEffect>(target.Id);
+            group.Children.Add((FilterEffect)presenter);
+            Commit();
+        }
+    }
+
     public void SetNull()
     {
         SetValue(Value.Value, null);

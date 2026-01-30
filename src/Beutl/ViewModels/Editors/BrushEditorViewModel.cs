@@ -207,8 +207,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
         {
             if (target != null)
             {
-                var expression = Expression.CreateReference<Brush>(target.Id);
-                presenter.Target.Expression = expression;
+                presenter.Target.Expression = Expression.CreateReference<Brush>(target.Id);
             }
             else
             {
@@ -232,8 +231,6 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             .Select(b => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(b), b, CoreObjectHelper.GetOwnerElement(b)))
             .ToList();
     }
-
-
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
