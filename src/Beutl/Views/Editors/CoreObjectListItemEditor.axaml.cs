@@ -5,8 +5,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Beutl.Controls.PropertyEditors;
+using Beutl.Services;
+using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
@@ -71,64 +73,65 @@ public sealed class CoreObjectListItemEditor<T> : CoreObjectListItemEditor
 
     protected override async void OnNew()
     {
-        //progress.IsVisible = true;
         if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return;
 
-        await Task.Run(async () =>
+        Type propertyType = viewModel.PropertyAdapter.PropertyType;
+        Type? selectedType;
+
+        if (propertyType.IsSealed)
         {
-            Type type = viewModel.PropertyAdapter.PropertyType;
-            Type[] types = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(x => x.GetTypes())
-                .Where(x => !x.IsAbstract
-                            && x.IsPublic
-                            && x.IsAssignableTo(type)
-                            && x.GetConstructor([]) != null)
-                .ToArray();
-            Type? type2 = null;
-            ConstructorInfo? constructorInfo = null;
+            selectedType = propertyType;
+        }
+        else
+        {
+            selectedType = await SelectType();
+        }
 
-            if (types.Length == 1)
+        if (selectedType?.GetConstructor([])?.Invoke(null) is T typed)
+        {
+            viewModel.SetValue(viewModel.Value.Value, typed);
+        }
+    }
+
+    private async Task<Type?> SelectType()
+    {
+        if (_flyoutOpen) return null;
+        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return null;
+
+        try
+        {
+            _flyoutOpen = true;
+            Type propertyType = viewModel.PropertyAdapter.PropertyType;
+            string format = propertyType.FullName!;
+            var selectVm = new SelectLibraryItemDialogViewModel(format, propertyType);
+            var dialog = new LibraryItemPickerFlyout(selectVm);
+            dialog.ShowAt(this);
+            var tcs = new TaskCompletionSource<Type?>();
+            dialog.Pinned += (_, item) => selectVm.Pin(item);
+            dialog.Unpinned += (_, item) => selectVm.Unpin(item);
+            dialog.Dismissed += (_, _) => tcs.SetResult(null);
+            dialog.Confirmed += (_, _) =>
             {
-                type2 = types[0];
-            }
-            else if (types.Length > 1)
-            {
-                type2 = await Dispatcher.UIThread.InvokeAsync(async () =>
+                switch (selectVm.SelectedItem.Value?.UserData)
                 {
-                    var combobox = new ComboBox { ItemsSource = types, SelectedIndex = 0 };
+                    case SingleTypeLibraryItem single:
+                        tcs.SetResult(single.ImplementationType);
+                        break;
+                    case MultipleTypeLibraryItem multi:
+                        tcs.SetResult(multi.Types.GetValueOrDefault(format));
+                        break;
+                    default:
+                        tcs.SetResult(null);
+                        break;
+                }
+            };
 
-                    var dialog = new ContentDialog
-                    {
-                        Content = combobox,
-                        Title = Message.MultipleTypesAreAvailable,
-                        PrimaryButtonText = Strings.OK,
-                        CloseButtonText = Strings.Cancel
-                    };
-
-                    if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                    {
-                        return combobox.SelectedItem as Type;
-                    }
-                    else
-                    {
-                        return null;
-                    }
-                });
-            }
-            else if (type.IsSealed)
-            {
-                type2 = type;
-            }
-
-            constructorInfo = type2?.GetConstructor([]);
-
-            if (constructorInfo?.Invoke(null) is T typed)
-            {
-                await Dispatcher.UIThread.InvokeAsync(() => viewModel.SetValue(viewModel.Value.Value, typed));
-            }
-        });
-
-        //progress.IsVisible = false;
+            return await tcs.Task;
+        }
+        finally
+        {
+            _flyoutOpen = false;
+        }
     }
 
     protected override async void OnSelectTargetRequested()

@@ -22,7 +22,7 @@ public sealed class TargetPickerFlyout(TargetPickerFlyoutViewModel viewModel) : 
             ShowSearchBox = true
         };
 
-        presenter.CloseClicked += (_, _) => Hide();
+        presenter.CloseClicked += OnFlyoutDismissed;
         presenter.Confirmed += OnFlyoutConfirmed;
         presenter.Dismissed += OnFlyoutDismissed;
         presenter.Items = viewModel.Items;
