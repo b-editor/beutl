@@ -22,7 +22,7 @@ public sealed class FontFamilyPickerFlyout(FontFamilyPickerFlyoutViewModel viewM
     {
         var pfp = new LibraryItemPickerFlyoutPresenter();
 
-        pfp.CloseClicked += (_, _) => Hide();
+        pfp.CloseClicked += OnFlyoutDismissed;
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;
         pfp.Pinned += item => Pinned?.Invoke(this, item);

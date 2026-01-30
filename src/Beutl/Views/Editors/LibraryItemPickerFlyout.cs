@@ -23,7 +23,7 @@ public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel vie
     protected override Control CreatePresenter()
     {
         var pfp = new LibraryItemPickerFlyoutPresenter();
-        pfp.CloseClicked += (_, _) => Hide();
+        pfp.CloseClicked += OnFlyoutDismissed;
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;
         pfp.Pinned += item => Pinned?.Invoke(this, item);
@@ -46,6 +46,7 @@ public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel vie
                     OnConfirmed();
                     break;
                 case Key.Escape:
+                    Dismissed?.Invoke(this, EventArgs.Empty);
                     Hide();
                     break;
             }
