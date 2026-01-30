@@ -10,6 +10,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Describes how an area is painted.
 /// </summary>
+[PresenterType(typeof(BrushPresenter))]
 public abstract partial class Brush : EngineObject
 {
     public Brush()
