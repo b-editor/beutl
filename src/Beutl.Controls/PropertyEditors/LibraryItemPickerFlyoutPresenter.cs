@@ -52,8 +52,19 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     public static readonly StyledProperty<string?> SearchTextProperty =
         AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, string?>(nameof(SearchText));
 
+    public static readonly StyledProperty<bool> ShowReferencesTabProperty =
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(ShowReferencesTab));
+
+    public static readonly StyledProperty<bool> ShowReferencesProperty =
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(ShowReferences));
+
+    public static readonly StyledProperty<ReactiveCollection<PinnableLibraryItem>?> ReferenceItemsProperty =
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(nameof(ReferenceItems));
+
     private const string SearchBoxPseudoClass = ":search-box";
     private const string IsBusyPseudoClass = ":busy";
+    private const string ShowReferencesPseudoClass = ":show-references";
+    private const string ShowReferencesTabPseudoClass = ":show-references-tab";
 
     public event Action<PinnableLibraryItem>? Pinned;
 
@@ -95,6 +106,24 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         set => SetValue(SearchTextProperty, value);
     }
 
+    public bool ShowReferencesTab
+    {
+        get => GetValue(ShowReferencesTabProperty);
+        set => SetValue(ShowReferencesTabProperty, value);
+    }
+
+    public bool ShowReferences
+    {
+        get => GetValue(ShowReferencesProperty);
+        set => SetValue(ShowReferencesProperty, value);
+    }
+
+    public ReactiveCollection<PinnableLibraryItem>? ReferenceItems
+    {
+        get => GetValue(ReferenceItemsProperty);
+        set => SetValue(ReferenceItemsProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -105,6 +134,15 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         else if (change.Property == IsBusyProperty)
         {
             PseudoClasses.Set(IsBusyPseudoClass, IsBusy);
+        }
+        else if (change.Property == ShowReferencesProperty)
+        {
+            PseudoClasses.Set(ShowReferencesPseudoClass, ShowReferences);
+            SelectedItem = null;
+        }
+        else if (change.Property == ShowReferencesTabProperty)
+        {
+            PseudoClasses.Set(ShowReferencesTabPseudoClass, ShowReferencesTab);
         }
     }
 

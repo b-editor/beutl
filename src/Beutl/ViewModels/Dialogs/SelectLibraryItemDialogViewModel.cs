@@ -4,6 +4,7 @@ using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Services;
 using DynamicData;
+using Beutl.ViewModels.Editors;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -16,6 +17,7 @@ public class SelectLibraryItemDialogViewModel
     private readonly Task<PinnableLibraryItem[]> _itemsTask;
     private readonly List<Type> _pinnedItems;
     private Task<PinnableLibraryItem[]>? _allItemsTask;
+    private PinnableLibraryItem[] _allReferenceItems = [];
 
     public SelectLibraryItemDialogViewModel(string format, Type baseType)
     {
@@ -55,7 +57,11 @@ public class SelectLibraryItemDialogViewModel
             .Skip(1)
             .Throttle(TimeSpan.FromMilliseconds(100))
             .ObserveOnUIDispatcher()
-            .Subscribe(_ => ProcessSearchText());
+            .Subscribe(_ =>
+            {
+                ProcessSearchText();
+                ProcessReferenceSearchText();
+            });
 
         ProcessSearchText();
     }
@@ -69,6 +75,12 @@ public class SelectLibraryItemDialogViewModel
     public ReactiveProperty<string?> SearchText { get; } = new();
 
     public ReactiveProperty<PinnableLibraryItem?> SelectedItem { get; } = new();
+
+    public ReactiveCollection<PinnableLibraryItem> ReferenceItems { get; } = [];
+
+    public ReactiveProperty<bool> ShowReferences { get; } = new();
+
+    public bool HasReferencesTab { get; private set; }
 
     public Task<PinnableLibraryItem[]> LoadAllItems()
     {
@@ -148,6 +160,15 @@ public class SelectLibraryItemDialogViewModel
         return _pinnedItems.Contains(type);
     }
 
+    public void InitializeReferences(IReadOnlyList<TargetObjectInfo> targets)
+    {
+        _allReferenceItems = targets
+            .Select(t => new PinnableLibraryItem(t.DisplayName, false, t))
+            .ToArray();
+        HasReferencesTab = _allReferenceItems.Length > 0;
+        ProcessReferenceSearchText();
+    }
+
     private async void ProcessSearchText()
     {
         Items.ClearOnScheduler();
@@ -173,6 +194,30 @@ public class SelectLibraryItemDialogViewModel
                 .Select(v => new PinnableLibraryItem(((LibraryItem)v.item.Data!).DisplayName, v.IsPinned, v.item.Data))
                 .ToArray();
             Items.AddRange(newItems);
+        }
+    }
+
+    private void ProcessReferenceSearchText()
+    {
+        ReferenceItems.ClearOnScheduler();
+
+        if (string.IsNullOrWhiteSpace(SearchText.Value))
+        {
+            ReferenceItems.AddRange(_allReferenceItems);
+        }
+        else
+        {
+            string[] segments = SearchText.Value.Split(' ')
+                .Select(x => x.Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .ToArray();
+
+            var filtered = _allReferenceItems
+                .Where(x => segments.Any(s =>
+                    x.DisplayName.Contains(s, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+
+            ReferenceItems.AddRange(filtered);
         }
     }
 }

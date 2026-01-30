@@ -4,10 +4,13 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics3D.Textures;
 using Beutl.Media.Source;
 using Beutl.Services;
+using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
@@ -74,31 +77,58 @@ public partial class TextureSourceEditor : UserControl
     {
         if (DataContext is not TextureSourceEditorViewModel { IsDisposed: false } vm) return;
 
-        Type? type = await SelectDrawableType();
-        if (type != null)
+        object? result = await SelectDrawableTypeOrReference();
+
+        switch (result)
         {
-            vm.SetDrawableType(type);
+            case Type type:
+                vm.SetDrawableType(type);
+                break;
+            case Drawable target:
+                vm.SetDrawableTarget(target);
+                break;
         }
     }
 
-    private async Task<Type?> SelectDrawableType()
+    private async Task<object?> SelectDrawableTypeOrReference()
     {
         if (_flyoutOpen) return null;
 
         try
         {
             _flyoutOpen = true;
-            var viewModel = new SelectDrawableTypeViewModel();
-            var dialog = new LibraryItemPickerFlyout(viewModel);
+            var selectVm = new SelectDrawableTypeViewModel();
+
+            if (DataContext is TextureSourceEditorViewModel { IsDisposed: false } vm
+                && PresenterTypeAttribute.GetPresenterType(typeof(Drawable)) != null)
+            {
+                var scene = vm.GetService<EditViewModel>()?.Scene;
+                if (scene != null)
+                {
+                    var searcher = new ObjectSearcher(scene, obj =>
+                        obj is Drawable && obj is not IPresenter<Drawable>);
+                    var targets = searcher.SearchAll()
+                        .Cast<Drawable>()
+                        .Select(d => new TargetObjectInfo(
+                            CoreObjectHelper.GetDisplayName(d), d, CoreObjectHelper.GetOwnerElement(d)))
+                        .ToList();
+                    selectVm.InitializeReferences(targets);
+                }
+            }
+
+            var dialog = new LibraryItemPickerFlyout(selectVm);
             dialog.ShowAt(this);
-            var tcs = new TaskCompletionSource<Type?>();
-            dialog.Pinned += (_, item) => viewModel.Pin(item);
-            dialog.Unpinned += (_, item) => viewModel.Unpin(item);
+            var tcs = new TaskCompletionSource<object?>();
+            dialog.Pinned += (_, item) => selectVm.Pin(item);
+            dialog.Unpinned += (_, item) => selectVm.Unpin(item);
             dialog.Dismissed += (_, _) => tcs.SetResult(null);
             dialog.Confirmed += (_, _) =>
             {
-                switch (viewModel.SelectedItem.Value?.UserData)
+                switch (selectVm.SelectedItem.Value?.UserData)
                 {
+                    case TargetObjectInfo target:
+                        tcs.SetResult(target.Object);
+                        break;
                     case SingleTypeLibraryItem single:
                         tcs.SetResult(single.ImplementationType);
                         break;

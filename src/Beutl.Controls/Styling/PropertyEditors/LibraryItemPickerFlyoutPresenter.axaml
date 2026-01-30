@@ -191,6 +191,11 @@
                                 <ToggleButton Name="ShowAllButton" IsChecked="{TemplateBinding ShowAll, Mode=TwoWay}">
                                     <ui:SymbolIcon Symbol="More" />
                                 </ToggleButton>
+                                <ToggleButton Name="ShowReferencesButton"
+                                              IsVisible="False"
+                                              IsChecked="{TemplateBinding ShowReferences, Mode=TwoWay}">
+                                    <ui:SymbolIcon Symbol="Link" />
+                                </ToggleButton>
                             </WrapPanel>
 
                             <Button Name="CloseButton"
@@ -255,6 +260,19 @@
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
+
+                            <ListBox x:Name="PART_ReferenceListBox"
+                                     Height="250"
+                                     Margin="4,4,4,0"
+                                     IsVisible="False"
+                                     ItemsSource="{TemplateBinding ReferenceItems}"
+                                     SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="local:PinnableLibraryItem">
+                                        <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" />
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
                         </StackPanel>
 
                         <ProgressRing Name="PART_ProgressRing"
@@ -282,6 +300,24 @@
         <Style Selector="^:busy /template/ ProgressRing#PART_ProgressRing">
             <Setter Property="IsVisible" Value="True" />
             <Setter Property="IsIndeterminate" Value="True" />
+        </Style>
+
+        <!-- 参照タブボタン表示 -->
+        <Style Selector="^:show-references-tab /template/ ToggleButton#ShowReferencesButton">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- 参照モード: 型リスト非表示、参照リスト表示 -->
+        <Style Selector="^:show-references /template/ ListBox#PART_ListBox">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:show-references /template/ ListBox#PART_ReferenceListBox">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <!-- 参照モード: ShowAllボタン非表示（参照では不要） -->
+        <Style Selector="^:show-references /template/ ToggleButton#ShowAllButton">
+            <Setter Property="IsVisible" Value="False" />
         </Style>
 
         <Style Selector="^ /template/ WrapPanel#TabLayout">

@@ -4,8 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
-using Beutl.Language;
 using Beutl.Models;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
@@ -92,17 +92,27 @@ public partial class FilterEffectEditor : UserControl
 
         if (viewModel.IsGroup.Value)
         {
-            Type? type = await SelectType();
-            if (type != null)
+            object? result = await SelectTypeOrReference();
+
+            try
             {
-                try
+                switch (result)
                 {
-                    viewModel.AddItem(type);
+                    case Type type:
+                        viewModel.AddItem(type);
+                        break;
+                    case FilterEffect fe:
+                        Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(FilterEffect));
+                        if (presenterType != null)
+                        {
+                            viewModel.AddTarget(presenterType, fe);
+                        }
+                        break;
                 }
-                catch (Exception ex)
-                {
-                    NotificationService.ShowError(Strings.Error, ex.Message);
-                }
+            }
+            catch (Exception ex)
+            {
+                NotificationService.ShowError(Strings.Error, ex.Message);
             }
         }
         else
@@ -111,24 +121,35 @@ public partial class FilterEffectEditor : UserControl
         }
     }
 
-    private async Task<Type?> SelectType()
+    private async Task<object?> SelectTypeOrReference()
     {
         if (_flyoutOpen) return null;
 
         try
         {
             _flyoutOpen = true;
-            var viewModel = new SelectFilterEffectTypeViewModel();
-            var dialog = new LibraryItemPickerFlyout(viewModel);
+            var selectVm = new SelectFilterEffectTypeViewModel();
+
+            if (DataContext is FilterEffectEditorViewModel { IsDisposed: false } vm
+                && PresenterTypeAttribute.GetPresenterType(typeof(FilterEffect)) != null)
+            {
+                var targets = vm.GetAvailableTargets();
+                selectVm.InitializeReferences(targets);
+            }
+
+            var dialog = new LibraryItemPickerFlyout(selectVm);
             dialog.ShowAt(this);
-            var tcs = new TaskCompletionSource<Type?>();
-            dialog.Pinned += (_, item) => viewModel.Pin(item);
-            dialog.Unpinned += (_, item) => viewModel.Unpin(item);
+            var tcs = new TaskCompletionSource<object?>();
+            dialog.Pinned += (_, item) => selectVm.Pin(item);
+            dialog.Unpinned += (_, item) => selectVm.Unpin(item);
             dialog.Dismissed += (_, _) => tcs.SetResult(null);
             dialog.Confirmed += (_, _) =>
             {
-                switch (viewModel.SelectedItem.Value?.UserData)
+                switch (selectVm.SelectedItem.Value?.UserData)
                 {
+                    case TargetObjectInfo target:
+                        tcs.SetResult(target.Object);
+                        break;
                     case SingleTypeLibraryItem single:
                         tcs.SetResult(single.ImplementationType);
                         break;
@@ -153,12 +174,24 @@ public partial class FilterEffectEditor : UserControl
     {
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        Type? type = await SelectType();
-        if (type == null) return;
+        object? result = await SelectTypeOrReference();
 
         try
         {
-            viewModel.ChangeFilterType(type);
+            switch (result)
+            {
+                case Type type:
+                    viewModel.ChangeFilterType(type);
+                    break;
+                case FilterEffect target:
+                    Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(FilterEffect));
+                    if (presenterType != null)
+                    {
+                        viewModel.ChangeFilterType(presenterType);
+                        viewModel.SetTarget(target);
+                    }
+                    break;
+            }
         }
         catch (Exception ex)
         {
