@@ -683,6 +683,21 @@
   <data name="NavigateUp" xml:space="preserve">
     <value>上へ</value>
   </data>
+  <data name="Favorites" xml:space="preserve">
+    <value>お気に入り</value>
+  </data>
+  <data name="AddToFavorites" xml:space="preserve">
+    <value>お気に入りに追加</value>
+  </data>
+  <data name="RemoveFromFavorites" xml:space="preserve">
+    <value>お気に入りから削除</value>
+  </data>
+  <data name="NoFavorites" xml:space="preserve">
+    <value>お気に入りはありません</value>
+  </data>
+  <data name="DeleteSelectedItems" xml:space="preserve">
+    <value>{0}個のアイテムを削除しますか？</value>
+  </data>
   <data name="Clipping" xml:space="preserve">
     <value>クリッピング</value>
   </data>

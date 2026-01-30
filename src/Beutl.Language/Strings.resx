@@ -678,6 +678,21 @@
   <data name="NavigateUp" xml:space="preserve">
     <value>Up</value>
   </data>
+  <data name="Favorites" xml:space="preserve">
+    <value>Favorites</value>
+  </data>
+  <data name="AddToFavorites" xml:space="preserve">
+    <value>Add to Favorites</value>
+  </data>
+  <data name="RemoveFromFavorites" xml:space="preserve">
+    <value>Remove from Favorites</value>
+  </data>
+  <data name="NoFavorites" xml:space="preserve">
+    <value>No favorites</value>
+  </data>
+  <data name="DeleteSelectedItems" xml:space="preserve">
+    <value>Delete {0} items?</value>
+  </data>
   <data name="Clipping" xml:space="preserve">
     <value>Clipping</value>
   </data>

@@ -1166,7 +1166,37 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("NavigateUp", resourceCulture);
             }
         }
-        
+
+        public static string Favorites {
+            get {
+                return ResourceManager.GetString("Favorites", resourceCulture);
+            }
+        }
+
+        public static string AddToFavorites {
+            get {
+                return ResourceManager.GetString("AddToFavorites", resourceCulture);
+            }
+        }
+
+        public static string RemoveFromFavorites {
+            get {
+                return ResourceManager.GetString("RemoveFromFavorites", resourceCulture);
+            }
+        }
+
+        public static string NoFavorites {
+            get {
+                return ResourceManager.GetString("NoFavorites", resourceCulture);
+            }
+        }
+
+        public static string DeleteSelectedItems {
+            get {
+                return ResourceManager.GetString("DeleteSelectedItems", resourceCulture);
+            }
+        }
+
         public static string Clipping {
             get {
                 return ResourceManager.GetString("Clipping", resourceCulture);
