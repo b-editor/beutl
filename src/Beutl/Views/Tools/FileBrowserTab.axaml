@@ -144,6 +144,32 @@
                 </StackPanel>
             </Border>
         </DataTemplate>
+
+        <DataTemplate x:Key="HomeIconItemTemplate" x:DataType="vm:FileSystemItemViewModel">
+            <Border Padding="4"
+                    Background="Transparent"
+                    CornerRadius="4"
+                    DoubleTapped="OnItemDoubleTapped"
+                    ToolTip.Tip="{Binding FullPath}">
+                <StackPanel Spacing="4">
+                    <Panel Width="48" Height="48">
+                        <Image IsVisible="{Binding HasThumbnail}"
+                               Source="{Binding Thumbnail}"
+                               Stretch="Uniform" />
+                        <icons:SymbolIcon FontSize="36"
+                                          IsVisible="{Binding !HasThumbnail}"
+                                          Symbol="{Binding IconSymbol}" />
+                    </Panel>
+                    <TextBlock HorizontalAlignment="Center"
+                               MaxWidth="64"
+                               Text="{Binding Name}"
+                               TextAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="Wrap"
+                               MaxLines="2" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid RowDefinitions="Auto,*">
@@ -286,17 +312,50 @@
                                       IsChecked="True"
                                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
                             <TextBlock FontWeight="DemiBold" Text="{x:Static lang:Strings.Favorites}" />
+                            <ToggleButton.Tag>
+                                <ToggleButton Padding="4"
+                                              IsChecked="{Binding IsFavoritesIconView.Value}"
+                                              Theme="{StaticResource TransparentButton}">
+                                    <Panel>
+                                        <icons:SymbolIcon FontSize="14"
+                                                          IsVisible="{Binding !IsFavoritesIconView.Value}"
+                                                          Symbol="Grid" />
+                                        <icons:SymbolIcon FontSize="14"
+                                                          IsVisible="{Binding IsFavoritesIconView.Value}"
+                                                          Symbol="TextBulletListLtr" />
+                                    </Panel>
+                                </ToggleButton>
+                            </ToggleButton.Tag>
                         </ToggleButton>
                         <Panel x:Name="favoritesContent" Grid.Row="1">
-                            <ItemsControl ItemTemplate="{StaticResource HomeListItemTemplate}"
-                                          ItemsSource="{Binding FavoriteItems}"
-                                          IsVisible="{Binding FavoriteItems.Count}">
-                                <ItemsControl.ItemsPanel>
+                            <!-- リスト表示 -->
+                            <ListBox ItemTemplate="{StaticResource HomeListItemTemplate}"
+                                     ItemsSource="{Binding FavoriteItems}"
+                                     IsVisible="{Binding !IsFavoritesIconView.Value}"
+                                     SelectionMode="Multiple">
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Padding" Value="0" />
+                                    </Style>
+                                </ListBox.Styles>
+                            </ListBox>
+                            <!-- アイコン表示 -->
+                            <ListBox ItemTemplate="{StaticResource HomeIconItemTemplate}"
+                                     ItemsSource="{Binding FavoriteItems}"
+                                     IsVisible="{Binding IsFavoritesIconView.Value}"
+                                     SelectionMode="Multiple">
+                                <ListBox.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <StackPanel />
+                                        <WrapPanel Margin="4" />
                                     </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
+                                </ListBox.ItemsPanel>
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Padding" Value="0" />
+                                    </Style>
+                                </ListBox.Styles>
+                            </ListBox>
+                            <!-- 空状態テキスト -->
                             <TextBlock Margin="24,4"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                        IsVisible="{Binding !FavoriteItems.Count}"
@@ -311,16 +370,49 @@
                                       IsChecked="True"
                                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
                             <TextBlock FontWeight="DemiBold" Text="{x:Static lang:Strings.ProjectDirectory}" />
+                            <ToggleButton.Tag>
+                                <ToggleButton Padding="4"
+                                              IsChecked="{Binding IsProjectDirIconView.Value}"
+                                              Theme="{StaticResource TransparentButton}">
+                                    <Panel>
+                                        <icons:SymbolIcon FontSize="14"
+                                                          IsVisible="{Binding !IsProjectDirIconView.Value}"
+                                                          Symbol="Grid" />
+                                        <icons:SymbolIcon FontSize="14"
+                                                          IsVisible="{Binding IsProjectDirIconView.Value}"
+                                                          Symbol="TextBulletListLtr" />
+                                    </Panel>
+                                </ToggleButton>
+                            </ToggleButton.Tag>
                         </ToggleButton>
                         <Panel x:Name="projectDirContent" Grid.Row="1">
-                            <ItemsControl ItemTemplate="{StaticResource HomeListItemTemplate}"
-                                          ItemsSource="{Binding ProjectDirectoryItems}">
-                                <ItemsControl.ItemsPanel>
+                            <!-- リスト表示 -->
+                            <ListBox ItemTemplate="{StaticResource HomeListItemTemplate}"
+                                     ItemsSource="{Binding ProjectDirectoryItems}"
+                                     IsVisible="{Binding !IsProjectDirIconView.Value}"
+                                     SelectionMode="Multiple">
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Padding" Value="0" />
+                                    </Style>
+                                </ListBox.Styles>
+                            </ListBox>
+                            <!-- アイコン表示 -->
+                            <ListBox ItemTemplate="{StaticResource HomeIconItemTemplate}"
+                                     ItemsSource="{Binding ProjectDirectoryItems}"
+                                     IsVisible="{Binding IsProjectDirIconView.Value}"
+                                     SelectionMode="Multiple">
+                                <ListBox.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <StackPanel />
+                                        <WrapPanel Margin="4" />
                                     </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
+                                </ListBox.ItemsPanel>
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Padding" Value="0" />
+                                    </Style>
+                                </ListBox.Styles>
+                            </ListBox>
                         </Panel>
                     </Grid>
 
@@ -331,6 +423,20 @@
                                       IsChecked="True"
                                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
                             <TextBlock FontWeight="DemiBold" Text="{x:Static lang:Strings.MediaFiles}" />
+                            <ToggleButton.Tag>
+                                <ToggleButton Padding="4"
+                                              IsChecked="{Binding IsMediaFilesIconView.Value}"
+                                              Theme="{StaticResource TransparentButton}">
+                                    <Panel>
+                                        <icons:SymbolIcon FontSize="14"
+                                                          IsVisible="{Binding !IsMediaFilesIconView.Value}"
+                                                          Symbol="Grid" />
+                                        <icons:SymbolIcon FontSize="14"
+                                                          IsVisible="{Binding IsMediaFilesIconView.Value}"
+                                                          Symbol="TextBulletListLtr" />
+                                    </Panel>
+                                </ToggleButton>
+                            </ToggleButton.Tag>
                         </ToggleButton>
                         <Panel x:Name="mediaFilesContent" Grid.Row="1">
                             <!-- 検索中のProgressRing -->
@@ -344,16 +450,36 @@
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                            Text="{x:Static lang:Strings.SearchingMediaFiles}" />
                             </StackPanel>
-                            <!-- メディアファイルリスト -->
-                            <ItemsControl ItemTemplate="{StaticResource HomeMediaItemTemplate}"
-                                          ItemsSource="{Binding MediaFileItems}"
-                                          IsVisible="{Binding !IsLoadingMediaFiles.Value}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
+                            <!-- ファイル一覧（読み込み完了後のみ表示） -->
+                            <Panel IsVisible="{Binding !IsLoadingMediaFiles.Value}">
+                                <!-- リスト表示 -->
+                                <ListBox ItemTemplate="{StaticResource HomeMediaItemTemplate}"
+                                         ItemsSource="{Binding MediaFileItems}"
+                                         IsVisible="{Binding !IsMediaFilesIconView.Value}"
+                                         SelectionMode="Multiple">
+                                    <ListBox.Styles>
+                                        <Style Selector="ListBoxItem">
+                                            <Setter Property="Padding" Value="0" />
+                                        </Style>
+                                    </ListBox.Styles>
+                                </ListBox>
+                                <!-- アイコン表示 -->
+                                <ListBox ItemTemplate="{StaticResource HomeIconItemTemplate}"
+                                         ItemsSource="{Binding MediaFileItems}"
+                                         IsVisible="{Binding IsMediaFilesIconView.Value}"
+                                         SelectionMode="Multiple">
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Margin="4" />
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                    <ListBox.Styles>
+                                        <Style Selector="ListBoxItem">
+                                            <Setter Property="Padding" Value="0" />
+                                        </Style>
+                                    </ListBox.Styles>
+                                </ListBox>
+                            </Panel>
                             <!-- 空状態テキスト -->
                             <TextBlock Margin="24,4"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
