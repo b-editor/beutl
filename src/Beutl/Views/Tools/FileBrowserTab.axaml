@@ -97,38 +97,6 @@
                     </ContextMenu>
                 </Border.ContextMenu>
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <icons:SymbolIcon FontSize="20"
-                                      Symbol="{Binding IconSymbol}" />
-                    <TextBlock VerticalAlignment="Center"
-                               Text="{Binding Name}"
-                               TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-            </Border>
-        </DataTemplate>
-
-        <!-- ホームビュー: リスト表示のItemTemplate -->
-        <DataTemplate x:Key="HomeListItemTemplate" x:DataType="vm:FileSystemItemViewModel">
-            <Border Padding="4,2"
-                    Background="Transparent"
-                    DoubleTapped="OnItemDoubleTapped"
-                    ToolTip.Tip="{Binding FullPath}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <icons:SymbolIcon FontSize="20"
-                                      Symbol="{Binding IconSymbol}" />
-                    <TextBlock VerticalAlignment="Center"
-                               Text="{Binding Name}"
-                               TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-            </Border>
-        </DataTemplate>
-
-        <!-- ホームビュー: メディアファイルのItemTemplate -->
-        <DataTemplate x:Key="HomeMediaItemTemplate" x:DataType="vm:FileSystemItemViewModel">
-            <Border Padding="4,2"
-                    Background="Transparent"
-                    DoubleTapped="OnItemDoubleTapped"
-                    ToolTip.Tip="{Binding FullPath}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
                     <!-- サムネイルまたはアイコン -->
                     <Panel Width="24" Height="24">
                         <Image IsVisible="{Binding HasThumbnail}"
@@ -141,32 +109,6 @@
                     <TextBlock VerticalAlignment="Center"
                                Text="{Binding Name}"
                                TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-            </Border>
-        </DataTemplate>
-
-        <DataTemplate x:Key="HomeIconItemTemplate" x:DataType="vm:FileSystemItemViewModel">
-            <Border Padding="4"
-                    Background="Transparent"
-                    CornerRadius="4"
-                    DoubleTapped="OnItemDoubleTapped"
-                    ToolTip.Tip="{Binding FullPath}">
-                <StackPanel Spacing="4">
-                    <Panel Width="48" Height="48">
-                        <Image IsVisible="{Binding HasThumbnail}"
-                               Source="{Binding Thumbnail}"
-                               Stretch="Uniform" />
-                        <icons:SymbolIcon FontSize="36"
-                                          IsVisible="{Binding !HasThumbnail}"
-                                          Symbol="{Binding IconSymbol}" />
-                    </Panel>
-                    <TextBlock HorizontalAlignment="Center"
-                               MaxWidth="64"
-                               Text="{Binding Name}"
-                               TextAlignment="Center"
-                               TextTrimming="CharacterEllipsis"
-                               TextWrapping="Wrap"
-                               MaxLines="2" />
                 </StackPanel>
             </Border>
         </DataTemplate>
@@ -329,7 +271,7 @@
                         </ToggleButton>
                         <Panel x:Name="favoritesContent" Grid.Row="1">
                             <!-- リスト表示 -->
-                            <ListBox ItemTemplate="{StaticResource HomeListItemTemplate}"
+                            <ListBox ItemTemplate="{StaticResource ListItemTemplate}"
                                      ItemsSource="{Binding FavoriteItems}"
                                      IsVisible="{Binding !IsFavoritesIconView.Value}"
                                      SelectionMode="Multiple">
@@ -340,7 +282,7 @@
                                 </ListBox.Styles>
                             </ListBox>
                             <!-- アイコン表示 -->
-                            <ListBox ItemTemplate="{StaticResource HomeIconItemTemplate}"
+                            <ListBox ItemTemplate="{StaticResource FileItemTemplate}"
                                      ItemsSource="{Binding FavoriteItems}"
                                      IsVisible="{Binding IsFavoritesIconView.Value}"
                                      SelectionMode="Multiple">
@@ -387,7 +329,7 @@
                         </ToggleButton>
                         <Panel x:Name="projectDirContent" Grid.Row="1">
                             <!-- リスト表示 -->
-                            <ListBox ItemTemplate="{StaticResource HomeListItemTemplate}"
+                            <ListBox ItemTemplate="{StaticResource ListItemTemplate}"
                                      ItemsSource="{Binding ProjectDirectoryItems}"
                                      IsVisible="{Binding !IsProjectDirIconView.Value}"
                                      SelectionMode="Multiple">
@@ -398,7 +340,7 @@
                                 </ListBox.Styles>
                             </ListBox>
                             <!-- アイコン表示 -->
-                            <ListBox ItemTemplate="{StaticResource HomeIconItemTemplate}"
+                            <ListBox ItemTemplate="{StaticResource FileItemTemplate}"
                                      ItemsSource="{Binding ProjectDirectoryItems}"
                                      IsVisible="{Binding IsProjectDirIconView.Value}"
                                      SelectionMode="Multiple">
@@ -453,7 +395,7 @@
                             <!-- ファイル一覧（読み込み完了後のみ表示） -->
                             <Panel IsVisible="{Binding !IsLoadingMediaFiles.Value}">
                                 <!-- リスト表示 -->
-                                <ListBox ItemTemplate="{StaticResource HomeMediaItemTemplate}"
+                                <ListBox ItemTemplate="{StaticResource ListItemTemplate}"
                                          ItemsSource="{Binding MediaFileItems}"
                                          IsVisible="{Binding !IsMediaFilesIconView.Value}"
                                          SelectionMode="Multiple">
@@ -464,7 +406,7 @@
                                     </ListBox.Styles>
                                 </ListBox>
                                 <!-- アイコン表示 -->
-                                <ListBox ItemTemplate="{StaticResource HomeIconItemTemplate}"
+                                <ListBox ItemTemplate="{StaticResource FileItemTemplate}"
                                          ItemsSource="{Binding MediaFileItems}"
                                          IsVisible="{Binding IsMediaFilesIconView.Value}"
                                          SelectionMode="Multiple">
