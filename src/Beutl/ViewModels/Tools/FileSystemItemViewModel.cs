@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Avalonia.Media.Imaging;
+using Beutl.Services;
 using Symbol = FluentIcons.Common.Symbol;
 
 namespace Beutl.ViewModels.Tools;
@@ -17,6 +18,8 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
     private bool _isSelected;
     private Bitmap? _thumbnail;
     private bool _childrenLoaded;
+    private string? _mediaInfoText;
+    private bool _mediaInfoLoaded;
 
     public FileSystemItemViewModel(string fullPath, bool isDirectory)
     {
@@ -121,6 +124,62 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public bool HasThumbnail => _thumbnail != null;
+
+    /// <summary>
+    /// メディア情報のツールチップテキスト（遅延ロード）
+    /// </summary>
+    public string? MediaInfoText
+    {
+        get
+        {
+            if (!_mediaInfoLoaded && !IsDirectory)
+            {
+                _mediaInfoLoaded = true;
+                _ = LoadMediaInfoAsync();
+            }
+            return _mediaInfoText;
+        }
+        private set
+        {
+            if (_mediaInfoText != value)
+            {
+                _mediaInfoText = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private async Task LoadMediaInfoAsync()
+    {
+        var service = FileThumbnailService.Instance;
+        if (!service.CanGetMediaInfo(FullPath))
+        {
+            // メディアでないファイルはサイズと日時を表示
+            try
+            {
+                var fileInfo = new FileInfo(FullPath);
+                MediaInfoText = $"{MediaFileInfo.FormatFileSize(fileInfo.Length)} · {fileInfo.LastWriteTime:yyyy/MM/dd}";
+            }
+            catch
+            {
+                // ignore
+            }
+            return;
+        }
+
+        try
+        {
+            var info = await service.GetMediaInfoAsync(FullPath);
+            if (info != null)
+            {
+                MediaInfoText = info.ToDisplayString();
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+    }
 
     private Symbol GetIconSymbol()
     {
