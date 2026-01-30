@@ -5,9 +5,9 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Beutl.Language;
 using Beutl.ViewModels.Tools;
 using FluentAvalonia.UI.Controls;
-using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Views.Tools;
 
@@ -60,8 +60,6 @@ public partial class FileBrowserTab : UserControl
     }
 
     private FileBrowserTabViewModel? ViewModel => DataContext as FileBrowserTabViewModel;
-
-    private FAMenuFlyout? FavoritesFlyout => FavoritesButton?.Flyout as FAMenuFlyout;
 
     private void OnNavigateUpClick(object? sender, RoutedEventArgs e)
     {
@@ -168,58 +166,28 @@ public partial class FileBrowserTab : UserControl
         }
     }
 
-    private void OnToggleFavoriteClick(object? sender, RoutedEventArgs e)
+    private void OnContextMenuOpened(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel == null)
-            return;
-
-        ViewModel.ToggleFavorite();
-        UpdateFavoritesFlyout();
-    }
-
-    private void UpdateFavoritesFlyout()
-    {
-        if (ViewModel == null || FavoritesFlyout == null)
-            return;
-
-        FavoritesFlyout.Items.Clear();
-
-        if (ViewModel.Favorites.Count == 0)
+        if (sender is ContextMenu contextMenu &&
+            contextMenu?.DataContext is FileSystemItemViewModel item &&
+            ViewModel != null)
         {
-            var emptyItem = new MenuFlyoutItem
+            foreach (var menuItem in contextMenu.Items.OfType<MenuItem>())
             {
-                Text = Strings.NoFavorites,
-                IsEnabled = false
-            };
-            FavoritesFlyout.Items.Add(emptyItem);
-            return;
-        }
-
-        foreach (string path in ViewModel.Favorites)
-        {
-            var dirName = Path.GetFileName(path);
-            if (string.IsNullOrEmpty(dirName))
-            {
-                dirName = path;
+                if (menuItem.Tag is "FavoriteToggle")
+                {
+                    bool isFavorite = ViewModel.Favorites.Contains(item.FullPath);
+                    menuItem.Header = isFavorite ? Strings.RemoveFromFavorites : Strings.AddToFavorites;
+                }
             }
-
-            var menuItem = new MenuFlyoutItem
-            {
-                Text = dirName,
-                Tag = path,
-                IconSource = new SymbolIconSource { Symbol = FluentIcons.Common.Symbol.Folder }
-            };
-            ToolTip.SetTip(menuItem, path);
-            menuItem.Click += OnFavoriteItemClick;
-            FavoritesFlyout.Items.Add(menuItem);
         }
     }
 
-    private void OnFavoriteItemClick(object? sender, RoutedEventArgs e)
+    private void OnToggleFavoriteContextMenuClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem { Tag: string path } && ViewModel != null)
+        if (GetItemFromMenuItem(sender) is { IsDirectory: true } item && ViewModel != null)
         {
-            ViewModel.NavigateToFavorite(path);
+            ViewModel.ToggleFavoriteForPath(item.FullPath);
         }
     }
 
@@ -229,7 +197,7 @@ public partial class FileBrowserTab : UserControl
         {
             // ContextMenuの親要素からDataContextを取得
             var contextMenu = menuItem.GetLogicalAncestors().OfType<ContextMenu>().FirstOrDefault();
-            if (contextMenu?.PlacementTarget?.DataContext is FileSystemItemViewModel item)
+            if (contextMenu?.DataContext is FileSystemItemViewModel item)
             {
                 return item;
             }
@@ -250,6 +218,9 @@ public partial class FileBrowserTab : UserControl
             }
         };
 
-        flyout.ShowAt(sourceControl ?? this);
+        var target = (Control?)sourceControl?.FindLogicalAncestorOfType<TreeViewItem>()
+            ?? (Control?)sourceControl?.FindLogicalAncestorOfType<ListBoxItem>()
+            ?? this;
+        flyout.ShowAt(target);
     }
 }

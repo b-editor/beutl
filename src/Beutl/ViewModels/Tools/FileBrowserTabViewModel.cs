@@ -676,6 +676,29 @@ public sealed class FileBrowserTabViewModel : IToolContext
         }
     }
 
+    public void ToggleFavoriteForPath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return;
+
+        if (Favorites.Contains(path))
+        {
+            Favorites.Remove(path);
+            if (_rootPath == path)
+            {
+                IsFavorite.Value = false;
+            }
+        }
+        else
+        {
+            Favorites.Add(path);
+            if (_rootPath == path)
+            {
+                IsFavorite.Value = true;
+            }
+        }
+    }
+
     public void RemoveFavorite(string path)
     {
         Favorites.Remove(path);

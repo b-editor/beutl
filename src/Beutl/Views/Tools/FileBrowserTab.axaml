@@ -23,7 +23,7 @@
                     DoubleTapped="OnItemDoubleTapped"
                     ToolTip.Tip="{Binding MediaInfoText}">
                 <Border.ContextMenu>
-                    <ContextMenu>
+                    <ContextMenu Opened="OnContextMenuOpened">
                         <MenuItem Click="OnOpenClick"
                                   Header="{x:Static lang:Strings.Open}">
                             <MenuItem.Icon>
@@ -41,6 +41,15 @@
                                   Header="{x:Static lang:Strings.Delete}">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="Delete" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <Separator IsVisible="{Binding IsDirectory}" />
+                        <MenuItem Tag="FavoriteToggle"
+                                  Click="OnToggleFavoriteContextMenuClick"
+                                  IsVisible="{Binding IsDirectory}"
+                                  Header="{x:Static lang:Strings.AddToFavorites}">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="Star" />
                             </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>
@@ -74,7 +83,7 @@
                     DoubleTapped="OnItemDoubleTapped"
                     ToolTip.Tip="{Binding MediaInfoText}">
                 <Border.ContextMenu>
-                    <ContextMenu>
+                    <ContextMenu Opened="OnContextMenuOpened">
                         <MenuItem Click="OnOpenClick"
                                   Header="{x:Static lang:Strings.Open}">
                             <MenuItem.Icon>
@@ -92,6 +101,15 @@
                                   Header="{x:Static lang:Strings.Delete}">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="Delete" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <Separator IsVisible="{Binding IsDirectory}" />
+                        <MenuItem Tag="FavoriteToggle"
+                                  Click="OnToggleFavoriteContextMenuClick"
+                                  IsVisible="{Binding IsDirectory}"
+                                  Header="{x:Static lang:Strings.AddToFavorites}">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="Star" />
                             </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>
@@ -184,35 +202,6 @@
                                   Theme="{StaticResource TransparentButton}">
                         <icons:SymbolIcon FontSize="16" Symbol="Grid" />
                     </ToggleButton>
-
-                    <!-- セパレーター（ディレクトリブラウズ時のみ） -->
-                    <Border Width="1"
-                            Height="16"
-                            Margin="4,0"
-                            IsVisible="{Binding !IsHomeView.Value}"
-                            Background="{DynamicResource CardStrokeColorDefaultBrush}" />
-
-                    <!-- お気に入りトグル（ディレクトリブラウズ時のみ） -->
-                    <Button x:Name="FavoritesButton"
-                            Click="OnToggleFavoriteClick"
-                            IsVisible="{Binding !IsHomeView.Value}"
-                            Padding="6"
-                            ToolTip.Tip="{x:Static lang:Strings.Favorites}"
-                            Theme="{StaticResource TransparentButton}">
-                        <Panel>
-                            <icons:SymbolIcon FontSize="16"
-                                              IsVisible="{Binding !IsFavorite.Value}"
-                                              Symbol="Star" />
-                            <icons:SymbolIcon FontSize="16"
-                                              Foreground="{DynamicResource AccentFillColorDefaultBrush}"
-                                              IsFilled="True"
-                                              IsVisible="{Binding IsFavorite.Value}"
-                                              Symbol="Star" />
-                        </Panel>
-                        <Button.Flyout>
-                            <ui:FAMenuFlyout Placement="BottomEdgeAlignedRight" />
-                        </Button.Flyout>
-                    </Button>
 
                     <!-- 新規フォルダ（ディレクトリブラウズ時のみ） -->
                     <Button Click="OnNewFolderClick"
@@ -483,7 +472,7 @@
                                     DoubleTapped="OnItemDoubleTapped"
                                     ToolTip.Tip="{Binding MediaInfoText}">
                                 <Border.ContextMenu>
-                                    <ContextMenu>
+                                    <ContextMenu Opened="OnContextMenuOpened">
                                         <MenuItem Click="OnOpenClick"
                                                   Header="{x:Static lang:Strings.Open}">
                                             <MenuItem.Icon>
@@ -501,6 +490,15 @@
                                                   Header="{x:Static lang:Strings.Delete}">
                                             <MenuItem.Icon>
                                                 <icons:SymbolIcon Symbol="Delete" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <Separator IsVisible="{Binding IsDirectory}" />
+                                        <MenuItem Tag="FavoriteToggle"
+                                                  Click="OnToggleFavoriteContextMenuClick"
+                                                  IsVisible="{Binding IsDirectory}"
+                                                  Header="{x:Static lang:Strings.AddToFavorites}">
+                                            <MenuItem.Icon>
+                                                <icons:SymbolIcon Symbol="Star" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                     </ContextMenu>
