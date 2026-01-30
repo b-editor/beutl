@@ -22,6 +22,10 @@ public class SelectLibraryItemDialogViewModel
         _format = format;
         _baseType = baseType;
         IReadOnlySet<Type> items = LibraryService.Current.GetTypesFromFormat(_format);
+        if (items.Count == 0)
+        {
+            ShowAll.Value = true;
+        }
 
         string json = Preferences.Default.Get("LibraryService.PinnedItems", "[]");
         _pinnedItems = (JsonSerializer.Deserialize<string[]>(json) ?? [])
@@ -44,13 +48,16 @@ public class SelectLibraryItemDialogViewModel
                 IsBusy.Value = false;
             }
         });
-        ShowAll.Subscribe(_ => ProcessSearchText());
+        ShowAll.Skip(1).Subscribe(_ => ProcessSearchText());
 
         // SearchBoxが並列で変更された場合、最後の一つを処理する
         SearchText
+            .Skip(1)
             .Throttle(TimeSpan.FromMilliseconds(100))
             .ObserveOnUIDispatcher()
             .Subscribe(_ => ProcessSearchText());
+
+        ProcessSearchText();
     }
 
     public ReactiveCollection<PinnableLibraryItem> Items { get; } = [];

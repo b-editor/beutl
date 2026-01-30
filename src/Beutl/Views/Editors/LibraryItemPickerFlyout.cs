@@ -29,6 +29,7 @@ public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel vie
         pfp.Pinned += item => Pinned?.Invoke(this, item);
         pfp.Unpinned += item => Unpinned?.Invoke(this, item);
         pfp.Items = viewModel.Items;
+        pfp.ShowAll = viewModel.ShowAll.Value;
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SelectedItemProperty)
             .Subscribe(v => viewModel.SelectedItem.Value = v);
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowAllProperty)
