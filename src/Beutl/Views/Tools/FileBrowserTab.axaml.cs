@@ -185,7 +185,7 @@ public partial class FileBrowserTab : UserControl
 
     private void OnToggleFavoriteContextMenuClick(object? sender, RoutedEventArgs e)
     {
-        if (GetItemFromMenuItem(sender) is { IsDirectory: true } item && ViewModel != null)
+        if (GetItemFromMenuItem(sender) is { } item && ViewModel != null)
         {
             ViewModel.ToggleFavoriteForPath(item.FullPath);
         }

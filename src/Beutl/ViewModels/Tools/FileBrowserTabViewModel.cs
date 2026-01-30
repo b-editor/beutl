@@ -714,6 +714,10 @@ public sealed class FileBrowserTabViewModel : IToolContext
         {
             RootPath.Value = path;
         }
+        else if (File.Exists(path))
+        {
+            OpenFile(path);
+        }
         else
         {
             // 存在しないお気に入りを自動削除

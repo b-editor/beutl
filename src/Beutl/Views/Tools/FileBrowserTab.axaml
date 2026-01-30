@@ -43,10 +43,9 @@
                                 <icons:SymbolIcon Symbol="Delete" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <Separator IsVisible="{Binding IsDirectory}" />
+                        <Separator />
                         <MenuItem Tag="FavoriteToggle"
                                   Click="OnToggleFavoriteContextMenuClick"
-                                  IsVisible="{Binding IsDirectory}"
                                   Header="{x:Static lang:Strings.AddToFavorites}">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="Star" />
@@ -103,10 +102,9 @@
                                 <icons:SymbolIcon Symbol="Delete" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <Separator IsVisible="{Binding IsDirectory}" />
+                        <Separator />
                         <MenuItem Tag="FavoriteToggle"
                                   Click="OnToggleFavoriteContextMenuClick"
-                                  IsVisible="{Binding IsDirectory}"
                                   Header="{x:Static lang:Strings.AddToFavorites}">
                             <MenuItem.Icon>
                                 <icons:SymbolIcon Symbol="Star" />
@@ -492,10 +490,9 @@
                                                 <icons:SymbolIcon Symbol="Delete" />
                                             </MenuItem.Icon>
                                         </MenuItem>
-                                        <Separator IsVisible="{Binding IsDirectory}" />
+                                        <Separator />
                                         <MenuItem Tag="FavoriteToggle"
                                                   Click="OnToggleFavoriteContextMenuClick"
-                                                  IsVisible="{Binding IsDirectory}"
                                                   Header="{x:Static lang:Strings.AddToFavorites}">
                                             <MenuItem.Icon>
                                                 <icons:SymbolIcon Symbol="Star" />
