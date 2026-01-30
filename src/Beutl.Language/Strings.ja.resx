@@ -2122,4 +2122,19 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Experimental" xml:space="preserve">
     <value>実験的</value>
   </data>
+  <data name="Home" xml:space="preserve">
+    <value>ホーム</value>
+  </data>
+  <data name="ProjectDirectory" xml:space="preserve">
+    <value>プロジェクトディレクトリ</value>
+  </data>
+  <data name="MediaFiles" xml:space="preserve">
+    <value>メディアファイル</value>
+  </data>
+  <data name="SearchingMediaFiles" xml:space="preserve">
+    <value>メディアファイルを検索中...</value>
+  </data>
+  <data name="NoMediaFilesFound" xml:space="preserve">
+    <value>メディアファイルが見つかりません</value>
+  </data>
 </root>

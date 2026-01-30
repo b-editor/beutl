@@ -8,6 +8,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Logging;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
@@ -36,6 +37,15 @@ public sealed class FileBrowserTabViewModel : IToolContext
     private readonly EditViewModel _editViewModel;
     private FileSystemWatcher? _watcher;
     private string _rootPath = string.Empty;
+    private CancellationTokenSource? _mediaSearchCts;
+    private string? _projectDirectory;
+
+    private static readonly HashSet<string> s_mediaExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".tiff", ".tif",
+        ".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm",
+        ".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a"
+    };
 
     public FileBrowserTabViewModel(EditViewModel editViewModel)
     {
@@ -45,25 +55,39 @@ public sealed class FileBrowserTabViewModel : IToolContext
         LoadFavorites();
         Favorites.CollectionChanged += OnFavoritesChanged;
 
-        // シーンファイルの親ディレクトリを初期ルートとする
-        if (editViewModel.Scene.Uri != null)
-        {
-            string? sceneDir = Path.GetDirectoryName(editViewModel.Scene.Uri.LocalPath);
-            if (!string.IsNullOrEmpty(sceneDir))
-            {
-                RootPath.Value = sceneDir;
-            }
-        }
+        // プロジェクトディレクトリの取得
+        _projectDirectory = GetProjectDirectory();
 
         RootPath.Subscribe(path =>
         {
             _rootPath = path;
+            if (!string.IsNullOrEmpty(path))
+            {
+                IsHomeView.Value = false;
+            }
             RefreshItems();
             SetupWatcher(path);
             IsFavorite.Value = Favorites.Contains(path);
         }).AddTo(_disposables);
 
-        ViewMode.Subscribe(_ => RefreshItems()).AddTo(_disposables);
+        IsHomeView.Subscribe(isHome =>
+        {
+            if (isHome)
+            {
+                RefreshHomeView();
+            }
+        }).AddTo(_disposables);
+
+        ViewMode.Subscribe(_ =>
+        {
+            if (!IsHomeView.Value)
+            {
+                RefreshItems();
+            }
+        }).AddTo(_disposables);
+
+        // 初期化: ホームビューで起動（RootPathは設定しない）
+        RefreshHomeView();
     }
 
     public ToolTabExtension Extension => FileBrowserTabExtension.Instance;
@@ -87,6 +111,11 @@ public sealed class FileBrowserTabViewModel : IToolContext
     /// ルートディレクトリパス
     /// </summary>
     public ReactiveProperty<string> RootPath { get; } = new(string.Empty);
+
+    /// <summary>
+    /// ホームビュー表示中かどうか
+    /// </summary>
+    public ReactivePropertySlim<bool> IsHomeView { get; } = new(true);
 
     /// <summary>
     /// ファイル/フォルダの一覧（フラット表示用）
@@ -118,6 +147,47 @@ public sealed class FileBrowserTabViewModel : IToolContext
     /// </summary>
     public ReactiveProperty<bool> IsFavorite { get; } = new(false);
 
+    /// <summary>
+    /// ホームビュー: お気に入りアイテム
+    /// </summary>
+    public ObservableCollection<FileSystemItemViewModel> FavoriteItems { get; } = [];
+
+    /// <summary>
+    /// ホームビュー: プロジェクトディレクトリアイテム
+    /// </summary>
+    public ObservableCollection<FileSystemItemViewModel> ProjectDirectoryItems { get; } = [];
+
+    /// <summary>
+    /// ホームビュー: メディアファイルアイテム
+    /// </summary>
+    public ObservableCollection<FileSystemItemViewModel> MediaFileItems { get; } = [];
+
+    /// <summary>
+    /// メディアファイル検索中かどうか
+    /// </summary>
+    public ReactivePropertySlim<bool> IsLoadingMediaFiles { get; } = new(false);
+
+    /// <summary>
+    /// メディアファイルが見つからなかったか
+    /// </summary>
+    public ReactivePropertySlim<bool> HasNoMediaFiles { get; } = new(false);
+
+    private string? GetProjectDirectory()
+    {
+        var project = ProjectService.Current.CurrentProject.Value;
+        if (project?.Uri != null)
+            return Path.GetDirectoryName(project.Uri.LocalPath);
+
+        // フォールバック: シーンディレクトリの1つ上
+        if (_editViewModel.Scene.Uri != null)
+        {
+            string? sceneDir = Path.GetDirectoryName(_editViewModel.Scene.Uri.LocalPath);
+            if (!string.IsNullOrEmpty(sceneDir))
+                return Path.GetDirectoryName(sceneDir);
+        }
+        return null;
+    }
+
     private void SetupWatcher(string path)
     {
         _watcher?.Dispose();
@@ -147,12 +217,24 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     private void OnFileSystemChanged(object sender, FileSystemEventArgs e)
     {
-        Dispatcher.UIThread.Post(RefreshItems, DispatcherPriority.Background);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (IsHomeView.Value)
+                RefreshHomeView();
+            else
+                RefreshItems();
+        }, DispatcherPriority.Background);
     }
 
     private void OnFileSystemRenamed(object sender, RenamedEventArgs e)
     {
-        Dispatcher.UIThread.Post(RefreshItems, DispatcherPriority.Background);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (IsHomeView.Value)
+                RefreshHomeView();
+            else
+                RefreshItems();
+        }, DispatcherPriority.Background);
     }
 
     private void RefreshItems()
@@ -228,6 +310,11 @@ public sealed class FileBrowserTabViewModel : IToolContext
         {
             RootPath.Value = path;
         }
+    }
+
+    public void NavigateToHome()
+    {
+        IsHomeView.Value = true;
     }
 
     public void OpenItem(FileSystemItemViewModel item)
@@ -396,8 +483,172 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void Refresh()
     {
-        RefreshItems();
+        if (IsHomeView.Value)
+        {
+            RefreshHomeView();
+        }
+        else
+        {
+            RefreshItems();
+        }
     }
+
+    #region HomeView
+
+    private void RefreshHomeView()
+    {
+        _projectDirectory = GetProjectDirectory();
+
+        // お気に入りの更新
+        DisposeAndClear(FavoriteItems);
+        foreach (string path in Favorites)
+        {
+            if (Directory.Exists(path))
+            {
+                FavoriteItems.Add(new FileSystemItemViewModel(path, true));
+            }
+            else if (File.Exists(path))
+            {
+                FavoriteItems.Add(new FileSystemItemViewModel(path, false));
+            }
+        }
+
+        // プロジェクトディレクトリの更新
+        DisposeAndClear(ProjectDirectoryItems);
+        if (!string.IsNullOrEmpty(_projectDirectory) && Directory.Exists(_projectDirectory))
+        {
+            try
+            {
+                var dirInfo = new DirectoryInfo(_projectDirectory);
+
+                foreach (var dir in dirInfo.GetDirectories().OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
+                {
+                    if ((dir.Attributes & FileAttributes.Hidden) == 0)
+                    {
+                        ProjectDirectoryItems.Add(new FileSystemItemViewModel(dir.FullName, true));
+                    }
+                }
+
+                foreach (var file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
+                {
+                    if ((file.Attributes & FileAttributes.Hidden) == 0)
+                    {
+                        ProjectDirectoryItems.Add(new FileSystemItemViewModel(file.FullName, false));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to enumerate project directory {Path}", _projectDirectory);
+            }
+        }
+
+        // メディアファイル検索
+        SearchMediaFilesAsync();
+    }
+
+    private void SearchMediaFilesAsync()
+    {
+        _mediaSearchCts?.Cancel();
+        _mediaSearchCts = new CancellationTokenSource();
+        var token = _mediaSearchCts.Token;
+
+        DisposeAndClear(MediaFileItems);
+        IsLoadingMediaFiles.Value = true;
+        HasNoMediaFiles.Value = false;
+
+        string? searchDir = _projectDirectory;
+        if (string.IsNullOrEmpty(searchDir) || !Directory.Exists(searchDir))
+        {
+            IsLoadingMediaFiles.Value = false;
+            HasNoMediaFiles.Value = true;
+            return;
+        }
+
+        Task.Run(() =>
+        {
+            var results = new List<string>();
+            try
+            {
+                SearchMediaFilesRecursive(searchDir, results, token, maxCount: 200);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            if (token.IsCancellationRequested)
+                return;
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (token.IsCancellationRequested)
+                    return;
+
+                foreach (string filePath in results)
+                {
+                    MediaFileItems.Add(new FileSystemItemViewModel(filePath, false));
+                }
+
+                IsLoadingMediaFiles.Value = false;
+                HasNoMediaFiles.Value = MediaFileItems.Count == 0;
+            });
+        }, token);
+    }
+
+    private static void SearchMediaFilesRecursive(string directory, List<string> results, CancellationToken token, int maxCount)
+    {
+        token.ThrowIfCancellationRequested();
+
+        try
+        {
+            foreach (string file in Directory.GetFiles(directory))
+            {
+                token.ThrowIfCancellationRequested();
+                if (results.Count >= maxCount) return;
+
+                string ext = Path.GetExtension(file);
+                if (s_mediaExtensions.Contains(ext))
+                {
+                    results.Add(file);
+                }
+            }
+
+            foreach (string subDir in Directory.GetDirectories(directory))
+            {
+                token.ThrowIfCancellationRequested();
+                if (results.Count >= maxCount) return;
+
+                try
+                {
+                    var dirInfo = new DirectoryInfo(subDir);
+                    if ((dirInfo.Attributes & FileAttributes.Hidden) == 0)
+                    {
+                        SearchMediaFilesRecursive(subDir, results, token, maxCount);
+                    }
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // skip inaccessible directories
+                }
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // skip inaccessible directories
+        }
+    }
+
+    private static void DisposeAndClear(ObservableCollection<FileSystemItemViewModel> collection)
+    {
+        foreach (var item in collection)
+        {
+            item.Dispose();
+        }
+        collection.Clear();
+    }
+
+    #endregion
 
     #region Favorites
 
@@ -475,6 +726,23 @@ public sealed class FileBrowserTabViewModel : IToolContext
     private void OnFavoritesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         SaveFavorites();
+
+        // ホームビュー表示中ならお気に入りセクションを更新
+        if (IsHomeView.Value)
+        {
+            DisposeAndClear(FavoriteItems);
+            foreach (string path in Favorites)
+            {
+                if (Directory.Exists(path))
+                {
+                    FavoriteItems.Add(new FileSystemItemViewModel(path, true));
+                }
+                else if (File.Exists(path))
+                {
+                    FavoriteItems.Add(new FileSystemItemViewModel(path, false));
+                }
+            }
+        }
     }
 
     #endregion
@@ -483,6 +751,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
     {
         json["RootPath"] = RootPath.Value;
         json["ViewMode"] = (int)ViewMode.Value;
+        json["IsHomeView"] = IsHomeView.Value;
     }
 
     public void ReadFromJson(JsonObject json)
@@ -503,6 +772,14 @@ public sealed class FileBrowserTabViewModel : IToolContext
                 ViewMode.Value = (FileBrowserViewMode)viewModeInt;
             }
         }
+
+        if (json.TryGetPropertyValue("IsHomeView", out var isHomeViewNode) && isHomeViewNode is JsonValue isHomeViewValue)
+        {
+            if (isHomeViewValue.TryGetValue(out bool isHome))
+            {
+                IsHomeView.Value = isHome;
+            }
+        }
     }
 
     public object? GetService(Type serviceType)
@@ -512,21 +789,18 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void Dispose()
     {
+        _mediaSearchCts?.Cancel();
+        _mediaSearchCts?.Dispose();
+
         Favorites.CollectionChanged -= OnFavoritesChanged;
         _watcher?.Dispose();
         _watcher = null;
 
-        foreach (var item in Items)
-        {
-            item.Dispose();
-        }
-        Items.Clear();
-
-        foreach (var item in TreeRootItems)
-        {
-            item.Dispose();
-        }
-        TreeRootItems.Clear();
+        DisposeAndClear(Items);
+        DisposeAndClear(TreeRootItems);
+        DisposeAndClear(FavoriteItems);
+        DisposeAndClear(ProjectDirectoryItems);
+        DisposeAndClear(MediaFileItems);
 
         _disposables.Dispose();
     }

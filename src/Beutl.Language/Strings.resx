@@ -2117,4 +2117,19 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Experimental" xml:space="preserve">
     <value>Experimental</value>
   </data>
+  <data name="Home" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="ProjectDirectory" xml:space="preserve">
+    <value>Project Directory</value>
+  </data>
+  <data name="MediaFiles" xml:space="preserve">
+    <value>Media Files</value>
+  </data>
+  <data name="SearchingMediaFiles" xml:space="preserve">
+    <value>Searching for media files...</value>
+  </data>
+  <data name="NoMediaFilesFound" xml:space="preserve">
+    <value>No media files found</value>
+  </data>
 </root>

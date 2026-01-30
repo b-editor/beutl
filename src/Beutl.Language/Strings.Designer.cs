@@ -4022,5 +4022,35 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Experimental", resourceCulture);
             }
         }
+
+        public static string Home {
+            get {
+                return ResourceManager.GetString("Home", resourceCulture);
+            }
+        }
+
+        public static string ProjectDirectory {
+            get {
+                return ResourceManager.GetString("ProjectDirectory", resourceCulture);
+            }
+        }
+
+        public static string MediaFiles {
+            get {
+                return ResourceManager.GetString("MediaFiles", resourceCulture);
+            }
+        }
+
+        public static string SearchingMediaFiles {
+            get {
+                return ResourceManager.GetString("SearchingMediaFiles", resourceCulture);
+            }
+        }
+
+        public static string NoMediaFilesFound {
+            get {
+                return ResourceManager.GetString("NoMediaFilesFound", resourceCulture);
+            }
+        }
     }
 }

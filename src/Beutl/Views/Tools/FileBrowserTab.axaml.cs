@@ -1,4 +1,7 @@
+using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
@@ -10,9 +13,50 @@ namespace Beutl.Views.Tools;
 
 public partial class FileBrowserTab : UserControl
 {
+    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
+    private CancellationTokenSource? _favoritesTransitionCts;
+    private CancellationTokenSource? _projectDirTransitionCts;
+    private CancellationTokenSource? _mediaFilesTransitionCts;
+
     public FileBrowserTab()
     {
         InitializeComponent();
+
+        favoritesToggle.GetObservable(ToggleButton.IsCheckedProperty)
+            .Subscribe(async v =>
+            {
+                _favoritesTransitionCts?.Cancel();
+                _favoritesTransitionCts = new CancellationTokenSource();
+                var token = _favoritesTransitionCts.Token;
+                if (v == true)
+                    await s_transition.Start(null, favoritesContent, token);
+                else
+                    await s_transition.Start(favoritesContent, null, token);
+            });
+
+        projectDirToggle.GetObservable(ToggleButton.IsCheckedProperty)
+            .Subscribe(async v =>
+            {
+                _projectDirTransitionCts?.Cancel();
+                _projectDirTransitionCts = new CancellationTokenSource();
+                var token = _projectDirTransitionCts.Token;
+                if (v == true)
+                    await s_transition.Start(null, projectDirContent, token);
+                else
+                    await s_transition.Start(projectDirContent, null, token);
+            });
+
+        mediaFilesToggle.GetObservable(ToggleButton.IsCheckedProperty)
+            .Subscribe(async v =>
+            {
+                _mediaFilesTransitionCts?.Cancel();
+                _mediaFilesTransitionCts = new CancellationTokenSource();
+                var token = _mediaFilesTransitionCts.Token;
+                if (v == true)
+                    await s_transition.Start(null, mediaFilesContent, token);
+                else
+                    await s_transition.Start(mediaFilesContent, null, token);
+            });
     }
 
     private FileBrowserTabViewModel? ViewModel => DataContext as FileBrowserTabViewModel;
@@ -22,6 +66,11 @@ public partial class FileBrowserTab : UserControl
     private void OnNavigateUpClick(object? sender, RoutedEventArgs e)
     {
         ViewModel?.NavigateUp();
+    }
+
+    private void OnHomeClick(object? sender, RoutedEventArgs e)
+    {
+        ViewModel?.NavigateToHome();
     }
 
     private void OnViewModeListClick(object? sender, RoutedEventArgs e)

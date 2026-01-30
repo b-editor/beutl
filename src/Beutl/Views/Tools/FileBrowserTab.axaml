@@ -105,6 +105,45 @@
                 </StackPanel>
             </Border>
         </DataTemplate>
+
+        <!-- ホームビュー: リスト表示のItemTemplate -->
+        <DataTemplate x:Key="HomeListItemTemplate" x:DataType="vm:FileSystemItemViewModel">
+            <Border Padding="4,2"
+                    Background="Transparent"
+                    DoubleTapped="OnItemDoubleTapped"
+                    ToolTip.Tip="{Binding FullPath}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <icons:SymbolIcon FontSize="20"
+                                      Symbol="{Binding IconSymbol}" />
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding Name}"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- ホームビュー: メディアファイルのItemTemplate -->
+        <DataTemplate x:Key="HomeMediaItemTemplate" x:DataType="vm:FileSystemItemViewModel">
+            <Border Padding="4,2"
+                    Background="Transparent"
+                    DoubleTapped="OnItemDoubleTapped"
+                    ToolTip.Tip="{Binding FullPath}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <!-- サムネイルまたはアイコン -->
+                    <Panel Width="24" Height="24">
+                        <Image IsVisible="{Binding HasThumbnail}"
+                               Source="{Binding Thumbnail}"
+                               Stretch="Uniform" />
+                        <icons:SymbolIcon FontSize="20"
+                                          IsVisible="{Binding !HasThumbnail}"
+                                          Symbol="{Binding IconSymbol}" />
+                    </Panel>
+                    <TextBlock VerticalAlignment="Center"
+                               Text="{Binding Name}"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid RowDefinitions="Auto,*">
@@ -114,65 +153,81 @@
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="Auto,*,Auto">
-                <!-- 上へボタン -->
+                <!-- 上へボタン（ディレクトリブラウズ時のみ表示） -->
                 <Button Grid.Column="0"
                         Click="OnNavigateUpClick"
+                        IsVisible="{Binding !IsHomeView.Value}"
                         Padding="6"
                         ToolTip.Tip="{x:Static lang:Strings.NavigateUp}"
                         Theme="{StaticResource TransparentButton}">
                     <icons:SymbolIcon FontSize="16" Symbol="ArrowUp" />
                 </Button>
 
-                <!-- パス表示 -->
+                <!-- パス表示（ディレクトリブラウズ時） -->
                 <TextBlock Grid.Column="1"
                            Margin="8,0"
                            VerticalAlignment="Center"
+                           IsVisible="{Binding !IsHomeView.Value}"
                            Text="{Binding RootPath.Value}"
                            TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding RootPath.Value}" />
+
+                <!-- ホームヘッダー（ホームビュー時） -->
+                <TextBlock Grid.Column="1"
+                           Margin="8,0"
+                           VerticalAlignment="Center"
+                           FontWeight="DemiBold"
+                           IsVisible="{Binding IsHomeView.Value}"
+                           Text="{x:Static lang:Strings.Home}" />
 
                 <!-- 表示モード切替とアクションボタン -->
                 <StackPanel Grid.Column="2"
                             Orientation="Horizontal"
                             Spacing="2">
-                    <!-- リスト表示 -->
+                    <!-- リスト表示（ディレクトリブラウズ時のみ） -->
                     <ToggleButton Classes="view-mode-button"
                                   Click="OnViewModeListClick"
                                   IsChecked="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
+                                  IsVisible="{Binding !IsHomeView.Value}"
                                   Padding="6"
                                   ToolTip.Tip="{x:Static lang:Strings.ListView}"
                                   Theme="{StaticResource TransparentButton}">
                         <icons:SymbolIcon FontSize="16" Symbol="TextBulletListLtr" />
                     </ToggleButton>
 
-                    <!-- ツリー表示 -->
+                    <!-- ツリー表示（ディレクトリブラウズ時のみ） -->
                     <ToggleButton Classes="view-mode-button"
                                   Click="OnViewModeTreeClick"
                                   IsChecked="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsTree}}"
+                                  IsVisible="{Binding !IsHomeView.Value}"
                                   Padding="6"
                                   ToolTip.Tip="{x:Static lang:Strings.TreeView}"
                                   Theme="{StaticResource TransparentButton}">
                         <icons:SymbolIcon FontSize="16" Symbol="TextBulletListTree" />
                     </ToggleButton>
 
-                    <!-- アイコン表示 -->
+                    <!-- アイコン表示（ディレクトリブラウズ時のみ） -->
                     <ToggleButton Classes="view-mode-button"
                                   Click="OnViewModeIconClick"
                                   IsChecked="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}"
+                                  IsVisible="{Binding !IsHomeView.Value}"
                                   Padding="6"
                                   ToolTip.Tip="{x:Static lang:Strings.IconView}"
                                   Theme="{StaticResource TransparentButton}">
                         <icons:SymbolIcon FontSize="16" Symbol="Grid" />
                     </ToggleButton>
 
+                    <!-- セパレーター（ディレクトリブラウズ時のみ） -->
                     <Border Width="1"
                             Height="16"
                             Margin="4,0"
+                            IsVisible="{Binding !IsHomeView.Value}"
                             Background="{DynamicResource CardStrokeColorDefaultBrush}" />
 
-                    <!-- お気に入りトグル -->
+                    <!-- お気に入りトグル（ディレクトリブラウズ時のみ） -->
                     <Button x:Name="FavoritesButton"
                             Click="OnToggleFavoriteClick"
+                            IsVisible="{Binding !IsHomeView.Value}"
                             Padding="6"
                             ToolTip.Tip="{x:Static lang:Strings.Favorites}"
                             Theme="{StaticResource TransparentButton}">
@@ -191,8 +246,9 @@
                         </Button.Flyout>
                     </Button>
 
-                    <!-- 新規フォルダ -->
+                    <!-- 新規フォルダ（ディレクトリブラウズ時のみ） -->
                     <Button Click="OnNewFolderClick"
+                            IsVisible="{Binding !IsHomeView.Value}"
                             Padding="6"
                             ToolTip.Tip="{x:Static lang:Strings.NewFolder}"
                             Theme="{StaticResource TransparentButton}">
@@ -206,93 +262,192 @@
                             Theme="{StaticResource TransparentButton}">
                         <icons:SymbolIcon FontSize="16" Symbol="ArrowClockwise" />
                     </Button>
+
+                    <!-- ホームボタン -->
+                    <Button Click="OnHomeClick"
+                            Padding="6"
+                            ToolTip.Tip="{x:Static lang:Strings.Home}"
+                            Theme="{StaticResource TransparentButton}">
+                        <icons:SymbolIcon FontSize="16" Symbol="Home" />
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- コンテンツ領域 -->
         <Panel Grid.Row="1">
-            <!-- アイコン表示 -->
-            <ListBox x:Name="IconListBox"
-                     IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}"
-                     ItemTemplate="{StaticResource FileItemTemplate}"
-                     ItemsSource="{Binding Items}"
-                     SelectionChanged="OnSelectionChanged"
-                     SelectionMode="Multiple">
-                <ListBox.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Margin="4" />
-                    </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-                <ListBox.Styles>
-                    <Style Selector="ListBoxItem">
-                        <Setter Property="Padding" Value="0" />
-                    </Style>
-                </ListBox.Styles>
-            </ListBox>
+            <!-- ホームビュー -->
+            <ScrollViewer IsVisible="{Binding IsHomeView.Value}">
+                <StackPanel Spacing="0">
+                    <!-- お気に入りセクション -->
+                    <Grid RowDefinitions="Auto,Auto">
+                        <ToggleButton x:Name="favoritesToggle"
+                                      Margin="8,4"
+                                      IsChecked="True"
+                                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                            <TextBlock FontWeight="DemiBold" Text="{x:Static lang:Strings.Favorites}" />
+                        </ToggleButton>
+                        <Panel x:Name="favoritesContent" Grid.Row="1">
+                            <ItemsControl ItemTemplate="{StaticResource HomeListItemTemplate}"
+                                          ItemsSource="{Binding FavoriteItems}"
+                                          IsVisible="{Binding FavoriteItems.Count}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                            <TextBlock Margin="24,4"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       IsVisible="{Binding !FavoriteItems.Count}"
+                                       Text="{x:Static lang:Strings.NoFavorites}" />
+                        </Panel>
+                    </Grid>
 
-            <!-- リスト表示 -->
-            <ListBox x:Name="ListViewListBox"
-                     IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
-                     ItemTemplate="{StaticResource ListItemTemplate}"
-                     ItemsSource="{Binding Items}"
-                     SelectionChanged="OnSelectionChanged"
-                     SelectionMode="Multiple">
-                <ListBox.Styles>
-                    <Style Selector="ListBoxItem">
-                        <Setter Property="Padding" Value="4,2" />
-                    </Style>
-                </ListBox.Styles>
-            </ListBox>
+                    <!-- プロジェクトディレクトリセクション -->
+                    <Grid RowDefinitions="Auto,Auto">
+                        <ToggleButton x:Name="projectDirToggle"
+                                      Margin="8,4"
+                                      IsChecked="True"
+                                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                            <TextBlock FontWeight="DemiBold" Text="{x:Static lang:Strings.ProjectDirectory}" />
+                        </ToggleButton>
+                        <Panel x:Name="projectDirContent" Grid.Row="1">
+                            <ItemsControl ItemTemplate="{StaticResource HomeListItemTemplate}"
+                                          ItemsSource="{Binding ProjectDirectoryItems}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </Panel>
+                    </Grid>
 
-            <!-- ツリー表示 -->
-            <TreeView IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsTree}}"
-                      ItemsSource="{Binding TreeRootItems}"
-                      SelectedItem="{Binding SelectedItem.Value}"
-                      SelectionMode="Single">
-                <TreeView.Styles>
-                    <Style Selector="TreeViewItem" x:DataType="vm:FileSystemItemViewModel">
-                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-                    </Style>
-                </TreeView.Styles>
-                <TreeView.ItemTemplate>
-                    <TreeDataTemplate ItemsSource="{Binding Children}">
-                        <Border Background="Transparent"
-                                DoubleTapped="OnItemDoubleTapped"
-                                ToolTip.Tip="{Binding MediaInfoText}">
-                            <Border.ContextMenu>
-                                <ContextMenu>
-                                    <MenuItem Click="OnOpenClick"
-                                              Header="{x:Static lang:Strings.Open}">
-                                        <MenuItem.Icon>
-                                            <icons:SymbolIcon Symbol="Open" />
-                                        </MenuItem.Icon>
-                                    </MenuItem>
-                                    <Separator />
-                                    <MenuItem Click="OnRenameClick"
-                                              Header="{x:Static lang:Strings.Rename}">
-                                        <MenuItem.Icon>
-                                            <icons:SymbolIcon Symbol="Rename" />
-                                        </MenuItem.Icon>
-                                    </MenuItem>
-                                    <MenuItem Click="OnDeleteClick"
-                                              Header="{x:Static lang:Strings.Delete}">
-                                        <MenuItem.Icon>
-                                            <icons:SymbolIcon Symbol="Delete" />
-                                        </MenuItem.Icon>
-                                    </MenuItem>
-                                </ContextMenu>
-                            </Border.ContextMenu>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <icons:SymbolIcon FontSize="16"
-                                                  Symbol="{Binding IconSymbol}" />
+                    <!-- メディアファイルセクション -->
+                    <Grid RowDefinitions="Auto,Auto">
+                        <ToggleButton x:Name="mediaFilesToggle"
+                                      Margin="8,4"
+                                      IsChecked="True"
+                                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                            <TextBlock FontWeight="DemiBold" Text="{x:Static lang:Strings.MediaFiles}" />
+                        </ToggleButton>
+                        <Panel x:Name="mediaFilesContent" Grid.Row="1">
+                            <!-- 検索中のProgressRing -->
+                            <StackPanel HorizontalAlignment="Center"
+                                        IsVisible="{Binding IsLoadingMediaFiles.Value}"
+                                        Orientation="Horizontal"
+                                        Spacing="8"
+                                        Margin="8">
+                                <ui:ProgressRing Width="20" Height="20" IsIndeterminate="True" />
                                 <TextBlock VerticalAlignment="Center"
-                                           Text="{Binding Name}" />
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           Text="{x:Static lang:Strings.SearchingMediaFiles}" />
                             </StackPanel>
-                        </Border>
-                    </TreeDataTemplate>
-                </TreeView.ItemTemplate>
-            </TreeView>
+                            <!-- メディアファイルリスト -->
+                            <ItemsControl ItemTemplate="{StaticResource HomeMediaItemTemplate}"
+                                          ItemsSource="{Binding MediaFileItems}"
+                                          IsVisible="{Binding !IsLoadingMediaFiles.Value}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                            <!-- 空状態テキスト -->
+                            <TextBlock Margin="24,4"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       IsVisible="{Binding HasNoMediaFiles.Value}"
+                                       Text="{x:Static lang:Strings.NoMediaFilesFound}" />
+                        </Panel>
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ディレクトリブラウズビュー -->
+            <Panel IsVisible="{Binding !IsHomeView.Value}">
+                <!-- アイコン表示 -->
+                <ListBox x:Name="IconListBox"
+                         IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}"
+                         ItemTemplate="{StaticResource FileItemTemplate}"
+                         ItemsSource="{Binding Items}"
+                         SelectionChanged="OnSelectionChanged"
+                         SelectionMode="Multiple">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Margin="4" />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="0" />
+                        </Style>
+                    </ListBox.Styles>
+                </ListBox>
+
+                <!-- リスト表示 -->
+                <ListBox x:Name="ListViewListBox"
+                         IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
+                         ItemTemplate="{StaticResource ListItemTemplate}"
+                         ItemsSource="{Binding Items}"
+                         SelectionChanged="OnSelectionChanged"
+                         SelectionMode="Multiple">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="4,2" />
+                        </Style>
+                    </ListBox.Styles>
+                </ListBox>
+
+                <!-- ツリー表示 -->
+                <TreeView IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsTree}}"
+                          ItemsSource="{Binding TreeRootItems}"
+                          SelectedItem="{Binding SelectedItem.Value}"
+                          SelectionMode="Single">
+                    <TreeView.Styles>
+                        <Style Selector="TreeViewItem" x:DataType="vm:FileSystemItemViewModel">
+                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                        </Style>
+                    </TreeView.Styles>
+                    <TreeView.ItemTemplate>
+                        <TreeDataTemplate ItemsSource="{Binding Children}">
+                            <Border Background="Transparent"
+                                    DoubleTapped="OnItemDoubleTapped"
+                                    ToolTip.Tip="{Binding MediaInfoText}">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Click="OnOpenClick"
+                                                  Header="{x:Static lang:Strings.Open}">
+                                            <MenuItem.Icon>
+                                                <icons:SymbolIcon Symbol="Open" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <Separator />
+                                        <MenuItem Click="OnRenameClick"
+                                                  Header="{x:Static lang:Strings.Rename}">
+                                            <MenuItem.Icon>
+                                                <icons:SymbolIcon Symbol="Rename" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Click="OnDeleteClick"
+                                                  Header="{x:Static lang:Strings.Delete}">
+                                            <MenuItem.Icon>
+                                                <icons:SymbolIcon Symbol="Delete" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <icons:SymbolIcon FontSize="16"
+                                                      Symbol="{Binding IconSymbol}" />
+                                    <TextBlock VerticalAlignment="Center"
+                                               Text="{Binding Name}" />
+                                </StackPanel>
+                            </Border>
+                        </TreeDataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+            </Panel>
         </Panel>
     </Grid>
 </UserControl>
