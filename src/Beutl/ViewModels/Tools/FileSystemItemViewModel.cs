@@ -203,6 +203,11 @@ public class FileSystemItemViewModel : IDisposable
         if (IsDirectory && Children != null)
         {
             _childrenLoaded = false;
+            foreach (var child in Children)
+            {
+                child.Dispose();
+            }
+
             Children.Clear();
             if (IsExpanded.Value)
             {
