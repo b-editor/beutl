@@ -308,7 +308,7 @@ public sealed class FileThumbnailService : IDisposable
             int newWidth = (int)(original.Width * scale);
             int newHeight = (int)(original.Height * scale);
 
-            using var resized = original.Resize(new SKImageInfo(newWidth, newHeight), SKFilterQuality.Medium);
+            using var resized = original.Resize(new SKImageInfo(newWidth, newHeight), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
             if (resized == null)
                 return null;
 
@@ -354,7 +354,7 @@ public sealed class FileThumbnailService : IDisposable
                     int newWidth = (int)(skBitmap.Width * scale);
                     int newHeight = (int)(skBitmap.Height * scale);
 
-                    using var resized = skBitmap.Resize(new SKImageInfo(newWidth, newHeight), SKFilterQuality.Medium);
+                    using var resized = skBitmap.Resize(new SKImageInfo(newWidth, newHeight), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
                     if (resized == null)
                         return null;
 
