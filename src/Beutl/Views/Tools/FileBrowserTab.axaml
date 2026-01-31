@@ -150,38 +150,24 @@
                 <StackPanel Grid.Column="2"
                             Orientation="Horizontal"
                             Spacing="2">
-                    <!--  リスト表示（ディレクトリブラウズ時のみ）  -->
-                    <ToggleButton Padding="6"
-                                  Classes="view-mode-button"
-                                  Click="OnViewModeListClick"
-                                  IsChecked="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
-                                  IsVisible="{Binding !IsHomeView.Value}"
-                                  Theme="{StaticResource TransparentButton}"
-                                  ToolTip.Tip="{x:Static lang:Strings.ListView}">
-                        <icons:SymbolIcon FontSize="16" Symbol="TextBulletListLtr" />
-                    </ToggleButton>
-
-                    <!--  ツリー表示（ディレクトリブラウズ時のみ）  -->
-                    <ToggleButton Padding="6"
-                                  Classes="view-mode-button"
-                                  Click="OnViewModeTreeClick"
-                                  IsChecked="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsTree}}"
-                                  IsVisible="{Binding !IsHomeView.Value}"
-                                  Theme="{StaticResource TransparentButton}"
-                                  ToolTip.Tip="{x:Static lang:Strings.TreeView}">
-                        <icons:SymbolIcon FontSize="16" Symbol="TextBulletListTree" />
-                    </ToggleButton>
-
-                    <!--  アイコン表示（ディレクトリブラウズ時のみ）  -->
-                    <ToggleButton Padding="6"
-                                  Classes="view-mode-button"
-                                  Click="OnViewModeIconClick"
-                                  IsChecked="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}"
-                                  IsVisible="{Binding !IsHomeView.Value}"
-                                  Theme="{StaticResource TransparentButton}"
-                                  ToolTip.Tip="{x:Static lang:Strings.IconView}">
-                        <icons:SymbolIcon FontSize="16" Symbol="Grid" />
-                    </ToggleButton>
+                    <!--  表示モード切替（ディレクトリブラウズ時のみ）  -->
+                    <Button Padding="6"
+                            Click="OnCycleViewModeClick"
+                            IsVisible="{Binding !IsHomeView.Value}"
+                            Theme="{StaticResource TransparentButton}"
+                            ToolTip.Tip="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.ToDisplayName}}">
+                        <Panel>
+                            <icons:SymbolIcon FontSize="16"
+                                              IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsList}}"
+                                              Symbol="TextBulletListLtr" />
+                            <icons:SymbolIcon FontSize="16"
+                                              IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsTree}}"
+                                              Symbol="TextBulletListTree" />
+                            <icons:SymbolIcon FontSize="16"
+                                              IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}"
+                                              Symbol="Grid" />
+                        </Panel>
+                    </Button>
 
                     <!--  新規フォルダ（ディレクトリブラウズ時のみ）  -->
                     <Button Padding="6"
@@ -229,10 +215,10 @@
                                               Theme="{StaticResource TransparentButton}">
                                     <Panel>
                                         <icons:SymbolIcon FontSize="14"
-                                                          IsVisible="{Binding !IsFavoritesIconView.Value}"
+                                                          IsVisible="{Binding IsFavoritesIconView.Value}"
                                                           Symbol="Grid" />
                                         <icons:SymbolIcon FontSize="14"
-                                                          IsVisible="{Binding IsFavoritesIconView.Value}"
+                                                          IsVisible="{Binding !IsFavoritesIconView.Value}"
                                                           Symbol="TextBulletListLtr" />
                                     </Panel>
                                 </ToggleButton>
@@ -295,10 +281,10 @@
                                               Theme="{StaticResource TransparentButton}">
                                     <Panel>
                                         <icons:SymbolIcon FontSize="14"
-                                                          IsVisible="{Binding !IsProjectDirIconView.Value}"
+                                                          IsVisible="{Binding IsProjectDirIconView.Value}"
                                                           Symbol="Grid" />
                                         <icons:SymbolIcon FontSize="14"
-                                                          IsVisible="{Binding IsProjectDirIconView.Value}"
+                                                          IsVisible="{Binding !IsProjectDirIconView.Value}"
                                                           Symbol="TextBulletListLtr" />
                                     </Panel>
                                 </ToggleButton>
@@ -356,10 +342,10 @@
                                               Theme="{StaticResource TransparentButton}">
                                     <Panel>
                                         <icons:SymbolIcon FontSize="14"
-                                                          IsVisible="{Binding !IsMediaFilesIconView.Value}"
+                                                          IsVisible="{Binding IsMediaFilesIconView.Value}"
                                                           Symbol="Grid" />
                                         <icons:SymbolIcon FontSize="14"
-                                                          IsVisible="{Binding IsMediaFilesIconView.Value}"
+                                                          IsVisible="{Binding !IsMediaFilesIconView.Value}"
                                                           Symbol="TextBulletListLtr" />
                                     </Panel>
                                 </ToggleButton>

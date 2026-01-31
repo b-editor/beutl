@@ -547,4 +547,13 @@ public static class FileBrowserViewModeConverters
 
     public static FuncValueConverter<FileBrowserViewMode, bool> IsIcon { get; } =
         new(mode => mode == FileBrowserViewMode.Icon);
+
+    public static FuncValueConverter<FileBrowserViewMode, string> ToDisplayName { get; } =
+        new(mode => mode switch
+        {
+            FileBrowserViewMode.List => Strings.ListView,
+            FileBrowserViewMode.Tree => Strings.TreeView,
+            FileBrowserViewMode.Icon => Strings.IconView,
+            _ => string.Empty
+        });
 }

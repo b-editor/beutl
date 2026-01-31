@@ -60,27 +60,17 @@ public partial class FileBrowserTab : UserControl
         ViewModel?.NavigateToHome();
     }
 
-    private void OnViewModeListClick(object? sender, RoutedEventArgs e)
+    private void OnCycleViewModeClick(object? sender, RoutedEventArgs e)
     {
         if (ViewModel != null)
         {
-            ViewModel.ViewMode.Value = FileBrowserViewMode.List;
-        }
-    }
-
-    private void OnViewModeTreeClick(object? sender, RoutedEventArgs e)
-    {
-        if (ViewModel != null)
-        {
-            ViewModel.ViewMode.Value = FileBrowserViewMode.Tree;
-        }
-    }
-
-    private void OnViewModeIconClick(object? sender, RoutedEventArgs e)
-    {
-        if (ViewModel != null)
-        {
-            ViewModel.ViewMode.Value = FileBrowserViewMode.Icon;
+            ViewModel.ViewMode.Value = ViewModel.ViewMode.Value switch
+            {
+                FileBrowserViewMode.List => FileBrowserViewMode.Tree,
+                FileBrowserViewMode.Tree => FileBrowserViewMode.Icon,
+                FileBrowserViewMode.Icon => FileBrowserViewMode.List,
+                _ => FileBrowserViewMode.List
+            };
         }
     }
 
