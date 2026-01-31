@@ -83,12 +83,22 @@ public sealed record MediaFileInfo(
 
 public sealed class FileThumbnailService : IDisposable
 {
+    private const int MaxThumbnailCacheEntries = 1000;
+    private const int MaxMediaInfoCacheEntries = 500;
+    private static readonly TimeSpan s_pruneInterval = TimeSpan.FromSeconds(60);
+
     private static readonly Lazy<FileThumbnailService> s_instance = new(() => new FileThumbnailService());
     private readonly ConcurrentDictionary<string, WeakReference<Bitmap>> _cache = new();
-    private readonly ConcurrentDictionary<string, MediaFileInfo> _mediaInfoCache = new();
+    private readonly ConcurrentDictionary<string, (MediaFileInfo Info, long LastAccessTicks)> _mediaInfoCache = new();
     private readonly SemaphoreSlim _semaphore = new(4); // 同時生成数を制限
     private readonly ILogger _logger = Log.CreateLogger<FileThumbnailService>();
+    private readonly Timer _pruneTimer;
     private bool _disposed;
+
+    private FileThumbnailService()
+    {
+        _pruneTimer = new Timer(_ => PruneCaches(), null, s_pruneInterval, s_pruneInterval);
+    }
 
     public static FileThumbnailService Instance => s_instance.Value;
 
@@ -144,6 +154,7 @@ public sealed class FileThumbnailService : IDisposable
 
             if (thumbnail != null)
             {
+                PruneThumbnailCacheIfNeeded();
                 _cache[filePath] = new WeakReference<Bitmap>(thumbnail);
             }
 
@@ -169,9 +180,11 @@ public sealed class FileThumbnailService : IDisposable
         if (_disposed)
             return null;
 
-        if (_mediaInfoCache.TryGetValue(filePath, out var cached))
+        if (_mediaInfoCache.TryGetValue(filePath, out var entry))
         {
-            return cached;
+            // LRU: 最終アクセス時刻を更新
+            _mediaInfoCache.TryUpdate(filePath, (entry.Info, Environment.TickCount64), entry);
+            return entry.Info;
         }
 
         string extension = Path.GetExtension(filePath).ToLowerInvariant();
@@ -184,9 +197,10 @@ public sealed class FileThumbnailService : IDisposable
         await _semaphore.WaitAsync(cancellationToken);
         try
         {
-            if (_mediaInfoCache.TryGetValue(filePath, out cached))
+            if (_mediaInfoCache.TryGetValue(filePath, out entry))
             {
-                return cached;
+                _mediaInfoCache.TryUpdate(filePath, (entry.Info, Environment.TickCount64), entry);
+                return entry.Info;
             }
 
             var info = await Task.Run(() =>
@@ -241,7 +255,8 @@ public sealed class FileThumbnailService : IDisposable
 
             if (info != null)
             {
-                _mediaInfoCache[filePath] = info;
+                _mediaInfoCache[filePath] = (info, Environment.TickCount64);
+                EvictMediaInfoCacheIfNeeded();
             }
 
             return info;
@@ -361,6 +376,52 @@ public sealed class FileThumbnailService : IDisposable
         }, cancellationToken);
     }
 
+    private void PruneCaches()
+    {
+        if (_disposed)
+            return;
+
+        PruneThumbnailCacheIfNeeded();
+        EvictMediaInfoCacheIfNeeded();
+    }
+
+    private void PruneThumbnailCacheIfNeeded()
+    {
+        // 死んだ WeakReference エントリを除去
+        foreach (var kvp in _cache)
+        {
+            if (!kvp.Value.TryGetTarget(out _))
+            {
+                _cache.TryRemove(kvp.Key, out _);
+            }
+        }
+
+        // プルーニング後もサイズ上限を超えている場合、キャッシュをクリア
+        if (_cache.Count > MaxThumbnailCacheEntries)
+        {
+            _cache.Clear();
+        }
+    }
+
+    private void EvictMediaInfoCacheIfNeeded()
+    {
+        if (_mediaInfoCache.Count <= MaxMediaInfoCacheEntries)
+            return;
+
+        // LRU: 最終アクセスが古いエントリから削除して容量の75%まで減らす
+        int targetCount = MaxMediaInfoCacheEntries * 3 / 4;
+        var entriesToRemove = _mediaInfoCache
+            .OrderBy(kvp => kvp.Value.LastAccessTicks)
+            .Take(_mediaInfoCache.Count - targetCount)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var key in entriesToRemove)
+        {
+            _mediaInfoCache.TryRemove(key, out _);
+        }
+    }
+
     public bool CanGenerateThumbnail(string filePath)
     {
         string extension = Path.GetExtension(filePath).ToLowerInvariant();
@@ -379,6 +440,7 @@ public sealed class FileThumbnailService : IDisposable
             return;
 
         _disposed = true;
+        _pruneTimer.Dispose();
         _cache.Clear();
         _mediaInfoCache.Clear();
         _semaphore.Dispose();
