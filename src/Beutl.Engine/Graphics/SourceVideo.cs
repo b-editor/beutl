@@ -29,65 +29,19 @@ public partial class SourceVideo : Drawable
     [Display(Name = nameof(Strings.IsLoop), ResourceType = typeof(Strings))]
     public IProperty<bool> IsLoop { get; } = Property.CreateAnimatable<bool>();
 
-    // 積分単位: 60サンプル/秒（フレームレート相当）
-    private const int IntegrationRate = 60;
-
     private TimeSpan CalculateVideoTime(TimeSpan timeSpan, Resource resource)
     {
         var anm = Speed.Animation;
         if (anm is not KeyFrameAnimation<float> keyFrameAnimation)
             return timeSpan;
 
-        // キーフレームが無い場合は、グローバルな _speed を使って単純変換する
         if (keyFrameAnimation.KeyFrames.Count == 0)
         {
             return TimeSpan.FromTicks((long)(timeSpan.Ticks * (resource.Speed / 100.0)));
         }
 
-        // キャッシュ初期化・イベント購読
-        resource.EnsureSpeedCache(anm);
-
-        // 開始秒数とキャッシュからの累積値取得
-        int targetSec = (int)timeSpan.TotalSeconds;
-        (int cachedSec, double cachedSum) = resource.TryGetSpeedCache(targetSec);
-
-        // キャッシュから目標秒数まで積分を継続
-        double sum = cachedSum;
-        int startSec = cachedSec < 0 ? 0 : cachedSec;
-
-        // startSecからtargetSecまで、1秒単位で速度を積分
-        for (int sec = startSec; sec < targetSec; sec++)
-        {
-            // 1秒間をIntegrationRateサンプルに分割して積分
-            for (int i = 0; i < IntegrationRate; i++)
-            {
-                double t = sec + (i / (double)IntegrationRate);
-                float speed = keyFrameAnimation.Interpolate(TimeSpan.FromSeconds(t));
-                sum += (speed / 100.0) / IntegrationRate;
-            }
-            resource._speedIntegralCache![sec + 1] = sum;
-        }
-
-        // 目標秒数から目標時刻までの残り積分
-        int targetInSamples = (int)(timeSpan.TotalSeconds * IntegrationRate);
-        int secStartInSamples = targetSec * IntegrationRate;
-
-        for (int i = secStartInSamples; i < targetInSamples; i++)
-        {
-            double t = i / (double)IntegrationRate;
-            float speed = keyFrameAnimation.Interpolate(TimeSpan.FromSeconds(t));
-            sum += (speed / 100.0) / IntegrationRate;
-        }
-
-        // 最後のサンプルから正確な時刻までの補間（端数処理）
-        double fractionalSamples = (timeSpan.TotalSeconds * IntegrationRate) - targetInSamples;
-        if (fractionalSamples > 0)
-        {
-            float speed = keyFrameAnimation.Interpolate(timeSpan);
-            sum += (speed / 100.0) * fractionalSamples / IntegrationRate;
-        }
-
-        return TimeSpan.FromSeconds(sum);
+        resource._speedIntegrator.EnsureCache(anm);
+        return resource._speedIntegrator.Integrate(timeSpan, keyFrameAnimation);
     }
 
     public TimeSpan? CalculateOriginalTime(Resource resource)
@@ -185,68 +139,15 @@ public partial class SourceVideo : Drawable
 
     public partial class Resource
     {
-        // 積分キャッシュ: 秒数 -> 累積ビデオ時間（秒単位）
-        internal Dictionary<int, double>? _speedIntegralCache;
-        private IAnimation<float>? _cachedAnimation;
+        internal readonly SpeedIntegrator _speedIntegrator = new(60);
 
         public TimeSpan RenderedPosition { get; internal set; }
 
         public TimeSpan RequestedPosition { get; internal set; }
 
-        internal void InvalidateSpeedCache()
-        {
-            _speedIntegralCache?.Clear();
-        }
-
-        private void OnAnimationEdited(object? sender, EventArgs e)
-        {
-            InvalidateSpeedCache();
-        }
-
-        internal void EnsureSpeedCache(IAnimation<float>? animation)
-        {
-            _speedIntegralCache ??= new Dictionary<int, double>();
-
-            // アニメーションが変わった場合はキャッシュをクリアしイベントを再登録
-            if (!ReferenceEquals(_cachedAnimation, animation))
-            {
-                _speedIntegralCache.Clear();
-
-                if (_cachedAnimation != null)
-                    _cachedAnimation.Edited -= OnAnimationEdited;
-
-                if (animation != null)
-                    animation.Edited += OnAnimationEdited;
-
-                _cachedAnimation = animation;
-            }
-        }
-
-        internal (int Key, double Value) TryGetSpeedCache(int targetSec)
-        {
-            if (_speedIntegralCache == null) return (-1, 0);
-
-            // キャッシュヒット確認（指定秒数以下で最大のキャッシュを探す）
-            for (int sec = targetSec; sec >= 0; sec--)
-            {
-                if (_speedIntegralCache.TryGetValue(sec, out double result))
-                {
-                    return (sec, result);
-                }
-            }
-
-            return (-1, 0);
-        }
-
         partial void PostDispose(bool disposing)
         {
-            // イベント購読解除（メモリリーク防止）
-            if (_cachedAnimation != null)
-            {
-                _cachedAnimation.Edited -= OnAnimationEdited;
-                _cachedAnimation = null;
-            }
-            _speedIntegralCache = null;
+            _speedIntegrator.Dispose();
         }
 
         partial void PostUpdate(SourceVideo obj, RenderContext context)

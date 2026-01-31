@@ -2132,4 +2132,22 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="NoMediaFilesFound" xml:space="preserve">
     <value>No media files found</value>
   </data>
+  <data name="TimeController" xml:space="preserve">
+    <value>Time Controller</value>
+  </data>
+  <data name="AdjustTimeRange" xml:space="preserve">
+    <value>Adjust Time Range</value>
+  </data>
+  <data name="Loop" xml:space="preserve">
+    <value>Loop</value>
+  </data>
+  <data name="Reverse" xml:space="preserve">
+    <value>Reverse</value>
+  </data>
+  <data name="HoldFirstFrame" xml:space="preserve">
+    <value>Hold First Frame</value>
+  </data>
+  <data name="HoldLastFrame" xml:space="preserve">
+    <value>Hold Last Frame</value>
+  </data>
 </root>
