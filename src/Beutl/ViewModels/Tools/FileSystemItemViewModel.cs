@@ -1,37 +1,29 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using Avalonia.Media.Imaging;
 using Beutl.Services;
+using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 using Symbol = FluentIcons.Common.Symbol;
 
 namespace Beutl.ViewModels.Tools;
 
-/// <summary>
-/// ファイルまたはフォルダを表すViewModel
-/// </summary>
-public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
+// ファイルまたはフォルダを表すViewModel
+public class FileSystemItemViewModel : IDisposable
 {
-    private string _name;
-    private bool _isExpanded;
-    private bool _isRenaming;
-    private bool _isSelected;
-    private Bitmap? _thumbnail;
-    private bool _thumbnailLoaded;
+    private readonly CompositeDisposable _disposables = new();
     private CancellationTokenSource? _thumbnailCts;
     private bool _childrenLoaded;
-    private string? _mediaInfoText;
-    private bool _mediaInfoLoaded;
 
     public FileSystemItemViewModel(string fullPath, bool isDirectory)
     {
         FullPath = fullPath;
         IsDirectory = isDirectory;
-        _name = Path.GetFileName(fullPath);
-        if (string.IsNullOrEmpty(_name))
+        Name = new ReactiveProperty<string>(Path.GetFileName(fullPath));
+        if (string.IsNullOrEmpty(Name.Value))
         {
-            _name = fullPath; // Root directory
+            Name.Value = fullPath; // Root directory
         }
+
         Extension = isDirectory ? string.Empty : Path.GetExtension(fullPath).ToLowerInvariant();
         IconSymbol = GetIconSymbol();
 
@@ -40,9 +32,25 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
             Children = [];
             AddPlaceholderIfNeeded();
         }
-    }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
+        IsExpanded.Subscribe(value =>
+        {
+            if (value && !_childrenLoaded)
+            {
+                LoadChildren();
+            }
+        }).AddTo(_disposables);
+
+        HasThumbnail = Thumbnail.Select(t => t != null)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+
+        if (!IsDirectory)
+        {
+            _ = LoadThumbnailAsync();
+            _ = LoadMediaInfoAsync();
+        }
+    }
 
     public string FullPath { get; }
 
@@ -54,109 +62,16 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
 
     public ObservableCollection<FileSystemItemViewModel>? Children { get; }
 
-    public string Name
-    {
-        get => _name;
-        set
-        {
-            if (_name != value)
-            {
-                _name = value;
-                OnPropertyChanged();
-            }
-        }
-    }
+    public ReactiveProperty<string> Name { get; }
 
-    public bool IsExpanded
-    {
-        get => _isExpanded;
-        set
-        {
-            if (_isExpanded != value)
-            {
-                _isExpanded = value;
-                OnPropertyChanged();
-                if (value && !_childrenLoaded)
-                {
-                    LoadChildren();
-                }
-            }
-        }
-    }
+    public ReactiveProperty<bool> IsExpanded { get; } = new(false);
 
-    public bool IsRenaming
-    {
-        get => _isRenaming;
-        set
-        {
-            if (_isRenaming != value)
-            {
-                _isRenaming = value;
-                OnPropertyChanged();
-            }
-        }
-    }
+    public ReactiveProperty<Bitmap?> Thumbnail { get; } = new((Bitmap?)null);
 
-    public bool IsSelected
-    {
-        get => _isSelected;
-        set
-        {
-            if (_isSelected != value)
-            {
-                _isSelected = value;
-                OnPropertyChanged();
-            }
-        }
-    }
+    public ReadOnlyReactivePropertySlim<bool> HasThumbnail { get; }
 
-    public Bitmap? Thumbnail
-    {
-        get
-        {
-            if (!_thumbnailLoaded && !IsDirectory)
-            {
-                _thumbnailLoaded = true;
-                _ = LoadThumbnailAsync();
-            }
-            return _thumbnail;
-        }
-        set
-        {
-            if (_thumbnail != value)
-            {
-                _thumbnail = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(HasThumbnail));
-            }
-        }
-    }
-
-    public bool HasThumbnail => _thumbnail != null;
-
-    /// <summary>
-    /// メディア情報のツールチップテキスト（遅延ロード）
-    /// </summary>
-    public string? MediaInfoText
-    {
-        get
-        {
-            if (!_mediaInfoLoaded && !IsDirectory)
-            {
-                _mediaInfoLoaded = true;
-                _ = LoadMediaInfoAsync();
-            }
-            return _mediaInfoText;
-        }
-        private set
-        {
-            if (_mediaInfoText != value)
-            {
-                _mediaInfoText = value;
-                OnPropertyChanged();
-            }
-        }
-    }
+    // メディア情報のツールチップテキスト（遅延ロード）
+    public ReactiveProperty<string?> MediaInfoText { get; } = new((string?)null);
 
     private async Task LoadMediaInfoAsync()
     {
@@ -167,12 +82,14 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
             try
             {
                 var fileInfo = new FileInfo(FullPath);
-                MediaInfoText = $"{MediaFileInfo.FormatFileSize(fileInfo.Length)} · {fileInfo.LastWriteTime:yyyy/MM/dd}";
+                MediaInfoText.Value =
+                    $"{MediaFileInfo.FormatFileSize(fileInfo.Length)} · {fileInfo.LastWriteTime:yyyy/MM/dd}";
             }
             catch
             {
                 // ignore
             }
+
             return;
         }
 
@@ -181,7 +98,7 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
             var info = await service.GetMediaInfoAsync(FullPath);
             if (info != null)
             {
-                MediaInfoText = info.ToDisplayString();
+                MediaInfoText.Value = info.ToDisplayString();
             }
         }
         catch
@@ -202,11 +119,15 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
             var bitmap = await service.GetThumbnailAsync(FullPath, _thumbnailCts.Token);
             if (bitmap != null)
             {
-                Thumbnail = bitmap;
+                Thumbnail.Value = bitmap;
             }
         }
-        catch (OperationCanceledException) { }
-        catch { }
+        catch (OperationCanceledException)
+        {
+        }
+        catch
+        {
+        }
     }
 
     private Symbol GetIconSymbol()
@@ -262,24 +183,9 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
 
         try
         {
-            var dirInfo = new DirectoryInfo(FullPath);
-
-            // Directories first
-            foreach (var dir in dirInfo.GetDirectories().OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
+            foreach (var item in FileSystemEnumerator.EnumerateDirectory(FullPath))
             {
-                if ((dir.Attributes & FileAttributes.Hidden) == 0)
-                {
-                    Children.Add(new FileSystemItemViewModel(dir.FullName, true));
-                }
-            }
-
-            // Then files
-            foreach (var file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
-            {
-                if ((file.Attributes & FileAttributes.Hidden) == 0)
-                {
-                    Children.Add(new FileSystemItemViewModel(file.FullName, false));
-                }
+                Children.Add(item);
             }
         }
         catch (UnauthorizedAccessException)
@@ -298,7 +204,7 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
         {
             _childrenLoaded = false;
             Children.Clear();
-            if (_isExpanded)
+            if (IsExpanded.Value)
             {
                 LoadChildren();
             }
@@ -314,8 +220,7 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             var dirInfo = new DirectoryInfo(FullPath);
-            if (dirInfo.EnumerateFileSystemInfos().Any(
-                e => (e.Attributes & FileAttributes.Hidden) == 0))
+            if (dirInfo.EnumerateFileSystemInfos().Any(e => (e.Attributes & FileAttributes.Hidden) == 0))
             {
                 // プレースホルダーを追加して展開矢印を表示させる
                 Children!.Add(new FileSystemItemViewModel(FullPath, false));
@@ -327,18 +232,13 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
     public void Dispose()
     {
         _thumbnailCts?.Cancel();
         _thumbnailCts?.Dispose();
         _thumbnailCts = null;
 
-        _thumbnail = null;
+        Thumbnail.Value = null;
 
         if (Children != null)
         {
@@ -346,7 +246,10 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
             {
                 child.Dispose();
             }
+
             Children.Clear();
         }
+
+        _disposables.Dispose();
     }
 }

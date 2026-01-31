@@ -1,12 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.Diagnostics;
-using System.Reactive.Disposables;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Data.Converters;
-using Avalonia.Threading;
-using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -17,9 +11,6 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Tools;
 
-/// <summary>
-/// ファイルブラウザの表示モード
-/// </summary>
 public enum FileBrowserViewMode
 {
     List,
@@ -27,35 +18,40 @@ public enum FileBrowserViewMode
     Icon
 }
 
-/// <summary>
-/// ファイルブラウザToolTabのViewModel
-/// </summary>
 public sealed class FileBrowserTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly ILogger _logger = Log.CreateLogger<FileBrowserTabViewModel>();
     private readonly EditViewModel _editViewModel;
-    private FileSystemWatcher? _watcher;
+    private readonly DirectoryWatcherService _directoryWatcher = new();
     private string _rootPath = string.Empty;
-    private CancellationTokenSource? _mediaSearchCts;
+    private readonly FavoritesManager _favoritesManager = new();
+    private readonly MediaFileSearcher _mediaSearcher = new();
     private string? _projectDirectory;
 
     internal string? ProjectDirectory => _projectDirectory;
-
-    private static readonly HashSet<string> s_mediaExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".tiff", ".tif",
-        ".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm",
-        ".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a"
-    };
 
     public FileBrowserTabViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
 
-        // お気に入りをPreferencesから読み込み
-        LoadFavorites();
-        Favorites.CollectionChanged += OnFavoritesChanged;
+        // お気に入り変更時にホームビューを更新
+        _favoritesManager.Changed += () =>
+        {
+            if (IsHomeView.Value)
+            {
+                _favoritesManager.RefreshFavoriteItems();
+            }
+        };
+
+        // ディレクトリ変更時にリフレッシュ
+        _directoryWatcher.Changed += () =>
+        {
+            if (IsHomeView.Value)
+                RefreshHomeView();
+            else
+                RefreshItems();
+        };
 
         // プロジェクトディレクトリの取得
         _projectDirectory = GetProjectDirectory();
@@ -68,8 +64,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
                 IsHomeView.Value = false;
             }
             RefreshItems();
-            SetupWatcher(path);
-            IsFavorite.Value = Favorites.Contains(path);
+            _directoryWatcher.Watch(path);
         }).AddTo(_disposables);
 
         IsHomeView.Subscribe(isHome =>
@@ -77,7 +72,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             if (isHome)
             {
                 RefreshHomeView();
-                SetupWatcher(_projectDirectory);
+                _directoryWatcher.Watch(_projectDirectory);
             }
         }).AddTo(_disposables);
 
@@ -91,7 +86,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
         // 初期化: ホームビューで起動（RootPathは設定しない）
         RefreshHomeView();
-        SetupWatcher(_projectDirectory);
+        _directoryWatcher.Watch(_projectDirectory);
     }
 
     public ToolTabExtension Extension => FileBrowserTabExtension.Instance;
@@ -106,75 +101,31 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public string Header => Strings.FileBrowser;
 
-    /// <summary>
-    /// 表示モード（リスト/ツリー/アイコン）
-    /// </summary>
     public ReactiveProperty<FileBrowserViewMode> ViewMode { get; } = new(FileBrowserViewMode.Icon);
 
-    /// <summary>
-    /// ルートディレクトリパス
-    /// </summary>
     public ReactiveProperty<string> RootPath { get; } = new(string.Empty);
 
-    /// <summary>
-    /// ホームビュー表示中かどうか
-    /// </summary>
     public ReactivePropertySlim<bool> IsHomeView { get; } = new(true);
 
-    /// <summary>
-    /// ファイル/フォルダの一覧（フラット表示用）
-    /// </summary>
+    // ファイル/フォルダの一覧（フラット表示用）
     public ObservableCollection<FileSystemItemViewModel> Items { get; } = [];
 
-    /// <summary>
-    /// ツリー表示用のルートアイテム
-    /// </summary>
+    // ツリー表示用のルートアイテム
     public ObservableCollection<FileSystemItemViewModel> TreeRootItems { get; } = [];
 
-    /// <summary>
-    /// 選択中のアイテム（単一選択の後方互換）
-    /// </summary>
-    public ReactiveProperty<FileSystemItemViewModel?> SelectedItem { get; } = new();
-
-    /// <summary>
-    /// 選択中のアイテム（複数選択対応）
-    /// </summary>
     public ObservableCollection<FileSystemItemViewModel> SelectedItems { get; } = [];
 
-    /// <summary>
-    /// お気に入りディレクトリのリスト
-    /// </summary>
-    public ObservableCollection<string> Favorites { get; } = [];
+    public ObservableCollection<string> Favorites => _favoritesManager.Favorites;
 
-    /// <summary>
-    /// 現在のディレクトリがお気に入りに含まれるか
-    /// </summary>
-    public ReactiveProperty<bool> IsFavorite { get; } = new(false);
+    public ObservableCollection<FileSystemItemViewModel> FavoriteItems => _favoritesManager.FavoriteItems;
 
-    /// <summary>
-    /// ホームビュー: お気に入りアイテム
-    /// </summary>
-    public ObservableCollection<FileSystemItemViewModel> FavoriteItems { get; } = [];
-
-    /// <summary>
-    /// ホームビュー: プロジェクトディレクトリアイテム
-    /// </summary>
     public ObservableCollection<FileSystemItemViewModel> ProjectDirectoryItems { get; } = [];
 
-    /// <summary>
-    /// ホームビュー: メディアファイルアイテム
-    /// </summary>
-    public ObservableCollection<FileSystemItemViewModel> MediaFileItems { get; } = [];
+    public ObservableCollection<FileSystemItemViewModel> MediaFileItems => _mediaSearcher.MediaFileItems;
 
-    /// <summary>
-    /// メディアファイル検索中かどうか
-    /// </summary>
-    public ReactivePropertySlim<bool> IsLoadingMediaFiles { get; } = new(false);
+    public ReactivePropertySlim<bool> IsLoadingMediaFiles => _mediaSearcher.IsLoadingMediaFiles;
 
-    /// <summary>
-    /// メディアファイルが見つからなかったか
-    /// </summary>
-    public ReactivePropertySlim<bool> HasNoMediaFiles { get; } = new(false);
+    public ReactivePropertySlim<bool> HasNoMediaFiles => _mediaSearcher.HasNoMediaFiles;
 
     public ReactivePropertySlim<bool> IsFavoritesIconView { get; } = new(false);
 
@@ -198,69 +149,10 @@ public sealed class FileBrowserTabViewModel : IToolContext
         return null;
     }
 
-    private void SetupWatcher(string? path)
-    {
-        _watcher?.Dispose();
-
-        if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
-            return;
-
-        try
-        {
-            _watcher = new FileSystemWatcher(path)
-            {
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite,
-                IncludeSubdirectories = false,
-                EnableRaisingEvents = true
-            };
-
-            _watcher.Created += OnFileSystemChanged;
-            _watcher.Deleted += OnFileSystemChanged;
-            _watcher.Renamed += OnFileSystemRenamed;
-            _watcher.Changed += OnFileSystemChanged;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to create FileSystemWatcher for {Path}", path);
-        }
-    }
-
-    private void OnFileSystemChanged(object sender, FileSystemEventArgs e)
-    {
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (IsHomeView.Value)
-                RefreshHomeView();
-            else
-                RefreshItems();
-        }, DispatcherPriority.Background);
-    }
-
-    private void OnFileSystemRenamed(object sender, RenamedEventArgs e)
-    {
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (IsHomeView.Value)
-                RefreshHomeView();
-            else
-                RefreshItems();
-        }, DispatcherPriority.Background);
-    }
-
     private void RefreshItems()
     {
-        foreach (var item in Items)
-        {
-            item.Dispose();
-        }
-        Items.Clear();
-
-        foreach (var item in TreeRootItems)
-        {
-            item.Dispose();
-        }
-        TreeRootItems.Clear();
-
+        DisposeAndClear(Items);
+        DisposeAndClear(TreeRootItems);
         SelectedItems.Clear();
 
         if (string.IsNullOrEmpty(_rootPath) || !Directory.Exists(_rootPath))
@@ -268,28 +160,13 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
         try
         {
-            var dirInfo = new DirectoryInfo(_rootPath);
-
-            // Directories first
-            foreach (var dir in dirInfo.GetDirectories().OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
+            if (ViewMode.Value == FileBrowserViewMode.Tree)
             {
-                if ((dir.Attributes & FileAttributes.Hidden) == 0)
-                {
-                    var item = new FileSystemItemViewModel(dir.FullName, true);
-                    Items.Add(item);
-                    TreeRootItems.Add(new FileSystemItemViewModel(dir.FullName, true));
-                }
+                FileSystemEnumerator.PopulateCollection(TreeRootItems, _rootPath);
             }
-
-            // Then files
-            foreach (var file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
+            else
             {
-                if ((file.Attributes & FileAttributes.Hidden) == 0)
-                {
-                    var item = new FileSystemItemViewModel(file.FullName, false);
-                    Items.Add(item);
-                    TreeRootItems.Add(new FileSystemItemViewModel(file.FullName, false));
-                }
+                FileSystemEnumerator.PopulateCollection(Items, _rootPath);
             }
         }
         catch (UnauthorizedAccessException ex)
@@ -311,14 +188,6 @@ public sealed class FileBrowserTabViewModel : IToolContext
         if (parent != null)
         {
             RootPath.Value = parent.FullName;
-        }
-    }
-
-    public void NavigateTo(string path)
-    {
-        if (Directory.Exists(path))
-        {
-            RootPath.Value = path;
         }
     }
 
@@ -360,7 +229,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         var dialog = new ContentDialog
         {
             Title = Strings.Delete,
-            Content = string.Format(Message.DoYouWantToDeleteThisFile, item.Name),
+            Content = string.Format(Message.DoYouWantToDeleteThisFile, item.Name.Value),
             PrimaryButtonText = Strings.Yes,
             CloseButtonText = Strings.No,
             DefaultButton = ContentDialogButton.Close
@@ -458,7 +327,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public async Task RenameItemAsync(FileSystemItemViewModel item, string newName)
     {
-        if (string.IsNullOrWhiteSpace(newName) || newName == item.Name)
+        if (string.IsNullOrWhiteSpace(newName) || newName == item.Name.Value)
             return;
 
         string newPath = Path.Combine(Path.GetDirectoryName(item.FullPath)!, newName);
@@ -468,7 +337,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             var dialog = new ContentDialog
             {
                 Title = Strings.Error,
-                Content = string.Format(Message.CannotRenameBecauseConflicts, item.Name, newName),
+                Content = string.Format(Message.CannotRenameBecauseConflicts, item.Name.Value, newName),
                 CloseButtonText = Strings.Close
             };
             await dialog.ShowAsync();
@@ -504,25 +373,12 @@ public sealed class FileBrowserTabViewModel : IToolContext
         }
     }
 
-    #region HomeView
-
     private void RefreshHomeView()
     {
         _projectDirectory = GetProjectDirectory();
 
         // お気に入りの更新
-        DisposeAndClear(FavoriteItems);
-        foreach (string path in Favorites)
-        {
-            if (Directory.Exists(path))
-            {
-                FavoriteItems.Add(new FileSystemItemViewModel(path, true));
-            }
-            else if (File.Exists(path))
-            {
-                FavoriteItems.Add(new FileSystemItemViewModel(path, false));
-            }
-        }
+        _favoritesManager.RefreshFavoriteItems();
 
         // プロジェクトディレクトリの更新
         DisposeAndClear(ProjectDirectoryItems);
@@ -530,23 +386,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         {
             try
             {
-                var dirInfo = new DirectoryInfo(_projectDirectory);
-
-                foreach (var dir in dirInfo.GetDirectories().OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
-                {
-                    if ((dir.Attributes & FileAttributes.Hidden) == 0)
-                    {
-                        ProjectDirectoryItems.Add(new FileSystemItemViewModel(dir.FullName, true));
-                    }
-                }
-
-                foreach (var file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
-                {
-                    if ((file.Attributes & FileAttributes.Hidden) == 0)
-                    {
-                        ProjectDirectoryItems.Add(new FileSystemItemViewModel(file.FullName, false));
-                    }
-                }
+                FileSystemEnumerator.PopulateCollection(ProjectDirectoryItems, _projectDirectory);
             }
             catch (Exception ex)
             {
@@ -555,99 +395,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         }
 
         // メディアファイル検索
-        SearchMediaFilesAsync();
-    }
-
-    private void SearchMediaFilesAsync()
-    {
-        _mediaSearchCts?.Cancel();
-        _mediaSearchCts = new CancellationTokenSource();
-        var token = _mediaSearchCts.Token;
-
-        DisposeAndClear(MediaFileItems);
-        IsLoadingMediaFiles.Value = true;
-        HasNoMediaFiles.Value = false;
-
-        string? searchDir = _projectDirectory;
-        if (string.IsNullOrEmpty(searchDir) || !Directory.Exists(searchDir))
-        {
-            IsLoadingMediaFiles.Value = false;
-            HasNoMediaFiles.Value = true;
-            return;
-        }
-
-        Task.Run(() =>
-        {
-            var results = new List<string>();
-            try
-            {
-                SearchMediaFilesRecursive(searchDir, results, token, maxCount: 200);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-
-            if (token.IsCancellationRequested)
-                return;
-
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (token.IsCancellationRequested)
-                    return;
-
-                foreach (string filePath in results)
-                {
-                    MediaFileItems.Add(new FileSystemItemViewModel(filePath, false));
-                }
-
-                IsLoadingMediaFiles.Value = false;
-                HasNoMediaFiles.Value = MediaFileItems.Count == 0;
-            });
-        }, token);
-    }
-
-    private static void SearchMediaFilesRecursive(string directory, List<string> results, CancellationToken token, int maxCount)
-    {
-        token.ThrowIfCancellationRequested();
-
-        try
-        {
-            foreach (string file in Directory.GetFiles(directory))
-            {
-                token.ThrowIfCancellationRequested();
-                if (results.Count >= maxCount) return;
-
-                string ext = Path.GetExtension(file);
-                if (s_mediaExtensions.Contains(ext))
-                {
-                    results.Add(file);
-                }
-            }
-
-            foreach (string subDir in Directory.GetDirectories(directory))
-            {
-                token.ThrowIfCancellationRequested();
-                if (results.Count >= maxCount) return;
-
-                try
-                {
-                    var dirInfo = new DirectoryInfo(subDir);
-                    if ((dirInfo.Attributes & FileAttributes.Hidden) == 0)
-                    {
-                        SearchMediaFilesRecursive(subDir, results, token, maxCount);
-                    }
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    // skip inaccessible directories
-                }
-            }
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // skip inaccessible directories
-        }
+        _mediaSearcher.SearchAsync(_projectDirectory);
     }
 
     private static void DisposeAndClear(ObservableCollection<FileSystemItemViewModel> collection)
@@ -659,131 +407,54 @@ public sealed class FileBrowserTabViewModel : IToolContext
         collection.Clear();
     }
 
-    #endregion
-
-    #region Favorites
-
-    public void ToggleFavorite()
+    public void ToggleFavorite(string path)
     {
-        if (string.IsNullOrEmpty(_rootPath))
+        _favoritesManager.ToggleFavorite(path);
+    }
+
+    public void AddPathsToFavorites(IEnumerable<string> paths)
+    {
+        foreach (string path in paths)
+        {
+            if (!Favorites.Contains(path))
+            {
+                Favorites.Add(path);
+            }
+        }
+    }
+
+    public void CopyFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
+    {
+        foreach (var (localPath, isDir) in files)
+        {
+            string destPath = Path.Combine(targetDir, Path.GetFileName(localPath));
+
+            if (!isDir)
+            {
+                if (!File.Exists(destPath))
+                {
+                    File.Copy(localPath, destPath);
+                }
+            }
+            else if (Directory.Exists(localPath))
+            {
+                if (!Directory.Exists(destPath))
+                {
+                    FileCopyService.CopyDirectoryRecursive(localPath, destPath);
+                }
+            }
+        }
+    }
+
+    public void CopyFilesToResources(IEnumerable<(string LocalPath, bool IsDirectory)> files)
+    {
+        if (string.IsNullOrEmpty(_projectDirectory))
             return;
 
-        if (Favorites.Contains(_rootPath))
-        {
-            Favorites.Remove(_rootPath);
-            IsFavorite.Value = false;
-        }
-        else
-        {
-            Favorites.Add(_rootPath);
-            IsFavorite.Value = true;
-        }
+        string resourcesDir = Path.Combine(_projectDirectory, "resources");
+        Directory.CreateDirectory(resourcesDir);
+        CopyFilesToDirectory(files, resourcesDir);
     }
-
-    public void ToggleFavoriteForPath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return;
-
-        if (Favorites.Contains(path))
-        {
-            Favorites.Remove(path);
-            if (_rootPath == path)
-            {
-                IsFavorite.Value = false;
-            }
-        }
-        else
-        {
-            Favorites.Add(path);
-            if (_rootPath == path)
-            {
-                IsFavorite.Value = true;
-            }
-        }
-    }
-
-    public void RemoveFavorite(string path)
-    {
-        Favorites.Remove(path);
-        if (_rootPath == path)
-        {
-            IsFavorite.Value = false;
-        }
-    }
-
-    public void NavigateToFavorite(string path)
-    {
-        if (Directory.Exists(path))
-        {
-            RootPath.Value = path;
-        }
-        else if (File.Exists(path))
-        {
-            OpenFile(path);
-        }
-        else
-        {
-            // 存在しないお気に入りを自動削除
-            Favorites.Remove(path);
-        }
-    }
-
-    private void LoadFavorites()
-    {
-        try
-        {
-            string json = Preferences.Default.Get("FileBrowser.Favorites", "[]");
-            var paths = JsonSerializer.Deserialize<string[]>(json);
-            if (paths != null)
-            {
-                foreach (var p in paths)
-                {
-                    Favorites.Add(p);
-                }
-            }
-        }
-        catch
-        {
-            // ignore
-        }
-    }
-
-    private void SaveFavorites()
-    {
-        try
-        {
-            Preferences.Default.Set("FileBrowser.Favorites", JsonSerializer.Serialize(Favorites.ToArray()));
-        }
-        catch
-        {
-            // ignore
-        }
-    }
-
-    private void OnFavoritesChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        SaveFavorites();
-
-        // ホームビュー表示中ならお気に入りセクションを更新
-        if (IsHomeView.Value)
-        {
-            DisposeAndClear(FavoriteItems);
-            foreach (string path in Favorites)
-            {
-                if (Directory.Exists(path))
-                {
-                    FavoriteItems.Add(new FileSystemItemViewModel(path, true));
-                }
-                else if (File.Exists(path))
-                {
-                    FavoriteItems.Add(new FileSystemItemViewModel(path, false));
-                }
-            }
-        }
-    }
-
-    #endregion
 
     public void WriteToJson(JsonObject json)
     {
@@ -854,26 +525,18 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void Dispose()
     {
-        _mediaSearchCts?.Cancel();
-        _mediaSearchCts?.Dispose();
-
-        Favorites.CollectionChanged -= OnFavoritesChanged;
-        _watcher?.Dispose();
-        _watcher = null;
+        _mediaSearcher.Dispose();
+        _favoritesManager.Dispose();
+        _directoryWatcher.Dispose();
 
         DisposeAndClear(Items);
         DisposeAndClear(TreeRootItems);
-        DisposeAndClear(FavoriteItems);
         DisposeAndClear(ProjectDirectoryItems);
-        DisposeAndClear(MediaFileItems);
 
         _disposables.Dispose();
     }
 }
 
-/// <summary>
-/// FileBrowserViewModeのコンバーター
-/// </summary>
 public static class FileBrowserViewModeConverters
 {
     public static FuncValueConverter<FileBrowserViewMode, bool> IsList { get; } =

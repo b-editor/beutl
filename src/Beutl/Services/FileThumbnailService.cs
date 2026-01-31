@@ -1,18 +1,13 @@
 using System.Collections.Concurrent;
-using System.Globalization;
 using Avalonia.Media.Imaging;
 using Beutl.Graphics;
 using Beutl.Logging;
-using Beutl.Media;
 using Beutl.Media.Decoding;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Services;
 
-/// <summary>
-/// メディアファイルのメタデータ情報
-/// </summary>
 public sealed record MediaFileInfo(
     int? Width,
     int? Height,
@@ -86,9 +81,6 @@ public sealed record MediaFileInfo(
     }
 }
 
-/// <summary>
-/// ファイルのサムネイル生成サービス
-/// </summary>
 public sealed class FileThumbnailService : IDisposable
 {
     private static readonly Lazy<FileThumbnailService> s_instance = new(() => new FileThumbnailService());
@@ -117,9 +109,6 @@ public sealed class FileThumbnailService : IDisposable
         ".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a"
     ];
 
-    /// <summary>
-    /// 指定されたファイルのサムネイルを非同期で取得します
-    /// </summary>
     public async Task<Bitmap?> GetThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
     {
         if (_disposed)
@@ -175,9 +164,6 @@ public sealed class FileThumbnailService : IDisposable
         }
     }
 
-    /// <summary>
-    /// 指定されたメディアファイルのメタデータを非同期で取得します
-    /// </summary>
     public async Task<MediaFileInfo?> GetMediaInfoAsync(string filePath, CancellationToken cancellationToken = default)
     {
         if (_disposed)
@@ -275,13 +261,18 @@ public sealed class FileThumbnailService : IDisposable
         }
     }
 
-    /// <summary>
-    /// 指定されたファイルがメディア情報取得可能かどうかを判定します
-    /// </summary>
     public bool CanGetMediaInfo(string filePath)
     {
         string extension = Path.GetExtension(filePath).ToLowerInvariant();
         return s_videoExtensions.Contains(extension) || s_audioExtensions.Contains(extension);
+    }
+
+    public bool IsMediaFile(string filePath)
+    {
+        string extension = Path.GetExtension(filePath).ToLowerInvariant();
+        return s_imageExtensions.Contains(extension)
+            || s_videoExtensions.Contains(extension)
+            || s_audioExtensions.Contains(extension);
     }
 
     private async Task<Bitmap?> GenerateImageThumbnailAsync(string filePath, CancellationToken cancellationToken)
@@ -370,18 +361,12 @@ public sealed class FileThumbnailService : IDisposable
         }, cancellationToken);
     }
 
-    /// <summary>
-    /// 指定されたファイルがサムネイル生成可能かどうかを判定します
-    /// </summary>
     public bool CanGenerateThumbnail(string filePath)
     {
         string extension = Path.GetExtension(filePath).ToLowerInvariant();
         return s_imageExtensions.Contains(extension) || s_videoExtensions.Contains(extension);
     }
 
-    /// <summary>
-    /// キャッシュをクリアします
-    /// </summary>
     public void ClearCache()
     {
         _cache.Clear();

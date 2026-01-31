@@ -1,5 +1,4 @@
-using System.IO;
-
+using System.Collections.ObjectModel;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
@@ -8,23 +7,14 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
-
-using Beutl.Language;
 using Beutl.ViewModels.Tools;
-
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Tools;
 
 public partial class FileBrowserTab : UserControl
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
-    private CancellationTokenSource? _favoritesTransitionCts;
-    private CancellationTokenSource? _projectDirTransitionCts;
-    private CancellationTokenSource? _mediaFilesTransitionCts;
-    private Point? _dragStartPoint;
-    private FileSystemItemViewModel? _dragItem;
-    private bool _isDragStarting;
+    private readonly Dictionary<Control, CancellationTokenSource> _sectionTransitionCts = [];
 
     public FileBrowserTab()
     {
@@ -33,40 +23,28 @@ public partial class FileBrowserTab : UserControl
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
 
-        favoritesToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _favoritesTransitionCts?.Cancel();
-                _favoritesTransitionCts = new CancellationTokenSource();
-                var token = _favoritesTransitionCts.Token;
-                if (v == true)
-                    await s_transition.Start(null, favoritesContent, token);
-                else
-                    await s_transition.Start(favoritesContent, null, token);
-            });
+        SetupSectionToggle(favoritesToggle, favoritesContent);
+        SetupSectionToggle(projectDirToggle, projectDirContent);
+        SetupSectionToggle(mediaFilesToggle, mediaFilesContent);
+    }
 
-        projectDirToggle.GetObservable(ToggleButton.IsCheckedProperty)
+    private void SetupSectionToggle(ToggleButton toggle, Control content)
+    {
+        toggle.GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(async v =>
             {
-                _projectDirTransitionCts?.Cancel();
-                _projectDirTransitionCts = new CancellationTokenSource();
-                var token = _projectDirTransitionCts.Token;
-                if (v == true)
-                    await s_transition.Start(null, projectDirContent, token);
-                else
-                    await s_transition.Start(projectDirContent, null, token);
-            });
+                if (_sectionTransitionCts.TryGetValue(content, out var oldCts))
+                {
+                    oldCts.Cancel();
+                }
 
-        mediaFilesToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _mediaFilesTransitionCts?.Cancel();
-                _mediaFilesTransitionCts = new CancellationTokenSource();
-                var token = _mediaFilesTransitionCts.Token;
+                var cts = new CancellationTokenSource();
+                _sectionTransitionCts[content] = cts;
+                var token = cts.Token;
                 if (v == true)
-                    await s_transition.Start(null, mediaFilesContent, token);
+                    await s_transition.Start(null, content, token);
                 else
-                    await s_transition.Start(mediaFilesContent, null, token);
+                    await s_transition.Start(content, null, token);
             });
     }
 
@@ -127,22 +105,32 @@ public partial class FileBrowserTab : UserControl
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (ViewModel == null || sender is not ListBox listBox)
+        if (ViewModel == null)
             return;
 
-        ViewModel.SelectedItems.Clear();
-        foreach (var selectedItem in listBox.SelectedItems!)
+        // SelectedItemsにsender.Itemsに含まれないものがあれば削除する
+        var items = sender switch
         {
-            if (selectedItem is FileSystemItemViewModel item)
-            {
-                ViewModel.SelectedItems.Add(item);
-            }
-        }
-
-        // 後方互換: 先頭の選択アイテムをSelectedItemに設定
-        ViewModel.SelectedItem.Value = ViewModel.SelectedItems.Count > 0
-            ? ViewModel.SelectedItems[0]
-            : null;
+            ListBox lb => lb.ItemsSource as ObservableCollection<FileSystemItemViewModel>,
+            TreeView tree => tree.ItemsSource as ObservableCollection<FileSystemItemViewModel>,
+            _ => null
+        };
+        // foreach (var item in ViewModel.SelectedItems)
+        // {
+        //     if (items == null || !ContainsRecursive(items, item))
+        //     {
+        //         ViewModel.SelectedItems.Remove(item);
+        //     }
+        // }
+        //
+        // ViewModel.SelectedItems.Clear();
+        // foreach (var selectedItem in selectedItems)
+        // {
+        //     if (selectedItem is FileSystemItemViewModel item)
+        //     {
+        //         ViewModel.SelectedItems.Add(item);
+        //     }
+        // }
     }
 
     private void OnOpenClick(object? sender, RoutedEventArgs e)
@@ -198,7 +186,7 @@ public partial class FileBrowserTab : UserControl
     {
         if (GetItemFromMenuItem(sender) is { } item && ViewModel != null)
         {
-            ViewModel.ToggleFavoriteForPath(item.FullPath);
+            ViewModel.ToggleFavorite(item.FullPath);
         }
     }
 
@@ -213,6 +201,7 @@ public partial class FileBrowserTab : UserControl
                 return item;
             }
         }
+
         return null;
     }
 
@@ -220,7 +209,7 @@ public partial class FileBrowserTab : UserControl
     {
         if (ViewModel == null) return;
 
-        var flyout = new RenameFlyout { Text = item.Name };
+        var flyout = new RenameFlyout { Text = item.Name.Value };
         flyout.Confirmed += async (_, newName) =>
         {
             if (!string.IsNullOrWhiteSpace(newName))
@@ -230,74 +219,9 @@ public partial class FileBrowserTab : UserControl
         };
 
         var target = (Control?)sourceControl?.FindLogicalAncestorOfType<TreeViewItem>()
-            ?? (Control?)sourceControl?.FindLogicalAncestorOfType<ListBoxItem>()
-            ?? this;
+                     ?? (Control?)sourceControl?.FindLogicalAncestorOfType<ListBoxItem>()
+                     ?? this;
         flyout.ShowAt(target);
-    }
-
-    private void OnItemPointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
-            && sender is Control { DataContext: FileSystemItemViewModel item })
-        {
-            _dragStartPoint = e.GetPosition(this);
-            _dragItem = item;
-        }
-    }
-
-    private async void OnItemPointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (_dragStartPoint == null || _dragItem == null || _isDragStarting)
-            return;
-
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-        {
-            _dragStartPoint = null;
-            _dragItem = null;
-            return;
-        }
-
-        Point currentPos = e.GetPosition(this);
-        double dx = currentPos.X - _dragStartPoint.Value.X;
-        double dy = currentPos.Y - _dragStartPoint.Value.Y;
-
-        if (Math.Abs(dx) <= 5 && Math.Abs(dy) <= 5)
-            return;
-
-        if (TopLevel.GetTopLevel(this) is not { StorageProvider: IStorageProvider storageProvider })
-            return;
-
-        _isDragStarting = true;
-        try
-        {
-            var data = new DataTransfer();
-
-            // 選択中アイテムが複数あればすべて含める
-            var items = ViewModel?.SelectedItems is { Count: > 1 } selectedItems
-                && selectedItems.Contains(_dragItem)
-                    ? selectedItems.ToList()
-                    : new List<FileSystemItemViewModel> { _dragItem };
-
-            foreach (FileSystemItemViewModel item in items)
-            {
-                IStorageItem? storageItem = item.IsDirectory
-                    ? await storageProvider.TryGetFolderFromPathAsync(item.FullPath) as IStorageItem
-                    : await storageProvider.TryGetFileFromPathAsync(item.FullPath);
-
-                if (storageItem != null)
-                {
-                    data.Add(DataTransferItem.CreateFile(storageItem));
-                }
-            }
-
-            await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy);
-        }
-        finally
-        {
-            _dragStartPoint = null;
-            _dragItem = null;
-            _isDragStarting = false;
-        }
     }
 
     private void OnDragOver(object? sender, DragEventArgs e)
@@ -338,47 +262,34 @@ public partial class FileBrowserTab : UserControl
         if (ViewModel == null)
             return;
 
+        var files = GetDroppedFiles(e);
+
         // お気に入りセクション上にドロップ → お気に入りに追加
         if (IsDropOverElement(favoritesSection, e))
         {
-            foreach (IStorageItem src in e.DataTransfer.TryGetFiles() ?? [])
-            {
-                string? localPath = src.TryGetLocalPath();
-                if (localPath != null && !ViewModel.Favorites.Contains(localPath))
-                {
-                    ViewModel.Favorites.Add(localPath);
-                }
-            }
-
+            ViewModel.AddPathsToFavorites(files.Select(f => f.LocalPath));
             return;
         }
 
         // メディアファイルセクション上にドロップ → resources フォルダにコピー
         if (IsDropOverElement(mediaFilesSection, e))
         {
-            string? projectDir = ViewModel.ProjectDirectory;
-            if (string.IsNullOrEmpty(projectDir))
-                return;
-
-            string resourcesDir = Path.Combine(projectDir, "resources");
-            Directory.CreateDirectory(resourcesDir);
-            CopyFilesToDirectory(e, resourcesDir);
+            ViewModel.CopyFilesToResources(files.Select(f => (f.LocalPath, f.IsDirectory)));
             return;
         }
 
         // その他（プロジェクトディレクトリセクション等）
-        // カーソル下にフォルダアイテムがあればそのフォルダにコピー、なければプロジェクトディレクトリにコピー
         FileSystemItemViewModel? folderItem = FindFolderItemUnderCursor(e);
         if (folderItem != null && Directory.Exists(folderItem.FullPath))
         {
-            CopyFilesToDirectory(e, folderItem.FullPath);
+            ViewModel.CopyFilesToDirectory(files.Select(f => (f.LocalPath, f.IsDirectory)), folderItem.FullPath);
             return;
         }
 
         string? targetDir = ViewModel.ProjectDirectory;
         if (!string.IsNullOrEmpty(targetDir) && Directory.Exists(targetDir))
         {
-            CopyFilesToDirectory(e, targetDir);
+            ViewModel.CopyFilesToDirectory(files.Select(f => (f.LocalPath, f.IsDirectory)), targetDir);
         }
     }
 
@@ -387,39 +298,19 @@ public partial class FileBrowserTab : UserControl
         if (ViewModel == null)
             return;
 
-        // カーソル下にフォルダアイテムがあれば、そのフォルダにコピー
+        var files = GetDroppedFiles(e);
+
         FileSystemItemViewModel? folderItem = FindFolderItemUnderCursor(e);
         if (folderItem != null && Directory.Exists(folderItem.FullPath))
         {
-            CopyFilesToDirectory(e, folderItem.FullPath);
+            ViewModel.CopyFilesToDirectory(files.Select(f => (f.LocalPath, f.IsDirectory)), folderItem.FullPath);
             return;
         }
 
-        // フォルダなし → 現在のディレクトリにコピー
         string? rootPath = ViewModel.RootPath.Value;
         if (!string.IsNullOrEmpty(rootPath) && Directory.Exists(rootPath))
         {
-            CopyFilesToDirectory(e, rootPath);
-        }
-    }
-
-    private static void CopyDirectoryRecursive(string sourceDir, string destDir)
-    {
-        Directory.CreateDirectory(destDir);
-
-        foreach (string file in Directory.GetFiles(sourceDir))
-        {
-            string destFile = Path.Combine(destDir, Path.GetFileName(file));
-            if (!File.Exists(destFile))
-            {
-                File.Copy(file, destFile);
-            }
-        }
-
-        foreach (string dir in Directory.GetDirectories(sourceDir))
-        {
-            string destSubDir = Path.Combine(destDir, Path.GetFileName(dir));
-            CopyDirectoryRecursive(dir, destSubDir);
+            ViewModel.CopyFilesToDirectory(files.Select(f => (f.LocalPath, f.IsDirectory)), rootPath);
         }
     }
 
@@ -449,30 +340,18 @@ public partial class FileBrowserTab : UserControl
         return null;
     }
 
-    private static void CopyFilesToDirectory(DragEventArgs e, string targetDir)
+    private static List<(string LocalPath, bool IsDirectory)> GetDroppedFiles(DragEventArgs e)
     {
+        var result = new List<(string, bool)>();
         foreach (IStorageItem src in e.DataTransfer.TryGetFiles() ?? [])
         {
             string? localPath = src.TryGetLocalPath();
-            if (localPath == null)
-                continue;
-
-            string destPath = Path.Combine(targetDir, Path.GetFileName(localPath));
-
-            if (src is IStorageFile)
+            if (localPath != null)
             {
-                if (!File.Exists(destPath))
-                {
-                    File.Copy(localPath, destPath);
-                }
-            }
-            else if (src is IStorageFolder && Directory.Exists(localPath))
-            {
-                if (!Directory.Exists(destPath))
-                {
-                    CopyDirectoryRecursive(localPath, destPath);
-                }
+                result.Add((localPath, src is IStorageFolder));
             }
         }
+
+        return result;
     }
 }
