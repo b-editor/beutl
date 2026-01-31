@@ -1131,6 +1131,72 @@ namespace Beutl.Language {
             }
         }
         
+        public static string FileBrowser {
+            get {
+                return ResourceManager.GetString("FileBrowser", resourceCulture);
+            }
+        }
+        
+        public static string ListView {
+            get {
+                return ResourceManager.GetString("ListView", resourceCulture);
+            }
+        }
+        
+        public static string TreeView {
+            get {
+                return ResourceManager.GetString("TreeView", resourceCulture);
+            }
+        }
+        
+        public static string IconView {
+            get {
+                return ResourceManager.GetString("IconView", resourceCulture);
+            }
+        }
+        
+        public static string Refresh {
+            get {
+                return ResourceManager.GetString("Refresh", resourceCulture);
+            }
+        }
+        
+        public static string OpenFolder {
+            get {
+                return ResourceManager.GetString("OpenFolder", resourceCulture);
+            }
+        }
+
+        public static string Favorites {
+            get {
+                return ResourceManager.GetString("Favorites", resourceCulture);
+            }
+        }
+
+        public static string AddToFavorites {
+            get {
+                return ResourceManager.GetString("AddToFavorites", resourceCulture);
+            }
+        }
+
+        public static string RemoveFromFavorites {
+            get {
+                return ResourceManager.GetString("RemoveFromFavorites", resourceCulture);
+            }
+        }
+
+        public static string NoFavorites {
+            get {
+                return ResourceManager.GetString("NoFavorites", resourceCulture);
+            }
+        }
+
+        public static string DeleteSelectedItems {
+            get {
+                return ResourceManager.GetString("DeleteSelectedItems", resourceCulture);
+            }
+        }
+
         public static string Clipping {
             get {
                 return ResourceManager.GetString("Clipping", resourceCulture);
@@ -3954,6 +4020,36 @@ namespace Beutl.Language {
         public static string Experimental {
             get {
                 return ResourceManager.GetString("Experimental", resourceCulture);
+            }
+        }
+
+        public static string Home {
+            get {
+                return ResourceManager.GetString("Home", resourceCulture);
+            }
+        }
+
+        public static string ProjectDirectory {
+            get {
+                return ResourceManager.GetString("ProjectDirectory", resourceCulture);
+            }
+        }
+
+        public static string MediaFiles {
+            get {
+                return ResourceManager.GetString("MediaFiles", resourceCulture);
+            }
+        }
+
+        public static string SearchingMediaFiles {
+            get {
+                return ResourceManager.GetString("SearchingMediaFiles", resourceCulture);
+            }
+        }
+
+        public static string NoMediaFilesFound {
+            get {
+                return ResourceManager.GetString("NoMediaFilesFound", resourceCulture);
             }
         }
     }

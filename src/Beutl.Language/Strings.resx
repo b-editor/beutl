@@ -660,6 +660,39 @@
   <data name="Library" xml:space="preserve">
     <value>Library</value>
   </data>
+  <data name="FileBrowser" xml:space="preserve">
+    <value>File Browser</value>
+  </data>
+  <data name="ListView" xml:space="preserve">
+    <value>List View</value>
+  </data>
+  <data name="TreeView" xml:space="preserve">
+    <value>Tree View</value>
+  </data>
+  <data name="IconView" xml:space="preserve">
+    <value>Icon View</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="OpenFolder" xml:space="preserve">
+    <value>Open Folder</value>
+  </data>
+  <data name="Favorites" xml:space="preserve">
+    <value>Favorites</value>
+  </data>
+  <data name="AddToFavorites" xml:space="preserve">
+    <value>Add to Favorites</value>
+  </data>
+  <data name="RemoveFromFavorites" xml:space="preserve">
+    <value>Remove from Favorites</value>
+  </data>
+  <data name="NoFavorites" xml:space="preserve">
+    <value>No favorites</value>
+  </data>
+  <data name="DeleteSelectedItems" xml:space="preserve">
+    <value>Delete {0} items?</value>
+  </data>
   <data name="Clipping" xml:space="preserve">
     <value>Clipping</value>
   </data>
@@ -2083,5 +2116,20 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="Experimental" xml:space="preserve">
     <value>Experimental</value>
+  </data>
+  <data name="Home" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="ProjectDirectory" xml:space="preserve">
+    <value>Project Directory</value>
+  </data>
+  <data name="MediaFiles" xml:space="preserve">
+    <value>Media Files</value>
+  </data>
+  <data name="SearchingMediaFiles" xml:space="preserve">
+    <value>Searching for media files...</value>
+  </data>
+  <data name="NoMediaFilesFound" xml:space="preserve">
+    <value>No media files found</value>
   </data>
 </root>

@@ -31,7 +31,8 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ColorScopesTabExtension.Instance,
         ColorGradingTabExtension.Instance,
         CurvesTabExtension.Instance,
-        ColorGradingPropertiesExtension.Instance
+        ColorGradingPropertiesExtension.Instance,
+        FileBrowserTabExtension.Instance,
     ];
 
     public LoadPrimitiveExtensionTask(PackageManager manager)
