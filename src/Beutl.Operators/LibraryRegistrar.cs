@@ -121,6 +121,12 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
+            .AddMultiple(Strings.TimeController, m => m
+                .BindSourceOperator<Source.DrawableTimeControllerOperator>()
+                .BindDrawable<DrawableTimeController>()
+            );
+
+        LibraryService.Current
             .RegisterGroup(Strings.Transform, g => g
                 .AddMultiple(Strings.Translate, m => m
                         .BindTransform<TranslateTransform>()
