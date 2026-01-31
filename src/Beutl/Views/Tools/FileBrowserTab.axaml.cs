@@ -302,13 +302,19 @@ public partial class FileBrowserTab : UserControl
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(DataFormat.File))
+        if (!e.DataTransfer.Contains(DataFormat.File))
         {
-            e.DragEffects = DragDropEffects.Copy;
+            e.DragEffects = DragDropEffects.None;
+            return;
+        }
+
+        if (ViewModel?.IsHomeView.Value == true && IsDropOverElement(favoritesSection, e))
+        {
+            e.DragEffects = DragDropEffects.Link;
         }
         else
         {
-            e.DragEffects = DragDropEffects.None;
+            e.DragEffects = DragDropEffects.Copy;
         }
     }
 
@@ -317,15 +323,134 @@ public partial class FileBrowserTab : UserControl
         if (!e.DataTransfer.Contains(DataFormat.File) || ViewModel == null)
             return;
 
-        e.DragEffects = DragDropEffects.Copy;
+        if (ViewModel.IsHomeView.Value)
+        {
+            HandleHomeViewDrop(e);
+        }
+        else
+        {
+            HandleBrowseViewDrop(e);
+        }
+    }
 
-        string? targetDir = ViewModel.IsHomeView.Value
-            ? ViewModel.ProjectDirectory
-            : ViewModel.RootPath.Value;
-
-        if (string.IsNullOrEmpty(targetDir) || !Directory.Exists(targetDir))
+    private void HandleHomeViewDrop(DragEventArgs e)
+    {
+        if (ViewModel == null)
             return;
 
+        // お気に入りセクション上にドロップ → お気に入りに追加
+        if (IsDropOverElement(favoritesSection, e))
+        {
+            foreach (IStorageItem src in e.DataTransfer.TryGetFiles() ?? [])
+            {
+                string? localPath = src.TryGetLocalPath();
+                if (localPath != null && !ViewModel.Favorites.Contains(localPath))
+                {
+                    ViewModel.Favorites.Add(localPath);
+                }
+            }
+
+            return;
+        }
+
+        // メディアファイルセクション上にドロップ → resources フォルダにコピー
+        if (IsDropOverElement(mediaFilesSection, e))
+        {
+            string? projectDir = ViewModel.ProjectDirectory;
+            if (string.IsNullOrEmpty(projectDir))
+                return;
+
+            string resourcesDir = Path.Combine(projectDir, "resources");
+            Directory.CreateDirectory(resourcesDir);
+            CopyFilesToDirectory(e, resourcesDir);
+            return;
+        }
+
+        // その他（プロジェクトディレクトリセクション等）
+        // カーソル下にフォルダアイテムがあればそのフォルダにコピー、なければプロジェクトディレクトリにコピー
+        FileSystemItemViewModel? folderItem = FindFolderItemUnderCursor(e);
+        if (folderItem != null && Directory.Exists(folderItem.FullPath))
+        {
+            CopyFilesToDirectory(e, folderItem.FullPath);
+            return;
+        }
+
+        string? targetDir = ViewModel.ProjectDirectory;
+        if (!string.IsNullOrEmpty(targetDir) && Directory.Exists(targetDir))
+        {
+            CopyFilesToDirectory(e, targetDir);
+        }
+    }
+
+    private void HandleBrowseViewDrop(DragEventArgs e)
+    {
+        if (ViewModel == null)
+            return;
+
+        // カーソル下にフォルダアイテムがあれば、そのフォルダにコピー
+        FileSystemItemViewModel? folderItem = FindFolderItemUnderCursor(e);
+        if (folderItem != null && Directory.Exists(folderItem.FullPath))
+        {
+            CopyFilesToDirectory(e, folderItem.FullPath);
+            return;
+        }
+
+        // フォルダなし → 現在のディレクトリにコピー
+        string? rootPath = ViewModel.RootPath.Value;
+        if (!string.IsNullOrEmpty(rootPath) && Directory.Exists(rootPath))
+        {
+            CopyFilesToDirectory(e, rootPath);
+        }
+    }
+
+    private static void CopyDirectoryRecursive(string sourceDir, string destDir)
+    {
+        Directory.CreateDirectory(destDir);
+
+        foreach (string file in Directory.GetFiles(sourceDir))
+        {
+            string destFile = Path.Combine(destDir, Path.GetFileName(file));
+            if (!File.Exists(destFile))
+            {
+                File.Copy(file, destFile);
+            }
+        }
+
+        foreach (string dir in Directory.GetDirectories(sourceDir))
+        {
+            string destSubDir = Path.Combine(destDir, Path.GetFileName(dir));
+            CopyDirectoryRecursive(dir, destSubDir);
+        }
+    }
+
+    private static bool IsDropOverElement(Control element, DragEventArgs e)
+    {
+        if (!element.IsEffectivelyVisible)
+            return false;
+
+        var pos = e.GetPosition(element);
+        return new Rect(element.Bounds.Size).Contains(pos);
+    }
+
+    private static FileSystemItemViewModel? FindFolderItemUnderCursor(DragEventArgs e)
+    {
+        var source = e.Source as Control;
+        while (source != null)
+        {
+            if (source is ListBoxItem or TreeViewItem)
+            {
+                if (source.DataContext is FileSystemItemViewModel { IsDirectory: true } folderVm)
+                    return folderVm;
+            }
+
+            source = source.Parent as Control;
+        }
+
+        return null;
+    }
+
+    private static void CopyFilesToDirectory(DragEventArgs e, string targetDir)
+    {
         foreach (IStorageItem src in e.DataTransfer.TryGetFiles() ?? [])
         {
             string? localPath = src.TryGetLocalPath();
@@ -348,26 +473,6 @@ public partial class FileBrowserTab : UserControl
                     CopyDirectoryRecursive(localPath, destPath);
                 }
             }
-        }
-    }
-
-    private static void CopyDirectoryRecursive(string sourceDir, string destDir)
-    {
-        Directory.CreateDirectory(destDir);
-
-        foreach (string file in Directory.GetFiles(sourceDir))
-        {
-            string destFile = Path.Combine(destDir, Path.GetFileName(file));
-            if (!File.Exists(destFile))
-            {
-                File.Copy(file, destFile);
-            }
-        }
-
-        foreach (string dir in Directory.GetDirectories(sourceDir))
-        {
-            string destSubDir = Path.Combine(destDir, Path.GetFileName(dir));
-            CopyDirectoryRecursive(dir, destSubDir);
         }
     }
 }

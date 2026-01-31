@@ -240,7 +240,7 @@
             <ScrollViewer IsVisible="{Binding IsHomeView.Value}">
                 <StackPanel Spacing="0">
                     <!-- お気に入りセクション -->
-                    <Grid RowDefinitions="Auto,Auto">
+                    <Grid x:Name="favoritesSection" RowDefinitions="Auto,Auto">
                         <ToggleButton x:Name="favoritesToggle"
                                       Margin="8,4"
                                       IsChecked="True"
@@ -351,7 +351,7 @@
                     </Grid>
 
                     <!-- メディアファイルセクション -->
-                    <Grid RowDefinitions="Auto,Auto">
+                    <Grid x:Name="mediaFilesSection" RowDefinitions="Auto,Auto">
                         <ToggleButton x:Name="mediaFilesToggle"
                                       Margin="8,4"
                                       IsChecked="True"
