@@ -77,6 +77,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             if (isHome)
             {
                 RefreshHomeView();
+                SetupWatcher(_projectDirectory);
             }
         }).AddTo(_disposables);
 
@@ -90,6 +91,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
         // 初期化: ホームビューで起動（RootPathは設定しない）
         RefreshHomeView();
+        SetupWatcher(_projectDirectory);
     }
 
     public ToolTabExtension Extension => FileBrowserTabExtension.Instance;
@@ -196,7 +198,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         return null;
     }
 
-    private void SetupWatcher(string path)
+    private void SetupWatcher(string? path)
     {
         _watcher?.Dispose();
 
