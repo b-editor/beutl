@@ -130,7 +130,7 @@
                                            Text="{x:Static lang:Strings.SetEndTime}" />
                         <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsPage.AutoAdjustSceneDuration}" />
                         <ui:MenuFlyoutSeparator />
-                        <ui:MenuFlyoutItem Click="AddElementClick" Text="{x:Static lang:Strings.AddElement}" />
+                        <ui:MenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
                         <ui:MenuFlyoutItem Command="{CompiledBinding Paste}"
                                            InputGesture="{h:GetCommandGestureExtension Paste}"
                                            Text="{x:Static lang:Strings.Paste}">
