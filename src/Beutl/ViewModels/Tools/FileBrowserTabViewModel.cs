@@ -40,6 +40,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
     private CancellationTokenSource? _mediaSearchCts;
     private string? _projectDirectory;
 
+    internal string? ProjectDirectory => _projectDirectory;
+
     private static readonly HashSet<string> s_mediaExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".tiff", ".tif",
