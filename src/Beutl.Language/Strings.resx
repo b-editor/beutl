@@ -675,8 +675,8 @@
   <data name="Refresh" xml:space="preserve">
     <value>Refresh</value>
   </data>
-  <data name="NavigateUp" xml:space="preserve">
-    <value>Up</value>
+  <data name="OpenFolder" xml:space="preserve">
+    <value>Open Folder</value>
   </data>
   <data name="Favorites" xml:space="preserve">
     <value>Favorites</value>

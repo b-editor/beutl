@@ -62,9 +62,11 @@
                 <Interaction.Behaviors>
                     <local:FileItemDragBehavior />
                 </Interaction.Behaviors>
-                <StackPanel Spacing="4">
+                <Grid RowDefinitions="Auto,*">
                     <!--  サムネイルまたはアイコン  -->
-                    <Panel Width="64" Height="64">
+                    <Panel Width="64"
+                           Height="64"
+                           VerticalAlignment="Top">
                         <Image IsVisible="{Binding HasThumbnail.Value}"
                                Source="{Binding Thumbnail.Value}"
                                Stretch="Uniform" />
@@ -73,14 +75,16 @@
                                           Symbol="{Binding IconSymbol}" />
                     </Panel>
                     <!--  ファイル名  -->
-                    <TextBlock MaxWidth="80"
+                    <TextBlock Grid.Row="1"
+                               MaxWidth="80"
                                HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
                                MaxLines="2"
                                Text="{Binding Name.Value}"
                                TextAlignment="Center"
                                TextTrimming="CharacterEllipsis"
                                TextWrapping="Wrap" />
-                </StackPanel>
+                </Grid>
             </Border>
         </DataTemplate>
 
@@ -122,11 +126,11 @@
                 <!--  上へボタン（ディレクトリブラウズ時のみ表示）  -->
                 <Button Grid.Column="0"
                         Padding="6"
-                        Click="OnNavigateUpClick"
+                        Click="OnOpenFolderClick"
                         IsVisible="{Binding !IsHomeView.Value}"
                         Theme="{StaticResource TransparentButton}"
-                        ToolTip.Tip="{x:Static lang:Strings.NavigateUp}">
-                    <icons:SymbolIcon FontSize="16" Symbol="ArrowUp" />
+                        ToolTip.Tip="{x:Static lang:Strings.OpenFolder}">
+                    <icons:SymbolIcon FontSize="16" Symbol="OpenFolder" />
                 </Button>
 
                 <!--  パス表示（ディレクトリブラウズ時）  -->
@@ -268,6 +272,7 @@
                                 <ListBox.Styles>
                                     <Style Selector="ListBoxItem">
                                         <Setter Property="Padding" Value="0" />
+                                        <Setter Property="VerticalContentAlignment" Value="Stretch" />
                                     </Style>
                                 </ListBox.Styles>
                             </ListBox>
@@ -334,6 +339,7 @@
                                 <ListBox.Styles>
                                     <Style Selector="ListBoxItem">
                                         <Setter Property="Padding" Value="0" />
+                                        <Setter Property="VerticalContentAlignment" Value="Stretch" />
                                     </Style>
                                 </ListBox.Styles>
                             </ListBox>
@@ -410,6 +416,7 @@
                                     <ListBox.Styles>
                                         <Style Selector="ListBoxItem">
                                             <Setter Property="Padding" Value="0" />
+                                            <Setter Property="VerticalContentAlignment" Value="Stretch" />
                                         </Style>
                                     </ListBox.Styles>
                                 </ListBox>
@@ -444,6 +451,7 @@
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
                             <Setter Property="Padding" Value="0" />
+                            <Setter Property="VerticalContentAlignment" Value="Stretch" />
                         </Style>
                     </ListBox.Styles>
                 </ListBox>
@@ -488,7 +496,14 @@
                                     <local:FileItemDragBehavior />
                                 </Interaction.Behaviors>
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <icons:SymbolIcon FontSize="16" Symbol="{Binding IconSymbol}" />
+                                    <Panel Width="24" Height="24">
+                                        <Image IsVisible="{Binding HasThumbnail.Value}"
+                                               Source="{Binding Thumbnail.Value}"
+                                               Stretch="Uniform" />
+                                        <icons:SymbolIcon FontSize="20"
+                                                          IsVisible="{Binding !HasThumbnail.Value}"
+                                                          Symbol="{Binding IconSymbol}" />
+                                    </Panel>
                                     <TextBlock VerticalAlignment="Center" Text="{Binding Name.Value}" />
                                 </StackPanel>
                             </Border>

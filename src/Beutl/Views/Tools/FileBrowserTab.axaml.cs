@@ -51,9 +51,17 @@ public partial class FileBrowserTab : UserControl
 
     private FileBrowserTabViewModel? ViewModel => DataContext as FileBrowserTabViewModel;
 
-    private void OnNavigateUpClick(object? sender, RoutedEventArgs e)
+    private async void OnOpenFolderClick(object? sender, RoutedEventArgs e)
     {
-        ViewModel?.NavigateUp();
+        if (ViewModel == null) return;
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel == null) return;
+
+        var result = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions());
+        if (result.Count > 0 && result[0].TryGetLocalPath() is string localPath)
+        {
+            ViewModel.RootPath.Value = localPath;
+        }
     }
 
     private void OnHomeClick(object? sender, RoutedEventArgs e)

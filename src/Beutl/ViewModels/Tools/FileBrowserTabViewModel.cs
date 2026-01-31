@@ -182,18 +182,6 @@ public sealed class FileBrowserTabViewModel : IToolContext
         }
     }
 
-    public void NavigateUp()
-    {
-        if (string.IsNullOrEmpty(_rootPath))
-            return;
-
-        var parent = Directory.GetParent(_rootPath);
-        if (parent != null)
-        {
-            RootPath.Value = parent.FullName;
-        }
-    }
-
     public void NavigateToBreadcrumb(int index)
     {
         if (index >= 0 && index < BreadcrumbItems.Count)

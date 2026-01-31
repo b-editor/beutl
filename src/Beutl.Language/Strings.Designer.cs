@@ -1161,9 +1161,9 @@ namespace Beutl.Language {
             }
         }
         
-        public static string NavigateUp {
+        public static string OpenFolder {
             get {
-                return ResourceManager.GetString("NavigateUp", resourceCulture);
+                return ResourceManager.GetString("OpenFolder", resourceCulture);
             }
         }
 
