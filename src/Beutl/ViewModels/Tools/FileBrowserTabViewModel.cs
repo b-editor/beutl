@@ -63,6 +63,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             {
                 IsHomeView.Value = false;
             }
+            UpdateBreadcrumbItems(path);
             RefreshItems();
             _directoryWatcher.Watch(path);
         }).AddTo(_disposables);
@@ -104,6 +105,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
     public ReactiveProperty<FileBrowserViewMode> ViewMode { get; } = new(FileBrowserViewMode.Icon);
 
     public ReactiveProperty<string> RootPath { get; } = new(string.Empty);
+
+    public ObservableCollection<BreadcrumbPathItem> BreadcrumbItems { get; } = [];
 
     public ReactivePropertySlim<bool> IsHomeView { get; } = new(true);
 
@@ -188,6 +191,40 @@ public sealed class FileBrowserTabViewModel : IToolContext
         if (parent != null)
         {
             RootPath.Value = parent.FullName;
+        }
+    }
+
+    public void NavigateToBreadcrumb(int index)
+    {
+        if (index >= 0 && index < BreadcrumbItems.Count)
+        {
+            RootPath.Value = BreadcrumbItems[index].FullPath;
+        }
+    }
+
+    private void UpdateBreadcrumbItems(string path)
+    {
+        BreadcrumbItems.Clear();
+
+        if (string.IsNullOrEmpty(path))
+            return;
+
+        string? root = Path.GetPathRoot(path);
+        if (root == null)
+            return;
+
+        // ルートセグメントを追加
+        BreadcrumbItems.Add(new BreadcrumbPathItem(root, root));
+
+        // ルート以降のセグメントを分割して追加
+        string relativePart = path[root.Length..];
+        string[] segments = relativePart.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+
+        string accumulated = root;
+        foreach (string segment in segments)
+        {
+            accumulated = Path.Combine(accumulated, segment);
+            BreadcrumbItems.Add(new BreadcrumbPathItem(segment, accumulated));
         }
     }
 

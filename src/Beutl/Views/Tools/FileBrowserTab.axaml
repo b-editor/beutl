@@ -130,13 +130,24 @@
                 </Button>
 
                 <!--  パス表示（ディレクトリブラウズ時）  -->
-                <TextBlock Grid.Column="1"
-                           Margin="8,0"
-                           VerticalAlignment="Center"
-                           IsVisible="{Binding !IsHomeView.Value}"
-                           Text="{Binding RootPath.Value}"
-                           TextTrimming="CharacterEllipsis"
-                           ToolTip.Tip="{Binding RootPath.Value}" />
+                <ui:BreadcrumbBar Grid.Column="1"
+                                  Margin="8,0"
+                                  VerticalAlignment="Center"
+                                  IsVisible="{Binding !IsHomeView.Value}"
+                                  ItemClicked="BreadcrumbBarItemClicked"
+                                  ItemsSource="{Binding BreadcrumbItems}">
+                    <ui:BreadcrumbBar.ItemTemplate>
+                        <DataTemplate x:DataType="vm:BreadcrumbPathItem">
+                            <ui:BreadcrumbBarItem Content="{Binding}">
+                                <ui:BreadcrumbBarItem.ContentTemplate>
+                                    <DataTemplate DataType="vm:BreadcrumbPathItem">
+                                        <TextBlock Text="{Binding Name}" />
+                                    </DataTemplate>
+                                </ui:BreadcrumbBarItem.ContentTemplate>
+                            </ui:BreadcrumbBarItem>
+                        </DataTemplate>
+                    </ui:BreadcrumbBar.ItemTemplate>
+                </ui:BreadcrumbBar>
 
                 <!--  ホームヘッダー（ホームビュー時）  -->
                 <TextBlock Grid.Column="1"

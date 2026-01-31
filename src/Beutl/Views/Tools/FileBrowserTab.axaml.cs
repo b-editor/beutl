@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
 using Beutl.ViewModels.Tools;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Tools;
 
@@ -212,6 +213,11 @@ public partial class FileBrowserTab : UserControl
                      ?? (Control?)sourceControl?.FindLogicalAncestorOfType<ListBoxItem>()
                      ?? this;
         flyout.ShowAt(target);
+    }
+
+    private void BreadcrumbBarItemClicked(BreadcrumbBar sender, BreadcrumbBarItemClickedEventArgs args)
+    {
+        ViewModel?.NavigateToBreadcrumb(args.Index);
     }
 
     private void OnDragOver(object? sender, DragEventArgs e)
