@@ -17,6 +17,8 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
     private bool _isRenaming;
     private bool _isSelected;
     private Bitmap? _thumbnail;
+    private bool _thumbnailLoaded;
+    private CancellationTokenSource? _thumbnailCts;
     private bool _childrenLoaded;
     private string? _mediaInfoText;
     private bool _mediaInfoLoaded;
@@ -110,12 +112,19 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
 
     public Bitmap? Thumbnail
     {
-        get => _thumbnail;
+        get
+        {
+            if (!_thumbnailLoaded && !IsDirectory)
+            {
+                _thumbnailLoaded = true;
+                _ = LoadThumbnailAsync();
+            }
+            return _thumbnail;
+        }
         set
         {
             if (_thumbnail != value)
             {
-                _thumbnail?.Dispose();
                 _thumbnail = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasThumbnail));
@@ -179,6 +188,25 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
         {
             // ignore
         }
+    }
+
+    private async Task LoadThumbnailAsync()
+    {
+        var service = FileThumbnailService.Instance;
+        if (!service.CanGenerateThumbnail(FullPath))
+            return;
+
+        try
+        {
+            _thumbnailCts = new CancellationTokenSource();
+            var bitmap = await service.GetThumbnailAsync(FullPath, _thumbnailCts.Token);
+            if (bitmap != null)
+            {
+                Thumbnail = bitmap;
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch { }
     }
 
     private Symbol GetIconSymbol()
@@ -306,7 +334,10 @@ public class FileSystemItemViewModel : INotifyPropertyChanged, IDisposable
 
     public void Dispose()
     {
-        _thumbnail?.Dispose();
+        _thumbnailCts?.Cancel();
+        _thumbnailCts?.Dispose();
+        _thumbnailCts = null;
+
         _thumbnail = null;
 
         if (Children != null)
