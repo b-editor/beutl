@@ -11,7 +11,7 @@ public sealed class SpeedIntegrator : IDisposable
     private Dictionary<int, double>? _integralCache;
     private IAnimation<float>? _trackedAnimation;
     private int _sampleRate;
-    private Action? _invalidateCallback;
+    private readonly Action? _invalidateCallback;
 
     public SpeedIntegrator(int sampleRate, Action? invalidateCallback = null)
     {
