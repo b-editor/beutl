@@ -74,12 +74,13 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         if (targetDuration <= TimeSpan.Zero)
             return currentTime;
 
+        // 相対的な時間
         TimeSpan baseTime = currentTime - TimeRange.Start;
 
         // 1. AdjustTimeRange: baseTime = currentTime - own Start + Target's Start
         if (resource.AdjustTimeRange)
         {
-            baseTime += targetStart;
+            baseTime -= targetStart - TimeRange.Start;
         }
 
         // 2. OffsetPosition
@@ -91,7 +92,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         {
             baseTime = CalculateTimeWithSpeed(
                 keyFrameAnimation.UseGlobalClock
-                    ? baseTime
+                    ? baseTime + TimeRange.Start
                     : baseTime,
                 resource);
         }
