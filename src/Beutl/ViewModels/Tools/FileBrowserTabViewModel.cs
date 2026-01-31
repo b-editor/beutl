@@ -518,44 +518,40 @@ public sealed class FileBrowserTabViewModel : IToolContext
             }
         }
 
-        if (json.TryGetPropertyValue("ViewMode", out var viewModeNode) && viewModeNode is JsonValue viewModeValue)
+        if (json.TryGetPropertyValue("ViewMode", out var viewModeNode)
+            && viewModeNode is JsonValue viewModeValue
+            && viewModeValue.TryGetValue(out int viewModeInt)
+            && Enum.IsDefined(typeof(FileBrowserViewMode), viewModeInt))
         {
-            if (viewModeValue.TryGetValue(out int viewModeInt) && Enum.IsDefined(typeof(FileBrowserViewMode), viewModeInt))
-            {
-                ViewMode.Value = (FileBrowserViewMode)viewModeInt;
-            }
+            ViewMode.Value = (FileBrowserViewMode)viewModeInt;
         }
 
-        if (json.TryGetPropertyValue("IsHomeView", out var isHomeViewNode) && isHomeViewNode is JsonValue isHomeViewValue)
+        if (json.TryGetPropertyValue("IsHomeView", out var isHomeViewNode)
+            && isHomeViewNode is JsonValue isHomeViewValue
+            && isHomeViewValue.TryGetValue(out bool isHome))
         {
-            if (isHomeViewValue.TryGetValue(out bool isHome))
-            {
-                IsHomeView.Value = isHome;
-            }
+            IsHomeView.Value = isHome;
         }
 
-        if (json.TryGetPropertyValue("IsFavoritesIconView", out var favIconNode) && favIconNode is JsonValue favIconVal)
+        if (json.TryGetPropertyValue("IsFavoritesIconView", out var favIconNode)
+            && favIconNode is JsonValue favIconVal
+            && favIconVal.TryGetValue(out bool favIcon))
         {
-            if (favIconVal.TryGetValue(out bool favIcon))
-            {
-                IsFavoritesIconView.Value = favIcon;
-            }
+            IsFavoritesIconView.Value = favIcon;
         }
 
-        if (json.TryGetPropertyValue("IsProjectDirIconView", out var projIconNode) && projIconNode is JsonValue projIconVal)
+        if (json.TryGetPropertyValue("IsProjectDirIconView", out var projIconNode)
+            && projIconNode is JsonValue projIconVal
+            && projIconVal.TryGetValue(out bool projIcon))
         {
-            if (projIconVal.TryGetValue(out bool projIcon))
-            {
-                IsProjectDirIconView.Value = projIcon;
-            }
+            IsProjectDirIconView.Value = projIcon;
         }
 
-        if (json.TryGetPropertyValue("IsMediaFilesIconView", out var mediaIconNode) && mediaIconNode is JsonValue mediaIconVal)
+        if (json.TryGetPropertyValue("IsMediaFilesIconView", out var mediaIconNode)
+            && mediaIconNode is JsonValue mediaIconVal
+            && mediaIconVal.TryGetValue(out bool mediaIcon))
         {
-            if (mediaIconVal.TryGetValue(out bool mediaIcon))
-            {
-                IsMediaFilesIconView.Value = mediaIcon;
-            }
+            IsMediaFilesIconView.Value = mediaIcon;
         }
     }
 
