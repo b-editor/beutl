@@ -454,19 +454,26 @@ public sealed class FileBrowserTabViewModel : IToolContext
         {
             string destPath = Path.Combine(targetDir, Path.GetFileName(localPath));
 
-            if (!isDir)
+            try
             {
-                if (!File.Exists(destPath))
+                if (!isDir)
                 {
-                    File.Copy(localPath, destPath);
+                    if (!File.Exists(destPath))
+                    {
+                        File.Copy(localPath, destPath);
+                    }
+                }
+                else if (Directory.Exists(localPath))
+                {
+                    if (!Directory.Exists(destPath))
+                    {
+                        FileCopyService.CopyDirectoryRecursive(localPath, destPath);
+                    }
                 }
             }
-            else if (Directory.Exists(localPath))
+            catch (IOException ex)
             {
-                if (!Directory.Exists(destPath))
-                {
-                    FileCopyService.CopyDirectoryRecursive(localPath, destPath);
-                }
+                _logger.LogWarning(ex, "Failed to copy {Source} to {Dest}", localPath, destPath);
             }
         }
     }
