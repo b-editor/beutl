@@ -37,6 +37,7 @@ public partial class FileBrowserTab : UserControl
                 if (_sectionTransitionCts.TryGetValue(content, out var oldCts))
                 {
                     oldCts.Cancel();
+                    oldCts.Dispose();
                 }
 
                 var cts = new CancellationTokenSource();
@@ -102,35 +103,6 @@ public partial class FileBrowserTab : UserControl
         }
     }
 
-    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (ViewModel == null)
-            return;
-
-        // SelectedItemsにsender.Itemsに含まれないものがあれば削除する
-        var items = sender switch
-        {
-            ListBox lb => lb.ItemsSource as ObservableCollection<FileSystemItemViewModel>,
-            TreeView tree => tree.ItemsSource as ObservableCollection<FileSystemItemViewModel>,
-            _ => null
-        };
-        // foreach (var item in ViewModel.SelectedItems)
-        // {
-        //     if (items == null || !ContainsRecursive(items, item))
-        //     {
-        //         ViewModel.SelectedItems.Remove(item);
-        //     }
-        // }
-        //
-        // ViewModel.SelectedItems.Clear();
-        // foreach (var selectedItem in selectedItems)
-        // {
-        //     if (selectedItem is FileSystemItemViewModel item)
-        //     {
-        //         ViewModel.SelectedItems.Add(item);
-        //     }
-        // }
-    }
 
     private void OnOpenClick(object? sender, RoutedEventArgs e)
     {
@@ -167,7 +139,7 @@ public partial class FileBrowserTab : UserControl
     private void OnContextMenuOpened(object? sender, RoutedEventArgs e)
     {
         if (sender is ContextMenu contextMenu &&
-            contextMenu?.DataContext is FileSystemItemViewModel item &&
+            contextMenu.DataContext is FileSystemItemViewModel item &&
             ViewModel != null)
         {
             foreach (var menuItem in contextMenu.Items.OfType<MenuItem>())
@@ -332,10 +304,10 @@ public partial class FileBrowserTab : UserControl
         var source = e.Source as Control;
         while (source != null)
         {
-            if (source is ListBoxItem or TreeViewItem)
+            if ((source is ListBoxItem or TreeViewItem) &&
+                source.DataContext is FileSystemItemViewModel { IsDirectory: true } folderVm)
             {
-                if (source.DataContext is FileSystemItemViewModel { IsDirectory: true } folderVm)
-                    return folderVm;
+                return folderVm;
             }
 
             source = source.Parent as Control;
