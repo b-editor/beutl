@@ -18,6 +18,10 @@ internal sealed class DirectoryWatcherService : IDisposable
     // 指定パスの監視を開始する。前回の監視は自動的に停止される。
     public void Watch(string? path)
     {
+        _debounceCts?.Cancel();
+        _debounceCts?.Dispose();
+        _debounceCts = null;
+
         _watcher?.Dispose();
         _watcher = null;
 
@@ -47,6 +51,7 @@ internal sealed class DirectoryWatcherService : IDisposable
     private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
     {
         _debounceCts?.Cancel();
+        _debounceCts?.Dispose();
         _debounceCts = new CancellationTokenSource();
         var token = _debounceCts.Token;
 
