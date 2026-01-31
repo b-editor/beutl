@@ -174,11 +174,13 @@ public sealed class FileBrowserTabViewModel : IToolContext
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning(ex, "Access denied to directory {Path}", _rootPath);
+            _logger.LogError(ex, "Access denied to directory {Path}", _rootPath);
+            NotificationService.ShowWarning(Strings.FileBrowser, ex.Message);
         }
         catch (IOException ex)
         {
-            _logger.LogWarning(ex, "IO error accessing directory {Path}", _rootPath);
+            _logger.LogError(ex, "IO error accessing directory {Path}", _rootPath);
+            NotificationService.ShowWarning(Strings.FileBrowser, ex.Message);
         }
     }
 
@@ -245,7 +247,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to open file {Path}", path);
+            _logger.LogError(ex, "Failed to open file {Path}", path);
+            NotificationService.ShowError(Strings.Open, Message.OperationCouldNotBeExecuted);
         }
     }
 
@@ -276,7 +279,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to delete {Path}", item.FullPath);
+                _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
+                NotificationService.ShowError(Strings.Delete, Message.OperationCouldNotBeExecuted);
             }
         }
     }
@@ -319,7 +323,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to delete {Path}", item.FullPath);
+                    _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
+                    NotificationService.ShowError(Strings.Delete, Message.OperationCouldNotBeExecuted);
                 }
             }
         }
@@ -346,7 +351,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to create folder at {Path}", newFolderPath);
+            _logger.LogError(ex, "Failed to create folder at {Path}", newFolderPath);
+            NotificationService.ShowError(Strings.NewFolder, Message.OperationCouldNotBeExecuted);
         }
     }
 
@@ -382,7 +388,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to rename {OldPath} to {NewPath}", item.FullPath, newPath);
+            _logger.LogError(ex, "Failed to rename {OldPath} to {NewPath}", item.FullPath, newPath);
+            NotificationService.ShowError(Strings.Rename, Message.OperationCouldNotBeExecuted);
         }
     }
 
@@ -415,7 +422,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to enumerate project directory {Path}", _projectDirectory);
+                _logger.LogError(ex, "Failed to enumerate project directory {Path}", _projectDirectory);
+                NotificationService.ShowWarning(Strings.FileBrowser, ex.Message);
             }
         }
 
@@ -473,7 +481,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
             }
             catch (IOException ex)
             {
-                _logger.LogWarning(ex, "Failed to copy {Source} to {Dest}", localPath, destPath);
+                _logger.LogError(ex, "Failed to copy {Source} to {Dest}", localPath, destPath);
+                NotificationService.ShowError(Strings.Copy, Message.OperationCouldNotBeExecuted);
             }
         }
     }
