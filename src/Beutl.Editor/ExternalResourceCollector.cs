@@ -119,6 +119,8 @@ public sealed class ExternalResourceCollector
 
         string filePath = uri.LocalPath;
         string fullProjectPath = Path.GetFullPath(projectDirectory);
+        if (!fullProjectPath.EndsWith(Path.DirectorySeparatorChar))
+            fullProjectPath += Path.DirectorySeparatorChar;
 
         // Files outside the project directory are considered external
         return !Path.GetFullPath(filePath).StartsWith(fullProjectPath, StringComparison.OrdinalIgnoreCase);

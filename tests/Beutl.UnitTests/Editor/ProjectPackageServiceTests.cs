@@ -430,6 +430,52 @@ public class ProjectPackageServiceTests
         Assert.That(result, Is.True);
     }
 
+    [Test]
+    public async Task ImportAsync_WithPackageWithoutProjectFile_CleansUpExtractedDirectory()
+    {
+        // Arrange
+        var service = ProjectPackageService.Current;
+
+        // Create a ZIP without project file
+        string tempDir = Path.Combine(_testDir, "noprojectcleanup");
+        Directory.CreateDirectory(tempDir);
+        File.WriteAllText(Path.Combine(tempDir, "dummy.txt"), "content");
+        string packagePath = Path.Combine(_exportDir, "noprojectcleanup.zip");
+        System.IO.Compression.ZipFile.CreateFromDirectory(tempDir, packagePath);
+
+        // Act
+        Project? importedProject = await service.ImportAsync(packagePath, _importDir);
+
+        // Assert
+        Assert.That(importedProject, Is.Null);
+        // The extracted directory should have been cleaned up
+        string expectedDir = Path.Combine(_importDir, "noprojectcleanup");
+        Assert.That(Directory.Exists(expectedDir), Is.False);
+    }
+
+    [Test]
+    public async Task ImportAsync_WithInvalidProjectFile_CleansUpExtractedDirectory()
+    {
+        // Arrange
+        var service = ProjectPackageService.Current;
+
+        // Create a ZIP with an invalid .bep file
+        string tempDir = Path.Combine(_testDir, "invalidbep");
+        Directory.CreateDirectory(tempDir);
+        File.WriteAllText(Path.Combine(tempDir, "test.bep"), "this is not valid bep content");
+        string packagePath = Path.Combine(_exportDir, "invalidbep.zip");
+        System.IO.Compression.ZipFile.CreateFromDirectory(tempDir, packagePath);
+
+        // Act
+        Project? importedProject = await service.ImportAsync(packagePath, _importDir);
+
+        // Assert - should return null because RestoreFromUri fails
+        Assert.That(importedProject, Is.Null);
+        // The extracted directory should have been cleaned up
+        string expectedDir = Path.Combine(_importDir, "invalidbep");
+        Assert.That(Directory.Exists(expectedDir), Is.False);
+    }
+
     #endregion
 
     #region Error Handling

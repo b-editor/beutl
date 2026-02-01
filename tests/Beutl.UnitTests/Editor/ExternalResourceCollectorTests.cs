@@ -380,6 +380,40 @@ public class ExternalResourceCollectorTests
         Assert.That(collector.FontFamilies, Has.Count.EqualTo(3));
     }
 
+    [Test]
+    public void Collect_WithSiblingDirectoryHavingSamePrefix_TreatsAsSiblingAsExternal()
+    {
+        // Arrange
+        // Create /tmp/proj and /tmp/projbar to test path boundary detection
+        string baseDir = Path.Combine(Path.GetTempPath(), $"beutl_boundary_test_{Guid.NewGuid():N}");
+        string projectDir = Path.Combine(baseDir, "proj");
+        string siblingDir = Path.Combine(baseDir, "projbar");
+        Directory.CreateDirectory(projectDir);
+        Directory.CreateDirectory(siblingDir);
+
+        try
+        {
+            string siblingFile = Path.Combine(siblingDir, "test.png");
+            File.WriteAllText(siblingFile, "dummy content");
+
+            var fileSource = new TestFileSource(new Uri(siblingFile));
+            var engineObj = new TestEngineObjectWithFileSource(fileSource);
+            var root = new TestHierarchical();
+            root.AddChild(engineObj);
+
+            // Act
+            ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, projectDir);
+
+            // Assert - file in /tmp/projbar should be external relative to /tmp/proj
+            Assert.That(collector.FileSources, Has.Count.EqualTo(1));
+        }
+        finally
+        {
+            if (Directory.Exists(baseDir))
+                Directory.Delete(baseDir, recursive: true);
+        }
+    }
+
     // Test helper classes
     private class TestHierarchical : Hierarchical
     {

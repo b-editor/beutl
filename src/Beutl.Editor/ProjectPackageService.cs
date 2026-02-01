@@ -52,19 +52,19 @@ public sealed class ProjectPackageService
             tempDir = Path.Combine(Path.GetTempPath(), $"beutl_export_{Guid.NewGuid():N}");
             Directory.CreateDirectory(tempDir);
 
-            // Step 4: Copy the project directory
+            // Step 2: Copy the project directory
             string projectDir = Path.GetDirectoryName(project.Uri.LocalPath)!;
             string tempProjectDir = Path.Combine(tempDir, Path.GetFileName(projectDir));
             progress?.Report((Strings.ExportingProject, 0.1));
             await CopyDirectoryAsync(projectDir, tempProjectDir, cancellationToken);
 
-            // Step 2: Open the temporary project
+            // Step 3: Open the temporary project
             string tempProjectFile = Path.Combine(tempProjectDir, Path.GetFileName(project.Uri.LocalPath));
             Uri tempProjectUri = new(tempProjectFile);
             progress?.Report((Strings.ExportingProject, 0.2));
             Project tempProject = CoreSerializer.RestoreFromUri<Project>(tempProjectUri);
 
-            // Step 3: Attach to the virtual root
+            // Step 4: Attach to the virtual root
             progress?.Report((Strings.ExportingProject, 0.3));
             VirtualProjectRoot virtualRoot = new();
             virtualRoot.AttachProject(tempProject);
@@ -95,7 +95,7 @@ public sealed class ProjectPackageService
             // Detach from the virtual root
             virtualRoot.DetachProject();
 
-            // Step 9: Create the ZIP file
+            // Step 8: Create the ZIP file
             progress?.Report((Strings.ExportingProject, 0.9));
             if (File.Exists(outputPath))
             {
@@ -178,36 +178,39 @@ public sealed class ProjectPackageService
         try
         {
             progress?.Report((Strings.ImportingProject, 0.0));
-
-            // Get the project directory name from the package name
             string packageName = Path.GetFileNameWithoutExtension(packagePath);
             string projectDir = GetUniqueDirectoryPath(destinationDirectory, packageName);
 
-            // Extract the ZIP
-            progress?.Report((Strings.ImportingProject, 0.3));
-            await Task.Run(() => ZipFile.ExtractToDirectory(packagePath, projectDir), cancellationToken);
-
-            // Search for the project file
-            progress?.Report((Strings.ImportingProject, 0.6));
-            string? projectFile = Directory.GetFiles(projectDir, "*.bep", SearchOption.TopDirectoryOnly)
-                .FirstOrDefault();
-
-            if (projectFile == null)
+            try
             {
-                _logger.LogError("No project file found in package");
-                Directory.Delete(projectDir, recursive: true);
-                return null;
+                progress?.Report((Strings.ImportingProject, 0.3));
+                await Task.Run(() => ZipFile.ExtractToDirectory(packagePath, projectDir), cancellationToken);
+
+                progress?.Report((Strings.ImportingProject, 0.6));
+                string? projectFile = Directory.GetFiles(projectDir, "*.bep", SearchOption.TopDirectoryOnly)
+                    .FirstOrDefault();
+
+                if (projectFile == null)
+                {
+                    _logger.LogError("No project file found in package");
+                    CleanupTempDirectory(projectDir);
+                    return null;
+                }
+
+                progress?.Report((Strings.ImportingProject, 0.8));
+                Uri projectUri = new(projectFile);
+                Project project = CoreSerializer.RestoreFromUri<Project>(projectUri);
+
+                progress?.Report((Strings.ImportingProject, 1.0));
+                _logger.LogInformation("Project imported successfully from {PackagePath} to {ProjectDir}",
+                    packagePath, projectDir);
+                return project;
             }
-
-            // Open the project
-            progress?.Report((Strings.ImportingProject, 0.8));
-            Uri projectUri = new(projectFile);
-            Project project = CoreSerializer.RestoreFromUri<Project>(projectUri);
-
-            progress?.Report((Strings.ImportingProject, 1.0));
-            _logger.LogInformation("Project imported successfully from {PackagePath} to {ProjectDir}", packagePath, projectDir);
-
-            return project;
+            catch
+            {
+                CleanupTempDirectory(projectDir);
+                throw;
+            }
         }
         catch (OperationCanceledException)
         {
