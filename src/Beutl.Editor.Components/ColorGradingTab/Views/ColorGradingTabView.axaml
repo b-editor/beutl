@@ -1,4 +1,4 @@
-<UserControl x:Class="Beutl.Views.Tools.ColorGradingTab"
+<UserControl x:Class="Beutl.Editor.Components.ColorGradingTab.Views.ColorGradingTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -6,7 +6,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
-             xmlns:vm="using:Beutl.ViewModels.Tools"
+             xmlns:vm="using:Beutl.Editor.Components.ColorGradingTab.ViewModels"
              d:DesignHeight="720"
              d:DesignWidth="1080"
              x:CompileBindings="True"
@@ -160,47 +160,37 @@
             </WrapPanel.IsVisible>
             <pe:NumberEditor x:Name="TemperatureEditor"
                              x:TypeArguments="x:Single"
-                             DataContext="{Binding TemperatureEditor.Value}"
                              Theme="{StaticResource MinimalNumberEditor}" />
             <pe:NumberEditor x:Name="TintEditor"
                              x:TypeArguments="x:Single"
-                             DataContext="{Binding TintEditor.Value}"
                              Theme="{StaticResource MinimalNumberEditor}" />
 
             <pe:NumberEditor x:Name="ExposureEditor"
                              x:TypeArguments="x:Single"
-                             DataContext="{Binding ExposureEditor.Value}"
                              Theme="{StaticResource MinimalNumberEditor}" />
             <pe:NumberEditor x:Name="ContrastEditor"
                              x:TypeArguments="x:Single"
-                             DataContext="{Binding ContrastEditor.Value}"
                              Theme="{StaticResource MinimalNumberEditor}" />
 
             <pe:NumberEditor x:Name="ContrastPivotEditor"
                              x:TypeArguments="x:Single"
-                             DataContext="{Binding ContrastPivotEditor.Value}"
                              Theme="{StaticResource MinimalNumberEditor}" />
             <pe:NumberEditor x:Name="SaturationEditor"
                              x:TypeArguments="x:Single"
-                             DataContext="{Binding SaturationEditor.Value}"
                              Theme="{StaticResource MinimalNumberEditor}" />
             <pe:NumberEditor x:Name="VibranceEditor"
                              x:TypeArguments="x:Single"
-                             DataContext="{Binding VibranceEditor.Value}"
                              Theme="{StaticResource MinimalNumberEditor}" />
 
             <pe:NumberEditor x:Name="HueEditor"
                              x:TypeArguments="x:Single"
-                             DataContext="{Binding HueEditor.Value}"
                              Theme="{StaticResource MinimalNumberEditor}" />
 
             <pe:NumberEditor x:Name="LowRangeEditor"
                              x:TypeArguments="x:Single"
-                             DataContext="{Binding LowRangeEditor.Value}"
                              Theme="{StaticResource MinimalNumberEditor}" />
             <pe:NumberEditor x:Name="HighRangeEditor"
                              x:TypeArguments="x:Single"
-                             DataContext="{Binding HighRangeEditor.Value}"
                              Theme="{StaticResource MinimalNumberEditor}" />
         </WrapPanel>
 
@@ -211,14 +201,11 @@
                   ColumnSpacing="8"
                   IsVisible="{Binding IsLogMode.Value}">
                 <pe:ColorGradingWheel x:Name="ShadowsPicker"
-                                      Grid.Column="0"
-                                      DataContext="{Binding ShadowsEditor.Value}" />
+                                      Grid.Column="0" />
                 <pe:ColorGradingWheel x:Name="MidtonesPicker"
-                                      Grid.Column="1"
-                                      DataContext="{Binding MidtonesEditor.Value}" />
+                                      Grid.Column="1" />
                 <pe:ColorGradingWheel x:Name="HighlightsPicker"
-                                      Grid.Column="2"
-                                      DataContext="{Binding HighlightsEditor.Value}" />
+                                      Grid.Column="2" />
             </Grid>
 
             <Grid x:Name="LiftControls"
@@ -227,17 +214,13 @@
                   ColumnSpacing="8"
                   IsVisible="{Binding IsLiftGammaGainMode.Value}">
                 <pe:ColorGradingWheel x:Name="LiftPicker"
-                                      Grid.Column="0"
-                                      DataContext="{Binding LiftEditor.Value}" />
+                                      Grid.Column="0" />
                 <pe:ColorGradingWheel x:Name="GammaPicker"
-                                      Grid.Column="1"
-                                      DataContext="{Binding GammaEditor.Value}" />
+                                      Grid.Column="1" />
                 <pe:ColorGradingWheel x:Name="GainPicker"
-                                      Grid.Column="2"
-                                      DataContext="{Binding GainEditor.Value}" />
+                                      Grid.Column="2" />
                 <pe:ColorGradingWheel x:Name="OffsetPicker"
-                                      Grid.Column="3"
-                                      DataContext="{Binding OffsetEditor.Value}" />
+                                      Grid.Column="3" />
             </Grid>
         </Panel>
 

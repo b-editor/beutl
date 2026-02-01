@@ -604,6 +604,9 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;
 
+        if (serviceType.IsAssignableTo(typeof(IPropertyEditorFactory)))
+            return Services.Adapters.PropertyEditorFactoryAdapter.Instance;
+
         return null;
     }
 

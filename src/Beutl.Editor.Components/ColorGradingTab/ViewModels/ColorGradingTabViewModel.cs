@@ -1,15 +1,15 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Beutl.Editor;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Media;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.Services.PrimitiveImpls;
-using Beutl.ViewModels.Editors;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.ColorGradingTab.ViewModels;
 
 public record ColorGradingWheelMode(string Name, int Value)
 {
@@ -23,12 +23,12 @@ public record ColorGradingWheelMode(string Name, int Value)
 public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorContextVisitor
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly EditViewModel _editViewModel;
+    private readonly IEditorContext _editorContext;
     private readonly CompositeDisposable _effectDisposables = [];
 
-    public ColorGradingTabViewModel(EditViewModel editViewModel)
+    public ColorGradingTabViewModel(IEditorContext editorContext)
     {
-        _editViewModel = editViewModel;
+        _editorContext = editorContext;
 
         Effect.Subscribe(SetEditors)
             .DisposeWith(_disposables);
@@ -87,39 +87,39 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
 
     public ReadOnlyReactivePropertySlim<bool> IsColorGradingMissing { get; }
 
-    public ReactivePropertySlim<NumberEditorViewModel<float>?> TemperatureEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> TemperatureEditor { get; } = new();
 
-    public ReactivePropertySlim<NumberEditorViewModel<float>?> TintEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> TintEditor { get; } = new();
 
-    public ReactivePropertySlim<NumberEditorViewModel<float>?> ExposureEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> ExposureEditor { get; } = new();
 
-    public ReactivePropertySlim<NumberEditorViewModel<float>?> ContrastEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> ContrastEditor { get; } = new();
 
-    public ReactivePropertySlim<NumberEditorViewModel<float>?> ContrastPivotEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> ContrastPivotEditor { get; } = new();
 
-    public ReactivePropertySlim<NumberEditorViewModel<float>?> SaturationEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> SaturationEditor { get; } = new();
 
-    public ReactivePropertySlim<NumberEditorViewModel<float>?> VibranceEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> VibranceEditor { get; } = new();
 
-    public ReactivePropertySlim<NumberEditorViewModel<float>?> HueEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> HueEditor { get; } = new();
 
-    public ReactivePropertySlim<NumberEditorViewModel<float>?> LowRangeEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> LowRangeEditor { get; } = new();
 
-    public ReactivePropertySlim<NumberEditorViewModel<float>?> HighRangeEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> HighRangeEditor { get; } = new();
 
-    public ReactivePropertySlim<GradingColorEditorViewModel?> ShadowsEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> ShadowsEditor { get; } = new();
 
-    public ReactivePropertySlim<GradingColorEditorViewModel?> MidtonesEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> MidtonesEditor { get; } = new();
 
-    public ReactivePropertySlim<GradingColorEditorViewModel?> HighlightsEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> HighlightsEditor { get; } = new();
 
-    public ReactivePropertySlim<GradingColorEditorViewModel?> LiftEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> LiftEditor { get; } = new();
 
-    public ReactivePropertySlim<GradingColorEditorViewModel?> GammaEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> GammaEditor { get; } = new();
 
-    public ReactivePropertySlim<GradingColorEditorViewModel?> GainEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> GainEditor { get; } = new();
 
-    public ReactivePropertySlim<GradingColorEditorViewModel?> OffsetEditor { get; } = new();
+    public ReactivePropertySlim<IPropertyEditorContext?> OffsetEditor { get; } = new();
 
     public void Visit(IPropertyEditorContext context)
     {
@@ -127,22 +127,13 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
 
     public object? GetService(Type serviceType)
     {
-        if (serviceType == typeof(EditViewModel))
-            return _editViewModel;
-
-        if (serviceType == typeof(HistoryManager))
-            return _editViewModel.HistoryManager;
-
         if (serviceType == typeof(Element))
             return Effect.Value?.FindHierarchicalParent<Element>();
 
         if (serviceType == typeof(ColorGrading))
             return Effect.Value;
 
-        if (serviceType == typeof(Scene))
-            return _editViewModel.Scene;
-
-        return _editViewModel.GetService(serviceType);
+        return _editorContext.GetService(serviceType);
     }
 
     public void Dispose()
@@ -165,7 +156,8 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
             && effectIdValue.TryGetValue(out string? effectIdStr)
             && Guid.TryParse(effectIdStr, out Guid effectId))
         {
-            var colorGrading = _editViewModel.Scene.FindById(effectId) as ColorGrading;
+            var scene = _editorContext.GetService<Scene>();
+            var colorGrading = scene?.FindById(effectId) as ColorGrading;
             Effect.Value = colorGrading;
         }
 
@@ -191,56 +183,51 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         if (effect == null)
             return;
 
-        TemperatureEditor.Value = CreateNumberEditor(effect.Temperature);
-        TintEditor.Value = CreateNumberEditor(effect.Tint);
-        ExposureEditor.Value = CreateNumberEditor(effect.Exposure);
-        ContrastEditor.Value = CreateNumberEditor(effect.Contrast);
-        ContrastPivotEditor.Value = CreateNumberEditor(effect.ContrastPivot);
-        SaturationEditor.Value = CreateNumberEditor(effect.Saturation);
-        VibranceEditor.Value = CreateNumberEditor(effect.Vibrance);
-        HueEditor.Value = CreateNumberEditor(effect.Hue);
-        LowRangeEditor.Value = CreateNumberEditor(effect.LowRange);
-        HighRangeEditor.Value = CreateNumberEditor(effect.HighRange);
+        var factory = _editorContext.GetService<IPropertyEditorFactory>();
+        if (factory == null)
+            return;
 
-        ShadowsEditor.Value = CreateColorEditor(effect.Shadows);
-        MidtonesEditor.Value = CreateColorEditor(effect.Midtones);
-        HighlightsEditor.Value = CreateColorEditor(effect.Highlights);
-        LiftEditor.Value = CreateColorEditor(effect.Lift);
-        GammaEditor.Value = CreateColorEditor(effect.Gamma);
-        GainEditor.Value = CreateColorEditor(effect.Gain);
-        OffsetEditor.Value = CreateColorEditor(effect.Offset);
+        TemperatureEditor.Value = CreateEditor(factory, effect.Temperature, effect);
+        TintEditor.Value = CreateEditor(factory, effect.Tint, effect);
+        ExposureEditor.Value = CreateEditor(factory, effect.Exposure, effect);
+        ContrastEditor.Value = CreateEditor(factory, effect.Contrast, effect);
+        ContrastPivotEditor.Value = CreateEditor(factory, effect.ContrastPivot, effect);
+        SaturationEditor.Value = CreateEditor(factory, effect.Saturation, effect);
+        VibranceEditor.Value = CreateEditor(factory, effect.Vibrance, effect);
+        HueEditor.Value = CreateEditor(factory, effect.Hue, effect);
+        LowRangeEditor.Value = CreateEditor(factory, effect.LowRange, effect);
+        HighRangeEditor.Value = CreateEditor(factory, effect.HighRange, effect);
+
+        ShadowsEditor.Value = CreateEditor(factory, effect.Shadows, effect);
+        MidtonesEditor.Value = CreateEditor(factory, effect.Midtones, effect);
+        HighlightsEditor.Value = CreateEditor(factory, effect.Highlights, effect);
+        LiftEditor.Value = CreateEditor(factory, effect.Lift, effect);
+        GammaEditor.Value = CreateEditor(factory, effect.Gamma, effect);
+        GainEditor.Value = CreateEditor(factory, effect.Gain, effect);
+        OffsetEditor.Value = CreateEditor(factory, effect.Offset, effect);
 
         effect.DetachedFromHierarchy += OnEffectDetached;
         _effectDisposables.Add(Disposable.Create(() => effect.DetachedFromHierarchy -= OnEffectDetached));
     }
 
+    private IPropertyEditorContext? CreateEditor<T>(IPropertyEditorFactory factory, IProperty<T> property, EngineObject owner)
+    {
+        if (property is not AnimatableProperty<T> anim)
+            return null;
+
+        var adapter = new AnimatablePropertyAdapter<T>(anim, owner);
+        var ctx = factory.CreateEditor(adapter);
+        if (ctx != null)
+        {
+            ctx.Accept(this);
+            _effectDisposables.Add(ctx);
+        }
+        return ctx;
+    }
+
     private void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
     {
         Effect.Value = null;
-    }
-
-    private NumberEditorViewModel<float>? CreateNumberEditor(IProperty<float> property)
-    {
-        if (property is not AnimatableProperty<float> anim)
-            return null;
-
-        var adapter = new AnimatablePropertyAdapter<float>(anim, Effect.Value!);
-        var vm = new NumberEditorViewModel<float>(adapter);
-        vm.Accept(this);
-        _effectDisposables.Add(vm);
-        return vm;
-    }
-
-    private GradingColorEditorViewModel? CreateColorEditor(IProperty<GradingColor> property)
-    {
-        if (property is not AnimatableProperty<GradingColor> anim)
-            return null;
-
-        var adapter = new AnimatablePropertyAdapter<GradingColor>(anim, Effect.Value!);
-        var vm = new GradingColorEditorViewModel(adapter);
-        vm.Accept(this);
-        _effectDisposables.Add(vm);
-        return vm;
     }
 
     private void ClearEditors()

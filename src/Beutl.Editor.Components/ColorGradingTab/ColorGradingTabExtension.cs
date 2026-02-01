@@ -1,13 +1,17 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
+
 using Avalonia.Controls;
-using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
+
+using Beutl.Editor.Components.ColorGradingTab.ViewModels;
+using Beutl.Editor.Components.ColorGradingTab.Views;
+using Beutl.Extensibility;
+
 using FluentAvalonia.UI.Controls;
+
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.ColorGradingTab;
 
 [PrimitiveImpl]
 public sealed class ColorGradingTabExtension : ToolTabExtension
@@ -29,29 +33,13 @@ public sealed class ColorGradingTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
-        {
-            control = new ColorGradingTab();
-            return true;
-        }
-        else
-        {
-            control = null;
-            return false;
-        }
+        control = new ColorGradingTabView();
+        return true;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
-        {
-            context = new ColorGradingTabViewModel(editViewModel);
-            return true;
-        }
-        else
-        {
-            context = null;
-            return false;
-        }
+        context = new ColorGradingTabViewModel(editorContext);
+        return true;
     }
 }
