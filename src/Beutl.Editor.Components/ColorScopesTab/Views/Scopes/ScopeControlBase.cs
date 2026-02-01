@@ -7,7 +7,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 
-namespace Beutl.Views.Tools.Scopes;
+namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
 public abstract class ScopeControlBase : Control
 {

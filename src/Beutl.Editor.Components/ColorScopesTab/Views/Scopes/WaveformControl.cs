@@ -1,15 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 
-namespace Beutl.Views.Tools.Scopes;
-
-public enum WaveformMode
-{
-    Luma = 0,
-    RgbOverlay = 1,
-    RgbParade = 2
-}
+namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
 public class WaveformControl : ScopeControlBase
 {

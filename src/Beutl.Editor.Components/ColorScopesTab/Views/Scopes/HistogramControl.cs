@@ -1,8 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 
-namespace Beutl.Views.Tools.Scopes;
+namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
 /// <summary>
 /// Control that displays a histogram visualization of RGB color distribution.

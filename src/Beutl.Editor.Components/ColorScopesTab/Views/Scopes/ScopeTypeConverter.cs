@@ -1,8 +1,8 @@
 ﻿using System.Globalization;
 using Avalonia.Data.Converters;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 
-namespace Beutl.Views.Tools.Scopes;
+namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
 /// <summary>
 /// Converter for ColorScopeType enum to int (for ComboBox SelectedIndex) and to bool (for visibility).

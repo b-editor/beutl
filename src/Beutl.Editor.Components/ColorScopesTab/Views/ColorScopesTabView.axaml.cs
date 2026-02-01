@@ -1,13 +1,13 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using Avalonia.Threading;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools.Scopes;
 
-namespace Beutl.Views.Tools;
+using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 
-public partial class ColorScopesTab : UserControl
+namespace Beutl.Editor.Components.ColorScopesTab.Views;
+
+public partial class ColorScopesTabView : UserControl
 {
-    public ColorScopesTab()
+    public ColorScopesTabView()
     {
         InitializeComponent();
 

@@ -1,35 +1,31 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
+
 using Avalonia.Media.Imaging;
-using Beutl.Services.PrimitiveImpls;
-using Beutl.Views.Tools.Scopes;
+using Beutl.Editor.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.Tools;
-
-public enum ColorScopeType
-{
-    Waveform,
-    Histogram,
-    Vectorscope
-}
+namespace Beutl.Editor.Components.ColorScopesTab.ViewModels;
 
 public sealed class ColorScopesTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly EditViewModel _editViewModel;
+    private readonly IEditorContext _editorContext;
+    private readonly IPreviewPlayer _player;
 
-    public ColorScopesTabViewModel(EditViewModel editViewModel)
+    public ColorScopesTabViewModel(IEditorContext editorContext)
     {
-        _editViewModel = editViewModel;
-        SourceBitmap.Value = editViewModel.Player.PreviewImage.Value as WriteableBitmap;
+        _editorContext = editorContext;
+        _player = editorContext.GetRequiredService<IPreviewPlayer>();
+        SourceBitmap.Value = _player.PreviewImage.Value as WriteableBitmap;
 
         // Update scope after rendering is complete
-        editViewModel.Player.AfterRendered.CombineLatest(IsSelected)
+        _player.AfterRendered.CombineLatest(IsSelected)
             .Subscribe(_ =>
             {
                 if (!IsSelected.Value) return;
 
-                SourceBitmap.Value = editViewModel.Player.PreviewImage.Value as WriteableBitmap;
+                SourceBitmap.Value = _player.PreviewImage.Value as WriteableBitmap;
                 RefreshRequested?.Invoke(this, EventArgs.Empty);
             })
             .DisposeWith(_disposables);
@@ -50,10 +46,10 @@ public sealed class ColorScopesTabViewModel : IToolContext
     public ReactivePropertySlim<WriteableBitmap?> SourceBitmap { get; } = new();
 
     // Waveform settings
-    public ReactivePropertySlim<WaveformMode> WaveformMode { get; } = new(Views.Tools.Scopes.WaveformMode.RgbOverlay);
+    public ReactivePropertySlim<WaveformMode> WaveformMode { get; } = new(ViewModels.WaveformMode.RgbOverlay);
 
     // Histogram settings
-    public ReactivePropertySlim<HistogramMode> HistogramMode { get; } = new(Views.Tools.Scopes.HistogramMode.Parade);
+    public ReactivePropertySlim<HistogramMode> HistogramMode { get; } = new(ViewModels.HistogramMode.Parade);
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
@@ -70,7 +66,7 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
     public object? GetService(Type serviceType)
     {
-        return null;
+        return _editorContext.GetService(serviceType);
     }
 
     public void ReadFromJson(JsonObject json)

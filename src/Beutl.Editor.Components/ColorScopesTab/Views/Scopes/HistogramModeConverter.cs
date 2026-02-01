@@ -1,13 +1,7 @@
-﻿using System.Globalization;
-using Avalonia.Data.Converters;
+﻿using Avalonia.Data.Converters;
+using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 
-namespace Beutl.Views.Tools.Scopes;
-
-public enum HistogramMode
-{
-    Overlay = 0,
-    Parade = 1
-}
+namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
 public sealed class HistogramModeConverter : IValueConverter
 {

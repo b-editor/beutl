@@ -1,6 +1,7 @@
 ﻿using Avalonia.Data.Converters;
+using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 
-namespace Beutl.Views.Tools.Scopes;
+namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
 public sealed class WaveformModeConverter : IValueConverter
 {

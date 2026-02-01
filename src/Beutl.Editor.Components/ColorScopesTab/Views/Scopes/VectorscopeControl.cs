@@ -3,7 +3,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
-namespace Beutl.Views.Tools.Scopes;
+namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
 /// <summary>
 /// Control that displays a vectorscope visualization of color chrominance.

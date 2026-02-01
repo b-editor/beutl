@@ -5,6 +5,7 @@ using Beutl.Audio.Composing;
 using Beutl.Audio.Platforms.OpenAL;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Configuration;
+using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -26,7 +27,7 @@ using Vortice.Multimedia;
 
 namespace Beutl.ViewModels;
 
-public sealed class PlayerViewModel : IAsyncDisposable
+public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 {
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
     private readonly ILogger _logger = Log.CreateLogger<PlayerViewModel>();
@@ -208,6 +209,10 @@ public sealed class PlayerViewModel : IAsyncDisposable
     public Project? Project => Scene?.FindHierarchicalParent<Project>();
 
     public ReactivePropertySlim<Avalonia.Media.IImage> PreviewImage { get; } = new();
+
+    IReadOnlyReactiveProperty<Avalonia.Media.IImage?> IPreviewPlayer.PreviewImage => PreviewImage;
+
+    IObservable<Unit> IPreviewPlayer.AfterRendered => AfterRendered;
 
     public ReactivePropertySlim<bool> IsPlaying { get; } = new();
 

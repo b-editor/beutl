@@ -6,6 +6,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Transformation;
@@ -596,6 +597,9 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         if (serviceType == typeof(HistoryManager))
             return HistoryManager;
+
+        if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
+            return Player;
 
         return null;
     }
