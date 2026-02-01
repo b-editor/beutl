@@ -1,6 +1,6 @@
-﻿using Reactive.Bindings;
+using Reactive.Bindings;
 
-namespace Beutl.ViewModels;
+namespace Beutl.Editor.Services;
 
 public interface IUnknownObjectViewModel
 {

@@ -3,11 +3,12 @@ using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Operation;
 using Beutl.Services;
+using Beutl.Editor.Services;
 using DynamicData;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable
+public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, IPropertiesEditorViewModel
 {
     public PropertiesEditorViewModel(ICoreObject obj)
     {

@@ -1,4 +1,4 @@
-﻿namespace Beutl.ViewModels;
+namespace Beutl.Editor.Services;
 
 public interface ISupportCloseAnimation
 {

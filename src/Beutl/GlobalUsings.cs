@@ -8,5 +8,6 @@ global using Beutl.Collections;
 global using Beutl.Extensibility;
 global using Beutl.Language;
 global using Beutl.Editor.Components;
+global using Beutl.Editor.Services;
 global using Beutl.Reactive;
 global using RandomFileNameGenerator = Beutl.Utilities.RandomFileNameGenerator;
