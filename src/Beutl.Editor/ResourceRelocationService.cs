@@ -11,7 +11,7 @@ using SkiaSharp;
 namespace Beutl.Editor;
 
 /// <summary>
-/// リソースファイルのコピーとUri書き換えを行うサービス。
+/// Service for copying resource files and rewriting their URIs.
 /// </summary>
 public sealed class ResourceRelocationService
 {
@@ -19,29 +19,29 @@ public sealed class ResourceRelocationService
     private readonly Func<string, IEnumerable<string>>? _fontFileFinder;
 
     /// <summary>
-    /// デフォルトのコンストラクタ。
+    /// Default constructor.
     /// </summary>
     public ResourceRelocationService()
     {
     }
 
     /// <summary>
-    /// テスト用コンストラクタ。フォントファイル検索ロジックをカスタマイズできます。
+    /// Constructor for testing. Allows customizing the font file search logic.
     /// </summary>
-    /// <param name="fontFileFinder">フォントファイル検索関数</param>
+    /// <param name="fontFileFinder">Font file search function.</param>
     internal ResourceRelocationService(Func<string, IEnumerable<string>> fontFileFinder)
     {
         _fontFileFinder = fontFileFinder;
     }
 
     /// <summary>
-    /// ファイルソースをプロジェクトのresourcesディレクトリにコピーし、URIを更新します。
+    /// Copies file sources to the project's resources directory and updates their URIs.
     /// </summary>
-    /// <param name="sources">コピーするファイルソースのリスト</param>
-    /// <param name="stagingProject">URIの更新を適用するプロジェクト</param>
-    /// <param name="projectDirectory">プロジェクトディレクトリのパス</param>
-    /// <param name="cancellationToken">キャンセルトークン</param>
-    /// <returns>コピーされたファイルの数</returns>
+    /// <param name="sources">The list of file sources to copy.</param>
+    /// <param name="stagingProject">The project to apply URI updates to.</param>
+    /// <param name="projectDirectory">The path of the project directory.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of files copied.</returns>
     public async Task<int> RelocateFileSourcesAsync(
         IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources,
         Project stagingProject,
@@ -73,7 +73,7 @@ public sealed class ResourceRelocationService
                 foreach ((Guid id, string prop, _) in group)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    // URIを新しいパスに更新
+                    // Update the URI to the new path
                     UpdateUri(stagingProject, id, prop, new Uri(destFilePath));
 
                     count++;
@@ -125,12 +125,12 @@ public sealed class ResourceRelocationService
     }
 
     /// <summary>
-    /// フォントファイルをプロジェクトのresources/fontsディレクトリにコピーします。
+    /// Copies font files to the project's resources/fonts directory.
     /// </summary>
-    /// <param name="fontFamilies">コピーするフォントファミリーのリスト</param>
-    /// <param name="projectDirectory">プロジェクトディレクトリのパス</param>
-    /// <param name="cancellationToken">キャンセルトークン</param>
-    /// <returns>コピーされたフォントファイルの数</returns>
+    /// <param name="fontFamilies">The list of font families to copy.</param>
+    /// <param name="projectDirectory">The path of the project directory.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of font files copied.</returns>
     public async Task<int> RelocateFontsAsync(
         IEnumerable<FontFamily> fontFamilies,
         string projectDirectory,
@@ -175,11 +175,11 @@ public sealed class ResourceRelocationService
     }
 
     /// <summary>
-    /// フォントファミリー名に一致するフォントファイルを検索します。
+    /// Searches for font files matching the specified font family name.
     /// </summary>
     /// <remarks>
-    /// このメソッドはOS依存の処理や外部依存（SKTypeface、GlobalConfiguration）を含むため、
-    /// テスト時は<see cref="_fontFileFinder"/>を使用してバイパスされます。
+    /// This method contains OS-dependent logic and external dependencies (SKTypeface, GlobalConfiguration),
+    /// so it is bypassed during testing via <see cref="_fontFileFinder"/>.
     /// </remarks>
     [ExcludeFromCodeCoverage]
     private static IEnumerable<string> FindFontFiles(string fontFamilyName)
@@ -213,12 +213,12 @@ public sealed class ResourceRelocationService
                 }
                 catch
                 {
-                    // フォントファイルの読み込みに失敗した場合はスキップ
+                    // Skip if the font file fails to load
                 }
             }
         }
 
-        // システムフォントも検索（プラットフォーム固有のパス）
+        // Also search system fonts (platform-specific paths)
         string[] systemFontDirs = GetSystemFontDirectories();
         foreach (string fontDir in systemFontDirs)
         {
@@ -248,13 +248,13 @@ public sealed class ResourceRelocationService
                     }
                     catch
                     {
-                        // フォントファイルの読み込みに失敗した場合はスキップ
+                        // Skip if the font file fails to load
                     }
                 }
             }
             catch
             {
-                // ディレクトリのアクセスに失敗した場合はスキップ
+                // Skip if directory access fails
             }
         }
 
@@ -262,11 +262,11 @@ public sealed class ResourceRelocationService
     }
 
     /// <summary>
-    /// システムフォントディレクトリを取得します。
+    /// Gets the system font directories.
     /// </summary>
     /// <remarks>
-    /// このメソッドはOS依存の分岐を含み、現在のOS以外のパスはテストできないため、
-    /// カバレッジ計測から除外されています。
+    /// This method contains OS-dependent branching and paths for other operating systems cannot be tested,
+    /// so it is excluded from code coverage measurement.
     /// </remarks>
     [ExcludeFromCodeCoverage]
     private static string[] GetSystemFontDirectories()
@@ -304,7 +304,7 @@ public sealed class ResourceRelocationService
     }
 
     /// <summary>
-    /// 重複しないファイルパスを取得します。
+    /// Gets a unique file path that does not conflict with existing files.
     /// </summary>
     private static string GetUniqueFilePath(string directory, string fileName)
     {
@@ -326,7 +326,7 @@ public sealed class ResourceRelocationService
     }
 
     /// <summary>
-    /// 非同期でファイルをコピーします。
+    /// Copies a file asynchronously.
     /// </summary>
     private static async Task CopyFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken)
     {

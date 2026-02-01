@@ -1,8 +1,8 @@
 namespace Beutl.Editor;
 
 /// <summary>
-/// エクスポート処理用の仮想的なIHierarchicalRoot実装。
-/// Projectをアタッチしてリソース収集を行う際に使用します。
+/// A virtual IHierarchicalRoot implementation for export processing.
+/// Used when attaching a Project for resource collection.
 /// </summary>
 public sealed class VirtualProjectRoot : Hierarchical, IHierarchicalRoot
 {
@@ -13,9 +13,9 @@ public sealed class VirtualProjectRoot : Hierarchical, IHierarchicalRoot
     public event EventHandler<IHierarchical>? DescendantDetached;
 
     /// <summary>
-    /// プロジェクトをこのルートにアタッチします。
+    /// Attaches a project to this root.
     /// </summary>
-    /// <param name="project">アタッチするプロジェクト</param>
+    /// <param name="project">The project to attach.</param>
     public void AttachProject(Project project)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -30,7 +30,7 @@ public sealed class VirtualProjectRoot : Hierarchical, IHierarchicalRoot
     }
 
     /// <summary>
-    /// 現在アタッチされているプロジェクトをデタッチします。
+    /// Detaches the currently attached project.
     /// </summary>
     public void DetachProject()
     {

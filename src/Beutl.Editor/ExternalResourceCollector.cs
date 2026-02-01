@@ -5,7 +5,7 @@ using Beutl.Media;
 namespace Beutl.Editor;
 
 /// <summary>
-/// IFileSource参照とフォント参照を収集するクラス。
+/// Collects IFileSource references and font references from the project hierarchy.
 /// </summary>
 public sealed class ExternalResourceCollector
 {
@@ -17,21 +17,21 @@ public sealed class ExternalResourceCollector
     }
 
     /// <summary>
-    /// 収集されたファイルソースのリスト。
+    /// The list of collected file sources.
     /// </summary>
     public IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> FileSources => _fileSources;
 
     /// <summary>
-    /// 収集されたフォントファミリーのリスト。
+    /// The list of collected font families.
     /// </summary>
     public IEnumerable<FontFamily> FontFamilies => _fontFamilies;
 
     /// <summary>
-    /// 階層内のすべてのリソース参照を収集します。
+    /// Collects all resource references within the hierarchy.
     /// </summary>
-    /// <param name="root">収集を開始するルート階層</param>
-    /// <param name="projectDirectory">プロジェクトディレクトリのパス</param>
-    /// <returns>収集されたリソース情報</returns>
+    /// <param name="root">The root hierarchy to start collecting from.</param>
+    /// <param name="projectDirectory">The path of the project directory.</param>
+    /// <returns>The collected resource information.</returns>
     public static ExternalResourceCollector Collect(IHierarchical root, string projectDirectory)
     {
         ArgumentNullException.ThrowIfNull(root);
@@ -39,13 +39,13 @@ public sealed class ExternalResourceCollector
 
         ExternalResourceCollector collector = new();
 
-        // 階層内のすべてのEngineObjectを走査
+        // Traverse all EngineObjects within the hierarchy
         foreach (CoreObject obj in root.EnumerateAllChildren<CoreObject>())
         {
             collector.CollectFromObject(obj, projectDirectory);
         }
 
-        // ルート自体がEngineObjectの場合も処理
+        // Also process the root itself if it is a CoreObject
         if (root is CoreObject rootObj)
         {
             collector.CollectFromObject(rootObj, projectDirectory);
@@ -93,7 +93,7 @@ public sealed class ExternalResourceCollector
         {
             switch (property.CurrentValue)
             {
-                // IFileSourceの収集
+                // Collect IFileSource
                 case IFileSource fileSource when fileSource.Uri != null:
                     if (IsExternalFile(fileSource.Uri, projectDirectory))
                     {
@@ -101,7 +101,7 @@ public sealed class ExternalResourceCollector
                     }
 
                     break;
-                // FontFamilyの収集
+                // Collect FontFamily
                 case FontFamily fontFamily:
                     _fontFamilies.Add(fontFamily);
                     break;
@@ -110,7 +110,7 @@ public sealed class ExternalResourceCollector
     }
 
     /// <summary>
-    /// URIがプロジェクト外のファイルを指しているかどうかを判定します。
+    /// Determines whether the URI points to a file outside the project directory.
     /// </summary>
     private static bool IsExternalFile(Uri uri, string projectDirectory)
     {
@@ -120,7 +120,7 @@ public sealed class ExternalResourceCollector
         string filePath = uri.LocalPath;
         string fullProjectPath = Path.GetFullPath(projectDirectory);
 
-        // プロジェクトディレクトリ外のファイルは外部ファイルとみなす
+        // Files outside the project directory are considered external
         return !Path.GetFullPath(filePath).StartsWith(fullProjectPath, StringComparison.OrdinalIgnoreCase);
     }
 }

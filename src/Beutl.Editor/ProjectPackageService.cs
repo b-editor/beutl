@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Editor;
 
 /// <summary>
-/// プロジェクトのエクスポート/インポートを行うサービス。
+/// Service for exporting and importing projects.
 /// </summary>
 public sealed class ProjectPackageService
 {
@@ -22,13 +22,13 @@ public sealed class ProjectPackageService
     }
 
     /// <summary>
-    /// プロジェクトをZIPパッケージとしてエクスポートします。
+    /// Exports a project as a ZIP package.
     /// </summary>
-    /// <param name="project">エクスポートするプロジェクト</param>
-    /// <param name="outputPath">出力先のZIPファイルパス</param>
-    /// <param name="progress">進捗報告</param>
-    /// <param name="cancellationToken">キャンセルトークン</param>
-    /// <returns>エクスポートが成功した場合はtrue</returns>
+    /// <param name="project">The project to export.</param>
+    /// <param name="outputPath">The output ZIP file path.</param>
+    /// <param name="progress">Progress reporter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns><c>true</c> if the export was successful.</returns>
     public async Task<bool> ExportAsync(
         Project project,
         string outputPath,
@@ -47,29 +47,29 @@ public sealed class ProjectPackageService
 
         try
         {
-            // Step 1: 一時ディレクトリを作成
+            // Step 1: Create a temporary directory
             progress?.Report((Strings.ExportingProject, 0.0));
             tempDir = Path.Combine(Path.GetTempPath(), $"beutl_export_{Guid.NewGuid():N}");
             Directory.CreateDirectory(tempDir);
 
-            // Step 4: プロジェクトディレクトリをコピー
+            // Step 4: Copy the project directory
             string projectDir = Path.GetDirectoryName(project.Uri.LocalPath)!;
             string tempProjectDir = Path.Combine(tempDir, Path.GetFileName(projectDir));
             progress?.Report((Strings.ExportingProject, 0.1));
             await CopyDirectoryAsync(projectDir, tempProjectDir, cancellationToken);
 
-            // Step 2: 一時的なプロジェクトを開く
+            // Step 2: Open the temporary project
             string tempProjectFile = Path.Combine(tempProjectDir, Path.GetFileName(project.Uri.LocalPath));
             Uri tempProjectUri = new(tempProjectFile);
             progress?.Report((Strings.ExportingProject, 0.2));
             Project tempProject = CoreSerializer.RestoreFromUri<Project>(tempProjectUri);
 
-            // Step 3: 仮想ルートにアタッチ
+            // Step 3: Attach to the virtual root
             progress?.Report((Strings.ExportingProject, 0.3));
             VirtualProjectRoot virtualRoot = new();
             virtualRoot.AttachProject(tempProject);
 
-            // Step 5: 外部ファイルを収集してコピー
+            // Step 5: Collect and copy external files
             progress?.Report((Strings.ExportingProject, 0.4));
             ExternalResourceCollector collector = ExternalResourceCollector.Collect(project, projectDir);
 
@@ -80,7 +80,7 @@ public sealed class ProjectPackageService
                 cancellationToken);
             _logger.LogInformation("Relocated {Count} external files", fileCount);
 
-            // Step 6: フォントをコピー
+            // Step 6: Copy fonts
             progress?.Report((Strings.ExportingProject, 0.6));
             int fontCount = await _relocationService.RelocateFontsAsync(
                 collector.FontFamilies,
@@ -88,14 +88,14 @@ public sealed class ProjectPackageService
                 cancellationToken);
             _logger.LogInformation("Relocated {Count} font files", fontCount);
 
-            // Step 7: プロジェクトを保存
+            // Step 7: Save the project
             progress?.Report((Strings.ExportingProject, 0.8));
             CoreSerializer.StoreToUri(tempProject, tempProjectUri);
 
-            // 仮想ルートからデタッチ
+            // Detach from the virtual root
             virtualRoot.DetachProject();
 
-            // Step 9: ZIPファイルを作成
+            // Step 9: Create the ZIP file
             progress?.Report((Strings.ExportingProject, 0.9));
             if (File.Exists(outputPath))
             {
@@ -154,13 +154,13 @@ public sealed class ProjectPackageService
     }
 
     /// <summary>
-    /// ZIPパッケージからプロジェクトをインポートします。
+    /// Imports a project from a ZIP package.
     /// </summary>
-    /// <param name="packagePath">インポートするZIPファイルのパス</param>
-    /// <param name="destinationDirectory">展開先のディレクトリ</param>
-    /// <param name="progress">進捗報告</param>
-    /// <param name="cancellationToken">キャンセルトークン</param>
-    /// <returns>インポートされたプロジェクト、失敗した場合はnull</returns>
+    /// <param name="packagePath">The path of the ZIP file to import.</param>
+    /// <param name="destinationDirectory">The directory to extract to.</param>
+    /// <param name="progress">Progress reporter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The imported project, or <c>null</c> if import failed.</returns>
     public async Task<Project?> ImportAsync(
         string packagePath,
         string destinationDirectory,
@@ -179,15 +179,15 @@ public sealed class ProjectPackageService
         {
             progress?.Report((Strings.ImportingProject, 0.0));
 
-            // パッケージ名からプロジェクトディレクトリ名を取得
+            // Get the project directory name from the package name
             string packageName = Path.GetFileNameWithoutExtension(packagePath);
             string projectDir = GetUniqueDirectoryPath(destinationDirectory, packageName);
 
-            // ZIPを展開
+            // Extract the ZIP
             progress?.Report((Strings.ImportingProject, 0.3));
             await Task.Run(() => ZipFile.ExtractToDirectory(packagePath, projectDir), cancellationToken);
 
-            // プロジェクトファイルを検索
+            // Search for the project file
             progress?.Report((Strings.ImportingProject, 0.6));
             string? projectFile = Directory.GetFiles(projectDir, "*.bep", SearchOption.TopDirectoryOnly)
                 .FirstOrDefault();
@@ -199,7 +199,7 @@ public sealed class ProjectPackageService
                 return null;
             }
 
-            // プロジェクトを開く
+            // Open the project
             progress?.Report((Strings.ImportingProject, 0.8));
             Uri projectUri = new(projectFile);
             Project project = CoreSerializer.RestoreFromUri<Project>(projectUri);
@@ -234,7 +234,7 @@ public sealed class ProjectPackageService
     }
 
     /// <summary>
-    /// 重複しないディレクトリパスを取得します。
+    /// Gets a unique directory path that does not conflict with existing directories.
     /// </summary>
     private static string GetUniqueDirectoryPath(string parentDirectory, string directoryName)
     {
@@ -253,7 +253,7 @@ public sealed class ProjectPackageService
     }
 
     /// <summary>
-    /// ディレクトリを非同期でコピーします。
+    /// Copies a directory asynchronously.
     /// </summary>
     private static async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
     {
@@ -271,7 +271,7 @@ public sealed class ProjectPackageService
             cancellationToken.ThrowIfCancellationRequested();
             string dirName = Path.GetFileName(subDir);
 
-            // .beutlフォルダはスキップ（ビュー状態など）
+            // Skip the .beutl folder (view state, etc.)
             if (dirName == ".beutl")
                 continue;
 
@@ -281,7 +281,7 @@ public sealed class ProjectPackageService
     }
 
     /// <summary>
-    /// ファイルを非同期でコピーします。
+    /// Copies a file asynchronously.
     /// </summary>
     private static async Task CopyFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken)
     {
