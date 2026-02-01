@@ -1,11 +1,11 @@
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
+using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Logging;
-using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
-namespace Beutl.Services;
+namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
 // プロジェクトディレクトリ内のメディアファイルを再帰的に検索する。
 internal sealed class MediaFileSearcher : IDisposable

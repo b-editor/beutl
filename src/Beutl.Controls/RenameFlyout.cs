@@ -1,10 +1,13 @@
-﻿using System.ComponentModel;
+#nullable enable
+
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
+using Beutl.Language;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Controls.Primitives;
 
-namespace Beutl.Views;
+namespace Beutl.Controls;
 
 public sealed class RenameFlyout : PickerFlyoutBase
 {

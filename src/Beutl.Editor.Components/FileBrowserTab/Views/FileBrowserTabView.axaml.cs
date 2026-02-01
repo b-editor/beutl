@@ -7,17 +7,18 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
-using Beutl.ViewModels.Tools;
+using Beutl.Controls;
+using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using FluentAvalonia.UI.Controls;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.FileBrowserTab.Views;
 
-public partial class FileBrowserTab : UserControl
+public partial class FileBrowserTabView : UserControl
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
     private readonly Dictionary<Control, CancellationTokenSource> _sectionTransitionCts = [];
 
-    public FileBrowserTab()
+    public FileBrowserTabView()
     {
         InitializeComponent();
 

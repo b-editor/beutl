@@ -1,13 +1,17 @@
 using System.Diagnostics.CodeAnalysis;
+
 using Avalonia.Controls;
-using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
+
+using Beutl.Editor.Components.FileBrowserTab.ViewModels;
+using Beutl.Editor.Components.FileBrowserTab.Views;
+using Beutl.Extensibility;
+
 using FluentAvalonia.UI.Controls;
+
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.FileBrowserTab;
 
 [PrimitiveImpl]
 public sealed class FileBrowserTabExtension : ToolTabExtension
@@ -29,29 +33,13 @@ public sealed class FileBrowserTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
-        {
-            control = new FileBrowserTab();
-            return true;
-        }
-        else
-        {
-            control = null;
-            return false;
-        }
+        control = new FileBrowserTabView();
+        return true;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
-        {
-            context = new FileBrowserTabViewModel(editViewModel);
-            return true;
-        }
-        else
-        {
-            context = null;
-            return false;
-        }
+        context = new FileBrowserTabViewModel(editorContext);
+        return true;
     }
 }

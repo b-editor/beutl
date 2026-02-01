@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.VisualTree;
 
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.NodeTree;
 using Beutl.ViewModels.NodeTree;

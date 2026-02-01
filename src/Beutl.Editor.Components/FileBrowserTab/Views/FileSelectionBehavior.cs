@@ -1,10 +1,10 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Xaml.Interactivity;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.FileBrowserTab.Views;
 
 // PointerReleased, KeyUpが発火した後，SelectedItemsから存在しないアイテムを削除するBehavior
 public class FileSelectionBehavior : Behavior<Control>

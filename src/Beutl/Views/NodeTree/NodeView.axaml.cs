@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
+using Beutl.Controls;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
 using Beutl.ViewModels.NodeTree;

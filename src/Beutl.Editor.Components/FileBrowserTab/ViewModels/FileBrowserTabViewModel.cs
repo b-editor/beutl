@@ -1,15 +1,17 @@
 using System.Collections.ObjectModel;
 using System.Text.Json.Nodes;
 using Avalonia.Data.Converters;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Logging;
+using Beutl.ProjectSystem;
 using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
 public enum FileBrowserViewMode
 {
@@ -22,7 +24,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly ILogger _logger = Log.CreateLogger<FileBrowserTabViewModel>();
-    private readonly EditViewModel _editViewModel;
+    private readonly IEditorContext _editorContext;
     private readonly DirectoryWatcherService _directoryWatcher = new();
     private string _rootPath = string.Empty;
     private readonly FavoritesManager _favoritesManager = new();
@@ -31,9 +33,9 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     internal string? ProjectDirectory => _projectDirectory;
 
-    public FileBrowserTabViewModel(EditViewModel editViewModel)
+    public FileBrowserTabViewModel(IEditorContext editorContext)
     {
-        _editViewModel = editViewModel;
+        _editorContext = editorContext;
 
         // お気に入り変更時にホームビューを更新
         _favoritesManager.Changed += () =>
@@ -138,16 +140,22 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     private string? GetProjectDirectory()
     {
-        var project = ProjectService.Current.CurrentProject.Value;
-        if (project?.Uri != null)
-            return Path.GetDirectoryName(project.Uri.LocalPath);
+        var scene = _editorContext.GetService<Scene>();
+        var project = scene?.FindHierarchicalParent<Project>();
+        var projectDirectory = project?.Uri != null
+            ? Path.GetDirectoryName(project.Uri.LocalPath)
+            : null;
 
-        // フォールバック: シーンディレクトリの1つ上
-        if (_editViewModel.Scene.Uri != null)
+        if (!string.IsNullOrEmpty(projectDirectory))
         {
-            string? sceneDir = Path.GetDirectoryName(_editViewModel.Scene.Uri.LocalPath);
+            return projectDirectory;
+        }
+
+        if (scene?.Uri != null)
+        {
+            string? sceneDir = Path.GetDirectoryName(scene.Uri.LocalPath);
             if (!string.IsNullOrEmpty(sceneDir))
-                return Path.GetDirectoryName(sceneDir);
+                return sceneDir;
         }
         return null;
     }

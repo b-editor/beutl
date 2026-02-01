@@ -6,7 +6,7 @@ using Beutl.Media.Decoding;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
-namespace Beutl.Services;
+namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
 public sealed record MediaFileInfo(
     int? Width,

@@ -1,11 +1,11 @@
 using System.Collections.ObjectModel;
 using Avalonia.Media.Imaging;
-using Beutl.Services;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using Symbol = FluentIcons.Common.Symbol;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
 // ファイルまたはフォルダを表すViewModel
 public class FileSystemItemViewModel : IDisposable

@@ -3,9 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.Xaml.Interactivity;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.FileBrowserTab.Views;
 
 // ファイルブラウザアイテムのドラッグ開始を処理するBehavior。
 // ListBoxItemやTreeViewItemに適用して使用する。
@@ -108,7 +108,7 @@ public class FileItemDragBehavior : Behavior<Control>
 
     private FileBrowserTabViewModel? GetViewModel()
     {
-        // UserControl (FileBrowserTab) の DataContext から ViewModel を取得
+        // UserControl (FileBrowserTabView) の DataContext から ViewModel を取得
         var parent = AssociatedObject;
         while (parent != null)
         {

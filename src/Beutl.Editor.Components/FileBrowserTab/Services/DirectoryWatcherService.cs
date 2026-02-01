@@ -2,7 +2,7 @@ using Avalonia.Threading;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
-namespace Beutl.Services;
+namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
 // ディレクトリ変更を監視し、デバウンス付きで変更通知を発行する。
 internal sealed class DirectoryWatcherService : IDisposable

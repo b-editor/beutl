@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
 // ディレクトリ内のファイル/フォルダを列挙するユーティリティ。
 // 隠しファイルを除外し、ディレクトリ優先・名前順でソートする。

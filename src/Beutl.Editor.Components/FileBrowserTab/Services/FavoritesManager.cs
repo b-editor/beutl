@@ -2,11 +2,11 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Text.Json;
 using Beutl.Configuration;
+using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Logging;
-using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.Logging;
 
-namespace Beutl.Services;
+namespace Beutl.Editor.Components.FileBrowserTab.Services;
 
 // ファイルブラウザのお気に入りディレクトリを管理する。
 // Preferencesへの永続化とホームビュー用のアイテム生成を担当。
