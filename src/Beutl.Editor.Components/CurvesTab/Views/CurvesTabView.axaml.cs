@@ -1,12 +1,12 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using Beutl.Controls.Curves;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.CurvesTab.ViewModels;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.CurvesTab.Views;
 
-public partial class CurvesTab : UserControl
+public partial class CurvesTabView : UserControl
 {
-    public CurvesTab()
+    public CurvesTabView()
     {
         InitializeComponent();
     }

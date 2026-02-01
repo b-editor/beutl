@@ -1,13 +1,16 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
+
 using Avalonia.Controls;
-using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
+
+using Beutl.Editor.Components.CurvesTab.ViewModels;
+using Beutl.Editor.Components.CurvesTab.Views;
+
 using FluentAvalonia.UI.Controls;
+
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.CurvesTab;
 
 [PrimitiveImpl]
 public sealed class CurvesTabExtension : ToolTabExtension
@@ -29,29 +32,13 @@ public sealed class CurvesTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
-        {
-            control = new CurvesTab();
-            return true;
-        }
-        else
-        {
-            control = null;
-            return false;
-        }
+        control = new CurvesTabView();
+        return true;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
-        {
-            context = new CurvesTabViewModel(editViewModel);
-            return true;
-        }
-        else
-        {
-            context = null;
-            return false;
-        }
+        context = new CurvesTabViewModel(editorContext);
+        return true;
     }
 }

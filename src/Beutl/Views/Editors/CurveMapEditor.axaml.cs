@@ -1,8 +1,8 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.CurvesTab.ViewModels;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;

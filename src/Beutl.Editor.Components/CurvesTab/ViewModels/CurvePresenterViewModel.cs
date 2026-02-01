@@ -1,11 +1,10 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.CurvesTab.ViewModels;
 
 public sealed class CurvePresenterViewModel : IDisposable
 {

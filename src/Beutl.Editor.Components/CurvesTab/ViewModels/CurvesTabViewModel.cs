@@ -1,61 +1,45 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Avalonia.Media.Imaging;
 using Beutl.Controls.Curves;
-using Beutl.Editor;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.ProjectSystem;
-using Beutl.Services.PrimitiveImpls;
+
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.ViewModels.Tools;
-
-public enum CurveGroup
-{
-    Custom,
-    HueVsHue,
-    HueVsSaturation,
-    HueVsLuminance,
-    LuminanceVsSaturation,
-    SaturationVsSaturation,
-}
-
-public enum CustomCurveChannel
-{
-    Master,
-    Red,
-    Green,
-    Blue,
-}
-
-public record CurveGroupItem(CurveGroup Group, string DisplayName);
-
-public record CustomCurveChannelItem(CustomCurveChannel Channel, string DisplayName);
+namespace Beutl.Editor.Components.CurvesTab.ViewModels;
 
 public sealed class CurvesTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly CompositeDisposable _effectDisposables = [];
-    private readonly EditViewModel _editViewModel;
+    private readonly IEditorContext _editorContext;
+    private readonly IPreviewPlayer _player;
+    private readonly Scene _scene;
 
-    public CurvesTabViewModel(EditViewModel editViewModel)
+    public CurvesTabViewModel(IEditorContext editorContext)
     {
-        _editViewModel = editViewModel;
+        _editorContext = editorContext;
+        _player = editorContext.GetService<IPreviewPlayer>()!;
+        _scene = editorContext.GetService<Scene>()!;
 
-        SourceBitmap.Value = editViewModel.Player.PreviewImage.Value as WriteableBitmap;
+        SourceBitmap.Value = _player.PreviewImage.Value as WriteableBitmap;
 
         Effect.Subscribe(SetEditors)
             .DisposeWith(_disposables);
 
-        editViewModel.Player.AfterRendered.CombineLatest(IsSelected)
+        _player.AfterRendered.CombineLatest(IsSelected)
             .ObserveOnUIDispatcher()
             .Subscribe(_ =>
             {
                 if (!IsSelected.Value) return;
 
-                var bitmap = editViewModel.Player.PreviewImage.Value as WriteableBitmap;
+                var bitmap = _player.PreviewImage.Value as WriteableBitmap;
                 if (ReferenceEquals(SourceBitmap.Value, bitmap))
                 {
                     SourceBitmap.Value = null;
@@ -283,7 +267,7 @@ public sealed class CurvesTabViewModel : IToolContext
             && effectIdValue.TryGetValue(out string? effectIdStr)
             && Guid.TryParse(effectIdStr, out Guid effectId))
         {
-            var colorGrading = _editViewModel.Scene.FindById(effectId) as Curves;
+            var colorGrading = _scene.FindById(effectId) as Curves;
             Effect.Value = colorGrading;
         }
     }
@@ -297,11 +281,8 @@ public sealed class CurvesTabViewModel : IToolContext
 
     public object? GetService(Type serviceType)
     {
-        if (serviceType == typeof(EditViewModel))
-            return _editViewModel;
-
         if (serviceType == typeof(HistoryManager))
-            return _editViewModel.HistoryManager;
+            return _editorContext.GetService<HistoryManager>();
 
         if (serviceType == typeof(Element))
             return Effect.Value?.FindHierarchicalParent<Element>();
@@ -310,9 +291,9 @@ public sealed class CurvesTabViewModel : IToolContext
             return Effect.Value;
 
         if (serviceType == typeof(Scene))
-            return _editViewModel.Scene;
+            return _scene;
 
-        return _editViewModel.GetService(serviceType);
+        return _editorContext.GetService(serviceType);
     }
 
     public void SelectCurveByPropertyName(string propertyName)
@@ -360,15 +341,17 @@ public sealed class CurvesTabViewModel : IToolContext
         if (effect == null)
             return;
 
-        MasterCurve.Value = CreateCurve(effect.MasterCurve);
-        RedCurve.Value = CreateCurve(effect.RedCurve);
-        GreenCurve.Value = CreateCurve(effect.GreenCurve);
-        BlueCurve.Value = CreateCurve(effect.BlueCurve);
-        HueVsHue.Value = CreateCurve(effect.HueVsHue);
-        HueVsSaturation.Value = CreateCurve(effect.HueVsSaturation);
-        HueVsLuminance.Value = CreateCurve(effect.HueVsLuminance);
-        LuminanceVsSaturation.Value = CreateCurve(effect.LuminanceVsSaturation);
-        SaturationVsSaturation.Value = CreateCurve(effect.SaturationVsSaturation);
+        var history = _editorContext.GetService<HistoryManager>()!;
+
+        MasterCurve.Value = CreateCurve(effect.MasterCurve, history);
+        RedCurve.Value = CreateCurve(effect.RedCurve, history);
+        GreenCurve.Value = CreateCurve(effect.GreenCurve, history);
+        BlueCurve.Value = CreateCurve(effect.BlueCurve, history);
+        HueVsHue.Value = CreateCurve(effect.HueVsHue, history);
+        HueVsSaturation.Value = CreateCurve(effect.HueVsSaturation, history);
+        HueVsLuminance.Value = CreateCurve(effect.HueVsLuminance, history);
+        LuminanceVsSaturation.Value = CreateCurve(effect.LuminanceVsSaturation, history);
+        SaturationVsSaturation.Value = CreateCurve(effect.SaturationVsSaturation, history);
 
         effect.DetachedFromHierarchy += OnEffectDetached;
         _effectDisposables.Add(Disposable.Create(() => effect.DetachedFromHierarchy -= OnEffectDetached));
@@ -379,9 +362,9 @@ public sealed class CurvesTabViewModel : IToolContext
         Effect.Value = null;
     }
 
-    private CurvePresenterViewModel CreateCurve(IProperty<CurveMap> property)
+    private CurvePresenterViewModel CreateCurve(IProperty<CurveMap> property, HistoryManager history)
     {
-        var vm = new CurvePresenterViewModel(property.Name, Effect.Value!, property, _editViewModel.HistoryManager);
+        var vm = new CurvePresenterViewModel(property.Name, Effect.Value!, property, history);
         _effectDisposables.Add(vm);
         return vm;
     }
