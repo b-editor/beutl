@@ -1,10 +1,10 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Beutl.Models;
+
 using Beutl.Services;
 
-namespace Beutl.Views.LibraryViews;
+namespace Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
 
 public partial class EasingsView : UserControl
 {

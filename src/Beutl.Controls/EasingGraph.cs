@@ -1,10 +1,10 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 
 using Beutl.Animation.Easings;
 
-namespace Beutl.Views.AnimationEditors;
+namespace Beutl.Controls;
 
 public sealed class EasingGraph : TemplatedControl
 {

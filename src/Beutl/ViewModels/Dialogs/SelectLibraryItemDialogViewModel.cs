@@ -2,6 +2,8 @@
 using System.Text.RegularExpressions;
 using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Services;
 using DynamicData;
 using Beutl.ViewModels.Editors;

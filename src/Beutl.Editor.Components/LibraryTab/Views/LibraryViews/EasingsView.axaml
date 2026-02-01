@@ -1,16 +1,16 @@
-<UserControl x:Class="Beutl.Views.LibraryViews.EasingsView"
+<UserControl x:Class="Beutl.Editor.Components.LibraryTab.Views.LibraryViews.EasingsView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:anmeditors="using:Beutl.Views.AnimationEditors"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:viewModel="using:Beutl.ViewModels"
+             xmlns:viewModel="using:Beutl.Editor.Components.LibraryTab.ViewModels"
              d:DesignHeight="450"
              d:DesignWidth="800"
-             x:DataType="viewModel:LibraryViewModel"
+             x:DataType="viewModel:LibraryTabViewModel"
              mc:Ignorable="d">
     <ScrollViewer>
         <StackPanel>
@@ -85,11 +85,11 @@
                                 Background="Transparent"
                                 BorderBrush="{DynamicResource TextControlForeground}"
                                 BorderThickness="1">
-                            <anmeditors:EasingGraph Width="100"
-                                                    Height="100"
-                                                    BorderBrush="{DynamicResource TextControlForeground}"
-                                                    ClipToBounds="False"
-                                                    Easing="{Binding}" />
+                            <controls:EasingGraph Width="100"
+                                                  Height="100"
+                                                  BorderBrush="{DynamicResource TextControlForeground}"
+                                                  ClipToBounds="False"
+                                                  Easing="{Binding}" />
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

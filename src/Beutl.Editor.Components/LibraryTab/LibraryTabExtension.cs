@@ -1,12 +1,17 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
+
 using Avalonia.Controls;
-using Beutl.ViewModels;
-using Beutl.Views;
+
+using Beutl.Editor.Components.LibraryTab.ViewModels;
+using Beutl.Editor.Components.LibraryTab.Views;
+using Beutl.Extensibility;
+
 using FluentAvalonia.UI.Controls;
+
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.LibraryTab;
 
 [PrimitiveImpl]
 public sealed class LibraryTabExtension : ToolTabExtension
@@ -28,29 +33,13 @@ public sealed class LibraryTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
-        {
-            control = new Library();
-            return true;
-        }
-        else
-        {
-            control = null;
-            return false;
-        }
+        control = new LibraryTabView();
+        return true;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
-        {
-            context = new LibraryViewModel(editViewModel);
-            return true;
-        }
-        else
-        {
-            context = null;
-            return false;
-        }
+        context = new LibraryTabViewModel(editorContext);
+        return true;
     }
 }

@@ -1,11 +1,11 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
-using Beutl.ViewModels;
+using Beutl.Editor.Components.LibraryTab.ViewModels;
 
-namespace Beutl.Views.LibraryViews;
+namespace Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
 
 public partial class SearchView : UserControl
 {
@@ -22,7 +22,7 @@ public partial class SearchView : UserControl
 
     private async void SearchQueryChanged(string? str)
     {
-        if (DataContext is LibraryViewModel viewModel)
+        if (DataContext is LibraryTabViewModel viewModel)
         {
             _cts?.Cancel();
             await Task.Delay(100);

@@ -1,8 +1,8 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 
-namespace Beutl;
+namespace Beutl.Editor.Components.Helpers;
 
-internal static partial class RegexHelper
+public static partial class RegexHelper
 {
     public static Regex[] CreateRegexes(string pattern)
     {

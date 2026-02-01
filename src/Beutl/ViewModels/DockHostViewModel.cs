@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.LibraryTab;
 using Beutl.Logging;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;

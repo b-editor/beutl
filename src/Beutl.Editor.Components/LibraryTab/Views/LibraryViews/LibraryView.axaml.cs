@@ -1,11 +1,11 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
-using Beutl.ViewModels;
+using Beutl.Editor.Components.LibraryTab.ViewModels;
 
-namespace Beutl.Views.LibraryViews;
+namespace Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
 
 public partial class LibraryView : UserControl
 {

@@ -4,6 +4,7 @@ using Beutl.Editor.Components.CurvesTab;
 using Beutl.Editor.Components.ColorGradingProperties;
 using Beutl.Editor.Components.ColorGradingTab;
 using Beutl.Editor.Components.FileBrowserTab;
+using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Components.SceneSettingsTab;
 using Beutl.Services.PrimitiveImpls;
 

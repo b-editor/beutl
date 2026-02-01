@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
@@ -8,18 +8,18 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
 using Beutl.Configuration;
+using Beutl.Editor.Components.LibraryTab.ViewModels;
+using Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
 using Beutl.Utilities;
-using Beutl.ViewModels;
-using Beutl.Views.LibraryViews;
 
 using FluentAvalonia.UI.Controls;
 
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIcon = FluentIcons.FluentAvalonia.SymbolIcon;
 
-namespace Beutl.Views;
+namespace Beutl.Editor.Components.LibraryTab.Views;
 
-public sealed partial class Library : UserControl
+public sealed partial class LibraryTabView : UserControl
 {
     private static readonly (Symbol Icon, string Text, string Id, Func<Control> Create)[] s_tabItems =
     [
@@ -29,7 +29,7 @@ public sealed partial class Library : UserControl
         (Symbol.Flow, Strings.NodeTree, "Nodes", () => new NodesView()),
     ];
 
-    public Library()
+    public LibraryTabView()
     {
         InitializeComponent();
 
@@ -37,7 +37,7 @@ public sealed partial class Library : UserControl
             .Select(item =>
             {
                 var tabItem = new TabStripItem();
-                var binding = new Binding($"{nameof(LibraryViewModel.LibraryTabDisplayModes)}[{item.Id}]", BindingMode.OneWay)
+                var binding = new Binding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{item.Id}]", BindingMode.OneWay)
                 {
                     Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
                 };
@@ -57,7 +57,7 @@ public sealed partial class Library : UserControl
                 };
                 switchMenu.Click += (s, e) =>
                 {
-                    if (DataContext is LibraryViewModel viewModel)
+                    if (DataContext is LibraryTabViewModel viewModel)
                     {
                         viewModel.LibraryTabDisplayModes[item.Id] = !switchMenu.IsChecked
                             ? LibraryTabDisplayMode.Show : LibraryTabDisplayMode.Hide;
@@ -76,7 +76,7 @@ public sealed partial class Library : UserControl
         {
             ItemsSource = s_tabItems.Select(item =>
             {
-                var binding = new Binding($"{nameof(LibraryViewModel.LibraryTabDisplayModes)}[{item.Id}]", BindingMode.OneWay)
+                var binding = new Binding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{item.Id}]", BindingMode.OneWay)
                 {
                     Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
                 };
@@ -87,7 +87,7 @@ public sealed partial class Library : UserControl
                 };
                 switchMenu.Click += (s, e) =>
                 {
-                    if (DataContext is LibraryViewModel viewModel)
+                    if (DataContext is LibraryTabViewModel viewModel)
                     {
                         viewModel.LibraryTabDisplayModes[item.Id] = !switchMenu.IsChecked
                             ? LibraryTabDisplayMode.Show : LibraryTabDisplayMode.Hide;
@@ -159,7 +159,7 @@ public sealed partial class Library : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        if (DataContext is LibraryViewModel viewModel)
+        if (DataContext is LibraryTabViewModel viewModel)
         {
             tabStrip.SelectedIndex = viewModel.SelectedTab;
         }
@@ -168,7 +168,7 @@ public sealed partial class Library : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        if (DataContext is LibraryViewModel viewModel)
+        if (DataContext is LibraryTabViewModel viewModel)
         {
             viewModel.SelectedTab = tabStrip.SelectedIndex;
         }
