@@ -1,14 +1,19 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
+
 using Avalonia.Controls;
-using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
+
+using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
+using Beutl.Editor.Components.SceneSettingsTab.Views;
+using Beutl.Extensibility;
+
 using FluentAvalonia.UI.Controls;
+
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.SceneSettingsTab;
 
+[PrimitiveImpl]
 public sealed class SceneSettingsTabExtension : ToolTabExtension
 {
     public static readonly SceneSettingsTabExtension Instance = new();
@@ -26,29 +31,13 @@ public sealed class SceneSettingsTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
-        {
-            control = new SceneSettingsTab();
-            return true;
-        }
-        else
-        {
-            control = null;
-            return false;
-        }
+        control = new SceneSettingsTabView();
+        return true;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
-        {
-            context = new SceneSettingsTabViewModel(editViewModel);
-            return true;
-        }
-        else
-        {
-            context = null;
-            return false;
-        }
+        context = new SceneSettingsTabViewModel(editorContext);
+        return true;
     }
 }

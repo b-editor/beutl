@@ -1,16 +1,20 @@
-﻿using Avalonia.Controls;
+using System.Reactive.Disposables;
+
+using Avalonia.Controls;
 using Avalonia.Data;
 
 using Beutl.Controls.PropertyEditors;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 
-namespace Beutl.Views.Tools;
+using Reactive.Bindings.Extensions;
 
-public partial class SceneSettingsTab : UserControl
+namespace Beutl.Editor.Components.SceneSettingsTab.Views;
+
+public partial class SceneSettingsTabView : UserControl
 {
     private readonly CompositeDisposable _disposables = [];
 
-    public SceneSettingsTab()
+    public SceneSettingsTabView()
     {
         InitializeComponent();
     }

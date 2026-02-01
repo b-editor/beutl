@@ -5,6 +5,7 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
+using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.ViewModels.Tools;
 using Reactive.Bindings;
 

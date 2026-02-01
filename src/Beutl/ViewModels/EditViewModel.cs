@@ -598,6 +598,9 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         if (serviceType == typeof(HistoryManager))
             return HistoryManager;
 
+        if (serviceType.IsAssignableTo(typeof(ITimelineOptionsProvider)))
+            return this;
+
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;
 

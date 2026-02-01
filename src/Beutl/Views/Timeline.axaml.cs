@@ -17,6 +17,7 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
+using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;

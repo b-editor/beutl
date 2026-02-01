@@ -1,6 +1,8 @@
 ﻿using Beutl.Api.Services;
 using Beutl.Editor.Components.ColorScopesTab;
 using Beutl.Editor.Components.CurvesTab;
+using Beutl.Editor.Components.FileBrowserTab;
+using Beutl.Editor.Components.SceneSettingsTab;
 using Beutl.Services.PrimitiveImpls;
 
 namespace Beutl.Services.StartupTasks;

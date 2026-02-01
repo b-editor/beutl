@@ -1,4 +1,4 @@
-﻿using Avalonia.Data;
+using Avalonia.Data;
 using Avalonia.Data.Core;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindings;
@@ -7,7 +7,7 @@ using Reactive.Bindings;
 
 namespace Beutl;
 
-internal static class BindingHelper
+public static class BindingHelper
 {
     private static readonly Dictionary<Type, CompiledBindingPath> s_cache = [];
 

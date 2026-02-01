@@ -34,17 +34,6 @@ using static Beutl.ViewModels.BufferStatusViewModel;
 
 namespace Beutl.ViewModels;
 
-public interface ITimelineOptionsProvider
-{
-    Scene Scene { get; }
-
-    IReactiveProperty<TimelineOptions> Options { get; }
-
-    IObservable<float> Scale { get; }
-
-    IObservable<Vector2> Offset { get; }
-}
-
 public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 {
     private readonly ILogger _logger = Log.CreateLogger<TimelineViewModel>();

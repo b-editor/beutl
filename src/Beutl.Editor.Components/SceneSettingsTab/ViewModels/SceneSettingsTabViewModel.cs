@@ -1,22 +1,28 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
+
 using Beutl.Editor;
+using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
-using Beutl.Services.PrimitiveImpls;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 
 public sealed class SceneSettingsTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposable = [];
-    private EditViewModel _editViewModel;
+    private IEditorContext _editorContext;
     private Scene _scene;
+    private ITimelineOptionsProvider _optionsProvider;
 
-    public SceneSettingsTabViewModel(EditViewModel editViewModel)
+    public SceneSettingsTabViewModel(IEditorContext editorContext)
     {
-        _editViewModel = editViewModel;
-        _scene = editViewModel.Scene;
+        _editorContext = editorContext;
+        _scene = editorContext.GetService<Scene>()!;
+        _optionsProvider = editorContext.GetService<ITimelineOptionsProvider>()!;
         IObservable<Media.PixelSize> frameSize = _scene.GetObservable(Scene.FrameSizeProperty);
         Width = frameSize.Select(v => v.Width)
             .ToReactiveProperty()
@@ -32,7 +38,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             .Select(v => v.ToString())
             .ToReactiveProperty()
             .DisposeWith(_disposable)!;
-        LayerCount = editViewModel.Options.Select(x => x.MaxLayerCount)
+        LayerCount = _optionsProvider.Options.Select(x => x.MaxLayerCount)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
 
@@ -70,14 +76,14 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                         || start != _scene.Start
                         || duration != _scene.Duration)
                     {
-                        HistoryManager history = _editViewModel.HistoryManager;
+                        HistoryManager history = _editorContext.GetService<HistoryManager>()!;
                         _scene.FrameSize = new Media.PixelSize(Width.Value, Height.Value);
                         _scene.Start = start;
                         _scene.Duration = duration;
                         history.Commit(CommandNames.ChangeSceneSettings);
                     }
 
-                    _editViewModel.Options.Value = _editViewModel.Options.Value with
+                    _optionsProvider.Options.Value = _optionsProvider.Options.Value with
                     {
                         MaxLayerCount = LayerCount.Value
                     };
@@ -92,7 +98,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 Height.Value = _scene.FrameSize.Height;
                 StartInput.Value = _scene.Start.ToString();
                 DurationInput.Value = _scene.Duration.ToString();
-                LayerCount.Value = _editViewModel.Options.Value.MaxLayerCount;
+                LayerCount.Value = _optionsProvider.Options.Value.MaxLayerCount;
             })
             .DisposeWith(_disposable);
     }
@@ -171,8 +177,9 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     public void Dispose()
     {
         _disposable.Dispose();
-        _editViewModel = null!;
+        _editorContext = null!;
         _scene = null!;
+        _optionsProvider = null!;
     }
 
     public void WriteToJson(JsonObject json)
