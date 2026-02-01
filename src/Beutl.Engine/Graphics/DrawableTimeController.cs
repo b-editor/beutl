@@ -77,10 +77,10 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         // 相対的な時間
         TimeSpan baseTime = currentTime - TimeRange.Start;
 
-        // 1. AdjustTimeRange: baseTime = currentTime - own Start + Target's Start
+        // 1. AdjustTimeRange: baseTime = currentTime - Target's Start
         if (resource.AdjustTimeRange)
         {
-            baseTime -= targetStart - TimeRange.Start;
+            baseTime = currentTime - targetStart;
         }
 
         // 2. OffsetPosition
