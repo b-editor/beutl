@@ -10,4 +10,6 @@ public interface IPreviewPlayer
     IReadOnlyReactiveProperty<IImage?> PreviewImage { get; }
 
     IObservable<Unit> AfterRendered { get; }
+
+    IReadOnlyReactiveProperty<bool> IsPlaying { get; }
 }

@@ -214,6 +214,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     IObservable<Unit> IPreviewPlayer.AfterRendered => AfterRendered;
 
+    IReadOnlyReactiveProperty<bool> IPreviewPlayer.IsPlaying => IsPlaying;
+
     public ReactivePropertySlim<bool> IsPlaying { get; } = new();
 
     public ReactiveProperty<TimeSpan> CurrentFrame { get; }
