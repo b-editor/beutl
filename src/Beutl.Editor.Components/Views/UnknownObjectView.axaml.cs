@@ -1,16 +1,16 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 
+using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Services;
-using Beutl.ViewModels;
 
 using Microsoft.Extensions.Logging;
 
-namespace Beutl.Views;
+namespace Beutl.Editor.Components.Views;
 
 public partial class UnknownObjectView : UserControl
 {

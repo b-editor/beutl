@@ -1,29 +1,28 @@
-﻿using System.Collections.Specialized;
+using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
-using Beutl.Models;
+using Beutl.Editor.Services;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.Services.PrimitiveImpls;
 
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
 
 public sealed class SourceOperatorsTabViewModel : IToolContext
 {
     private readonly IDisposable _disposable0;
-    private EditViewModel _editViewModel;
+    private IEditorContext _editorContext;
     private IDisposable? _disposable1;
     private Element? _oldElement;
 
-    public SourceOperatorsTabViewModel(EditViewModel editViewModel)
+    public SourceOperatorsTabViewModel(IEditorContext editorContext)
     {
-        _editViewModel = editViewModel;
-        Element = editViewModel.SelectedObject
+        _editorContext = editorContext;
+        Element = editorContext.GetRequiredService<IEditorSelection>().SelectedObject
             .Select(x => x as Element)
             .ToReactiveProperty();
 
@@ -95,14 +94,6 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
                                 break;
                         }
                     });
-                //_disposable1 = element.Operators.ForEachItem(
-                //    (idx, item) => Items.Insert(idx, new StreamOperatorViewModel(item)),
-                //    (idx, _) =>
-                //    {
-                //        Items[idx].Dispose();
-                //        Items.RemoveAt(idx);
-                //    },
-                //    () => ClearItems());
 
                 RestoreState(element);
             }
@@ -121,6 +112,8 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
     public CoreList<SourceOperatorViewModel> Items { get; } = [];
 
     public ToolTabExtension Extension => SourceOperatorsTabExtension.Instance;
+
+    public IEditorContext ParentContext => _editorContext;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
@@ -146,7 +139,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         _disposable1?.Dispose();
 
         Element.Dispose();
-        _editViewModel = null!;
+        _editorContext = null!;
         RequestScroll = null;
     }
 
@@ -154,7 +147,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
     {
         string directory = Path.GetDirectoryName(element.Uri!.LocalPath)!;
 
-        directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
+        directory = Path.Combine(directory, ".beutl", "view-state");
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);
@@ -231,6 +224,6 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         if (serviceType == typeof(Element))
             return Element.Value;
 
-        return _editViewModel.GetService(serviceType);
+        return _editorContext.GetService(serviceType);
     }
 }

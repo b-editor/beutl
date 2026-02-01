@@ -1,17 +1,16 @@
-﻿using System.Collections.Specialized;
+using System.Collections.Specialized;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Nodes;
 using Beutl.Editor;
-using Beutl.Helpers;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Operation;
 using Beutl.Serialization;
 using Beutl.Services;
-using Beutl.ViewModels.Editors;
-using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
 
 public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider, IUnknownObjectViewModel
 {
@@ -131,54 +130,9 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     private void Init()
     {
-        List<IPropertyAdapter> props = [.. Model.Properties];
-        var tempItems = new List<IPropertyEditorContext?>(props.Count);
-        IPropertyAdapter[]? foundItems;
-        PropertyEditorExtension? extension;
-
-        do
-        {
-            (foundItems, extension) = PropertyEditorService.MatchProperty(props);
-            if (foundItems != null && extension != null)
-            {
-                if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
-                {
-                    tempItems.Add(context);
-                    context.Accept(this);
-                }
-
-                props.RemoveMany(foundItems);
-            }
-        } while (foundItems != null && extension != null);
-
-        foreach ((string? Key, IPropertyEditorContext?[] Value) group in tempItems.GroupBy(x =>
-                     {
-                         if (x is BaseEditorViewModel { PropertyAdapter: { } adapter })
-                         {
-                             return (adapter.GetAttributes().FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute)
-                                 ?.GetGroupName();
-                         }
-                         else
-                         {
-                             return null;
-                         }
-                     })
-                     .Select(x => (x.Key, x.ToArray()))
-                     .ToArray())
-        {
-            if (group.Key != null)
-            {
-                IPropertyEditorContext?[] array = group.Value;
-                if (array.Length >= 1)
-                {
-                    int index = tempItems.IndexOf(array[0]);
-                    tempItems.RemoveMany(array);
-                    tempItems.Insert(index, new PropertyEditorGroupContext(array, group.Key, index == 0));
-                }
-            }
-        }
-
-        Properties.AddRange(tempItems);
+        var factory = this.GetRequiredService<IPropertyEditorFactory>();
+        var contexts = factory.CreatePropertyEditorContexts(Model.Properties, this);
+        Properties.AddRange(contexts);
     }
 
     public void Visit(IPropertyEditorContext context)

@@ -16,6 +16,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
+using Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
 using Beutl.ViewModels.Tools;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;

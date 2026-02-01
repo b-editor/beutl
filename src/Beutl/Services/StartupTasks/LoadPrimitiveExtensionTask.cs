@@ -7,6 +7,7 @@ using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Components.ObjectPropertyTab;
 using Beutl.Editor.Components.SceneSettingsTab;
+using Beutl.Editor.Components.SourceOperatorsTab;
 using Beutl.Services.PrimitiveImpls;
 
 namespace Beutl.Services.StartupTasks;

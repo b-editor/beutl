@@ -1,17 +1,16 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Beutl.Editor;
-using Beutl.Models;
+using Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.SourceOperatorsTab.Views;
 
-public sealed partial class SourceOperatorsTab : UserControl
+public sealed partial class SourceOperatorsTabView : UserControl
 {
-    public SourceOperatorsTab()
+    public SourceOperatorsTabView()
     {
         InitializeComponent();
         AddHandler(DragDrop.DragOverEvent, DragOver);
@@ -23,10 +22,10 @@ public sealed partial class SourceOperatorsTab : UserControl
         base.OnDataContextChanged(e);
         if (DataContext is SourceOperatorsTabViewModel viewModel)
         {
-            var self = new WeakReference<SourceOperatorsTab>(this);
+            var self = new WeakReference<SourceOperatorsTabView>(this);
             viewModel.RequestScroll = obj =>
             {
-                if (self.TryGetTarget(out SourceOperatorsTab? @this) && @this.DataContext is SourceOperatorsTabViewModel viewModel)
+                if (self.TryGetTarget(out SourceOperatorsTabView? @this) && @this.DataContext is SourceOperatorsTabViewModel viewModel)
                 {
                     int index = 0;
                     bool found = false;
