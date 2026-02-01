@@ -1,37 +1,40 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
+
+using Beutl.Editor.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Beutl.ProjectSystem;
-using Beutl.Services.PrimitiveImpls;
-using Beutl.ViewModels.Editors;
 
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 
-public sealed class ObjectPropertyEditorViewModel : IToolContext
+public sealed class ObjectPropertyTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly EditViewModel _viewModel;
+    private readonly IEditorContext _editorContext;
+    private readonly IPropertiesEditorFactory _factory;
     // インデックスが大きい方が新しい
-    private readonly List<PropertiesEditorViewModel> _cache = new(8);
+    private readonly List<IPropertiesEditorViewModel> _cache = new(8);
     private readonly List<WeakReference<ICoreObject>> _backStack = new(32);
     private readonly ConditionalWeakTable<ICoreObject, IServiceProvider> _providers = new();
     private readonly ReactivePropertySlim<bool> _canBack = new();
 
-    public ObjectPropertyEditorViewModel(EditViewModel viewModel)
+    public ObjectPropertyTabViewModel(IEditorContext editorContext)
     {
-        _viewModel = viewModel;
+        _editorContext = editorContext;
+        _factory = editorContext.GetRequiredService<IPropertiesEditorFactory>();
 
-        _viewModel.SelectedObject
+        editorContext.GetRequiredService<IEditorSelection>().SelectedObject
             .Subscribe(obj => NavigateCore(obj, false, null))
             .DisposeWith(_disposables);
     }
 
     public ToolTabExtension Extension => ObjectPropertyTabExtension.Instance;
 
-    public IEditorContext ParentContext => _viewModel;
+    public IEditorContext ParentContext => _editorContext;
 
-    public ReactiveProperty<PropertiesEditorViewModel?> ChildContext { get; } = new();
+    public ReactiveProperty<IPropertiesEditorViewModel?> ChildContext { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> CanBack => _canBack;
 
@@ -72,7 +75,7 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
 
         if (obj != null)
         {
-            PropertiesEditorViewModel? result = _cache.Find(x => ReferenceEquals(x.Target, obj));
+            IPropertiesEditorViewModel? result = _cache.Find(x => ReferenceEquals(x.Target, obj));
 
             if (result != null)
             {
@@ -82,7 +85,7 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
             }
             else
             {
-                ChildContext.Value = new PropertiesEditorViewModel(obj);
+                ChildContext.Value = _factory.Create(obj);
                 if (provider != null)
                 {
                     _providers.AddOrUpdate(obj, provider);
@@ -151,10 +154,10 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
         {
             return (ChildContext.Value?.Target as IHierarchical)?.FindHierarchicalParent<Element>();
         }
-        return _viewModel.GetService(serviceType);
+        return _editorContext.GetService(serviceType);
     }
 
-    private void AcceptChildren(PropertiesEditorViewModel? obj, IServiceProvider? provider)
+    private void AcceptChildren(IPropertiesEditorViewModel? obj, IServiceProvider? provider)
     {
         if (obj != null)
         {

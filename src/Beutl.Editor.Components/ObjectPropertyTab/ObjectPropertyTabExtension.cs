@@ -1,15 +1,17 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 
 using Avalonia.Controls;
 
-using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
+using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
+using Beutl.Editor.Components.ObjectPropertyTab.Views;
+using Beutl.Extensibility;
+
 using FluentAvalonia.UI.Controls;
+
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.ObjectPropertyTab;
 
 [PrimitiveImpl]
 public sealed class ObjectPropertyTabExtension : ToolTabExtension
@@ -31,29 +33,13 @@ public sealed class ObjectPropertyTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
-        {
-            control = new ObjectPropertyEditor();
-            return true;
-        }
-        else
-        {
-            control = null;
-            return false;
-        }
+        control = new ObjectPropertyTabView();
+        return true;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
-        {
-            context = new ObjectPropertyEditorViewModel(editViewModel);
-            return true;
-        }
-        else
-        {
-            context = null;
-            return false;
-        }
+        context = new ObjectPropertyTabViewModel(editorContext);
+        return true;
     }
 }

@@ -3,9 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
+using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-using Beutl.ViewModels.Tools;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
@@ -56,9 +56,9 @@ public sealed class NavigateButton<T> : NavigateButton
         if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
             && DataContext is NavigationButtonViewModel<T> { IsDisposed: false } viewModel)
         {
-            ObjectPropertyEditorViewModel objViewModel
-                = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>()
-                  ?? new ObjectPropertyEditorViewModel(editViewModel);
+            ObjectPropertyTabViewModel objViewModel
+                = editViewModel.FindToolTab<ObjectPropertyTabViewModel>()
+                  ?? new ObjectPropertyTabViewModel(editViewModel);
 
             objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);
             editViewModel.OpenToolTab(objViewModel);
