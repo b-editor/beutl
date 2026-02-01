@@ -1,15 +1,18 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Avalonia.Controls;
-using Beutl.Graphics.Effects;
-using Beutl.ViewModels.Editors;
-using Beutl.Views.Editors;
+using System.Diagnostics.CodeAnalysis;
 
-namespace Beutl.Services.PrimitiveImpls;
+using Avalonia.Controls;
+
+using Beutl.Editor.Components.ColorGradingProperties.ViewModels;
+using Beutl.Editor.Components.ColorGradingProperties.Views;
+using Beutl.Extensibility;
+using Beutl.Graphics.Effects;
+
+namespace Beutl.Editor.Components.ColorGradingProperties;
 
 [PrimitiveImpl]
 public sealed class ColorGradingPropertiesExtension : PropertyEditorExtension
 {
-    public static readonly ColorGradingPropertiesExtension Instance = new();
+    public static new readonly ColorGradingPropertiesExtension Instance = new();
 
     public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
     {
