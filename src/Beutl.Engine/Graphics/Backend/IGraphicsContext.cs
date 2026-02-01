@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Beutl.Graphics3D;
 using Beutl.Media;
 using SkiaSharp;

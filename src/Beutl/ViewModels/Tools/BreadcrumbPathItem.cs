@@ -1,4 +1,4 @@
-namespace Beutl.ViewModels.Tools;
+﻿namespace Beutl.ViewModels.Tools;
 
 public sealed class BreadcrumbPathItem
 {

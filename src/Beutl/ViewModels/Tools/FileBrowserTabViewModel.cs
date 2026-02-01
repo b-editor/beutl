@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Text.Json.Nodes;
 using Avalonia.Data.Converters;
 using Beutl.Logging;

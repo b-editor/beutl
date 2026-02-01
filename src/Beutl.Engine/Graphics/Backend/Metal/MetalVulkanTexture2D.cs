@@ -1,11 +1,10 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
 using SkiaSharp;
-
-using Beutl.Graphics.Backend.Vulkan;
 
 namespace Beutl.Graphics.Backend.Metal;
 

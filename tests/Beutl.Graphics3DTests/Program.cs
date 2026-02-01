@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
@@ -208,7 +208,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
 {
     Console.WriteLine();
     Console.WriteLine("=".PadRight(60, '='));
-    Console.WriteLine("=== Shadow Mapping Test ===" );
+    Console.WriteLine("=== Shadow Mapping Test ===");
     Console.WriteLine("=".PadRight(60, '='));
     Console.WriteLine();
 

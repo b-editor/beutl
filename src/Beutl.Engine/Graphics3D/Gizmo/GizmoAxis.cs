@@ -1,4 +1,4 @@
-namespace Beutl.Graphics3D.Gizmo;
+﻿namespace Beutl.Graphics3D.Gizmo;
 
 /// <summary>
 /// Represents which axis of the gizmo is selected.
