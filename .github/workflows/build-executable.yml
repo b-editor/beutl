@@ -97,3 +97,9 @@ jobs:
         with:
           name: beutl-${{ matrix.rid }}${{ matrix.standalone == true && '-standalone' || '' }}-${{ inputs.semVer }}
           path: ./artifacts/*.zip
+
+      - name: Save Metadata
+        uses: actions/upload-artifact@v5
+        with:
+          name: metadata-beutl-${{ matrix.rid }}${{ matrix.standalone == true && '-standalone' || '' }}
+          path: ./output/Beutl/asset_metadata.json
