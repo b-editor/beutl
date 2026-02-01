@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using SkiaSharp;
@@ -175,7 +175,10 @@ internal unsafe class VulkanTexture2D : ITexture2D
                 BufferImageHeight = 0,
                 ImageSubresource = new ImageSubresourceLayers
                 {
-                    AspectMask = ImageAspectFlags.ColorBit, MipLevel = 0, BaseArrayLayer = 0, LayerCount = 1
+                    AspectMask = ImageAspectFlags.ColorBit,
+                    MipLevel = 0,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
                 },
                 ImageOffset = new Offset3D(0, 0, 0),
                 ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
@@ -228,7 +231,10 @@ internal unsafe class VulkanTexture2D : ITexture2D
                 BufferImageHeight = 0,
                 ImageSubresource = new ImageSubresourceLayers
                 {
-                    AspectMask = ImageAspectFlags.ColorBit, MipLevel = 0, BaseArrayLayer = 0, LayerCount = 1
+                    AspectMask = ImageAspectFlags.ColorBit,
+                    MipLevel = 0,
+                    BaseArrayLayer = 0,
+                    LayerCount = 1
                 },
                 ImageOffset = new Offset3D(0, 0, 0),
                 ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)

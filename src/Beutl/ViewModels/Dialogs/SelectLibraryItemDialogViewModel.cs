@@ -3,8 +3,8 @@ using System.Text.RegularExpressions;
 using Beutl.Configuration;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Services;
-using DynamicData;
 using Beutl.ViewModels.Editors;
+using DynamicData;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 

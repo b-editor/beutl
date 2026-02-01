@@ -9,12 +9,12 @@ using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
-using Beutl.Services;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Models;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
@@ -571,41 +571,41 @@ public sealed partial class Timeline : UserControl
         switch (item)
         {
             case SingleTypeLibraryItem single when single.Format == KnownLibraryItemFormats.SourceOperator:
-            {
-                var menuItem = new MenuFlyoutItem { Text = single.DisplayName, Tag = single.ImplementationType };
-                menuItem.Click += AddElementWithTypeClick;
-                return menuItem;
-            }
+                {
+                    var menuItem = new MenuFlyoutItem { Text = single.DisplayName, Tag = single.ImplementationType };
+                    menuItem.Click += AddElementWithTypeClick;
+                    return menuItem;
+                }
 
             case MultipleTypeLibraryItem multiple when multiple.Types.TryGetValue(KnownLibraryItemFormats.SourceOperator, out Type? type):
-            {
-                var menuItem = new MenuFlyoutItem { Text = multiple.DisplayName, Tag = type };
-                menuItem.Click += AddElementWithTypeClick;
-                return menuItem;
-            }
+                {
+                    var menuItem = new MenuFlyoutItem { Text = multiple.DisplayName, Tag = type };
+                    menuItem.Click += AddElementWithTypeClick;
+                    return menuItem;
+                }
 
             case GroupLibraryItem group:
-            {
-                var subItems = new List<Control>();
-                foreach (LibraryItem child in group.Items)
                 {
-                    Control? childItem = CreateMenuItemForLibraryItem(child);
-                    if (childItem != null)
+                    var subItems = new List<Control>();
+                    foreach (LibraryItem child in group.Items)
                     {
-                        subItems.Add(childItem);
+                        Control? childItem = CreateMenuItemForLibraryItem(child);
+                        if (childItem != null)
+                        {
+                            subItems.Add(childItem);
+                        }
                     }
-                }
 
-                if (subItems.Count == 0)
-                    return null;
+                    if (subItems.Count == 0)
+                        return null;
 
-                var subMenu = new MenuFlyoutSubItem { Text = group.DisplayName };
-                foreach (Control subItem in subItems)
-                {
-                    subMenu.Items.Add(subItem);
+                    var subMenu = new MenuFlyoutSubItem { Text = group.DisplayName };
+                    foreach (Control subItem in subItems)
+                    {
+                        subMenu.Items.Add(subItem);
+                    }
+                    return subMenu;
                 }
-                return subMenu;
-            }
 
             default:
                 return null;

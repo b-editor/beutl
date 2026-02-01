@@ -1,4 +1,4 @@
-namespace Beutl.Services;
+﻿namespace Beutl.Services;
 
 // ファイルおよびディレクトリのコピー操作を提供するユーティリティ。
 internal static class FileCopyService

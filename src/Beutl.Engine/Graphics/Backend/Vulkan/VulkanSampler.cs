@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics.Backend.Vulkan;
