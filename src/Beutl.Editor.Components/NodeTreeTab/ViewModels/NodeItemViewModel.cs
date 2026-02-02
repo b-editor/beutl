@@ -2,7 +2,7 @@
 
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 public class NodeItemViewModel : IDisposable
 {

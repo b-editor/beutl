@@ -6,21 +6,23 @@ using Beutl.NodeTree.Nodes.Group;
 
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.NodeTree;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly EditViewModel _editViewModel;
+    private readonly IEditorContext _editorContext;
 
-    public NodeTreeViewModel(NodeTreeModel nodeTree, EditViewModel editViewModel)
+    public NodeTreeViewModel(NodeTreeModel nodeTree, IEditorContext editorContext)
     {
         NodeTree = nodeTree;
-        _editViewModel = editViewModel;
+        _editorContext = editorContext;
         nodeTree.Nodes.ForEachItem(
             (idx, item) =>
             {
-                var viewModel = new NodeViewModel(item, _editViewModel);
+                var viewModel = new NodeViewModel(item, _editorContext);
                 Nodes.Insert(idx, viewModel);
             },
             (idx, _) =>
@@ -81,7 +83,7 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
         }
 
         NodeTree.Nodes.Add(node);
-        _editViewModel.HistoryManager.Commit(CommandNames.AddNode);
+        _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.AddNode);
     }
 
     public void Dispose()

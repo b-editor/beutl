@@ -1,5 +1,4 @@
-﻿using Beutl.Editor;
-using Beutl.NodeTree;
+﻿using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
 using Beutl.ProjectSystem;
 
@@ -7,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeInputTab.ViewModels;
 
 public sealed class NodeTreeInputViewModel : IDisposable, IServiceProvider
 {

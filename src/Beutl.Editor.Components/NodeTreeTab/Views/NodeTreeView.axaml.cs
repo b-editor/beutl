@@ -8,9 +8,9 @@ using Avalonia.Interactivity;
 using Beutl.Collections.Pooled;
 using Beutl.Editor.Components.Helpers;
 using Beutl.NodeTree;
-using Beutl.ViewModels.NodeTree;
+using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
-namespace Beutl.Views.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeTab.Views;
 
 public partial class NodeTreeView : UserControl
 {

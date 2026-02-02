@@ -7,13 +7,13 @@ using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
 
 using Beutl.NodeTree;
-using Beutl.ViewModels.NodeTree;
+using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 using FluentAvalonia.UI.Media;
 
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.Views.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeTab.Views;
 
 public class SocketConnectRequestedEventArgs(SocketViewModel target, bool isConnected) : EventArgs
 {

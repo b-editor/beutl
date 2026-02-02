@@ -1,21 +1,23 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.ProjectSystem;
-using Beutl.Services.PrimitiveImpls;
+using Beutl.Editor.Services;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeInputTab.ViewModels;
 
 public sealed class NodeTreeInputTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
-    private EditViewModel _editViewModel;
+    private IEditorContext _editorContext;
 
-    public NodeTreeInputTabViewModel(EditViewModel editViewModel)
+    public NodeTreeInputTabViewModel(IEditorContext editorContext)
     {
-        _editViewModel = editViewModel;
-        Element = editViewModel.SelectedObject
+        _editorContext = editorContext;
+        Element = editorContext.GetRequiredService<IEditorSelection>().SelectedObject
             .Select(x => x as Element)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
@@ -59,7 +61,7 @@ public sealed class NodeTreeInputTabViewModel : IToolContext
         InnerViewModel.Value?.Dispose();
         InnerViewModel.Value = null;
         Element.Value = null;
-        _editViewModel = null!;
+        _editorContext = null!;
     }
 
     public object? GetService(Type serviceType)
@@ -67,7 +69,7 @@ public sealed class NodeTreeInputTabViewModel : IToolContext
         if (serviceType == typeof(Element))
             return Element.Value;
 
-        return _editViewModel.GetService(serviceType);
+        return _editorContext.GetService(serviceType);
     }
 
     public void ReadFromJson(JsonObject json)

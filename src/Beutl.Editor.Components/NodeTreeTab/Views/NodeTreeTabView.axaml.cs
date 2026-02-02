@@ -1,14 +1,14 @@
 ﻿using Avalonia.Controls;
 
-using Beutl.ViewModels.NodeTree;
+using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 using FluentAvalonia.UI.Controls;
 
-namespace Beutl.Views.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeTab.Views;
 
-public partial class NodeTreeTab : UserControl
+public partial class NodeTreeTabView : UserControl
 {
-    public NodeTreeTab()
+    public NodeTreeTabView()
     {
         InitializeComponent();
     }

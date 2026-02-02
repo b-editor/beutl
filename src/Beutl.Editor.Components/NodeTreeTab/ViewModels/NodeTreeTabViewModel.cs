@@ -1,14 +1,14 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Collections.Pooled;
-using Beutl.Models;
 using Beutl.NodeTree;
 using Beutl.ProjectSystem;
-using Beutl.Services.PrimitiveImpls;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 public sealed class NodeTreeNavigationItem : IDisposable, IJsonSerializable
 {
@@ -21,10 +21,10 @@ public sealed class NodeTreeNavigationItem : IDisposable, IJsonSerializable
         NodeTree = nodeTree;
     }
 
-    public NodeTreeNavigationItem(ReadOnlyReactivePropertySlim<string> name, NodeTreeModel nodeTree, EditViewModel editViewModel)
+    public NodeTreeNavigationItem(ReadOnlyReactivePropertySlim<string> name, NodeTreeModel nodeTree, IEditorContext editorContext)
     {
         NodeTree = nodeTree;
-        _lazyViewModel = new Lazy<NodeTreeViewModel>(() => new NodeTreeViewModel(NodeTree, editViewModel));
+        _lazyViewModel = new Lazy<NodeTreeViewModel>(() => new NodeTreeViewModel(NodeTree, editorContext));
         Name = name;
     }
 
@@ -61,12 +61,12 @@ public sealed class NodeTreeTabViewModel : IToolContext
 {
     private readonly ReactiveProperty<bool> _isSelected = new(false);
     private readonly CompositeDisposable _disposables = [];
-    private EditViewModel _editViewModel;
+    private IEditorContext _editorContext;
     private Element? _oldElement;
 
-    public NodeTreeTabViewModel(EditViewModel editViewModel)
+    public NodeTreeTabViewModel(IEditorContext editorContext)
     {
-        _editViewModel = editViewModel;
+        _editorContext = editorContext;
 
         Element.Subscribe(v =>
         {
@@ -87,7 +87,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
             if (v != null)
             {
-                NodeTree.Value = new NodeTreeViewModel(v.NodeTree, editViewModel);
+                NodeTree.Value = new NodeTreeViewModel(v.NodeTree, editorContext);
                 IObservable<string> name = v.GetObservable(CoreObject.NameProperty);
                 var fileName = Path.GetFileNameWithoutExtension(v.Uri!.LocalPath);
 
@@ -138,7 +138,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
         NodeTree.Dispose();
         NodeTree.Value?.Dispose();
         NodeTree.Value = null;
-        _editViewModel = null!;
+        _editorContext = null!;
     }
 
     public void NavigateTo(int index)
@@ -204,7 +204,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
             foundItem ??= new NodeTreeNavigationItem(
                 item.GetObservable(CoreObject.NameProperty).ToReadOnlyReactivePropertySlim()!,
                 nodeTree,
-                _editViewModel);
+                _editorContext);
 
             list.Add(foundItem);
         }
@@ -227,7 +227,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
     {
         string directory = Path.GetDirectoryName(element.Uri!.LocalPath)!;
 
-        directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
+        directory = Path.Combine(directory, ".beutl", "view-state");
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);
@@ -292,12 +292,13 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
+        Scene scene = _editorContext.GetRequiredService<Scene>();
         if (Element.Value == null
             && json?.TryGetPropertyValue("layer-filename", out JsonNode? filenameNode) == true
             && (filenameNode as JsonValue)?.TryGetValue(out string? filename) == true
             && filename != null)
         {
-            Element.Value = _editViewModel.Scene.Children.FirstOrDefault(x => x.Uri!.LocalPath == filename);
+            Element.Value = scene.Children.FirstOrDefault(x => x.Uri!.LocalPath == filename);
         }
     }
 
@@ -314,6 +315,6 @@ public sealed class NodeTreeTabViewModel : IToolContext
         if (serviceType == typeof(Element))
             return Element.Value;
 
-        return _editViewModel.GetService(serviceType);
+        return _editorContext.GetService(serviceType);
     }
 }

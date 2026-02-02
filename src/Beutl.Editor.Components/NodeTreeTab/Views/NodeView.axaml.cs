@@ -11,9 +11,9 @@ using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
-using Beutl.ViewModels.NodeTree;
+using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
-namespace Beutl.Views.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeTab.Views;
 
 public partial class NodeView : UserControl
 {
@@ -306,7 +306,7 @@ public partial class NodeView : UserControl
     private void OpenNodeClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is NodeViewModel { Node: GroupNode groupNode }
-            && this.FindAncestorOfType<NodeTreeTab>()?.DataContext is NodeTreeTabViewModel tabViewModel)
+            && this.FindAncestorOfType<NodeTreeTabView>()?.DataContext is NodeTreeTabViewModel tabViewModel)
         {
             tabViewModel.NavigateTo(groupNode.Group);
         }

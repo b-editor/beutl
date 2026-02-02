@@ -15,7 +15,7 @@ using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
-using Beutl.ViewModels.NodeTree;
+using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings.Extensions;
 using Setter = Avalonia.Styling.Setter;

@@ -4,7 +4,7 @@ using Avalonia.Controls.PanAndZoom;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
-namespace Beutl.Views.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeTab.Views;
 
 public sealed class NodeTreeOverlay : Control
 {

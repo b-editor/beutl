@@ -2,14 +2,13 @@
 
 using Avalonia.Controls;
 
-using Beutl.ViewModels;
-using Beutl.ViewModels.NodeTree;
-using Beutl.Views.NodeTree;
+using Beutl.Editor.Components.NodeTreeInputTab.ViewModels;
+using Beutl.Editor.Components.NodeTreeInputTab.Views;
 using FluentAvalonia.UI.Controls;
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.NodeTreeInputTab;
 
 [PrimitiveImpl]
 public sealed class NodeTreeInputTabExtension : ToolTabExtension
@@ -31,29 +30,13 @@ public sealed class NodeTreeInputTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
-        {
-            control = new NodeTreeInputTab();
-            return true;
-        }
-        else
-        {
-            control = null;
-            return false;
-        }
+        control = new NodeTreeInputTabView();
+        return true;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
-        {
-            context = new NodeTreeInputTabViewModel(editViewModel);
-            return true;
-        }
-        else
-        {
-            context = null;
-            return false;
-        }
+        context = new NodeTreeInputTabViewModel(editorContext);
+        return true;
     }
 }

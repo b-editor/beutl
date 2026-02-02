@@ -5,31 +5,34 @@ using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Beutl.Controls;
+using Beutl.Editor.Services;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
-using Beutl.Services;
 
 using FluentAvalonia.UI.Media;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEditorContextVisitor, IServiceProvider
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly string _defaultName;
 
-    public NodeViewModel(Node node, EditViewModel editViewModel)
+    public NodeViewModel(Node node, IEditorContext editorContext)
     {
         Node = node;
-        EditorContext = editViewModel;
+        EditorContext = editorContext;
         Type nodeType = node.GetType();
         if (NodeRegistry.FindItem(nodeType) is { } regItem)
         {
             _defaultName = regItem.DisplayName;
 
-            var color = new Color2(regItem.AccentColor.ToAvalonia());
+            var color = new Color2(regItem.AccentColor.ToAvaColor());
             Color = new ImmutableLinearGradientBrush(
                 [
                     new ImmutableGradientStop(0, color.WithAlphaf(0.1f)),
@@ -67,7 +70,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
             if (tree != null)
             {
                 tree.Nodes.Remove(Node);
-                EditorContext.HistoryManager.Commit(CommandNames.RemoveNode);
+                EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveNode);
             }
         });
 
@@ -76,7 +79,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
 
     public Node Node { get; }
 
-    public EditViewModel EditorContext { get; }
+    public IEditorContext EditorContext { get; }
 
     public ReadOnlyReactiveProperty<string> NodeName { get; }
 
@@ -166,11 +169,12 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
 
     private NodeItemViewModel CreateNodeItemViewModel(IPropertyAdapter[] atmp, INodeItem item)
     {
+        IPropertyEditorFactory factory = EditorContext.GetRequiredService<IPropertyEditorFactory>();
         IPropertyEditorContext? context = null;
         if (item.Property is { } aproperty)
         {
             atmp[0] = aproperty;
-            (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(atmp);
+            (_, PropertyEditorExtension? ext) = factory.MatchProperty(atmp);
             ext?.TryCreateContextForNode(atmp, out context);
         }
         context?.Accept(this);
@@ -197,13 +201,13 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
 
         Node.Position = (Position.Value.X, Position.Value.Y);
 
-        EditorContext.HistoryManager.Commit(CommandNames.MoveNode);
+        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveNode);
     }
 
     public void UpdateName(string? name)
     {
         Node.Name = name!;
-        EditorContext.HistoryManager.Commit(CommandNames.RenameNode);
+        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RenameNode);
     }
 
     public void WriteToJson(JsonObject json)

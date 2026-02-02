@@ -7,15 +7,17 @@ using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.NodeTree;
-using Beutl.ViewModels.NodeTree;
+using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 using FluentIcons.Common;
 using FluentIcons.FluentAvalonia;
 
+using System.Reactive;
+
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.Views.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeTab.Views;
 
 public partial class SocketView : UserControl
 {

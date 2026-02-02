@@ -2,14 +2,14 @@
 
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 public class InputSocketViewModel : SocketViewModel
 {
     private readonly ReactivePropertySlim<IObservable<ConnectionStatus>?> _statusSource = new();
 
-    public InputSocketViewModel(IInputSocket? socket, IPropertyEditorContext? propertyEditorContext, Node node, EditViewModel editViewModel)
-        : base(socket, propertyEditorContext, node, editViewModel)
+    public InputSocketViewModel(IInputSocket? socket, IPropertyEditorContext? propertyEditorContext, Node node, IEditorContext editorContext)
+        : base(socket, propertyEditorContext, node, editorContext)
     {
         Status = _statusSource
             .Select(o => o ?? Observable.ReturnThenNever(ConnectionStatus.Disconnected))

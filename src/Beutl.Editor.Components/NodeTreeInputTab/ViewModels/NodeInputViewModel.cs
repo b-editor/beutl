@@ -1,15 +1,12 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
-using Beutl.Editor;
+using Beutl.Editor.Services;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
-using Beutl.Services;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.NodeTree;
+namespace Beutl.Editor.Components.NodeTreeInputTab.ViewModels;
 
 public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider
 {
@@ -146,6 +143,7 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
 
     private IPropertyEditorContext? CreatePropertyContext(IPropertyAdapter[] atmp, INodeItem item)
     {
+        IPropertyEditorFactory factory = this.GetRequiredService<IPropertyEditorFactory>();
         IPropertyEditorContext? context = null;
         if (item is LayerInputNode.ILayerInputSocket socket)
         {
@@ -153,7 +151,7 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
             if (aproperty != null)
             {
                 atmp[0] = aproperty;
-                (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(atmp);
+                (_, PropertyEditorExtension? ext) = factory.MatchProperty(atmp);
                 ext?.TryCreateContext(atmp, out context);
 
                 context?.Accept(this);
