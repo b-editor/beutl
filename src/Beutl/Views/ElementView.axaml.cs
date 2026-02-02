@@ -11,11 +11,11 @@ using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
-using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings.Extensions;
 using Setter = Avalonia.Styling.Setter;
@@ -157,7 +157,7 @@ public sealed partial class ElementView : UserControl
         base.OnPointerMoved(e);
         Point point = e.GetPosition(this);
         float scale = ViewModel.Timeline.Options.Value.Scale;
-        _pointerPosition = point.X.ToTimeSpan(scale);
+        _pointerPosition = point.X.PixelToTimeSpan(scale);
     }
 
     private void UseNodeClick(object? sender, RoutedEventArgs e)
@@ -252,7 +252,7 @@ public sealed partial class ElementView : UserControl
                 if (item != model)
                 {
                     const double ThreadholdPixel = 10;
-                    TimeSpan threadhold = ThreadholdPixel.ToTimeSpan(scale);
+                    TimeSpan threadhold = ThreadholdPixel.PixelToTimeSpan(scale);
                     TimeSpan start = item.Start;
                     TimeSpan end = start + item.Length;
                     var startRange = new Media.TimeRange(start - threadhold, threadhold);
@@ -323,14 +323,14 @@ public sealed partial class ElementView : UserControl
             {
                 Point point = e.GetPosition(view);
                 float scale = viewModel.Timeline.Options.Value.Scale;
-                TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
+                TimeSpan pointerFrame = point.X.PixelToTimeSpan(scale);
 
                 if (view._timeline is { } timeline && _pressed)
                 {
                     pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
-                    point = point.WithX(pointerFrame.ToPixel(scale));
+                    point = point.WithX(pointerFrame.TimeToPixel(scale));
                     int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-                    double minWidth = TimeSpan.FromSeconds(1d / rate).ToPixel(scale);
+                    double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
 
                     if (view.Cursor != Cursors.Arrow && view.Cursor is { })
                     {
@@ -341,15 +341,15 @@ public sealed partial class ElementView : UserControl
                             if (_resizeType == AlignmentX.Right)
                             {
                                 // 右
-                                double x = ctx.After == null ? point.X : Math.Min(ctx.After.Start.ToPixel(scale), point.X);
+                                double x = ctx.After == null ? point.X : Math.Min(ctx.After.Start.TimeToPixel(scale), point.X);
                                 ctx.ViewModel.Width.Value = Math.Max(x - left, minWidth);
                             }
                             else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
                             {
                                 // 左
-                                double x = ctx.Before == null ? point.X : Math.Max(ctx.Before.Range.End.ToPixel(scale), point.X);
+                                double x = ctx.Before == null ? point.X : Math.Max(ctx.Before.Range.End.TimeToPixel(scale), point.X);
 
-                                double endPos = ctx.RecordedEndTime.ToPixel(scale);
+                                double endPos = ctx.RecordedEndTime.TimeToPixel(scale);
 
                                 double newWidth = endPos - x;
                                 if (minWidth < newWidth)
@@ -439,8 +439,8 @@ public sealed partial class ElementView : UserControl
 
                         foreach (ElementResizeContext ctx in _resizeContexts)
                         {
-                            TimeSpan newStart = ctx.ViewModel.BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
-                            TimeSpan newLength = ctx.ViewModel.Width.Value.ToTimeSpan(scale).RoundToRate(rate);
+                            TimeSpan newStart = ctx.ViewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
+                            TimeSpan newLength = ctx.ViewModel.Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
                             int zindex = viewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);
 
                             viewModel.Scene.MoveChild(zindex, newStart, newLength, ctx.ViewModel.Model);
@@ -472,7 +472,7 @@ public sealed partial class ElementView : UserControl
                 {
                     float scale = viewModel.Timeline.Options.Value.Scale;
                     int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-                    double minWidth = TimeSpan.FromSeconds(1d / rate).ToPixel(scale);
+                    double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
 
                     Point point = e.GetPosition(border);
                     double horizon = point.X;
@@ -535,16 +535,16 @@ public sealed partial class ElementView : UserControl
             {
                 Point point = e.GetPosition(view);
                 float scale = viewModel.Timeline.Options.Value.Scale;
-                TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
+                TimeSpan pointerFrame = point.X.PixelToTimeSpan(scale);
 
                 pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
 
-                TimeSpan newframe = pointerFrame - _start.X.ToTimeSpan(scale);
+                TimeSpan newframe = pointerFrame - _start.X.PixelToTimeSpan(scale);
 
                 newframe = TimeSpan.FromTicks(Math.Max(newframe.Ticks, TimeSpan.Zero.Ticks));
 
                 var newTop = Math.Max(e.GetPosition(timeline.TimelinePanel).Y - _start.Y, 0);
-                var newLeft = newframe.ToPixel(scale);
+                var newLeft = newframe.TimeToPixel(scale);
                 var deltaTop = newTop - viewModel.Margin.Value.Top;
                 var deltaLeft = newLeft - viewModel.BorderMargin.Value.Left;
 
@@ -603,7 +603,7 @@ public sealed partial class ElementView : UserControl
 
                         float scale = viewModel.Timeline.Options.Value.Scale;
                         int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-                        TimeSpan newStart = viewModel.BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
+                        TimeSpan newStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
                         TimeSpan deltaStart = newStart - viewModel.Model.Start;
                         int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
                         int deltaIndex = newIndex - viewModel.Model.ZIndex;

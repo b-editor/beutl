@@ -61,13 +61,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         BorderMargin = element.GetObservable(Element.StartProperty)
             .CombineLatest(timeline.EditorContext.Scale)
-            .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
+            .Select(item => new Thickness(item.First.TimeToPixel(item.Second), 0, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
         Width = element.GetObservable(Element.LengthProperty)
             .CombineLatest(timeline.EditorContext.Scale)
-            .Select(item => item.First.ToPixel(item.Second))
+            .Select(item => item.First.TimeToPixel(item.Second))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
@@ -388,8 +388,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     public async Task AnimationRequest(PrepareAnimationContext context, CancellationToken cancellationToken = default)
     {
         var margin = new Thickness(0, Timeline.CalculateLayerTop(Model.ZIndex), 0, 0);
-        var borderMargin = new Thickness(Model.Start.ToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
-        double width = Model.Length.ToPixel(Timeline.Options.Value.Scale);
+        var borderMargin = new Thickness(Model.Start.TimeToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
+        double width = Model.Length.TimeToPixel(Timeline.Options.Value.Scale);
 
         BorderMargin.Value = context.BorderMargin;
         Margin.Value = context.Margin;
@@ -415,8 +415,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         float scale = Timeline.Options.Value.Scale;
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-        TimeSpan start = BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate);
-        TimeSpan length = Width.Value.ToTimeSpan(scale).RoundToRate(rate);
+        TimeSpan start = BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
+        TimeSpan length = Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
         Scene.MoveChild(zindex, start, length, Model);

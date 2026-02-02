@@ -89,13 +89,13 @@ public abstract class GraphEditorViewModel : IDisposable
 
         ElementMargin = (Element?.GetObservable(Element.StartProperty) ?? Observable.ReturnThenNever<TimeSpan>(default))
             .CombineLatest(timelineOptions.Scale)
-            .Select(t => new Thickness(t.First.ToPixel(t.Second), 0, 0, 0))
+            .Select(t => new Thickness(t.First.TimeToPixel(t.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         ElementWidth = (Element?.GetObservable(Element.LengthProperty) ?? Observable.ReturnThenNever<TimeSpan>(default))
             .CombineLatest(timelineOptions.Scale)
-            .Select(t => t.First.ToPixel(t.Second))
+            .Select(t => t.First.TimeToPixel(t.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -108,7 +108,7 @@ public abstract class GraphEditorViewModel : IDisposable
         Margin = UseGlobalClock.Select(v => !v
                 ? Element?.GetObservable(Element.StartProperty)
                     .CombineLatest(Options)
-                    .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
+                    .Select(item => new Thickness(item.First.TimeToPixel(item.Second.Scale), 0, 0, 0))
                 : null)
             .Select(v => v ?? Observable.ReturnThenNever<Thickness>(default))
             .Switch()
@@ -117,20 +117,20 @@ public abstract class GraphEditorViewModel : IDisposable
 
         SeekBarMargin = _editorClock.CurrentTime
             .CombineLatest(timelineOptions.Scale)
-            .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
+            .Select(item => new Thickness(item.First.TimeToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         StartingBarMargin = Scene.GetObservable(Scene.StartProperty)
             .CombineLatest(timelineOptions.Scale)
-            .Select(item => item.First.ToPixel(item.Second))
+            .Select(item => item.First.TimeToPixel(item.Second))
             .Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         EndingBarMargin = Scene.GetObservable(Scene.DurationProperty)
             .CombineLatest(timelineOptions.Scale, StartingBarMargin)
-            .Select(item => item.First.ToPixel(item.Second) + item.Third.Left)
+            .Select(item => item.First.TimeToPixel(item.Second) + item.Third.Left)
             .Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -145,7 +145,7 @@ public abstract class GraphEditorViewModel : IDisposable
                     Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
                     i.Fourth.Ticks)))
             .CombineLatest(timelineOptions.Scale)
-            .Select(i => i.First.ToPixel(i.Second) + 500)
+            .Select(i => i.First.TimeToPixel(i.Second) + 500)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -235,7 +235,7 @@ public abstract class GraphEditorViewModel : IDisposable
     public void UpdatePointerPosition(double positionX)
     {
         float scale = Options.Value.Scale;
-        _pointerPosition = positionX.ToTimeSpan(scale);
+        _pointerPosition = positionX.PixelToTimeSpan(scale);
     }
 
     public void BeginEditing()

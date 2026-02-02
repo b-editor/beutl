@@ -63,7 +63,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
         Right = keyframe.GetObservable(KeyFrame.KeyTimeProperty)
             .CombineLatest(parent.Parent.Options)
-            .Select(item => item.First.ToPixel(item.Second.Scale))
+            .Select(item => item.First.TimeToPixel(item.Second.Scale))
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
@@ -289,17 +289,17 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 out object? obj))
         {
             Model.Value = obj;
-            Model.KeyTime = Right.Value.ToTimeSpan(scale).RoundToRate(rate);
+            Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
         }
         else
         {
-            Model.KeyTime = Right.Value.ToTimeSpan(scale).RoundToRate(rate);
+            Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
         }
 
         history.Commit(CommandNames.EditKeyFrame);
 
         EndY.Value = Parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
-        Right.Value = Model.KeyTime.ToPixel(Parent.Parent.Options.Value.Scale);
+        Right.Value = Model.KeyTime.TimeToPixel(Parent.Parent.Options.Value.Scale);
     }
 
     public void UpdateKeyTimeAndValue()
@@ -314,16 +314,16 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 out object? obj))
         {
             Model.Value = obj;
-            Model.KeyTime = Right.Value.ToTimeSpan(scale).RoundToRate(rate);
+            Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
 
             EndY.Value = Parent.ConvertToDouble(Model.Value) * parent2.ScaleY.Value;
         }
         else
         {
-            Model.KeyTime = Right.Value.ToTimeSpan(scale).RoundToRate(rate);
+            Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
         }
 
-        Right.Value = Model.KeyTime.ToPixel(Parent.Parent.Options.Value.Scale);
+        Right.Value = Model.KeyTime.TimeToPixel(Parent.Parent.Options.Value.Scale);
     }
 
     private async Task CopyAsync()

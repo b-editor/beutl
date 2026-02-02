@@ -30,37 +30,37 @@ public static class FrameNumberHelper
             : 44100;
     }
 
-    public static double ToPixel(this TimeSpan time)
+    public static double TimeToPixel(this TimeSpan time)
     {
         return time.TotalSeconds * SecondWidth;
     }
 
-    public static TimeSpan ToTimeSpan(this double pixel)
+    public static TimeSpan PixelToTimeSpan(this double pixel)
     {
         return TimeSpan.FromSeconds(pixel / SecondWidth);
     }
 
-    public static TimeSpan ToTimeSpanF(this float pixel)
+    public static TimeSpan PixelToTimeSpanF(this float pixel)
     {
         return TimeSpan.FromSeconds(pixel / SecondWidth);
     }
 
-    public static double ToPixel(this TimeSpan time, float scale)
+    public static double TimeToPixel(this TimeSpan time, float scale)
     {
         return time.TotalSeconds * SecondWidth * scale;
     }
 
-    public static float ToPixelF(this TimeSpan time, float scale)
+    public static float TimeToPixelF(this TimeSpan time, float scale)
     {
         return (float)(time.TotalSeconds * SecondWidth * scale);
     }
 
-    public static TimeSpan ToTimeSpan(this double pixel, float scale)
+    public static TimeSpan PixelToTimeSpan(this double pixel, float scale)
     {
         return TimeSpan.FromSeconds(pixel / (SecondWidth * scale));
     }
 
-    public static TimeSpan ToTimeSpanF(this float pixel, float scale)
+    public static TimeSpan PixelToTimeSpanF(this float pixel, float scale)
     {
         return TimeSpan.FromSeconds(pixel / (SecondWidth * scale));
     }

@@ -180,10 +180,10 @@ public sealed class ElementScopeViewModel : IDisposable
     {
         TimelineViewModel timeline = Parent.Timeline;
         var margin = new Thickness(
-            Model.Start.ToPixel(timeline.Options.Value.Scale),
+            Model.Start.TimeToPixel(timeline.Options.Value.Scale),
             timeline.CalculateLayerTop(Model.ZIndex), 0, 0);
 
-        double width = Model.Length.ToPixel(timeline.Options.Value.Scale);
+        double width = Model.Length.TimeToPixel(timeline.Options.Value.Scale);
         double height = 0;
 
         if (Count.Value > 0)

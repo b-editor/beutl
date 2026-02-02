@@ -61,7 +61,7 @@ public partial class GraphEditorView : UserControl
             && Activator.CreateInstance(type) is Easing easing
             && DataContext is GraphEditorViewModel { Options.Value.Scale: { } scale } viewModel)
         {
-            TimeSpan time = e.GetPosition(graphPanel).X.ToTimeSpan(scale);
+            TimeSpan time = e.GetPosition(graphPanel).X.PixelToTimeSpan(scale);
             viewModel.DropEasing(easing, time);
             e.Handled = true;
         }
@@ -287,7 +287,7 @@ public partial class GraphEditorView : UserControl
             PointerPoint pointerPt = e.GetCurrentPoint(graphPanel);
             viewModel.UpdatePointerPosition(pointerPt.Position.X);
             int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
-            _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
+            _pointerFrame = pointerPt.Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
 
             if (_pointerFrame < TimeSpan.Zero)
             {
@@ -396,7 +396,7 @@ public partial class GraphEditorView : UserControl
                 {
                     _mouseFlag = TimelineHelper.MouseFlags.SeekBarPressed;
                     viewModel.CurrentTime.Value = pointerPt.Position.X
-                        .ToTimeSpan(viewModel.Options.Value.Scale)
+                        .PixelToTimeSpan(viewModel.Options.Value.Scale)
                         .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
                             ? proj.GetFrameRate()
                             : 30);
@@ -625,15 +625,15 @@ public partial class GraphEditorView : UserControl
                         foreach (GraphEditorKeyFrameViewModel item in _followingKeyFrames.Append(itemViewModel))
                         {
                             double right = item.Right.Value + delta.X;
-                            var timeSpan = right.ToTimeSpan(scale);
-                            item.Right.Value = timeSpan.ToPixel(scale);
+                            var timeSpan = right.PixelToTimeSpan(scale);
+                            item.Right.Value = timeSpan.TimeToPixel(scale);
                         }
                     }
                     else
                     {
                         itemViewModel.EndY.Value -= delta.Y;
                         double right = itemViewModel.Right.Value + delta.X;
-                        var timeSpan = right.ToTimeSpan(scale);
+                        var timeSpan = right.PixelToTimeSpan(scale);
                         // 左のキーフレームに横断した場合
                         if (itemViewModel._previous.Value is { Model.KeyTime: TimeSpan prevTime }
                             && prevTime > timeSpan.RoundToRate(rate))
@@ -729,7 +729,7 @@ public partial class GraphEditorView : UserControl
                             timeSpan = new TimeSpan(Math.Max(0, timeSpan.Ticks));
                         }
 
-                        itemViewModel.Right.Value = timeSpan.ToPixel(scale);
+                        itemViewModel.Right.Value = timeSpan.TimeToPixel(scale);
                     }
 
                     if (_viewControlPoints != null)

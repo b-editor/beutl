@@ -9,11 +9,11 @@ public sealed class FrameSelectionRange : IDisposable
     public FrameSelectionRange(IObservable<float> scale)
     {
         PixelStart = Start.CombineLatest(scale)
-            .Select(v => v.First.ToPixel(v.Second))
+            .Select(v => v.First.TimeToPixel(v.Second))
             .ToReactiveProperty();
 
         PixelLength = Length.CombineLatest(scale)
-            .Select(v => v.First.ToPixel(v.Second))
+            .Select(v => v.First.TimeToPixel(v.Second))
             .ToReactiveProperty();
     }
 

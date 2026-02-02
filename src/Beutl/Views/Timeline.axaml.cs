@@ -236,7 +236,7 @@ public sealed partial class Timeline : UserControl
         TimelineViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        _pointerFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
+        _pointerFrame = pointerPt.Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
 
         if (_pointerFrame < TimeSpan.Zero)
         {
@@ -365,8 +365,8 @@ public sealed partial class Timeline : UserControl
         viewModel.ClearSelected();
 
         Rect rect = overlay.SelectionRange.Normalize();
-        var startTime = rect.Left.ToTimeSpan(viewModel.Options.Value.Scale);
-        var endTime = rect.Right.ToTimeSpan(viewModel.Options.Value.Scale);
+        var startTime = rect.Left.PixelToTimeSpan(viewModel.Options.Value.Scale);
+        var endTime = rect.Right.PixelToTimeSpan(viewModel.Options.Value.Scale);
         var timeRange = TimeRange.FromRange(startTime, endTime);
 
         int startLayer = viewModel.ToLayerNumber(rect.Top);
@@ -388,7 +388,7 @@ public sealed partial class Timeline : UserControl
         if (ViewModel == null) return;
         TimelineViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        viewModel.ClickedFrame = pointerPt.Position.X.ToTimeSpan(viewModel.Options.Value.Scale)
+        viewModel.ClickedFrame = pointerPt.Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
 
         viewModel.ClickedPosition = pointerPt.Position;
@@ -455,7 +455,7 @@ public sealed partial class Timeline : UserControl
         Scene scene = ViewModel.Scene;
         Point pt = e.GetPosition(TimelinePanel);
 
-        viewModel.ClickedFrame = pt.X.ToTimeSpan(viewModel.Options.Value.Scale)
+        viewModel.ClickedFrame = pt.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
         viewModel.ClickedPosition = pt;
 
@@ -679,7 +679,7 @@ public sealed partial class Timeline : UserControl
 
             float oldScale = ViewModel.Options.Value.Scale;
             var offset = ViewModel.Options.Value.Offset;
-            double pointerPos = _pointerFrame.ToPixel(ViewModel.Options.Value.Scale);
+            double pointerPos = _pointerFrame.TimeToPixel(ViewModel.Options.Value.Scale);
             double deltaLeft = pointerPos - offset.X;
             offset.X = (float)((pointerPos / oldScale * zoom) - deltaLeft);
             ViewModel.Options.Value = ViewModel.Options.Value with { Scale = zoom, Offset = offset };
@@ -696,8 +696,8 @@ public sealed partial class Timeline : UserControl
             Size viewport = ContentScroll.Viewport - new Size(Spacing * 2, 0);
             Avalonia.Vector offset = ContentScroll.Offset + new Avalonia.Vector(Spacing, 0);
 
-            var start = offset.X.ToTimeSpan(scale);
-            var length = viewport.Width.ToTimeSpan(scale);
+            var start = offset.X.PixelToTimeSpan(scale);
+            var length = viewport.Width.PixelToTimeSpan(scale);
             int startZIndex = viewModel.ToLayerNumber(offset.Y);
             int endZIndex = viewModel.ToLayerNumber(offset.Y + viewport.Height);
 
@@ -706,7 +706,7 @@ public sealed partial class Timeline : UserControl
 
             if (!range.Intersects(new TimeRange(start, length)))
             {
-                newOffsetX = range.Start.ToPixel(scale) - Spacing;
+                newOffsetX = range.Start.TimeToPixel(scale) - Spacing;
             }
 
             if (!(startZIndex <= zindex && zindex <= endZIndex))

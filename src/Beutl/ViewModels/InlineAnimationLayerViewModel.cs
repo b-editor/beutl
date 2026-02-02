@@ -392,7 +392,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         if (Activator.CreateInstance(type) is not Easing easing) return false;
 
         float scale = Timeline.Options.Value.Scale;
-        TimeSpan time = positionX.ToTimeSpan(scale);
+        TimeSpan time = positionX.PixelToTimeSpan(scale);
         DropEasing(easing, time);
         return true;
     }
@@ -400,7 +400,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     public void UpdatePointerPosition(double positionX)
     {
         float scale = Timeline.Options.Value.Scale;
-        _pointerPosition = positionX.ToTimeSpan(scale);
+        _pointerPosition = positionX.PixelToTimeSpan(scale);
     }
 
     private void OnLayerHeaderChanged(LayerHeaderViewModel? obj)
@@ -413,7 +413,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     private void UpdateWidth()
     {
         TimeSpan duration = Property.Animation?.Duration ?? TimeSpan.Zero;
-        Width.Value = duration.ToPixel(Timeline.Options.Value.Scale);
+        Width.Value = duration.TimeToPixel(Timeline.Options.Value.Scale);
     }
 
     private void OnAnimationEdited(object? sender, EventArgs e)

@@ -20,12 +20,12 @@ public sealed class BufferStatusViewModel : IDisposable
         _editViewModel = editViewModel;
 
         Start = StartTime.CombineLatest(editViewModel.Scale)
-            .Select(v => v.First.ToPixel(v.Second))
+            .Select(v => v.First.TimeToPixel(v.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         End = EndTime.CombineLatest(editViewModel.Scale)
-            .Select(v => v.First.ToPixel(v.Second))
+            .Select(v => v.First.TimeToPixel(v.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 

@@ -247,7 +247,7 @@ public sealed class TimelineScale : Control
             context.FillRectangle(Brushes.Transparent, viewport);
             for (double x = originX; x < l; x += inc)
             {
-                var time = x.ToTimeSpan(Scale);
+                var time = x.PixelToTimeSpan(Scale);
 
                 if (viewport.Contains(new Point(x, height)))
                 {
@@ -283,8 +283,8 @@ public sealed class TimelineScale : Control
 
             if (CacheBlocks != null)
             {
-                TimeSpan left = originX.ToTimeSpan(Scale);
-                TimeSpan right = l.ToTimeSpan(Scale);
+                TimeSpan left = originX.PixelToTimeSpan(Scale);
+                TimeSpan right = l.PixelToTimeSpan(Scale);
 
                 foreach (CacheBlock item in CacheBlocks)
                 {
@@ -296,7 +296,7 @@ public sealed class TimelineScale : Control
 
                     context.DrawRectangle(
                         item.IsLocked ? LockedCacheBlockBrush : CacheBlockBrush, null,
-                        new RoundedRect(new Rect(item.Start.ToPixel(Scale), Height - 4, item.Length.ToPixel(Scale),
+                        new RoundedRect(new Rect(item.Start.TimeToPixel(Scale), Height - 4, item.Length.TimeToPixel(Scale),
                             4)));
                 }
             }
@@ -305,7 +305,7 @@ public sealed class TimelineScale : Control
             {
                 context.DrawRectangle(
                     hover.IsLocked ? LockedCacheBlockBrush : CacheBlockBrush, null,
-                    new RoundedRect(new Rect(hover.Start.ToPixel(Scale), Height - 6, hover.Length.ToPixel(Scale), 6)));
+                    new RoundedRect(new Rect(hover.Start.TimeToPixel(Scale), Height - 6, hover.Length.TimeToPixel(Scale), 6)));
             }
 
             var size = new Size(1.25, height);

@@ -48,20 +48,20 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
 
         SeekBarMargin = editViewModel.CurrentTime
             .CombineLatest(editViewModel.Scale)
-            .Select(item => new Thickness(Math.Max(item.First.ToPixel(item.Second), 0), 0, 0, 0))
+            .Select(item => new Thickness(Math.Max(item.First.TimeToPixel(item.Second), 0), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
         StartingBarMargin = Scene.GetObservable(Scene.StartProperty)
             .CombineLatest(editViewModel.Scale)
-            .Select(item => item.First.ToPixel(item.Second))
+            .Select(item => item.First.TimeToPixel(item.Second))
             .Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
         EndingBarMargin = Scene.GetObservable(Scene.DurationProperty)
             .CombineLatest(editViewModel.Scale, StartingBarMargin)
-            .Select(item => item.First.ToPixel(item.Second) + item.Third.Left)
+            .Select(item => item.First.TimeToPixel(item.Second) + item.Third.Left)
             .Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -76,7 +76,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
                     Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
                     i.Fourth.Ticks)))
             .CombineLatest(editViewModel.Scale)
-            .Select(i => i.First.ToPixel(i.Second) + 500)
+            .Select(i => i.First.TimeToPixel(i.Second) + 500)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 

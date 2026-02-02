@@ -28,7 +28,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
         Left = keyframe.GetObservable(KeyFrame.KeyTimeProperty)
             .CombineLatest(Timeline.Options)
-            .Select(item => item.First.ToPixel(item.Second.Scale))
+            .Select(item => item.First.TimeToPixel(item.Second.Scale))
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
@@ -154,11 +154,11 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         int rate = proj?.GetFrameRate() ?? 30;
         HistoryManager history = Timeline.EditorContext.HistoryManager;
 
-        TimeSpan time = Left.Value.ToTimeSpan(scale).RoundToRate(rate);
+        TimeSpan time = Left.Value.PixelToTimeSpan(scale).RoundToRate(rate);
         SplineEasingHelper.Move(Animation, Model, time);
         history.Commit(CommandNames.MoveKeyFrame);
 
-        Left.Value = time.ToPixel(scale);
+        Left.Value = time.TimeToPixel(scale);
     }
 
     public void ReflectModelKeyTime()
@@ -167,9 +167,9 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
         int rate = proj?.GetFrameRate() ?? 30;
 
-        TimeSpan time = Left.Value.ToTimeSpan(scale).RoundToRate(rate);
+        TimeSpan time = Left.Value.PixelToTimeSpan(scale).RoundToRate(rate);
 
-        Left.Value = time.ToPixel(scale);
+        Left.Value = time.TimeToPixel(scale);
 
         Model.KeyTime = time;
     }
