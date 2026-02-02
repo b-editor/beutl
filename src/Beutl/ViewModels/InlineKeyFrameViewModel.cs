@@ -4,10 +4,8 @@ using Avalonia.Input.Platform;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor;
-using Beutl.Helpers;
-using Beutl.Language;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
-using Beutl.Models;
 using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -65,7 +63,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private async Task CopyAsync()
     {
-        IClipboard? clipboard = App.GetClipboard();
+        IClipboard? clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return;
 
         try
@@ -86,7 +84,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private async Task PasteAsync()
     {
-        IClipboard? clipboard = App.GetClipboard();
+        IClipboard? clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return;
 
         try

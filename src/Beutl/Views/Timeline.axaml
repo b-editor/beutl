@@ -9,6 +9,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels"
+             xmlns:ecv="using:Beutl.Editor.Components.Views"
              d:DesignHeight="450"
              d:DesignWidth="800"
              x:DataType="vm:TimelineViewModel"
@@ -23,40 +24,40 @@
                       Grid.RowSpan="2"
                       Grid.Column="1" />
 
-        <local:TimelineScale x:Name="Scale"
-                             Grid.Column="2"
-                             Height="32"
-                             HorizontalAlignment="Stretch"
-                             VerticalAlignment="Top"
-                             BufferBrush="{DynamicResource TextFillColorSecondaryBrush}"
-                             BufferEnd="{Binding EditorContext.BufferStatus.End.Value}"
-                             BufferStart="{Binding EditorContext.BufferStatus.Start.Value}"
-                             CacheBlockBrush="{DynamicResource SystemFillColorSuccessBrush}"
-                             CacheBlocks="{Binding EditorContext.BufferStatus.CacheBlocks.Value}"
-                             EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                             EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
-                             HoveredCacheBlock="{Binding HoveredCacheBlock.Value}"
-                             LockedCacheBlockBrush="{DynamicResource AccentFillColorTertiaryBrush}"
-                             PointerExited="TimelinePanel_PointerExited"
-                             PointerMoved="TimelinePanel_PointerMoved"
-                             PointerPressed="TimelinePanel_PointerPressed"
-                             PointerReleased="TimelinePanel_PointerReleased"
-                             Scale="{Binding Options.Value.Scale}"
-                             ScaleBrush="{DynamicResource TextControlForeground}"
-                             SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
-                             SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
-                             StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                             StartingBarMargin="{CompiledBinding StartingBarMargin.Value}"
-                             Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
-            <local:TimelineScale.ContextFlyout>
+        <ecv:TimelineScale x:Name="Scale"
+                           Grid.Column="2"
+                           Height="32"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Top"
+                           BufferBrush="{DynamicResource TextFillColorSecondaryBrush}"
+                           BufferEnd="{Binding EditorContext.BufferStatus.End.Value}"
+                           BufferStart="{Binding EditorContext.BufferStatus.Start.Value}"
+                           CacheBlockBrush="{DynamicResource SystemFillColorSuccessBrush}"
+                           CacheBlocks="{Binding EditorContext.BufferStatus.CacheBlocks.Value}"
+                           EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                           EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                           HoveredCacheBlock="{Binding HoveredCacheBlock.Value}"
+                           LockedCacheBlockBrush="{DynamicResource AccentFillColorTertiaryBrush}"
+                           PointerExited="TimelinePanel_PointerExited"
+                           PointerMoved="TimelinePanel_PointerMoved"
+                           PointerPressed="TimelinePanel_PointerPressed"
+                           PointerReleased="TimelinePanel_PointerReleased"
+                           Scale="{Binding Options.Value.Scale}"
+                           ScaleBrush="{DynamicResource TextControlForeground}"
+                           SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
+                           SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
+                           StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                           StartingBarMargin="{CompiledBinding StartingBarMargin.Value}"
+                           Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
+            <ecv:TimelineScale.ContextFlyout>
                 <ui:FAMenuFlyout>
                     <ui:MenuFlyoutItem Command="{Binding DeleteAllFrameCache}" Text="{x:Static lang:Strings.DeleteAll}" />
                     <ui:MenuFlyoutItem Command="{Binding DeleteFrameCache}" Text="{x:Static lang:Strings.Delete}" />
                     <ui:MenuFlyoutItem Command="{Binding LockFrameCache}" Text="{x:Static lang:Strings.Lock}" />
                     <ui:MenuFlyoutItem Command="{Binding UnlockFrameCache}" Text="{x:Static lang:Strings.Unlock}" />
                 </ui:FAMenuFlyout>
-            </local:TimelineScale.ContextFlyout>
-        </local:TimelineScale>
+            </ecv:TimelineScale.ContextFlyout>
+        </ecv:TimelineScale>
 
         <ui:TeachingTip x:Name="CacheTip"
                         Title="{x:Static lang:Strings.FrameCache}"
@@ -177,17 +178,17 @@
 
                 <local:TimelineBackground BorderBrush="{DynamicResource TextFillColorTertiaryBrush}" ItemHeight="{DynamicResource LayerHeight}" />
 
-                <local:TimelineOverlay x:Name="overlay"
-                                       VerticalAlignment="Stretch"
-                                       EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                                       EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
-                                       SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
-                                       SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
-                                       StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
-                                       StartingBarMargin="{CompiledBinding StartingBarMargin.Value}"
-                                       Viewport="{Binding #ContentScroll.Viewport, Mode=OneWay}"
-                                       ZIndex="6"
-                                       Offset="{Binding #ContentScroll.Offset, Mode=OneWay}" />
+                <ecv:TimelineOverlay x:Name="overlay"
+                                     VerticalAlignment="Stretch"
+                                     EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                                     EndingBarMargin="{CompiledBinding EndingBarMargin.Value}"
+                                     SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"
+                                     SeekBarMargin="{CompiledBinding SeekBarMargin.Value}"
+                                     StartingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                                     StartingBarMargin="{CompiledBinding StartingBarMargin.Value}"
+                                     Viewport="{Binding #ContentScroll.Viewport, Mode=OneWay}"
+                                     ZIndex="6"
+                                     Offset="{Binding #ContentScroll.Offset, Mode=OneWay}" />
             </Panel>
         </ScrollViewer>
     </Grid>

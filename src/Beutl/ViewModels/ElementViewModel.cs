@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Beutl.Animation;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
@@ -13,7 +14,6 @@ using Beutl.Models;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
-using Beutl.Services;
 using FluentAvalonia.UI.Media;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -427,7 +427,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private async ValueTask<bool> SetClipboard(HashSet<ElementViewModel> selected)
     {
-        IClipboard? clipboard = App.GetClipboard();
+        IClipboard? clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return false;
 
         var skipMulti = selected.Count == 1 && selected.First() == this;

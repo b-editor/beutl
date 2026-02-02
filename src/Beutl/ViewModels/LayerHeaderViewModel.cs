@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 using Avalonia.Media;
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
 using Beutl.ProjectSystem;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

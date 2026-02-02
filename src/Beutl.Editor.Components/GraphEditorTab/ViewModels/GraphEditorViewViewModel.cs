@@ -10,7 +10,7 @@ using Beutl.Animation;
 
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels;
+namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
 public sealed class GraphEditorViewViewModel : IDisposable
 {

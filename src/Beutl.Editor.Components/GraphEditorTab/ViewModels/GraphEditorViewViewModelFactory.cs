@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
 using System.Runtime.CompilerServices;
 
-namespace Beutl.ViewModels;
+namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
 public abstract partial class GraphEditorViewViewModelFactory
 {

@@ -1,15 +1,16 @@
-<UserControl x:Class="Beutl.Views.GraphEditorView"
+<UserControl x:Class="Beutl.Editor.Components.GraphEditorTab.Views.GraphEditorView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:convert="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
-             xmlns:local="using:Beutl.Views"
+             xmlns:local="using:Beutl.Editor.Components.GraphEditorTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:paz="using:Avalonia.Controls.PanAndZoom"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
-             xmlns:viewModel="using:Beutl.ViewModels"
+             xmlns:viewModel="using:Beutl.Editor.Components.GraphEditorTab.ViewModels"
+             xmlns:views="using:Beutl.Editor.Components.Views"
              x:Name="root"
              d:DesignHeight="450"
              d:DesignWidth="800"
@@ -32,7 +33,7 @@
           RowDefinitions="Auto,*"
           Background="{DynamicResource GraphEditorBackgroundBrush}">
 
-        <local:TimelineScale x:Name="scale"
+        <views:TimelineScale x:Name="scale"
                              Grid.Column="1"
                              Height="32"
                              HorizontalAlignment="Stretch"
@@ -312,7 +313,7 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <local:TimelineOverlay x:Name="overlay"
+                <views:TimelineOverlay x:Name="overlay"
                                        VerticalAlignment="Stretch"
                                        EndingBarBrush="{DynamicResource SystemFillColorCriticalBrush}"
                                        EndingBarMargin="{Binding EndingBarMargin.Value}"

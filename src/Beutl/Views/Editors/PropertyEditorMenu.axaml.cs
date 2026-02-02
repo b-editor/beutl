@@ -3,10 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Animation;
 using Beutl.ProjectSystem;
+using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-using Beutl.ViewModels.Tools;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;

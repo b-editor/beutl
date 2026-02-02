@@ -7,29 +7,28 @@ using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
-using Beutl.Editor;
-using Beutl.Helpers;
-using Beutl.Language;
+using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Logging;
-using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels;
+namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
 public sealed class GraphEditorViewModel<T>(
-    EditViewModel editViewModel,
+    IEditorContext editorContext,
     KeyFrameAnimation<T> animation,
     Element? element)
-    : GraphEditorViewModel(editViewModel, animation, element)
+    : GraphEditorViewModel(editorContext, animation, element)
 {
     public override void DropEasing(Easing easing, TimeSpan keyTime)
     {
         _logger.LogInformation("Dropping easing at key time {KeyTime}", keyTime);
-        var history = EditorContext.HistoryManager;
         TimeSpan originalKeyTime = keyTime;
         keyTime = ConvertKeyTime(keyTime);
         Project? proj = Scene.FindHierarchicalParent<Project>();
@@ -43,7 +42,7 @@ public sealed class GraphEditorViewModel<T>(
         {
             _logger.LogInformation("Editing existing key frame at {KeyTime}", keyTime);
             keyFrame.Easing = easing;
-            history.Commit(CommandNames.ChangeEasing);
+            HistoryManager.Commit(CommandNames.ChangeEasing);
         }
         else
         {
@@ -58,7 +57,7 @@ public sealed class GraphEditorViewModel<T>(
             easing: easing,
             keyTime: keyTime,
             logger: _logger);
-        EditorContext.HistoryManager.Commit(CommandNames.InsertKeyFrame);
+        HistoryManager.Commit(CommandNames.InsertKeyFrame);
     }
 }
 
@@ -66,36 +65,43 @@ public abstract class GraphEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly GraphEditorViewViewModelFactory[] _factories;
+    private readonly IEditorClock _editorClock;
     protected readonly ILogger _logger = Log.CreateLogger<GraphEditorViewModel>();
     private bool _editting;
     private TimeSpan _pointerPosition;
 
-    protected GraphEditorViewModel(EditViewModel editViewModel, IKeyFrameAnimation animation, Element? element)
+    protected GraphEditorViewModel(IEditorContext editorContext, IKeyFrameAnimation animation, Element? element)
     {
         _logger.LogInformation("Initializing GraphEditorViewModel");
-        EditorContext = editViewModel;
+        EditorContext = editorContext;
         Element = element;
         Animation = animation;
+
+        var timelineOptions = editorContext.GetRequiredService<ITimelineOptionsProvider>();
+        _editorClock = editorContext.GetRequiredService<IEditorClock>();
+        Options = timelineOptions.Options;
+        Scene = timelineOptions.Scene;
+        HistoryManager = editorContext.GetRequiredService<HistoryManager>();
 
         UseGlobalClock = ((CoreObject)animation).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         ElementMargin = (Element?.GetObservable(Element.StartProperty) ?? Observable.ReturnThenNever<TimeSpan>(default))
-            .CombineLatest(editViewModel.Scale)
+            .CombineLatest(timelineOptions.Scale)
             .Select(t => new Thickness(t.First.ToPixel(t.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         ElementWidth = (Element?.GetObservable(Element.LengthProperty) ?? Observable.ReturnThenNever<TimeSpan>(default))
-            .CombineLatest(editViewModel.Scale)
+            .CombineLatest(timelineOptions.Scale)
             .Select(t => t.First.ToPixel(t.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         ElementColor = (Element?.GetObservable(Element.AccentColorProperty) ??
-                        Observable.ReturnThenNever(Beutl.Media.Colors.Transparent))
-            .Select(v => (IBrush)new ImmutableSolidColorBrush(v.ToAvalonia()))
+                        Observable.ReturnThenNever(Media.Colors.Transparent))
+            .Select(v => (IBrush)new ImmutableSolidColorBrush(v.ToAvaColor()))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -109,36 +115,36 @@ public abstract class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        SeekBarMargin = editViewModel.CurrentTime
-            .CombineLatest(editViewModel.Scale)
+        SeekBarMargin = _editorClock.CurrentTime
+            .CombineLatest(timelineOptions.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         StartingBarMargin = Scene.GetObservable(Scene.StartProperty)
-            .CombineLatest(editViewModel.Scale)
+            .CombineLatest(timelineOptions.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         EndingBarMargin = Scene.GetObservable(Scene.DurationProperty)
-            .CombineLatest(editViewModel.Scale, StartingBarMargin)
+            .CombineLatest(timelineOptions.Scale, StartingBarMargin)
             .Select(item => item.First.ToPixel(item.Second) + item.Third.Left)
             .Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        PanelWidth = editViewModel.MaximumTime
+        PanelWidth = _editorClock.MaximumTime
             .CombineLatest(
                 Scene.GetObservable(Scene.DurationProperty),
                 Scene.GetObservable(Scene.StartProperty),
-                editViewModel.CurrentTime)
+                _editorClock.CurrentTime)
             .Select(i => TimeSpan.FromTicks(
                 Math.Max(
                     Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
                     i.Fourth.Ticks)))
-            .CombineLatest(editViewModel.Scale)
+            .CombineLatest(timelineOptions.Scale)
             .Select(i => i.First.ToPixel(i.Second) + 500)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -155,7 +161,7 @@ public abstract class GraphEditorViewModel : IDisposable
 
         CalculateMaxHeight();
 
-        editViewModel.Offset.Subscribe(v => ScrollOffset.Value = ScrollOffset.Value.WithX(v.X))
+        timelineOptions.Offset.Subscribe(v => ScrollOffset.Value = ScrollOffset.Value.WithX(v.X))
             .DisposeWith(_disposables);
 
         CopyAllKeyFramesCommand = new AsyncReactiveCommand()
@@ -167,9 +173,9 @@ public abstract class GraphEditorViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
-    public IReactiveProperty<TimelineOptions> Options => EditorContext.Options;
+    public IReactiveProperty<TimelineOptions> Options { get; }
 
-    public Scene Scene => EditorContext.Scene;
+    public Scene Scene { get; }
 
     public Element? Element { get; private set; }
 
@@ -210,7 +216,11 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public GraphEditorViewViewModelFactory? Factory { get; }
 
-    public EditViewModel EditorContext { get; }
+    public IEditorContext EditorContext { get; }
+
+    public HistoryManager HistoryManager { get; }
+
+    public IReactiveProperty<TimeSpan> CurrentTime => _editorClock.CurrentTime;
 
     public ReactiveProperty<bool> Symmetry { get; } = new(true);
 
@@ -237,7 +247,7 @@ public abstract class GraphEditorViewModel : IDisposable
     public void EndEditting()
     {
         _logger.LogInformation("End editing");
-        EditorContext.HistoryManager.Commit(CommandNames.EditKeyFrame);
+        HistoryManager.Commit(CommandNames.EditKeyFrame);
         _editting = false;
         CalculateMaxHeight();
     }
@@ -245,9 +255,8 @@ public abstract class GraphEditorViewModel : IDisposable
     public void UpdateUseGlobalClock(bool value)
     {
         _logger.LogInformation("Updating UseGlobalClock to {Value}", value);
-        var history = EditorContext.HistoryManager;
         ((KeyFrameAnimation)Animation).UseGlobalClock = value;
-        history.Commit(CommandNames.ChangeUseGlobalClock);
+        HistoryManager.Commit(CommandNames.ChangeUseGlobalClock);
     }
 
     private void OnItemVerticalRangeChanged(object? sender, EventArgs e)
@@ -312,7 +321,7 @@ public abstract class GraphEditorViewModel : IDisposable
 
     private async Task CopyAllKeyFramesAsync()
     {
-        IClipboard? clipboard = App.GetClipboard();
+        IClipboard? clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return;
 
         try
@@ -334,7 +343,7 @@ public abstract class GraphEditorViewModel : IDisposable
 
     private async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition)
     {
-        IClipboard? clipboard = App.GetClipboard();
+        IClipboard? clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return;
 
         try
@@ -385,7 +394,6 @@ public abstract class GraphEditorViewModel : IDisposable
 
         try
         {
-            HistoryManager history = EditorContext.HistoryManager;
             KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
 
             if (discriminator.GenericTypeArguments[0] != animation.ValueType)
@@ -402,7 +410,7 @@ public abstract class GraphEditorViewModel : IDisposable
             {
                 item.Id = Guid.NewGuid();
             }
-            history.Commit(CommandNames.PasteAnimation);
+            HistoryManager.Commit(CommandNames.PasteAnimation);
         }
         catch (Exception ex)
         {
@@ -437,7 +445,6 @@ public abstract class GraphEditorViewModel : IDisposable
 
         try
         {
-            HistoryManager history = EditorContext.HistoryManager;
             KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
 
             KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(discriminator)!;
@@ -456,14 +463,14 @@ public abstract class GraphEditorViewModel : IDisposable
                 // イージングと値を変更
                 existingKeyFrame.Easing = newKeyFrame.Easing;
                 existingKeyFrame.Value = ((IKeyFrame)newKeyFrame).Value;
-                history.Commit(CommandNames.PasteKeyFrame);
+                HistoryManager.Commit(CommandNames.PasteKeyFrame);
                 NotificationService.ShowWarning(Strings.GraphEditor, Strings.KeyframeExistsAtPastePosition);
             }
             else
             {
                 newKeyFrame.KeyTime = keyTime;
                 animation.KeyFrames.Add((IKeyFrame)newKeyFrame, out _);
-                history.Commit(CommandNames.PasteKeyFrame);
+                HistoryManager.Commit(CommandNames.PasteKeyFrame);
             }
         }
         catch (Exception ex)

@@ -1,6 +1,6 @@
 ﻿using Avalonia;
 
-namespace Beutl;
+namespace Beutl.Editor.Components.Helpers;
 
 public static class DataContextEvents
 {

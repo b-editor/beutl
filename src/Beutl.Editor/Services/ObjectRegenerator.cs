@@ -1,11 +1,11 @@
 ﻿using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Beutl.Helpers;
+using Beutl.Collections;
 using Beutl.Serialization;
 using Beutl.Utilities;
 
-namespace Beutl.Services;
+namespace Beutl.Editor.Services;
 
 public static class ObjectRegenerator
 {

@@ -4,7 +4,7 @@ using Beutl.Animation.Easings;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 
-namespace Beutl.Helpers;
+namespace Beutl.Editor.Components.Helpers;
 
 public static class AnimationOperations
 {

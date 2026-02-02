@@ -4,7 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 
-namespace Beutl.Views;
+namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
 public sealed class GraphEditorScale : Control
 {

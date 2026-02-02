@@ -1,9 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 
-namespace Beutl;
+namespace Beutl.Editor.Components.Helpers;
 
-internal static class FrameNumberHelper
+public static class FrameNumberHelper
 {
     public static readonly double SecondWidth;
     public static readonly double LayerHeight;

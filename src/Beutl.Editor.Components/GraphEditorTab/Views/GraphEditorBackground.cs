@@ -3,7 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 
-namespace Beutl.Views;
+using Beutl.Editor.Components.Helpers;
+
+namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
 public sealed class GraphEditorBackground : Control
 {

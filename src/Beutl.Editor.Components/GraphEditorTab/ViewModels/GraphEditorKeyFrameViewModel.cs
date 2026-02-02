@@ -5,10 +5,10 @@ using Avalonia.Input.Platform;
 using Avalonia.Media;
 using Beutl.Animation;
 using Beutl.Editor;
-using Beutl.Helpers;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Language;
 using Beutl.Logging;
-using Beutl.Models;
 using Beutl.Serialization;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -16,7 +16,7 @@ using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using SplineEasing = Beutl.Animation.Easings.SplineEasing;
 
-namespace Beutl.ViewModels;
+namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
 public sealed class GraphEditorKeyFrameViewModel : IDisposable
 {
@@ -279,7 +279,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     public void CommitKeyTimeAndValue()
     {
         GraphEditorViewModel parent2 = Parent.Parent;
-        HistoryManager history = parent2.EditorContext.HistoryManager;
+        HistoryManager history = parent2.HistoryManager;
         IKeyFrameAnimation animation = parent2.Animation;
 
         float scale = parent2.Options.Value.Scale;
@@ -328,7 +328,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     private async Task CopyAsync()
     {
-        IClipboard? clipboard = App.GetClipboard();
+        IClipboard? clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return;
 
         try
@@ -349,7 +349,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     private async Task PasteAsync()
     {
-        IClipboard? clipboard = App.GetClipboard();
+        IClipboard? clipboard = ClipboardHelper.GetClipboard();
         if (clipboard == null) return;
 
         try
@@ -371,7 +371,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
                 KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(type)!;
                 CoreSerializer.PopulateFromJsonObject(newKeyFrame, jsonObj);
-                HistoryManager history = Parent.Parent.EditorContext.HistoryManager;
+                HistoryManager history = Parent.Parent.HistoryManager;
 
                 if (type.GenericTypeArguments[0] != Parent.Parent.Animation.ValueType)
                 {
@@ -407,6 +407,6 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             animation: Parent.Parent.Animation,
             keyframe: Model,
             logger: _logger);
-        Parent.Parent.EditorContext.HistoryManager.Commit(CommandNames.RemoveKeyFrame);
+        Parent.Parent.HistoryManager.Commit(CommandNames.RemoveKeyFrame);
     }
 }

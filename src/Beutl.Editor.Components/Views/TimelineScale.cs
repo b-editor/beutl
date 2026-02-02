@@ -3,9 +3,10 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.TextFormatting;
-using static Beutl.ViewModels.BufferStatusViewModel;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Models;
 
-namespace Beutl.Views;
+namespace Beutl.Editor.Components.Views;
 
 public sealed class TimelineScale : Control
 {

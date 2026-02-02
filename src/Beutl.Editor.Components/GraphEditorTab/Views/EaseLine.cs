@@ -4,7 +4,9 @@ using Avalonia.Media;
 
 using Beutl.Utilities;
 
-namespace Beutl.Views;
+using Beutl.Editor.Components.Helpers;
+
+namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
 public sealed class EaseLine : Line
 {
@@ -26,7 +28,6 @@ public sealed class EaseLine : Line
     public static readonly StyledProperty<Animation.Easings.Easing> EasingProperty
         = AvaloniaProperty.Register<EaseLine, Animation.Easings.Easing>(nameof(Easing));
 
-    private static readonly ScaleTransform s_transform = new(1, -1);
     private double _baseline;
 
     static EaseLine()

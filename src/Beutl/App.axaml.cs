@@ -133,21 +133,6 @@ public sealed class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    public static IClipboard? GetClipboard()
-    {
-        return GetTopLevel()?.Clipboard;
-    }
-
-    public static TopLevel? GetTopLevel()
-    {
-        return (Current?.ApplicationLifetime) switch
-        {
-            IClassicDesktopStyleApplicationLifetime desktop => desktop.MainWindow,
-            ISingleViewApplicationLifetime { MainView: { } mainview } => TopLevel.GetTopLevel(mainview),
-            _ => null,
-        };
-    }
-
     public static ContextCommandManager? GetContextCommandManager()
     {
         return ((App)Current!).GetMainViewModel().ContextCommandManager;

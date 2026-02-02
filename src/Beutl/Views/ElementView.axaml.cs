@@ -10,6 +10,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;

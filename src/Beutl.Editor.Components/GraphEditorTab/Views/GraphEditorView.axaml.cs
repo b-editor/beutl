@@ -8,20 +8,19 @@ using Avalonia.LogicalTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
-using Beutl.Helpers;
-using Beutl.Models;
-using Beutl.ViewModels;
+using Beutl.Editor.Components.GraphEditorTab.ViewModels;
+using Beutl.Editor.Components.Helpers;
 using Reactive.Bindings.Extensions;
 using Path = Avalonia.Controls.Shapes.Path;
 using Shape = Avalonia.Controls.Shapes.Shape;
 using Vector = Avalonia.Vector;
 
-namespace Beutl.Views;
+namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
 public partial class GraphEditorView : UserControl
 {
     private readonly CompositeDisposable _disposables = [];
-    internal Timeline.MouseFlags _mouseFlag = Timeline.MouseFlags.Free;
+    internal TimelineHelper.MouseFlags _mouseFlag = TimelineHelper.MouseFlags.Free;
     private TimeSpan _initialStart;
     private TimeSpan _initialDuration;
     private TimeSpan _pointerFrame;
@@ -166,7 +165,7 @@ public partial class GraphEditorView : UserControl
 
             if (OperatingSystem.IsWindows() && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
-                edelta = edelta.SwapAxis();
+                edelta = new Avalonia.Vector(edelta.Y, edelta.X);
             }
 
             var zoomModifier = KeyGestureHelper.GetCommandModifier();
@@ -295,12 +294,12 @@ public partial class GraphEditorView : UserControl
                 _pointerFrame = TimeSpan.Zero;
             }
 
-            if (_mouseFlag == Timeline.MouseFlags.SeekBarPressed)
+            if (_mouseFlag == TimelineHelper.MouseFlags.SeekBarPressed)
             {
-                viewModel.EditorContext.CurrentTime.Value = _pointerFrame;
+                viewModel.CurrentTime.Value = _pointerFrame;
                 e.Handled = true;
             }
-            else if (_mouseFlag == Timeline.MouseFlags.EndingBarMarkerPressed)
+            else if (_mouseFlag == TimelineHelper.MouseFlags.EndingBarMarkerPressed)
             {
                 // ポインタ位置に基づいてシーンDurationを更新
                 TimeSpan newDuration = _pointerFrame - viewModel.Scene.Start;
@@ -313,7 +312,7 @@ public partial class GraphEditorView : UserControl
                 viewModel.Scene.Duration = newDuration;
                 e.Handled = true;
             }
-            else if (_mouseFlag == Timeline.MouseFlags.StartingBarMarkerPressed)
+            else if (_mouseFlag == TimelineHelper.MouseFlags.StartingBarMarkerPressed)
             {
                 TimeSpan newStart = _pointerFrame;
                 if (newStart < TimeSpan.Zero)
@@ -336,13 +335,13 @@ public partial class GraphEditorView : UserControl
                 double endingBarX = viewModel.EndingBarMargin.Value.Left;
 
                 // EndingBarマーカーの当たり判定チェック
-                if (Timeline.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX))
+                if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX))
                 {
-                    scale.Cursor = Cursors.SizeWestEast;
+                    scale.Cursor = new Cursor(StandardCursorType.SizeWestEast);
                 }
                 else
                 {
-                    scale.Cursor = Cursors.Arrow;
+                    scale.Cursor = Cursor.Default;
                 }
             }
         }
@@ -355,16 +354,16 @@ public partial class GraphEditorView : UserControl
 
         if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
         {
-            if (_mouseFlag == Timeline.MouseFlags.EndingBarMarkerPressed)
+            if (_mouseFlag == TimelineHelper.MouseFlags.EndingBarMarkerPressed)
             {
-                viewModel.EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
+                viewModel.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
             }
-            else if (_mouseFlag == Timeline.MouseFlags.StartingBarMarkerPressed)
+            else if (_mouseFlag == TimelineHelper.MouseFlags.StartingBarMarkerPressed)
             {
-                viewModel.EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneStart);
+                viewModel.HistoryManager.Commit(CommandNames.ChangeSceneStart);
             }
 
-            _mouseFlag = Timeline.MouseFlags.Free;
+            _mouseFlag = TimelineHelper.MouseFlags.Free;
         }
     }
 
@@ -381,22 +380,22 @@ public partial class GraphEditorView : UserControl
                 Point scalePoint = e.GetPosition(scale);
 
                 // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
-                if (Timeline.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
+                if (TimelineHelper.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
                 {
-                    _mouseFlag = Timeline.MouseFlags.EndingBarMarkerPressed;
+                    _mouseFlag = TimelineHelper.MouseFlags.EndingBarMarkerPressed;
                     _initialDuration = viewModel.Scene.Duration; // 初期値を保存
                 }
-                else if (Timeline.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y,
+                else if (TimelineHelper.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y,
                              startingBarX))
                 {
-                    _mouseFlag = Timeline.MouseFlags.StartingBarMarkerPressed;
+                    _mouseFlag = TimelineHelper.MouseFlags.StartingBarMarkerPressed;
                     _initialStart = viewModel.Scene.Start; // 初期値を保存
                     _initialDuration = viewModel.Scene.Duration;
                 }
                 else
                 {
-                    _mouseFlag = Timeline.MouseFlags.SeekBarPressed;
-                    viewModel.EditorContext.CurrentTime.Value = pointerPt.Position.X
+                    _mouseFlag = TimelineHelper.MouseFlags.SeekBarPressed;
+                    viewModel.CurrentTime.Value = pointerPt.Position.X
                         .ToTimeSpan(viewModel.Options.Value.Scale)
                         .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
                             ? proj.GetFrameRate()
@@ -781,7 +780,7 @@ public partial class GraphEditorView : UserControl
                 }
 
                 _keyframeViewModel.UpdateKeyTimeAndValue();
-                viewModel.EditorContext.HistoryManager.Commit(CommandNames.MoveKeyFrame);
+                viewModel.HistoryManager.Commit(CommandNames.MoveKeyFrame);
             }
             else
             {

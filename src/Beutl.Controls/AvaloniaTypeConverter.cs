@@ -2,7 +2,7 @@
 
 namespace Beutl.Controls;
 
-internal static class AvaloniaTypeConverter
+public static class AvaloniaTypeConverter
 {
     public static Avalonia.Media.Color ToAvaColor(this in Media.Color color)
     {

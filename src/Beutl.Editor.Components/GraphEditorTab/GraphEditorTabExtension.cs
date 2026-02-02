@@ -1,15 +1,12 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
+using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
-
-using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
-using Beutl.Views.Tools;
+using Beutl.Editor.Components.GraphEditorTab.ViewModels;
+using Beutl.Editor.Components.GraphEditorTab.Views;
 using FluentAvalonia.UI.Controls;
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.GraphEditorTab;
 
 [PrimitiveImpl]
 public sealed class GraphEditorTabExtension : ToolTabExtension
@@ -29,29 +26,13 @@ public sealed class GraphEditorTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
-        {
-            control = new GraphEditorTab();
-            return true;
-        }
-        else
-        {
-            control = null;
-            return false;
-        }
+        control = new GraphEditorTabView();
+        return true;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
-        {
-            context = new GraphEditorTabViewModel(editViewModel);
-            return true;
-        }
-        else
-        {
-            context = null;
-            return false;
-        }
+        context = new GraphEditorTabViewModel(editorContext);
+        return true;
     }
 }

@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Editor.Components.Helpers;
 using Beutl.ViewModels;
 using KeyFrame = Avalonia.Animation.KeyFrame;
 

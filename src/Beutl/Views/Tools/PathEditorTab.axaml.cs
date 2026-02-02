@@ -8,6 +8,7 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Editor.Components.Views;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;

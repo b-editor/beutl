@@ -8,6 +8,7 @@ using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Components.ObjectPropertyTab;
 using Beutl.Editor.Components.SceneSettingsTab;
 using Beutl.Editor.Components.SourceOperatorsTab;
+using Beutl.Editor.Components.GraphEditorTab;
 using Beutl.Services.PrimitiveImpls;
 
 namespace Beutl.Services.StartupTasks;

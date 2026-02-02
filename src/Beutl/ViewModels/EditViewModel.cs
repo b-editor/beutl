@@ -23,6 +23,7 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Threading;
+using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.ViewModels.Tools;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;

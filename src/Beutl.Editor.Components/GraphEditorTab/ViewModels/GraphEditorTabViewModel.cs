@@ -1,24 +1,23 @@
-﻿using System.Reflection;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
-using Beutl.Services;
-using Beutl.Services.PrimitiveImpls;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels.Tools;
+namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
 public sealed record GraphEditorItemViewModel(string Name, KeyFrameAnimation Object);
 
 public sealed class GraphEditorTabViewModel : IToolContext
 {
-    private readonly EditViewModel _editViewModel;
+    private readonly IEditorContext _editorContext;
     private readonly CompositeDisposable _disposables = [];
 
-    public GraphEditorTabViewModel(EditViewModel editViewModel)
+    public GraphEditorTabViewModel(IEditorContext editorContext)
     {
-        _editViewModel = editViewModel;
+        _editorContext = editorContext;
         Element.Subscribe(_ => Refresh()).DisposeWith(_disposables);
         SelectedAnimation = SelectedItem.CombineLatest(Element)
             .Select(t =>
@@ -27,7 +26,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
                 Type type = t.First.Object.ValueType;
                 Type viewModelType = typeof(GraphEditorViewModel<>).MakeGenericType(type);
-                return (GraphEditorViewModel)Activator.CreateInstance(viewModelType, _editViewModel, t.First.Object, t.Second)!;
+                return (GraphEditorViewModel)Activator.CreateInstance(viewModelType, _editorContext, t.First.Object, t.Second)!;
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -110,9 +109,10 @@ public sealed class GraphEditorTabViewModel : IToolContext
     {
         try
         {
+            var scene = _editorContext.GetRequiredService<Scene>();
             if (json.TryGetPropertyValueAsJsonValue("elementId", out Guid elmId)
                 && json.TryGetPropertyValueAsJsonValue("animationId", out Guid anmId)
-                && _editViewModel.Scene.FindById(elmId) is Element elm)
+                && scene.FindById(elmId) is Element elm)
             {
                 Element.Value = elm;
                 var searcher = new ObjectSearcher(elm, v => v is KeyFrameAnimation anm && anm.Id == anmId);

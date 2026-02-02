@@ -6,9 +6,8 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Collections.Pooled;
-using Beutl.Models;
+using Beutl.Editor.Components.Helpers;
 using Beutl.NodeTree;
-using Beutl.Services;
 using Beutl.ViewModels.NodeTree;
 
 namespace Beutl.Views.NodeTree;

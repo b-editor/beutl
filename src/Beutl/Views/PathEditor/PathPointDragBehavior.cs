@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Animation;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;

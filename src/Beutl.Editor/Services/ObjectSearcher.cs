@@ -1,7 +1,8 @@
 ﻿using System.Collections;
 using Beutl.Engine;
+using Beutl.Extensibility;
 
-namespace Beutl.Services;
+namespace Beutl.Editor.Services;
 
 public class ObjectSearcher
 {

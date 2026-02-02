@@ -1,13 +1,12 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
-using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
-using Beutl.ViewModels.Tools;
 using Reactive.Bindings;
+using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.ViewModels;
 
@@ -111,7 +110,7 @@ public partial class MenuBarViewModel
 
     private async Task OnCutElement()
     {
-        if (App.GetClipboard() is IClipboard clipboard
+        if (ClipboardHelper.GetClipboard() is IClipboard clipboard
             && TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.Scene is Scene scene
             && viewModel.SelectedObject.Value is Element element)
@@ -126,7 +125,7 @@ public partial class MenuBarViewModel
 
     private async Task OnCopyElement()
     {
-        if (App.GetClipboard() is IClipboard clipboard
+        if (ClipboardHelper.GetClipboard() is IClipboard clipboard
             && TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.SelectedObject.Value is Element element)
         {

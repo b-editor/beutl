@@ -10,7 +10,6 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Services;
-using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Models;
@@ -18,24 +17,17 @@ using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
-using Beutl.ViewModels.Tools;
 using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
+using Beutl.Editor.Components.Helpers;
+using MouseFlags = Beutl.Editor.Components.Helpers.TimelineHelper.MouseFlags;
+using Beutl.Editor.Components.Models;
 
 namespace Beutl.Views;
 
 public sealed partial class Timeline : UserControl
 {
-    internal enum MouseFlags
-    {
-        Free,
-        SeekBarPressed,
-        RangeSelectionPressed,
-        EndingBarMarkerPressed,
-        StartingBarMarkerPressed
-    }
-
     internal MouseFlags _mouseFlag = MouseFlags.Free;
     internal TimeSpan _pointerFrame;
     private TimeSpan _initialStart;
@@ -45,10 +37,6 @@ public sealed partial class Timeline : UserControl
     private readonly CompositeDisposable _disposables = [];
     private ElementView? _selectedElement;
     private CancellationTokenSource? _scrollCts;
-
-    // 長方形マーカーのサイズを定義
-    private const int MarkerHeight = 18;
-    private const int MarkerWidth = 4;
 
     public Timeline()
     {
@@ -304,7 +292,7 @@ public sealed partial class Timeline : UserControl
             double endingBarX = viewModel.EndingBarMargin.Value.Left;
 
             // EndingBarマーカーの当たり判定チェック
-            if (IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX))
+            if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX))
             {
                 Scale.Cursor = Cursors.SizeWestEast;
             }
@@ -315,7 +303,7 @@ public sealed partial class Timeline : UserControl
 
             if (Scale.IsPointerOver && posScale.Y > Scale.Bounds.Height - 8)
             {
-                BufferStatusViewModel.CacheBlock[] cacheBlocks = viewModel.EditorContext.BufferStatus.CacheBlocks.Value;
+                CacheBlock[] cacheBlocks = viewModel.EditorContext.BufferStatus.CacheBlocks.Value;
 
                 viewModel.HoveredCacheBlock.Value = Array.Find(cacheBlocks,
                     v => new TimeRange(v.Start, v.Length).Contains(_pointerFrame));
@@ -394,32 +382,6 @@ public sealed partial class Timeline : UserControl
         }
     }
 
-    // TimelineScaleの長方形マーカーの当たり判定
-    // GraphEditorViewでも使用
-    internal static bool IsPointInTimelineScaleMarker(double x, double y, double startingBarX, double endingBarX)
-    {
-        return IsPointInTimelineScaleStartingMarker(x, y, startingBarX) ||
-               IsPointInTimelineScaleEndingMarker(x, y, endingBarX);
-    }
-
-    internal static bool IsPointInTimelineScaleStartingMarker(double x, double y, double startingBarX)
-    {
-        // 長方形の範囲を計算
-        var startRect = new Rect(startingBarX, 0, MarkerWidth, MarkerHeight);
-
-        // 点が長方形内にあるか判定
-        return startRect.Contains(new Point(x, y));
-    }
-
-    internal static bool IsPointInTimelineScaleEndingMarker(double x, double y, double endingBarX)
-    {
-        // 長方形の範囲を計算
-        var endRect = new Rect(endingBarX - MarkerWidth, 0, MarkerWidth, MarkerHeight);
-
-        // 点が長方形内にあるか判定
-        return endRect.Contains(new Point(x, y));
-    }
-
     // ポインターが押された
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -450,13 +412,13 @@ public sealed partial class Timeline : UserControl
                 Point scalePoint = e.GetPosition(Scale);
 
                 // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
-                if (IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
+                if (TimelineHelper.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
                 {
                     _mouseFlag = MouseFlags.EndingBarMarkerPressed;
                     // 初期値を保存
                     _initialDuration = viewModel.Scene.Duration;
                 }
-                else if (IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
+                else if (TimelineHelper.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
                 {
                     _mouseFlag = MouseFlags.StartingBarMarkerPressed;
                     _initialStart = viewModel.Scene.Start; // 初期値を保存
@@ -553,8 +515,6 @@ public sealed partial class Timeline : UserControl
         await dialog.ShowAsync();
     }
 
-
-
     private void PopulateAddElementSubMenu()
     {
         foreach (LibraryItem item in LibraryService.Current.Items)
@@ -572,41 +532,41 @@ public sealed partial class Timeline : UserControl
         switch (item)
         {
             case SingleTypeLibraryItem single when single.Format == KnownLibraryItemFormats.SourceOperator:
-            {
-                var menuItem = new MenuFlyoutItem { Text = single.DisplayName, Tag = single.ImplementationType };
-                menuItem.Click += AddElementWithTypeClick;
-                return menuItem;
-            }
+                {
+                    var menuItem = new MenuFlyoutItem { Text = single.DisplayName, Tag = single.ImplementationType };
+                    menuItem.Click += AddElementWithTypeClick;
+                    return menuItem;
+                }
 
             case MultipleTypeLibraryItem multiple when multiple.Types.TryGetValue(KnownLibraryItemFormats.SourceOperator, out Type? type):
-            {
-                var menuItem = new MenuFlyoutItem { Text = multiple.DisplayName, Tag = type };
-                menuItem.Click += AddElementWithTypeClick;
-                return menuItem;
-            }
+                {
+                    var menuItem = new MenuFlyoutItem { Text = multiple.DisplayName, Tag = type };
+                    menuItem.Click += AddElementWithTypeClick;
+                    return menuItem;
+                }
 
             case GroupLibraryItem group:
-            {
-                var subItems = new List<Control>();
-                foreach (LibraryItem child in group.Items)
                 {
-                    Control? childItem = CreateMenuItemForLibraryItem(child);
-                    if (childItem != null)
+                    var subItems = new List<Control>();
+                    foreach (LibraryItem child in group.Items)
                     {
-                        subItems.Add(childItem);
+                        Control? childItem = CreateMenuItemForLibraryItem(child);
+                        if (childItem != null)
+                        {
+                            subItems.Add(childItem);
+                        }
                     }
-                }
 
-                if (subItems.Count == 0)
-                    return null;
+                    if (subItems.Count == 0)
+                        return null;
 
-                var subMenu = new MenuFlyoutSubItem { Text = group.DisplayName };
-                foreach (Control subItem in subItems)
-                {
-                    subMenu.Items.Add(subItem);
+                    var subMenu = new MenuFlyoutSubItem { Text = group.DisplayName };
+                    foreach (Control subItem in subItems)
+                    {
+                        subMenu.Items.Add(subItem);
+                    }
+                    return subMenu;
                 }
-                return subMenu;
-            }
 
             default:
                 return null;

@@ -1,7 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Input;
 
-namespace Beutl.Helpers;
+namespace Beutl.Editor.Components.Helpers;
 
 public static class KeyGestureHelper
 {

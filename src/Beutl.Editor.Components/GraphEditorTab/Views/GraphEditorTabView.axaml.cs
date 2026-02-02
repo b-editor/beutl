@@ -1,13 +1,13 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
-public partial class GraphEditorTab : UserControl
+public partial class GraphEditorTabView : UserControl
 {
-    public GraphEditorTab()
+    public GraphEditorTabView()
     {
         InitializeComponent();
     }

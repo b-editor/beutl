@@ -5,7 +5,7 @@ using Beutl.Audio.Composing;
 using Beutl.Audio.Platforms.OpenAL;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Configuration;
-using Beutl.Editor.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;

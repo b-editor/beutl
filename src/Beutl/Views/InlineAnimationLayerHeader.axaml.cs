@@ -6,8 +6,8 @@ using Avalonia.Xaml.Interactivity;
 
 using Beutl.Animation;
 using Beutl.Controls.Behaviors;
+using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Tools;
 
 namespace Beutl.Views;
 

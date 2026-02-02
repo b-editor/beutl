@@ -1,8 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Collections.Specialized;
-using System.Numerics;
 using System.Reactive.Subjects;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Input;
@@ -11,17 +9,17 @@ using Avalonia.Platform.Storage;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Models;
 using Beutl.Engine;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.Operation;
 using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
-using Beutl.Reactive;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -30,7 +28,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using static Beutl.ViewModels.BufferStatusViewModel;
 
 namespace Beutl.ViewModels;
 
@@ -634,7 +631,7 @@ public sealed class TimelineViewModel : IToolContext, IContextCommandHandler
     {
         try
         {
-            IClipboard? clipboard = App.GetClipboard();
+            IClipboard? clipboard = ClipboardHelper.GetClipboard();
             if (clipboard == null) return;
 
             var formats = await clipboard.GetDataFormatsAsync();

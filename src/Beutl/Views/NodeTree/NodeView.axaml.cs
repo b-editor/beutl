@@ -1,6 +1,4 @@
-﻿using System.ComponentModel;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -10,11 +8,10 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
 using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
 using Beutl.ViewModels.NodeTree;
-using FluentAvalonia.UI.Controls;
-using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Views.NodeTree;
 
