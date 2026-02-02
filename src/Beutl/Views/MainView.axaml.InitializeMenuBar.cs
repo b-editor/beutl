@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
+using Beutl.Editor;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -53,6 +54,9 @@ public partial class MainView
                 applicationLifetime.Shutdown();
             }
         }).AddTo(_disposables);
+
+        viewModel.MenuBar.ExportProject.Subscribe(OnExportProject).AddTo(_disposables);
+        viewModel.MenuBar.ImportProject.Subscribe(OnImportProject).AddTo(_disposables);
     }
 
     private void InitializeRecentItems(MainViewModel viewModel)
@@ -222,6 +226,127 @@ public partial class MainView
             {
                 await ProjectService.Current.OpenProject(localPath);
             }
+        }
+    }
+
+    private async Task OnExportProject()
+    {
+        if (VisualRoot is not Window window)
+        {
+            return;
+        }
+
+        Project? project = ProjectService.Current.CurrentProject.Value;
+        if (project?.Uri == null)
+        {
+            return;
+        }
+
+        string defaultFileName = Path.GetFileNameWithoutExtension(project.Uri.LocalPath);
+        var options = new FilePickerSaveOptions
+        {
+            SuggestedFileName = defaultFileName,
+            DefaultExtension = Constants.ProjectPackageExtension,
+            FileTypeChoices =
+            [
+                new FilePickerFileType(Strings.ProjectPackage)
+                {
+                    Patterns = [$"*.{Constants.ProjectPackageExtension}"]
+                }
+            ]
+        };
+
+        IStorageFile? file = await window.StorageProvider.SaveFilePickerAsync(options);
+        if (file?.TryGetLocalPath() is string outputPath)
+        {
+            try
+            {
+                bool result = await ProjectPackageService.Current.ExportAsync(
+                    project,
+                    outputPath,
+                    new Progress<(string Message, double Progress)>(p =>
+                    {
+                        // 進捗表示（将来的にはプログレスダイアログを表示）
+                    }));
+
+                if (result)
+                {
+                    NotificationService.ShowSuccess(Strings.ExportProject, Message.OperationCompletedSuccessfully);
+                }
+                else
+                {
+                    NotificationService.ShowError(Strings.ExportProject, Message.OperationCouldNotBeExecuted);
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = ex.Handle();
+                NotificationService.ShowError(Strings.ExportProject, Message.OperationCouldNotBeExecuted);
+            }
+        }
+    }
+
+    private async Task OnImportProject()
+    {
+        if (VisualRoot is not Window window)
+        {
+            return;
+        }
+
+        // パッケージファイルを選択
+        var openOptions = new FilePickerOpenOptions
+        {
+            FileTypeFilter =
+            [
+                new FilePickerFileType(Strings.ProjectPackage)
+                {
+                    Patterns = [$"*.{Constants.ProjectPackageExtension}"]
+                }
+            ]
+        };
+
+        IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(openOptions);
+        if (files.Count == 0 || files[0].TryGetLocalPath() is not string packagePath)
+        {
+            return;
+        }
+
+        // 展開先フォルダを選択
+        var folderOptions = new FolderPickerOpenOptions
+        {
+            Title = Strings.SelectDestinationFolder
+        };
+
+        IReadOnlyList<IStorageFolder> folders = await window.StorageProvider.OpenFolderPickerAsync(folderOptions);
+        if (folders.Count == 0 || folders[0].TryGetLocalPath() is not string destinationDir)
+        {
+            return;
+        }
+
+        try
+        {
+            Project? project = await ProjectPackageService.Current.ImportAsync(
+                packagePath,
+                destinationDir,
+                new Progress<(string Message, double Progress)>(p =>
+                {
+                    // 進捗表示（将来的にはプログレスダイアログを表示）
+                }));
+
+            if (project?.Uri != null)
+            {
+                await ProjectService.Current.OpenProject(project.Uri.LocalPath);
+                NotificationService.ShowSuccess(Strings.ImportProject, Message.OperationCompletedSuccessfully);
+            }
+            else
+            {
+                NotificationService.ShowError(Strings.ImportProject, Message.OperationCouldNotBeExecuted);
+            }
+        }
+        catch (Exception ex)
+        {
+            _ = ex.Handle();
+            NotificationService.ShowError(Strings.ImportProject, Message.OperationCouldNotBeExecuted);
         }
     }
 }

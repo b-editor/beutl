@@ -1768,6 +1768,24 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="CSharpScriptEffect" xml:space="preserve">
     <value>C# Script</value>
   </data>
+  <data name="ExportProject" xml:space="preserve">
+    <value>Export Project...</value>
+  </data>
+  <data name="ImportProject" xml:space="preserve">
+    <value>Import Project...</value>
+  </data>
+  <data name="ExportingProject" xml:space="preserve">
+    <value>Exporting project...</value>
+  </data>
+  <data name="ImportingProject" xml:space="preserve">
+    <value>Importing project...</value>
+  </data>
+  <data name="ProjectPackage" xml:space="preserve">
+    <value>Project Package</value>
+  </data>
+  <data name="SelectDestinationFolder" xml:space="preserve">
+    <value>Select Destination Folder</value>
+  </data>
   <data name="Target" xml:space="preserve">
     <value>Target</value>
   </data>

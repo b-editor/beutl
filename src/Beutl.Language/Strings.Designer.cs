@@ -9,21 +9,21 @@
 
 namespace Beutl.Language {
     using System;
-
-
+    
+    
     [System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
     [System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Strings {
-
+        
         private static System.Resources.ResourceManager resourceMan;
-
+        
         private static System.Globalization.CultureInfo resourceCulture;
-
+        
         [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
         internal Strings() {
         }
-
+        
         [System.ComponentModel.EditorBrowsableAttribute(System.ComponentModel.EditorBrowsableState.Advanced)]
         public static System.Resources.ResourceManager ResourceManager {
             get {
@@ -34,7 +34,7 @@ namespace Beutl.Language {
                 return resourceMan;
             }
         }
-
+        
         [System.ComponentModel.EditorBrowsableAttribute(System.ComponentModel.EditorBrowsableState.Advanced)]
         public static System.Globalization.CultureInfo Culture {
             get {
@@ -44,4045 +44,4081 @@ namespace Beutl.Language {
                 resourceCulture = value;
             }
         }
-
+        
         public static string File {
             get {
                 return ResourceManager.GetString("File", resourceCulture);
             }
         }
-
+        
         public static string BlueCurve {
             get {
                 return ResourceManager.GetString("BlueCurve", resourceCulture);
             }
         }
-
+        
         public static string Curves {
             get {
                 return ResourceManager.GetString("Curves", resourceCulture);
             }
         }
-
+        
         public static string CustomCurve {
             get {
                 return ResourceManager.GetString("CustomCurve", resourceCulture);
             }
         }
-
+        
         public static string GreenCurve {
             get {
                 return ResourceManager.GetString("GreenCurve", resourceCulture);
             }
         }
-
+        
         public static string HueVsHue {
             get {
                 return ResourceManager.GetString("HueVsHue", resourceCulture);
             }
         }
-
+        
         public static string HueVsLuminance {
             get {
                 return ResourceManager.GetString("HueVsLuminance", resourceCulture);
             }
         }
-
+        
         public static string HueVsSaturation {
             get {
                 return ResourceManager.GetString("HueVsSaturation", resourceCulture);
             }
         }
-
+        
         public static string LuminanceVsSaturation {
             get {
                 return ResourceManager.GetString("LuminanceVsSaturation", resourceCulture);
             }
         }
-
+        
         public static string RedCurve {
             get {
                 return ResourceManager.GetString("RedCurve", resourceCulture);
             }
         }
-
+        
         public static string SaturationVsSaturation {
             get {
                 return ResourceManager.GetString("SaturationVsSaturation", resourceCulture);
             }
         }
-
+        
         public static string CreateNew {
             get {
                 return ResourceManager.GetString("CreateNew", resourceCulture);
             }
         }
-
+        
         public static string CreateNewProject {
             get {
                 return ResourceManager.GetString("CreateNewProject", resourceCulture);
             }
         }
-
+        
         public static string CreateNewScene {
             get {
                 return ResourceManager.GetString("CreateNewScene", resourceCulture);
             }
         }
-
+        
         public static string Project {
             get {
                 return ResourceManager.GetString("Project", resourceCulture);
             }
         }
-
+        
         public static string Scene {
             get {
                 return ResourceManager.GetString("Scene", resourceCulture);
             }
         }
-
+        
         public static string Open {
             get {
                 return ResourceManager.GetString("Open", resourceCulture);
             }
         }
-
+        
         public static string Close {
             get {
                 return ResourceManager.GetString("Close", resourceCulture);
             }
         }
-
+        
         public static string ColorScopes {
             get {
                 return ResourceManager.GetString("ColorScopes", resourceCulture);
             }
         }
-
+        
         public static string CloseProject {
             get {
                 return ResourceManager.GetString("CloseProject", resourceCulture);
             }
         }
-
+        
         public static string Save {
             get {
                 return ResourceManager.GetString("Save", resourceCulture);
             }
         }
-
+        
         public static string SaveAll {
             get {
                 return ResourceManager.GetString("SaveAll", resourceCulture);
             }
         }
-
+        
         public static string Exit {
             get {
                 return ResourceManager.GetString("Exit", resourceCulture);
             }
         }
-
+        
         public static string Edit {
             get {
                 return ResourceManager.GetString("Edit", resourceCulture);
             }
         }
-
+        
         public static string Undo {
             get {
                 return ResourceManager.GetString("Undo", resourceCulture);
             }
         }
-
+        
         public static string Redo {
             get {
                 return ResourceManager.GetString("Redo", resourceCulture);
             }
         }
-
+        
         public static string View {
             get {
                 return ResourceManager.GetString("View", resourceCulture);
             }
         }
-
+        
         public static string Object {
             get {
                 return ResourceManager.GetString("Object", resourceCulture);
             }
         }
-
+        
         public static string Help {
             get {
                 return ResourceManager.GetString("Help", resourceCulture);
             }
         }
-
+        
         public static string Extensions {
             get {
                 return ResourceManager.GetString("Extensions", resourceCulture);
             }
         }
-
+        
         public static string Output {
             get {
                 return ResourceManager.GetString("Output", resourceCulture);
             }
         }
-
+        
         public static string Settings {
             get {
                 return ResourceManager.GetString("Settings", resourceCulture);
             }
         }
-
+        
         public static string Properties {
             get {
                 return ResourceManager.GetString("Properties", resourceCulture);
             }
         }
-
+        
         public static string Easings {
             get {
                 return ResourceManager.GetString("Easings", resourceCulture);
             }
         }
-
+        
         public static string Timeline {
             get {
                 return ResourceManager.GetString("Timeline", resourceCulture);
             }
         }
-
+        
         public static string SceneFile {
             get {
                 return ResourceManager.GetString("SceneFile", resourceCulture);
             }
         }
-
+        
         public static string Font {
             get {
                 return ResourceManager.GetString("Font", resourceCulture);
             }
         }
-
+        
         public static string Info {
             get {
                 return ResourceManager.GetString("Info", resourceCulture);
             }
         }
-
+        
         public static string Add {
             get {
                 return ResourceManager.GetString("Add", resourceCulture);
             }
         }
-
+        
         public static string Links {
             get {
                 return ResourceManager.GetString("Links", resourceCulture);
             }
         }
-
+        
         public static string SourceCode {
             get {
                 return ResourceManager.GetString("SourceCode", resourceCulture);
             }
         }
-
+        
         public static string License {
             get {
                 return ResourceManager.GetString("License", resourceCulture);
             }
         }
-
+        
         public static string ThirdPartyLicenses {
             get {
                 return ResourceManager.GetString("ThirdPartyLicenses", resourceCulture);
             }
         }
-
+        
         public static string Theme {
             get {
                 return ResourceManager.GetString("Theme", resourceCulture);
             }
         }
-
+        
         public static string Light {
             get {
                 return ResourceManager.GetString("Light", resourceCulture);
             }
         }
-
+        
         public static string Dark {
             get {
                 return ResourceManager.GetString("Dark", resourceCulture);
             }
         }
-
+        
         public static string HighContrast {
             get {
                 return ResourceManager.GetString("HighContrast", resourceCulture);
             }
         }
-
+        
         public static string FollowSystem {
             get {
                 return ResourceManager.GetString("FollowSystem", resourceCulture);
             }
         }
-
+        
         public static string Search {
             get {
                 return ResourceManager.GetString("Search", resourceCulture);
             }
         }
-
+        
         public static string Name {
             get {
                 return ResourceManager.GetString("Name", resourceCulture);
             }
         }
-
+        
         public static string StartTime {
             get {
                 return ResourceManager.GetString("StartTime", resourceCulture);
             }
         }
-
+        
         public static string DurationTime {
             get {
                 return ResourceManager.GetString("DurationTime", resourceCulture);
             }
         }
-
+        
         public static string Cut {
             get {
                 return ResourceManager.GetString("Cut", resourceCulture);
             }
         }
-
+        
         public static string Copy {
             get {
                 return ResourceManager.GetString("Copy", resourceCulture);
             }
         }
-
+        
         public static string Paste {
             get {
                 return ResourceManager.GetString("Paste", resourceCulture);
             }
         }
-
+        
         public static string Split {
             get {
                 return ResourceManager.GetString("Split", resourceCulture);
             }
         }
-
+        
         public static string Delete {
             get {
                 return ResourceManager.GetString("Delete", resourceCulture);
             }
         }
-
+        
         public static string Remove {
             get {
                 return ResourceManager.GetString("Remove", resourceCulture);
             }
         }
-
+        
         public static string Exclude {
             get {
                 return ResourceManager.GetString("Exclude", resourceCulture);
             }
         }
-
+        
         public static string Back {
             get {
                 return ResourceManager.GetString("Back", resourceCulture);
             }
         }
-
+        
         public static string Next {
             get {
                 return ResourceManager.GetString("Next", resourceCulture);
             }
         }
-
+        
         public static string Color {
             get {
                 return ResourceManager.GetString("Color", resourceCulture);
             }
         }
-
+        
         public static string Element {
             get {
                 return ResourceManager.GetString("Element", resourceCulture);
             }
         }
-
+        
         public static string AddElement {
             get {
                 return ResourceManager.GetString("AddElement", resourceCulture);
             }
         }
-
+        
         public static string Location {
             get {
                 return ResourceManager.GetString("Location", resourceCulture);
             }
         }
-
+        
         public static string Size {
             get {
                 return ResourceManager.GetString("Size", resourceCulture);
             }
         }
-
+        
         public static string FrameRate {
             get {
                 return ResourceManager.GetString("FrameRate", resourceCulture);
             }
         }
-
+        
         public static string SampleRate {
             get {
                 return ResourceManager.GetString("SampleRate", resourceCulture);
             }
         }
-
+        
         public static string SceneSettings {
             get {
                 return ResourceManager.GetString("SceneSettings", resourceCulture);
             }
         }
-
+        
         public static string Apply {
             get {
                 return ResourceManager.GetString("Apply", resourceCulture);
             }
         }
-
+        
         public static string Width {
             get {
                 return ResourceManager.GetString("Width", resourceCulture);
             }
         }
-
+        
         public static string Height {
             get {
                 return ResourceManager.GetString("Height", resourceCulture);
             }
         }
-
+        
         public static string Reset {
             get {
                 return ResourceManager.GetString("Reset", resourceCulture);
             }
         }
-
+        
         public static string EditAnimation {
             get {
                 return ResourceManager.GetString("EditAnimation", resourceCulture);
             }
         }
-
+        
         public static string NewFolder {
             get {
                 return ResourceManager.GetString("NewFolder", resourceCulture);
             }
         }
-
+        
         public static string Left {
             get {
                 return ResourceManager.GetString("Left", resourceCulture);
             }
         }
-
+        
         public static string Right {
             get {
                 return ResourceManager.GetString("Right", resourceCulture);
             }
         }
-
+        
         public static string Top {
             get {
                 return ResourceManager.GetString("Top", resourceCulture);
             }
         }
-
+        
         public static string Bottom {
             get {
                 return ResourceManager.GetString("Bottom", resourceCulture);
             }
         }
-
+        
         public static string Center {
             get {
                 return ResourceManager.GetString("Center", resourceCulture);
             }
         }
-
+        
         public static string FontFamily {
             get {
                 return ResourceManager.GetString("FontFamily", resourceCulture);
             }
         }
-
+        
         public static string FontStyle {
             get {
                 return ResourceManager.GetString("FontStyle", resourceCulture);
             }
         }
-
+        
         public static string FontWeight {
             get {
                 return ResourceManager.GetString("FontWeight", resourceCulture);
             }
         }
-
+        
         public static string CharactorSpacing {
             get {
                 return ResourceManager.GetString("CharactorSpacing", resourceCulture);
             }
         }
-
+        
         public static string Cancel {
             get {
                 return ResourceManager.GetString("Cancel", resourceCulture);
             }
         }
-
+        
         public static string Yes {
             get {
                 return ResourceManager.GetString("Yes", resourceCulture);
             }
         }
-
+        
         public static string No {
             get {
                 return ResourceManager.GetString("No", resourceCulture);
             }
         }
-
+        
         public static string DiscardChanges {
             get {
                 return ResourceManager.GetString("DiscardChanges", resourceCulture);
             }
         }
-
+        
         public static string Others {
             get {
                 return ResourceManager.GetString("Others", resourceCulture);
             }
         }
-
+        
         public static string Link {
             get {
                 return ResourceManager.GetString("Link", resourceCulture);
             }
         }
-
+        
         public static string ShowMore {
             get {
                 return ResourceManager.GetString("ShowMore", resourceCulture);
             }
         }
-
+        
         public static string TermsOfService {
             get {
                 return ResourceManager.GetString("TermsOfService", resourceCulture);
             }
         }
-
+        
         public static string PrivacyPolicy {
             get {
                 return ResourceManager.GetString("PrivacyPolicy", resourceCulture);
             }
         }
-
+        
         public static string OK {
             get {
                 return ResourceManager.GetString("OK", resourceCulture);
             }
         }
-
+        
         public static string Language {
             get {
                 return ResourceManager.GetString("Language", resourceCulture);
             }
         }
-
+        
         public static string Account {
             get {
                 return ResourceManager.GetString("Account", resourceCulture);
             }
         }
-
+        
         public static string Animation {
             get {
                 return ResourceManager.GetString("Animation", resourceCulture);
             }
         }
-
+        
         public static string Easing {
             get {
                 return ResourceManager.GetString("Easing", resourceCulture);
             }
         }
-
+        
         public static string KernelSize {
             get {
                 return ResourceManager.GetString("KernelSize", resourceCulture);
             }
         }
-
+        
         public static string FixImageSize {
             get {
                 return ResourceManager.GetString("FixImageSize", resourceCulture);
             }
         }
-
+        
         public static string Sigma {
             get {
                 return ResourceManager.GetString("Sigma", resourceCulture);
             }
         }
-
+        
         public static string Position {
             get {
                 return ResourceManager.GetString("Position", resourceCulture);
             }
         }
-
+        
         public static string ShadowOnly {
             get {
                 return ResourceManager.GetString("ShadowOnly", resourceCulture);
             }
         }
-
+        
         public static string Offset {
             get {
                 return ResourceManager.GetString("Offset", resourceCulture);
             }
         }
-
+        
         public static string Thickness {
             get {
                 return ResourceManager.GetString("Thickness", resourceCulture);
             }
         }
-
+        
         public static string MaskType {
             get {
                 return ResourceManager.GetString("MaskType", resourceCulture);
             }
         }
-
+        
         public static string BorderStyle {
             get {
                 return ResourceManager.GetString("BorderStyle", resourceCulture);
             }
         }
-
+        
         public static string CornerRadius {
             get {
                 return ResourceManager.GetString("CornerRadius", resourceCulture);
             }
         }
-
+        
         public static string Text {
             get {
                 return ResourceManager.GetString("Text", resourceCulture);
             }
         }
-
+        
         public static string Transform {
             get {
                 return ResourceManager.GetString("Transform", resourceCulture);
             }
         }
-
+        
         public static string TransformOrigin {
             get {
                 return ResourceManager.GetString("TransformOrigin", resourceCulture);
             }
         }
-
+        
         public static string ImageFilter {
             get {
                 return ResourceManager.GetString("ImageFilter", resourceCulture);
             }
         }
-
+        
         public static string AlignmentX {
             get {
                 return ResourceManager.GetString("AlignmentX", resourceCulture);
             }
         }
-
+        
         public static string AlignmentY {
             get {
                 return ResourceManager.GetString("AlignmentY", resourceCulture);
             }
         }
-
+        
         public static string OpacityMask {
             get {
                 return ResourceManager.GetString("OpacityMask", resourceCulture);
             }
         }
-
+        
         public static string BlendMode {
             get {
                 return ResourceManager.GetString("BlendMode", resourceCulture);
             }
         }
-
+        
         public static string Opacity {
             get {
                 return ResourceManager.GetString("Opacity", resourceCulture);
             }
         }
-
+        
         public static string Angle {
             get {
                 return ResourceManager.GetString("Angle", resourceCulture);
             }
         }
-
+        
         public static string SpreadMethod {
             get {
                 return ResourceManager.GetString("SpreadMethod", resourceCulture);
             }
         }
-
+        
         public static string GradientStops {
             get {
                 return ResourceManager.GetString("GradientStops", resourceCulture);
             }
         }
-
+        
         public static string StartPoint {
             get {
                 return ResourceManager.GetString("StartPoint", resourceCulture);
             }
         }
-
+        
         public static string EndPoint {
             get {
                 return ResourceManager.GetString("EndPoint", resourceCulture);
             }
         }
-
+        
         public static string GradientOrigin {
             get {
                 return ResourceManager.GetString("GradientOrigin", resourceCulture);
             }
         }
-
+        
         public static string Radius {
             get {
                 return ResourceManager.GetString("Radius", resourceCulture);
             }
         }
-
+        
         public static string DestinationRect {
             get {
                 return ResourceManager.GetString("DestinationRect", resourceCulture);
             }
         }
-
+        
         public static string SourceRect {
             get {
                 return ResourceManager.GetString("SourceRect", resourceCulture);
             }
         }
-
+        
         public static string Stretch {
             get {
                 return ResourceManager.GetString("Stretch", resourceCulture);
             }
         }
-
+        
         public static string TileMode {
             get {
                 return ResourceManager.GetString("TileMode", resourceCulture);
             }
         }
-
+        
         public static string BitmapInterpolationMode {
             get {
                 return ResourceManager.GetString("BitmapInterpolationMode", resourceCulture);
             }
         }
-
+        
         public static string SourceOperators {
             get {
                 return ResourceManager.GetString("SourceOperators", resourceCulture);
             }
         }
-
+        
         public static string ProjectFile {
             get {
                 return ResourceManager.GetString("ProjectFile", resourceCulture);
             }
         }
-
+        
         public static string RecentFiles {
             get {
                 return ResourceManager.GetString("RecentFiles", resourceCulture);
             }
         }
-
+        
         public static string RecentProjects {
             get {
                 return ResourceManager.GetString("RecentProjects", resourceCulture);
             }
         }
-
+        
         public static string Editors {
             get {
                 return ResourceManager.GetString("Editors", resourceCulture);
             }
         }
-
+        
         public static string Tools {
             get {
                 return ResourceManager.GetString("Tools", resourceCulture);
             }
         }
-
+        
         public static string Rename {
             get {
                 return ResourceManager.GetString("Rename", resourceCulture);
             }
         }
-
+        
         public static string Ellipse {
             get {
                 return ResourceManager.GetString("Ellipse", resourceCulture);
             }
         }
-
+        
         public static string Rectangle {
             get {
                 return ResourceManager.GetString("Rectangle", resourceCulture);
             }
         }
-
+        
         public static string RoundedRect {
             get {
                 return ResourceManager.GetString("RoundedRect", resourceCulture);
             }
         }
-
+        
         public static string Translate {
             get {
                 return ResourceManager.GetString("Translate", resourceCulture);
             }
         }
-
+        
         public static string Skew {
             get {
                 return ResourceManager.GetString("Skew", resourceCulture);
             }
         }
-
+        
         public static string Scale {
             get {
                 return ResourceManager.GetString("Scale", resourceCulture);
             }
         }
-
+        
         public static string Rotation {
             get {
                 return ResourceManager.GetString("Rotation", resourceCulture);
             }
         }
-
+        
         public static string Rotation3D {
             get {
                 return ResourceManager.GetString("Rotation3D", resourceCulture);
             }
         }
-
+        
         public static string Blur {
             get {
                 return ResourceManager.GetString("Blur", resourceCulture);
             }
         }
-
+        
         public static string DropShadow {
             get {
                 return ResourceManager.GetString("DropShadow", resourceCulture);
             }
         }
-
+        
         public static string InnerShadow {
             get {
                 return ResourceManager.GetString("InnerShadow", resourceCulture);
             }
         }
-
+        
         public static string Border {
             get {
                 return ResourceManager.GetString("Border", resourceCulture);
             }
         }
-
+        
         public static string FinishEditing {
             get {
                 return ResourceManager.GetString("FinishEditing", resourceCulture);
             }
         }
-
+        
         public static string BringToTop {
             get {
                 return ResourceManager.GetString("BringToTop", resourceCulture);
             }
         }
-
+        
         public static string StartEditing {
             get {
                 return ResourceManager.GetString("StartEditing", resourceCulture);
             }
         }
-
+        
         public static string CreateNewProjectOrScene {
             get {
                 return ResourceManager.GetString("CreateNewProjectOrScene", resourceCulture);
             }
         }
-
+        
         public static string OpenAFileYouHaveAlreadyCreated {
             get {
                 return ResourceManager.GetString("OpenAFileYouHaveAlreadyCreated", resourceCulture);
             }
         }
-
+        
         public static string Recently {
             get {
                 return ResourceManager.GetString("Recently", resourceCulture);
             }
         }
-
+        
         public static string Projects {
             get {
                 return ResourceManager.GetString("Projects", resourceCulture);
             }
         }
-
+        
         public static string Files {
             get {
                 return ResourceManager.GetString("Files", resourceCulture);
             }
         }
-
+        
         public static string All {
             get {
                 return ResourceManager.GetString("All", resourceCulture);
             }
         }
-
+        
         public static string NoFilesUsedRecently {
             get {
                 return ResourceManager.GetString("NoFilesUsedRecently", resourceCulture);
             }
         }
-
+        
         public static string AddOutputProfile {
             get {
                 return ResourceManager.GetString("AddOutputProfile", resourceCulture);
             }
         }
-
+        
         public static string Encode {
             get {
                 return ResourceManager.GetString("Encode", resourceCulture);
             }
         }
-
+        
         public static string DestinationToSaveTo_Tip {
             get {
                 return ResourceManager.GetString("DestinationToSaveTo_Tip", resourceCulture);
             }
         }
-
+        
         public static string DestinationToSaveTo {
             get {
                 return ResourceManager.GetString("DestinationToSaveTo", resourceCulture);
             }
         }
-
+        
         public static string Encoder_Tip {
             get {
                 return ResourceManager.GetString("Encoder_Tip", resourceCulture);
             }
         }
-
+        
         public static string Encoder {
             get {
                 return ResourceManager.GetString("Encoder", resourceCulture);
             }
         }
-
+        
         public static string FrameSize {
             get {
                 return ResourceManager.GetString("FrameSize", resourceCulture);
             }
         }
-
+        
         public static string FrameSize_Tip {
             get {
                 return ResourceManager.GetString("FrameSize_Tip", resourceCulture);
             }
         }
-
+        
         public static string FrameRate_Tip {
             get {
                 return ResourceManager.GetString("FrameRate_Tip", resourceCulture);
             }
         }
-
+        
         public static string Bitrate {
             get {
                 return ResourceManager.GetString("Bitrate", resourceCulture);
             }
         }
-
+        
         public static string Bitrate_Tip {
             get {
                 return ResourceManager.GetString("Bitrate_Tip", resourceCulture);
             }
         }
-
+        
         public static string KeyframeRate {
             get {
                 return ResourceManager.GetString("KeyframeRate", resourceCulture);
             }
         }
-
+        
         public static string KeyframeRate_Tip {
             get {
                 return ResourceManager.GetString("KeyframeRate_Tip", resourceCulture);
             }
         }
-
+        
         public static string SampleRate_Tip {
             get {
                 return ResourceManager.GetString("SampleRate_Tip", resourceCulture);
             }
         }
-
+        
         public static string Channels {
             get {
                 return ResourceManager.GetString("Channels", resourceCulture);
             }
         }
-
+        
         public static string Channels_Tip {
             get {
                 return ResourceManager.GetString("Channels_Tip", resourceCulture);
             }
         }
-
+        
         public static string Video {
             get {
                 return ResourceManager.GetString("Video", resourceCulture);
             }
         }
-
+        
         public static string Audio {
             get {
                 return ResourceManager.GetString("Audio", resourceCulture);
             }
         }
-
+        
         public static string Off {
             get {
                 return ResourceManager.GetString("Off", resourceCulture);
             }
         }
-
+        
         public static string On {
             get {
                 return ResourceManager.GetString("On", resourceCulture);
             }
         }
-
+        
         public static string NodeTree {
             get {
                 return ResourceManager.GetString("NodeTree", resourceCulture);
             }
         }
-
+        
         public static string Fill {
             get {
                 return ResourceManager.GetString("Fill", resourceCulture);
             }
         }
-
+        
         public static string Library {
             get {
                 return ResourceManager.GetString("Library", resourceCulture);
             }
         }
-
+        
         public static string FileBrowser {
             get {
                 return ResourceManager.GetString("FileBrowser", resourceCulture);
             }
         }
-
+        
         public static string ListView {
             get {
                 return ResourceManager.GetString("ListView", resourceCulture);
             }
         }
-
+        
         public static string TreeView {
             get {
                 return ResourceManager.GetString("TreeView", resourceCulture);
             }
         }
-
+        
         public static string IconView {
             get {
                 return ResourceManager.GetString("IconView", resourceCulture);
             }
         }
-
+        
         public static string Refresh {
             get {
                 return ResourceManager.GetString("Refresh", resourceCulture);
             }
         }
-
+        
         public static string OpenFolder {
             get {
                 return ResourceManager.GetString("OpenFolder", resourceCulture);
             }
         }
-
+        
         public static string Favorites {
             get {
                 return ResourceManager.GetString("Favorites", resourceCulture);
             }
         }
-
+        
         public static string AddToFavorites {
             get {
                 return ResourceManager.GetString("AddToFavorites", resourceCulture);
             }
         }
-
+        
         public static string RemoveFromFavorites {
             get {
                 return ResourceManager.GetString("RemoveFromFavorites", resourceCulture);
             }
         }
-
+        
         public static string NoFavorites {
             get {
                 return ResourceManager.GetString("NoFavorites", resourceCulture);
             }
         }
-
+        
         public static string DeleteSelectedItems {
             get {
                 return ResourceManager.GetString("DeleteSelectedItems", resourceCulture);
             }
         }
-
+        
         public static string Clipping {
             get {
                 return ResourceManager.GetString("Clipping", resourceCulture);
             }
         }
-
+        
         public static string Dilate {
             get {
                 return ResourceManager.GetString("Dilate", resourceCulture);
             }
         }
-
+        
         public static string Erode {
             get {
                 return ResourceManager.GetString("Erode", resourceCulture);
             }
         }
-
+        
         public static string HueRotate {
             get {
                 return ResourceManager.GetString("HueRotate", resourceCulture);
             }
         }
-
+        
         public static string Lighting {
             get {
                 return ResourceManager.GetString("Lighting", resourceCulture);
             }
         }
-
+        
         public static string LumaColor {
             get {
                 return ResourceManager.GetString("LumaColor", resourceCulture);
             }
         }
-
+        
         public static string Saturate {
             get {
                 return ResourceManager.GetString("Saturate", resourceCulture);
             }
         }
-
+        
         public static string Threshold {
             get {
                 return ResourceManager.GetString("Threshold", resourceCulture);
             }
         }
-
+        
         public static string Group {
             get {
                 return ResourceManager.GetString("Group", resourceCulture);
             }
         }
-
+        
         public static string IsNotValid {
             get {
                 return ResourceManager.GetString("IsNotValid", resourceCulture);
             }
         }
-
+        
         public static string GraphEditor {
             get {
                 return ResourceManager.GetString("GraphEditor", resourceCulture);
             }
         }
-
+        
         public static string Unknown {
             get {
                 return ResourceManager.GetString("Unknown", resourceCulture);
             }
         }
-
+        
         public static string InvalidJson {
             get {
                 return ResourceManager.GetString("InvalidJson", resourceCulture);
             }
         }
-
+        
         public static string Details {
             get {
                 return ResourceManager.GetString("Details", resourceCulture);
             }
         }
-
+        
         public static string Completed {
             get {
                 return ResourceManager.GetString("Completed", resourceCulture);
             }
         }
-
+        
         public static string Image {
             get {
                 return ResourceManager.GetString("Image", resourceCulture);
             }
         }
-
+        
         public static string Sound {
             get {
                 return ResourceManager.GetString("Sound", resourceCulture);
             }
         }
-
+        
         public static string FilterEffect {
             get {
                 return ResourceManager.GetString("FilterEffect", resourceCulture);
             }
         }
-
+        
         public static string Brightness {
             get {
                 return ResourceManager.GetString("Brightness", resourceCulture);
             }
         }
-
+        
         public static string Gamma {
             get {
                 return ResourceManager.GetString("Gamma", resourceCulture);
             }
         }
-
+        
         public static string ColorGrading {
             get {
                 return ResourceManager.GetString("ColorGrading", resourceCulture);
             }
         }
-
+        
         public static string ColorGrading_Missing {
             get {
                 return ResourceManager.GetString("ColorGrading_Missing", resourceCulture);
             }
         }
-
+        
         public static string ColorCurves_Missing {
             get {
                 return ResourceManager.GetString("ColorCurves_Missing", resourceCulture);
             }
         }
-
+        
         public static string Temperature {
             get {
                 return ResourceManager.GetString("Temperature", resourceCulture);
             }
         }
-
+        
         public static string Tint {
             get {
                 return ResourceManager.GetString("Tint", resourceCulture);
             }
         }
-
+        
         public static string Exposure {
             get {
                 return ResourceManager.GetString("Exposure", resourceCulture);
             }
         }
-
+        
         public static string LowRange {
             get {
                 return ResourceManager.GetString("LowRange", resourceCulture);
             }
         }
-
+        
         public static string HighRange {
             get {
                 return ResourceManager.GetString("HighRange", resourceCulture);
             }
         }
-
+        
         public static string Shadows {
             get {
                 return ResourceManager.GetString("Shadows", resourceCulture);
             }
         }
-
+        
         public static string Midtones {
             get {
                 return ResourceManager.GetString("Midtones", resourceCulture);
             }
         }
-
+        
         public static string Highlights {
             get {
                 return ResourceManager.GetString("Highlights", resourceCulture);
             }
         }
-
+        
         public static string Lift {
             get {
                 return ResourceManager.GetString("Lift", resourceCulture);
             }
         }
-
+        
         public static string Gain {
             get {
                 return ResourceManager.GetString("Gain", resourceCulture);
             }
         }
-
+        
         public static string Invert {
             get {
                 return ResourceManager.GetString("Invert", resourceCulture);
             }
         }
-
+        
         public static string LUT_Cube_File {
             get {
                 return ResourceManager.GetString("LUT_Cube_File", resourceCulture);
             }
         }
-
+        
         public static string Amount {
             get {
                 return ResourceManager.GetString("Amount", resourceCulture);
             }
         }
-
+        
         public static string RadiusX {
             get {
                 return ResourceManager.GetString("RadiusX", resourceCulture);
             }
         }
-
+        
         public static string RadiusY {
             get {
                 return ResourceManager.GetString("RadiusY", resourceCulture);
             }
         }
-
+        
         public static string Strength {
             get {
                 return ResourceManager.GetString("Strength", resourceCulture);
             }
         }
-
+        
         public static string Grayscale {
             get {
                 return ResourceManager.GetString("Grayscale", resourceCulture);
             }
         }
-
+        
         public static string InvertStyle {
             get {
                 return ResourceManager.GetString("InvertStyle", resourceCulture);
             }
         }
-
+        
         public static string Contrast {
             get {
                 return ResourceManager.GetString("Contrast", resourceCulture);
             }
         }
-
+        
         public static string ContrastPivot {
             get {
                 return ResourceManager.GetString("ContrastPivot", resourceCulture);
             }
         }
-
+        
         public static string Addition {
             get {
                 return ResourceManager.GetString("Addition", resourceCulture);
             }
         }
-
+        
         public static string Multiplication {
             get {
                 return ResourceManager.GetString("Multiplication", resourceCulture);
             }
         }
-
+        
         public static string Number_of_Layers {
             get {
                 return ResourceManager.GetString("Number_of_Layers", resourceCulture);
             }
         }
-
+        
         public static string ChangeColor {
             get {
                 return ResourceManager.GetString("ChangeColor", resourceCulture);
             }
         }
-
+        
         public static string EditAnimationInInlineView {
             get {
                 return ResourceManager.GetString("EditAnimationInInlineView", resourceCulture);
             }
         }
-
+        
         public static string EnableLivePreview {
             get {
                 return ResourceManager.GetString("EnableLivePreview", resourceCulture);
             }
         }
-
+        
         public static string ExcludeAlphaChannel {
             get {
                 return ResourceManager.GetString("ExcludeAlphaChannel", resourceCulture);
             }
         }
-
+        
         public static string OpenNodeTree {
             get {
                 return ResourceManager.GetString("OpenNodeTree", resourceCulture);
             }
         }
-
+        
         public static string UseNode {
             get {
                 return ResourceManager.GetString("UseNode", resourceCulture);
             }
         }
-
+        
         public static string DisableThumbnails {
             get {
                 return ResourceManager.GetString("DisableThumbnails", resourceCulture);
             }
         }
-
+        
         public static string Unsupported {
             get {
                 return ResourceManager.GetString("Unsupported", resourceCulture);
             }
         }
-
+        
         public static string TimelineZoom {
             get {
                 return ResourceManager.GetString("TimelineZoom", resourceCulture);
             }
         }
-
+        
         public static string UseGlobalClock {
             get {
                 return ResourceManager.GetString("UseGlobalClock", resourceCulture);
             }
         }
-
+        
         public static string EditJson {
             get {
                 return ResourceManager.GetString("EditJson", resourceCulture);
             }
         }
-
+        
         public static string AddNode {
             get {
                 return ResourceManager.GetString("AddNode", resourceCulture);
             }
         }
-
+        
         public static string Brush_ConicalGradient {
             get {
                 return ResourceManager.GetString("Brush_ConicalGradient", resourceCulture);
             }
         }
-
+        
         public static string Brush_LinearGradient {
             get {
                 return ResourceManager.GetString("Brush_LinearGradient", resourceCulture);
             }
         }
-
+        
         public static string Brush_RadialGradient {
             get {
                 return ResourceManager.GetString("Brush_RadialGradient", resourceCulture);
             }
         }
-
+        
         public static string Brush_Solid {
             get {
                 return ResourceManager.GetString("Brush_Solid", resourceCulture);
             }
         }
-
+        
         public static string Change {
             get {
                 return ResourceManager.GetString("Change", resourceCulture);
             }
         }
-
+        
         public static string Disconnect {
             get {
                 return ResourceManager.GetString("Disconnect", resourceCulture);
             }
         }
-
+        
         public static string Initialize {
             get {
                 return ResourceManager.GetString("Initialize", resourceCulture);
             }
         }
-
+        
         public static string OpenDocument {
             get {
                 return ResourceManager.GetString("OpenDocument", resourceCulture);
             }
         }
-
+        
         public static string ResetZoom {
             get {
                 return ResourceManager.GetString("ResetZoom", resourceCulture);
             }
         }
-
+        
         public static string RemoveAnimation {
             get {
                 return ResourceManager.GetString("RemoveAnimation", resourceCulture);
             }
         }
-
+        
         public static string EditExpression {
             get {
                 return ResourceManager.GetString("EditExpression", resourceCulture);
             }
         }
-
+        
         public static string RemoveExpression {
             get {
                 return ResourceManager.GetString("RemoveExpression", resourceCulture);
             }
         }
-
+        
         public static string ExpressionHelp {
             get {
                 return ResourceManager.GetString("ExpressionHelp", resourceCulture);
             }
         }
-
+        
         public static string CopyPropertyPath {
             get {
                 return ResourceManager.GetString("CopyPropertyPath", resourceCulture);
             }
         }
-
+        
         public static string CopyGetPropertyCode {
             get {
                 return ResourceManager.GetString("CopyGetPropertyCode", resourceCulture);
             }
         }
-
+        
         public static string ColorPalette {
             get {
                 return ResourceManager.GetString("ColorPalette", resourceCulture);
             }
         }
-
+        
         public static string ChangeToOriginalLength {
             get {
                 return ResourceManager.GetString("ChangeToOriginalLength", resourceCulture);
             }
         }
-
+        
         public static string SplitByCurrentFrame {
             get {
                 return ResourceManager.GetString("SplitByCurrentFrame", resourceCulture);
             }
         }
-
+        
         public static string GroupSelectedElements {
             get {
                 return ResourceManager.GetString("GroupSelectedElements", resourceCulture);
             }
         }
-
+        
         public static string UngroupSelectedElements {
             get {
                 return ResourceManager.GetString("UngroupSelectedElements", resourceCulture);
             }
         }
-
+        
         public static string Agree {
             get {
                 return ResourceManager.GetString("Agree", resourceCulture);
             }
         }
-
+        
         public static string Disagree {
             get {
                 return ResourceManager.GetString("Disagree", resourceCulture);
             }
         }
-
+        
         public static string ShowDetails {
             get {
                 return ResourceManager.GetString("ShowDetails", resourceCulture);
             }
         }
-
+        
         public static string SaveSelectedElementAsImage {
             get {
                 return ResourceManager.GetString("SaveSelectedElementAsImage", resourceCulture);
             }
         }
-
+        
         public static string SaveFrameAsImage {
             get {
                 return ResourceManager.GetString("SaveFrameAsImage", resourceCulture);
             }
         }
-
+        
         public static string Move {
             get {
                 return ResourceManager.GetString("Move", resourceCulture);
             }
         }
-
+        
         public static string Hand {
             get {
                 return ResourceManager.GetString("Hand", resourceCulture);
             }
         }
-
+        
         public static string SetStartTime {
             get {
                 return ResourceManager.GetString("SetStartTime", resourceCulture);
             }
         }
-
+        
         public static string SetEndTime {
             get {
                 return ResourceManager.GetString("SetEndTime", resourceCulture);
             }
         }
-
+        
         public static string Editor {
             get {
                 return ResourceManager.GetString("Editor", resourceCulture);
             }
         }
-
+        
         public static string RunningStartupTasks {
             get {
                 return ResourceManager.GetString("RunningStartupTasks", resourceCulture);
             }
         }
-
+        
         public static string Brush_PerlinNoise {
             get {
                 return ResourceManager.GetString("Brush_PerlinNoise", resourceCulture);
             }
         }
-
+        
         public static string FlatShadow {
             get {
                 return ResourceManager.GetString("FlatShadow", resourceCulture);
             }
         }
-
+        
         public static string StrokeEffect {
             get {
                 return ResourceManager.GetString("StrokeEffect", resourceCulture);
             }
         }
-
+        
         public static string BlendEffect {
             get {
                 return ResourceManager.GetString("BlendEffect", resourceCulture);
             }
         }
-
+        
         public static string Negaposi {
             get {
                 return ResourceManager.GetString("Negaposi", resourceCulture);
             }
         }
-
+        
         public static string ChromaKey {
             get {
                 return ResourceManager.GetString("ChromaKey", resourceCulture);
             }
         }
-
+        
         public static string ColorKey {
             get {
                 return ResourceManager.GetString("ColorKey", resourceCulture);
             }
         }
-
+        
         public static string SaveAsImage {
             get {
                 return ResourceManager.GetString("SaveAsImage", resourceCulture);
             }
         }
-
+        
         public static string CopyAsImage {
             get {
                 return ResourceManager.GetString("CopyAsImage", resourceCulture);
             }
         }
-
+        
         public static string AlwaysDisplay {
             get {
                 return ResourceManager.GetString("AlwaysDisplay", resourceCulture);
             }
         }
-
+        
         public static string MemoryUsage {
             get {
                 return ResourceManager.GetString("MemoryUsage", resourceCulture);
             }
         }
-
+        
         public static string Locked {
             get {
                 return ResourceManager.GetString("Locked", resourceCulture);
             }
         }
-
+        
         public static string Unlocked {
             get {
                 return ResourceManager.GetString("Unlocked", resourceCulture);
             }
         }
-
+        
         public static string DeleteAll {
             get {
                 return ResourceManager.GetString("DeleteAll", resourceCulture);
             }
         }
-
+        
         public static string Lock {
             get {
                 return ResourceManager.GetString("Lock", resourceCulture);
             }
         }
-
+        
         public static string Unlock {
             get {
                 return ResourceManager.GetString("Unlock", resourceCulture);
             }
         }
-
+        
         public static string FrameCache {
             get {
                 return ResourceManager.GetString("FrameCache", resourceCulture);
             }
         }
-
+        
         public static string RightClickToOperateCache {
             get {
                 return ResourceManager.GetString("RightClickToOperateCache", resourceCulture);
             }
         }
-
+        
         public static string Brush {
             get {
                 return ResourceManager.GetString("Brush", resourceCulture);
             }
         }
-
+        
         public static string Pen_DashArray {
             get {
                 return ResourceManager.GetString("Pen_DashArray", resourceCulture);
             }
         }
-
+        
         public static string Pen_DashOffset {
             get {
                 return ResourceManager.GetString("Pen_DashOffset", resourceCulture);
             }
         }
-
+        
         public static string Pen_MiterLimit {
             get {
                 return ResourceManager.GetString("Pen_MiterLimit", resourceCulture);
             }
         }
-
+        
         public static string Pen_StrokeCap {
             get {
                 return ResourceManager.GetString("Pen_StrokeCap", resourceCulture);
             }
         }
-
+        
         public static string StrokeCap_Flat {
             get {
                 return ResourceManager.GetString("StrokeCap_Flat", resourceCulture);
             }
         }
-
+        
         public static string StrokeCap_Round {
             get {
                 return ResourceManager.GetString("StrokeCap_Round", resourceCulture);
             }
         }
-
+        
         public static string StrokeCap_Square {
             get {
                 return ResourceManager.GetString("StrokeCap_Square", resourceCulture);
             }
         }
-
+        
         public static string Pen_StrokeJoin {
             get {
                 return ResourceManager.GetString("Pen_StrokeJoin", resourceCulture);
             }
         }
-
+        
         public static string StrokeJoin_Miter {
             get {
                 return ResourceManager.GetString("StrokeJoin_Miter", resourceCulture);
             }
         }
-
+        
         public static string StrokeJoin_Round {
             get {
                 return ResourceManager.GetString("StrokeJoin_Round", resourceCulture);
             }
         }
-
+        
         public static string StrokeJoin_Bevel {
             get {
                 return ResourceManager.GetString("StrokeJoin_Bevel", resourceCulture);
             }
         }
-
+        
         public static string Pen_StrokeAlignment {
             get {
                 return ResourceManager.GetString("Pen_StrokeAlignment", resourceCulture);
             }
         }
-
+        
         public static string StrokeAlignment_Center {
             get {
                 return ResourceManager.GetString("StrokeAlignment_Center", resourceCulture);
             }
         }
-
+        
         public static string StrokeAlignment_Inside {
             get {
                 return ResourceManager.GetString("StrokeAlignment_Inside", resourceCulture);
             }
         }
-
+        
         public static string StrokeAlignment_Outside {
             get {
                 return ResourceManager.GetString("StrokeAlignment_Outside", resourceCulture);
             }
         }
-
+        
         public static string Stroke {
             get {
                 return ResourceManager.GetString("Stroke", resourceCulture);
             }
         }
-
+        
         public static string HueRange {
             get {
                 return ResourceManager.GetString("HueRange", resourceCulture);
             }
         }
-
+        
         public static string SaturationRange {
             get {
                 return ResourceManager.GetString("SaturationRange", resourceCulture);
             }
         }
-
+        
         public static string BrightnessRange {
             get {
                 return ResourceManager.GetString("BrightnessRange", resourceCulture);
             }
         }
-
+        
         public static string Length {
             get {
                 return ResourceManager.GetString("Length", resourceCulture);
             }
         }
-
+        
         public static string SplitEquallyEffect {
             get {
                 return ResourceManager.GetString("SplitEquallyEffect", resourceCulture);
             }
         }
-
+        
         public static string SplitByPartsEffect {
             get {
                 return ResourceManager.GetString("SplitByPartsEffect", resourceCulture);
             }
         }
-
+        
         public static string HorizontalDivisions {
             get {
                 return ResourceManager.GetString("HorizontalDivisions", resourceCulture);
             }
         }
-
+        
         public static string VerticalDivisions {
             get {
                 return ResourceManager.GetString("VerticalDivisions", resourceCulture);
             }
         }
-
+        
         public static string HorizontalSpacing {
             get {
                 return ResourceManager.GetString("HorizontalSpacing", resourceCulture);
             }
         }
-
+        
         public static string VerticalSpacing {
             get {
                 return ResourceManager.GetString("VerticalSpacing", resourceCulture);
             }
         }
-
+        
         public static string SplitByCharacters {
             get {
                 return ResourceManager.GetString("SplitByCharacters", resourceCulture);
             }
         }
-
+        
         public static string Linear {
             get {
                 return ResourceManager.GetString("Linear", resourceCulture);
             }
         }
-
+        
         public static string Conical {
             get {
                 return ResourceManager.GetString("Conical", resourceCulture);
             }
         }
-
+        
         public static string Radial {
             get {
                 return ResourceManager.GetString("Radial", resourceCulture);
             }
         }
-
+        
         public static string Red {
             get {
                 return ResourceManager.GetString("Red", resourceCulture);
             }
         }
-
+        
         public static string Green {
             get {
                 return ResourceManager.GetString("Green", resourceCulture);
             }
         }
-
+        
         public static string Blue {
             get {
                 return ResourceManager.GetString("Blue", resourceCulture);
             }
         }
-
+        
         public static string Master {
             get {
                 return ResourceManager.GetString("Master", resourceCulture);
             }
         }
-
+        
         public static string Hue {
             get {
                 return ResourceManager.GetString("Hue", resourceCulture);
             }
         }
-
+        
         public static string Intensity {
             get {
                 return ResourceManager.GetString("Intensity", resourceCulture);
             }
         }
-
+        
         public static string Saturation {
             get {
                 return ResourceManager.GetString("Saturation", resourceCulture);
             }
         }
-
+        
         public static string Vibrance {
             get {
                 return ResourceManager.GetString("Vibrance", resourceCulture);
             }
         }
-
+        
         public static string ShowSliders {
             get {
                 return ResourceManager.GetString("ShowSliders", resourceCulture);
             }
         }
-
+        
         public static string ShowRing {
             get {
                 return ResourceManager.GetString("ShowRing", resourceCulture);
             }
         }
-
+        
         public static string CubicBezierCurve {
             get {
                 return ResourceManager.GetString("CubicBezierCurve", resourceCulture);
             }
         }
-
+        
         public static string QuadraticBezierCurve {
             get {
                 return ResourceManager.GetString("QuadraticBezierCurve", resourceCulture);
             }
         }
-
+        
         public static string Line {
             get {
                 return ResourceManager.GetString("Line", resourceCulture);
             }
         }
-
+        
         public static string EllipticalArc {
             get {
                 return ResourceManager.GetString("EllipticalArc", resourceCulture);
             }
         }
-
+        
         public static string Conic {
             get {
                 return ResourceManager.GetString("Conic", resourceCulture);
             }
         }
-
+        
         public static string IsLoop {
             get {
                 return ResourceManager.GetString("IsLoop", resourceCulture);
             }
         }
-
+        
         public static string Symmetry {
             get {
                 return ResourceManager.GetString("Symmetry", resourceCulture);
             }
         }
-
+        
         public static string Asymmetry {
             get {
                 return ResourceManager.GetString("Asymmetry", resourceCulture);
             }
         }
-
+        
         public static string Separately {
             get {
                 return ResourceManager.GetString("Separately", resourceCulture);
             }
         }
-
+        
         public static string Figure {
             get {
                 return ResourceManager.GetString("Figure", resourceCulture);
             }
         }
-
+        
         public static string Import {
             get {
                 return ResourceManager.GetString("Import", resourceCulture);
             }
         }
-
+        
         public static string ImportSvgPath {
             get {
                 return ResourceManager.GetString("ImportSvgPath", resourceCulture);
             }
         }
-
+        
         public static string ImportSvgPath_Description {
             get {
                 return ResourceManager.GetString("ImportSvgPath_Description", resourceCulture);
             }
         }
-
+        
         public static string EditInFrame {
             get {
                 return ResourceManager.GetString("EditInFrame", resourceCulture);
             }
         }
-
+        
         public static string EditInTab {
             get {
                 return ResourceManager.GetString("EditInTab", resourceCulture);
             }
         }
-
+        
         public static string PathEditor {
             get {
                 return ResourceManager.GetString("PathEditor", resourceCulture);
             }
         }
-
+        
         public static string GeometryShape {
             get {
                 return ResourceManager.GetString("GeometryShape", resourceCulture);
             }
         }
-
+        
         public static string CopyAll {
             get {
                 return ResourceManager.GetString("CopyAll", resourceCulture);
             }
         }
-
+        
         public static string Backdrop {
             get {
                 return ResourceManager.GetString("Backdrop", resourceCulture);
             }
         }
-
+        
         public static string ClearBuffer {
             get {
                 return ResourceManager.GetString("ClearBuffer", resourceCulture);
             }
         }
-
+        
         public static string Mosaic {
             get {
                 return ResourceManager.GetString("Mosaic", resourceCulture);
             }
         }
-
+        
         public static string AutomaticCentering {
             get {
                 return ResourceManager.GetString("AutomaticCentering", resourceCulture);
             }
         }
-
+        
         public static string ClipTransparentArea {
             get {
                 return ResourceManager.GetString("ClipTransparentArea", resourceCulture);
             }
         }
-
+        
         public static string EnableElement {
             get {
                 return ResourceManager.GetString("EnableElement", resourceCulture);
             }
         }
-
+        
         public static string Smoothing {
             get {
                 return ResourceManager.GetString("Smoothing", resourceCulture);
             }
         }
-
+        
         public static string ColorShift {
             get {
                 return ResourceManager.GetString("ColorShift", resourceCulture);
             }
         }
-
+        
         public static string DockArea_LeftTop {
             get {
                 return ResourceManager.GetString("DockArea_LeftTop", resourceCulture);
             }
         }
-
+        
         public static string DockArea_LeftBottom {
             get {
                 return ResourceManager.GetString("DockArea_LeftBottom", resourceCulture);
             }
         }
-
+        
         public static string DockArea_RightTop {
             get {
                 return ResourceManager.GetString("DockArea_RightTop", resourceCulture);
             }
         }
-
+        
         public static string DockArea_RightBottom {
             get {
                 return ResourceManager.GetString("DockArea_RightBottom", resourceCulture);
             }
         }
-
+        
         public static string DockArea_BottomLeft {
             get {
                 return ResourceManager.GetString("DockArea_BottomLeft", resourceCulture);
             }
         }
-
+        
         public static string DockArea_BottomRight {
             get {
                 return ResourceManager.GetString("DockArea_BottomRight", resourceCulture);
             }
         }
-
+        
         public static string DockArea_TopLeft {
             get {
                 return ResourceManager.GetString("DockArea_TopLeft", resourceCulture);
             }
         }
-
+        
         public static string DockArea_TopRight {
             get {
                 return ResourceManager.GetString("DockArea_TopRight", resourceCulture);
             }
         }
-
+        
         public static string MoveTo {
             get {
                 return ResourceManager.GetString("MoveTo", resourceCulture);
             }
         }
-
+        
         public static string Keymap {
             get {
                 return ResourceManager.GetString("Keymap", resourceCulture);
             }
         }
-
+        
         public static string MainView {
             get {
                 return ResourceManager.GetString("MainView", resourceCulture);
             }
         }
-
+        
         public static string OpenProject {
             get {
                 return ResourceManager.GetString("OpenProject", resourceCulture);
             }
         }
-
+        
         public static string OpenFile {
             get {
                 return ResourceManager.GetString("OpenFile", resourceCulture);
             }
         }
-
+        
         public static string Save_Description {
             get {
                 return ResourceManager.GetString("Save_Description", resourceCulture);
             }
         }
-
+        
         public static string SaveAll_Description {
             get {
                 return ResourceManager.GetString("SaveAll_Description", resourceCulture);
             }
         }
-
+        
         public static string CloseProject_Description {
             get {
                 return ResourceManager.GetString("CloseProject_Description", resourceCulture);
             }
         }
-
+        
         public static string Undo_Description {
             get {
                 return ResourceManager.GetString("Undo_Description", resourceCulture);
             }
         }
-
+        
         public static string Redo_Description {
             get {
                 return ResourceManager.GetString("Redo_Description", resourceCulture);
             }
         }
-
+        
         public static string Exit_Description {
             get {
                 return ResourceManager.GetString("Exit_Description", resourceCulture);
             }
         }
-
+        
         public static string PlayPause {
             get {
                 return ResourceManager.GetString("PlayPause", resourceCulture);
             }
         }
-
+        
         public static string PlayPause_Description {
             get {
                 return ResourceManager.GetString("PlayPause_Description", resourceCulture);
             }
         }
-
+        
         public static string MoveToNext {
             get {
                 return ResourceManager.GetString("MoveToNext", resourceCulture);
             }
         }
-
+        
         public static string MoveToPrevious {
             get {
                 return ResourceManager.GetString("MoveToPrevious", resourceCulture);
             }
         }
-
+        
         public static string MoveToNext_Description {
             get {
                 return ResourceManager.GetString("MoveToNext_Description", resourceCulture);
             }
         }
-
+        
         public static string MoveToPrevious_Description {
             get {
                 return ResourceManager.GetString("MoveToPrevious_Description", resourceCulture);
             }
         }
-
+        
         public static string MoveToStart {
             get {
                 return ResourceManager.GetString("MoveToStart", resourceCulture);
             }
         }
-
+        
         public static string MoveToEnd {
             get {
                 return ResourceManager.GetString("MoveToEnd", resourceCulture);
             }
         }
-
+        
         public static string MoveToStart_Description {
             get {
                 return ResourceManager.GetString("MoveToStart_Description", resourceCulture);
             }
         }
-
+        
         public static string MoveToEnd_Description {
             get {
                 return ResourceManager.GetString("MoveToEnd_Description", resourceCulture);
             }
         }
-
+        
         public static string Paste_Description {
             get {
                 return ResourceManager.GetString("Paste_Description", resourceCulture);
             }
         }
-
+        
         public static string Rename_Description {
             get {
                 return ResourceManager.GetString("Rename_Description", resourceCulture);
             }
         }
-
+        
         public static string Exclude_Description {
             get {
                 return ResourceManager.GetString("Exclude_Description", resourceCulture);
             }
         }
-
+        
         public static string Delete_Description {
             get {
                 return ResourceManager.GetString("Delete_Description", resourceCulture);
             }
         }
-
+        
         public static string Copy_Description {
             get {
                 return ResourceManager.GetString("Copy_Description", resourceCulture);
             }
         }
-
+        
         public static string Cut_Description {
             get {
                 return ResourceManager.GetString("Cut_Description", resourceCulture);
             }
         }
-
+        
         public static string ShakeEffect {
             get {
                 return ResourceManager.GetString("ShakeEffect", resourceCulture);
             }
         }
-
+        
         public static string StrengthX {
             get {
                 return ResourceManager.GetString("StrengthX", resourceCulture);
             }
         }
-
+        
         public static string StrengthY {
             get {
                 return ResourceManager.GetString("StrengthY", resourceCulture);
             }
         }
-
+        
         public static string Speed {
             get {
                 return ResourceManager.GetString("Speed", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Clear {
             get {
                 return ResourceManager.GetString("BlendMode_Clear", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Clear_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Clear_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Src {
             get {
                 return ResourceManager.GetString("BlendMode_Src", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Src_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Src_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Dst {
             get {
                 return ResourceManager.GetString("BlendMode_Dst", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Dst_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Dst_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_SrcOver {
             get {
                 return ResourceManager.GetString("BlendMode_SrcOver", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_SrcOver_Description {
             get {
                 return ResourceManager.GetString("BlendMode_SrcOver_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_DstOver {
             get {
                 return ResourceManager.GetString("BlendMode_DstOver", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_DstOver_Description {
             get {
                 return ResourceManager.GetString("BlendMode_DstOver_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_SrcIn {
             get {
                 return ResourceManager.GetString("BlendMode_SrcIn", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_SrcIn_Description {
             get {
                 return ResourceManager.GetString("BlendMode_SrcIn_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_DstIn {
             get {
                 return ResourceManager.GetString("BlendMode_DstIn", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_DstIn_Description {
             get {
                 return ResourceManager.GetString("BlendMode_DstIn_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_SrcOut {
             get {
                 return ResourceManager.GetString("BlendMode_SrcOut", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_SrcOut_Description {
             get {
                 return ResourceManager.GetString("BlendMode_SrcOut_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_DstOut {
             get {
                 return ResourceManager.GetString("BlendMode_DstOut", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_DstOut_Description {
             get {
                 return ResourceManager.GetString("BlendMode_DstOut_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_SrcATop {
             get {
                 return ResourceManager.GetString("BlendMode_SrcATop", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_SrcATop_Description {
             get {
                 return ResourceManager.GetString("BlendMode_SrcATop_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_DstATop {
             get {
                 return ResourceManager.GetString("BlendMode_DstATop", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_DstATop_Description {
             get {
                 return ResourceManager.GetString("BlendMode_DstATop_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Xor {
             get {
                 return ResourceManager.GetString("BlendMode_Xor", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Xor_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Xor_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Plus {
             get {
                 return ResourceManager.GetString("BlendMode_Plus", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Plus_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Plus_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Modulate {
             get {
                 return ResourceManager.GetString("BlendMode_Modulate", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Modulate_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Modulate_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Multiply {
             get {
                 return ResourceManager.GetString("BlendMode_Multiply", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Multiply_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Multiply_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Overlay {
             get {
                 return ResourceManager.GetString("BlendMode_Overlay", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Overlay_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Overlay_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Darken {
             get {
                 return ResourceManager.GetString("BlendMode_Darken", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Darken_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Darken_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Lighten {
             get {
                 return ResourceManager.GetString("BlendMode_Lighten", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Lighten_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Lighten_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_ColorDodge {
             get {
                 return ResourceManager.GetString("BlendMode_ColorDodge", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_ColorDodge_Description {
             get {
                 return ResourceManager.GetString("BlendMode_ColorDodge_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_ColorBurn {
             get {
                 return ResourceManager.GetString("BlendMode_ColorBurn", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_ColorBurn_Description {
             get {
                 return ResourceManager.GetString("BlendMode_ColorBurn_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_HardLight {
             get {
                 return ResourceManager.GetString("BlendMode_HardLight", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_HardLight_Description {
             get {
                 return ResourceManager.GetString("BlendMode_HardLight_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_SoftLight {
             get {
                 return ResourceManager.GetString("BlendMode_SoftLight", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_SoftLight_Description {
             get {
                 return ResourceManager.GetString("BlendMode_SoftLight_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Difference {
             get {
                 return ResourceManager.GetString("BlendMode_Difference", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Difference_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Difference_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Exclusion {
             get {
                 return ResourceManager.GetString("BlendMode_Exclusion", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Exclusion_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Exclusion_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Hue {
             get {
                 return ResourceManager.GetString("BlendMode_Hue", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Hue_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Hue_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Saturation {
             get {
                 return ResourceManager.GetString("BlendMode_Saturation", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Saturation_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Saturation_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Color {
             get {
                 return ResourceManager.GetString("BlendMode_Color", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Color_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Color_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Luminosity {
             get {
                 return ResourceManager.GetString("BlendMode_Luminosity", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Luminosity_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Luminosity_Description", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Screen {
             get {
                 return ResourceManager.GetString("BlendMode_Screen", resourceCulture);
             }
         }
-
+        
         public static string BlendMode_Screen_Description {
             get {
                 return ResourceManager.GetString("BlendMode_Screen_Description", resourceCulture);
             }
         }
-
+        
         public static string ExtensionsSettings {
             get {
                 return ResourceManager.GetString("ExtensionsSettings", resourceCulture);
             }
         }
-
+        
         public static string AboutBeutl {
             get {
                 return ResourceManager.GetString("AboutBeutl", resourceCulture);
             }
         }
-
+        
         public static string Update {
             get {
                 return ResourceManager.GetString("Update", resourceCulture);
             }
         }
-
+        
         public static string Source {
             get {
                 return ResourceManager.GetString("Source", resourceCulture);
             }
         }
-
+        
         public static string DisplacementMap {
             get {
                 return ResourceManager.GetString("DisplacementMap", resourceCulture);
             }
         }
-
+        
         public static string ShowDisplacementMap {
             get {
                 return ResourceManager.GetString("ShowDisplacementMap", resourceCulture);
             }
         }
-
+        
         public static string Drawable {
             get {
                 return ResourceManager.GetString("Drawable", resourceCulture);
             }
         }
-
+        
         public static string EditDrawable {
             get {
                 return ResourceManager.GetString("EditDrawable", resourceCulture);
             }
         }
-
+        
         public static string Item {
             get {
                 return ResourceManager.GetString("Item", resourceCulture);
             }
         }
-
+        
         public static string BoundaryCorrection {
             get {
                 return ResourceManager.GetString("BoundaryCorrection", resourceCulture);
             }
         }
-
+        
         public static string TileSize {
             get {
                 return ResourceManager.GetString("TileSize", resourceCulture);
             }
         }
-
+        
         public static string Origin {
             get {
                 return ResourceManager.GetString("Origin", resourceCulture);
             }
         }
-
+        
         public static string Profiles {
             get {
                 return ResourceManager.GetString("Profiles", resourceCulture);
             }
         }
-
+        
         public static string Presets {
             get {
                 return ResourceManager.GetString("Presets", resourceCulture);
             }
         }
-
+        
         public static string Convert_to_preset {
             get {
                 return ResourceManager.GetString("Convert_to_preset", resourceCulture);
             }
         }
-
+        
         public static string Geometry {
             get {
                 return ResourceManager.GetString("Geometry", resourceCulture);
             }
         }
-
+        
         public static string Progress {
             get {
                 return ResourceManager.GetString("Progress", resourceCulture);
             }
         }
-
+        
         public static string FollowRotation {
             get {
                 return ResourceManager.GetString("FollowRotation", resourceCulture);
             }
         }
-
+        
         public static string PathFollowEffect {
             get {
                 return ResourceManager.GetString("PathFollowEffect", resourceCulture);
             }
         }
-
+        
         public static string Expression_Input {
             get {
                 return ResourceManager.GetString("Expression_Input", resourceCulture);
             }
         }
-
+        
         public static string Expression_Help {
             get {
                 return ResourceManager.GetString("Expression_Help", resourceCulture);
             }
         }
-
+        
         public static string Expression_Variables {
             get {
                 return ResourceManager.GetString("Expression_Variables", resourceCulture);
             }
         }
-
+        
         public static string Expression_Functions {
             get {
                 return ResourceManager.GetString("Expression_Functions", resourceCulture);
             }
         }
-
+        
         public static string Expression_Variables_Description {
             get {
                 return ResourceManager.GetString("Expression_Variables_Description", resourceCulture);
             }
         }
-
+        
         public static string Expression_Functions_Trigonometric {
             get {
                 return ResourceManager.GetString("Expression_Functions_Trigonometric", resourceCulture);
             }
         }
-
+        
         public static string Expression_Functions_Math {
             get {
                 return ResourceManager.GetString("Expression_Functions_Math", resourceCulture);
             }
         }
-
+        
         public static string Expression_Functions_Interpolation {
             get {
                 return ResourceManager.GetString("Expression_Functions_Interpolation", resourceCulture);
             }
         }
-
+        
         public static string Expression_Functions_Utility {
             get {
                 return ResourceManager.GetString("Expression_Functions_Utility", resourceCulture);
             }
         }
-
+        
         public static string Expression_GetProperty_Description {
             get {
                 return ResourceManager.GetString("Expression_GetProperty_Description", resourceCulture);
             }
         }
-
+        
         public static string Histogram {
             get {
                 return ResourceManager.GetString("Histogram", resourceCulture);
             }
         }
-
+        
         public static string Vectorscope {
             get {
                 return ResourceManager.GetString("Vectorscope", resourceCulture);
             }
         }
-
+        
         public static string Waveform {
             get {
                 return ResourceManager.GetString("Waveform", resourceCulture);
             }
         }
-
+        
         public static string Mode {
             get {
                 return ResourceManager.GetString("Mode", resourceCulture);
             }
         }
-
+        
         public static string Luma {
             get {
                 return ResourceManager.GetString("Luma", resourceCulture);
             }
         }
-
+        
         public static string RgbOverlay {
             get {
                 return ResourceManager.GetString("RgbOverlay", resourceCulture);
             }
         }
-
+        
         public static string RgbParade {
             get {
                 return ResourceManager.GetString("RgbParade", resourceCulture);
             }
         }
-
+        
         public static string ShowGrid {
             get {
                 return ResourceManager.GetString("ShowGrid", resourceCulture);
             }
         }
-
+        
         public static string Decorator {
             get {
                 return ResourceManager.GetString("Decorator", resourceCulture);
             }
         }
-
+        
         public static string DelayTime {
             get {
                 return ResourceManager.GetString("DelayTime", resourceCulture);
             }
         }
-
+        
         public static string Feedback {
             get {
                 return ResourceManager.GetString("Feedback", resourceCulture);
             }
         }
-
+        
         public static string DryMix {
             get {
                 return ResourceManager.GetString("DryMix", resourceCulture);
             }
         }
-
+        
         public static string WetMix {
             get {
                 return ResourceManager.GetString("WetMix", resourceCulture);
             }
         }
-
+        
         public static string AVFoundationEncoder {
             get {
                 return ResourceManager.GetString("AVFoundationEncoder", resourceCulture);
             }
         }
-
+        
         public static string AVFoundationDecoder {
             get {
                 return ResourceManager.GetString("AVFoundationDecoder", resourceCulture);
             }
         }
-
+        
         public static string UniformValue {
             get {
                 return ResourceManager.GetString("UniformValue", resourceCulture);
             }
         }
-
+        
         public static string Null {
             get {
                 return ResourceManager.GetString("Null", resourceCulture);
             }
         }
-
+        
         public static string OpenInTab {
             get {
                 return ResourceManager.GetString("OpenInTab", resourceCulture);
             }
         }
-
+        
         public static string VulkanVersion {
             get {
                 return ResourceManager.GetString("VulkanVersion", resourceCulture);
             }
         }
-
+        
         public static string SelectedGPU {
             get {
                 return ResourceManager.GetString("SelectedGPU", resourceCulture);
             }
         }
-
+        
         public static string AvailableMemory {
             get {
                 return ResourceManager.GetString("AvailableMemory", resourceCulture);
             }
         }
-
+        
         public static string AvailableGPUs {
             get {
                 return ResourceManager.GetString("AvailableGPUs", resourceCulture);
             }
         }
-
+        
         public static string EnabledExtensions {
             get {
                 return ResourceManager.GetString("EnabledExtensions", resourceCulture);
             }
         }
-
+        
         public static string Previous {
             get {
                 return ResourceManager.GetString("Previous", resourceCulture);
             }
         }
-
+        
         public static string Current {
             get {
                 return ResourceManager.GetString("Current", resourceCulture);
             }
         }
-
+        
         public static string Result {
             get {
                 return ResourceManager.GetString("Result", resourceCulture);
             }
         }
-
+        
         public static string ElapsedTime {
             get {
                 return ResourceManager.GetString("ElapsedTime", resourceCulture);
             }
         }
-
+        
         public static string Difference {
             get {
                 return ResourceManager.GetString("Difference", resourceCulture);
             }
         }
-
+        
         public static string Error {
             get {
                 return ResourceManager.GetString("Error", resourceCulture);
             }
         }
-
+        
         public static string APIError {
             get {
                 return ResourceManager.GetString("APIError", resourceCulture);
             }
         }
-
+        
         public static string FailedToCopyKeyframe {
             get {
                 return ResourceManager.GetString("FailedToCopyKeyframe", resourceCulture);
             }
         }
-
+        
         public static string FailedToPasteKeyframe {
             get {
                 return ResourceManager.GetString("FailedToPasteKeyframe", resourceCulture);
             }
         }
-
+        
         public static string FailedToCopyAnimation {
             get {
                 return ResourceManager.GetString("FailedToCopyAnimation", resourceCulture);
             }
         }
-
+        
         public static string InvalidKeyframeDataFormat {
             get {
                 return ResourceManager.GetString("InvalidKeyframeDataFormat", resourceCulture);
             }
         }
-
+        
         public static string InvalidKeyframeDataFormat_MissingType {
             get {
                 return ResourceManager.GetString("InvalidKeyframeDataFormat_MissingType", resourceCulture);
             }
         }
-
+        
         public static string InvalidKeyframeDataFormat_TypeIsNotKeyFrame {
             get {
                 return ResourceManager.GetString("InvalidKeyframeDataFormat_TypeIsNotKeyFrame", resourceCulture);
             }
         }
-
+        
         public static string KeyframePropertyTypeMismatch_EasingApplied {
             get {
                 return ResourceManager.GetString("KeyframePropertyTypeMismatch_EasingApplied", resourceCulture);
             }
         }
-
+        
         public static string InvalidJSON_MissingType {
             get {
                 return ResourceManager.GetString("InvalidJSON_MissingType", resourceCulture);
             }
         }
-
+        
         public static string InvalidJSON_TypeIsNotKeyFrameAnimation {
             get {
                 return ResourceManager.GetString("InvalidJSON_TypeIsNotKeyFrameAnimation", resourceCulture);
             }
         }
-
+        
         public static string InvalidJSON_TypeIsNotKeyFrame {
             get {
                 return ResourceManager.GetString("InvalidJSON_TypeIsNotKeyFrame", resourceCulture);
             }
         }
-
+        
         public static string AnimationPropertyTypeMismatch {
             get {
                 return ResourceManager.GetString("AnimationPropertyTypeMismatch", resourceCulture);
             }
         }
-
+        
         public static string KeyframeExistsAtPastePosition {
             get {
                 return ResourceManager.GetString("KeyframeExistsAtPastePosition", resourceCulture);
             }
         }
-
+        
         public static string Website {
             get {
                 return ResourceManager.GetString("Website", resourceCulture);
             }
         }
-
+        
         public static string DisplayMode {
             get {
                 return ResourceManager.GetString("DisplayMode", resourceCulture);
             }
         }
-
+        
         public static string Docked {
             get {
                 return ResourceManager.GetString("Docked", resourceCulture);
             }
         }
-
+        
         public static string Floating {
             get {
                 return ResourceManager.GetString("Floating", resourceCulture);
             }
         }
-
+        
         public static string CropSelection {
             get {
                 return ResourceManager.GetString("CropSelection", resourceCulture);
             }
         }
-
+        
         public static string Portal {
             get {
                 return ResourceManager.GetString("Portal", resourceCulture);
             }
         }
-
+        
         public static string Layer {
             get {
                 return ResourceManager.GetString("Layer", resourceCulture);
             }
         }
-
+        
         public static string AudioEffect {
             get {
                 return ResourceManager.GetString("AudioEffect", resourceCulture);
             }
         }
-
+        
         public static string Delay {
             get {
                 return ResourceManager.GetString("Delay", resourceCulture);
             }
         }
-
+        
         public static string Presenter {
             get {
                 return ResourceManager.GetString("Presenter", resourceCulture);
             }
         }
-
+        
         public static string Script {
             get {
                 return ResourceManager.GetString("Script", resourceCulture);
             }
         }
-
+        
         public static string SKSLScriptEffect {
             get {
                 return ResourceManager.GetString("SKSLScriptEffect", resourceCulture);
             }
         }
-
+        
         public static string CSharpScriptEffect {
             get {
                 return ResourceManager.GetString("CSharpScriptEffect", resourceCulture);
             }
         }
-
+        
+        public static string ExportProject {
+            get {
+                return ResourceManager.GetString("ExportProject", resourceCulture);
+            }
+        }
+        
+        public static string ImportProject {
+            get {
+                return ResourceManager.GetString("ImportProject", resourceCulture);
+            }
+        }
+        
+        public static string ExportingProject {
+            get {
+                return ResourceManager.GetString("ExportingProject", resourceCulture);
+            }
+        }
+        
+        public static string ImportingProject {
+            get {
+                return ResourceManager.GetString("ImportingProject", resourceCulture);
+            }
+        }
+        
+        public static string ProjectPackage {
+            get {
+                return ResourceManager.GetString("ProjectPackage", resourceCulture);
+            }
+        }
+        
+        public static string SelectDestinationFolder {
+            get {
+                return ResourceManager.GetString("SelectDestinationFolder", resourceCulture);
+            }
+        }
+        
         public static string Target {
             get {
                 return ResourceManager.GetString("Target", resourceCulture);
             }
         }
-
+        
         public static string ScaleX {
             get {
                 return ResourceManager.GetString("ScaleX", resourceCulture);
             }
         }
-
+        
         public static string ScaleY {
             get {
                 return ResourceManager.GetString("ScaleY", resourceCulture);
             }
         }
-
+        
         public static string SkewX {
             get {
                 return ResourceManager.GetString("SkewX", resourceCulture);
             }
         }
-
+        
         public static string SkewY {
             get {
                 return ResourceManager.GetString("SkewY", resourceCulture);
             }
         }
-
+        
         public static string X {
             get {
                 return ResourceManager.GetString("X", resourceCulture);
             }
         }
-
+        
         public static string Y {
             get {
                 return ResourceManager.GetString("Y", resourceCulture);
             }
         }
-
+        
         public static string RotationX {
             get {
                 return ResourceManager.GetString("RotationX", resourceCulture);
             }
         }
-
+        
         public static string RotationY {
             get {
                 return ResourceManager.GetString("RotationY", resourceCulture);
             }
         }
-
+        
         public static string RotationZ {
             get {
                 return ResourceManager.GetString("RotationZ", resourceCulture);
             }
         }
-
+        
         public static string CenterX {
             get {
                 return ResourceManager.GetString("CenterX", resourceCulture);
             }
         }
-
+        
         public static string CenterY {
             get {
                 return ResourceManager.GetString("CenterY", resourceCulture);
             }
         }
-
+        
         public static string CenterZ {
             get {
                 return ResourceManager.GetString("CenterZ", resourceCulture);
             }
         }
-
+        
         public static string Depth {
             get {
                 return ResourceManager.GetString("Depth", resourceCulture);
             }
         }
-
+        
         public static string Matrix {
             get {
                 return ResourceManager.GetString("Matrix", resourceCulture);
             }
         }
-
+        
         public static string MatrixTransform {
             get {
                 return ResourceManager.GetString("MatrixTransform", resourceCulture);
             }
         }
-
+        
         public static string OffsetPosition {
             get {
                 return ResourceManager.GetString("OffsetPosition", resourceCulture);
             }
         }
-
+        
         public static string Effect {
             get {
                 return ResourceManager.GetString("Effect", resourceCulture);
             }
         }
-
+        
         public static string RedOffset {
             get {
                 return ResourceManager.GetString("RedOffset", resourceCulture);
             }
         }
-
+        
         public static string GreenOffset {
             get {
                 return ResourceManager.GetString("GreenOffset", resourceCulture);
             }
         }
-
+        
         public static string BlueOffset {
             get {
                 return ResourceManager.GetString("BlueOffset", resourceCulture);
             }
         }
-
+        
         public static string AlphaOffset {
             get {
                 return ResourceManager.GetString("AlphaOffset", resourceCulture);
             }
         }
-
+        
         public static string BaseFrequencyX {
             get {
                 return ResourceManager.GetString("BaseFrequencyX", resourceCulture);
             }
         }
-
+        
         public static string BaseFrequencyY {
             get {
                 return ResourceManager.GetString("BaseFrequencyY", resourceCulture);
             }
         }
-
+        
         public static string Octaves {
             get {
                 return ResourceManager.GetString("Octaves", resourceCulture);
             }
         }
-
+        
         public static string Seed {
             get {
                 return ResourceManager.GetString("Seed", resourceCulture);
             }
         }
-
+        
         public static string PerlinNoiseType {
             get {
                 return ResourceManager.GetString("PerlinNoiseType", resourceCulture);
             }
         }
-
+        
         public static string FillType {
             get {
                 return ResourceManager.GetString("FillType", resourceCulture);
             }
         }
-
+        
         public static string IsClosed {
             get {
                 return ResourceManager.GetString("IsClosed", resourceCulture);
             }
         }
-
+        
         public static string Point {
             get {
                 return ResourceManager.GetString("Point", resourceCulture);
             }
         }
-
+        
         public static string ControlPoint {
             get {
                 return ResourceManager.GetString("ControlPoint", resourceCulture);
             }
         }
-
+        
         public static string ControlPoint1 {
             get {
                 return ResourceManager.GetString("ControlPoint1", resourceCulture);
             }
         }
-
+        
         public static string ControlPoint2 {
             get {
                 return ResourceManager.GetString("ControlPoint2", resourceCulture);
             }
         }
-
+        
         public static string Weight {
             get {
                 return ResourceManager.GetString("Weight", resourceCulture);
             }
         }
-
+        
         public static string Data {
             get {
                 return ResourceManager.GetString("Data", resourceCulture);
             }
         }
-
+        
         public static string RotationAngle {
             get {
                 return ResourceManager.GetString("RotationAngle", resourceCulture);
             }
         }
-
+        
         public static string IsLargeArc {
             get {
                 return ResourceManager.GetString("IsLargeArc", resourceCulture);
             }
         }
-
+        
         public static string SweepClockwise {
             get {
                 return ResourceManager.GetString("SweepClockwise", resourceCulture);
             }
         }
-
+        
         public static string OrthographicCamera {
             get {
                 return ResourceManager.GetString("OrthographicCamera", resourceCulture);
             }
         }
-
+        
         public static string PerspectiveCamera {
             get {
                 return ResourceManager.GetString("PerspectiveCamera", resourceCulture);
             }
         }
-
+        
         public static string DirectionalLight3D {
             get {
                 return ResourceManager.GetString("DirectionalLight3D", resourceCulture);
             }
         }
-
+        
         public static string PointLight3D {
             get {
                 return ResourceManager.GetString("PointLight3D", resourceCulture);
             }
         }
-
+        
         public static string SpotLight3D {
             get {
                 return ResourceManager.GetString("SpotLight3D", resourceCulture);
             }
         }
-
+        
         public static string BasicMaterial {
             get {
                 return ResourceManager.GetString("BasicMaterial", resourceCulture);
             }
         }
-
+        
         public static string PBRMaterial {
             get {
                 return ResourceManager.GetString("PBRMaterial", resourceCulture);
             }
         }
-
+        
         public static string TransparentMaterial {
             get {
                 return ResourceManager.GetString("TransparentMaterial", resourceCulture);
             }
         }
-
+        
         public static string ColorMap {
             get {
                 return ResourceManager.GetString("ColorMap", resourceCulture);
             }
         }
-
+        
         public static string IndexOfRefraction {
             get {
                 return ResourceManager.GetString("IndexOfRefraction", resourceCulture);
             }
         }
-
+        
         public static string CubeMesh {
             get {
                 return ResourceManager.GetString("CubeMesh", resourceCulture);
             }
         }
-
+        
         public static string SphereMesh {
             get {
                 return ResourceManager.GetString("SphereMesh", resourceCulture);
             }
         }
-
+        
         public static string MeshObject3D {
             get {
                 return ResourceManager.GetString("MeshObject3D", resourceCulture);
             }
         }
-
+        
         public static string ModelMesh {
             get {
                 return ResourceManager.GetString("ModelMesh", resourceCulture);
             }
         }
-
+        
         public static string Cube3D {
             get {
                 return ResourceManager.GetString("Cube3D", resourceCulture);
             }
         }
-
+        
         public static string Sphere3D {
             get {
                 return ResourceManager.GetString("Sphere3D", resourceCulture);
             }
         }
-
+        
         public static string Model3D {
             get {
                 return ResourceManager.GetString("Model3D", resourceCulture);
             }
         }
-
+        
         public static string Plane3D {
             get {
                 return ResourceManager.GetString("Plane3D", resourceCulture);
             }
         }
-
+        
         public static string PlaneMesh {
             get {
                 return ResourceManager.GetString("PlaneMesh", resourceCulture);
             }
         }
-
+        
         public static string WidthSegments {
             get {
                 return ResourceManager.GetString("WidthSegments", resourceCulture);
             }
         }
-
+        
         public static string HeightSegments {
             get {
                 return ResourceManager.GetString("HeightSegments", resourceCulture);
             }
         }
-
+        
         public static string DrawableTextureSource {
             get {
                 return ResourceManager.GetString("DrawableTextureSource", resourceCulture);
             }
         }
-
+        
         public static string ImageTextureSource {
             get {
                 return ResourceManager.GetString("ImageTextureSource", resourceCulture);
             }
         }
-
+        
         public static string Group3D {
             get {
                 return ResourceManager.GetString("Group3D", resourceCulture);
             }
         }
-
+        
         public static string Scene3D {
             get {
                 return ResourceManager.GetString("Scene3D", resourceCulture);
             }
         }
-
+        
         public static string FieldOfView {
             get {
                 return ResourceManager.GetString("FieldOfView", resourceCulture);
             }
         }
-
+        
         public static string NearPlane {
             get {
                 return ResourceManager.GetString("NearPlane", resourceCulture);
             }
         }
-
+        
         public static string FarPlane {
             get {
                 return ResourceManager.GetString("FarPlane", resourceCulture);
             }
         }
-
+        
         public static string Up {
             get {
                 return ResourceManager.GetString("Up", resourceCulture);
             }
         }
-
+        
         public static string Direction {
             get {
                 return ResourceManager.GetString("Direction", resourceCulture);
             }
         }
-
+        
         public static string CastsShadow {
             get {
                 return ResourceManager.GetString("CastsShadow", resourceCulture);
             }
         }
-
+        
         public static string ShadowBias {
             get {
                 return ResourceManager.GetString("ShadowBias", resourceCulture);
             }
         }
-
+        
         public static string ShadowNormalBias {
             get {
                 return ResourceManager.GetString("ShadowNormalBias", resourceCulture);
             }
         }
-
+        
         public static string ShadowStrength {
             get {
                 return ResourceManager.GetString("ShadowStrength", resourceCulture);
             }
         }
-
+        
         public static string ShadowDistance {
             get {
                 return ResourceManager.GetString("ShadowDistance", resourceCulture);
             }
         }
-
+        
         public static string ShadowMapSize {
             get {
                 return ResourceManager.GetString("ShadowMapSize", resourceCulture);
             }
         }
-
+        
         public static string ConstantAttenuation {
             get {
                 return ResourceManager.GetString("ConstantAttenuation", resourceCulture);
             }
         }
-
+        
         public static string LinearAttenuation {
             get {
                 return ResourceManager.GetString("LinearAttenuation", resourceCulture);
             }
         }
-
+        
         public static string QuadraticAttenuation {
             get {
                 return ResourceManager.GetString("QuadraticAttenuation", resourceCulture);
             }
         }
-
+        
         public static string Range {
             get {
                 return ResourceManager.GetString("Range", resourceCulture);
             }
         }
-
+        
         public static string InnerConeAngle {
             get {
                 return ResourceManager.GetString("InnerConeAngle", resourceCulture);
             }
         }
-
+        
         public static string OuterConeAngle {
             get {
                 return ResourceManager.GetString("OuterConeAngle", resourceCulture);
             }
         }
-
+        
         public static string DiffuseColor {
             get {
                 return ResourceManager.GetString("DiffuseColor", resourceCulture);
             }
         }
-
+        
         public static string DiffuseMap {
             get {
                 return ResourceManager.GetString("DiffuseMap", resourceCulture);
             }
         }
-
+        
         public static string AmbientColor {
             get {
                 return ResourceManager.GetString("AmbientColor", resourceCulture);
             }
         }
-
+        
         public static string SpecularColor {
             get {
                 return ResourceManager.GetString("SpecularColor", resourceCulture);
             }
         }
-
+        
         public static string Shininess {
             get {
                 return ResourceManager.GetString("Shininess", resourceCulture);
             }
         }
-
+        
         public static string Albedo {
             get {
                 return ResourceManager.GetString("Albedo", resourceCulture);
             }
         }
-
+        
         public static string AlbedoMap {
             get {
                 return ResourceManager.GetString("AlbedoMap", resourceCulture);
             }
         }
-
+        
         public static string Metallic {
             get {
                 return ResourceManager.GetString("Metallic", resourceCulture);
             }
         }
-
+        
         public static string Roughness {
             get {
                 return ResourceManager.GetString("Roughness", resourceCulture);
             }
         }
-
+        
         public static string MetallicRoughnessMap {
             get {
                 return ResourceManager.GetString("MetallicRoughnessMap", resourceCulture);
             }
         }
-
+        
         public static string AmbientOcclusion {
             get {
                 return ResourceManager.GetString("AmbientOcclusion", resourceCulture);
             }
         }
-
+        
         public static string AOMap {
             get {
                 return ResourceManager.GetString("AOMap", resourceCulture);
             }
         }
-
+        
         public static string Emissive {
             get {
                 return ResourceManager.GetString("Emissive", resourceCulture);
             }
         }
-
+        
         public static string EmissiveIntensity {
             get {
                 return ResourceManager.GetString("EmissiveIntensity", resourceCulture);
             }
         }
-
+        
         public static string EmissiveMap {
             get {
                 return ResourceManager.GetString("EmissiveMap", resourceCulture);
             }
         }
-
+        
         public static string NormalMap {
             get {
                 return ResourceManager.GetString("NormalMap", resourceCulture);
             }
         }
-
+        
         public static string NormalMapStrength {
             get {
                 return ResourceManager.GetString("NormalMapStrength", resourceCulture);
             }
         }
-
+        
         public static string Segments {
             get {
                 return ResourceManager.GetString("Segments", resourceCulture);
             }
         }
-
+        
         public static string Rings {
             get {
                 return ResourceManager.GetString("Rings", resourceCulture);
             }
         }
-
+        
         public static string Mesh {
             get {
                 return ResourceManager.GetString("Mesh", resourceCulture);
             }
         }
-
+        
         public static string Vertices {
             get {
                 return ResourceManager.GetString("Vertices", resourceCulture);
             }
         }
-
+        
         public static string Indices {
             get {
                 return ResourceManager.GetString("Indices", resourceCulture);
             }
         }
-
+        
         public static string TextureWidth {
             get {
                 return ResourceManager.GetString("TextureWidth", resourceCulture);
             }
         }
-
+        
         public static string TextureHeight {
             get {
                 return ResourceManager.GetString("TextureHeight", resourceCulture);
             }
         }
-
+        
         public static string Children {
             get {
                 return ResourceManager.GetString("Children", resourceCulture);
             }
         }
-
+        
         public static string Camera {
             get {
                 return ResourceManager.GetString("Camera", resourceCulture);
             }
         }
-
+        
         public static string Objects {
             get {
                 return ResourceManager.GetString("Objects", resourceCulture);
             }
         }
-
+        
         public static string Lights {
             get {
                 return ResourceManager.GetString("Lights", resourceCulture);
             }
         }
-
+        
         public static string AmbientIntensity {
             get {
                 return ResourceManager.GetString("AmbientIntensity", resourceCulture);
             }
         }
-
+        
         public static string RenderWidth {
             get {
                 return ResourceManager.GetString("RenderWidth", resourceCulture);
             }
         }
-
+        
         public static string RenderHeight {
             get {
                 return ResourceManager.GetString("RenderHeight", resourceCulture);
             }
         }
-
+        
         public static string BackgroundColor {
             get {
                 return ResourceManager.GetString("BackgroundColor", resourceCulture);
             }
         }
-
+        
         public static string Material {
             get {
                 return ResourceManager.GetString("Material", resourceCulture);
             }
         }
-
+        
         public static string CastShadows {
             get {
                 return ResourceManager.GetString("CastShadows", resourceCulture);
             }
         }
-
+        
         public static string ReceiveShadows {
             get {
                 return ResourceManager.GetString("ReceiveShadows", resourceCulture);
             }
         }
-
+        
         public static string Experimental {
             get {
                 return ResourceManager.GetString("Experimental", resourceCulture);
             }
         }
-
+        
         public static string Home {
             get {
                 return ResourceManager.GetString("Home", resourceCulture);
             }
         }
-
+        
         public static string ProjectDirectory {
             get {
                 return ResourceManager.GetString("ProjectDirectory", resourceCulture);
             }
         }
-
+        
         public static string MediaFiles {
             get {
                 return ResourceManager.GetString("MediaFiles", resourceCulture);
             }
         }
-
+        
         public static string SearchingMediaFiles {
             get {
                 return ResourceManager.GetString("SearchingMediaFiles", resourceCulture);
             }
         }
-
+        
         public static string NoMediaFilesFound {
             get {
                 return ResourceManager.GetString("NoMediaFilesFound", resourceCulture);
             }
         }
-
+        
         public static string TimeController {
             get {
                 return ResourceManager.GetString("TimeController", resourceCulture);
             }
         }
-
+        
         public static string AdjustTimeRange {
             get {
                 return ResourceManager.GetString("AdjustTimeRange", resourceCulture);
             }
         }
-
+        
         public static string Loop {
             get {
                 return ResourceManager.GetString("Loop", resourceCulture);
             }
         }
-
+        
         public static string Reverse {
             get {
                 return ResourceManager.GetString("Reverse", resourceCulture);
             }
         }
-
+        
         public static string HoldFirstFrame {
             get {
                 return ResourceManager.GetString("HoldFirstFrame", resourceCulture);
             }
         }
-
+        
         public static string HoldLastFrame {
             get {
                 return ResourceManager.GetString("HoldLastFrame", resourceCulture);

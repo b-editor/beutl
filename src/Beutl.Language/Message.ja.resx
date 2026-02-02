@@ -126,6 +126,9 @@
   <data name="OperationCouldNotBeExecuted" xml:space="preserve">
     <value>操作を実行できませんでした。</value>
   </data>
+  <data name="OperationCompletedSuccessfully" xml:space="preserve">
+    <value>操作が正常に完了しました。</value>
+  </data>
   <data name="DoYouWantToDeleteThisDirectory" xml:space="preserve">
     <value>このディレクトリを削除しますか？</value>
   </data>
