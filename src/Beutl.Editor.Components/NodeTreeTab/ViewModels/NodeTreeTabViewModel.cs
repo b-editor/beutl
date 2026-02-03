@@ -227,7 +227,7 @@ public sealed class NodeTreeTabViewModel : IToolContext
     {
         string directory = Path.GetDirectoryName(element.Uri!.LocalPath)!;
 
-        directory = Path.Combine(directory, ".beutl", "view-state");
+        directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);
