@@ -39,7 +39,7 @@
                     <TabStrip.Styles>
                         <Style Selector="TabStripItem">
                             <Setter Property="Padding" Value="12,5,12,3" />
-                            <Setter Property="ToolTip.Tip" Value="{Binding $self.Content.Children[1].Text}" />
+                            <Setter Property="ToolTip.Tip" Value="{Binding $self.((StackPanel)Content).Children((TextBlock)[1]).Text}" />
 
                             <Style Selector="^ > StackPanel">
                                 <Setter Property="Spacing" Value="4" />

@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />

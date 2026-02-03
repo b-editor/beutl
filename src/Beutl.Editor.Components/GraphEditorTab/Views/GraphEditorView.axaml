@@ -329,7 +329,7 @@
                         Margin="{Binding ElementMargin.Value, Mode=OneWay}"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Stretch"
-                        BorderBrush="{CompiledBinding ElementColor.Value}"
+                        BorderBrush="{Binding ElementColor.Value}"
                         BorderThickness="1,0" />
 
             </Panel>

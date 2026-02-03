@@ -12,7 +12,7 @@
              DragDrop.AllowDrop="True"
              mc:Ignorable="d">
     <ScrollViewer x:Name="scrollViewer">
-        <ItemsControl x:Name="itemsControl" ItemsSource="{CompiledBinding Items}">
+        <ItemsControl x:Name="itemsControl" ItemsSource="{Binding Items}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <local:SourceOperatorView />
