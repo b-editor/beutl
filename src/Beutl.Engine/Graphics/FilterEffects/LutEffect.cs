@@ -3,6 +3,7 @@ using System.Numerics;
 using Beutl.Engine;
 using Beutl.Language;
 using Microsoft.Extensions.Logging;
+using Beutl.Media.Source;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -14,7 +15,6 @@ public sealed partial class LutEffect : FilterEffect
         BeutlApplication.Current.LoggerFactory.CreateLogger<LutEffect>();
 
     private static readonly SKRuntimeEffect? s_runtimeEffect;
-    private CubeFile? _cube;
 
     static LutEffect()
     {
@@ -124,44 +124,27 @@ public sealed partial class LutEffect : FilterEffect
     public LutEffect()
     {
         ScanProperties<LutEffect>();
-        Source.ValueChanged += (_, args) => UpdateCube(args.NewValue);
     }
 
     [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
-    public IProperty<FileInfo?> Source { get; } = Property.Create<FileInfo?>();
+    public IProperty<CubeSource?> Source { get; } = Property.Create<CubeSource?>();
 
     [Display(Name = nameof(Strings.Strength), ResourceType = typeof(Strings))]
     [Range(0, 100)]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
-    private void UpdateCube(FileInfo? value)
-    {
-        _cube = null;
-        if (value != null)
-        {
-            try
-            {
-                using FileStream stream = value.OpenRead();
-                _cube = CubeFile.FromStream(stream);
-            }
-            catch (Exception ex)
-            {
-                s_logger.LogError(ex, "Cubeファイルの解析に失敗しました。{FileName}", value.FullName);
-            }
-        }
-    }
-
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        if (_cube != null)
+        var cube = r.Source?.Cube;
+        if (cube != null)
         {
             float strength = r.Strength / 100f;
 
-            if (_cube.Dimention == CubeFileDimension.OneDimension)
+            if (cube.Dimention == CubeFileDimension.OneDimension)
             {
                 context.LookupTable(
-                    _cube,
+                    cube,
                     strength,
                     static (CubeFile cube, (byte[] A, byte[] R, byte[] G, byte[] B) data) =>
                     {
@@ -171,7 +154,7 @@ public sealed partial class LutEffect : FilterEffect
             }
             else
             {
-                context.CustomEffect((_cube, strength), OnApply3DLUT_GPU, static (_, r) => r);
+                context.CustomEffect((cube, strength), OnApply3DLUT_GPU, static (_, r) => r);
             }
         }
     }
