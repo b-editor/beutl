@@ -188,6 +188,7 @@ public static class LibraryRegistrar
                 .AddGroup(Strings.Script, gg => gg
                     .AddFilterEffect<CSharpScriptEffect>(Strings.CSharpScriptEffect)
                     .AddFilterEffect<SKSLScriptEffect>(Strings.SKSLScriptEffect)
+                    .AddFilterEffect<GLSLScriptEffect>(Strings.GLSLScriptEffect)
                 )
                 .AddGroup("OpenCV", gg => gg
                     .AddFilterEffect<Graphics.Effects.OpenCv.Blur>("CvBlur")
