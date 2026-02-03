@@ -63,7 +63,7 @@ public class GroupNode : Node
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = Group.InitializeForState(context.Renderer);
+        context.State = Group.InitializeForState(context.Renderer, context.Composer);
     }
 
     public override void UninitializeForContext(NodeEvaluationContext context)

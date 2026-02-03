@@ -1,4 +1,4 @@
-﻿using Beutl.Animation;
+﻿using Beutl.Audio.Composing;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 
@@ -11,6 +11,7 @@ public class EvaluationContext
     public EvaluationContext(EvaluationContext context)
     {
         Renderer = context.Renderer;
+        Composer = context.Composer;
         List = context.List;
         _renderables = context._renderables;
         Target = context.Target;
@@ -22,11 +23,15 @@ public class EvaluationContext
     {
     }
 
+    // TODO: Rendererもnullableにする
     public IRenderer Renderer { get; internal set; }
+
+    public IComposer? Composer { get; internal set; }
 
     public IReadOnlyList<EvaluationContext> List { get; internal set; }
 
     public EvaluationTarget Target { get; internal set; }
+
 
     public void AddRenderable(EngineObject renderable)
     {

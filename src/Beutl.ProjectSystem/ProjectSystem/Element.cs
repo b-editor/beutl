@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using Beutl.Audio.Composing;
 using Beutl.Collections.Pooled;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
@@ -137,17 +138,17 @@ public class Element : Hierarchical, INotifyEdited
         context.Populate(nameof(NodeTree), NodeTree);
     }
 
-    public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer)
+    public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer, IComposer? composer = null)
     {
         lock (this)
         {
             if (UseNode)
             {
-                return NodeTree.Evaluate(target, renderer, this);
+                return NodeTree.Evaluate(target, renderer, this, composer);
             }
             else
             {
-                return Operation.Evaluate(target, renderer, this);
+                return Operation.Evaluate(target, renderer, this, composer);
             }
         }
     }

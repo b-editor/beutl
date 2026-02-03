@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 
 using Beutl.Animation;
+using Beutl.Audio.Composing;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.NodeTree.Nodes.Group;
@@ -104,7 +105,7 @@ public class NodeGroup : NodeTreeModel
         }
     }
 
-    public object InitializeForState(IRenderer renderer)
+    public object InitializeForState(IRenderer renderer, IComposer? composer = null)
     {
         var evalContexts = new List<NodeEvaluationContext[]>();
 
@@ -119,6 +120,7 @@ public class NodeGroup : NodeTreeModel
             {
                 item.Renderer = renderer;
                 item.List = array;
+                item.Composer = composer;
                 item.Node.InitializeForContext(item);
             }
         }
