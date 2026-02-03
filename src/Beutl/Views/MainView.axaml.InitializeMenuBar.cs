@@ -12,7 +12,6 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings.Extensions;
@@ -44,7 +43,6 @@ public partial class MainView
             await dialog.ShowAsync();
         }).AddTo(_disposables);
 
-        viewModel.MenuBar.AddLayer.Subscribe(OnAddElement).AddTo(_disposables);
         viewModel.MenuBar.DeleteLayer.Subscribe(OnDeleteElement).AddTo(_disposables);
 
         viewModel.MenuBar.Exit.Subscribe(() =>
@@ -131,22 +129,6 @@ public partial class MainView
                 scene.DeleteChild(element);
                 viewModel.HistoryManager.Commit(CommandNames.DeleteElement);
             }
-        }
-    }
-
-    private async void OnAddElement()
-    {
-        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
-            && viewModel.FindToolTab<TimelineViewModel>() is TimelineViewModel timeline)
-        {
-            var dialog = new AddElementDialog
-            {
-                DataContext = new AddElementDialogViewModel(viewModel.Scene,
-                    new ElementDescription(timeline.ClickedFrame, TimeSpan.FromSeconds(5),
-                        timeline.CalculateClickedLayer()),
-                    viewModel.HistoryManager)
-            };
-            await dialog.ShowAsync();
         }
     }
 

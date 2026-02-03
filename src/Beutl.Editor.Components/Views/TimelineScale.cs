@@ -4,7 +4,7 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.TextFormatting;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.Models;
+using Beutl.Editor.Services;
 
 namespace Beutl.Editor.Components.Views;
 

@@ -6,7 +6,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
-using Beutl.Editor.Services;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Transformation;
@@ -24,7 +24,7 @@ using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Threading;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -34,7 +34,7 @@ using LibraryService = Beutl.Services.LibraryService;
 namespace Beutl.ViewModels;
 
 public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProvider,
-    ISupportCloseAnimation, ISupportAutoSaveEditorContext, IEditorClock, IEditorSelection
+    ISupportCloseAnimation, ISupportAutoSaveEditorContext, IEditorClock, IEditorSelection, IElementAdder
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
@@ -616,11 +616,17 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         if (serviceType.IsAssignableTo(typeof(IEditorSelection)))
             return this;
 
+        if (serviceType.IsAssignableTo(typeof(IElementAdder)))
+            return this;
+
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;
 
         if (serviceType == typeof(FrameCacheManager))
             return FrameCacheManager.Value;
+
+        if (serviceType.IsAssignableTo(typeof(IBufferStatus)))
+            return BufferStatus;
 
         if (serviceType.IsAssignableTo(typeof(IPropertyEditorFactory)))
             return Services.Adapters.PropertyEditorFactoryAdapter.Instance;
@@ -691,7 +697,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             }
         }
 
-        TimelineViewModel? timeline = FindToolTab<TimelineViewModel>();
+        TimelineTabViewModel? timeline = FindToolTab<TimelineTabViewModel>();
         using var compositeDisposable = new CompositeDisposable();
 
         if (desc.FileName != null)
@@ -871,7 +877,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         var searcher = new ObjectSearcher(obj, v => v is IAnimation);
 
         IAnimation[] animations = searcher.SearchAll().OfType<IAnimation>().ToArray();
-        TimelineViewModel? timeline = FindToolTab<TimelineViewModel>();
+        TimelineTabViewModel? timeline = FindToolTab<TimelineTabViewModel>();
 
         // Timelineのインライン表示を削除
         if (timeline != null)

@@ -5,12 +5,8 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
-using Beutl.Models;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Beutl.ViewModels;
-using Beutl.ViewModels.Dialogs;
-using Beutl.Views.Dialogs;
 using AvaPoint = Avalonia.Point;
 
 namespace Beutl.Views;
@@ -90,18 +86,8 @@ public partial class PlayerView
 
                 int zindex = CalculateZIndex(scene);
 
-                if (e.KeyModifiers == KeyModifiers.Control)
-                {
-                    var desc = new ElementDescription(frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centeredPosition);
-                    var dialogViewModel = new AddElementDialogViewModel(scene, desc, editViewModel.HistoryManager);
-                    var dialog = new AddElementDialog { DataContext = dialogViewModel };
-                    await dialog.ShowAsync();
-                }
-                else
-                {
-                    editViewModel.AddElement(new ElementDescription(
-                        frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centeredPosition));
-                }
+                editViewModel.AddElement(new ElementDescription(
+                    frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centeredPosition));
             }
             else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
             {

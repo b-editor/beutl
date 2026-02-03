@@ -8,6 +8,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Configuration;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics.Backend;
 using Beutl.NodeTree.Nodes;
 using Beutl.Operators;
@@ -100,6 +101,9 @@ public sealed class App : Application
 
         PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
         NotificationService.Handler = new NotificationServiceHandler();
+
+        // Setup AppHelper delegates for Beutl.Editor.Components
+        AppHelper.GetContextCommandManager = GetContextCommandManager;
 
         // 以下三つの処理は意外と重い
         Parallel.Invoke(

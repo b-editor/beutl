@@ -7,6 +7,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 
+using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.ViewModels;
 

@@ -5,6 +5,7 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Reactive.Bindings;
 using Beutl.Editor.Components.Helpers;
 
@@ -12,7 +13,7 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    [MemberNotNull(nameof(AddLayer), nameof(DeleteLayer), nameof(ExcludeLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
+    [MemberNotNull(nameof(DeleteLayer), nameof(ExcludeLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
     private void InitializeSceneCommands(IObservable<bool> isSceneOpened)
     {
         IObservable<bool> isProjectOpenedAndTabOpened = ProjectService.Current.IsOpened
@@ -21,7 +22,6 @@ public partial class MenuBarViewModel
 
         RemoveFromProject = new(isProjectOpenedAndTabOpened);
 
-        AddLayer = new(isSceneOpened);
         DeleteLayer = new(isSceneOpened);
         ExcludeLayer = new ReactiveCommandSlim(isSceneOpened)
             .WithSubscribe(OnExcludeElement);
@@ -34,7 +34,7 @@ public partial class MenuBarViewModel
             .WithSubscribe(() =>
             {
                 if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
-                    && viewModel.FindToolTab<TimelineViewModel>() is TimelineViewModel timeline)
+                    && viewModel.FindToolTab<TimelineTabViewModel>() is TimelineTabViewModel timeline)
                 {
                     timeline.Paste.Execute();
                 }
@@ -58,8 +58,6 @@ public partial class MenuBarViewModel
     public ReactiveCommandSlim NewScene { get; } = new();
 
     public ReactiveCommandSlim<EditorTabItem?> RemoveFromProject { get; private set; }
-
-    public ReactiveCommandSlim AddLayer { get; private set; }
 
     public ReactiveCommandSlim DeleteLayer { get; private set; }
 

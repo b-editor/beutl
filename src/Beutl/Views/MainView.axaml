@@ -2,7 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:h="using:Beutl.Helpers"
+             xmlns:h="using:Beutl.Editor.Components.Helpers"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -180,7 +180,6 @@
                     <MenuItem Command="{CompiledBinding MenuBar.ShowSceneSettings}" Header="{x:Static lang:Strings.SceneSettings}" />
                     <!--  要素  -->
                     <MenuItem Header="{x:Static lang:Strings.Element}">
-                        <MenuItem Command="{CompiledBinding MenuBar.AddLayer}" Header="{x:Static lang:Strings.Add}" />
                         <MenuItem Command="{CompiledBinding MenuBar.DeleteLayer}" Header="{x:Static lang:Strings.Delete}" />
                         <MenuItem Command="{CompiledBinding MenuBar.ExcludeLayer}" Header="{x:Static lang:Strings.Exclude}" />
                         <MenuItem Command="{CompiledBinding MenuBar.CutLayer}" Header="{x:Static lang:Strings.Cut}" />
