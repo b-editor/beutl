@@ -121,6 +121,11 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
+            .AddMultiple(Strings.SoundGroup, m => m
+                .BindSourceOperator<SoundGroupOperator>()
+            );
+
+        LibraryService.Current
             .AddMultiple(Strings.TimeController, m => m
                 .BindSourceOperator<Source.DrawableTimeControllerOperator>()
                 .BindDrawable<DrawableTimeController>()

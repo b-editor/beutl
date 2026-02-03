@@ -1251,6 +1251,12 @@ namespace Beutl.Language {
             }
         }
         
+        public static string SoundGroup {
+            get {
+                return ResourceManager.GetString("SoundGroup", resourceCulture);
+            }
+        }
+        
         public static string IsNotValid {
             get {
                 return ResourceManager.GetString("IsNotValid", resourceCulture);
