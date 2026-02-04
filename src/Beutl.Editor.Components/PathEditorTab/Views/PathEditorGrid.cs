@@ -1,9 +1,9 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
-namespace Beutl.Views;
+namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 public sealed class PathEditorGrid : Control
 {

@@ -1,28 +1,41 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PathEditorTab.Services;
+using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.Services.PrimitiveImpls;
-using Beutl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels;
+namespace Beutl.Editor.Components.PathEditorTab.ViewModels;
 
-public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, IToolContext
+public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
+    private readonly IEditorClock _clock;
 
-    public PathEditorTabViewModel(EditViewModel editViewModel)
+    public PathEditorTabViewModel(IEditorContext editorContext)
     {
-        EditViewModel = editViewModel;
-        Context = FigureContext.Select(v => v?.ParentContext ?? Observable.ReturnThenNever<GeometryEditorViewModel?>(null))
+        EditorContext = editorContext;
+        _clock = editorContext.GetRequiredService<IEditorClock>();
+        var player = editorContext.GetRequiredService<IPreviewPlayer>();
+
+        IsPlaying = player.IsPlaying
+            .ToReadOnlyReactiveProperty()
+            .DisposeWith(_disposables);
+
+        Context = FigureContext.Select(v => v?.GetParentContext() ?? null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        Geometry = Context.Select(v => v?.Value ?? Observable.ReturnThenNever<Geometry?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        PathGeometry = Context.Select(v => v?.Value ?? Observable.ReturnThenNever<Geometry?>(null))
-            .Switch()
+        PathGeometry = Geometry
             .Select(v => v as PathGeometry)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -39,7 +52,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
 
         GeometryResource = PathGeometry
             .Select(d =>
-                d?.SubscribeEngineVersionedResource(EditViewModel.CurrentTime, (o, c) => o.ToResource(c))
+                d?.SubscribeEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
                     .Select(t => ((PathGeometry.Resource, int)?)t) ??
                 Observable.ReturnThenNever<(PathGeometry.Resource, int)?>(null))
             .Switch()
@@ -47,7 +60,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
             .DisposeWith(_disposables);
 
         IsClosed = PathFigure.Select(f => f != null
-                ? f.IsClosed.SubscribeEngineProperty(f, EditViewModel.CurrentTime)
+                ? f.IsClosed.SubscribeEngineProperty(f, _clock.CurrentTime)
                 : Observable.ReturnThenNever(false))
             .Switch()
             .ToReadOnlyReactiveProperty()
@@ -57,12 +70,14 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
             .DisposeWith(_disposables);
     }
 
-    public EditViewModel EditViewModel { get; }
+    public IEditorContext EditorContext { get; }
 
-    public IReactiveProperty<PathFigureEditorViewModel?> FigureContext { get; } =
-        new ReactiveProperty<PathFigureEditorViewModel?>();
+    public IReactiveProperty<IPathFigureEditorContext?> FigureContext { get; } =
+        new ReactiveProperty<IPathFigureEditorContext?>();
 
-    public ReadOnlyReactivePropertySlim<GeometryEditorViewModel?> Context { get; }
+    public ReadOnlyReactivePropertySlim<IGeometryEditorContext?> Context { get; }
+
+    public ReadOnlyReactivePropertySlim<Geometry?> Geometry { get; }
 
     public ReadOnlyReactivePropertySlim<(PathGeometry.Resource, int)?> GeometryResource { get; }
 
@@ -77,6 +92,8 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
     public IReactiveProperty<PathSegment?> SelectedOperation { get; } = new ReactiveProperty<PathSegment?>();
 
     public ReadOnlyReactiveProperty<bool> IsClosed { get; }
+
+    public ReadOnlyReactiveProperty<bool> IsPlaying { get; }
 
     public IReactiveProperty<bool> Symmetry { get; } = new ReactiveProperty<bool>(true);
 
@@ -97,32 +114,16 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorViewModel, 
         new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
 
     // FigureContextがcontext引数と同じ場合、編集を終了
-    public void StartOrFinishEdit(PathFigureEditorViewModel context)
+    public void StartOrFinishEdit(IPathFigureEditorContext context)
     {
         if (FigureContext.Value == context)
         {
             FigureContext.Value = null;
-            ListEditorViewModel<PathSegment>? group = context.Group.Value;
-            if (group != null)
-            {
-                foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
-                {
-                    if (item.Context is PathOperationEditorViewModel opEditor
-                        && opEditor.ProgrammaticallyExpanded)
-                    {
-                        opEditor.IsExpanded.Value = false;
-                    }
-                }
-            }
+            context.CollapseEditedOperations();
         }
         else
         {
-            // Groupプロパティを初期化
-            if (!context.IsExpanded.Value)
-            {
-                context.IsExpanded.Value = true;
-            }
-
+            context.ExpandForEditing();
             FigureContext.Value = context;
         }
     }

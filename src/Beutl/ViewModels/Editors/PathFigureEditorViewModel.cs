@@ -1,4 +1,6 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Media;
 using Beutl.Operation;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,7 +8,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
+public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>, IPathFigureEditorContext
 {
     private readonly ReactivePropertySlim<EditViewModel?> _editViewModel = new();
 
@@ -160,11 +162,78 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         }
     }
 
+    public IGeometryEditorContext? GetParentContext() => ParentContext.Value as IGeometryEditorContext;
+
+    public void ExpandForEditing()
+    {
+        if (!IsExpanded.Value)
+        {
+            IsExpanded.Value = true;
+        }
+    }
+
+    public void CollapseEditedOperations()
+    {
+        if (Group.Value is { } group)
+        {
+            foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
+            {
+                if (item.Context is PathOperationEditorViewModel opEditor
+                    && opEditor.ProgrammaticallyExpanded)
+                {
+                    opEditor.IsExpanded.Value = false;
+                }
+            }
+        }
+    }
+
+    public void ExpandOperationForSegment(PathSegment segment)
+    {
+        if (Group.Value is { } group)
+        {
+            foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
+            {
+                if (item.Context is PathOperationEditorViewModel itemvm)
+                {
+                    if (ReferenceEquals(itemvm.Value.Value, segment))
+                    {
+                        itemvm.IsExpanded.Value = true;
+                        itemvm.ProgrammaticallyExpanded = true;
+                    }
+                    else if (itemvm.ProgrammaticallyExpanded)
+                    {
+                        itemvm.IsExpanded.Value = false;
+                    }
+                }
+            }
+        }
+    }
+
+    public new void InvalidateFrameCache()
+    {
+        base.InvalidateFrameCache();
+    }
+
+    public int GetSegmentIndex(PathSegment segment)
+    {
+        return Group.Value?.List.Value?.IndexOf(segment) ?? -1;
+    }
+
+    public void RemoveSegment(int index)
+    {
+        Group.Value?.RemoveItem(index);
+    }
+
+    public void AddSegment(PathSegment segment, int index)
+    {
+        Group.Value?.AddItem(segment);
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (_editViewModel.Value is { } editViewModel)
         {
-            PathEditorTabViewModel? tab = editViewModel.FindToolTab<PathEditorTabViewModel>();
+            var tab = editViewModel.FindToolTab<PathEditorTabViewModel>();
             if (tab != null && tab.FigureContext.Value == this)
             {
                 tab.FigureContext.Value = null;

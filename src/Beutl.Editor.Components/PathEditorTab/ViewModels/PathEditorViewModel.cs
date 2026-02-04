@@ -1,34 +1,47 @@
-﻿using Beutl.Graphics;
+using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PathEditorTab.Services;
+using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Services;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.ViewModels.Editors;
+using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels;
+namespace Beutl.Editor.Components.PathEditorTab.ViewModels;
 
-public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
+public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 {
     private readonly CompositeDisposable _disposables = [];
+    private readonly IEditorClock _clock;
+    private readonly Scene _scene;
 
-    public PathEditorViewModel(EditViewModel editViewModel, PlayerViewModel playerViewModel)
+    public PathEditorViewModel(IEditorContext editorContext, IPreviewPlayer player)
     {
-        EditViewModel = editViewModel;
-        PlayerViewModel = playerViewModel;
-        SceneWidth = editViewModel.Scene.GetObservable(Scene.FrameSizeProperty)
+        EditorContext = editorContext;
+        _clock = editorContext.GetRequiredService<IEditorClock>();
+        _scene = editorContext.GetRequiredService<Scene>();
+
+        SceneWidth = _scene.GetObservable(Scene.FrameSizeProperty)
             .Select(v => v.Width)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        Context = FigureContext.Select(v => v?.ParentContext ?? Observable.ReturnThenNever<GeometryEditorViewModel?>(null))
+
+        Context = FigureContext.Select(v => v?.GetParentContext() ?? null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        Geometry = Context.Select(v => v?.Value ?? Observable.ReturnThenNever<Geometry?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        PathGeometry = Context.Select(v => v?.Value ?? Observable.ReturnThenNever<Geometry?>(null))
-            .Switch()
+        PathGeometry = Geometry
             .Select(v => v as PathGeometry)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -48,7 +61,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
 
         var drawableResource = Drawable
             .Select(d =>
-                d?.SubscribeEngineVersionedResource(EditViewModel.CurrentTime, (o, c) => o.ToResource(c))
+                d?.SubscribeEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
                     .Select(t => ((Drawable.Resource, int)?)t) ??
                 Observable.ReturnThenNever<(Drawable.Resource, int)?>(null))
             .Switch()
@@ -69,20 +82,20 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsVisible = editViewModel.CurrentTime
+        IsVisible = _clock.CurrentTime
             .CombineLatest(Element
                 .Select(e => e?.GetObservable(ProjectSystem.Element.StartProperty)
                     .CombineLatest(e.GetObservable(ProjectSystem.Element.LengthProperty))
                     .Select(t => new TimeRange(t.First, t.Second)) ?? Observable.ReturnThenNever<TimeRange>(default))
                 .Switch())
             .Select(t => t.Second.Contains(t.First))
-            .CombineLatest(PlayerViewModel.IsPlaying, Context)
+            .CombineLatest(player.IsPlaying, Context)
             .Select(t => t.First && !t.Second && t.Third != null)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
         IsClosed = PathFigure.Select(g =>
-                g?.IsClosed.SubscribeEngineProperty(g, EditViewModel.CurrentTime) ?? Observable.ReturnThenNever(false))
+                g?.IsClosed.SubscribeEngineProperty(g, _clock.CurrentTime) ?? Observable.ReturnThenNever(false))
             .Switch()
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
@@ -93,7 +106,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
 
     private Matrix CalculateMatrix(Drawable.Resource drawable)
     {
-        Size frameSize = EditViewModel.Scene.FrameSize.ToSize(1);
+        Size frameSize = _scene.FrameSize.ToSize(1);
         Matrix matrix = Graphics.Matrix.Identity;
 
         // Shape.cs
@@ -122,14 +135,14 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
         return matrix;
     }
 
-    public EditViewModel EditViewModel { get; }
+    public IEditorContext EditorContext { get; }
 
-    public PlayerViewModel PlayerViewModel { get; }
+    public IReactiveProperty<IPathFigureEditorContext?> FigureContext { get; } =
+        new ReactiveProperty<IPathFigureEditorContext?>();
 
-    public IReactiveProperty<PathFigureEditorViewModel?> FigureContext { get; } =
-        new ReactiveProperty<PathFigureEditorViewModel?>();
+    public ReadOnlyReactivePropertySlim<IGeometryEditorContext?> Context { get; }
 
-    public ReadOnlyReactivePropertySlim<GeometryEditorViewModel?> Context { get; }
+    public ReadOnlyReactivePropertySlim<Geometry?> Geometry { get; }
 
     public IReadOnlyReactiveProperty<PathGeometry?> PathGeometry { get; }
 
@@ -161,60 +174,41 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorViewModel
 
     public IReactiveProperty<bool> Separately { get; } = new ReactiveProperty<bool>(false);
 
-    public void StartEdit(Shape shape, GeometryEditorViewModel context, Avalonia.Point point)
+    public void StartEdit(Shape shape, IGeometryEditorContext context, Avalonia.Point point)
     {
         // Groupプロパティを初期化
-        if (!context.IsExpanded.Value)
-        {
-            context.IsExpanded.Value = true;
-        }
+        context.ExpandForEditing();
 
-        var shapeResource = shape.ToResource(new RenderContext(EditViewModel.CurrentTime.Value));
+        var shapeResource = shape.ToResource(new RenderContext(_clock.CurrentTime.Value));
         Avalonia.Matrix matrix = CalculateMatrix(shapeResource).ToAvaMatrix();
         if (matrix.TryInvert(out Avalonia.Matrix inverted)
             && shapeResource is GeometryShape.Resource { Data: not null } geometryShapeResource
-            && context.Value.Value is PathGeometry geometry
-            && context.Group.Value is { } group)
+            && context.Value.Value is PathGeometry geometry)
         {
             point = inverted.Transform(point);
             PathFigure.Resource? figure = geometry.HitTestFigure(
                 point.ToBtlPoint(), geometryShapeResource.Pen, geometryShapeResource.Data);
-            if (figure != null
-                && group.Items.FirstOrDefault(v =>
-                        v.Context is PathFigureEditorViewModel f && f.Value.Value == figure.GetOriginal())
-                    ?.Context is PathFigureEditorViewModel figContext)
+            if (figure != null)
             {
-                StartEdit(figContext);
+                var figContext = context.FindPathFigureContext(figure.GetOriginal());
+                if (figContext != null)
+                {
+                    StartEdit(figContext);
+                }
             }
         }
     }
 
-    public void StartEdit(PathFigureEditorViewModel context)
+    public void StartEdit(IPathFigureEditorContext context)
     {
         if (FigureContext.Value == context)
         {
             FigureContext.Value = null;
-            ListEditorViewModel<PathSegment>? group = context.Group.Value;
-            if (group != null)
-            {
-                foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
-                {
-                    if (item.Context is PathOperationEditorViewModel opEditor
-                        && opEditor.ProgrammaticallyExpanded)
-                    {
-                        opEditor.IsExpanded.Value = false;
-                    }
-                }
-            }
+            context.CollapseEditedOperations();
         }
         else
         {
-            // Groupプロパティを初期化
-            if (!context.IsExpanded.Value)
-            {
-                context.IsExpanded.Value = true;
-            }
-
+            context.ExpandForEditing();
             FigureContext.Value = context;
         }
     }

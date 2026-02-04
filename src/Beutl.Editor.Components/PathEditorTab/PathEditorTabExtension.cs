@@ -1,14 +1,16 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 
 using Avalonia.Controls;
 
-using Beutl.ViewModels;
-using Beutl.Views.Tools;
+using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Editor.Components.PathEditorTab.Views;
+using Beutl.Editor.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
-namespace Beutl.Services.PrimitiveImpls;
+namespace Beutl.Editor.Components.PathEditorTab;
 
 [PrimitiveImpl]
 public sealed class PathEditorTabExtension : ToolTabExtension
@@ -30,9 +32,10 @@ public sealed class PathEditorTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        if (editorContext is EditViewModel)
+        // IEditorContextがITimelineOptionsProviderサービスを提供しているかチェック
+        if (editorContext.GetService<ITimelineOptionsProvider>() != null)
         {
-            control = new PathEditorTab();
+            control = new PathEditorTabView();
             return true;
         }
         else
@@ -44,9 +47,9 @@ public sealed class PathEditorTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
+        if (editorContext.GetService<ITimelineOptionsProvider>() != null)
         {
-            context = new PathEditorTabViewModel(editViewModel);
+            context = new PathEditorTabViewModel(editorContext);
             return true;
         }
         else

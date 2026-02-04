@@ -1,14 +1,14 @@
-﻿using Beutl.Media;
+using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.ViewModels.Editors;
 
 using Reactive.Bindings;
 
-namespace Beutl.ViewModels;
+namespace Beutl.Editor.Components.PathEditorTab.Services;
 
-public interface IPathEditorViewModel
+public interface IPathEditorContext
 {
-    EditViewModel EditViewModel { get; }
+    IEditorContext EditorContext { get; }
 
     IReadOnlyReactiveProperty<Element?> Element { get; }
 
@@ -18,7 +18,7 @@ public interface IPathEditorViewModel
 
     IReadOnlyReactiveProperty<PathFigure?> PathFigure { get; }
 
-    IReactiveProperty<PathFigureEditorViewModel?> FigureContext { get; }
+    IReactiveProperty<IPathFigureEditorContext?> FigureContext { get; }
 
     IReactiveProperty<bool> Symmetry { get; }
 

@@ -1,4 +1,4 @@
-﻿#pragma warning disable CS0618 // Type or member is obsolete
+#pragma warning disable CS0618 // Type or member is obsolete
 
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -6,7 +6,7 @@ using Beutl.Engine;
 using Beutl.Media;
 using BtlPoint = Beutl.Graphics.Point;
 
-namespace Beutl.Views;
+namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 public static class PathEditorHelper
 {

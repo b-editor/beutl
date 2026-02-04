@@ -4,7 +4,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
-namespace Beutl.Converters;
+namespace Beutl.Editor.Components.PathEditorTab.Converters;
 
 public sealed class MatrixToTransformConverter : IValueConverter
 {

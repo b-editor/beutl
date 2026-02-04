@@ -8,6 +8,7 @@ using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Logging;
 using Beutl.ViewModels;
 

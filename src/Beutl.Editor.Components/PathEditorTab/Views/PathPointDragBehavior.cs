@@ -1,20 +1,26 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Avalonia;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Animation;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.PathEditorTab.Services;
+using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Beutl.ViewModels;
-using Beutl.ViewModels.Editors;
+using Beutl.ProjectSystem;
+using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using BtlPoint = Beutl.Graphics.Point;
 using BtlVector = Beutl.Graphics.Vector;
 
-namespace Beutl.Views;
+namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 public sealed class PathPointDragBehavior : Behavior<Thumb>
 {
@@ -71,10 +77,10 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     private void OnReleased()
     {
         IPathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<IPathEditorView>();
-        if (parent is { DataContext: IPathEditorViewModel { Element.Value: { } element } viewModel })
+        if (parent is { DataContext: IPathEditorContext { Element.Value: { } element } viewModel })
         {
             parent.SkipUpdatePosition = false;
-            viewModel.EditViewModel.HistoryManager.Commit(CommandNames.EditPathPoint);
+            viewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.EditPathPoint);
         }
 
         _coordDragStates = null;
@@ -137,7 +143,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         _lastPoint = null;
     }
 
-    private static PathSegment? GetAnchor(IPathEditorViewModel viewModel, PathFigure figure, PathSegment segment,
+    private static PathSegment? GetAnchor(IPathEditorContext viewModel, PathFigure figure, PathSegment segment,
         object? tag)
     {
         if (tag is not string s || figure.Segments.Count <= 1) return null;
@@ -176,7 +182,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         if (AssociatedObject is not { DataContext: PathSegment segment }
             || parent is not
             {
-                DataContext: IPathEditorViewModel { PathFigure.Value: { } figure, Element.Value: { } element } viewModel
+                DataContext: IPathEditorContext { PathFigure.Value: { } figure, Element.Value: { } element } viewModel
             }
             || !_lastPoint.HasValue)
         {
@@ -287,14 +293,16 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                                 Set(c.Previous);
                                 Set(c.Next);
 
+                                var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
                                 UpdateThumbPosition(c.Thumb,
-                                    c.GetInterpolatedValue(viewModel.EditViewModel.CurrentTime.Value));
+                                    c.GetInterpolatedValue(clock.CurrentTime.Value));
                             }
                             else
                             {
-                                var ctx = new RenderContext(viewModel.EditViewModel.CurrentTime.Value);
+                                var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+                                var ctx = new RenderContext(clock.CurrentTime.Value);
                                 BtlPoint point =
-                                    _dragState.GetInterpolatedValue(viewModel.EditViewModel.CurrentTime.Value);
+                                    _dragState.GetInterpolatedValue(clock.CurrentTime.Value);
                                 BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(ctx);
                                 BtlPoint d = anchorpoint - point;
                                 float angle = MathF.Atan2(d.X, d.Y);
@@ -307,8 +315,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                                 }
                                 else
                                 {
-                                    BtlPoint d2 = anchorpoint -
-                                                  c.GetSampleValue(viewModel.EditViewModel.CurrentTime.Value);
+                                    BtlPoint d2 = anchorpoint - c.GetSampleValue(clock.CurrentTime.Value);
                                     length = Length(d2);
                                 }
 
@@ -341,26 +348,11 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         }
     }
 
-    private void SetSelectedOperation(IPathEditorViewModel viewModel, PathSegment segment)
+    private void SetSelectedOperation(IPathEditorContext viewModel, PathSegment segment)
     {
-        if (AssociatedObject != null
-            && viewModel is { FigureContext.Value.Group.Value: { } group })
+        if (AssociatedObject != null && viewModel.FigureContext.Value is { } figureContext)
         {
-            foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
-            {
-                if (item.Context is PathOperationEditorViewModel itemvm)
-                {
-                    if (ReferenceEquals(itemvm.Value.Value, segment))
-                    {
-                        itemvm.IsExpanded.Value = true;
-                        itemvm.ProgrammaticallyExpanded = true;
-                    }
-                    else if (itemvm.ProgrammaticallyExpanded)
-                    {
-                        itemvm.IsExpanded.Value = false;
-                    }
-                }
-            }
+            figureContext.ExpandOperationForSegment(segment);
 
             if (!AssociatedObject.Classes.Contains("control"))
             {
@@ -373,7 +365,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     {
         IPathEditorView? parent = AssociatedObject?.FindLogicalAncestorOfType<IPathEditorView>();
         if (AssociatedObject is not { DataContext: PathSegment segment }
-            || parent is not { DataContext: IPathEditorViewModel { PathFigure.Value: { } figure } viewModel })
+            || parent is not { DataContext: IPathEditorContext { PathFigure.Value: { } figure } viewModel })
         {
             return;
         }
@@ -390,7 +382,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     [MemberNotNullWhen(true, nameof(_dragState), nameof(_coordDragStates))]
     private bool CreateDragState(
         IPathEditorView view,
-        IPathEditorViewModel viewModel,
+        IPathEditorContext viewModel,
         Thumb thumb,
         PathFigure figure,
         PathSegment segment)
@@ -440,7 +432,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     internal static void CoordinateControlPoint(
         List<PathPointDragState> list,
         IPathEditorView view,
-        IPathEditorViewModel viewModel,
+        IPathEditorContext viewModel,
         PathFigure figure,
         PathSegment segment)
     {
@@ -471,7 +463,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     internal static void CoordinateAnotherControlPoint(
         List<PathPointDragState> list,
         IPathEditorView view,
-        IPathEditorViewModel viewModel,
+        IPathEditorContext viewModel,
         PathFigure figure,
         PathSegment segment,
         // [ControlPoint, ControlPoint1, ControlPoint2] のいずれか
@@ -543,14 +535,15 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     }
 
     internal static PathPointDragState CreateThumbDragState(
-        IPathEditorViewModel viewModel,
+        IPathEditorContext viewModel,
         PathSegment segment,
         IProperty<BtlPoint> property)
     {
-        EditViewModel editViewModel = viewModel.EditViewModel;
+        var scene = viewModel.EditorContext.GetRequiredService<Scene>();
+        var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
         ProjectSystem.Element? element = viewModel.Element.Value;
-        int rate = editViewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-        TimeSpan globalkeyTime = editViewModel.CurrentTime.Value;
+        int rate = scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        TimeSpan globalkeyTime = clock.CurrentTime.Value;
         TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
 
         if (property.Animation is KeyFrameAnimation<BtlPoint> animation)

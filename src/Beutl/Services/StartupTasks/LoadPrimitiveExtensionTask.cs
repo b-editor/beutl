@@ -11,6 +11,7 @@ using Beutl.Editor.Components.SourceOperatorsTab;
 using Beutl.Editor.Components.GraphEditorTab;
 using Beutl.Editor.Components.NodeTreeTab;
 using Beutl.Editor.Components.NodeTreeInputTab;
+using Beutl.Editor.Components.PathEditorTab;
 using Beutl.Services.PrimitiveImpls;
 
 namespace Beutl.Services.StartupTasks;

@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 
 using Avalonia.Controls.Primitives;
 
@@ -10,7 +10,7 @@ using Beutl.Media;
 using BtlPoint = Beutl.Graphics.Point;
 using BtlVector = Beutl.Graphics.Vector;
 
-namespace Beutl.Views;
+namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 public sealed class PathPointDragState
 {

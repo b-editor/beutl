@@ -1,7 +1,8 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Beutl.Controls;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -9,7 +10,7 @@ using AvaMatrix = Avalonia.Matrix;
 using AvaPoint = Avalonia.Point;
 using PathGeometry = Beutl.Media.PathGeometry;
 
-namespace Beutl.Views;
+namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 public class PathGeometryControl : Control
 {

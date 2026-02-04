@@ -1,4 +1,5 @@
-﻿using Avalonia;
+using System.Reactive;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
@@ -8,26 +9,31 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Controls;
+using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Components.Views;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Beutl.ViewModels;
+using Beutl.Services;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 using BtlPoint = Beutl.Graphics.Point;
 using BtlVector = Beutl.Graphics.Vector;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.PathEditorTab.Views;
 
-public partial class PathEditorTab : UserControl, IPathEditorView
+public partial class PathEditorTabView : UserControl, IPathEditorView
 {
-    public static readonly DirectProperty<PathEditorTab, double> ScaleProperty =
-        AvaloniaProperty.RegisterDirect<PathEditorTab, double>(nameof(Scale),
+    public static readonly DirectProperty<PathEditorTabView, double> ScaleProperty =
+        AvaloniaProperty.RegisterDirect<PathEditorTabView, double>(nameof(Scale),
             o => o.Scale);
 
     public static readonly StyledProperty<Matrix> MatrixProperty =
-        AvaloniaProperty.Register<PathEditorTab, Matrix>(nameof(Matrix), Matrix.Identity);
+        AvaloniaProperty.Register<PathEditorTabView, Matrix>(nameof(Matrix), Matrix.Identity);
 
     private double _scale = 1;
     private Point _clickPoint;
@@ -46,7 +52,7 @@ public partial class PathEditorTab : UserControl, IPathEditorView
 
     private List<PathPointDragState>? _dragStates;
 
-    public PathEditorTab()
+    public PathEditorTabView()
     {
         InitializeComponent();
         canvas.AddHandler(PointerPressedEvent, OnCanvasPointerPressed, RoutingStrategies.Tunnel);
@@ -80,14 +86,14 @@ public partial class PathEditorTab : UserControl, IPathEditorView
         // 個別にBindingするのではなく、一括で位置を変更する
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorTabViewModel)
-            .Select(v => v?.EditViewModel.Player.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
+            .Select(v => v?.EditorContext.GetService<IPreviewPlayer>()?.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
             .Switch()
             .CombineLatest(this.GetObservable(ScaleProperty), this.GetObservable(MatrixProperty))
             .Subscribe(_ => UpdateThumbPosition());
 
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorTabViewModel)
-            .Select(v => v?.EditViewModel.Player.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
+            .Select(v => v?.EditorContext.GetService<IPreviewPlayer>()?.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
             .Switch()
             .CombineLatest(view.GetObservable(PathGeometryControl.FigureProperty))
             .Subscribe(_ => UpdateBackgroundGeometry());
@@ -207,6 +213,7 @@ public partial class PathEditorTab : UserControl, IPathEditorView
         {
             if (DataContext is PathEditorTabViewModel viewModel)
             {
+                var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
                 foreach (Thumb thumb in canvas.Children.OfType<Thumb>())
                 {
                     if (thumb.DataContext is PathSegment segment)
@@ -214,7 +221,7 @@ public partial class PathEditorTab : UserControl, IPathEditorView
                         IProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
                         if (prop != null)
                         {
-                            TimeSpan currentTime = viewModel.EditViewModel.CurrentTime.Value;
+                            TimeSpan currentTime = clock.CurrentTime.Value;
                             Point point = prop.GetValue(new RenderContext(currentTime)).ToAvaPoint();
                             point = point.Transform(Matrix);
                             point *= Scale;
@@ -350,7 +357,7 @@ public partial class PathEditorTab : UserControl, IPathEditorView
             && DataContext is PathEditorTabViewModel { Element.Value: { } element } viewModel
             && _dragStates?.Count > 0)
         {
-            viewModel.EditViewModel.HistoryManager.Commit(CommandNames.EditPathPoint);
+            viewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.EditPathPoint);
         }
 
         _dragStates = null;
@@ -480,11 +487,12 @@ public partial class PathEditorTab : UserControl, IPathEditorView
     private void OnDeleteClicked(object? sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem { DataContext: PathSegment op }
-            && DataContext is PathEditorTabViewModel { FigureContext.Value.Group.Value: { } group })
+            && DataContext is PathEditorTabViewModel viewModel
+            && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext)
         {
-            int index = group.List.Value?.IndexOf(op) ?? -1;
+            int index = figureContext.GetSegmentIndex(op);
             if (index >= 0)
-                group.RemoveItem(index);
+                figureContext.RemoveSegment(index);
         }
     }
 
@@ -533,19 +541,17 @@ public partial class PathEditorTab : UserControl, IPathEditorView
     private void AddOpClicked(object? sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem item
-            && DataContext is PathEditorTabViewModel
-            {
-                PathFigure.Value: { } figure,
-                FigureContext.Value.Group.Value: { } group,
-                EditViewModel: { } editViewModel
-            })
+            && DataContext is PathEditorTabViewModel viewModel
+            && viewModel.PathFigure.Value is { } figure
+            && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext)
         {
+            var clock = viewModel.GetRequiredService<IEditorClock>();
             int index = figure.Segments.Count;
             BtlPoint lastPoint = default;
             if (index > 0)
             {
                 PathSegment lastOp = figure.Segments[index - 1];
-                lastPoint = lastOp.GetEndPoint().GetValue(new RenderContext(editViewModel.CurrentTime.Value));
+                lastPoint = lastOp.GetEndPoint().GetValue(new RenderContext(clock.CurrentTime.Value));
             }
 
             BtlPoint point = (_clickPoint / Scale).ToBtlPoint();
@@ -558,7 +564,7 @@ public partial class PathEditorTab : UserControl, IPathEditorView
 
             if (obj != null)
             {
-                group.AddItem(obj);
+                figureContext.AddSegment(obj, index);
             }
         }
     }

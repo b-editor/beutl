@@ -1,4 +1,5 @@
-﻿using Avalonia;
+using System.Reactive;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -6,18 +7,23 @@ using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Controls;
+using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Beutl.ViewModels;
+using Beutl.Services;
 
 using FluentAvalonia.UI.Controls;
 
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 
 using BtlPoint = Beutl.Graphics.Point;
 
-namespace Beutl.Views;
+namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 public partial class PathEditorView : UserControl, IPathEditorView
 {
@@ -70,7 +76,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
         // TODO: Scale, Matrixが変わった時に位置がずれる
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorViewModel)
-            .Select(v => v?.PlayerViewModel?.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
+            .Select(v => v?.EditorContext.GetService<IPreviewPlayer>()?.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
             .Switch()
             .CombineLatest(this.GetObservable(ScaleProperty), this.GetObservable(MatrixProperty))
             .Subscribe(_ => UpdateThumbPosition());
@@ -128,6 +134,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
         {
             if (DataContext is PathEditorViewModel viewModel)
             {
+                var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
                 foreach (Thumb thumb in canvas.Children.OfType<Thumb>())
                 {
                     if (thumb.DataContext is PathSegment segment)
@@ -135,7 +142,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
                         IProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
                         if (prop != null)
                         {
-                            var ctx = new RenderContext(viewModel.EditViewModel.CurrentTime.Value);
+                            var ctx = new RenderContext(clock.CurrentTime.Value);
                             Point point = prop.GetValue(ctx).ToAvaPoint();
                             point = point.Transform(Matrix);
                             point *= Scale;
@@ -229,11 +236,12 @@ public partial class PathEditorView : UserControl, IPathEditorView
     private void OnDeleteClicked(object? sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem { DataContext: PathSegment op }
-            && DataContext is PathEditorViewModel { FigureContext.Value.Group.Value: { } group })
+            && DataContext is PathEditorViewModel viewModel
+            && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext)
         {
-            int index = group.List.Value?.IndexOf(op) ?? -1;
+            int index = figureContext.GetSegmentIndex(op);
             if (index >= 0)
-                group.RemoveItem(index);
+                figureContext.RemoveSegment(index);
         }
     }
 
@@ -272,19 +280,17 @@ public partial class PathEditorView : UserControl, IPathEditorView
     private void AddOpClicked(object? sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem item
-            && DataContext is PathEditorViewModel
-            {
-                PathFigure.Value: { } figure,
-                FigureContext.Value.Group.Value: { } group,
-                EditViewModel: var editViewModel
-            })
+            && DataContext is PathEditorViewModel viewModel
+            && viewModel.PathFigure.Value is { } figure
+            && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext)
         {
+            var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
             int index = figure.Segments.Count;
             BtlPoint lastPoint = default;
             if (index > 0)
             {
                 PathSegment lastOp = figure.Segments[index - 1];
-                var ctx = new RenderContext(editViewModel.CurrentTime.Value);
+                var ctx = new RenderContext(clock.CurrentTime.Value);
                 lastPoint = lastOp.GetEndPoint().GetValue(ctx);
             }
 
@@ -298,7 +304,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
 
             if (obj != null)
             {
-                group.AddItem(obj);
+                figureContext.AddSegment(obj, index);
             }
         }
     }
