@@ -1,0 +1,42 @@
+<UserControl x:Class="Beutl.Editor.Components.SceneSettingsTab.Views.SceneSettingsTabView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:local="using:Beutl.Editor.Components.SceneSettingsTab.Views"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModel="using:Beutl.Editor.Components.SceneSettingsTab.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="viewModel:SceneSettingsTabViewModel"
+             mc:Ignorable="d">
+    <StackPanel Spacing="4">
+        <local:Int2Editor x:Name="sizeEditor"
+                          Margin="4,8,4,0"
+                          FirstHeader="{x:Static lang:Strings.Width}"
+                          Header="{x:Static lang:Strings.Size}"
+                          SecondHeader="{x:Static lang:Strings.Height}" />
+
+        <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.StartTime}" />
+        <TextBox Margin="8,0" Text="{Binding StartInput.Value, Mode=TwoWay}" />
+
+        <TextBlock Margin="8,8,8,0" Text="{x:Static lang:Strings.DurationTime}" />
+        <TextBox Margin="8,0" Text="{Binding DurationInput.Value, Mode=TwoWay}" />
+
+        <local:IntEditor x:Name="countEditor"
+                         Margin="4,8,4,0"
+                         EditorStyle="Compact"
+                         Header="{x:Static lang:Strings.Number_of_Layers}" />
+
+        <StackPanel Margin="8"
+                    Orientation="Horizontal"
+                    Spacing="4">
+            <Button Classes="accent"
+                    Command="{Binding Apply}"
+                    Content="{x:Static lang:Strings.Apply}" />
+
+            <Button Command="{Binding Revert}" Content="{x:Static lang:Strings.DiscardChanges}" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

@@ -58,5 +58,6 @@
   <Project Path="src\Beutl.Threading\Beutl.Threading.csproj" />
   <Project Path="src\Beutl.Utilities\Beutl.Utilities.csproj" />
   <Project Path="src\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
+  <Project Path="src\Beutl.Editor.Components\Beutl.Editor.Components.csproj" />
   <Project Path="src\Beutl\Beutl.csproj" />
 </Solution>

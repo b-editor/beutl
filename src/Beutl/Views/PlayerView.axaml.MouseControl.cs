@@ -16,7 +16,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
@@ -27,6 +27,8 @@ using Beutl.Operators.Source;
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
 using AvaRect = Avalonia.Rect;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Views;
 
 namespace Beutl.Views;
 

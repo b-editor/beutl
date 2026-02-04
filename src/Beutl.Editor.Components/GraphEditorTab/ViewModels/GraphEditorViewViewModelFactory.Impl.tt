@@ -1,0 +1,355 @@
+<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ output extension=".cs" #>
+<#
+    var vec2Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY)[]
+    {
+        ("Media", "PixelPoint", "int", "X", "Y"),
+        ("Media", "PixelSize", "int", "Width", "Height"),
+        ("Graphics", "Point", "float", "X", "Y"),
+        ("Graphics", "Size", "float", "Width", "Height"),
+        ("Graphics", "Vector", "float", "X", "Y"),
+        ("System.Numerics", "Vector2", "float", "X", "Y"),
+    };
+
+    var vec3Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ)[]
+    {
+        ("System.Numerics", "Vector3", "float", "X", "Y", "Z"),
+    };
+
+    var vec4Types = new (string Namespace, string Name, string Element, string FieldX, string FieldY, string FieldZ, string FieldW)[]
+    {
+        //("Media", "Color", "byte", "A", "R", "G", "B"),
+        ("Media", "PixelRect", "int", "X", "Y", "Width", "Height"),
+        ("Graphics", "Rect", "float", "X", "Y", "Width", "Height"),
+        ("Media", "CornerRadius", "float", "TopLeft", "TopRight", "BottomRight", "BottomLeft"),
+        ("Graphics", "Thickness", "float", "Left", "Top", "Right", "Bottom"),
+        ("System.Numerics", "Vector4", "float", "X", "Y", "Z", "W"),
+    };
+
+    // !(暗黙的にdoubleに変換できるか)
+    bool RequireCast_ConvertTo(string type)
+    {
+        return !(type == "int" ||
+                 type == "float" ||
+                 type == "byte");
+    }
+
+    bool RequireCast_ConvertFrom(string type)
+    {
+        return type == "int" ||
+               type == "float" ||
+               type == "byte";
+    }
+#>
+
+using System.Runtime.CompilerServices;
+
+namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
+
+public abstract partial class GraphEditorViewViewModelFactory
+{
+    private static void InitializeGenerated()
+    {
+<# foreach(var t in vec2Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+        s_registry[typeof(<#= fullName#>)] = new <#= t.Name #>Factory();
+<# } #>
+
+<# foreach(var t in vec3Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+        s_registry[typeof(<#= fullName#>)] = new <#= t.Name #>Factory();
+<# } #>
+
+<# foreach(var t in vec4Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+        s_registry[typeof(<#= fullName#>)] = new <#= t.Name #>Factory();
+<# } #>
+    }
+
+    // Vector2
+<# foreach(var t in vec2Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+    private sealed class <#= t.Name #>Factory : GraphEditorViewViewModelFactory
+    {
+        protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
+        {
+            return
+            [
+                new GraphEditorViewViewModel(
+                    parent,
+                    "<#= t.FieldX #>",
+                    obj => ConvertTo(0, obj),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(0, old, value, out obj)),
+
+                new GraphEditorViewViewModel(
+                    parent,
+                    "<#= t.FieldY #>",
+                    obj => ConvertTo(1, obj),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj))
+            ];
+        }
+
+        public override double MaxValue => double.CreateTruncating(<#= t.Element #>.MaxValue);
+
+        public override double MinValue => double.CreateTruncating(<#= t.Element #>.MinValue);
+
+        private static double ConvertTo(int fieldIndex, object? obj)
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            static double Cast(<#= t.Element #> value)
+            {
+                return <#= RequireCast_ConvertTo(t.Element) ? "double.CreateTruncating(value)" : "value" #>;
+            }
+
+            if (obj is <#= fullName #> typed)
+            {
+                return fieldIndex switch
+                {
+                    0 => Cast(typed.<#= t.FieldX #>),
+                    1 => Cast(typed.<#= t.FieldY #>),
+                    _ => 1d
+                };
+            }
+            else
+            {
+                return 1d;
+            }
+        }
+
+        private static bool TryConvertFrom(int fieldIndex, object? oldValue, double value, out object? obj)
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            <#= t.Element #> Cast()
+            {
+                return <#= RequireCast_ConvertFrom(t.Element) ? $"{t.Element}.CreateTruncating(value)" : "value" #>;
+            }
+
+            if (oldValue is <#= fullName #> old)
+            {
+                switch (fieldIndex)
+                {
+                    case 0:
+                        obj = new <#= fullName #>(Cast(), old.<#= t.FieldY #>);
+                        return true;
+
+                    case 1:
+                        obj = new <#= fullName #>(old.<#= t.FieldX #>, Cast());
+                        return true;
+
+                    default:
+                        obj = null;
+                        return false;
+                }
+            }
+            else
+            {
+                obj = null;
+                return false;
+            }
+        }
+    }
+<# } #>
+
+    // Vector3
+<# foreach(var t in vec3Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+    private sealed class <#= t.Name #>Factory : GraphEditorViewViewModelFactory
+    {
+        protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
+        {
+            return
+            [
+                new GraphEditorViewViewModel(
+                    parent,
+                    "<#= t.FieldX #>",
+                    obj => ConvertTo(0, obj),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(0, old, value, out obj)),
+
+                new GraphEditorViewViewModel(
+                    parent,
+                    "<#= t.FieldY #>",
+                    obj => ConvertTo(1, obj),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj)),
+
+                new GraphEditorViewViewModel(
+                    parent,
+                    "<#= t.FieldZ #>",
+                    obj => ConvertTo(2, obj),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(2, old, value, out obj))
+            ];
+        }
+
+        public override double MaxValue => double.CreateTruncating(<#= t.Element #>.MaxValue);
+
+        public override double MinValue => double.CreateTruncating(<#= t.Element #>.MinValue);
+
+        private static double ConvertTo(int fieldIndex, object? obj)
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            static double Cast(<#= t.Element #> value)
+            {
+                return <#= RequireCast_ConvertTo(t.Element) ? "double.CreateTruncating(value)" : "value" #>;
+            }
+
+            if (obj is <#= fullName #> typed)
+            {
+                return fieldIndex switch
+                {
+                    0 => Cast(typed.<#= t.FieldX #>),
+                    1 => Cast(typed.<#= t.FieldY #>),
+                    2 => Cast(typed.<#= t.FieldZ #>),
+                    _ => 1d
+                };
+            }
+            else
+            {
+                return 1d;
+            }
+        }
+
+        private static bool TryConvertFrom(int fieldIndex, object? oldValue, double value, out object? obj)
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            <#= t.Element #> Cast()
+            {
+                return <#= RequireCast_ConvertFrom(t.Element) ? $"{t.Element}.CreateTruncating(value)" : "value" #>;
+            }
+
+            if (oldValue is <#= fullName #> old)
+            {
+                switch (fieldIndex)
+                {
+                    case 0:
+                        obj = new <#= fullName #>(Cast(), old.<#= t.FieldY #>, old.<#= t.FieldZ #>);
+                        return true;
+
+                    case 1:
+                        obj = new <#= fullName #>(old.<#= t.FieldX #>, Cast(), old.<#= t.FieldZ #>);
+                        return true;
+
+                    case 2:
+                        obj = new <#= fullName #>(old.<#= t.FieldX #>, old.<#= t.FieldY #>, Cast());
+                        return true;
+
+                    default:
+                        obj = null;
+                        return false;
+                }
+            }
+            else
+            {
+                obj = null;
+                return false;
+            }
+        }
+    }
+<# } #>
+
+    // Vector4
+<# foreach(var t in vec4Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+    private sealed class <#= t.Name #>Factory : GraphEditorViewViewModelFactory
+    {
+        protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
+        {
+            return
+            [
+                new GraphEditorViewViewModel(
+                    parent,
+                    "<#= t.FieldX #>",
+                    obj => ConvertTo(0, obj),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(0, old, value, out obj)),
+
+                new GraphEditorViewViewModel(
+                    parent,
+                    "<#= t.FieldY #>",
+                    obj => ConvertTo(1, obj),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(1, old, value, out obj)),
+
+                new GraphEditorViewViewModel(
+                    parent,
+                    "<#= t.FieldZ #>",
+                    obj => ConvertTo(2, obj),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(2, old, value, out obj)),
+
+                new GraphEditorViewViewModel(
+                    parent,
+                    "<#= t.FieldW #>",
+                    obj => ConvertTo(3, obj),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(3, old, value, out obj))
+            ];
+        }
+
+        public override double MaxValue => double.CreateTruncating(<#= t.Element #>.MaxValue);
+
+        public override double MinValue => double.CreateTruncating(<#= t.Element #>.MinValue);
+
+        private static double ConvertTo(int fieldIndex, object? obj)
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            static double Cast(<#= t.Element #> value)
+            {
+                return <#= RequireCast_ConvertTo(t.Element) ? "double.CreateTruncating(value)" : "value" #>;
+            }
+
+            if (obj is <#= fullName #> typed)
+            {
+                return fieldIndex switch
+                {
+                    0 => Cast(typed.<#= t.FieldX #>),
+                    1 => Cast(typed.<#= t.FieldY #>),
+                    2 => Cast(typed.<#= t.FieldZ #>),
+                    3 => Cast(typed.<#= t.FieldW #>),
+                    _ => 1d
+                };
+            }
+            else
+            {
+                return 1d;
+            }
+        }
+
+        private static bool TryConvertFrom(int fieldIndex, object? oldValue, double value, out object? obj)
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            <#= t.Element #> Cast()
+            {
+                return <#= RequireCast_ConvertFrom(t.Element) ? $"{t.Element}.CreateTruncating(value)" : "value" #>;
+            }
+
+            if (oldValue is <#= fullName #> old)
+            {
+                switch (fieldIndex)
+                {
+                    case 0:
+                        obj = new <#= fullName #>(Cast(), old.<#= t.FieldY #>, old.<#= t.FieldZ #>, old.<#= t.FieldW #>);
+                        return true;
+
+                    case 1:
+                        obj = new <#= fullName #>(old.<#= t.FieldX #>, Cast(), old.<#= t.FieldZ #>, old.<#= t.FieldW #>);
+                        return true;
+
+                    case 2:
+                        obj = new <#= fullName #>(old.<#= t.FieldX #>, old.<#= t.FieldY #>, Cast(), old.<#= t.FieldW #>);
+                        return true;
+
+                    case 3:
+                        obj = new <#= fullName #>(old.<#= t.FieldX #>, old.<#= t.FieldY #>, old.<#= t.FieldZ #>, Cast());
+                        return true;
+
+                    default:
+                        obj = null;
+                        return false;
+                }
+            }
+            else
+            {
+                obj = null;
+                return false;
+            }
+        }
+    }
+<# } #>
+
+}

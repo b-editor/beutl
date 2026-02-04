@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Media;
 using Beutl.Operation;
 
@@ -9,7 +10,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
+public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, IGeometryEditorContext
 {
     public GeometryEditorViewModel(IPropertyAdapter<Geometry?> property)
         : base(property)
@@ -160,6 +161,21 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>
         base.Dispose(disposing);
         Properties.Value?.Dispose();
         Group.Value?.Dispose();
+    }
+
+    public void ExpandForEditing()
+    {
+        if (!IsExpanded.Value)
+        {
+            IsExpanded.Value = true;
+        }
+    }
+
+    public IPathFigureEditorContext? FindPathFigureContext(PathFigure figure)
+    {
+        return Group.Value?.Items
+            .FirstOrDefault(v => v.Context is PathFigureEditorViewModel f && f.Value.Value == figure)
+            ?.Context as IPathFigureEditorContext;
     }
 
     private sealed record Visitor(GeometryEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor

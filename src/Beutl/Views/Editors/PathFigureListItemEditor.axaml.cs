@@ -2,10 +2,9 @@
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 
-using Beutl.Language;
+using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Media;
 using Beutl.Services;
 using Beutl.ViewModels;

@@ -3,10 +3,10 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Animation;
 using Beutl.ProjectSystem;
+using Beutl.Editor.Components.GraphEditorTab.ViewModels;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-using Beutl.ViewModels.Tools;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
@@ -86,10 +86,10 @@ public sealed partial class PropertyEditorMenu : UserControl
             viewModel.PrepareToEditAnimation();
 
             // タイムラインのタブを開く
-            var anmTimelineViewModel = new GraphEditorTabViewModel(editViewModel);
-            anmTimelineViewModel.Element.Value = viewModel.GetService<Element>();
-            anmTimelineViewModel.Select(animatableProperty.Animation as KeyFrameAnimation);
-            editViewModel.OpenToolTab(anmTimelineViewModel);
+            var anmTimelineTabViewModel = new GraphEditorTabViewModel(editViewModel);
+            anmTimelineTabViewModel.Element.Value = viewModel.GetService<Element>();
+            anmTimelineTabViewModel.Select(animatableProperty.Animation as KeyFrameAnimation);
+            editViewModel.OpenToolTab(anmTimelineTabViewModel);
         }
     }
 
@@ -110,7 +110,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
             && viewModel.GetService<EditViewModel>() is { } editViewModel
             && viewModel.GetService<Element>() is { } element
-            && editViewModel.FindToolTab<TimelineViewModel>() is { } timeline)
+            && editViewModel.FindToolTab<TimelineTabViewModel>() is { } timeline)
         {
             viewModel.PrepareToEditAnimation();
 

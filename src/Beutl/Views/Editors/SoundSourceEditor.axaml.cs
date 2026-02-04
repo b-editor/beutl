@@ -6,7 +6,7 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
@@ -61,7 +61,7 @@ public partial class SoundSourceEditor : UserControl
 
         // 動画の長さに要素の長さを合わせる
         if (vm.GetService<Element>() is not { } element) return;
-        TimelineViewModel? timeline = vm.GetService<EditViewModel>()?.FindToolTab<TimelineViewModel>();
+        TimelineTabViewModel? timeline = vm.GetService<EditViewModel>()?.FindToolTab<TimelineTabViewModel>();
         ElementViewModel? elmViewModel = timeline?.GetViewModelFor(element);
 
         elmViewModel?.ChangeToOriginalLength.Execute();

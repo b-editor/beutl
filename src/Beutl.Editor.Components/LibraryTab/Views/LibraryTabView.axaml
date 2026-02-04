@@ -1,0 +1,76 @@
+<UserControl x:Class="Beutl.Editor.Components.LibraryTab.Views.LibraryTabView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.Editor.Components.LibraryTab.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="300"
+             x:DataType="viewModel:LibraryTabViewModel"
+             mc:Ignorable="d">
+    <Grid RowDefinitions="Auto,*">
+        <ScrollViewer x:Name="scroll"
+                      AllowAutoHide="False"
+                      HorizontalScrollBarVisibility="Auto">
+            <ScrollViewer.Styles>
+                <Style Selector="ScrollBar">
+                    <Style Selector="^ /template/ Grid#Root">
+                        <Setter Property="Background" Value="{x:Null}" />
+                    </Style>
+                    <Style Selector="^ /template/ Rectangle#TrackRect">
+                        <Setter Property="IsVisible" Value="False" />
+                    </Style>
+                </Style>
+                <Style Selector="Track">
+                    <Setter Property="IsVisible" Value="False" />
+                </Style>
+            </ScrollViewer.Styles>
+            <StackPanel x:Name="tabStackPanel"
+                        Margin="0,2,0,8"
+                        Orientation="Horizontal"
+                        Spacing="8">
+
+                <TabStrip x:Name="tabStrip"
+                          SelectedIndex="2"
+                          Theme="{StaticResource LiteNavTabStrip}">
+                    <TabStrip.Styles>
+                        <Style Selector="TabStripItem">
+                            <Setter Property="Padding" Value="12,5,12,3" />
+                            <Setter Property="ToolTip.Tip" Value="{Binding $self.((StackPanel)Content).Children((TextBlock)[1]).Text}" />
+
+                            <Style Selector="^ > StackPanel">
+                                <Setter Property="Spacing" Value="4" />
+                                <Setter Property="Orientation" Value="Horizontal" />
+
+                                <Style Selector="^ > TextBlock">
+                                    <Setter Property="IsVisible" Value="{Binding $parent[TabStripItem].IsSelected}" />
+                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                </Style>
+                                <Style Selector="^ > icons|SymbolIcon">
+                                    <Setter Property="FontSize" Value="20" />
+                                </Style>
+                            </Style>
+                        </Style>
+                    </TabStrip.Styles>
+                </TabStrip>
+
+                <Button x:Name="moreButton"
+                        Click="MoreButton_Click"
+                        FontSize="20"
+                        Theme="{StaticResource LiteButtonStyle}">
+                    <icons:SymbolIcon Symbol="MoreHorizontal" />
+                </Button>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Carousel x:Name="carousel"
+                  Grid.Row="1"
+                  Margin="0,-6,0,0"
+                  Padding="8"
+                  SelectedIndex="{Binding #tabStrip.SelectedIndex}" />
+
+    </Grid>
+</UserControl>

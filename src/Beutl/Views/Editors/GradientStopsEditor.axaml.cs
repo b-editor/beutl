@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Immutable;
+using Beutl.Controls;
 using Beutl.Media;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
@@ -56,7 +57,7 @@ public sealed partial class GradientStopsEditor : UserControl
 
         GradientStop obj = list[e.OldIndex];
         obj.Offset.CurrentValue = (float)e.Object.Offset;
-        obj.Color.CurrentValue = e.Object.Color.ToMedia();
+        obj.Color.CurrentValue = e.Object.Color.ToBtlColor();
         if (e.NewIndex != e.OldIndex)
             list.Move(e.OldIndex, e.NewIndex);
     }
@@ -80,13 +81,13 @@ public sealed partial class GradientStopsEditor : UserControl
         {
             int index = viewModel.Stops.Value.IndexOf(astop);
             var bstop = viewModel.Value.Value[index];
-            bstop.Color.CurrentValue = args.NewColor.Value.ToMedia();
+            bstop.Color.CurrentValue = args.NewColor.Value.ToBtlColor();
             viewModel.ConfirmeGradientStop(
                 index, index,
                 new GradientStop.Resource
                 {
                     Offset = bstop.Offset.CurrentValue,
-                    Color = args.OldColor.Value.ToMedia()
+                    Color = args.OldColor.Value.ToBtlColor()
                 },
                 bstop);
         }

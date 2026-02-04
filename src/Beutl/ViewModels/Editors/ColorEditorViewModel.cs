@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Interactivity;
 
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
 
@@ -17,7 +18,7 @@ public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>, IConfigu
         : base(property)
     {
         Value2 = Value
-            .Select(x => x.ToAvalonia())
+            .Select(x => x.ToAvaColor())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
     }
@@ -46,7 +47,7 @@ public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>, IConfigu
     {
         if (sender is ColorEditor editor)
         {
-            editor.Value = SetCurrentValueAndGetCoerced(editor.Value.ToMedia()).ToAvalonia();
+            editor.Value = SetCurrentValueAndGetCoerced(editor.Value.ToBtlColor()).ToAvaColor();
         }
     }
 
@@ -54,7 +55,7 @@ public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>, IConfigu
     {
         if (e is PropertyEditorValueChangedEventArgs<AColor> args)
         {
-            SetValue(args.OldValue.ToMedia(), args.NewValue.ToMedia());
+            SetValue(args.OldValue.ToBtlColor(), args.NewValue.ToBtlColor());
         }
     }
 }

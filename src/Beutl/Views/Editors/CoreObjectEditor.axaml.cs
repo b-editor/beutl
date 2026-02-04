@@ -11,7 +11,7 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
-using Beutl.ViewModels.Tools;
+using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
@@ -97,10 +97,10 @@ public sealed class CoreObjectEditor<T> : CoreObjectEditor
         if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return;
         if (viewModel.GetService<EditViewModel>() is not { } editViewModel) return;
 
-        ObjectPropertyEditorViewModel objViewModel
-            = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>(i =>
+        ObjectPropertyTabViewModel objViewModel
+            = editViewModel.FindToolTab<ObjectPropertyTabViewModel>(i =>
                   ReferenceEquals(i.ChildContext.Value?.Target, viewModel.Value.Value))
-              ?? new ObjectPropertyEditorViewModel(editViewModel);
+              ?? new ObjectPropertyTabViewModel(editViewModel);
 
         objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);
         editViewModel.OpenToolTab(objViewModel);

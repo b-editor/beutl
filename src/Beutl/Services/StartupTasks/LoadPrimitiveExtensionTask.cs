@@ -1,4 +1,17 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Editor.Components.ColorScopesTab;
+using Beutl.Editor.Components.CurvesTab;
+using Beutl.Editor.Components.ColorGradingProperties;
+using Beutl.Editor.Components.ColorGradingTab;
+using Beutl.Editor.Components.FileBrowserTab;
+using Beutl.Editor.Components.LibraryTab;
+using Beutl.Editor.Components.ObjectPropertyTab;
+using Beutl.Editor.Components.SceneSettingsTab;
+using Beutl.Editor.Components.SourceOperatorsTab;
+using Beutl.Editor.Components.GraphEditorTab;
+using Beutl.Editor.Components.NodeTreeTab;
+using Beutl.Editor.Components.NodeTreeInputTab;
+using Beutl.Editor.Components.PathEditorTab;
 using Beutl.Services.PrimitiveImpls;
 
 namespace Beutl.Services.StartupTasks;

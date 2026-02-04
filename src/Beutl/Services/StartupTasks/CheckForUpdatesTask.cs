@@ -2,6 +2,7 @@
 using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Clients;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
@@ -116,7 +117,7 @@ public sealed class CheckForUpdatesTask : StartupTask
 
             Process.Start(new ProcessStartInfo(response.Url) { UseShellExecute = true, Verb = "open" });
 
-            (App.GetTopLevel() as Window)?.Close();
+            (AppHelper.GetTopLevel() as Window)?.Close();
         });
     }
 }

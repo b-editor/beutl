@@ -1,0 +1,84 @@
+<UserControl x:Class="Beutl.Editor.Components.ColorScopesTab.Views.ColorScopesTabView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:scopes="using:Beutl.Editor.Components.ColorScopesTab.Views.Scopes"
+             xmlns:viewModels="using:Beutl.Editor.Components.ColorScopesTab.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="viewModels:ColorScopesTabViewModel"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="ScopeAxisBrush" Color="#141417" />
+        <SolidColorBrush x:Key="ScopeLabelBrush" Color="#808080" />
+        <SolidColorBrush x:Key="ScopeBackgroundBrush" Color="#050506" />
+    </UserControl.Resources>
+
+    <Grid RowDefinitions="Auto,*">
+        <Grid Height="32" ColumnDefinitions="Auto,Auto">
+            <ComboBox Grid.Column="0"
+                      Margin="8,0,0,0"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      SelectedIndex="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}}"
+                      Theme="{StaticResource LiteComboBoxStyle}">
+                <ComboBoxItem Content="{x:Static lang:Strings.Waveform}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.Histogram}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.Vectorscope}" />
+            </ComboBox>
+
+            <Grid Grid.Column="1"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}">
+                <ComboBox Margin="8,0,0,0"
+                          HorizontalAlignment="Stretch"
+                          SelectedIndex="{Binding WaveformMode.Value, Converter={x:Static scopes:WaveformModeConverter.Instance}}"
+                          Theme="{StaticResource LiteComboBoxStyle}">
+                    <ComboBoxItem Content="{x:Static lang:Strings.Luma}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.RgbOverlay}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
+                </ComboBox>
+            </Grid>
+
+            <Grid Grid.Column="1"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Histogram}">
+                <ComboBox Margin="8,0,0,0"
+                          HorizontalAlignment="Stretch"
+                          SelectedIndex="{Binding HistogramMode.Value, Converter={x:Static scopes:HistogramModeConverter.Instance}}"
+                          Theme="{StaticResource LiteComboBoxStyle}">
+                    <ComboBoxItem Content="{x:Static lang:Strings.RgbOverlay}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
+                </ComboBox>
+            </Grid>
+        </Grid>
+
+        <Panel Grid.Row="1">
+            <scopes:WaveformControl x:Name="WaveformControl"
+                                    AxisBrush="{StaticResource ScopeAxisBrush}"
+                                    BackgroundBrush="{StaticResource ScopeBackgroundBrush}"
+                                    IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}"
+                                    LabelBrush="{StaticResource ScopeLabelBrush}"
+                                    Mode="{Binding WaveformMode.Value}"
+                                    SourceBitmap="{Binding SourceBitmap.Value}" />
+
+            <scopes:HistogramControl x:Name="HistogramControl"
+                                     AxisBrush="{StaticResource ScopeAxisBrush}"
+                                     BackgroundBrush="{StaticResource ScopeBackgroundBrush}"
+                                     IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Histogram}"
+                                     LabelBrush="{StaticResource ScopeLabelBrush}"
+                                     Mode="{Binding HistogramMode.Value}"
+                                     SourceBitmap="{Binding SourceBitmap.Value}" />
+
+            <scopes:VectorscopeControl x:Name="VectorscopeControl"
+                                       AxisBrush="{StaticResource ScopeAxisBrush}"
+                                       BackgroundBrush="{StaticResource ScopeBackgroundBrush}"
+                                       IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Vectorscope}"
+                                       LabelBrush="{StaticResource ScopeLabelBrush}"
+                                       SourceBitmap="{Binding SourceBitmap.Value}" />
+        </Panel>
+    </Grid>
+</UserControl>

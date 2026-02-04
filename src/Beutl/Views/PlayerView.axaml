@@ -6,6 +6,7 @@
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views"
+             xmlns:pathEditor="using:Beutl.Editor.Components.PathEditorTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="450"
@@ -131,9 +132,9 @@
                        RenderOptions.BitmapInterpolationMode="HighQuality"
                        Source="{Binding PreviewImage.Value, Mode=OneWay}" />
 
-                <local:PathEditorView Width="{Binding #image.Bounds.Width}"
-                                      Height="{Binding #image.Bounds.Height}"
-                                      DataContext="{Binding PathEditor}" />
+                <pathEditor:PathEditorView Width="{Binding #image.Bounds.Width}"
+                                           Height="{Binding #image.Bounds.Height}"
+                                           DataContext="{Binding PathEditor}" />
             </Panel>
         </Player.Content>
     </Player>

@@ -9,7 +9,7 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceInclude Source="Resources/GraphEditorResources.axaml" />
+                <ResourceInclude Source="avares://Beutl.Editor.Components/GraphEditorTab/Views/GraphEditorResources.axaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />

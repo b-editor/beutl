@@ -4,15 +4,16 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Services;
+using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
-using Beutl.ViewModels.Tools;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media;
 using Microsoft.Extensions.DependencyInjection;
@@ -210,9 +211,9 @@ public sealed partial class BrushEditor : UserControl
         if (viewModel.Value.Value is not DrawableBrush { Drawable.CurrentValue: { } drawable }) return;
         if (viewModel.GetService<EditViewModel>() is not { } editViewModel) return;
 
-        ObjectPropertyEditorViewModel objViewModel
-            = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>()
-              ?? new ObjectPropertyEditorViewModel(editViewModel);
+        ObjectPropertyTabViewModel objViewModel
+            = editViewModel.FindToolTab<ObjectPropertyTabViewModel>()
+              ?? new ObjectPropertyTabViewModel(editViewModel);
 
         objViewModel.NavigateCore(drawable, false, viewModel);
         editViewModel.OpenToolTab(objViewModel);
@@ -345,7 +346,7 @@ public sealed partial class BrushEditor : UserControl
 
         GradientStop obj = list[e.OldIndex];
         obj.Offset.CurrentValue = (float)e.Object.Offset;
-        obj.Color.CurrentValue = e.Object.Color.ToMedia();
+        obj.Color.CurrentValue = e.Object.Color.ToBtlColor();
         if (e.NewIndex != e.OldIndex)
             list.Move(e.OldIndex, e.NewIndex);
 

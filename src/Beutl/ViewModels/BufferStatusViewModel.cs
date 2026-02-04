@@ -1,14 +1,14 @@
 ﻿using System.Collections.Immutable;
 
 using Avalonia.Threading;
-
+using Beutl.Editor.Components.Helpers;
 using Beutl.Models;
 
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class BufferStatusViewModel : IDisposable
+public sealed class BufferStatusViewModel : IBufferStatus, IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly EditViewModel _editViewModel;
@@ -19,12 +19,12 @@ public sealed class BufferStatusViewModel : IDisposable
         _editViewModel = editViewModel;
 
         Start = StartTime.CombineLatest(editViewModel.Scale)
-            .Select(v => v.First.ToPixel(v.Second))
+            .Select(v => v.First.TimeToPixel(v.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         End = EndTime.CombineLatest(editViewModel.Scale)
-            .Select(v => v.First.ToPixel(v.Second))
+            .Select(v => v.First.TimeToPixel(v.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -49,23 +49,50 @@ public sealed class BufferStatusViewModel : IDisposable
 
     public ReactivePropertySlim<TimeSpan> EndTime { get; } = new();
 
+    IReadOnlyReactiveProperty<TimeSpan> IBufferStatus.StartTime => StartTime;
+
+    IReadOnlyReactiveProperty<TimeSpan> IBufferStatus.EndTime => EndTime;
+
     public ReadOnlyReactivePropertySlim<double> Start { get; }
+
+    IReadOnlyReactiveProperty<double> IBufferStatus.Start => Start;
 
     public ReadOnlyReactivePropertySlim<double> End { get; }
 
+    IReadOnlyReactiveProperty<double> IBufferStatus.End => End;
+
     public ReactivePropertySlim<CacheBlock[]> CacheBlocks { get; } = new([]);
 
-    public sealed class CacheBlock(int rate, int start, int length, bool isLocked)
+    IReadOnlyReactiveProperty<CacheBlock[]> IBufferStatus.CacheBlocks => CacheBlocks;
+
+    public void UpdateBlocks()
     {
-        public TimeSpan Start { get; } = TimeSpanExtensions.ToTimeSpan(start, rate);
+        _editViewModel.FrameCacheManager.Value?.UpdateBlocks();
+    }
 
-        public TimeSpan Length { get; } = TimeSpanExtensions.ToTimeSpan(length, rate);
+    public void ClearCache()
+    {
+        _editViewModel.FrameCacheManager.Value?.Clear();
+    }
 
-        public int StartFrame { get; } = start;
+    public void LockCache(int startFrame, int endFrame)
+    {
+        _editViewModel.FrameCacheManager.Value?.Lock(startFrame, endFrame);
+    }
 
-        public int LengthFrame { get; } = length;
+    public void UnlockCache(int startFrame, int endFrame)
+    {
+        _editViewModel.FrameCacheManager.Value?.Unlock(startFrame, endFrame);
+    }
 
-        public bool IsLocked { get; } = isLocked;
+    public void DeleteCache(int startFrame, int endFrame)
+    {
+        _editViewModel.FrameCacheManager.Value?.DeleteAndUpdateBlocks([(startFrame, endFrame)]);
+    }
+
+    public long CalculateCacheByteCount(int startFrame, int endFrame)
+    {
+        return _editViewModel.FrameCacheManager.Value?.CalculateByteCount(startFrame, endFrame) ?? 0;
     }
 
     public void Dispose()

@@ -2,6 +2,7 @@
 
 [assembly: InternalsVisibleTo("Beutl")]
 [assembly: InternalsVisibleTo("Beutl.Editor")]
+[assembly: InternalsVisibleTo("Beutl.Editor.Components")]
 [assembly: InternalsVisibleTo("Beutl.UnitTests")]
 [assembly: InternalsVisibleTo("Beutl.Configuration")]
 [assembly: InternalsVisibleTo("Beutl.Engine")]
