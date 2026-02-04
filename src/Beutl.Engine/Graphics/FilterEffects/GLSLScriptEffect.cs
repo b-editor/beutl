@@ -58,7 +58,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect
             return;
 
         context.CustomEffect(
-            (Resource: r.Progress, duration: r.Duration, time: r.Time, pipeline: r._pipeline,
+            (progress: r.Progress, duration: r.Duration, time: r.Time, pipeline: r._pipeline,
                 compileError: r._compileError),
             OnApplyTo,
             static (_, r) => r);
