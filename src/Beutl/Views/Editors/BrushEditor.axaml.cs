@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -345,7 +346,7 @@ public sealed partial class BrushEditor : UserControl
 
         GradientStop obj = list[e.OldIndex];
         obj.Offset.CurrentValue = (float)e.Object.Offset;
-        obj.Color.CurrentValue = e.Object.Color.ToMedia();
+        obj.Color.CurrentValue = e.Object.Color.ToBtlColor();
         if (e.NewIndex != e.OldIndex)
             list.Move(e.OldIndex, e.NewIndex);
 

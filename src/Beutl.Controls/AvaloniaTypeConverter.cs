@@ -9,6 +9,11 @@ public static class AvaloniaTypeConverter
         return Avalonia.Media.Color.FromArgb(color.A, color.R, color.G, color.B);
     }
 
+    public static Media.Color ToBtlColor(this FluentAvalonia.UI.Media.Color2 c)
+    {
+        return new Media.Color(c.A, c.R, c.G, c.B);
+    }
+
     public static Media.Color ToBtlColor(this in Avalonia.Media.Color color)
     {
         return Media.Color.FromArgb(color.A, color.R, color.G, color.B);

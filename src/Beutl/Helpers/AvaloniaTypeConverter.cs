@@ -1,57 +1,33 @@
 ﻿using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Reactive.Subjects;
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
-using Beutl.Engine.Expressions;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Beutl.Reactive;
 using Beutl.Threading;
-using FFmpeg.AutoGen;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-using SkiaSharp;
 using Dispatcher = Avalonia.Threading.Dispatcher;
 using ImageBrush = Avalonia.Media.ImageBrush;
-using PixelPoint = Avalonia.PixelPoint;
-using PixelRect = Avalonia.PixelRect;
 using PixelSize = Avalonia.PixelSize;
 using Point = Avalonia.Point;
-using TileBrush = Beutl.Media.TileBrush;
 
 namespace Beutl;
 
 public static class AvaloniaTypeConverter
 {
-    public static Vector ToAvaVector(this in Graphics.Vector vector)
-    {
-        return new Vector(vector.X, vector.Y);
-    }
-
-    public static Graphics.Vector ToBtlVector(this in Vector vector)
-    {
-        return new Graphics.Vector((float)vector.X, (float)vector.Y);
-    }
-
-    public static Media.Color ToBtlColor(this FluentAvalonia.UI.Media.Color2 c)
-    {
-        return new Media.Color(c.A, c.R, c.G, c.B);
-    }
-
     public static Media.GradientStop ToBtlGradientStop(this Avalonia.Media.IGradientStop obj)
     {
-        return new Media.GradientStop(obj.Color.ToMedia(), (float)obj.Offset);
+        return new Media.GradientStop(obj.Color.ToBtlColor(), (float)obj.Offset);
     }
 
     public static GradientStop.Resource ToBtlImmutableGradientStop(this Avalonia.Media.IGradientStop obj)
     {
-        return new GradientStop.Resource { Color = obj.Color.ToMedia(), Offset = (float)obj.Offset, };
+        return new GradientStop.Resource { Color = obj.Color.ToBtlColor(), Offset = (float)obj.Offset, };
     }
 
     private static IDisposable AdaptEngineObject<T, TResource>(T obj, IObservable<TimeSpan> time,
@@ -72,27 +48,11 @@ public static class AvaloniaTypeConverter
             (o, rc) => o.ToResource(rc),
             r =>
             {
-                s.Color = r.Color.ToAvalonia();
+                s.Color = r.Color.ToAvaColor();
                 s.Offset = r.Offset;
             });
 
         return (s, d);
-    }
-
-    public static (IObservable<Avalonia.Media.Geometry>, IDisposable) ToAvaGeometrySync(
-        this Geometry obj, IObservable<TimeSpan> time)
-    {
-        var reactiveProperty = new ReactivePropertySlim<Avalonia.Media.Geometry>();
-        var d = AdaptEngineObject(
-            obj, time,
-            (o, rc) => o.ToResource(rc),
-            r =>
-            {
-                string svgPath = r.GetCachedPath().ToSvgPathData();
-                reactiveProperty.Value = Avalonia.Media.Geometry.Parse(svgPath);
-            });
-
-        return (reactiveProperty, d);
     }
 
     public static (IObservable<Avalonia.Media.Geometry>, IDisposable) ToAvaGeometrySync(
@@ -123,82 +83,9 @@ public static class AvaloniaTypeConverter
             matrix.M31, matrix.M32, matrix.M33);
     }
 
-    public static Graphics.Matrix ToBtlMatrix(this in Matrix matrix)
-    {
-        return new Graphics.Matrix(
-            (float)matrix.M11, (float)matrix.M12, (float)matrix.M13,
-            (float)matrix.M21, (float)matrix.M22, (float)matrix.M23,
-            (float)matrix.M31, (float)matrix.M32, (float)matrix.M33);
-    }
-
-    public static Point ToAvaPoint(this in Graphics.Point point)
-    {
-        return new Point(point.X, point.Y);
-    }
-
     public static Graphics.Point ToBtlPoint(this in Point point)
     {
         return new Graphics.Point((float)point.X, (float)point.Y);
-    }
-
-    public static PixelPoint ToAvaPixelPoint(this in Media.PixelPoint point)
-    {
-        return new PixelPoint(point.X, point.Y);
-    }
-
-    public static Media.PixelPoint ToBtlPixelPoint(this in PixelPoint point)
-    {
-        return new Media.PixelPoint(point.X, point.Y);
-    }
-
-    public static Size ToAvaSize(this in Graphics.Size size)
-    {
-        return new Size(size.Width, size.Height);
-    }
-
-    public static Graphics.Size ToBtlSize(this in Size size)
-    {
-        return new Graphics.Size((float)size.Width, (float)size.Height);
-    }
-
-    public static PixelSize ToAvaPixelSize(this in Media.PixelSize size)
-    {
-        return new PixelSize(size.Width, size.Height);
-    }
-
-    public static Media.PixelSize ToBtlPixelSize(this in PixelSize size)
-    {
-        return new Media.PixelSize(size.Width, size.Height);
-    }
-
-    public static Rect ToAvaRect(this in Graphics.Rect rect)
-    {
-        return new Rect(rect.X, rect.Y, rect.Width, rect.Height);
-    }
-
-    public static Graphics.Rect ToBtlRect(this in Rect rect)
-    {
-        return new Graphics.Rect((float)rect.X, (float)rect.Y, (float)rect.Width, (float)rect.Height);
-    }
-
-    public static PixelRect ToAvaPixelRect(this in Media.PixelRect rect)
-    {
-        return new PixelRect(rect.X, rect.Y, rect.Width, rect.Height);
-    }
-
-    public static Media.PixelRect ToBtlPixelRect(this in PixelRect rect)
-    {
-        return new Media.PixelRect(rect.X, rect.Y, rect.Width, rect.Height);
-    }
-
-    public static RelativePoint ToAvaRelativePoint(this in Graphics.RelativePoint pt)
-    {
-        return new RelativePoint(
-            pt.Point.X,
-            pt.Point.Y,
-            pt.Unit == Graphics.RelativeUnit.Relative
-                ? RelativeUnit.Relative
-                : RelativeUnit.Absolute);
     }
 
     public static (Avalonia.Media.GradientStops, IDisposable) ToAvaGradientStopsSync(
@@ -315,7 +202,7 @@ public static class AvaloniaTypeConverter
                     var d = AdaptEngineObject(
                         s, time,
                         (o, rc) => o.ToResource(rc),
-                        r => ss.Color = r.Color.ToAvalonia());
+                        r => ss.Color = r.Color.ToAvaColor());
                     return (ss, d, null);
                 }
 
@@ -352,50 +239,9 @@ public static class AvaloniaTypeConverter
 
                     return (imageBrush, d, null);
                 }
-                break;
         }
 
         return default;
-    }
-
-    // SolidColorBrush.Color, GradientBrush.GradientStopsのみ
-    public static Media.Brush? ToBtlBrush(this Avalonia.Media.Brush? brush)
-    {
-        switch (brush)
-        {
-            case Avalonia.Media.ISolidColorBrush s:
-                return new Media.SolidColorBrush { Color = { CurrentValue = s.Color.ToMedia() } };
-            case Avalonia.Media.IGradientBrush g:
-                {
-                    var stops = g.GradientStops.Select(v => v.ToBtlGradientStop()).ToArray();
-
-                    switch (g)
-                    {
-                        case Avalonia.Media.ILinearGradientBrush:
-                            var lb = new LinearGradientBrush();
-                            lb.GradientStops.Replace(stops);
-                            return lb;
-
-                        case Avalonia.Media.IConicGradientBrush:
-                            var cb = new ConicGradientBrush();
-                            cb.GradientStops.Replace(stops);
-                            return cb;
-
-                        case Avalonia.Media.IRadialGradientBrush:
-                            var rb = new RadialGradientBrush();
-                            rb.GradientStops.Replace(stops);
-                            return rb;
-                    }
-                }
-                break;
-        }
-
-        return null;
-    }
-
-    public static Vector SwapAxis(this Vector vector)
-    {
-        return new Vector(vector.Y, vector.X);
     }
 
     public sealed class DrawableImageBrushHandler
