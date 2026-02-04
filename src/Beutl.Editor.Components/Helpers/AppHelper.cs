@@ -11,11 +11,11 @@ public static class AppHelper
 
     public static TopLevel? GetTopLevel()
     {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
+        return (Application.Current?.ApplicationLifetime) switch
         {
-            return TopLevel.GetTopLevel(window);
-        }
-
-        return null;
+            IClassicDesktopStyleApplicationLifetime desktop => desktop.MainWindow,
+            ISingleViewApplicationLifetime { MainView: { } mainview } => TopLevel.GetTopLevel(mainview),
+            _ => null,
+        };
     }
 }
