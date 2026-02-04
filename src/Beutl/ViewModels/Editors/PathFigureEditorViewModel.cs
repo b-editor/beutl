@@ -224,7 +224,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         Group.Value?.RemoveItem(index);
     }
 
-    public void AddSegment(PathSegment segment, int index)
+    public void AddSegment(PathSegment segment)
     {
         Group.Value?.AddItem(segment);
     }

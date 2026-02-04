@@ -21,5 +21,5 @@ public interface IPathFigureEditorContext
 
     void RemoveSegment(int index);
 
-    void AddSegment(PathSegment segment, int index);
+    void AddSegment(PathSegment segment);
 }

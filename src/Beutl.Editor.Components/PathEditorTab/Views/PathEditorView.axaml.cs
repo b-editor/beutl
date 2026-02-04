@@ -304,7 +304,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
 
             if (obj != null)
             {
-                figureContext.AddSegment(obj, index);
+                figureContext.AddSegment(obj);
             }
         }
     }
