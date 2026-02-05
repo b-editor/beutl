@@ -1770,6 +1770,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="SKSLScriptEffect" xml:space="preserve">
     <value>SKSLスクリプト</value>
   </data>
+  <data name="GLSLScriptEffect" xml:space="preserve">
+    <value>GLSLスクリプト</value>
+  </data>
   <data name="CSharpScriptEffect" xml:space="preserve">
     <value>C#スクリプト</value>
   </data>

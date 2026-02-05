@@ -1765,6 +1765,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="SKSLScriptEffect" xml:space="preserve">
     <value>SKSL Script</value>
   </data>
+  <data name="GLSLScriptEffect" xml:space="preserve">
+    <value>GLSL Script</value>
+  </data>
   <data name="CSharpScriptEffect" xml:space="preserve">
     <value>C# Script</value>
   </data>

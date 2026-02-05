@@ -3321,6 +3321,12 @@ namespace Beutl.Language {
             }
         }
         
+        public static string GLSLScriptEffect {
+            get {
+                return ResourceManager.GetString("GLSLScriptEffect", resourceCulture);
+            }
+        }
+        
         public static string CSharpScriptEffect {
             get {
                 return ResourceManager.GetString("CSharpScriptEffect", resourceCulture);
