@@ -38,6 +38,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     {
         Model = element;
         Timeline = timeline;
+        Scene = timeline.Scene;
 
         InitializeElementGroup();
 
@@ -228,7 +229,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ElementScopeViewModel Scope { get; private set; }
 
-    public Scene Scene => Model.HierarchicalParent as Scene ?? Timeline.Scene;
+    public Scene Scene { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsEnabled { get; }
 
