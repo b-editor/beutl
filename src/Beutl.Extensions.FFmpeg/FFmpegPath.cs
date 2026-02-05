@@ -87,10 +87,11 @@ public static class FFmpegLoader
                 var level = (FFmpegSharp.LogLevel)i;
                 var convertedLevel = level switch
                 {
+                    FFmpegSharp.LogLevel.Verbose or FFmpegSharp.LogLevel.Trace => LogLevel.Trace,
                     FFmpegSharp.LogLevel.Debug => LogLevel.Debug,
                     FFmpegSharp.LogLevel.Warning => LogLevel.Warning,
                     FFmpegSharp.LogLevel.Error => LogLevel.Error,
-                    FFmpegSharp.LogLevel.Fatal => LogLevel.Critical,
+                    FFmpegSharp.LogLevel.Fatal or FFmpegSharp.LogLevel.Panic => LogLevel.Critical,
                     _ => LogLevel.Information
                 };
                 s_ffmpegLogger.Log(convertedLevel, "{OriginalLevel} {FFmpegLog}", level, s.TrimEnd('\n').TrimEnd('\r'));

@@ -12,6 +12,7 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
+using Serilog.Events;
 
 namespace Beutl.Services;
 
@@ -139,18 +140,21 @@ internal class Telemetry : IDisposable
 
 #if DEBUG && !Beutl_PackageTools
         config = config
-            .WriteTo.Debug(outputTemplate: OutputTemplate);
+            .WriteTo.Debug(outputTemplate: OutputTemplate, restrictedToMinimumLevel: LogEventLevel.Verbose);
 #endif
-        config = config.WriteTo.Async(b => b.File(logFile, outputTemplate: OutputTemplate));
+        config = config
+            .WriteTo.Async(b => b.File(logFile, outputTemplate: OutputTemplate, restrictedToMinimumLevel: LogEventLevel.Information));
 
         Log.Logger = config.CreateLogger();
 
         Logging.Log.LoggerFactory = LoggerFactory.Create(builder =>
         {
+            // Serilogへ行くログはデフォルトでTrace以上
             builder.AddSerilog(Log.Logger, true);
 
             if (GlobalConfiguration.Instance.TelemetryConfig.Beutl_Logging == true)
             {
+                builder.SetMinimumLevel(LogLevel.Information);
                 builder.AddOpenTelemetry(o =>
                 {
                     o.SetResourceBuilder(_resourceBuilder.Value);

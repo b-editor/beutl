@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
-
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
@@ -9,6 +8,8 @@ using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 
 using FFmpeg.AutoGen.Abstractions;
+using FFmpegSharp;
+using Microsoft.Extensions.Logging;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Decoding;
@@ -16,9 +17,9 @@ namespace Beutl.Embedding.FFmpeg.Decoding;
 namespace Beutl.Extensions.FFmpeg.Decoding;
 #endif
 
-public sealed unsafe class FFmpegReader : MediaReader
+public sealed class FFmpegReader : MediaReader
 {
-    private static readonly byte* s_swr_buf = (byte*)NativeMemory.AllocZeroed((nuint)(2048 * sizeof(Stereo32BitFloat)));
+    private readonly ILogger _logger = Log.CreateLogger<FFmpegReader>();
     private static readonly AVRational s_time_base = new() { num = 1, den = ffmpeg.AV_TIME_BASE };
 
 #pragma warning disable IDE1006 // 命名スタイル
@@ -33,26 +34,19 @@ public sealed unsafe class FFmpegReader : MediaReader
         }
     };
 
-    private readonly MediaOptions _options;
     private readonly FFmpegDecodingSettings _settings;
-    private readonly string _file;
-    private readonly AudioStreamInfo? _audioInfo;
-    private readonly VideoStreamInfo? _videoInfo;
-    private readonly AVFormatContext* _formatContext;
-    private readonly AVStream* _audioStream;
-    private readonly AVStream* _videoStream;
+    private readonly MediaStream? _audioStream;
+    private readonly MediaStream? _videoStream;
+    private MediaDemuxer? _demuxer;
     private bool _hasVideo;
     private bool _hasAudio;
-    private AVCodec* _videoCodec;
-    private AVCodec* _audioCodec;
-    private AVCodecContext* _videoCodecContext;
-    private AVCodecContext* _audioCodecContext;
-    private AVFrame* _videoFrame;
-    private AVFrame* _audioFrame;
-    private AVPacket* _videoPacket;
-    private AVPacket* _audioPacket;
-    private SwsContext* _swsContext;
-    private SwrContext* _swrContext;
+    private MediaDecoder? _videoDecoder;
+    private MediaDecoder? _audioDecoder;
+    private MediaFrame? _currentVideoFrame;
+    private MediaFrame? _currentAudioFrame;
+    private MediaPacket? _packet;
+    private PixelConverter? _pixelConverter;
+    private SampleConverter? _sampleConverter;
     private long _audioNowTimestamp;
     private long _audioNextTimestamp;
     private long _videoNowFrame;
@@ -60,40 +54,33 @@ public sealed unsafe class FFmpegReader : MediaReader
     private bool _audioSeek;
     private double _videoTimeBaseDouble;
     private double _videoAvgFrameRateDouble;
+    private MediaFrame? _swVideoFrame;
+    private bool _isHWDecoding;
 
     public FFmpegReader(string file, MediaOptions options, FFmpegDecodingSettings settings)
     {
-        _file = file;
-        _options = options;
         _settings = settings;
         try
         {
-            fixed (AVFormatContext** fmtctx = &_formatContext)
-            {
-                if (ffmpeg.avformat_open_input(fmtctx, file, null, null) != 0)
-                {
-                    throw new Exception("avformat_open_input failed");
-                }
-            }
-
-            // ストリームを探す
-            if (ffmpeg.avformat_find_stream_info(_formatContext, null) < 0)
-            {
-                throw new Exception("avformat_find_stream_info failed");
-            }
+            // MediaDemuxerでファイルを開く
+            _demuxer = MediaDemuxer.Open(file);
 
             bool loadAudio = options.StreamsToLoad.HasFlag(MediaMode.Audio);
             bool loadVideo = options.StreamsToLoad.HasFlag(MediaMode.Video);
-            for (int i = 0; i < (int)_formatContext->nb_streams; ++i)
+
+            // ストリーム検索
+            for (int i = 0; i < _demuxer.Count; i++)
             {
-                if (loadVideo && !HasVideo && _formatContext->streams[i]->codecpar->codec_type == AVMediaType.AVMEDIA_TYPE_VIDEO)
+                var stream = _demuxer[i];
+                var codecType = stream.CodecparRef.codec_type;
+                if (loadVideo && !_hasVideo && codecType == AVMediaType.AVMEDIA_TYPE_VIDEO)
                 {
-                    _videoStream = _formatContext->streams[i];
+                    _videoStream = stream;
                     _hasVideo = true;
                 }
-                if (loadAudio && !HasAudio && _formatContext->streams[i]->codecpar->codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO)
+                if (loadAudio && !_hasAudio && codecType == AVMediaType.AVMEDIA_TYPE_AUDIO)
                 {
-                    _audioStream = _formatContext->streams[i];
+                    _audioStream = stream;
                     _hasAudio = true;
                 }
             }
@@ -106,6 +93,9 @@ public sealed unsafe class FFmpegReader : MediaReader
             ConfigureVideoStream();
             ConfigureAudioStream();
 
+            // パケット初期化
+            _packet = new MediaPacket();
+
             if (!HasVideo && !HasAudio)
             {
                 return;
@@ -115,25 +105,25 @@ public sealed unsafe class FFmpegReader : MediaReader
             {
                 GrabVideo();
 
-                _videoInfo = new VideoStreamInfo(
-                    new string((sbyte*)_videoCodec->long_name),
-                    _videoStream->nb_frames,
-                    new PixelSize(_videoCodecContext->width, _videoCodecContext->height),
-                    new Rational(_videoStream->avg_frame_rate.num, _videoStream->avg_frame_rate.den))
+                var codec = _videoDecoder!.GetCodec();
+                VideoInfo = new VideoStreamInfo(
+                    codec?.LongName ?? "Unknown",
+                    _videoStream!.NbFrames,
+                    new PixelSize(_videoDecoder.Width, _videoDecoder.Height),
+                    new Rational(_videoStream.AvgFrameRate.num, _videoStream.AvgFrameRate.den))
                 {
-                    Duration = new Rational(_formatContext->duration, ffmpeg.AV_TIME_BASE)
+                    Duration = new Rational(_demuxer.Duration, ffmpeg.AV_TIME_BASE)
                 };
             }
 
             if (HasAudio)
             {
-                // Todo: 検証
-                //GrabAudio();
-                _audioInfo = new AudioStreamInfo(
-                    new string((sbyte*)_audioCodec->name),
-                    new Rational(_formatContext->duration, ffmpeg.AV_TIME_BASE),
-                    _audioCodecContext->sample_rate,
-                    _audioCodecContext->ch_layout.nb_channels);
+                var codec = _audioDecoder!.GetCodec();
+                AudioInfo = new AudioStreamInfo(
+                    codec?.Name ?? "Unknown",
+                    new Rational(_demuxer!.Duration, ffmpeg.AV_TIME_BASE),
+                    _audioDecoder.SampleRate,
+                    _audioDecoder.ChLayout.nb_channels);
             }
         }
         catch
@@ -143,21 +133,29 @@ public sealed unsafe class FFmpegReader : MediaReader
         }
     }
 
-    public override VideoStreamInfo VideoInfo => _videoInfo ?? throw new Exception("The stream does not exist.");
+    private MediaFrame? ActiveVideoFrame => _isHWDecoding ? _swVideoFrame : _currentVideoFrame;
 
-    public override AudioStreamInfo AudioInfo => _audioInfo ?? throw new Exception("The stream does not exist.");
+    public override VideoStreamInfo VideoInfo => field ?? throw new Exception("The stream does not exist.");
+
+    public override AudioStreamInfo AudioInfo => field ?? throw new Exception("The stream does not exist.");
 
     public override bool HasVideo => _hasVideo;
 
     public override bool HasAudio => _hasAudio;
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? result)
+    public override unsafe bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? result)
     {
         // Decoder側でResampleされるかのチェックのため
         if (length == 0)
         {
             result = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, 0);
             return true;
+        }
+
+        if (_audioDecoder == null || _currentAudioFrame == null)
+        {
+            result = null;
+            return false;
         }
 
         if (!(start >= _audioNowTimestamp && start < _audioNextTimestamp))
@@ -172,53 +170,30 @@ public sealed unsafe class FFmpegReader : MediaReader
 
         var sound = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
         int decoded = 0;
-        bool need_grab = false;
+        bool needGrab = false;
+
+        // SampleConverterを遅延初期化
+        _sampleConverter ??= new SampleConverter();
+
         fixed (Stereo32BitFloat* buf = sound.DataSpan)
-        fixed (AVChannelLayout* outChLayout = &AV_CHANNEL_LAYOUT_STEREO)
-        fixed (SwrContext** swrCtx = &_swrContext)
         {
-            while (!need_grab || GrabAudio())
+            while ((!needGrab || GrabAudio()) && _currentAudioFrame.NbSamples > 0)
             {
-                // Todo: 検証 (GenerateSwrContextメソッドを作り、ConfigureAudioStreamで呼び出す)
-                if (_swrContext == null)
-                {
-                    if (ffmpeg.swr_alloc_set_opts2(
-                        swrCtx,
-                        outChLayout,
-                        AVSampleFormat.AV_SAMPLE_FMT_FLT,
-                        AudioInfo.SampleRate,
-                        &_audioCodecContext->ch_layout,
-                        (AVSampleFormat)_audioFrame->format,
-                        _audioFrame->sample_rate,
-                        0,
-                        null) < 0)
-                    {
-                        Debug.WriteLine("swr_alloc_set_opts2 error.");
-                        break;
-                    }
+                // SampleConverterの設定
+                _sampleConverter.SetOpts(
+                    AV_CHANNEL_LAYOUT_STEREO,
+                    AudioInfo.SampleRate,
+                    AVSampleFormat.AV_SAMPLE_FMT_FLT,
+                    _currentAudioFrame.NbSamples);
 
-                    if (ffmpeg.swr_init(_swrContext) < 0)
-                    {
-                        Debug.WriteLine("swr_init error.");
-                        break;
-                    }
-                }
-
-                fixed (byte** swr_buf_ = &s_swr_buf)
-                fixed (byte** audioframedata = (byte*[])_audioFrame->data)
-                {
-                    _samplesReturn = ffmpeg.swr_convert(
-                        s: _swrContext,
-                        @out: swr_buf_,
-                        out_count: _audioFrame->nb_samples,
-                        @in: audioframedata,
-                        in_count: _audioFrame->nb_samples);
-                }
+                // 変換
+                using var convertedFrame = _sampleConverter.ConvertFrame(_currentAudioFrame, out _, out _);
+                _samplesReturn = convertedFrame.NbSamples;
 
                 if (_samplesReturn < 0)
                 {
-                    Debug.WriteLine("swr_convert error.\n");
-                    sound?.Dispose();
+                    Debug.WriteLine("swr_convert error.");
+                    sound.Dispose();
                     result = null;
                     return false;
                 }
@@ -238,7 +213,11 @@ public sealed unsafe class FFmpegReader : MediaReader
                 if (len > 0)
                 {
                     int size = sizeof(Stereo32BitFloat);
-                    Buffer.MemoryCopy(s_swr_buf + (skip * size), ((byte*)buf) + (decoded * size), len * size, len * size);
+                    Buffer.MemoryCopy(
+                        convertedFrame.Data[0] + (skip * size),
+                        ((byte*)buf) + (decoded * size),
+                        len * size,
+                        len * size);
                     decoded += len;
                 }
 
@@ -248,20 +227,18 @@ public sealed unsafe class FFmpegReader : MediaReader
                     return true;
                 }
 
-                need_grab = skip + len >= _audioFrame->nb_samples;
+                needGrab = skip + len >= _currentAudioFrame.NbSamples;
             }
 
-            //sound?.Dispose();
-            //sound = null;
-            //return false;
             result = sound;
             return true;
         }
     }
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
+    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
     {
-        if (_videoStream == null)
+        var videoFrame = ActiveVideoFrame;
+        if (_videoStream == null || _videoDecoder == null || videoFrame == null)
         {
             image = null;
             return false;
@@ -283,27 +260,28 @@ public sealed unsafe class FFmpegReader : MediaReader
             }
         }
 
-        int width = _videoFrame->width;
-        int height = _videoFrame->height;
-        int output_linesize = width * 4;
-        int output_size = output_linesize * height;
+        // GrabVideo後にActiveVideoFrameを再取得
+        videoFrame = ActiveVideoFrame;
+        if (videoFrame == null)
+        {
+            image = null;
+            return false;
+        }
 
-        int output_rowsize = _videoFrame->width * 4;
+        int width = videoFrame.Width;
+        int height = videoFrame.Height;
 
+        // PixelConverterを初期化（遅延初期化）
+        _pixelConverter ??= new PixelConverter();
+        _pixelConverter.SetOpts(width, height, AVPixelFormat.AV_PIX_FMT_BGRA);
+
+        // 変換
+        using var dstFrame = _pixelConverter.ConvertFrame(videoFrame, (int)_settings.Scaling);
+
+        // ビットマップにコピー
         var bmp = new Bitmap<Bgra8888>(width, height);
-        Bgra8888* buf = (Bgra8888*)bmp.Data;
-        byte*[] dst_data = [(byte*)buf, null, null, null];
-        int[] dst_linesize = [output_linesize, 0, 0, 0];
-        byte*[] src_data = _videoFrame->data;
-        int[] src_linesize = _videoFrame->linesize;
-
-        output_size = ffmpeg.sws_scale(
-            _swsContext,
-            src_data,
-            src_linesize,
-            0,
-            height,
-            dst_data, dst_linesize);
+        int byteCount = width * height * 4;
+        Buffer.MemoryCopy(dstFrame.Data[0], (void*)bmp.Data, byteCount, byteCount);
 
         image = bmp;
         return true;
@@ -311,158 +289,95 @@ public sealed unsafe class FFmpegReader : MediaReader
 
     protected override void Dispose(bool disposing)
     {
-        fixed (AVFormatContext** fctxt = &_formatContext)
+        if (disposing)
         {
-            ffmpeg.avformat_close_input(fctxt);
+            _pixelConverter?.Dispose();
+            _pixelConverter = null;
+
+            _sampleConverter?.Dispose();
+            _sampleConverter = null;
+
+            _videoDecoder?.Dispose();
+            _videoDecoder = null;
+
+            _audioDecoder?.Dispose();
+            _audioDecoder = null;
+
+            _swVideoFrame?.Dispose();
+            _swVideoFrame = null;
+
+            _currentVideoFrame?.Dispose();
+            _currentVideoFrame = null;
+
+            _currentAudioFrame?.Dispose();
+            _currentAudioFrame = null;
+
+            _packet?.Dispose();
+            _packet = null;
+
+            _demuxer?.Dispose();
+            _demuxer = null;
         }
 
-        if (_swrContext != null)
-        {
-            fixed (SwrContext** swr = &_swrContext)
-            {
-                ffmpeg.swr_free(swr);
-            }
-
-            _swrContext = null;
-        }
-
-        if (_swsContext != null)
-        {
-            ffmpeg.sws_freeContext(_swsContext);
-            _swsContext = null;
-        }
-
-        if (HasVideo)
-        {
-            ffmpeg.av_frame_unref(_videoFrame);
-
-            fixed (AVFrame** f = &_videoFrame)
-            {
-                ffmpeg.av_frame_free(f);
-            }
-
-            fixed (AVCodecContext** a = &_videoCodecContext)
-            {
-                ffmpeg.avcodec_free_context(a);
-            }
-
-            ffmpeg.av_packet_unref(_videoPacket);
-        }
-
-        if (HasAudio)
-        {
-            ffmpeg.av_frame_unref(_audioFrame);
-            fixed (AVFrame** f = &_audioFrame)
-            {
-                ffmpeg.av_frame_free(f);
-            }
-
-            fixed (AVCodecContext** a = &_audioCodecContext)
-            {
-                ffmpeg.avcodec_free_context(a);
-            }
-
-            fixed (AVPacket** pkt = &_audioPacket)
-            {
-                ffmpeg.av_packet_free(pkt);
-            }
-        }
+        base.Dispose(disposing);
     }
 
     private bool GrabAudio()
     {
-        ffmpeg.av_frame_unref(_audioFrame);
+        if (_demuxer == null || _audioDecoder == null || _packet == null || _audioStream == null || _currentAudioFrame == null)
+            return false;
 
-        //複数フレームが含まれる場合があるので残っていればデコード
-        if (ffmpeg.avcodec_receive_frame(_audioCodecContext, _audioFrame) == 0)
+        _currentAudioFrame.Unref();
+
+        foreach (var packet in _demuxer.ReadPackets(_packet))
         {
-            if (_audioSeek)
+            if (packet.StreamIndex == _audioStream.Index)
             {
-                _audioNowTimestamp = (long)(((_audioFrame->pts) * ffmpeg.av_q2d(_audioStream->time_base) - (_formatContext->start_time * ffmpeg.av_q2d(s_time_base))) * _audioCodecContext->sample_rate);
-                _audioSeek = false;
-                _audioNowTimestamp -= _audioNowTimestamp % _audioFrame->nb_samples;
-            }
-            else
-            {
-                _audioNowTimestamp = _audioNextTimestamp;
-            }
-
-            _audioNextTimestamp = _audioNowTimestamp + _audioFrame->nb_samples;
-            //メモリ解放
-            ffmpeg.av_packet_unref(_audioPacket);
-
-            return true;
-        }
-
-        while (ffmpeg.av_read_frame(_formatContext, _audioPacket) == 0)
-        {
-            if (_audioPacket->stream_index == _audioStream->index)
-            {
-                if (ffmpeg.avcodec_send_packet(_audioCodecContext, _audioPacket) != 0)
+                foreach (var _ in _audioDecoder.DecodePacket(packet, _currentAudioFrame))
                 {
-                    Debug.WriteLine("avcodec_send_packet failed");
-                    ffmpeg.av_packet_unref(_audioPacket);
-                    return false;
-                }
-
-                if (ffmpeg.avcodec_receive_frame(_audioCodecContext, _audioFrame) == 0)
-                {
-                    if (_audioSeek)
-                    {
-                        _audioNowTimestamp = (long)(((_audioFrame->pts) * ffmpeg.av_q2d(_audioStream->time_base) - (_formatContext->start_time * ffmpeg.av_q2d(s_time_base))) * _audioCodecContext->sample_rate);
-                        _audioSeek = false;
-                        _audioNowTimestamp -= _audioNowTimestamp % _audioFrame->nb_samples;
-                    }
-                    else
-                    {
-                        _audioNowTimestamp = _audioNextTimestamp;
-                    }
-
-                    _audioNextTimestamp = _audioNowTimestamp + _audioFrame->nb_samples;
-                    ffmpeg.av_packet_unref(_audioPacket);
-
+                    UpdateAudioTimestamp();
                     return true;
                 }
             }
-
-            ffmpeg.av_packet_unref(_audioPacket);
         }
 
-        if (ffmpeg.avcodec_send_packet(_audioCodecContext, _audioPacket) != 0)
+        // フラッシュ：残りのフレームを取り出す
+        foreach (var _ in _audioDecoder.DecodePacket(null, _currentAudioFrame))
         {
-            Debug.WriteLine("avcodec_send_packet failed");
-            ffmpeg.av_packet_unref(_audioPacket);
-            return false;
-        }
-
-        if (ffmpeg.avcodec_receive_frame(_audioCodecContext, _audioFrame) == 0)
-        {
-            if (_audioSeek)
-            {
-                _audioNowTimestamp = (long)(((_audioFrame->pts) * ffmpeg.av_q2d(_audioStream->time_base) - (_formatContext->start_time * ffmpeg.av_q2d(s_time_base))) * _audioCodecContext->sample_rate);
-                _audioSeek = false;
-                _audioNowTimestamp -= _audioNowTimestamp % _audioFrame->nb_samples;
-            }
-            else
-            {
-                _audioNowTimestamp = _audioNextTimestamp;
-            }
-
-            _audioNextTimestamp = _audioNowTimestamp + _audioFrame->nb_samples;
-            ffmpeg.av_packet_unref(_audioPacket);
-
+            UpdateAudioTimestamp();
             return true;
         }
 
         return false;
     }
 
-    private void SeekAudio(long sample_pos)
+    private void UpdateAudioTimestamp()
     {
-        var tb = new AVRational() { num = 1, den = _audioCodecContext->sample_rate };
-        long timestamp = sample_pos * 1000000 / _audioCodecContext->sample_rate + _formatContext->start_time;
-        ffmpeg.avformat_seek_file(_formatContext, -1, long.MinValue, timestamp, long.MaxValue, ffmpeg.AVSEEK_FLAG_BACKWARD);
-        ffmpeg.avcodec_flush_buffers(_audioCodecContext);
+        if (_currentAudioFrame == null || _audioStream == null || _audioDecoder == null || _demuxer == null)
+            return;
+
+        if (_audioSeek)
+        {
+            _audioNowTimestamp = (long)((_currentAudioFrame.Pts * ffmpeg.av_q2d(_audioStream.TimeBase)
+                                         - (_demuxer.StartTime * ffmpeg.av_q2d(s_time_base))) * _audioDecoder.SampleRate);
+            _audioSeek = false;
+            _audioNowTimestamp -= _audioNowTimestamp % _currentAudioFrame.NbSamples;
+        }
+        else
+        {
+            _audioNowTimestamp = _audioNextTimestamp;
+        }
+
+        _audioNextTimestamp = _audioNowTimestamp + _currentAudioFrame.NbSamples;
+    }
+
+    private unsafe void SeekAudio(long sample_pos)
+    {
+        if (_demuxer == null || _audioDecoder == null) return;
+
+        long timestamp = sample_pos * 1000000 / _audioDecoder.SampleRate + _demuxer.StartTime;
+        _demuxer.Seek(timestamp, -1);
+        ffmpeg.avcodec_flush_buffers(_audioDecoder);
         _audioSeek = true;
 
         while (GrabAudio() && _audioNextTimestamp < sample_pos)
@@ -472,59 +387,40 @@ public sealed unsafe class FFmpegReader : MediaReader
 
     private bool GrabVideo()
     {
-        int ret;
-        if (ffmpeg.avcodec_receive_frame(_videoCodecContext, _videoFrame) >= 0)
+        if (_demuxer == null || _videoDecoder == null || _packet == null || _videoStream == null)
+            return false;
+
+        foreach (var packet in _demuxer.ReadPackets(_packet))
         {
-            _videoNowFrame = GetNowFrame();
-            return true;
-        }
-        ffmpeg.av_packet_unref(_videoPacket);
-        while ((ret = ffmpeg.av_read_frame(_formatContext, _videoPacket)) == 0)
-        {
-            if (_videoPacket->stream_index == _videoStream->index)
+            if (packet.StreamIndex == _videoStream.Index)
             {
-                ret = ffmpeg.avcodec_send_packet(_videoCodecContext, _videoPacket);
-                if (ret == ffmpeg.AVERROR(ffmpeg.EAGAIN))
-                {
-                    continue;
-                }
-                if (ret < 0)
-                {
-                    Debug.WriteLine("avcodec_send_packet failed");
-                    ffmpeg.av_packet_unref(_videoPacket);
-                    return false;
-                }
-                if (ffmpeg.avcodec_receive_frame(_videoCodecContext, _videoFrame) >= 0)
+                foreach (var _ in _videoDecoder.DecodePacket(packet, _currentVideoFrame, _swVideoFrame))
                 {
                     _videoNowFrame = GetNowFrame();
                     return true;
                 }
             }
-            ffmpeg.av_packet_unref(_videoPacket);
         }
-        //もう一度avcodec_send_packetするとフレームが出てくることがある
-        ret = ffmpeg.avcodec_send_packet(_videoCodecContext, null);
-        if (ret < 0)
-        {
-            Debug.WriteLine("avcodec_send_packet failed");
-            ffmpeg.av_packet_unref(_videoPacket);
-            return false;
-        }
-        if (ffmpeg.avcodec_receive_frame(_videoCodecContext, _videoFrame) >= 0)
+
+        // フラッシュ：残りのフレームを取り出す
+        foreach (var _ in _videoDecoder.DecodePacket(null, _currentVideoFrame, _swVideoFrame))
         {
             _videoNowFrame = GetNowFrame();
             return true;
         }
+
         return false;
     }
 
-    private void SeekVideo(int frame)
+    private unsafe void SeekVideo(int frame)
     {
-        void SeekOnly(long frame)
+        if (_demuxer == null || _videoDecoder == null) return;
+
+        void SeekOnly(long targetFrame)
         {
-            long time_stamp = (long)Math.Round(frame * 1000000 / _videoAvgFrameRateDouble + _formatContext->start_time, MidpointRounding.AwayFromZero);
-            ffmpeg.avformat_seek_file(_formatContext, -1, long.MinValue, time_stamp, long.MaxValue, ffmpeg.AVSEEK_FLAG_BACKWARD);
-            ffmpeg.avcodec_flush_buffers(_videoCodecContext);
+            long timestamp = (long)Math.Round(targetFrame * 1000000.0 / _videoAvgFrameRateDouble + _demuxer.StartTime, MidpointRounding.AwayFromZero);
+            _demuxer.Seek(timestamp, -1);
+            ffmpeg.avcodec_flush_buffers(_videoDecoder);
             GrabVideo();
         }
 
@@ -538,137 +434,140 @@ public sealed unsafe class FFmpegReader : MediaReader
             if (f == 0) break;
             f -= 30;
         }
-        while (_videoNowFrame < frame && GrabVideo()) { }
-    }
 
-    private void GenerateSwsContext()
-    {
-        _swsContext = ffmpeg.sws_getContext(
-            _videoCodecContext->width,
-            _videoCodecContext->height,
-            _videoCodecContext->pix_fmt,
-            _videoCodecContext->width,
-            _videoCodecContext->height,
-            AVPixelFormat.AV_PIX_FMT_BGRA,
-            // scaling_algorithm
-            (int)_settings.Scaling,
-            null,
-            null,
-            null);
+        while (_videoNowFrame < frame && GrabVideo()) { }
     }
 
     private long GetNowFrame()
     {
-        double f = (_videoFrame->pts - _videoStream->start_time) * _videoTimeBaseDouble * _videoAvgFrameRateDouble + 0.5;
+        var frame = ActiveVideoFrame;
+        if (frame == null || _videoStream == null) return 0;
+        double f = (frame.Pts - _videoStream.StartTime) * _videoTimeBaseDouble * _videoAvgFrameRateDouble + 0.5;
         return (long)f;
     }
 
     private void ConfigureVideoStream()
     {
-        if (HasVideo && _videoStream != null)
+        if (!_hasVideo || _videoStream == null) return;
+
+        AVHWDeviceType? hwDeviceType = GetAVHWDeviceType();
+
+        try
         {
-            _videoCodec = ffmpeg.avcodec_find_decoder(_videoStream->codecpar->codec_id);
-            if (_videoCodec == null)
-            {
-                Debug.WriteLine("No supported decoder ...");
-                _hasVideo = false;
-                return;
-            }
+            // デコーダー作成
+            _videoDecoder = MediaDecoder.CreateDecoder(
+                _videoStream.CodecparRef,
+                ctx =>
+                {
+                    if (_settings.ThreadCount != 0)
+                    {
+                        ctx.ThreadCount = Math.Min(
+                            Environment.ProcessorCount,
+                            _settings.ThreadCount > 0 ? _settings.ThreadCount : 16);
+                    }
+                    else
+                    {
+                        ctx.ThreadCount = 0;
+                    }
 
-            _videoCodecContext = ffmpeg.avcodec_alloc_context3(_videoCodec);
-            if (_videoCodecContext == null)
-            {
-                Debug.WriteLine("avcodec_alloc_context3 failed");
-                _hasVideo = false;
-                return;
-            }
-
-            if (ffmpeg.avcodec_parameters_to_context(_videoCodecContext, _videoStream->codecpar) < 0)
-            {
-                Debug.WriteLine("avcodec_parameters_to_context failed");
-                _hasVideo = false;
-                return;
-            }
-
-            if (_settings.ThreadCount != 0)
-            {
-                _videoCodecContext->thread_count = Math.Min(
-                    Environment.ProcessorCount,
-                    _settings.ThreadCount > 0 ? _settings.ThreadCount : 16);
-            }
-            else
-            {
-                _videoCodecContext->thread_count = 0;
-            }
-
-            if (ffmpeg.avcodec_open2(_videoCodecContext, _videoCodec, null) != 0)
-            {
-                Debug.WriteLine("avcodec_open2 failed");
-                _hasVideo = false;
-                return;
-            }
-
-            GenerateSwsContext();
-
-            if (_swsContext == null)
-            {
-                Debug.WriteLine("Can not use sws");
-                _hasVideo = false;
-                return;
-            }
-
-            _videoFrame = ffmpeg.av_frame_alloc();
-            _videoPacket = ffmpeg.av_packet_alloc();
-            _videoTimeBaseDouble = ffmpeg.av_q2d(_videoStream->time_base);
-            _videoAvgFrameRateDouble = ffmpeg.av_q2d(_videoStream->avg_frame_rate);
+                    if (_settings.Acceleration != FFmpegDecodingSettings.AccelerationOptions.Software)
+                    {
+                        try
+                        {
+                            // 1のとき成功
+                            int result = ctx.InitHWDeviceContext(hwDeviceType);
+                            _isHWDecoding = result != 0;
+                        }
+                        catch
+                        {
+                            _logger.LogWarning("Failed to initialize HW device context, falling back to software decoding");
+                            _isHWDecoding = false;
+                        }
+                    }
+                });
         }
+        catch
+        {
+            _logger.LogError("Failed to create video decoder");
+            _hasVideo = false;
+            return;
+        }
+
+        if (_videoDecoder == null)
+        {
+            _hasVideo = false;
+            return;
+        }
+
+        // フレーム初期化
+        _currentVideoFrame = new MediaFrame();
+        if (_isHWDecoding)
+        {
+            _swVideoFrame = new MediaFrame();
+        }
+
+        // TimeBase計算
+        _videoTimeBaseDouble = ffmpeg.av_q2d(_videoStream.TimeBase);
+        _videoAvgFrameRateDouble = ffmpeg.av_q2d(_videoStream.AvgFrameRate);
+    }
+
+    private AVHWDeviceType? GetAVHWDeviceType()
+    {
+        return _settings.Acceleration switch
+        {
+            FFmpegDecodingSettings.AccelerationOptions.Software => AVHWDeviceType.AV_HWDEVICE_TYPE_NONE,
+            FFmpegDecodingSettings.AccelerationOptions.VDPAU => AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU,
+            FFmpegDecodingSettings.AccelerationOptions.CUDA => AVHWDeviceType.AV_HWDEVICE_TYPE_CUDA,
+            FFmpegDecodingSettings.AccelerationOptions.VAAPI => AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI,
+            FFmpegDecodingSettings.AccelerationOptions.DXVA2 => AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2,
+            FFmpegDecodingSettings.AccelerationOptions.QSV => AVHWDeviceType.AV_HWDEVICE_TYPE_QSV,
+            FFmpegDecodingSettings.AccelerationOptions.VideoToolbox => AVHWDeviceType.AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+            FFmpegDecodingSettings.AccelerationOptions.D3D11VA => AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA,
+            FFmpegDecodingSettings.AccelerationOptions.DRM => AVHWDeviceType.AV_HWDEVICE_TYPE_DRM,
+            FFmpegDecodingSettings.AccelerationOptions.OpenCL => AVHWDeviceType.AV_HWDEVICE_TYPE_OPENCL,
+            FFmpegDecodingSettings.AccelerationOptions.MediaCodec => AVHWDeviceType.AV_HWDEVICE_TYPE_MEDIACODEC,
+            FFmpegDecodingSettings.AccelerationOptions.Vulkan => AVHWDeviceType.AV_HWDEVICE_TYPE_VULKAN,
+            _ => null
+        };
     }
 
     private void ConfigureAudioStream()
     {
-        if (HasAudio && _audioStream != null)
+        if (!_hasAudio || _audioStream == null) return;
+
+        try
         {
-            _audioCodec = ffmpeg.avcodec_find_decoder(_audioStream->codecpar->codec_id);
-            if (_audioCodec == null)
-            {
-                Debug.WriteLine("No supported decoder ...");
-                _hasAudio = false;
-                return;
-            }
-            _audioCodecContext = ffmpeg.avcodec_alloc_context3(_audioCodec);
-            if (_audioCodecContext == null)
-            {
-                Debug.WriteLine("avcodec_alloc_context3 failed");
-                _hasAudio = false;
-                return;
-            }
-            if (ffmpeg.avcodec_parameters_to_context(_audioCodecContext, _audioStream->codecpar) < 0)
-            {
-                Debug.WriteLine("avcodec_parameters_to_context failed\n");
-                _hasAudio = false;
-                return;
-            }
-
-            if (_settings.ThreadCount != 0)
-            {
-                _audioCodecContext->thread_count = Math.Min(
-                    Environment.ProcessorCount,
-                    _settings.ThreadCount > 0 ? _settings.ThreadCount : 16);
-            }
-            else
-            {
-                _audioCodecContext->thread_count = 0;
-            }
-
-            if (ffmpeg.avcodec_open2(_audioCodecContext, _audioCodec, null) != 0)
-            {
-                Debug.WriteLine("avcodec_open2 failed\n");
-                _hasAudio = false;
-                return;
-            }
-
-            _audioFrame = ffmpeg.av_frame_alloc();
-            _audioPacket = ffmpeg.av_packet_alloc();
+            // デコーダー作成
+            _audioDecoder = MediaDecoder.CreateDecoder(
+                _audioStream.CodecparRef,
+                ctx =>
+                {
+                    if (_settings.ThreadCount != 0)
+                    {
+                        ctx.ThreadCount = Math.Min(
+                            Environment.ProcessorCount,
+                            _settings.ThreadCount > 0 ? _settings.ThreadCount : 16);
+                    }
+                    else
+                    {
+                        ctx.ThreadCount = 0;
+                    }
+                });
         }
+        catch
+        {
+            _logger.LogError("Failed to create audio decoder");
+            _hasAudio = false;
+            return;
+        }
+
+        if (_audioDecoder == null)
+        {
+            _hasAudio = false;
+            return;
+        }
+
+        // フレーム初期化
+        _currentAudioFrame = new MediaFrame();
     }
 }
