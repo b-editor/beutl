@@ -56,6 +56,10 @@ public sealed class FFmpegReader : MediaReader
     private bool _audioSeek;
     private double _videoTimeBaseDouble;
     private double _videoAvgFrameRateDouble;
+    private MediaFrame? _swVideoFrame;
+    private bool _isHWDecoding;
+
+    private MediaFrame? ActiveVideoFrame => _isHWDecoding ? _swVideoFrame : _currentVideoFrame;
 
     public FFmpegReader(string file, MediaOptions options, FFmpegDecodingSettings settings)
     {
@@ -237,7 +241,8 @@ public sealed class FFmpegReader : MediaReader
 
     public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
     {
-        if (_videoStream == null || _videoDecoder == null || _currentVideoFrame == null)
+        var videoFrame = ActiveVideoFrame;
+        if (_videoStream == null || _videoDecoder == null || videoFrame == null)
         {
             image = null;
             return false;
@@ -259,15 +264,23 @@ public sealed class FFmpegReader : MediaReader
             }
         }
 
-        int width = _currentVideoFrame.Width;
-        int height = _currentVideoFrame.Height;
+        // GrabVideo後にActiveVideoFrameを再取得
+        videoFrame = ActiveVideoFrame;
+        if (videoFrame == null)
+        {
+            image = null;
+            return false;
+        }
+
+        int width = videoFrame.Width;
+        int height = videoFrame.Height;
 
         // PixelConverterを初期化（遅延初期化）
         _pixelConverter ??= new PixelConverter();
         _pixelConverter.SetOpts(width, height, AVPixelFormat.AV_PIX_FMT_BGRA);
 
         // 変換
-        using var dstFrame = _pixelConverter.ConvertFrame(_currentVideoFrame, (int)_settings.Scaling);
+        using var dstFrame = _pixelConverter.ConvertFrame(videoFrame, (int)_settings.Scaling);
 
         // ビットマップにコピー
         var bmp = new Bitmap<Bgra8888>(width, height);
@@ -293,6 +306,9 @@ public sealed class FFmpegReader : MediaReader
 
             _audioDecoder?.Dispose();
             _audioDecoder = null;
+
+            _swVideoFrame?.Dispose();
+            _swVideoFrame = null;
 
             _currentVideoFrame?.Dispose();
             _currentVideoFrame = null;
@@ -382,7 +398,7 @@ public sealed class FFmpegReader : MediaReader
         {
             if (packet.StreamIndex == _videoStream.Index)
             {
-                foreach (var frame in _videoDecoder.DecodePacket(packet, _currentVideoFrame))
+                foreach (var frame in _videoDecoder.DecodePacket(packet, _currentVideoFrame, _swVideoFrame))
                 {
                     _videoNowFrame = GetNowFrame();
                     return true;
@@ -391,7 +407,7 @@ public sealed class FFmpegReader : MediaReader
         }
 
         // フラッシュ：残りのフレームを取り出す
-        foreach (var frame in _videoDecoder.DecodePacket(null, _currentVideoFrame))
+        foreach (var frame in _videoDecoder.DecodePacket(null, _currentVideoFrame, _swVideoFrame))
         {
             _videoNowFrame = GetNowFrame();
             return true;
@@ -428,14 +444,17 @@ public sealed class FFmpegReader : MediaReader
 
     private long GetNowFrame()
     {
-        if (_currentVideoFrame == null || _videoStream == null) return 0;
-        double f = (_currentVideoFrame.Pts - _videoStream.StartTime) * _videoTimeBaseDouble * _videoAvgFrameRateDouble + 0.5;
+        var frame = ActiveVideoFrame;
+        if (frame == null || _videoStream == null) return 0;
+        double f = (frame.Pts - _videoStream.StartTime) * _videoTimeBaseDouble * _videoAvgFrameRateDouble + 0.5;
         return (long)f;
     }
 
     private void ConfigureVideoStream()
     {
         if (!_hasVideo || _videoStream == null) return;
+
+        AVHWDeviceType? hwDeviceType = GetAVHWDeviceType();
 
         try
         {
@@ -454,6 +473,20 @@ public sealed class FFmpegReader : MediaReader
                     {
                         ctx.ThreadCount = 0;
                     }
+
+                    if (_settings.Acceleration != FFmpegDecodingSettings.AccelerationOptions.Software)
+                    {
+                        try
+                        {
+                            int result = ctx.InitHWDeviceContext(hwDeviceType);
+                            _isHWDecoding = (result != 0);
+                        }
+                        catch
+                        {
+                            Debug.WriteLine("Failed to initialize HW device context, falling back to software decoding");
+                            _isHWDecoding = false;
+                        }
+                    }
                 });
         }
         catch
@@ -471,10 +504,34 @@ public sealed class FFmpegReader : MediaReader
 
         // フレーム初期化
         _currentVideoFrame = new MediaFrame();
+        if (_isHWDecoding)
+        {
+            _swVideoFrame = new MediaFrame();
+        }
 
         // TimeBase計算
         _videoTimeBaseDouble = ffmpeg.av_q2d(_videoStream.TimeBase);
         _videoAvgFrameRateDouble = ffmpeg.av_q2d(_videoStream.AvgFrameRate);
+    }
+
+    private AVHWDeviceType? GetAVHWDeviceType()
+    {
+        return _settings.Acceleration switch
+        {
+            FFmpegDecodingSettings.AccelerationOptions.Software => AVHWDeviceType.AV_HWDEVICE_TYPE_NONE,
+            FFmpegDecodingSettings.AccelerationOptions.VDPAU => AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU,
+            FFmpegDecodingSettings.AccelerationOptions.CUDA => AVHWDeviceType.AV_HWDEVICE_TYPE_CUDA,
+            FFmpegDecodingSettings.AccelerationOptions.VAAPI => AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI,
+            FFmpegDecodingSettings.AccelerationOptions.DXVA2 => AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2,
+            FFmpegDecodingSettings.AccelerationOptions.QSV => AVHWDeviceType.AV_HWDEVICE_TYPE_QSV,
+            FFmpegDecodingSettings.AccelerationOptions.VideoToolbox => AVHWDeviceType.AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+            FFmpegDecodingSettings.AccelerationOptions.D3D11VA => AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA,
+            FFmpegDecodingSettings.AccelerationOptions.DRM => AVHWDeviceType.AV_HWDEVICE_TYPE_DRM,
+            FFmpegDecodingSettings.AccelerationOptions.OpenCL => AVHWDeviceType.AV_HWDEVICE_TYPE_OPENCL,
+            FFmpegDecodingSettings.AccelerationOptions.MediaCodec => AVHWDeviceType.AV_HWDEVICE_TYPE_MEDIACODEC,
+            FFmpegDecodingSettings.AccelerationOptions.Vulkan => AVHWDeviceType.AV_HWDEVICE_TYPE_VULKAN,
+            _ => null
+        };
     }
 
     private void ConfigureAudioStream()
