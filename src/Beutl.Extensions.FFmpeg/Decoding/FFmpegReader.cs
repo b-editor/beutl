@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
@@ -9,6 +9,7 @@ using Beutl.Media.Pixel;
 
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
+using Microsoft.Extensions.Logging;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Decoding;
@@ -18,6 +19,7 @@ namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed class FFmpegReader : MediaReader
 {
+    private readonly ILogger _logger = Log.CreateLogger<FFmpegReader>();
     private static readonly AVRational s_time_base = new() { num = 1, den = ffmpeg.AV_TIME_BASE };
 
 #pragma warning disable IDE1006 // 命名スタイル
@@ -483,7 +485,7 @@ public sealed class FFmpegReader : MediaReader
                         }
                         catch
                         {
-                            Debug.WriteLine("Failed to initialize HW device context, falling back to software decoding");
+                            _logger.LogWarning("Failed to initialize HW device context, falling back to software decoding");
                             _isHWDecoding = false;
                         }
                     }
@@ -491,7 +493,7 @@ public sealed class FFmpegReader : MediaReader
         }
         catch
         {
-            Debug.WriteLine("Failed to create video decoder");
+            _logger.LogError("Failed to create video decoder");
             _hasVideo = false;
             return;
         }
@@ -559,7 +561,7 @@ public sealed class FFmpegReader : MediaReader
         }
         catch
         {
-            Debug.WriteLine("Failed to create audio decoder");
+            _logger.LogError("Failed to create audio decoder");
             _hasAudio = false;
             return;
         }
