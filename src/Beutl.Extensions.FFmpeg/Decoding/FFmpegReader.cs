@@ -34,14 +34,10 @@ public sealed class FFmpegReader : MediaReader
         }
     };
 
-    private readonly MediaOptions _options;
     private readonly FFmpegDecodingSettings _settings;
-    private readonly string _file;
-    private readonly AudioStreamInfo? _audioInfo;
-    private readonly VideoStreamInfo? _videoInfo;
+    private readonly MediaStream? _audioStream;
+    private readonly MediaStream? _videoStream;
     private MediaDemuxer? _demuxer;
-    private MediaStream? _audioStream;
-    private MediaStream? _videoStream;
     private bool _hasVideo;
     private bool _hasAudio;
     private MediaDecoder? _videoDecoder;
@@ -61,12 +57,8 @@ public sealed class FFmpegReader : MediaReader
     private MediaFrame? _swVideoFrame;
     private bool _isHWDecoding;
 
-    private MediaFrame? ActiveVideoFrame => _isHWDecoding ? _swVideoFrame : _currentVideoFrame;
-
     public FFmpegReader(string file, MediaOptions options, FFmpegDecodingSettings settings)
     {
-        _file = file;
-        _options = options;
         _settings = settings;
         try
         {
@@ -114,7 +106,7 @@ public sealed class FFmpegReader : MediaReader
                 GrabVideo();
 
                 var codec = _videoDecoder!.GetCodec();
-                _videoInfo = new VideoStreamInfo(
+                VideoInfo = new VideoStreamInfo(
                     codec?.LongName ?? "Unknown",
                     _videoStream!.NbFrames,
                     new PixelSize(_videoDecoder.Width, _videoDecoder.Height),
@@ -127,7 +119,7 @@ public sealed class FFmpegReader : MediaReader
             if (HasAudio)
             {
                 var codec = _audioDecoder!.GetCodec();
-                _audioInfo = new AudioStreamInfo(
+                AudioInfo = new AudioStreamInfo(
                     codec?.Name ?? "Unknown",
                     new Rational(_demuxer!.Duration, ffmpeg.AV_TIME_BASE),
                     _audioDecoder.SampleRate,
@@ -141,9 +133,11 @@ public sealed class FFmpegReader : MediaReader
         }
     }
 
-    public override VideoStreamInfo VideoInfo => _videoInfo ?? throw new Exception("The stream does not exist.");
+    private MediaFrame? ActiveVideoFrame => _isHWDecoding ? _swVideoFrame : _currentVideoFrame;
 
-    public override AudioStreamInfo AudioInfo => _audioInfo ?? throw new Exception("The stream does not exist.");
+    public override VideoStreamInfo VideoInfo => field ?? throw new Exception("The stream does not exist.");
+
+    public override AudioStreamInfo AudioInfo => field ?? throw new Exception("The stream does not exist.");
 
     public override bool HasVideo => _hasVideo;
 
@@ -339,7 +333,7 @@ public sealed class FFmpegReader : MediaReader
         {
             if (packet.StreamIndex == _audioStream.Index)
             {
-                foreach (var frame in _audioDecoder.DecodePacket(packet, _currentAudioFrame))
+                foreach (var _ in _audioDecoder.DecodePacket(packet, _currentAudioFrame))
                 {
                     UpdateAudioTimestamp();
                     return true;
@@ -348,7 +342,7 @@ public sealed class FFmpegReader : MediaReader
         }
 
         // フラッシュ：残りのフレームを取り出す
-        foreach (var frame in _audioDecoder.DecodePacket(null, _currentAudioFrame))
+        foreach (var _ in _audioDecoder.DecodePacket(null, _currentAudioFrame))
         {
             UpdateAudioTimestamp();
             return true;
@@ -400,7 +394,7 @@ public sealed class FFmpegReader : MediaReader
         {
             if (packet.StreamIndex == _videoStream.Index)
             {
-                foreach (var frame in _videoDecoder.DecodePacket(packet, _currentVideoFrame, _swVideoFrame))
+                foreach (var _ in _videoDecoder.DecodePacket(packet, _currentVideoFrame, _swVideoFrame))
                 {
                     _videoNowFrame = GetNowFrame();
                     return true;
@@ -409,7 +403,7 @@ public sealed class FFmpegReader : MediaReader
         }
 
         // フラッシュ：残りのフレームを取り出す
-        foreach (var frame in _videoDecoder.DecodePacket(null, _currentVideoFrame, _swVideoFrame))
+        foreach (var _ in _videoDecoder.DecodePacket(null, _currentVideoFrame, _swVideoFrame))
         {
             _videoNowFrame = GetNowFrame();
             return true;
@@ -424,7 +418,7 @@ public sealed class FFmpegReader : MediaReader
 
         void SeekOnly(long targetFrame)
         {
-            long timestamp = (long)Math.Round(targetFrame * 1000000 / _videoAvgFrameRateDouble + _demuxer.StartTime, MidpointRounding.AwayFromZero);
+            long timestamp = (long)Math.Round(targetFrame * 1000000.0 / _videoAvgFrameRateDouble + _demuxer.StartTime, MidpointRounding.AwayFromZero);
             _demuxer.Seek(timestamp, -1);
             ffmpeg.avcodec_flush_buffers(_videoDecoder);
             GrabVideo();
@@ -480,8 +474,9 @@ public sealed class FFmpegReader : MediaReader
                     {
                         try
                         {
+                            // 1のとき成功
                             int result = ctx.InitHWDeviceContext(hwDeviceType);
-                            _isHWDecoding = (result != 0);
+                            _isHWDecoding = result != 0;
                         }
                         catch
                         {
