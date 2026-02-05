@@ -107,34 +107,25 @@ public sealed class FFmpegReader : MediaReader
             {
                 GrabVideo();
 
-                unsafe
+                var codec = _videoDecoder!.GetCodec();
+                _videoInfo = new VideoStreamInfo(
+                    codec?.LongName ?? "Unknown",
+                    _videoStream!.NbFrames,
+                    new PixelSize(_videoDecoder.Width, _videoDecoder.Height),
+                    new Rational(_videoStream.AvgFrameRate.num, _videoStream.AvgFrameRate.den))
                 {
-                    AVStream* avStream = (AVStream*)_videoStream!;
-                    AVFormatContext* fmtCtx = (AVFormatContext*)_demuxer;
-                    var codec = _videoDecoder!.GetCodec();
-                    _videoInfo = new VideoStreamInfo(
-                        codec?.LongName ?? "Unknown",
-                        avStream->nb_frames,
-                        new PixelSize(_videoDecoder.Width, _videoDecoder.Height),
-                        new Rational(avStream->avg_frame_rate.num, avStream->avg_frame_rate.den))
-                    {
-                        Duration = new Rational(fmtCtx->duration, ffmpeg.AV_TIME_BASE)
-                    };
-                }
+                    Duration = new Rational(_demuxer.Duration, ffmpeg.AV_TIME_BASE)
+                };
             }
 
             if (HasAudio)
             {
-                unsafe
-                {
-                    AVFormatContext* fmtCtx = (AVFormatContext*)_demuxer;
-                    var codec = _audioDecoder!.GetCodec();
-                    _audioInfo = new AudioStreamInfo(
-                        codec?.Name ?? "Unknown",
-                        new Rational(fmtCtx->duration, ffmpeg.AV_TIME_BASE),
-                        _audioDecoder.SampleRate,
-                        _audioDecoder.ChLayout.nb_channels);
-                }
+                var codec = _audioDecoder!.GetCodec();
+                _audioInfo = new AudioStreamInfo(
+                    codec?.Name ?? "Unknown",
+                    new Rational(_demuxer!.Duration, ffmpeg.AV_TIME_BASE),
+                    _audioDecoder.SampleRate,
+                    _audioDecoder.ChLayout.nb_channels);
             }
         }
         catch
@@ -152,7 +143,7 @@ public sealed class FFmpegReader : MediaReader
 
     public override bool HasAudio => _hasAudio;
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? result)
+    public override unsafe bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? result)
     {
         // Decoder側でResampleされるかのチェックのため
         if (length == 0)
@@ -184,70 +175,67 @@ public sealed class FFmpegReader : MediaReader
         // SampleConverterを遅延初期化
         _sampleConverter ??= new SampleConverter();
 
-        unsafe
+        fixed (Stereo32BitFloat* buf = sound.DataSpan)
         {
-            fixed (Stereo32BitFloat* buf = sound.DataSpan)
+            while ((!needGrab || GrabAudio()) && _currentAudioFrame.NbSamples > 0)
             {
-                while (!needGrab || GrabAudio())
+                // SampleConverterの設定
+                _sampleConverter.SetOpts(
+                    AV_CHANNEL_LAYOUT_STEREO,
+                    AudioInfo.SampleRate,
+                    AVSampleFormat.AV_SAMPLE_FMT_FLT,
+                    _currentAudioFrame.NbSamples);
+
+                // 変換
+                using var convertedFrame = _sampleConverter.ConvertFrame(_currentAudioFrame, out _, out _);
+                _samplesReturn = convertedFrame.NbSamples;
+
+                if (_samplesReturn < 0)
                 {
-                    // SampleConverterの設定
-                    _sampleConverter.SetOpts(
-                        AV_CHANNEL_LAYOUT_STEREO,
-                        AudioInfo.SampleRate,
-                        AVSampleFormat.AV_SAMPLE_FMT_FLT,
-                        _currentAudioFrame.NbSamples);
-
-                    // 変換
-                    using var convertedFrame = _sampleConverter.ConvertFrame(_currentAudioFrame, out _, out _);
-                    _samplesReturn = convertedFrame.NbSamples;
-
-                    if (_samplesReturn < 0)
-                    {
-                        Debug.WriteLine("swr_convert error.");
-                        sound?.Dispose();
-                        result = null;
-                        return false;
-                    }
-
-                    int skip = 0;
-                    if ((int)_audioNowTimestamp < start)
-                    {
-                        skip = start - (int)_audioNowTimestamp;
-                    }
-
-                    int len = _samplesReturn - skip;
-                    if (decoded + len > length)
-                    {
-                        len = length - decoded;
-                    }
-
-                    if (len > 0)
-                    {
-                        int size = sizeof(Stereo32BitFloat);
-                        Buffer.MemoryCopy(
-                            (void*)(convertedFrame.Data[0] + (skip * size)),
-                            ((byte*)buf) + (decoded * size),
-                            len * size,
-                            len * size);
-                        decoded += len;
-                    }
-
-                    if (decoded >= length || len <= 0)
-                    {
-                        result = sound;
-                        return true;
-                    }
-
-                    needGrab = skip + len >= _currentAudioFrame.NbSamples;
+                    Debug.WriteLine("swr_convert error.");
+                    sound.Dispose();
+                    result = null;
+                    return false;
                 }
 
-                result = sound;
-                return true;
+                int skip = 0;
+                if ((int)_audioNowTimestamp < start)
+                {
+                    skip = start - (int)_audioNowTimestamp;
+                }
+
+                int len = _samplesReturn - skip;
+                if (decoded + len > length)
+                {
+                    len = length - decoded;
+                }
+
+                if (len > 0)
+                {
+                    int size = sizeof(Stereo32BitFloat);
+                    Buffer.MemoryCopy(
+                        convertedFrame.Data[0] + (skip * size),
+                        ((byte*)buf) + (decoded * size),
+                        len * size,
+                        len * size);
+                    decoded += len;
+                }
+
+                if (decoded >= length || len <= 0)
+                {
+                    result = sound;
+                    return true;
+                }
+
+                needGrab = skip + len >= _currentAudioFrame.NbSamples;
             }
+
+            result = sound;
+            return true;
         }
     }
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
+    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
     {
         if (_videoStream == null || _videoDecoder == null || _currentVideoFrame == null)
         {
@@ -283,11 +271,8 @@ public sealed class FFmpegReader : MediaReader
 
         // ビットマップにコピー
         var bmp = new Bitmap<Bgra8888>(width, height);
-        unsafe
-        {
-            int byteCount = width * height * 4;
-            Buffer.MemoryCopy((void*)dstFrame.Data[0], (void*)bmp.Data, byteCount, byteCount);
-        }
+        int byteCount = width * height * 4;
+        Buffer.MemoryCopy(dstFrame.Data[0], (void*)bmp.Data, byteCount, byteCount);
 
         image = bmp;
         return true;
@@ -361,13 +346,8 @@ public sealed class FFmpegReader : MediaReader
 
         if (_audioSeek)
         {
-            unsafe
-            {
-                AVStream* avStream = (AVStream*)_audioStream;
-                AVFormatContext* fmtCtx = (AVFormatContext*)_demuxer;
-                _audioNowTimestamp = (long)((_currentAudioFrame.Pts * ffmpeg.av_q2d(avStream->time_base)
-                    - (fmtCtx->start_time * ffmpeg.av_q2d(s_time_base))) * _audioDecoder.SampleRate);
-            }
+            _audioNowTimestamp = (long)((_currentAudioFrame.Pts * ffmpeg.av_q2d(_audioStream.TimeBase)
+                                         - (_demuxer.StartTime * ffmpeg.av_q2d(s_time_base))) * _audioDecoder.SampleRate);
             _audioSeek = false;
             _audioNowTimestamp -= _audioNowTimestamp % _currentAudioFrame.NbSamples;
         }
@@ -379,18 +359,13 @@ public sealed class FFmpegReader : MediaReader
         _audioNextTimestamp = _audioNowTimestamp + _currentAudioFrame.NbSamples;
     }
 
-    private void SeekAudio(long sample_pos)
+    private unsafe void SeekAudio(long sample_pos)
     {
         if (_demuxer == null || _audioDecoder == null) return;
 
-        unsafe
-        {
-            AVFormatContext* fmtCtx = (AVFormatContext*)_demuxer;
-            AVCodecContext* codecCtx = (AVCodecContext*)_audioDecoder;
-            long timestamp = sample_pos * 1000000 / _audioDecoder.SampleRate + fmtCtx->start_time;
-            _demuxer.Seek(timestamp, -1);
-            ffmpeg.avcodec_flush_buffers(codecCtx);
-        }
+        long timestamp = sample_pos * 1000000 / _audioDecoder.SampleRate + _demuxer.StartTime;
+        _demuxer.Seek(timestamp, -1);
+        ffmpeg.avcodec_flush_buffers(_audioDecoder);
         _audioSeek = true;
 
         while (GrabAudio() && _audioNextTimestamp < sample_pos)
@@ -425,46 +400,37 @@ public sealed class FFmpegReader : MediaReader
         return false;
     }
 
-    private void SeekVideo(int frame)
+    private unsafe void SeekVideo(int frame)
     {
         if (_demuxer == null || _videoDecoder == null) return;
 
-        unsafe
+        void SeekOnly(long targetFrame)
         {
-            AVFormatContext* fmtCtx = (AVFormatContext*)_demuxer;
-            AVCodecContext* codecCtx = (AVCodecContext*)_videoDecoder;
-
-            void SeekOnly(long targetFrame)
-            {
-                long timestamp = (long)Math.Round(targetFrame * 1000000 / _videoAvgFrameRateDouble + fmtCtx->start_time, MidpointRounding.AwayFromZero);
-                _demuxer.Seek(timestamp, -1);
-                ffmpeg.avcodec_flush_buffers(codecCtx);
-                GrabVideo();
-            }
-
-            SeekOnly(frame);
-            // 移動先が目的地より進んでいることがあるためその場合は戻る
-            long f = frame - (_videoNowFrame - frame) - 3;
-            while (_videoNowFrame > frame)
-            {
-                if (f < 0) f = 0;
-                SeekOnly(f);
-                if (f == 0) break;
-                f -= 30;
-            }
+            long timestamp = (long)Math.Round(targetFrame * 1000000 / _videoAvgFrameRateDouble + _demuxer.StartTime, MidpointRounding.AwayFromZero);
+            _demuxer.Seek(timestamp, -1);
+            ffmpeg.avcodec_flush_buffers(_videoDecoder);
+            GrabVideo();
         }
+
+        SeekOnly(frame);
+        // 移動先が目的地より進んでいることがあるためその場合は戻る
+        long f = frame - (_videoNowFrame - frame) - 3;
+        while (_videoNowFrame > frame)
+        {
+            if (f < 0) f = 0;
+            SeekOnly(f);
+            if (f == 0) break;
+            f -= 30;
+        }
+
         while (_videoNowFrame < frame && GrabVideo()) { }
     }
 
     private long GetNowFrame()
     {
         if (_currentVideoFrame == null || _videoStream == null) return 0;
-        unsafe
-        {
-            AVStream* avStream = (AVStream*)_videoStream;
-            double f = (_currentVideoFrame.Pts - avStream->start_time) * _videoTimeBaseDouble * _videoAvgFrameRateDouble + 0.5;
-            return (long)f;
-        }
+        double f = (_currentVideoFrame.Pts - _videoStream.StartTime) * _videoTimeBaseDouble * _videoAvgFrameRateDouble + 0.5;
+        return (long)f;
     }
 
     private void ConfigureVideoStream()
@@ -507,12 +473,8 @@ public sealed class FFmpegReader : MediaReader
         _currentVideoFrame = new MediaFrame();
 
         // TimeBase計算
-        unsafe
-        {
-            AVStream* avStream = (AVStream*)_videoStream;
-            _videoTimeBaseDouble = ffmpeg.av_q2d(avStream->time_base);
-            _videoAvgFrameRateDouble = ffmpeg.av_q2d(avStream->avg_frame_rate);
-        }
+        _videoTimeBaseDouble = ffmpeg.av_q2d(_videoStream.TimeBase);
+        _videoAvgFrameRateDouble = ffmpeg.av_q2d(_videoStream.AvgFrameRate);
     }
 
     private void ConfigureAudioStream()
