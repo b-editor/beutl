@@ -267,7 +267,7 @@ public sealed class FFmpegReader : MediaReader
         _pixelConverter.SetOpts(width, height, AVPixelFormat.AV_PIX_FMT_BGRA);
 
         // 変換
-        using var dstFrame = _pixelConverter.ConvertFrame(_currentVideoFrame);
+        using var dstFrame = _pixelConverter.ConvertFrame(_currentVideoFrame, (int)_settings.Scaling);
 
         // ビットマップにコピー
         var bmp = new Bitmap<Bgra8888>(width, height);
