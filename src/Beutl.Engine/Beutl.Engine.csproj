@@ -3,6 +3,7 @@
     <RootNameSpace>Beutl</RootNameSpace>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Beutl" />
     <InternalsVisibleTo Include="Beutl.Graphics3DTests" />
     <InternalsVisibleTo Include="Beutl.UnitTests" />
   </ItemGroup>
