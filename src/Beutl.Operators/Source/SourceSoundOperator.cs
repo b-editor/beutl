@@ -88,6 +88,7 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
     public async IAsyncEnumerable<(int Index, int Count, IBitmap Thumbnail)> GetThumbnailStripAsync(
         int maxWidth,
         int maxHeight,
+        IElementThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await Task.CompletedTask;
