@@ -30,9 +30,9 @@ public sealed class ScriptEditorExtension : PropertyEditorExtension
     {
         IProperty? engineProperty = p.GetEngineProperty();
         return p.PropertyType == typeof(string)
-            || (p.ImplementedType == typeof(GLSLScriptEffect) && engineProperty?.Name == nameof(GLSLScriptEffect.FragmentShader))
+            && ((p.ImplementedType == typeof(GLSLScriptEffect) && engineProperty?.Name == nameof(GLSLScriptEffect.FragmentShader))
             || (p.ImplementedType == typeof(SKSLScriptEffect) && engineProperty?.Name == nameof(SKSLScriptEffect.Script))
-            || (p.ImplementedType == typeof(CSharpScriptEffect) && engineProperty?.Name == nameof(CSharpScriptEffect.Script));
+            || (p.ImplementedType == typeof(CSharpScriptEffect) && engineProperty?.Name == nameof(CSharpScriptEffect.Script)));
     }
 
     public override bool TryCreateContext(IReadOnlyList<IPropertyAdapter> properties,
