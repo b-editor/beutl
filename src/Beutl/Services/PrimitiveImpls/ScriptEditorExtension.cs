@@ -15,15 +15,7 @@ public sealed class ScriptEditorExtension : PropertyEditorExtension
 
     public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
     {
-        try
-        {
-            return [.. properties.Where(MatchProperty)];
-        }
-        catch
-        {
-        }
-
-        return [];
+        return [.. properties.Where(MatchProperty)];
     }
 
     private static bool MatchProperty(IPropertyAdapter p)
