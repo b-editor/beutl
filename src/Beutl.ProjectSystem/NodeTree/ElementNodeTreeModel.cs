@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-using Beutl.Animation;
+using Beutl.Audio.Composing;
 using Beutl.Collections.Pooled;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
@@ -46,10 +46,11 @@ public class ElementNodeTreeModel : NodeTreeModel
         obj.Edited -= OnNodeEdited;
     }
 
-    public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer, Element element)
+    // TODO: rendererもnullableにする
+    public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer, Element element, IComposer? composer = null)
     {
         _ = target;
-        Build(renderer);
+        Build(renderer, composer);
 
         var list = new PooledList<EngineObject>();
         try
@@ -96,7 +97,7 @@ public class ElementNodeTreeModel : NodeTreeModel
         _evalContexts.Clear();
     }
 
-    private void Build(IRenderer renderer)
+    private void Build(IRenderer renderer, IComposer? composer = null)
     {
         if (_isDirty)
         {
@@ -114,6 +115,7 @@ public class ElementNodeTreeModel : NodeTreeModel
                 foreach (NodeEvaluationContext item in array)
                 {
                     item.Renderer = renderer;
+                    item.Composer = composer;
                     item.List = array;
                     item.Node.InitializeForContext(item);
                 }

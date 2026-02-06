@@ -720,6 +720,9 @@
   <data name="Group" xml:space="preserve">
     <value>Group</value>
   </data>
+  <data name="SoundGroup" xml:space="preserve">
+    <value>Sound Group</value>
+  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0} is not a valid.</value>
   </data>

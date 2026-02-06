@@ -16,14 +16,14 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
 {
     private readonly List<Element> _entered = [];
     private readonly List<Element> _exited = [];
-    private readonly List<Element> _current = [];
     private TimeRange _lastTime = new(TimeSpan.MinValue, default);
+
+    public List<Element> CurrentElements { get; } = [];
 
     protected override void ComposeCore(TimeRange timeRange)
     {
         ClearSounds();
         SortLayers(timeRange, out _);
-        Span<Element> elements = CollectionsMarshal.AsSpan(_current);
         Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
         Span<Element> exited = CollectionsMarshal.AsSpan(_exited);
 
@@ -37,9 +37,10 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
             EnterSourceOperators(item);
         }
 
-        foreach (Element element in elements)
+        for (int i = 0; i < CurrentElements.Count; i++)
         {
-            using PooledList<EngineObject> list = element.Evaluate(EvaluationTarget.Audio, renderer);
+            Element element = CurrentElements[i];
+            using PooledList<EngineObject> list = element.Evaluate(EvaluationTarget.Audio, renderer, this);
             foreach (EngineObject item in list.Span)
             {
                 if (item is Sound sound)
@@ -74,7 +75,7 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
     {
         _entered.Clear();
         _exited.Clear();
-        _current.Clear();
+        CurrentElements.Clear();
         TimeSpan enterStart = TimeSpan.MaxValue;
         TimeSpan enterEnd = TimeSpan.Zero;
 
@@ -85,7 +86,7 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
 
             if (current)
             {
-                _current.OrderedAdd(item, x => x.ZIndex);
+                CurrentElements.OrderedAdd(item, x => x.ZIndex);
             }
 
             if (!recent && current)
@@ -120,6 +121,6 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
         base.OnDispose(disposing);
         _entered.Clear();
         _exited.Clear();
-        _current.Clear();
+        CurrentElements.Clear();
     }
 }

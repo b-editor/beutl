@@ -725,6 +725,9 @@
   <data name="Group" xml:space="preserve">
     <value>グループ</value>
   </data>
+  <data name="SoundGroup" xml:space="preserve">
+    <value>サウンドグループ</value>
+  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0}は無効です。</value>
   </data>

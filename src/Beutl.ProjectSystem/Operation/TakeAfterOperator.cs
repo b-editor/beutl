@@ -41,39 +41,44 @@ public sealed class TakeAfterOperator : SourceOperator
 
     public override void Evaluate(OperatorEvaluationContext context)
     {
-        if (_element != null
-            && context.Renderer is SceneRenderer renderer)
+        if (_element == null) return;
+
+        // elementsはソートされている
+        var elements = context.Target == EvaluationTarget.Graphics && context.Renderer is SceneRenderer renderer
+            ? renderer.CurrentElements
+            : context.Target == EvaluationTarget.Audio && context.Composer is SceneComposer composer
+                ? composer.CurrentElements
+                : null;
+
+        if (elements == null) return;
+
+        using var flow = new PooledList<EngineObject>();
+
+        int start = _element.ZIndex + 1;
+        int end = _element.ZIndex + _count;
+
+        for (int i = 0; i < elements.Count; i++)
         {
-            using var flow = new PooledList<EngineObject>();
-
-            int start = _element.ZIndex + 1;
-            int end = _element.ZIndex + _count;
-
-            // elementsはソートされている
-            List<Element> elements = renderer.CurrentElements;
-            for (int i = 0; i < elements.Count; i++)
+            Element item = elements[i];
+            if (item.ZIndex >= start && item.ZIndex <= end)
             {
-                Element item = elements[i];
-                if (item.ZIndex >= start && item.ZIndex <= end)
-                {
-                    elements.RemoveAt(i);
-                    i--;
+                elements.RemoveAt(i);
+                i--;
 
-                    using (PooledList<EngineObject> result = item.Evaluate(context.Target, context.Renderer))
-                    {
-                        flow.AddRange(result.Span);
-                    }
-                }
-                else if (item.ZIndex > end)
+                using (PooledList<EngineObject> result = item.Evaluate(context.Target, context.Renderer, context.Composer))
                 {
-                    break;
+                    flow.AddRange(result.Span);
                 }
             }
-
-            foreach (EngineObject item in flow.Span)
+            else if (item.ZIndex > end)
             {
-                context.AddFlowRenderable(item);
+                break;
             }
+        }
+
+        foreach (EngineObject item in flow.Span)
+        {
+            context.AddFlowRenderable(item);
         }
     }
 
