@@ -21,7 +21,8 @@ public sealed class ScriptEditorViewModel : ValueEditorViewModel<string?>
 
         Value
             .Throttle(TimeSpan.FromMilliseconds(500))
-            .SelectMany(script => Observable.Start(() => ValidateScript(script)))
+            .Select(script => Observable.Start(() => ValidateScript(script)))
+            .Switch()
             .ObserveOnUIDispatcher()
             .Subscribe(error => CompileError.Value = error)
             .DisposeWith(Disposables);
