@@ -13,6 +13,7 @@ namespace Beutl.Graphics.Effects;
 public sealed partial class CSharpScriptEffect : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<CSharpScriptEffect>();
+    private static readonly ScriptOptions s_scriptOptions = CreateScriptOptions();
 
     public CSharpScriptEffect()
     {
@@ -37,6 +38,54 @@ public sealed partial class CSharpScriptEffect : FilterEffect
                """;
     }
 
+    internal static string? ValidateScript(string script)
+    {
+        if (string.IsNullOrWhiteSpace(script))
+            return null;
+
+        try
+        {
+            var roslynScript = CSharpScript.Create<object>(
+                script,
+                s_scriptOptions,
+                typeof(CSharpScriptEffectGlobals));
+
+            var diagnostics = roslynScript.Compile();
+            var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+
+            if (errors.Count > 0)
+            {
+                return string.Join(Environment.NewLine, errors.Select(e => e.GetMessage()));
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
+
+    private static ScriptOptions CreateScriptOptions()
+    {
+        return ScriptOptions.Default
+            .AddReferences(
+                typeof(object).Assembly,
+                typeof(Math).Assembly,
+                typeof(Console).Assembly,
+                typeof(Enumerable).Assembly,
+                typeof(CoreObject).Assembly,
+                typeof(FilterEffectContext).Assembly)
+            .AddImports(
+                "System",
+                "System.Linq",
+                "Beutl.Media",
+                "Beutl.Engine",
+                "Beutl.Graphics",
+                "Beutl.Graphics.Rendering",
+                "Beutl.Graphics.Effects");
+    }
+
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
@@ -50,7 +99,6 @@ public sealed partial class CSharpScriptEffect : FilterEffect
 
     public new partial class Resource
     {
-        private static readonly ScriptOptions s_scriptOptions = CreateScriptOptions();
         internal ScriptRunner<object>? _scriptRunner;
         internal string? _compiledScript;
         internal string? _compileError;
@@ -79,26 +127,6 @@ public sealed partial class CSharpScriptEffect : FilterEffect
             Progress = progress;
 
             CompileScript(Script);
-        }
-
-        private static ScriptOptions CreateScriptOptions()
-        {
-            return ScriptOptions.Default
-                .AddReferences(
-                    typeof(object).Assembly,
-                    typeof(Math).Assembly,
-                    typeof(Console).Assembly,
-                    typeof(Enumerable).Assembly,
-                    typeof(CoreObject).Assembly,
-                    typeof(FilterEffectContext).Assembly)
-                .AddImports(
-                    "System",
-                    "System.Linq",
-                    "Beutl.Media",
-                    "Beutl.Engine",
-                    "Beutl.Graphics",
-                    "Beutl.Graphics.Rendering",
-                    "Beutl.Graphics.Effects");
         }
 
         private void CompileScript(string script)

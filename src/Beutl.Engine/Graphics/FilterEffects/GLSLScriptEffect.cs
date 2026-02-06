@@ -50,6 +50,27 @@ public sealed partial class GLSLScriptEffect : FilterEffect
                """;
     }
 
+    internal static string? ValidateScript(string script)
+    {
+        if (string.IsNullOrWhiteSpace(script))
+            return null;
+
+        try
+        {
+            IGraphicsContext? context = GraphicsContextFactory.SharedContext;
+            if (context == null)
+                return null;
+
+            IShaderCompiler compiler = context.CreateShaderCompiler();
+            compiler.CompileToSpirv(script, ShaderStage.Fragment);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
+
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;

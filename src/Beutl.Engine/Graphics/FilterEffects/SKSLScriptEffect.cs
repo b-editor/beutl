@@ -43,6 +43,22 @@ public sealed partial class SKSLScriptEffect : FilterEffect
                """;
     }
 
+    internal static string? ValidateScript(string script)
+    {
+        if (string.IsNullOrWhiteSpace(script))
+            return null;
+
+        try
+        {
+            using var effect = SKRuntimeEffect.CreateShader(script, out string? errorText);
+            return errorText;
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
+
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
