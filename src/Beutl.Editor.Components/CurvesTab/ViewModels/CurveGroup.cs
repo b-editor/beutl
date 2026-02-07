@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Components.CurvesTab.ViewModels;
+﻿namespace Beutl.Editor.Components.CurvesTab.ViewModels;
 
 public enum CurveGroup
 {

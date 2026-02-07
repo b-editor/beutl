@@ -1,4 +1,4 @@
-using System.Reactive;
+﻿using System.Reactive;
 
 using Avalonia.Media;
 using Reactive.Bindings;

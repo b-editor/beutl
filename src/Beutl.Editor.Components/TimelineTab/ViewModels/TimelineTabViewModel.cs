@@ -9,9 +9,9 @@ using Avalonia.Platform.Storage;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor;
-using Beutl.Editor.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.Models;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
@@ -367,7 +367,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
 
     public HashSet<ElementViewModel> SelectedElements { get; } = [];
 
-    
+
 
     public ToolTabExtension Extension => TimelineTabExtension.Instance;
 
