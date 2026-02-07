@@ -1,10 +1,8 @@
 ﻿using Avalonia;
 using Avalonia.Controls.Shapes;
 using Avalonia.Media;
-
-using Beutl.Utilities;
-
 using Beutl.Editor.Components.Helpers;
+using Beutl.Utilities;
 
 namespace Beutl.Editor.Components.GraphEditorTab.Views;
 

@@ -2,9 +2,9 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Animation;
-using Beutl.ProjectSystem;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;

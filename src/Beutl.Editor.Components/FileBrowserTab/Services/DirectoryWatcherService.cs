@@ -1,4 +1,4 @@
-using Avalonia.Threading;
+﻿using Avalonia.Threading;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 

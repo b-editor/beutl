@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Beutl.Controls.Curves;
 using Beutl.Editor.Components.CurvesTab.ViewModels;
 

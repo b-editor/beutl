@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Beutl.Editor;
 using Beutl.Logging;
 using Beutl.ProjectSystem;

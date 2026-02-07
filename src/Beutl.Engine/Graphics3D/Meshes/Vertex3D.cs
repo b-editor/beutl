@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;

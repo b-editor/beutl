@@ -7,8 +7,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Collections.Pooled;
 using Beutl.Editor.Components.Helpers;
-using Beutl.NodeTree;
 using Beutl.Editor.Components.NodeTreeTab.ViewModels;
+using Beutl.NodeTree;
 
 namespace Beutl.Editor.Components.NodeTreeTab.Views;
 

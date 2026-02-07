@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Type or member is obsolete
+﻿#pragma warning disable CS0618 // Type or member is obsolete
 
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;

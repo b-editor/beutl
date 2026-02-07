@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Beutl.Editor;
 using Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
