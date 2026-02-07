@@ -110,7 +110,6 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
             if (Activator.CreateInstance(type) is ILayerInputSocket outputSocket)
             {
-                ((NodeItem)outputSocket).LocalId = NextLocalId++;
                 outputSocket.SetupProperty(inputSocket.Name);
                 outputSocket.GetProperty()?.SetValue(inputSocket.Property?.GetValue());
 
@@ -135,20 +134,14 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         base.Deserialize(context);
         if (context.GetValue<JsonArray>("Items") is { } itemsArray)
         {
-            int index = 0;
             foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
             {
                 if (CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(ILayerInputSocket)) is ILayerInputSocket
                     socket)
                 {
                     Items.Add(socket);
-                    ((NodeItem)socket).LocalId = index;
                 }
-
-                index++;
             }
-
-            NextLocalId = index;
         }
     }
 }

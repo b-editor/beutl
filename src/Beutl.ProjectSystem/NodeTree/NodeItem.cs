@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Animation;
 using Beutl.Extensibility;
 using Beutl.Media;
 
@@ -6,20 +7,22 @@ namespace Beutl.NodeTree;
 
 public abstract class NodeItem : Hierarchical
 {
-    public static readonly CoreProperty<int> LocalIdProperty;
-    private int _localId = -1;
+    public static readonly CoreProperty<DisplayAttribute?> DisplayProperty;
+    private DisplayAttribute? _display;
 
     static NodeItem()
     {
-        LocalIdProperty = ConfigureProperty<int, NodeItem>(o => o.LocalId)
-            .DefaultValue(-1)
+        DisplayProperty = ConfigureProperty<DisplayAttribute?, NodeItem>(nameof(Display))
+            .Accessor(o => o.Display, (o, v) => o.Display = v)
             .Register();
     }
 
-    public int LocalId
+    [NotAutoSerialized]
+    [NotTracked]
+    public DisplayAttribute? Display
     {
-        get => _localId;
-        set => SetAndRaise(LocalIdProperty, ref _localId, value);
+        get => _display;
+        set => SetAndRaise(DisplayProperty, ref _display, value);
     }
 
     public event EventHandler? NodeTreeInvalidated;

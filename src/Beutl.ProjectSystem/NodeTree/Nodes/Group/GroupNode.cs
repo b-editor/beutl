@@ -335,13 +335,10 @@ public class GroupNode : Node
                 {
                     INodeItem nodeItem = Items[index];
                     CoreSerializer.PopulateFromJsonObject(nodeItem, itemJson);
-                    ((NodeItem)nodeItem).LocalId = index;
                 }
 
                 index++;
             }
-
-            NextLocalId = index;
         }
     }
 }

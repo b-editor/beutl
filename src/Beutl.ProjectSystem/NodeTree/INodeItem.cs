@@ -10,8 +10,6 @@ internal interface ISupportSetValueNodeItem
 
 public interface INodeItem : ICoreObject, IHierarchical, INotifyEdited
 {
-    int LocalId { get; }
-
     IPropertyAdapter? Property { get; }
 
     Type? AssociatedType { get; }

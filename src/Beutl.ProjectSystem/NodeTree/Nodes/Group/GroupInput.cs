@@ -47,7 +47,6 @@ public class GroupInput : Node, ISocketsCanBeAdded
 
             if (Activator.CreateInstance(type) is IOutputSocket outputSocket)
             {
-                ((NodeItem)outputSocket).LocalId = NextLocalId++;
                 ((IGroupSocket)outputSocket).AssociatedPropertyName = inputSocket.Name;
                 ((IGroupSocket)outputSocket).AssociatedPropertyType = valueType;
 
@@ -72,19 +71,13 @@ public class GroupInput : Node, ISocketsCanBeAdded
         base.Deserialize(context);
         if (context.GetValue<JsonArray>("Items") is { } itemsArray)
         {
-            int index = 0;
             foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
             {
                 if (CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(IOutputSocket)) is IOutputSocket socket)
                 {
                     Items.Add(socket);
-                    ((NodeItem)socket).LocalId = index;
                 }
-
-                index++;
             }
-
-            NextLocalId = index;
         }
     }
 }

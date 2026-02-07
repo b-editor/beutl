@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Nodes;
 
 using Beutl.Collections;
 using Beutl.Media;
@@ -92,8 +93,6 @@ public abstract class Node : Hierarchical
         }
     }
 
-    protected int NextLocalId { get; set; } = 0;
-
     public event EventHandler? NodeTreeInvalidated;
 
     public event EventHandler? Edited;
@@ -146,141 +145,102 @@ public abstract class Node : Hierarchical
     }
 
     // TODO: AddInput, AddOutput, AddPropertyに変更する
-    protected InputSocket<T> AsInput<T>(string name, int localId = -1)
+    protected InputSocket<T> AsInput<T>(string name, DisplayAttribute? display = null)
     {
-        InputSocket<T> socket = CreateInput<T>(name, localId);
+        InputSocket<T> socket = CreateInput<T>(name, display);
         Items.Add(socket);
         return socket;
     }
 
-    protected IInputSocket AsInput(string name, Type type, int localId = -1)
+    protected IInputSocket AsInput(string name, Type type, DisplayAttribute? display = null)
     {
-        IInputSocket socket = CreateInput(name, type, localId);
+        IInputSocket socket = CreateInput(name, type, display);
         Items.Add(socket);
         return socket;
     }
 
-    protected OutputSocket<T> AsOutput<T>(string name, T value, int localId = -1)
+    protected OutputSocket<T> AsOutput<T>(string name, T value, DisplayAttribute? display = null)
     {
-        OutputSocket<T> socket = CreateOutput<T>(name, value, localId);
+        OutputSocket<T> socket = CreateOutput<T>(name, value, display);
         Items.Add(socket);
         return socket;
     }
 
-    protected OutputSocket<T> AsOutput<T>(string name, int localId = -1)
+    protected OutputSocket<T> AsOutput<T>(string name, DisplayAttribute? display = null)
     {
-        OutputSocket<T> socket = CreateOutput<T>(name, localId);
+        OutputSocket<T> socket = CreateOutput<T>(name, display);
         Items.Add(socket);
         return socket;
     }
 
-    protected NodeItem<T> AsProperty<T>(string name, int localId = -1)
+    protected NodeItem<T> AsProperty<T>(string name, DisplayAttribute? display = null)
     {
-        NodeItem<T> socket = CreateProperty<T>(name, localId);
+        NodeItem<T> socket = CreateProperty<T>(name, display);
         Items.Add(socket);
         return socket;
     }
 
-    protected InputSocket<T> CreateInput<T>(string name, int localId = -1)
+    protected InputSocket<T> CreateInput<T>(string name, DisplayAttribute? display = null)
     {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
         var adapter = new NodePropertyAdapter<T>(name);
         var socket = new DefaultInputSocket<T>();
         socket.SetPropertyAdapter(adapter);
         socket.Name = name;
-        socket.LocalId = localId;
+        socket.Display = display;
         return socket;
     }
 
-    protected IInputSocket CreateInput(string name, Type type, int localId = -1)
+    protected IInputSocket CreateInput(string name, Type type, DisplayAttribute? display = null)
     {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
         var adapter = Activator.CreateInstance(typeof(NodePropertyAdapter<>).MakeGenericType(type), name)!;
         var socket = (IDefaultInputSocket)Activator.CreateInstance(typeof(DefaultInputSocket<>).MakeGenericType(type))!;
         socket.SetPropertyAdapter(adapter);
         socket.Name = name;
-        socket.LocalId = localId;
-        return socket;
-    }
-
-    protected OutputSocket<T> CreateOutput<T>(string name, T value, int localId = -1)
-    {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
-        return new OutputSocket<T>()
+        if (socket is NodeItem nodeItemSocket)
         {
-            Name = name,
-            LocalId = localId,
-            Value = value
-        };
-    }
-
-    protected OutputSocket<T> CreateOutput<T>(string name, int localId = -1)
-    {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
-        return new OutputSocket<T>()
-        {
-            Name = name,
-            LocalId = localId
-        };
-    }
-
-    protected IOutputSocket CreateOutput(string name, Type type, int localId = -1)
-    {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
-        var socket = (IOutputSocket)Activator.CreateInstance(typeof(OutputSocket<>).MakeGenericType(type))!;
-        if (socket is NodeItem nodeItem)
-        {
-            nodeItem.Name = name;
-            nodeItem.LocalId = localId;
+            nodeItemSocket.Display = display;
         }
         return socket;
     }
 
-    protected NodeItem<T> CreateProperty<T>(string name, int localId = -1)
+    protected OutputSocket<T> CreateOutput<T>(string name, T value, DisplayAttribute? display = null)
     {
-        localId = GetLocalId(localId);
+        return new OutputSocket<T>()
+        {
+            Name = name,
+            Display = display,
+            Value = value
+        };
+    }
 
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
+    protected OutputSocket<T> CreateOutput<T>(string name, DisplayAttribute? display = null)
+    {
+        return new OutputSocket<T>()
+        {
+            Name = name,
+            Display = display
+        };
+    }
 
+    protected IOutputSocket CreateOutput(string name, Type type, DisplayAttribute? display = null)
+    {
+        var socket = (IOutputSocket)Activator.CreateInstance(typeof(OutputSocket<>).MakeGenericType(type))!;
+        if (socket is NodeItem nodeItem)
+        {
+            nodeItem.Name = name;
+            nodeItem.Display = display;
+        }
+        return socket;
+    }
+
+    protected NodeItem<T> CreateProperty<T>(string name, DisplayAttribute? display = null)
+    {
         var adapter = new NodePropertyAdapter<T>(name);
         var socket = new DefaultNodeItem<T>();
         socket.SetProperty(adapter);
         socket.Name = name;
-        socket.LocalId = localId;
+        socket.Display = display;
         return socket;
-    }
-
-    private bool ValidateLocalId(int localId)
-    {
-        return Items.Any(x => x.LocalId == localId);
-    }
-
-    private int GetLocalId(int requestedLocalId)
-    {
-        requestedLocalId = Math.Max(requestedLocalId, NextLocalId);
-        NextLocalId++;
-        return requestedLocalId;
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -298,32 +258,19 @@ public abstract class Node : Hierarchical
 
         if (context.GetValue<JsonArray>(nameof(Items)) is { } itemsArray)
         {
-            int index = 0;
             foreach (JsonNode? item in itemsArray)
             {
-                if (item is JsonObject itemObj)
+                if (item is JsonObject itemObj
+                    && itemObj.TryGetPropertyValue("Name", out var nameNode)
+                    && nameNode is JsonValue nameValue
+                    && nameValue.TryGetValue(out string? itemName))
                 {
-                    int localId;
-                    if (itemObj.TryGetPropertyValue("LocalId", out var localIdNode)
-                        && localIdNode is JsonValue localIdValue
-                        && localIdValue.TryGetValue(out int actualLId))
-                    {
-                        localId = actualLId;
-                    }
-                    else
-                    {
-                        localId = index;
-                    }
-
-                    INodeItem? nodeItem = Items.FirstOrDefault(x => x.LocalId == localId);
-
+                    INodeItem? nodeItem = Items.FirstOrDefault(x => x.Name == itemName);
                     if (nodeItem is ICoreSerializable serializable)
                     {
                         CoreSerializer.PopulateFromJsonObject(serializable, itemObj);
                     }
                 }
-
-                index++;
             }
         }
     }
