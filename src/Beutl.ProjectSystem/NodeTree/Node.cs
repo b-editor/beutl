@@ -175,6 +175,20 @@ public abstract class Node : Hierarchical
         return socket;
     }
 
+    protected ListInputSocket<T> AsListInput<T>(string name, DisplayAttribute? display = null)
+    {
+        var socket = new ListInputSocket<T>() { Name = name, Display = display };
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected ListOutputSocket<T> AsListOutput<T>(string name, DisplayAttribute? display = null)
+    {
+        var socket = new ListOutputSocket<T>() { Name = name, Display = display };
+        Items.Add(socket);
+        return socket;
+    }
+
     protected OutputSocket<T> AsOutput<T>(string name, T value, DisplayAttribute? display = null)
     {
         OutputSocket<T> socket = CreateOutput<T>(name, value, display);
