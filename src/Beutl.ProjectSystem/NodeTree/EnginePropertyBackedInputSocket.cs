@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
@@ -18,6 +19,7 @@ public class EnginePropertyBackedInputSocket<T> : InputSocket<T>
         Name = property.Name;
         Display = property.GetPropertyInfo()?.GetCustomAttribute<DisplayAttribute>();
         _property = property;
+        property.Edited += (_, e) => RaiseInvalidated(new(this));
         IPropertyAdapter<T> adapter;
         if (property is AnimatableProperty<T> animatableProperty)
         {
@@ -33,7 +35,7 @@ public class EnginePropertyBackedInputSocket<T> : InputSocket<T>
         }
 
         Property = adapter;
-        Connected += (_, _) => _property.Expression = new SocketExpression();
+        Connected += (_, _) => _property.Expression = new SocketExpression<T>();
         Disconnected += (_, _) => _property.Expression = null;
     }
 
@@ -44,37 +46,45 @@ public class EnginePropertyBackedInputSocket<T> : InputSocket<T>
 
     public override void Evaluate(EvaluationContext context)
     {
-        if (Connection != null && _property.Expression is SocketExpression exp)
+        if (Connection != null && _property.Expression is SocketExpression<T> exp)
         {
             exp.Value = Value;
         }
     }
+}
 
-    [JsonConverter(typeof(SocketExpressionJsonConverter))]
-    public class SocketExpression : IExpression<T>
+[JsonConverter(typeof(SocketExpressionJsonConverter))]
+public class SocketExpression<T> : IExpression<T>
+{
+    public T? Value { get; set; }
+
+    public string ExpressionString => "[Socket Connected]";
+
+    public bool Validate(out string? error)
     {
-        public T? Value { get; set; }
+        error = null;
+        return true;
+    }
 
-        public string ExpressionString => "[Socket Connected]";
-
-        public bool Validate(out string? error)
-        {
-            error = null;
-            return true;
-        }
-
-        public T Evaluate(ExpressionContext context)
-        {
-            return Value!;
-        }
+    public T Evaluate(ExpressionContext context)
+    {
+        return Value!;
     }
 }
 
 // 空のオブジェクトを書き込み、空のExpressionを生成するだけのコンバーター
 internal class SocketExpressionJsonConverter : JsonConverter<IExpression>
 {
+    public override bool CanConvert(Type typeToConvert)
+    {
+        return typeToConvert.GetGenericTypeDefinition() == typeof(SocketExpression<>);
+    }
+
     public override IExpression? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
+        var node = JsonNode.Parse(ref reader);
+        if (node is not JsonObject) throw new JsonException();
+
         // typeToConvertはSocketExpression
         return Activator.CreateInstance(typeToConvert) as IExpression;
     }

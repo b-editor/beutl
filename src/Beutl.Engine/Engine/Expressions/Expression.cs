@@ -88,7 +88,7 @@ public static class Expression
         }
         else
         {
-            var node = JsonSerializer.SerializeToNode(expression);
+            var node = JsonSerializer.SerializeToNode(expression, expression.GetType());
             if (node is not JsonObject obj)
             {
                 throw new InvalidOperationException("Serialized expression is not a JsonObject.");
