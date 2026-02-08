@@ -1,4 +1,5 @@
-﻿using Beutl.Language;
+﻿using Beutl.Graphics.Effects;
+using Beutl.Language;
 using Beutl.NodeTree.Nodes.Brushes;
 using Beutl.NodeTree.Nodes.Effects;
 using Beutl.NodeTree.Nodes.Geometry;
@@ -12,7 +13,8 @@ public static class NodesRegistrar
     {
         NodeRegistry.RegisterNode<LayerInputNode>("Layer input");
         NodeRegistry.RegisterNode<OutputNode>("Layer output");
-        NodeRegistry.RegisterNode<GeometryShapeNode>("GeometryShape");
+        NodeRegistry.RegisterNode<GeometryShapeNode>(Strings.GeometryShape);
+        NodeRegistry.RegisterNode<TextNode>(Strings.Text);
         NodeRegistry.RegisterNode<TransformNode>(Strings.Transform);
 
         NodeRegistry.RegisterNodes("Geometry")
@@ -27,8 +29,48 @@ public static class NodesRegistrar
             .Add<GroupNode>("Group Node")
             .Register();
 
-        NodeRegistry.RegisterNodes(Strings.ImageFilter)
-            .Add<DropShadowNode>(Strings.DropShadow)
+        NodeRegistry.RegisterNodes(Strings.FilterEffect)
+            .Add<FilterEffectNode<Blur>>(Strings.Blur)
+            .Add<FilterEffectNode<DropShadow>>(Strings.DropShadow)
+            .Add<FilterEffectNode<InnerShadow>>(Strings.InnerShadow)
+            .Add<FilterEffectNode<FlatShadow>>(Strings.FlatShadow)
+            .Add<FilterEffectNode<StrokeEffect>>(Strings.StrokeEffect)
+            .Add<FilterEffectNode<Clipping>>(Strings.Clipping)
+            .Add<FilterEffectNode<Dilate>>(Strings.Dilate)
+            .Add<FilterEffectNode<Erode>>(Strings.Erode)
+            .Add<FilterEffectNode<HighContrast>>(Strings.HighContrast)
+            .Add<FilterEffectNode<HueRotate>>(Strings.HueRotate)
+            .Add<FilterEffectNode<Lighting>>(Strings.Lighting)
+            .Add<FilterEffectNode<LumaColor>>(Strings.LumaColor)
+            .Add<FilterEffectNode<Saturate>>(Strings.Saturate)
+            .Add<FilterEffectNode<Threshold>>(Strings.Threshold)
+            .Add<FilterEffectNode<Brightness>>(Strings.Brightness)
+            .Add<FilterEffectNode<Gamma>>(Strings.Gamma)
+            .Add<FilterEffectNode<ColorGrading>>(Strings.ColorGrading)
+            .Add<FilterEffectNode<Curves>>(Strings.Curves)
+            .Add<FilterEffectNode<Invert>>(Strings.Invert)
+            .Add<FilterEffectNode<LutEffect>>(Strings.LUT_Cube_File)
+            .Add<FilterEffectNode<BlendEffect>>(Strings.BlendEffect)
+            .Add<FilterEffectNode<Negaposi>>(Strings.Negaposi)
+            .Add<FilterEffectNode<ChromaKey>>(Strings.ChromaKey)
+            .Add<FilterEffectNode<ColorKey>>(Strings.ColorKey)
+            .Add<FilterEffectNode<SplitEffect>>(Strings.SplitEquallyEffect)
+            .Add<FilterEffectNode<PartsSplitEffect>>(Strings.SplitByPartsEffect)
+            .Add<FilterEffectNode<TransformEffect>>(Strings.Transform)
+            .Add<FilterEffectNode<MosaicEffect>>(Strings.Mosaic)
+            .Add<FilterEffectNode<ColorShift>>(Strings.ColorShift)
+            .Add<FilterEffectNode<ShakeEffect>>(Strings.ShakeEffect)
+            .Add<FilterEffectNode<DisplacementMapEffect>>(Strings.DisplacementMap)
+            .Add<FilterEffectNode<PathFollowEffect>>(Strings.PathFollowEffect)
+            .Add<FilterEffectNode<LayerEffect>>(Strings.Layer)
+            .AddGroup(Strings.Script, o => o
+                .Add<FilterEffectNode<CSharpScriptEffect>>(Strings.CSharpScriptEffect)
+                .Add<FilterEffectNode<SKSLScriptEffect>>(Strings.SKSLScriptEffect)
+                .Add<FilterEffectNode<GLSLScriptEffect>>(Strings.GLSLScriptEffect))
+            .AddGroup("OpenCV", o => o
+                .Add<FilterEffectNode<Graphics.Effects.OpenCv.Blur>>("CvBlur")
+                .Add<FilterEffectNode<Graphics.Effects.OpenCv.GaussianBlur>>("CvGaussianBlur")
+                .Add<FilterEffectNode<Graphics.Effects.OpenCv.MedianBlur>>("CvMedianBlur"))
             .Register();
 
         NodeRegistry.RegisterNodes("Brush")

@@ -17,7 +17,7 @@ public class MeasureNode : Node
         _ySocket = AsOutput<float>("Y");
         _widthSocket = AsOutput<float>("Width");
         _heightSocket = AsOutput<float>("Height");
-        _inputSocket = AsInput<RenderNode>("Drawable");
+        _inputSocket = AsInput<RenderNode>("Output");
     }
 
     public override void Evaluate(NodeEvaluationContext context)

@@ -12,7 +12,7 @@ public class TransformNode : ConfigureNode
 
     public InputSocket<Matrix> Matrix { get; }
 
-    protected override void EvaluateCore()
+    protected override void EvaluateCore(NodeEvaluationContext context)
     {
         var matrix = Matrix.Connection != null ? Matrix.Value : Graphics.Matrix.Identity;
         if (OutputSocket.Value == null)

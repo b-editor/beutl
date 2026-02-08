@@ -9,7 +9,7 @@ public class SwitchNode : Node
 
     public SwitchNode()
     {
-        _outputSocket = AsOutput<object?>("Output", "Output");
+        _outputSocket = AsOutput<object?>("Output");
         _switchSocket = AsInput<bool>("Switch");
         _trueSocket = AsInput<object?>("True");
         _falseSocket = AsInput<object?>("False");

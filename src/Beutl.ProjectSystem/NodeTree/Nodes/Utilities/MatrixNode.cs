@@ -9,8 +9,8 @@ public abstract class MatrixNode : Node
 
     public MatrixNode()
     {
-        _outputSocket = AsOutput<Matrix>("Matrix");
-        _inputSocket = AsInput<Matrix>("Matrix");
+        _outputSocket = AsOutput<Matrix>("Output");
+        _inputSocket = AsInput<Matrix>("Input");
     }
 
     public override void Evaluate(NodeEvaluationContext context)

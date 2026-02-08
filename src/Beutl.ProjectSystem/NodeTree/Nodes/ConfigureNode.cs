@@ -6,8 +6,8 @@ public abstract class ConfigureNode : Node
 {
     public ConfigureNode()
     {
-        OutputSocket = AsOutput<ContainerRenderNode?>("Drawable");
-        InputSocket = AsInput<RenderNode?>("Drawable");
+        OutputSocket = AsOutput<ContainerRenderNode?>("Output");
+        InputSocket = AsInput<RenderNode?>("Input");
     }
 
     protected OutputSocket<ContainerRenderNode?> OutputSocket { get; }
@@ -19,7 +19,7 @@ public abstract class ConfigureNode : Node
         RenderNode? input = InputSocket.Value;
         ContainerRenderNode? output = OutputSocket.Value;
 
-        EvaluateCore();
+        EvaluateCore(context);
         if (input != null && output != null)
         {
             output.HasChanges = input.HasChanges || output.HasChanges;
@@ -28,5 +28,5 @@ public abstract class ConfigureNode : Node
         }
     }
 
-    protected abstract void EvaluateCore();
+    protected abstract void EvaluateCore(NodeEvaluationContext context);
 }

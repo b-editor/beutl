@@ -10,7 +10,7 @@ public class OutputNode : Node
 
     public OutputNode()
     {
-        InputSocket = AsInput<RenderNode>("Drawable");
+        InputSocket = AsInput<RenderNode>("Output");
     }
 
     protected InputSocket<RenderNode> InputSocket { get; }

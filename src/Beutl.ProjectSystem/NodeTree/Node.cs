@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 
 using Beutl.Collections;
+using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Serialization;
 using Beutl.Utilities;
@@ -145,6 +146,21 @@ public abstract class Node : Hierarchical
     }
 
     // TODO: AddInput, AddOutput, AddPropertyに変更する
+    protected InputSocket<T> AddInput<T>(EngineObject obj, IProperty<T> property)
+    {
+        var socket = new EnginePropertyBackedInputSocket<T>(obj, property);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected IInputSocket AddInput(EngineObject obj, IProperty property)
+    {
+        var type = typeof(EnginePropertyBackedInputSocket<>).MakeGenericType(property.ValueType);
+        var socket = (IInputSocket)Activator.CreateInstance(type, obj, property)!;
+        Items.Add(socket);
+        return socket;
+    }
+
     protected InputSocket<T> AsInput<T>(string name, DisplayAttribute? display = null)
     {
         InputSocket<T> socket = CreateInput<T>(name, display);
