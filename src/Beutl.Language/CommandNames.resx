@@ -217,6 +217,9 @@
   <data name="DisconnectSocket" xml:space="preserve">
     <value>Disconnect Socket</value>
   </data>
+  <data name="MoveConnection" xml:space="preserve">
+    <value>Move Connection</value>
+  </data>
   <data name="AddSocket" xml:space="preserve">
     <value>Add Socket</value>
   </data>

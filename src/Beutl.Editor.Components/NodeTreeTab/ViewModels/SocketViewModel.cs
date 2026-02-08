@@ -3,6 +3,7 @@
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Beutl.Collections;
 using Beutl.Controls;
 using Beutl.NodeTree;
 
@@ -21,13 +22,13 @@ public class SocketViewModel : NodeItemViewModel
     {
         if (socket != null)
         {
-            Brush = new(new ImmutableSolidColorBrush(socket.Color.ToAvaColor()));
+            Color = new ImmutableSolidColorBrush(socket.Color.ToAvaColor());
             socket.Connected += OnSocketConnected;
             socket.Disconnected += OnSocketDisconnected;
         }
         else
         {
-            Brush = new(Brushes.Gray);
+            Color = Brushes.Gray;
         }
 
         OnIsConnectedChanged();
@@ -38,9 +39,9 @@ public class SocketViewModel : NodeItemViewModel
 
     public ReactivePropertySlim<bool> IsConnected { get; } = new();
 
-    public ReactivePropertySlim<IBrush> Brush { get; }
+    public IBrush Color { get; }
 
-    public ReactivePropertySlim<Point> SocketPosition { get; } = new();
+    public CoreList<ConnectionViewModel> Connections { get; } = [];
 
     private static bool SortSocket(
         ISocket first, ISocket second,
@@ -151,6 +152,23 @@ public class SocketViewModel : NodeItemViewModel
         }
     }
 
+    public void MoveConnectionSlot(int oldIndex, int newIndex)
+    {
+        if (Model is IListSocket listSocket)
+        {
+            listSocket.MoveConnection(oldIndex, newIndex);
+            Connections.Move(oldIndex, newIndex);
+            _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveConnection);
+        }
+    }
+
+    public void DisconnectConnection(ConnectionViewModel connVM)
+    {
+        Connection connection = connVM.Connection;
+        connection.Output.Disconnect(connection.Input);
+        _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DisconnectSocket);
+    }
+
     public void UpdateName(string? e)
     {
         Model!.Name = e!;
@@ -165,6 +183,7 @@ public class SocketViewModel : NodeItemViewModel
             Model.Connected -= OnSocketConnected;
             Model.Disconnected -= OnSocketDisconnected;
         }
+        Connections.Clear();
     }
 
     protected virtual void OnSocketDisconnected(object? sender, SocketConnectionChangedEventArgs e)

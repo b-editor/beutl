@@ -16,6 +16,7 @@ public abstract class ConfigureNode : Node
 
     public override void Evaluate(NodeEvaluationContext context)
     {
+        base.Evaluate(context);
         var inputs = InputSocket.CollectValues()!;
         ContainerRenderNode? output = OutputSocket.Value;
 

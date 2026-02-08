@@ -22,6 +22,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
     public class LayerInputSocket<T> : OutputSocket<T>, ILayerInputSocket, IGroupSocket
     {
+        // TODO: 接続先のSocketのPropertyを直接扱うようにする
         private NodePropertyAdapter<T>? _property;
 
         static LayerInputSocket()

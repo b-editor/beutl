@@ -237,6 +237,12 @@ namespace Beutl.Language {
             }
         }
 
+        public static string MoveConnection {
+            get {
+                return ResourceManager.GetString("MoveConnection", resourceCulture);
+            }
+        }
+
         public static string AddSocket {
             get {
                 return ResourceManager.GetString("AddSocket", resourceCulture);

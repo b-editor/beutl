@@ -218,6 +218,9 @@
   <data name="DisconnectSocket" xml:space="preserve">
     <value>ソケットを切断</value>
   </data>
+  <data name="MoveConnection" xml:space="preserve">
+    <value>接続を移動</value>
+  </data>
   <data name="AddSocket" xml:space="preserve">
     <value>ソケットを追加</value>
   </data>

@@ -135,15 +135,22 @@ public partial class NodeView : UserControl
             else
             {
                 Point vcenter = viewModel.Position.Value + default(Point).WithY(handle.Bounds.Height / 2);
+                Point vcenterRight = vcenter + default(Point).WithX(Bounds.Width);
                 void UpdatePosition(NodeItemViewModel? viewModel)
                 {
                     switch (viewModel)
                     {
                         case InputSocketViewModel input:
-                            input.SocketPosition.Value = vcenter;
+                            foreach (ConnectionViewModel connVM in input.Connections)
+                            {
+                                connVM.InputSocketPosition.Value = vcenter;
+                            }
                             break;
                         case OutputSocketViewModel output:
-                            output.SocketPosition.Value = vcenter + default(Point).WithX(Bounds.Width);
+                            foreach (ConnectionViewModel connVM in output.Connections)
+                            {
+                                connVM.OutputSocketPosition.Value = vcenterRight;
+                            }
                             break;
                     }
                 }

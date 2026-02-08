@@ -10,6 +10,8 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.NodeTree;
 using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
+using Reactive.Bindings.Extensions;
+
 namespace Beutl.Editor.Components.NodeTreeTab.Views;
 
 public partial class NodeTreeView : UserControl
@@ -199,7 +201,19 @@ public partial class NodeTreeView : UserControl
 
     internal static ConnectionLine CreateLine(InputSocketViewModel input, OutputSocketViewModel output)
     {
-        return new ConnectionLine() { [!Line.StartPointProperty] = input.SocketPosition.ToBinding(), [!Line.EndPointProperty] = output.SocketPosition.ToBinding(), InputSocket = input, OutputSocket = output };
+        return new ConnectionLine() { InputSocket = input, OutputSocket = output };
+    }
+
+    internal static ConnectionLine CreateLine(InputSocketViewModel input, OutputSocketViewModel output, ConnectionViewModel connVM)
+    {
+        return new ConnectionLine()
+        {
+            [!Line.StartPointProperty] = connVM.InputSocketPosition.ToBinding(),
+            [!Line.EndPointProperty] = connVM.OutputSocketPosition.ToBinding(),
+            ConnectionViewModel = connVM,
+            InputSocket = input,
+            OutputSocket = output
+        };
     }
 
     private void OnDataContextAttached(NodeTreeViewModel obj)
@@ -225,11 +239,14 @@ public partial class NodeTreeView : UserControl
 
                     foreach (Connection connection in list.Span)
                     {
-                        if (!canvas.Children.OfType<ConnectionLine>().Any(x => x.Match(connection.Input, connection.Output)) &&
+                        if (!canvas.Children.OfType<ConnectionLine>().Any(x => x.Match(connection)) &&
                             obj.FindSocketViewModel(connection.Input) is InputSocketViewModel inputViewModel &&
                             obj.FindSocketViewModel(connection.Output) is OutputSocketViewModel outputViewModel)
                         {
-                            ConnectionLine line = CreateLine(inputViewModel, outputViewModel);
+                            var connVM = new ConnectionViewModel(connection, inputViewModel.Color, outputViewModel.Color);
+                            inputViewModel.Connections.Add(connVM);
+                            outputViewModel.Connections.Add(connVM);
+                            ConnectionLine line = CreateLine(inputViewModel, outputViewModel, connVM);
                             canvas.Children.Insert(0, line);
                         }
                     }
@@ -250,12 +267,28 @@ public partial class NodeTreeView : UserControl
                                 .FirstOrDefault(x => x.Match(input));
                             if (line != null)
                             {
+                                if (line.ConnectionViewModel is { } connVM)
+                                {
+                                    line.InputSocket?.Connections.Remove(connVM);
+                                    line.OutputSocket?.Connections.Remove(connVM);
+                                    connVM.Dispose();
+                                }
                                 canvas.Children.Remove(line);
                             }
                         }
                         else if (item is OutputSocketViewModel { Model: { } output })
                         {
-                            canvas.Children.RemoveAll(canvas.Children.OfType<ConnectionLine>().Where(x => x.Match(output)));
+                            var linesToRemove = canvas.Children.OfType<ConnectionLine>().Where(x => x.Match(output)).ToList();
+                            foreach (var line in linesToRemove)
+                            {
+                                if (line.ConnectionViewModel is { } connVM)
+                                {
+                                    line.InputSocket?.Connections.Remove(connVM);
+                                    line.OutputSocket?.Connections.Remove(connVM);
+                                    connVM.Dispose();
+                                }
+                            }
+                            canvas.Children.RemoveAll(linesToRemove);
                         }
                     }
                 },

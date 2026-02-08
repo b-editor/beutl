@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-
 using Beutl.Animation;
 using Beutl.Collections.Pooled;
 using Beutl.Engine;
@@ -143,12 +142,26 @@ public class ElementNodeTreeModel : NodeTreeModel
         for (int i = 0; i < node.Items.Count; i++)
         {
             INodeItem? item = node.Items[i];
-            if (item is IInputSocket { Connection.Output: { } outputSocket })
+            if (item is IInputSocket inputSocket)
             {
-                Node? node2 = outputSocket.FindHierarchicalParent<Node>();
-                if (node2 != null)
+                if (inputSocket is IListInputSocket listInputSocket)
                 {
-                    BuildNode(node2, stack);
+                    foreach (var connection in listInputSocket.ListConnections)
+                    {
+                        Node? node1 = connection.Output.FindHierarchicalParent<Node>();
+                        if (node1 != null)
+                        {
+                            BuildNode(node1, stack);
+                        }
+                    }
+                }
+                else if (inputSocket.Connection?.Output is { } outputSocket)
+                {
+                    Node? node2 = outputSocket.FindHierarchicalParent<Node>();
+                    if (node2 != null)
+                    {
+                        BuildNode(node2, stack);
+                    }
                 }
             }
         }

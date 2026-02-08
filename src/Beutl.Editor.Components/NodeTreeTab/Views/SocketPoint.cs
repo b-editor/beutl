@@ -28,6 +28,8 @@ public sealed class ConnectionLine : Line
         = AvaloniaProperty.Register<ConnectionLine, InputSocketViewModel?>(nameof(InputSocket));
     public static readonly StyledProperty<OutputSocketViewModel?> OutputSocketProperty
         = AvaloniaProperty.Register<ConnectionLine, OutputSocketViewModel?>(nameof(OutputSocket));
+    public static readonly StyledProperty<ConnectionViewModel?> ConnectionViewModelProperty
+        = AvaloniaProperty.Register<ConnectionLine, ConnectionViewModel?>(nameof(ConnectionViewModel));
     private IDisposable? _strokeBinding;
 
     static ConnectionLine()
@@ -47,6 +49,12 @@ public sealed class ConnectionLine : Line
         set => SetValue(OutputSocketProperty, value);
     }
 
+    public ConnectionViewModel? ConnectionViewModel
+    {
+        get => GetValue(ConnectionViewModelProperty);
+        set => SetValue(ConnectionViewModelProperty, value);
+    }
+
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
@@ -55,8 +63,8 @@ public sealed class ConnectionLine : Line
                 this.GetResourceObservable("SystemFillColorSuccessBrush"),
                 this.GetResourceObservable("SystemFillColorCautionBrush"),
                 this.GetResourceObservable("SystemFillColorCriticalBrush"),
-                this.GetObservable(InputSocketProperty)
-                    .Select(o => o?.Status ?? Observable.ReturnThenNever(ConnectionStatus.Disconnected))
+                this.GetObservable(ConnectionViewModelProperty)
+                    .Select(o => o?.Status as IObservable<ConnectionStatus> ?? Observable.ReturnThenNever(ConnectionStatus.Disconnected))
                     .Switch())
             .ObserveOnUIDispatcher()
             .Subscribe(x =>
@@ -101,6 +109,11 @@ public sealed class ConnectionLine : Line
     {
         return InputSocket == socket ? OutputSocket
             : OutputSocket == socket ? InputSocket : null;
+    }
+
+    public bool Match(Connection connection)
+    {
+        return ConnectionViewModel?.Connection == connection;
     }
 
     public bool Match(ISocket? first, ISocket? second)
@@ -220,6 +233,7 @@ public sealed class SocketPoint : Control
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+        if (e.Handled) return;
 
         if (e.ClickCount == 2)
         {
@@ -232,15 +246,18 @@ public sealed class SocketPoint : Control
             if (point.Properties.IsLeftButtonPressed)
             {
                 _line = new ConnectionLine();
+                Point? socketPos = this.TranslatePoint(new(5, 5), _canvas);
                 if (viewModel is InputSocketViewModel)
                 {
                     _line.EndPoint = point.Position;
-                    _line.Bind(Line.StartPointProperty, viewModel.SocketPosition.ToBinding());
+                    if (socketPos.HasValue)
+                        _line.StartPoint = socketPos.Value;
                 }
                 else
                 {
                     _line.StartPoint = point.Position;
-                    _line.Bind(Line.EndPointProperty, viewModel.SocketPosition.ToBinding());
+                    if (socketPos.HasValue)
+                        _line.EndPoint = socketPos.Value;
                 }
                 _line.SetSocket(viewModel);
                 _canvas.Children.Insert(0, _line);
@@ -276,25 +293,9 @@ public sealed class SocketPoint : Control
             IInputElement? elm = _canvas!.InputHitTest(e.GetPosition(_canvas));
             if (elm != this && elm is SocketPoint { DataContext: SocketViewModel endViewModel })
             {
-                ISocket? socket = endViewModel.Model;
                 var args = new SocketConnectRequestedEventArgs(endViewModel, false);
                 ConnectRequested?.Invoke(this, args);
-                if (args.IsConnected && _line != null)
-                {
-                    if (endViewModel is InputSocketViewModel)
-                    {
-                        _line.Bind(Line.StartPointProperty, endViewModel.SocketPosition.ToBinding());
-                    }
-                    else
-                    {
-                        _line.Bind(Line.EndPointProperty, endViewModel.SocketPosition.ToBinding());
-                    }
-
-                    if (_line.SetSocket(endViewModel))
-                    {
-                        return true;
-                    }
-                }
+                return args.IsConnected;
             }
         }
 
@@ -312,10 +313,8 @@ public sealed class SocketPoint : Control
         }
         else if (_captured)
         {
-            if (!TryConnect(e))
-            {
-                Disconnect();
-            }
+            TryConnect(e);
+            Disconnect();
 
             _line = null;
             e.Handled = true;
