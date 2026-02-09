@@ -4,7 +4,7 @@ namespace Beutl.NodeTree;
 
 public interface IListSocket : ISocket
 {
-    CoreList<Connection> ListConnections { get; }
+    CoreList<Reference<Connection>> Connections { get; }
 
     void MoveConnection(int oldIndex, int newIndex);
 }

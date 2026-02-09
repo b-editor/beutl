@@ -1,11 +1,8 @@
 ﻿using System.Text.Json.Nodes;
-
 using Avalonia;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
-
 using Reactive.Bindings;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
@@ -13,44 +10,65 @@ namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
 public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly Dictionary<NodeViewModel, CompositeDisposable> _nodeSubscriptions = [];
-    private readonly IEditorContext _editorContext;
 
     public NodeTreeViewModel(NodeTreeModel nodeTree, IEditorContext editorContext)
     {
         NodeTree = nodeTree;
-        _editorContext = editorContext;
+        EditorContext = editorContext;
         nodeTree.Nodes.ForEachItem(
-            (idx, item) =>
-            {
-                var viewModel = new NodeViewModel(item, _editorContext);
-                Nodes.Insert(idx, viewModel);
-                SubscribeNodeConnections(viewModel);
-            },
-            (idx, _) =>
-            {
-                NodeViewModel viewModel = Nodes[idx];
-                CleanUpNodeConnections(viewModel);
-                UnsubscribeNodeConnections(viewModel);
-                Nodes.RemoveAt(idx);
-                viewModel.Dispose();
-            },
-            () =>
-            {
-                foreach (NodeViewModel item in Nodes.GetMarshal().Value)
+                (idx, item) =>
                 {
-                    UnsubscribeNodeConnections(item);
-                    item.Dispose();
-                }
-                Nodes.Clear();
-                foreach (ConnectionViewModel conn in AllConnections)
+                    var viewModel = new NodeViewModel(item, this);
+                    Nodes.Insert(idx, viewModel);
+                },
+                (idx, _) =>
                 {
-                    conn.Dispose();
-                }
-                AllConnections.Clear();
-            })
+                    NodeViewModel viewModel = Nodes[idx];
+                    Nodes.RemoveAt(idx);
+                    viewModel.Dispose();
+                },
+                () =>
+                {
+                    foreach (NodeViewModel item in Nodes.GetMarshal().Value)
+                    {
+                        item.Dispose();
+                    }
+
+                    Nodes.Clear();
+                })
+            .DisposeWith(_disposables);
+
+        nodeTree.AllConnections.ForEachItem(
+                item =>
+                {
+                    // SocketViewModel側が既に追加している場合はスキップする
+                    if (AllConnections.Any(i => i.Connection.Id == item.Id)) return;
+
+                    var viewModel = new ConnectionViewModel(this, item);
+                    AllConnections.Add(viewModel);
+                },
+                item =>
+                {
+                    ConnectionViewModel? viewModel = AllConnections.FirstOrDefault(i => i.Connection == item);
+                    if (viewModel != null)
+                    {
+                        AllConnections.Remove(viewModel);
+                        viewModel.Dispose();
+                    }
+                },
+                () =>
+                {
+                    foreach (ConnectionViewModel conn in AllConnections)
+                    {
+                        conn.Dispose();
+                    }
+
+                    AllConnections.Clear();
+                })
             .DisposeWith(_disposables);
     }
+
+    public IEditorContext EditorContext { get; }
 
     public CoreList<NodeViewModel> Nodes { get; } = [];
 
@@ -88,42 +106,30 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
                 return;
             }
             else if (node is GroupOutput
-                && nodeGroup.Nodes.Any(x => x is GroupOutput))
+                     && nodeGroup.Nodes.Any(x => x is GroupOutput))
             {
                 return;
             }
         }
 
         NodeTree.Nodes.Add(node);
-        _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.AddNode);
+        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.AddNode);
     }
 
     public void Dispose()
     {
-        foreach (var kvp in _nodeSubscriptions)
+        foreach (ConnectionViewModel conn in AllConnections)
         {
-            foreach (NodeItemViewModel item in kvp.Key.Items)
-            {
-                if (item is SocketViewModel { Model: ISocket socket })
-                {
-                    socket.Connected -= OnModelSocketConnected;
-                    socket.Disconnected -= OnModelSocketDisconnected;
-                }
-            }
-            kvp.Value.Dispose();
+            conn.Dispose();
         }
-        _nodeSubscriptions.Clear();
 
-        foreach (ConnectionViewModel connVM in AllConnections)
-        {
-            connVM.Dispose();
-        }
         AllConnections.Clear();
 
         foreach (NodeViewModel item in Nodes)
         {
             item.Dispose();
         }
+
         Nodes.Clear();
 
         _disposables.Dispose();
@@ -160,191 +166,6 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
         {
             string m = (string)mJson!;
             Matrix.Value = Avalonia.Matrix.Parse(m);
-        }
-    }
-
-    private void SubscribeNodeConnections(NodeViewModel node)
-    {
-        var disposables = new CompositeDisposable();
-        _nodeSubscriptions[node] = disposables;
-
-        node.Items.ForEachItem(
-            (_, item) =>
-            {
-                if (item is SocketViewModel { Model: ISocket socket })
-                {
-                    socket.Connected += OnModelSocketConnected;
-                    socket.Disconnected += OnModelSocketDisconnected;
-                    ScanExistingConnectionsForSocket(item as SocketViewModel);
-                }
-            },
-            (_, item) =>
-            {
-                if (item is SocketViewModel { Model: ISocket socket } socketVM)
-                {
-                    socket.Connected -= OnModelSocketConnected;
-                    socket.Disconnected -= OnModelSocketDisconnected;
-                    CleanUpSocketConnections(socketVM);
-                }
-            },
-            () => { })
-        .DisposeWith(disposables);
-    }
-
-    private void UnsubscribeNodeConnections(NodeViewModel node)
-    {
-        if (_nodeSubscriptions.TryGetValue(node, out var disposables))
-        {
-            // Manually unsubscribe from socket events before disposing ForEachItem
-            foreach (NodeItemViewModel item in node.Items)
-            {
-                if (item is SocketViewModel { Model: ISocket socket })
-                {
-                    socket.Connected -= OnModelSocketConnected;
-                    socket.Disconnected -= OnModelSocketDisconnected;
-                }
-            }
-
-            disposables.Dispose();
-            _nodeSubscriptions.Remove(node);
-        }
-    }
-
-    private void OnModelSocketConnected(object? sender, SocketConnectionChangedEventArgs e)
-    {
-        Connection connection = e.Connection;
-        // Deduplication: Connected fires on both input and output sides
-        foreach (ConnectionViewModel existing in AllConnections.GetMarshal().Value)
-        {
-            if (existing.Connection == connection)
-                return;
-        }
-
-        if (FindSocketViewModel(connection.Input) is InputSocketViewModel inputVM
-            && FindSocketViewModel(connection.Output) is OutputSocketViewModel outputVM)
-        {
-            var connVM = new ConnectionViewModel(connection, inputVM, outputVM);
-            InsertConnectionInOrder(inputVM, connVM);
-            InsertConnectionInOrder(outputVM, connVM);
-            AllConnections.Add(connVM);
-        }
-    }
-
-    private void OnModelSocketDisconnected(object? sender, SocketConnectionChangedEventArgs e)
-    {
-        Connection connection = e.Connection;
-        ConnectionViewModel? connVM = null;
-        foreach (ConnectionViewModel existing in AllConnections.GetMarshal().Value)
-        {
-            if (existing.Connection == connection)
-            {
-                connVM = existing;
-                break;
-            }
-        }
-
-        if (connVM != null)
-        {
-            connVM.InputSocketVM.Connections.Remove(connVM);
-            connVM.OutputSocketVM.Connections.Remove(connVM);
-            AllConnections.Remove(connVM);
-            connVM.Dispose();
-        }
-    }
-
-    private void ScanExistingConnectionsForSocket(SocketViewModel? socketVM)
-    {
-        if (socketVM is InputSocketViewModel { Model: { } inputSocket })
-        {
-            if (inputSocket is IListInputSocket listSocket)
-            {
-                foreach (Connection connection in listSocket.ListConnections)
-                {
-                    AddConnectionVMIfNotExists(connection);
-                }
-            }
-            else if (inputSocket.Connection is { } connection)
-            {
-                AddConnectionVMIfNotExists(connection);
-            }
-        }
-        else if (socketVM is OutputSocketViewModel { Model: { } outputSocket })
-        {
-            foreach (Connection connection in outputSocket.Connections)
-            {
-                AddConnectionVMIfNotExists(connection);
-            }
-        }
-    }
-
-    private void AddConnectionVMIfNotExists(Connection connection)
-    {
-        foreach (ConnectionViewModel existing in AllConnections.GetMarshal().Value)
-        {
-            if (existing.Connection == connection)
-                return;
-        }
-
-        if (FindSocketViewModel(connection.Input) is InputSocketViewModel inputVM
-            && FindSocketViewModel(connection.Output) is OutputSocketViewModel outputVM)
-        {
-            var connVM = new ConnectionViewModel(connection, inputVM, outputVM);
-            InsertConnectionInOrder(inputVM, connVM);
-            InsertConnectionInOrder(outputVM, connVM);
-            AllConnections.Add(connVM);
-        }
-    }
-
-    private static void InsertConnectionInOrder(SocketViewModel socketVM, ConnectionViewModel connVM)
-    {
-        if (socketVM.Model is IListSocket listSocket)
-        {
-            int modelIndex = listSocket.ListConnections.IndexOf(connVM.Connection);
-            if (modelIndex >= 0 && modelIndex <= socketVM.Connections.Count)
-            {
-                socketVM.Connections.Insert(modelIndex, connVM);
-            }
-            else
-            {
-                socketVM.Connections.Add(connVM);
-            }
-        }
-        else
-        {
-            socketVM.Connections.Add(connVM);
-        }
-    }
-
-    private void CleanUpNodeConnections(NodeViewModel node)
-    {
-        for (int i = AllConnections.Count - 1; i >= 0; i--)
-        {
-            ConnectionViewModel connVM = AllConnections[i];
-            bool isInputFromNode = node.Items.Contains(connVM.InputSocketVM);
-            bool isOutputFromNode = node.Items.Contains(connVM.OutputSocketVM);
-
-            if (isInputFromNode || isOutputFromNode)
-            {
-                connVM.InputSocketVM.Connections.Remove(connVM);
-                connVM.OutputSocketVM.Connections.Remove(connVM);
-                AllConnections.RemoveAt(i);
-                connVM.Dispose();
-            }
-        }
-    }
-
-    private void CleanUpSocketConnections(SocketViewModel socketVM)
-    {
-        for (int i = AllConnections.Count - 1; i >= 0; i--)
-        {
-            ConnectionViewModel connVM = AllConnections[i];
-            if (connVM.InputSocketVM == socketVM || connVM.OutputSocketVM == socketVM)
-            {
-                connVM.InputSocketVM.Connections.Remove(connVM);
-                connVM.OutputSocketVM.Connections.Remove(connVM);
-                AllConnections.RemoveAt(i);
-                connVM.Dispose();
-            }
         }
     }
 }

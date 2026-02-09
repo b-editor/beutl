@@ -38,6 +38,7 @@ public class GroupOutput : Node, ISocketsCanBeAdded
 
     public bool AddSocket(ISocket socket, [NotNullWhen(true)] out Connection? connection)
     {
+        var nodeTreeModel = this.FindRequiredHierarchicalParent<NodeTreeModel>();
         connection = null;
         if (socket is IOutputSocket { AssociatedType: { } valueType } outputSocket)
         {
@@ -49,15 +50,8 @@ public class GroupOutput : Node, ISocketsCanBeAdded
                 ((IGroupSocket)inputSocket).AssociatedPropertyType = valueType;
 
                 Items.Add(inputSocket);
-                if (outputSocket.TryConnect(inputSocket))
-                {
-                    connection = inputSocket.Connection!;
-                    return true;
-                }
-                else
-                {
-                    Items.Remove(outputSocket);
-                }
+                connection = nodeTreeModel.Connect(inputSocket, outputSocket);
+                return true;
             }
         }
 

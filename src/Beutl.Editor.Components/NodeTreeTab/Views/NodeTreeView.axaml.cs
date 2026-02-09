@@ -204,9 +204,9 @@ public partial class NodeTreeView : UserControl
         {
             [!Line.StartPointProperty] = connVM.InputSocketPosition.ToBinding(),
             [!Line.EndPointProperty] = connVM.OutputSocketPosition.ToBinding(),
-            ConnectionViewModel = connVM,
-            InputSocket = connVM.InputSocketVM,
-            OutputSocket = connVM.OutputSocketVM
+            [!ConnectionLine.InputSocketProperty] = connVM.InputSocketVM.ToBinding(),
+            [!ConnectionLine.OutputSocketProperty] = connVM.OutputSocketVM.ToBinding(),
+            ConnectionViewModel = connVM
         };
     }
 
@@ -216,8 +216,8 @@ public partial class NodeTreeView : UserControl
         {
             if (child is NodeView { DataContext: NodeViewModel nodeVM } nodeView)
             {
-                bool hasInput = nodeVM.Items.Contains(connVM.InputSocketVM);
-                bool hasOutput = nodeVM.Items.Contains(connVM.OutputSocketVM);
+                bool hasInput = nodeVM.Node.Items.Any(i => i.Id == connVM.Connection.Input.Id);
+                bool hasOutput = nodeVM.Node.Items.Any(i => i.Id == connVM.Connection.Output.Id);
 
                 if (hasInput || hasOutput)
                 {

@@ -18,6 +18,20 @@ public class ElementNodeTreeModel : NodeTreeModel
     {
         Nodes.Attached += OnNodeAttached;
         Nodes.Detached += OnNodeDetached;
+        AllConnections.Attached += OnConnectionAttached;
+        AllConnections.Detached += OnConnectionDetached;
+    }
+
+    private void OnConnectionDetached(Connection obj)
+    {
+        _isDirty = true;
+        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
+    }
+
+    private void OnConnectionAttached(Connection obj)
+    {
+        _isDirty = true;
+        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
     }
 
     private void OnNodeTreeInvalidated(object? sender, EventArgs e)
@@ -146,16 +160,16 @@ public class ElementNodeTreeModel : NodeTreeModel
             {
                 if (inputSocket is IListInputSocket listInputSocket)
                 {
-                    foreach (var connection in listInputSocket.ListConnections)
+                    foreach (var connection in listInputSocket.Connections)
                     {
-                        Node? node1 = connection.Output.FindHierarchicalParent<Node>();
+                        Node? node1 = connection.Value?.Output.Value?.FindHierarchicalParent<Node>();
                         if (node1 != null)
                         {
                             BuildNode(node1, stack);
                         }
                     }
                 }
-                else if (inputSocket.Connection?.Output is { } outputSocket)
+                else if (inputSocket.Connection.Value?.Output.Value is { } outputSocket)
                 {
                     Node? node2 = outputSocket.FindHierarchicalParent<Node>();
                     if (node2 != null)

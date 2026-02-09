@@ -14,7 +14,7 @@ public class TransformNode : ConfigureNode
 
     protected override void EvaluateCore(NodeEvaluationContext context)
     {
-        var matrix = Matrix.Connection != null ? Matrix.Value : Graphics.Matrix.Identity;
+        var matrix = !Matrix.Connection.IsNull ? Matrix.Value : Graphics.Matrix.Identity;
         if (OutputSocket.Value == null)
         {
             OutputSocket.Value = new TransformRenderNode(matrix, TransformOperator.Prepend);

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Text.Json;
@@ -35,8 +36,16 @@ public class EnginePropertyBackedInputSocket<T> : InputSocket<T>
         }
 
         Property = adapter;
-        Connected += (_, _) => _property.Expression = new SocketExpression<T>();
-        Disconnected += (_, _) => _property.Expression = null;
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args is CorePropertyChangedEventArgs coreArgs &&
+            coreArgs.Property.Id == ConnectionProperty.Id)
+        {
+            _property.Expression = Connection.IsNull ? null : new SocketExpression<T>();
+        }
     }
 
     // デフォルトではPropertyAdapterのアニメーションが実行されてしまうので防ぐ
@@ -46,7 +55,7 @@ public class EnginePropertyBackedInputSocket<T> : InputSocket<T>
 
     public override void Evaluate(EvaluationContext context)
     {
-        if (Connection != null && _property.Expression is SocketExpression<T> exp)
+        if (!Connection.IsNull && _property.Expression is SocketExpression<T> exp)
         {
             exp.Value = Value;
         }

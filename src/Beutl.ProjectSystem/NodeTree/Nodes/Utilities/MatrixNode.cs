@@ -17,7 +17,7 @@ public abstract class MatrixNode : Node
     {
         Matrix matrix = GetMatrix(context);
 
-        if (_inputSocket.Connection != null)
+        if (!_inputSocket.Connection.IsNull)
         {
             Matrix value = _inputSocket.Value;
             _outputSocket.Value = matrix * value;

@@ -4,8 +4,8 @@ namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 public class InputSocketViewModel : SocketViewModel
 {
-    public InputSocketViewModel(IInputSocket? socket, IPropertyEditorContext? propertyEditorContext, Node node, IEditorContext editorContext)
-        : base(socket, propertyEditorContext, node, editorContext)
+    public InputSocketViewModel(IInputSocket? socket, IPropertyEditorContext? propertyEditorContext, NodeViewModel nodeViewModel)
+        : base(socket, propertyEditorContext, nodeViewModel)
     {
     }
 

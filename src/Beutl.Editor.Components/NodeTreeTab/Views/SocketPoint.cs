@@ -19,6 +19,8 @@ public class SocketConnectRequestedEventArgs(SocketViewModel target, bool isConn
 {
     public SocketViewModel Target { get; } = target;
 
+    public ConnectionViewModel? Connection { get; set; }
+
     public bool IsConnected { get; set; } = isConnected;
 }
 
@@ -344,7 +346,10 @@ public sealed class SocketPoint : Control
                     SocketViewModel? target = cline.GetTarget(viewModel);
                     if (target != null)
                     {
-                        var args = new SocketConnectRequestedEventArgs(target, true);
+                        var args = new SocketConnectRequestedEventArgs(target, true)
+                        {
+                            Connection = Tag as ConnectionViewModel // IListSocketの場合TagにConnectionViewModelを持っている
+                        };
                         DisconnectRequested?.Invoke(this, args);
                         if (args.IsConnected)
                         {

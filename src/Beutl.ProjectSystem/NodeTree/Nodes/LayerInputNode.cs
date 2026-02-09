@@ -104,6 +104,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
     public bool AddSocket(ISocket socket, [NotNullWhen(true)] out Connection? connection)
     {
+        var nodeTreeModel = this.FindRequiredHierarchicalParent<NodeTreeModel>();
         connection = null;
         if (socket is IInputSocket { AssociatedType: { } valueType } inputSocket)
         {
@@ -115,15 +116,9 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
                 outputSocket.GetProperty()?.SetValue(inputSocket.Property?.GetValue());
 
                 Items.Add(outputSocket);
-                if (outputSocket.TryConnect(inputSocket))
-                {
-                    connection = inputSocket.Connection!;
-                    return true;
-                }
-                else
-                {
-                    Items.Remove(outputSocket);
-                }
+
+                connection = nodeTreeModel.Connect(inputSocket, outputSocket);
+                return true;
             }
         }
 

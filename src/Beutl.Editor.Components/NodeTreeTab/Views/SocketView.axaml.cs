@@ -186,6 +186,7 @@ public partial class SocketView : UserControl
                 };
                 Interaction.GetBehaviors(socketPt).Add(new ListSocketDragBehavior());
                 _listSocketPanel.Children.Insert(index, socketPt);
+                Dispatcher.UIThread.Post(UpdateSocketPosition, DispatcherPriority.Background);
             },
             (index, connVM) =>
             {
@@ -193,6 +194,7 @@ public partial class SocketView : UserControl
                 {
                     _listSocketPanel.Children.RemoveAt(index);
                 }
+                Dispatcher.UIThread.Post(UpdateSocketPosition, DispatcherPriority.Background);
             },
             () =>
             {
@@ -347,7 +349,7 @@ public partial class SocketView : UserControl
     {
         if (DataContext is SocketViewModel viewModel)
         {
-            e.IsConnected = viewModel.TryDisconnect(e.Target);
+            e.IsConnected = viewModel.TryDisconnect(e.Target, e.Connection);
         }
     }
 

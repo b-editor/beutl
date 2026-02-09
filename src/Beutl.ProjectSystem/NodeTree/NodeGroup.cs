@@ -154,7 +154,7 @@ public class NodeGroup : NodeTreeModel
         for (int i = 0; i < node.Items.Count; i++)
         {
             INodeItem? item = node.Items[i];
-            if (item is IInputSocket { Connection.Output: { } outputSocket })
+            if (item is IInputSocket { Connection.Value.Output.Value: { } outputSocket })
             {
                 Node? node2 = outputSocket.FindHierarchicalParent<Node>();
                 if (node2 != null)

@@ -199,12 +199,6 @@ public sealed class ListSocketDragBehavior : Behavior<SocketPoint>
                 socketVM.MoveConnectionSlot(_draggedIndex, _targetIndex);
             }
         }
-
-        // Schedule position update after layout completes
-        if (_nodeView is { } nodeView)
-        {
-            Dispatcher.UIThread.Post(() => nodeView.UpdateSocketPosition(), DispatcherPriority.Background);
-        }
     }
 
     private void MoveHorizontal(PointerEventArgs e)

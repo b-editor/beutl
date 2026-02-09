@@ -7,66 +7,73 @@ public delegate bool InputSocketReceiver<T>(object? obj, out T? received);
 
 public class InputSocket<T> : Socket<T>, IInputSocket
 {
-    private Guid _outputId;
+    public static readonly CoreProperty<Reference<Connection>> ConnectionProperty;
     private InputSocketReceiver<T>? _onReceive;
     private bool _force;
     private TypeConverter? _dstTypeConverter;
     private TypeConverter? _srcTypeConverter;
     private Type? _srcType;
 
+    static InputSocket()
+    {
+        ConnectionProperty = ConfigureProperty<Reference<Connection>, InputSocket<T>>(nameof(Connection))
+            .Accessor(o => o.Connection, (o, v) => o.Connection = v)
+            .Register();
+    }
+
     public InputSocket()
     {
         _dstTypeConverter = TypeDescriptor.GetConverter(typeof(T));
     }
 
-    public Connection? Connection { get; private set; }
-
-    public void NotifyConnected(Connection connection)
+    public Reference<Connection> Connection
     {
-        if (_outputId == connection.Output.Id)
-        {
-            _outputId = Guid.Empty;
-        }
+        get;
+        set => SetAndRaise(ConnectionProperty, ref field, value);
+    }
 
+    IObservable<Reference<Connection>> IInputSocket.GetConnectionObservable()
+    {
+        return this.GetObservable(ConnectionProperty);
+    }
+
+    public override void NotifyConnected(Connection connection)
+    {
+        base.NotifyConnected(connection);
+        if (!Connection.IsNull) throw new InvalidOperationException("This input socket is already connected.");
         Connection = connection;
-        UpdateStatus(ConnectionStatus.Connected);
-        RaiseConnected(connection);
+        connection.SetValue(Beutl.NodeTree.Connection.StatusProperty, ConnectionStatus.Connected);
     }
 
-    public void NotifyDisconnected(Connection connection)
+    public override void NotifyDisconnected(Connection connection)
     {
-        if (Connection == connection)
-        {
-            Connection = null;
-            RaiseDisconnected(connection);
-        }
-    }
-
-    private void UpdateStatus(ConnectionStatus status)
-    {
-        Connection!.SetValue(Connection.StatusProperty, status);
+        base.NotifyDisconnected(connection);
+        if (Connection.IsNull || Connection.Id != connection.Id)
+            throw new InvalidOperationException("This input socket is not connected to the specified connection.");
+        Connection = default;
+        connection.SetValue(Beutl.NodeTree.Connection.StatusProperty, ConnectionStatus.Disconnected);
     }
 
     public virtual void Receive(T? value)
     {
-        if (Connection != null)
+        if (Connection.Value != null)
         {
             if (_force && _onReceive != null)
             {
                 if (_onReceive(value, out T? received))
                 {
                     Value = received;
-                    UpdateStatus(ConnectionStatus.Convert);
+                    Connection.Value.SetValue(Beutl.NodeTree.Connection.StatusProperty, ConnectionStatus.Convert);
                 }
                 else
                 {
-                    UpdateStatus(ConnectionStatus.Error);
+                    Connection.Value.SetValue(Beutl.NodeTree.Connection.StatusProperty, ConnectionStatus.Error);
                 }
             }
             else
             {
                 Value = value;
-                UpdateStatus(ConnectionStatus.Success);
+                Connection.Value.SetValue(Beutl.NodeTree.Connection.StatusProperty, ConnectionStatus.Success);
             }
         }
     }
@@ -105,7 +112,7 @@ public class InputSocket<T> : Socket<T>, IInputSocket
         }
         finally
         {
-            UpdateStatus(status);
+            Connection.Value?.SetValue(Beutl.NodeTree.Connection.StatusProperty, status);
         }
     }
 
@@ -116,7 +123,8 @@ public class InputSocket<T> : Socket<T>, IInputSocket
         {
             value1 = Property.GetValue();
             if (value1 == null
-                && Property?.GetCoreProperty()?.GetMetadata<CorePropertyMetadata<T>>(Property.ImplementedType) is { } metadata
+                && Property?.GetCoreProperty()?.GetMetadata<CorePropertyMetadata<T>>(Property.ImplementedType) is
+                    { } metadata
                 && metadata.HasDefaultValue)
             {
                 value1 = metadata.DefaultValue;
@@ -124,7 +132,8 @@ public class InputSocket<T> : Socket<T>, IInputSocket
         }
 
         Receive(value1);
-        UpdateStatus(ConnectionStatus.Error);
+
+        Connection.Value?.SetValue(Beutl.NodeTree.Connection.StatusProperty, ConnectionStatus.Error);
     }
 
     public void Receive(object? value)
@@ -171,57 +180,10 @@ public class InputSocket<T> : Socket<T>, IInputSocket
 
     public override void PreEvaluate(EvaluationContext context)
     {
-        if (Connection == null)
+        if (Connection.Value == null)
         {
             Value = default;
             base.PreEvaluate(context);
-        }
-    }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        base.Deserialize(context);
-        _outputId = context.GetValue<Guid>("connection-output");
-        TryRestoreConnection();
-    }
-
-    public override void Serialize(ICoreSerializationContext context)
-    {
-        base.Serialize(context);
-        if (Connection != null)
-        {
-            context.SetValue("connection-output", Connection.Output.Id);
-        }
-    }
-
-    private void TryRestoreConnection()
-    {
-        if (Connection == null && _outputId != Guid.Empty)
-        {
-            ISocket? socket = NodeTree?.FindSocket(_outputId);
-            if (socket is IOutputSocket outputSocket)
-            {
-                if (outputSocket.TryConnect(this))
-                {
-                    _outputId = Guid.Empty;
-                }
-            }
-        }
-    }
-
-    protected override void OnAttachedToNodeTree(NodeTreeModel nodeTree)
-    {
-        base.OnAttachedToNodeTree(nodeTree);
-        TryRestoreConnection();
-    }
-
-    protected override void OnDetachedFromNodeTree(NodeTreeModel nodeTree)
-    {
-        base.OnDetachedFromNodeTree(nodeTree);
-        if (Connection != null && _outputId == Guid.Empty)
-        {
-            _outputId = Connection.Output.Id;
-            Connection.Output.Disconnect(this);
         }
     }
 }

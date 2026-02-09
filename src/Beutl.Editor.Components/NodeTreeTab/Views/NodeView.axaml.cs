@@ -95,7 +95,7 @@ public partial class NodeView : UserControl
         {
             if (canBeAdded.PossibleLocation.HasFlag(SocketLocation.Left))
             {
-                _undecidedLeftSocketContext = new InputSocketViewModel(null, null, obj.Node, obj.EditorContext);
+                _undecidedLeftSocketContext = new InputSocketViewModel(null, null, obj);
                 _undecidedLeftSocket = new SocketView
                 {
                     DataContext = _undecidedLeftSocketContext
@@ -105,7 +105,7 @@ public partial class NodeView : UserControl
 
             if (canBeAdded.PossibleLocation.HasFlag(SocketLocation.Right))
             {
-                _undecidedRightSocketContext = new OutputSocketViewModel(null, null, obj.Node, obj.EditorContext);
+                _undecidedRightSocketContext = new OutputSocketViewModel(null, null, obj);
                 _undecidedRightSocket = new SocketView
                 {
                     DataContext = _undecidedRightSocketContext
