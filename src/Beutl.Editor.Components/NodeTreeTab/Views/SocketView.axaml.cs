@@ -186,16 +186,6 @@ public partial class SocketView : UserControl
                 };
                 Interaction.GetBehaviors(socketPt).Add(new ListSocketDragBehavior());
                 _listSocketPanel.Children.Insert(index, socketPt);
-
-                _updateSocketCts?.Cancel();
-                _updateSocketCts?.Dispose();
-                _updateSocketCts = new CancellationTokenSource();
-                var ct = _updateSocketCts.Token;
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (ct.IsCancellationRequested) return;
-                    _nodeView?.UpdateSocketPosition();
-                }, DispatcherPriority.Background);
             },
             (index, connVM) =>
             {

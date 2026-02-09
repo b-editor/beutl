@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Transformation;
 using Avalonia.VisualTree;
+using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
 using Beutl.Editor.Components.NodeTreeTab.ViewModels;
@@ -24,6 +25,7 @@ public sealed class ListSocketDragBehavior : Behavior<SocketPoint>
     private int _targetIndex;
     private StackPanel? _stackPanel;
     private Canvas? _canvas;
+    private NodeView? _nodeView;
     private ConnectionLine? _tempLine;
 
     protected override void OnAttached()
@@ -68,6 +70,7 @@ public sealed class ListSocketDragBehavior : Behavior<SocketPoint>
         {
             _stackPanel = AssociatedObject.FindAncestorOfType<StackPanel>();
             _canvas = AssociatedObject.FindAncestorOfType<Canvas>();
+            _nodeView = AssociatedObject.FindAncestorOfType<NodeView>();
             if (_stackPanel != null)
             {
                 _enableDrag = true;
@@ -181,6 +184,8 @@ public sealed class ListSocketDragBehavior : Behavior<SocketPoint>
                 SetTranslateTransform(target, 0, 0);
             }
         }
+
+        UpdateConnectionPositionsDuringDrag();
     }
 
     private void ReleaseVertical()
@@ -193,6 +198,12 @@ public sealed class ListSocketDragBehavior : Behavior<SocketPoint>
             {
                 socketVM.MoveConnectionSlot(_draggedIndex, _targetIndex);
             }
+        }
+
+        // Schedule position update after layout completes
+        if (_nodeView is { } nodeView)
+        {
+            Dispatcher.UIThread.Post(() => nodeView.UpdateSocketPosition(), DispatcherPriority.Background);
         }
     }
 
@@ -292,6 +303,7 @@ public sealed class ListSocketDragBehavior : Behavior<SocketPoint>
         _direction = DragDirection.None;
         _stackPanel = null;
         _canvas = null;
+        _nodeView = null;
     }
 
     private static void SetTranslateTransform(Control control, double x, double y)
@@ -299,5 +311,29 @@ public sealed class ListSocketDragBehavior : Behavior<SocketPoint>
         var transformBuilder = new TransformOperations.Builder(1);
         transformBuilder.AppendTranslate(x, y);
         control.RenderTransform = transformBuilder.Build();
+    }
+
+    private void UpdateConnectionPositionsDuringDrag()
+    {
+        if (_stackPanel == null || _nodeView?.DataContext is not NodeViewModel nodeVM) return;
+        bool isInput = AssociatedObject?.DataContext is InputSocketViewModel;
+
+        int connectedCount = _stackPanel.Children.Count - 1; // exclude placeholder
+        for (int i = 0; i < connectedCount; i++)
+        {
+            if (_stackPanel.Children[i] is SocketPoint sp && sp.Tag is ConnectionViewModel connVM)
+            {
+                Point? basePos = sp.TranslatePoint(new(5, 5), _nodeView);
+                if (basePos.HasValue)
+                {
+                    Point canvasPos = basePos.Value + nodeVM.Position.Value;
+
+                    if (isInput)
+                        connVM.InputSocketPosition.Value = canvasPos;
+                    else
+                        connVM.OutputSocketPosition.Value = canvasPos;
+                }
+            }
+        }
     }
 }
