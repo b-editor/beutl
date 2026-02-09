@@ -5,7 +5,6 @@ using Avalonia.Controls.PanAndZoom;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Beutl.Collections.Pooled;
 using Beutl.Editor.Components.Helpers;
 using Beutl.NodeTree;
 using Beutl.Editor.Components.NodeTreeTab.ViewModels;
@@ -199,21 +198,34 @@ public partial class NodeTreeView : UserControl
         zoomBorder.Zoom(1, zoomBorder.OffsetX, zoomBorder.OffsetY);
     }
 
-    internal static ConnectionLine CreateLine(InputSocketViewModel input, OutputSocketViewModel output)
-    {
-        return new ConnectionLine() { InputSocket = input, OutputSocket = output };
-    }
-
-    internal static ConnectionLine CreateLine(InputSocketViewModel input, OutputSocketViewModel output, ConnectionViewModel connVM)
+    internal static ConnectionLine CreateLine(ConnectionViewModel connVM)
     {
         return new ConnectionLine()
         {
             [!Line.StartPointProperty] = connVM.InputSocketPosition.ToBinding(),
             [!Line.EndPointProperty] = connVM.OutputSocketPosition.ToBinding(),
             ConnectionViewModel = connVM,
-            InputSocket = input,
-            OutputSocket = output
+            InputSocket = connVM.InputSocketVM,
+            OutputSocket = connVM.OutputSocketVM
         };
+    }
+
+    private void InitializeConnectionPositions(ConnectionViewModel connVM)
+    {
+        foreach (Control child in canvas.Children)
+        {
+            if (child is NodeView { DataContext: NodeViewModel nodeVM } nodeView)
+            {
+                bool hasInput = nodeVM.Items.Contains(connVM.InputSocketVM);
+                bool hasOutput = nodeVM.Items.Contains(connVM.OutputSocketVM);
+
+                if (hasInput || hasOutput)
+                {
+                    nodeView.UpdateSocketPosition();
+                    if (hasInput && hasOutput) break;
+                }
+            }
+        }
     }
 
     private void OnDataContextAttached(NodeTreeViewModel obj)
@@ -223,33 +235,6 @@ public partial class NodeTreeView : UserControl
                 {
                     var control = new NodeView() { DataContext = node };
                     canvas.Children.Add(control);
-
-                    using var list = new PooledList<Connection>();
-                    foreach (NodeItemViewModel item in node.Items)
-                    {
-                        if (item is InputSocketViewModel { Model.Connection: { } connection })
-                        {
-                            list.Add(connection);
-                        }
-                        else if (item is OutputSocketViewModel { Model: { } outputSocket })
-                        {
-                            list.AddRange(outputSocket.Connections);
-                        }
-                    }
-
-                    foreach (Connection connection in list.Span)
-                    {
-                        if (!canvas.Children.OfType<ConnectionLine>().Any(x => x.Match(connection)) &&
-                            obj.FindSocketViewModel(connection.Input) is InputSocketViewModel inputViewModel &&
-                            obj.FindSocketViewModel(connection.Output) is OutputSocketViewModel outputViewModel)
-                        {
-                            var connVM = new ConnectionViewModel(connection, inputViewModel.Color, outputViewModel.Color);
-                            inputViewModel.Connections.Add(connVM);
-                            outputViewModel.Connections.Add(connVM);
-                            ConnectionLine line = CreateLine(inputViewModel, outputViewModel, connVM);
-                            canvas.Children.Insert(0, line);
-                        }
-                    }
                 },
                 node =>
                 {
@@ -258,41 +243,47 @@ public partial class NodeTreeView : UserControl
                     {
                         canvas.Children.Remove(control);
                     }
-
-                    foreach (NodeItemViewModel item in node.Items)
+                },
+                () =>
+                {
+                    for (int i = canvas.Children.Count - 1; i >= 0; i--)
                     {
-                        if (item is InputSocketViewModel { Model: { } input })
+                        if (canvas.Children[i] is NodeView)
                         {
-                            ConnectionLine? line = canvas.Children.OfType<ConnectionLine>()
-                                .FirstOrDefault(x => x.Match(input));
-                            if (line != null)
-                            {
-                                if (line.ConnectionViewModel is { } connVM)
-                                {
-                                    line.InputSocket?.Connections.Remove(connVM);
-                                    line.OutputSocket?.Connections.Remove(connVM);
-                                    connVM.Dispose();
-                                }
-                                canvas.Children.Remove(line);
-                            }
+                            canvas.Children.RemoveAt(i);
                         }
-                        else if (item is OutputSocketViewModel { Model: { } output })
+                    }
+                })
+            .DisposeWith(_disposables);
+
+        obj.AllConnections.ForEachItem(
+                connVM =>
+                {
+                    ConnectionLine line = CreateLine(connVM);
+                    canvas.Children.Insert(0, line);
+                    InitializeConnectionPositions(connVM);
+                },
+                connVM =>
+                {
+                    for (int i = canvas.Children.Count - 1; i >= 0; i--)
+                    {
+                        if (canvas.Children[i] is ConnectionLine line && line.ConnectionViewModel == connVM)
                         {
-                            var linesToRemove = canvas.Children.OfType<ConnectionLine>().Where(x => x.Match(output)).ToList();
-                            foreach (var line in linesToRemove)
-                            {
-                                if (line.ConnectionViewModel is { } connVM)
-                                {
-                                    line.InputSocket?.Connections.Remove(connVM);
-                                    line.OutputSocket?.Connections.Remove(connVM);
-                                    connVM.Dispose();
-                                }
-                            }
-                            canvas.Children.RemoveAll(linesToRemove);
+                            canvas.Children.RemoveAt(i);
+                            break;
                         }
                     }
                 },
-                canvas.Children.Clear)
+                () =>
+                {
+                    for (int i = canvas.Children.Count - 1; i >= 0; i--)
+                    {
+                        if (canvas.Children[i] is ConnectionLine)
+                        {
+                            canvas.Children.RemoveAt(i);
+                        }
+                    }
+                })
             .DisposeWith(_disposables);
 
         obj.Matrix.Where(_ => !_matrixUpdating)

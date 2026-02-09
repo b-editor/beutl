@@ -6,12 +6,4 @@ public class OutputSocketViewModel(IOutputSocket? socket, IPropertyEditorContext
     : SocketViewModel(socket, propertyEditorContext, node, editorContext)
 {
     public new IOutputSocket? Model => base.Model as IOutputSocket;
-
-    protected override void OnIsConnectedChanged()
-    {
-        if (Model != null)
-        {
-            IsConnected.Value = Model.Connections.Count > 0;
-        }
-    }
 }

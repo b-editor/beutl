@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 
@@ -12,8 +13,6 @@ using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 using FluentIcons.Common;
 using FluentIcons.FluentAvalonia;
-
-using System.Reactive;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -29,6 +28,7 @@ public partial class SocketView : UserControl
     private Canvas? _canvas;
     private Control? _editor;
     private TextBlock? _label;
+    private CancellationTokenSource? _updateSocketCts;
 
     public SocketView()
     {
@@ -176,7 +176,7 @@ public partial class SocketView : UserControl
 
         // Subscribe to Connections changes (handles Add, Remove, Move)
         obj.Connections.ForEachItem(
-            (int index, ConnectionViewModel connVM) =>
+            (index, connVM) =>
             {
                 var socketPt = new SocketPoint
                 {
@@ -186,8 +186,18 @@ public partial class SocketView : UserControl
                 };
                 Interaction.GetBehaviors(socketPt).Add(new ListSocketDragBehavior());
                 _listSocketPanel.Children.Insert(index, socketPt);
+
+                _updateSocketCts?.Cancel();
+                _updateSocketCts?.Dispose();
+                _updateSocketCts = new CancellationTokenSource();
+                var ct = _updateSocketCts.Token;
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (ct.IsCancellationRequested) return;
+                    _nodeView?.UpdateSocketPosition();
+                }, DispatcherPriority.Background);
             },
-            (int index, ConnectionViewModel connVM) =>
+            (index, connVM) =>
             {
                 if (index < _listSocketPanel.Children.Count - 1)
                 {
@@ -305,58 +315,6 @@ public partial class SocketView : UserControl
         }
     }
 
-    private void OnSocketDisconnected(EventPattern<SocketConnectionChangedEventArgs> obj)
-    {
-        SocketConnectionChangedEventArgs e = obj.EventArgs;
-        RemoveConnectionLine(e.Connection);
-    }
-
-    private void RemoveConnectionLine(Connection connection)
-    {
-        if (_canvas is { })
-        {
-            for (int i = _canvas.Children.Count - 1; i >= 0; i--)
-            {
-                Control item = _canvas.Children[i];
-                if (item is ConnectionLine line && line.Match(connection))
-                {
-                    if (line.ConnectionViewModel is { } connVM)
-                    {
-                        line.InputSocket?.Connections.Remove(connVM);
-                        line.OutputSocket?.Connections.Remove(connVM);
-                        connVM.Dispose();
-                    }
-                    _canvas.Children.RemoveAt(i);
-                }
-            }
-        }
-    }
-
-    private void AddConnectionLine(Connection connection)
-    {
-        if (_canvas is { DataContext: NodeTreeViewModel treeViewModel }
-            && treeViewModel.FindSocketViewModel(connection.Input) is InputSocketViewModel inputViewModel
-            && treeViewModel.FindSocketViewModel(connection.Output) is OutputSocketViewModel outputViewModel)
-        {
-            if (!_canvas.Children.OfType<ConnectionLine>().Any(x => x.Match(connection)))
-            {
-                var connVM = new ConnectionViewModel(connection, inputViewModel.Color, outputViewModel.Color);
-                inputViewModel.Connections.Add(connVM);
-                outputViewModel.Connections.Add(connVM);
-                _canvas.Children.Insert(0, NodeTreeView.CreateLine(inputViewModel, outputViewModel, connVM));
-            }
-
-            // Initialize position for newly created connection
-            UpdateSocketPosition();
-        }
-    }
-
-    private void OnSocketConnected(EventPattern<SocketConnectionChangedEventArgs> obj)
-    {
-        SocketConnectionChangedEventArgs e = obj.EventArgs;
-        AddConnectionLine(e.Connection);
-    }
-
     private void OnDataContextAttached(NodeItemViewModel obj)
     {
         InitEditor(obj);
@@ -364,18 +322,6 @@ public partial class SocketView : UserControl
         if (obj is SocketViewModel socketObj)
         {
             InitSocketPoint(socketObj);
-            if (socketObj.Model != null)
-            {
-                Observable.FromEventPattern<SocketConnectionChangedEventArgs>(x => socketObj.Model.Connected += x, x => socketObj.Model.Connected -= x)
-                    .ObserveOnUIDispatcher()
-                    .Subscribe(OnSocketConnected)
-                    .DisposeWith(_disposables);
-
-                Observable.FromEventPattern<SocketConnectionChangedEventArgs>(x => socketObj.Model.Disconnected += x, x => socketObj.Model.Disconnected -= x)
-                    .ObserveOnUIDispatcher()
-                    .Subscribe(OnSocketDisconnected)
-                    .DisposeWith(_disposables);
-            }
 
             socketObj.IsConnected
                 .ObserveOnUIDispatcher()

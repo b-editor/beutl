@@ -10,19 +10,4 @@ public class InputSocketViewModel : SocketViewModel
     }
 
     public new IInputSocket? Model => base.Model as IInputSocket;
-
-    protected override void OnIsConnectedChanged()
-    {
-        if (Model != null)
-        {
-            if (Model is IListInputSocket listSocket)
-            {
-                IsConnected.Value = listSocket.ListConnections.Count > 0;
-            }
-            else
-            {
-                IsConnected.Value = Model.Connection != null;
-            }
-        }
-    }
 }

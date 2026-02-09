@@ -9,16 +9,22 @@ namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 public class ConnectionViewModel : IDisposable
 {
-    public ConnectionViewModel(Connection connection, IBrush inputBrush, IBrush outputBrush)
+    public ConnectionViewModel(Connection connection, InputSocketViewModel inputSocketVM, OutputSocketViewModel outputSocketVM)
     {
         Connection = connection;
-        InputBrush = new(inputBrush);
-        OutputBrush = new(outputBrush);
+        InputSocketVM = inputSocketVM;
+        OutputSocketVM = outputSocketVM;
+        InputBrush = new(inputSocketVM.Color);
+        OutputBrush = new(outputSocketVM.Color);
         Status = connection.GetObservable(Connection.StatusProperty)
             .ToReadOnlyReactivePropertySlim();
     }
 
     public Connection Connection { get; }
+
+    public InputSocketViewModel InputSocketVM { get; }
+
+    public OutputSocketViewModel OutputSocketVM { get; }
 
     public ReactivePropertySlim<Point> InputSocketPosition { get; } = new();
 

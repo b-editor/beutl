@@ -16,6 +16,7 @@ namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
 public class SocketViewModel : NodeItemViewModel
 {
     private readonly IEditorContext _editorContext;
+    private IDisposable? _connectionsSubscription;
 
     public SocketViewModel(ISocket? socket, IPropertyEditorContext? propertyEditorContext, Node node, IEditorContext editorContext)
         : base(socket, propertyEditorContext, node)
@@ -23,15 +24,17 @@ public class SocketViewModel : NodeItemViewModel
         if (socket != null)
         {
             Color = new ImmutableSolidColorBrush(socket.Color.ToAvaColor());
-            socket.Connected += OnSocketConnected;
-            socket.Disconnected += OnSocketDisconnected;
         }
         else
         {
             Color = Brushes.Gray;
         }
 
-        OnIsConnectedChanged();
+        _connectionsSubscription = Connections.ForEachItem(
+            (_, _) => IsConnected.Value = Connections.Count > 0,
+            (_, _) => IsConnected.Value = Connections.Count > 0,
+            () => IsConnected.Value = false);
+
         _editorContext = editorContext;
     }
 
@@ -178,31 +181,7 @@ public class SocketViewModel : NodeItemViewModel
     protected override void OnDispose()
     {
         base.OnDispose();
-        if (Model != null)
-        {
-            Model.Connected -= OnSocketConnected;
-            Model.Disconnected -= OnSocketDisconnected;
-        }
+        _connectionsSubscription?.Dispose();
         Connections.Clear();
-    }
-
-    protected virtual void OnSocketDisconnected(object? sender, SocketConnectionChangedEventArgs e)
-    {
-        if (Model != null)
-        {
-            OnIsConnectedChanged();
-        }
-    }
-
-    protected virtual void OnSocketConnected(object? sender, SocketConnectionChangedEventArgs e)
-    {
-        if (Model != null)
-        {
-            OnIsConnectedChanged();
-        }
-    }
-
-    protected virtual void OnIsConnectedChanged()
-    {
     }
 }
