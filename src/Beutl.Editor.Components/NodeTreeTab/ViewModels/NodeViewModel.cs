@@ -66,6 +66,21 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
             NodeTreeModel? tree = Node.FindHierarchicalParent<NodeTreeModel>();
             if (tree != null)
             {
+                Connection[] allConnections = Node.Items
+                    .SelectMany(i => i switch
+                    {
+                        IOutputSocket outputSocket => outputSocket.Connections,
+                        IListSocket listSocket => listSocket.Connections,
+                        IInputSocket { Connection: var connection } => [connection],
+                        _ => []
+                    })
+                    .Select(conn => tree.AllConnections.FirstOrDefault(a => a.Id == conn.Id))
+                    .Where(a => a != null)
+                    .ToArray()!;
+                foreach (Connection connection in allConnections)
+                {
+                    tree.Disconnect(connection);
+                }
                 tree.Nodes.Remove(Node);
                 EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveNode);
             }
