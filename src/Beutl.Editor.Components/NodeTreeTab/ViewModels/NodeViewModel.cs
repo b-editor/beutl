@@ -188,6 +188,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
     {
         return nodeItem switch
         {
+            INodeMonitor monitor => new NodeMonitorViewModel(monitor, propertyEditorContext, this),
             IOutputSocket osocket => new OutputSocketViewModel(osocket, propertyEditorContext, this),
             IInputSocket isocket => new InputSocketViewModel(isocket, propertyEditorContext, this),
             ISocket socket => new SocketViewModel(socket, propertyEditorContext, this),

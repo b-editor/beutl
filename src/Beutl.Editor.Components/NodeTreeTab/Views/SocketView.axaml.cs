@@ -309,6 +309,12 @@ public partial class SocketView : UserControl
 
     private void OnDataContextAttached(NodeItemViewModel obj)
     {
+        if (obj is NodeMonitorViewModel monitorObj)
+        {
+            InitMonitorContent(monitorObj);
+            return;
+        }
+
         InitEditor(obj);
 
         if (obj is SocketViewModel socketObj)
@@ -323,6 +329,50 @@ public partial class SocketView : UserControl
         else if (_label != null)
         {
             grid.Children.Add(_editor ?? _label);
+        }
+    }
+
+    private void InitMonitorContent(NodeMonitorViewModel monitorObj)
+    {
+        switch (monitorObj.Model?.ContentKind)
+        {
+            case NodeMonitorContentKind.Text:
+            {
+                var textBlock = new SelectableTextBlock
+                {
+                    FontFamily = new Avalonia.Media.FontFamily("Cascadia Mono, Consolas, monospace"),
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                };
+                textBlock.Bind(TextBlock.TextProperty, monitorObj.DisplayText.ToBinding())
+                    .DisposeWith(_disposables);
+                Grid.SetColumn(textBlock, 1);
+                grid.Children.Add(textBlock);
+                break;
+            }
+            case NodeMonitorContentKind.Image:
+            {
+                var image = new Image
+                {
+                    MaxHeight = 200,
+                    MaxWidth = 200,
+                    Stretch = Avalonia.Media.Stretch.Uniform,
+                    Source = monitorObj.DisplayBitmap
+                };
+
+                void OnImageInvalidated(object? sender, EventArgs e)
+                {
+                    image.Source = monitorObj.DisplayBitmap;
+                    image.InvalidateVisual();
+                }
+
+                monitorObj.ImageInvalidated += OnImageInvalidated;
+                Disposable.Create(() => monitorObj.ImageInvalidated -= OnImageInvalidated)
+                    .DisposeWith(_disposables);
+
+                Grid.SetColumn(image, 1);
+                grid.Children.Add(image);
+                break;
+            }
         }
     }
 

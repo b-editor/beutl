@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.Serialization;
 using Beutl.Utilities;
 
@@ -230,6 +231,30 @@ public abstract class Node : Hierarchical
         NodeItem<T> socket = CreateProperty<T>(name, display);
         Items.Add(socket);
         return socket;
+    }
+
+    protected NodeMonitor<T> AddMonitor<T>(string name,
+        NodeMonitorContentKind contentKind = NodeMonitorContentKind.Text,
+        DisplayAttribute? display = null)
+    {
+        var monitor = new NodeMonitor<T>()
+        {
+            Name = name,
+            Display = display,
+            ContentKind = contentKind
+        };
+        Items.Add(monitor);
+        return monitor;
+    }
+
+    protected NodeMonitor<string?> AddTextMonitor(string name, DisplayAttribute? display = null)
+    {
+        return AddMonitor<string?>(name, NodeMonitorContentKind.Text, display);
+    }
+
+    protected NodeMonitor<Ref<IBitmap>?> AddImageMonitor(string name, DisplayAttribute? display = null)
+    {
+        return AddMonitor<Ref<IBitmap>?>(name, NodeMonitorContentKind.Image, display);
     }
 
     protected InputSocket<T> CreateInput<T>(string name, DisplayAttribute? display = null)
