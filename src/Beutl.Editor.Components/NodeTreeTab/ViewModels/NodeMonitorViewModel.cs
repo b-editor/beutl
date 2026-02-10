@@ -28,23 +28,18 @@ public class NodeMonitorViewModel : NodeItemViewModel
             .Subscribe(_ => UpdateDisplay())
             .DisposeWith(_disposables);
 
-        // IsPlaying->IsEnabled 連動
-        var previewPlayer = nodeViewModel.EditorContext.GetService<IPreviewPlayer>();
-        if (previewPlayer != null)
-        {
-            previewPlayer.IsPlaying
-                .Subscribe(playing => model.IsEnabled = !playing)
-                .DisposeWith(_disposables);
+        // IsPlaying, IsExpanded -> IsEnabled 連動
+        var previewPlayer = nodeViewModel.EditorContext.GetRequiredService<IPreviewPlayer>();
 
-            // 再生停止時に最新値でUI更新
-            previewPlayer.IsPlaying
-                .Where(v => !v)
-                .ObserveOnUIDispatcher()
-                .Subscribe(_ => UpdateDisplay())
-                .DisposeWith(_disposables);
-        }
-
-        UpdateDisplay();
+        previewPlayer.IsPlaying.CombineLatest(nodeViewModel.IsExpanded)
+            // IsPlayingがfalseで、かつIsExpandedがtrueのときのみ有効
+            .Select(t => t is { First: false, Second: true })
+            .DistinctUntilChanged()
+            .Do(enabled => model.IsEnabled = enabled)
+            .ObserveOnUIDispatcher()
+            .Where(v => v) // 有効になったときのみ
+            .Subscribe(_ => UpdateDisplay())
+            .DisposeWith(_disposables);
     }
 
     public new INodeMonitor? Model => base.Model as INodeMonitor;
