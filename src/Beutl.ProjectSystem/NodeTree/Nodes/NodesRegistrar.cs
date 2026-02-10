@@ -85,6 +85,7 @@ public static class NodesRegistrar
         NodeRegistry.RegisterNodes("Utilities")
             .Add<Utilities.SwitchNode>("Switch")
             .Add<Utilities.MeasureNode>("Measure")
+            .Add<Utilities.PreviewNode>("Preview")
             .Add<Utilities.TimeNode>("Time")
             .AddGroup("Matrix", o => o
                 .Add<Utilities.TranslateMatrixNode>("Translate")
