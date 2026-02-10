@@ -59,10 +59,6 @@ public sealed class Connection : Hierarchical
         private set => SetAndRaise(OutputProperty, ref field, value);
     }
 
-    public int InputIndex { get; set; } = -1;
-
-    public int OutputIndex { get; set; } = -1;
-
     public void Connect()
     {
         if (Output.Value is not IOutputSocket outputSocket || Input.Value is not IInputSocket inputSocket)
