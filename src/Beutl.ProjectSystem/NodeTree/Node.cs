@@ -185,6 +185,32 @@ public abstract class Node : Hierarchical
         return socket;
     }
 
+    protected IListInputSocket AddListInput(string name, Type type, DisplayAttribute? display = null)
+    {
+        var socketType = typeof(ListInputSocket<>).MakeGenericType(type);
+        var socket = (IListInputSocket)Activator.CreateInstance(socketType)!;
+        socket.Name = name;
+        if (socket is NodeItem nodeItem)
+        {
+            nodeItem.Display = display;
+        }
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected IListOutputSocket AddListOutput(string name, Type type, DisplayAttribute? display = null)
+    {
+        var socketType = typeof(ListOutputSocket<>).MakeGenericType(type);
+        var socket = (IListOutputSocket)Activator.CreateInstance(socketType)!;
+        socket.Name = name;
+        if (socket is NodeItem nodeItem)
+        {
+            nodeItem.Display = display;
+        }
+        Items.Add(socket);
+        return socket;
+    }
+
     protected OutputSocket<T> AddOutput<T>(string name, T value, DisplayAttribute? display = null)
     {
         OutputSocket<T> socket = CreateOutput<T>(name, value, display);

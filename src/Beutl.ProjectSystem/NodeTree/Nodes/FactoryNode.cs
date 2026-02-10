@@ -1,15 +1,14 @@
 ﻿using Beutl.Engine;
-using Beutl.Media;
 using Beutl.Serialization;
 
-namespace Beutl.NodeTree.Nodes.Brushes;
+namespace Beutl.NodeTree.Nodes;
 
-public class BrushNode<T> : Node
-    where T : Brush, new()
+public class FactoryNode<T> : Node
+    where T : EngineObject, new()
 {
     public static readonly CoreProperty<T> ObjectProperty;
 
-    public BrushNode()
+    public FactoryNode()
     {
         Object = new T();
         OutputSocket = AddOutput<T>("Output");
@@ -19,13 +18,13 @@ public class BrushNode<T> : Node
         }
     }
 
-    static BrushNode()
+    static FactoryNode()
     {
-        ObjectProperty = ConfigureProperty<T, BrushNode<T>>(nameof(Object))
+        ObjectProperty = ConfigureProperty<T, FactoryNode<T>>(nameof(Object))
             .Accessor(o => o.Object, (o, v) => o.Object = v)
             .Register();
 
-        Hierarchy<BrushNode<T>>(ObjectProperty);
+        Hierarchy<FactoryNode<T>>(ObjectProperty);
     }
 
     [NotAutoSerialized]

@@ -1,6 +1,6 @@
 ﻿using Beutl.Graphics.Effects;
 using Beutl.Language;
-using Beutl.NodeTree.Nodes.Brushes;
+using Beutl.Media;
 using Beutl.NodeTree.Nodes.Effects;
 using Beutl.NodeTree.Nodes.Geometry;
 using Beutl.NodeTree.Nodes.Group;
@@ -73,18 +73,19 @@ public static class NodesRegistrar
                 .Add<FilterEffectNode<Graphics.Effects.OpenCv.MedianBlur>>("CvMedianBlur"))
             .Register();
 
-        NodeRegistry.RegisterNodes("Brush")
-            // .Add<FillNode>("Set Fill Brush")
-            .Add<SolidColorBrushNode>("Solid Color Brush")
-            // .Add<LinearGradientBrushNode>("Linear Gradient Brush")
-            // .Add<RadialGradientBrushNode>("Radial Gradient Brush")
-            // .Add<ConicGradientBrushNode>("Conic Gradient Brush")
-            // .Add<DrawableBrushNode>("Drawable Gradient Brush")
+        NodeRegistry.RegisterNodes(Strings.Brush)
+            .Add<FactoryNode<SolidColorBrush>>(Strings.Brush_Solid)
+            .Add<FactoryNode<LinearGradientBrush>>(Strings.Brush_LinearGradient)
+            .Add<FactoryNode<ConicGradientBrush>>(Strings.Brush_ConicalGradient)
+            .Add<FactoryNode<RadialGradientBrush>>(Strings.Brush_RadialGradient)
+            .Add<FactoryNode<PerlinNoiseBrush>>(Strings.Brush_PerlinNoise)
+            .Add<FactoryNode<DrawableBrush>>(Strings.Drawable)
             .Register();
 
         NodeRegistry.RegisterNodes("Utilities")
             .Add<Utilities.SwitchNode>("Switch")
             .Add<Utilities.MeasureNode>("Measure")
+            .Add<Utilities.TimeNode>("Time")
             .AddGroup("Matrix", o => o
                 .Add<Utilities.TranslateMatrixNode>("Translate")
                 .Add<Utilities.RotationMatrixNode>("Rotation")
