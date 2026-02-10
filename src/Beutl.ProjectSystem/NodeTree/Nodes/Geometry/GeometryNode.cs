@@ -18,7 +18,7 @@ public class GeometryNode<T> : Node
     public GeometryNode()
     {
         Object = new T();
-        OutputSocket = AsOutput<T>("Output");
+        OutputSocket = AddOutput<T>("Output");
         foreach (IProperty property in Object.Properties)
         {
             AddInput(Object, property);

@@ -157,49 +157,49 @@ public abstract class Node : Hierarchical
         return socket;
     }
 
-    protected InputSocket<T> AsInput<T>(string name, DisplayAttribute? display = null)
+    protected InputSocket<T> AddInput<T>(string name, DisplayAttribute? display = null)
     {
         InputSocket<T> socket = CreateInput<T>(name, display);
         Items.Add(socket);
         return socket;
     }
 
-    protected IInputSocket AsInput(string name, Type type, DisplayAttribute? display = null)
+    protected IInputSocket AddInput(string name, Type type, DisplayAttribute? display = null)
     {
         IInputSocket socket = CreateInput(name, type, display);
         Items.Add(socket);
         return socket;
     }
 
-    protected ListInputSocket<T> AsListInput<T>(string name, DisplayAttribute? display = null)
+    protected ListInputSocket<T> AddListInput<T>(string name, DisplayAttribute? display = null)
     {
         var socket = new ListInputSocket<T>() { Name = name, Display = display };
         Items.Add(socket);
         return socket;
     }
 
-    protected ListOutputSocket<T> AsListOutput<T>(string name, DisplayAttribute? display = null)
+    protected ListOutputSocket<T> AddListOutput<T>(string name, DisplayAttribute? display = null)
     {
         var socket = new ListOutputSocket<T>() { Name = name, Display = display };
         Items.Add(socket);
         return socket;
     }
 
-    protected OutputSocket<T> AsOutput<T>(string name, T value, DisplayAttribute? display = null)
+    protected OutputSocket<T> AddOutput<T>(string name, T value, DisplayAttribute? display = null)
     {
         OutputSocket<T> socket = CreateOutput<T>(name, value, display);
         Items.Add(socket);
         return socket;
     }
 
-    protected OutputSocket<T> AsOutput<T>(string name, DisplayAttribute? display = null)
+    protected OutputSocket<T> AddOutput<T>(string name, DisplayAttribute? display = null)
     {
         OutputSocket<T> socket = CreateOutput<T>(name, display);
         Items.Add(socket);
         return socket;
     }
 
-    protected NodeItem<T> AsProperty<T>(string name, DisplayAttribute? display = null)
+    protected NodeItem<T> AddProperty<T>(string name, DisplayAttribute? display = null)
     {
         NodeItem<T> socket = CreateProperty<T>(name, display);
         Items.Add(socket);

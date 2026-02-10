@@ -6,8 +6,8 @@ public abstract class ConfigureNode : Node
 {
     public ConfigureNode()
     {
-        OutputSocket = AsOutput<ContainerRenderNode?>("Output");
-        InputSocket = AsListInput<RenderNode?>("Input");
+        OutputSocket = AddOutput<ContainerRenderNode?>("Output");
+        InputSocket = AddListInput<RenderNode?>("Input");
     }
 
     protected OutputSocket<ContainerRenderNode?> OutputSocket { get; }

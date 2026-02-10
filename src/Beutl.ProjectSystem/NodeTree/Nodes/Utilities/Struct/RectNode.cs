@@ -10,9 +10,9 @@ public class RectNode : Node
 
     public RectNode()
     {
-        _valueSocket = AsOutput<Rect>("Rect");
-        _positionSocket = AsInput<Point>("TopLeft").AcceptNumber();
-        _sizeSocket = AsInput<Size>("Size").AcceptNumber();
+        _valueSocket = AddOutput<Rect>("Rect");
+        _positionSocket = AddInput<Point>("TopLeft").AcceptNumber();
+        _sizeSocket = AddInput<Size>("Size").AcceptNumber();
     }
 
     public override void Evaluate(NodeEvaluationContext context)

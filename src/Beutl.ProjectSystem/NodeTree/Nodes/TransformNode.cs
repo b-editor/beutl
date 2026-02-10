@@ -7,7 +7,7 @@ public class TransformNode : ConfigureNode
 {
     public TransformNode()
     {
-        Matrix = AsInput<Matrix>("Matrix");
+        Matrix = AddInput<Matrix>("Matrix");
     }
 
     public InputSocket<Matrix> Matrix { get; }

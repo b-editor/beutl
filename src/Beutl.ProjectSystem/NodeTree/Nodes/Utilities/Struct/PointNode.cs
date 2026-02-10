@@ -10,9 +10,9 @@ public class PointNode : Node
 
     public PointNode()
     {
-        _valueSocket = AsOutput<Point>("Point");
-        _xSocket = AsInput<float>("X").AcceptNumber();
-        _ySocket = AsInput<float>("Y").AcceptNumber();
+        _valueSocket = AddOutput<Point>("Point");
+        _xSocket = AddInput<float>("X").AcceptNumber();
+        _ySocket = AddInput<float>("Y").AcceptNumber();
     }
 
     public override void Evaluate(NodeEvaluationContext context)

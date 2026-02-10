@@ -12,10 +12,10 @@ public sealed class GeometryShapeNode : Node
 
     public GeometryShapeNode()
     {
-        _outputSocket = AsOutput<GeometryRenderNode>("Output");
-        _geometrySocket = AsInput<Media.Geometry?>("Geometry");
-        _fillSocket = AsInput<Brush?>("Fill");
-        _penSocket = AsInput<Pen?>("Pen");
+        _outputSocket = AddOutput<GeometryRenderNode>("Output");
+        _geometrySocket = AddInput<Media.Geometry?>("Geometry");
+        _fillSocket = AddInput<Brush?>("Fill");
+        _penSocket = AddInput<Pen?>("Pen");
     }
 
     public override void Evaluate(NodeEvaluationContext context)

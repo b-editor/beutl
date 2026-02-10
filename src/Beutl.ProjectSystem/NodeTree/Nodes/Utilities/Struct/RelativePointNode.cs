@@ -11,10 +11,10 @@ public class RelativePointNode : Node
 
     public RelativePointNode()
     {
-        _valueSocket = AsOutput("RelativePoint", RelativePoint.TopLeft);
-        _unitSocket = AsProperty<RelativeUnit>("Unit");
-        _xSocket = AsInput<float>("X").AcceptNumber();
-        _ySocket = AsInput<float>("Y").AcceptNumber();
+        _valueSocket = AddOutput("RelativePoint", RelativePoint.TopLeft);
+        _unitSocket = AddProperty<RelativeUnit>("Unit");
+        _xSocket = AddInput<float>("X").AcceptNumber();
+        _ySocket = AddInput<float>("Y").AcceptNumber();
     }
 
     public override void Evaluate(NodeEvaluationContext context)

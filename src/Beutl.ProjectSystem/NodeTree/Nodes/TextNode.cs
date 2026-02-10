@@ -21,7 +21,7 @@ public class TextNode : Node
 
     public TextNode()
     {
-        _outputSocket = AsOutput<DrawableRenderNode>("Output");
+        _outputSocket = AddOutput<DrawableRenderNode>("Output");
         Object = new TextBlock();
         Object.AlignmentX.CurrentValue = AlignmentX.Left;
         Object.AlignmentY.CurrentValue = AlignmentY.Top;

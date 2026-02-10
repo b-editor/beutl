@@ -13,11 +13,11 @@ public class MeasureNode : Node
 
     public MeasureNode()
     {
-        _xSocket = AsOutput<float>("X");
-        _ySocket = AsOutput<float>("Y");
-        _widthSocket = AsOutput<float>("Width");
-        _heightSocket = AsOutput<float>("Height");
-        _inputSocket = AsInput<RenderNode>("Output");
+        _xSocket = AddOutput<float>("X");
+        _ySocket = AddOutput<float>("Y");
+        _widthSocket = AddOutput<float>("Width");
+        _heightSocket = AddOutput<float>("Height");
+        _inputSocket = AddInput<RenderNode>("Output");
     }
 
     public override void Evaluate(NodeEvaluationContext context)

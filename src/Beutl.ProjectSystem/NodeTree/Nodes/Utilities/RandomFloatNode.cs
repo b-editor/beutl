@@ -8,9 +8,9 @@ public class RandomSingleNode : Node
 
     public RandomSingleNode()
     {
-        _valueSocket = AsOutput<float>("Value");
-        _maximumSocket = AsInput<float>("Maximum").AcceptNumber();
-        _minimumSocket = AsInput<float>("Minimum").AcceptNumber();
+        _valueSocket = AddOutput<float>("Value");
+        _maximumSocket = AddInput<float>("Maximum").AcceptNumber();
+        _minimumSocket = AddInput<float>("Minimum").AcceptNumber();
     }
 
     public override void Evaluate(NodeEvaluationContext context)
@@ -31,9 +31,9 @@ public class RandomDoubleNode : Node
 
     public RandomDoubleNode()
     {
-        _valueSocket = AsOutput<double>("Value");
-        _maximumSocket = AsInput<double>("Maximum").AcceptNumber();
-        _minimumSocket = AsInput<double>("Minimum").AcceptNumber();
+        _valueSocket = AddOutput<double>("Value");
+        _maximumSocket = AddInput<double>("Maximum").AcceptNumber();
+        _minimumSocket = AddInput<double>("Minimum").AcceptNumber();
     }
 
     public override void Evaluate(NodeEvaluationContext context)
@@ -54,9 +54,9 @@ public class RandomInt32Node : Node
 
     public RandomInt32Node()
     {
-        _valueSocket = AsOutput<int>("Value");
-        _maximumSocket = AsInput<int>("Maximum").AcceptNumber();
-        _minimumSocket = AsInput<int>("Minimum").AcceptNumber();
+        _valueSocket = AddOutput<int>("Value");
+        _maximumSocket = AddInput<int>("Maximum").AcceptNumber();
+        _minimumSocket = AddInput<int>("Minimum").AcceptNumber();
     }
 
     public override void Evaluate(NodeEvaluationContext context)
@@ -82,9 +82,9 @@ public class RandomInt64Node : Node
 
     public RandomInt64Node()
     {
-        _valueSocket = AsOutput<long>("Value");
-        _maximumSocket = AsInput<long>("Maximum").AcceptNumber();
-        _minimumSocket = AsInput<long>("Minimum").AcceptNumber();
+        _valueSocket = AddOutput<long>("Value");
+        _maximumSocket = AddInput<long>("Maximum").AcceptNumber();
+        _minimumSocket = AddInput<long>("Minimum").AcceptNumber();
     }
 
     public override void Evaluate(NodeEvaluationContext context)
