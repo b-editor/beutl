@@ -47,20 +47,8 @@ public class NodeGroup : NodeTreeModel
         set => SetAndRaise(OutputProperty, ref _output, value);
     }
 
-    private void OnNodeTreeEdited(object? sender, EventArgs e)
-    {
-        RaiseInvalidated(e);
-    }
-
-    private void OnNodeEdited(object? sender, EventArgs e)
-    {
-        RaiseInvalidated(e);
-    }
-
     private void OnNodeAttached(Node obj)
     {
-        obj.NodeTreeInvalidated += OnNodeTreeEdited;
-        obj.Edited += OnNodeEdited;
         if (obj is GroupInput groupInput)
         {
             Input = groupInput;
@@ -73,8 +61,6 @@ public class NodeGroup : NodeTreeModel
 
     private void OnNodeDetached(Node obj)
     {
-        obj.NodeTreeInvalidated -= OnNodeTreeEdited;
-        obj.Edited -= OnNodeEdited;
         if (obj == Input)
         {
             Input = null;

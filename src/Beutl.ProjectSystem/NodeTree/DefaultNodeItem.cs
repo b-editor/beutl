@@ -8,12 +8,12 @@ public sealed class DefaultNodeItem<T> : NodeItem<T>
     public void SetProperty(NodePropertyAdapter<T> property)
     {
         Property = property;
-        property.Edited += OnAdapterInvalidated;
+        property.Edited += OnAdapterEdited;
     }
 
-    private void OnAdapterInvalidated(object? sender, EventArgs e)
+    private void OnAdapterEdited(object? sender, EventArgs e)
     {
-        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
+        RaiseEdited(new RenderInvalidatedEventArgs(this));
     }
 
     public NodePropertyAdapter<T>? GetProperty()

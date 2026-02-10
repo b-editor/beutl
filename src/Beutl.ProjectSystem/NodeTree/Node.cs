@@ -16,7 +16,6 @@ public abstract class Node : Hierarchical
     public static readonly CoreProperty<ICoreList<INodeItem>> ItemsProperty;
     private readonly HierarchicalList<INodeItem> _items;
     private (double X, double Y) _position;
-    private NodeTreeModel? _nodeTree;
 
     static Node()
     {
@@ -44,27 +43,24 @@ public abstract class Node : Hierarchical
 
     private void OnItemDetached(INodeItem obj)
     {
-        obj.NodeTreeInvalidated -= OnItemNodeTreeInvalidated;
-        obj.Edited -= OnItemInvalidated;
-        if (_nodeTree != null)
-        {
-            obj.NotifyDetachedFromNodeTree(_nodeTree);
-        }
+        obj.TopologyChanged -= OnItemTopologyChanged;
+        obj.Edited -= OnItemEdited;
     }
 
     private void OnItemAttached(INodeItem obj)
     {
-        obj.NodeTreeInvalidated += OnItemNodeTreeInvalidated;
-        obj.Edited += OnItemInvalidated;
-        if (_nodeTree != null)
-        {
-            obj.NotifyAttachedToNodeTree(_nodeTree);
-        }
+        obj.TopologyChanged += OnItemTopologyChanged;
+        obj.Edited += OnItemEdited;
     }
 
-    private void OnItemInvalidated(object? sender, EventArgs e)
+    private void OnItemEdited(object? sender, EventArgs e)
     {
-        RaiseInvalidated(e);
+        RaiseEdited(e);
+    }
+
+    private void OnItemTopologyChanged(object? sender, EventArgs e)
+    {
+        RaiseTopologyChanged();
     }
 
     [NotAutoSerialized]
@@ -94,16 +90,16 @@ public abstract class Node : Hierarchical
         }
     }
 
-    public event EventHandler? NodeTreeInvalidated;
+    public event EventHandler? TopologyChanged;
 
     public event EventHandler? Edited;
 
-    protected void InvalidateNodeTree()
+    protected void RaiseTopologyChanged()
     {
-        NodeTreeInvalidated?.Invoke(this, EventArgs.Empty);
+        TopologyChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    protected void RaiseInvalidated(EventArgs args)
+    protected void RaiseEdited(EventArgs args)
     {
         Edited?.Invoke(this, args);
     }
@@ -311,36 +307,5 @@ public abstract class Node : Hierarchical
         context.SetValue(nameof(Position), $"{Position.X},{Position.Y}");
 
         context.SetValue(nameof(Items), Items);
-    }
-
-    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnAttachedToHierarchy(args);
-        if (args.Parent is NodeTreeModel nodeTree)
-        {
-            _nodeTree = nodeTree;
-            foreach (INodeItem item in _items.GetMarshal().Value)
-            {
-                item.NotifyAttachedToNodeTree(nodeTree);
-            }
-        }
-    }
-
-    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnDetachedFromHierarchy(args);
-        if (args.Parent is NodeTreeModel nodeTree)
-        {
-            _nodeTree = null;
-            foreach (INodeItem item in _items.GetMarshal().Value)
-            {
-                item.NotifyDetachedFromNodeTree(nodeTree);
-            }
-        }
-    }
-
-    private void OnItemNodeTreeInvalidated(object? sender, EventArgs e)
-    {
-        InvalidateNodeTree();
     }
 }

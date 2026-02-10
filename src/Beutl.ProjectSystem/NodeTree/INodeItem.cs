@@ -16,15 +16,11 @@ public interface INodeItem : ICoreObject, IHierarchical, INotifyEdited
 
     object? Value { get; }
 
-    public event EventHandler? NodeTreeInvalidated;
+    public event EventHandler? TopologyChanged;
 
     void PreEvaluate(EvaluationContext context);
 
     void Evaluate(EvaluationContext context);
 
     void PostEvaluate(EvaluationContext context);
-
-    void NotifyAttachedToNodeTree(NodeTreeModel nodeTree);
-
-    void NotifyDetachedFromNodeTree(NodeTreeModel nodeTree);
 }

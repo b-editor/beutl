@@ -16,47 +16,7 @@ public class ElementNodeTreeModel : NodeTreeModel
 
     public ElementNodeTreeModel()
     {
-        Nodes.Attached += OnNodeAttached;
-        Nodes.Detached += OnNodeDetached;
-        AllConnections.Attached += OnConnectionAttached;
-        AllConnections.Detached += OnConnectionDetached;
-    }
-
-    private void OnConnectionDetached(Connection obj)
-    {
-        _isDirty = true;
-        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
-    }
-
-    private void OnConnectionAttached(Connection obj)
-    {
-        _isDirty = true;
-        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
-    }
-
-    private void OnNodeTreeInvalidated(object? sender, EventArgs e)
-    {
-        _isDirty = true;
-        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
-    }
-
-    private void OnNodeEdited(object? sender, EventArgs e)
-    {
-        RaiseInvalidated(e);
-    }
-
-    private void OnNodeAttached(Node obj)
-    {
-        _isDirty = true;
-        obj.NodeTreeInvalidated += OnNodeTreeInvalidated;
-        obj.Edited += OnNodeEdited;
-    }
-
-    private void OnNodeDetached(Node obj)
-    {
-        _isDirty = true;
-        obj.NodeTreeInvalidated -= OnNodeTreeInvalidated;
-        obj.Edited -= OnNodeEdited;
+        TopologyChanged += (_, _) => _isDirty = true;
     }
 
     public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer, Element element)

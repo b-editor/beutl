@@ -59,7 +59,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
         private void OnSetterInvalidated(object? sender, EventArgs e)
         {
-            RaiseInvalidated(new RenderInvalidatedEventArgs(this));
+            RaiseEdited(new RenderInvalidatedEventArgs(this));
         }
 
         public NodePropertyAdapter<T>? GetProperty()

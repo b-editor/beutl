@@ -56,6 +56,11 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
 
     public OutputSocket()
     {
+        Connections.CollectionChanged += (_, _) =>
+        {
+            RaiseTopologyChanged();
+            RaiseEdited(EventArgs.Empty);
+        };
     }
 
     ~OutputSocket()

@@ -15,6 +15,8 @@ public abstract class NodeTreeModel : Hierarchical, INotifyEdited
 
     public event EventHandler? Edited;
 
+    public event EventHandler? TopologyChanged;
+
     static NodeTreeModel()
     {
         NodesProperty = ConfigureProperty<HierarchicalList<Node>, NodeTreeModel>(nameof(Nodes))
@@ -30,6 +32,46 @@ public abstract class NodeTreeModel : Hierarchical, INotifyEdited
     {
         _nodes = new HierarchicalList<Node>(this);
         _allConnections = new HierarchicalList<Connection>(this);
+        Nodes.Attached += OnNodeAttached;
+        Nodes.Detached += OnNodeDetached;
+        AllConnections.Attached += OnConnectionAttached;
+        AllConnections.Detached += OnConnectionDetached;
+    }
+
+    private void OnConnectionDetached(Connection obj)
+    {
+        RaiseTopologyChanged();
+        RaiseEdited(EventArgs.Empty);
+    }
+
+    private void OnConnectionAttached(Connection obj)
+    {
+        RaiseTopologyChanged();
+        RaiseEdited(EventArgs.Empty);
+    }
+
+    private void OnTopologyChanged(object? sender, EventArgs e)
+    {
+        RaiseTopologyChanged();
+    }
+
+    private void OnNodeEdited(object? sender, EventArgs e)
+    {
+        RaiseEdited(e);
+    }
+
+    private void OnNodeDetached(Node obj)
+    {
+        obj.TopologyChanged -= OnTopologyChanged;
+        obj.Edited -= OnNodeEdited;
+        RaiseEdited(EventArgs.Empty);
+    }
+
+    private void OnNodeAttached(Node obj)
+    {
+        obj.TopologyChanged += OnTopologyChanged;
+        obj.Edited += OnNodeEdited;
+        RaiseEdited(EventArgs.Empty);
     }
 
     public HierarchicalList<Node> Nodes
@@ -58,7 +100,12 @@ public abstract class NodeTreeModel : Hierarchical, INotifyEdited
         connection.Disconnect();
     }
 
-    protected void RaiseInvalidated(EventArgs args)
+    protected void RaiseTopologyChanged()
+    {
+        TopologyChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    protected void RaiseEdited(EventArgs args)
     {
         Edited?.Invoke(this, args);
     }

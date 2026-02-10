@@ -20,7 +20,7 @@ public class EnginePropertyBackedInputSocket<T> : InputSocket<T>
         Name = property.Name;
         Display = property.GetPropertyInfo()?.GetCustomAttribute<DisplayAttribute>();
         _property = property;
-        property.Edited += (_, e) => RaiseInvalidated(new(this));
+        property.Edited += (_, e) => RaiseEdited(EventArgs.Empty);
         IPropertyAdapter<T> adapter;
         if (property is AnimatableProperty<T> animatableProperty)
         {

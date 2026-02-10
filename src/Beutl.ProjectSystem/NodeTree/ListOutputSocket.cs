@@ -20,6 +20,11 @@ public class ListOutputSocket<T> : Socket<T>, IListOutputSocket
 
     public ListOutputSocket()
     {
+        Connections.CollectionChanged += (_, _) =>
+        {
+            RaiseTopologyChanged();
+            RaiseEdited(EventArgs.Empty);
+        };
     }
 
     ~ListOutputSocket()

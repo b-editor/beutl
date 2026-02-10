@@ -37,6 +37,16 @@ public class InputSocket<T> : Socket<T>, IInputSocket
         return this.GetObservable(ConnectionProperty);
     }
 
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if(args is CorePropertyChangedEventArgs coreArgs && coreArgs.Property.Id == ConnectionProperty.Id)
+        {
+            RaiseTopologyChanged();
+            RaiseEdited(EventArgs.Empty);
+        }
+    }
+
     public override void NotifyConnected(Connection connection)
     {
         base.NotifyConnected(connection);

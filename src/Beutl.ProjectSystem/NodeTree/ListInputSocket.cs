@@ -19,6 +19,11 @@ public class ListInputSocket<T> : Socket<T>, IListInputSocket
 
     public ListInputSocket()
     {
+        Connections.CollectionChanged += (_, _) =>
+        {
+            RaiseTopologyChanged();
+            RaiseEdited(EventArgs.Empty);
+        };
     }
 
     public Reference<Connection> Connection => default;

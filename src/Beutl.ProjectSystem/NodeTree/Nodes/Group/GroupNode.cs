@@ -55,7 +55,7 @@ public class GroupNode : Node
 
     private void OnGroupEdited(object? sender, EventArgs e)
     {
-        RaiseInvalidated(e);
+        RaiseEdited(e);
     }
 
     public NodeGroup Group { get; }
