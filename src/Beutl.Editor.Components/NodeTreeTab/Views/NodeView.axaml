@@ -27,10 +27,11 @@
     </UserControl.Styles>
     <!--  BoxShadow="0 32 64 #47000000, 0 2 21 #38000000">  -->
     <!--  BoxShadow="0 32 64 #8E000000, 0 2 21 #8C000000">  -->
-    <Grid Background="{Binding Color}" RowDefinitions="Auto,Auto">
+    <Grid RowDefinitions="Auto,Auto">
         <Border x:Name="handle"
                 Padding="4"
-                Background="Transparent"
+                Background="{Binding Color}"
+                CornerRadius="{DynamicResource ControlCornerRadius}"
                 Focusable="True">
             <Border.ContextFlyout>
                 <ui:FAMenuFlyout>
@@ -76,7 +77,7 @@
         <Border x:Name="nodeContent"
                 Grid.Row="1"
                 Padding="0,0,0,8"
-                Background="Transparent"
+                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                 ClipToBounds="False">
             <StackPanel x:Name="stackPanel">
                 <ItemsControl x:Name="itemsControl"

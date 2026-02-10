@@ -32,8 +32,8 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
             var color = new Color2(regItem.AccentColor.ToAvaColor());
             Color = new ImmutableLinearGradientBrush(
                 [
-                    new ImmutableGradientStop(0, color.WithAlphaf(0.1f)),
-                    new ImmutableGradientStop(1, color.WithAlphaf(0.01f))
+                    new ImmutableGradientStop(0, color.WithAlphaf(0.9f)),
+                    new ImmutableGradientStop(1, color.WithAlphaf(0.8f))
                 ],
                 startPoint: RelativePoint.TopLeft,
                 endPoint: RelativePoint.BottomRight);

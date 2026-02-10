@@ -11,25 +11,25 @@ public static class NodesRegistrar
 {
     public static void RegisterAll()
     {
-        NodeRegistry.RegisterNode<LayerInputNode>("Layer input");
-        NodeRegistry.RegisterNode<OutputNode>("Layer output");
-        NodeRegistry.RegisterNode<GeometryShapeNode>(Strings.GeometryShape);
-        NodeRegistry.RegisterNode<TextNode>(Strings.Text);
-        NodeRegistry.RegisterNode<TransformNode>(Strings.Transform);
+        NodeRegistry.RegisterNode<LayerInputNode>("Layer input", Colors.Crimson);
+        NodeRegistry.RegisterNode<OutputNode>("Layer output", Colors.Crimson);
+        NodeRegistry.RegisterNode<GeometryShapeNode>(Strings.GeometryShape, Colors.ForestGreen);
+        NodeRegistry.RegisterNode<TextNode>(Strings.Text, Colors.ForestGreen);
+        NodeRegistry.RegisterNode<TransformNode>(Strings.Transform, Colors.MediumPurple);
 
-        NodeRegistry.RegisterNodes("Geometry")
+        NodeRegistry.RegisterNodes("Geometry", Colors.ForestGreen)
             .Add<RectGeometryNode>(Strings.Rectangle)
             .Add<EllipseGeometryNode>(Strings.Ellipse)
             .Add<RoundedRectGeometryNode>(Strings.RoundedRect)
             .Register();
 
-        NodeRegistry.RegisterNodes("Group")
+        NodeRegistry.RegisterNodes("Group", Colors.Gold)
             .Add<GroupInput>("Group Input")
             .Add<GroupOutput>("Group Output")
             .Add<GroupNode>("Group Node")
             .Register();
 
-        NodeRegistry.RegisterNodes(Strings.FilterEffect)
+        NodeRegistry.RegisterNodes(Strings.FilterEffect, Colors.DodgerBlue)
             .Add<FilterEffectNode<Blur>>(Strings.Blur)
             .Add<FilterEffectNode<DropShadow>>(Strings.DropShadow)
             .Add<FilterEffectNode<InnerShadow>>(Strings.InnerShadow)
@@ -73,7 +73,7 @@ public static class NodesRegistrar
                 .Add<FilterEffectNode<Graphics.Effects.OpenCv.MedianBlur>>("CvMedianBlur"))
             .Register();
 
-        NodeRegistry.RegisterNodes(Strings.Brush)
+        NodeRegistry.RegisterNodes(Strings.Brush, Colors.Orange)
             .Add<FactoryNode<SolidColorBrush>>(Strings.Brush_Solid)
             .Add<FactoryNode<LinearGradientBrush>>(Strings.Brush_LinearGradient)
             .Add<FactoryNode<ConicGradientBrush>>(Strings.Brush_ConicalGradient)
