@@ -1,9 +1,5 @@
 ﻿using System.ComponentModel;
-using System.Runtime.InteropServices;
-
 using Beutl.Animation;
-using Beutl.Graphics.Rendering;
-using Beutl.Media;
 using Beutl.NodeTree.Nodes.Group;
 
 namespace Beutl.NodeTree;
@@ -68,86 +64,6 @@ public class NodeGroup : NodeTreeModel
         if (obj == Output)
         {
             Output = null;
-        }
-    }
-
-#pragma warning disable CA1822 // メンバーを static に設定します
-    public void Evaluate(NodeEvaluationContext parentContext, object state)
-    {
-        if (state is List<NodeEvaluationContext[]> contexts)
-        {
-            foreach (NodeEvaluationContext[]? item in CollectionsMarshal.AsSpan(contexts))
-            {
-                foreach (NodeEvaluationContext? context in item)
-                {
-                    context._renderables = parentContext._renderables;
-
-                    context.Node.PreEvaluate(context);
-                    context.Node.Evaluate(context);
-                    context.Node.PostEvaluate(context);
-                }
-            }
-        }
-    }
-
-    public object InitializeForState(IRenderer renderer)
-    {
-        var evalContexts = new List<NodeEvaluationContext[]>();
-
-        foreach (Node? lastNode in Nodes.Where(x => !x.Items.Any(x => x is IOutputSocket)))
-        {
-            var stack = new Stack<NodeEvaluationContext>();
-            BuildNode(lastNode, stack);
-            NodeEvaluationContext[] array = [.. stack];
-
-            evalContexts.Add(array);
-            foreach (NodeEvaluationContext item in array)
-            {
-                item.Renderer = renderer;
-                item.List = array;
-                item.Node.InitializeForContext(item);
-            }
-        }
-
-        return evalContexts;
-    }
-
-    public void UninitializeForState(object? state)
-    {
-        if (state is List<NodeEvaluationContext[]> contexts)
-        {
-            foreach (NodeEvaluationContext[] item in CollectionsMarshal.AsSpan(contexts))
-            {
-                foreach (NodeEvaluationContext? context in item.AsSpan())
-                {
-                    context.Node.UninitializeForContext(context);
-                }
-            }
-
-            contexts.Clear();
-        }
-    }
-#pragma warning restore CA1822 // メンバーを static に設定します
-
-    private void BuildNode(Node node, Stack<NodeEvaluationContext> stack)
-    {
-        if (!stack.Any(x => x.Node == node))
-        {
-            var context = new NodeEvaluationContext(node);
-            stack.Push(context);
-        }
-
-        for (int i = 0; i < node.Items.Count; i++)
-        {
-            INodeItem? item = node.Items[i];
-            if (item is IInputSocket { Connection.Value.Output.Value: { } outputSocket })
-            {
-                Node? node2 = outputSocket.FindHierarchicalParent<Node>();
-                if (node2 != null)
-                {
-                    BuildNode(node2, stack);
-                }
-            }
         }
     }
 

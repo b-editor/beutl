@@ -63,14 +63,19 @@ public class GroupNode : Node
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = Group.InitializeForState(context.Renderer);
+        var evaluator = new NodeTreeEvaluator(Group);
+        evaluator.Build(context.Renderer);
+        context.State = evaluator;
     }
 
     public override void UninitializeForContext(NodeEvaluationContext context)
     {
         base.UninitializeForContext(context);
-        Group.UninitializeForState(context.State);
-        context.State = null;
+        if (context.State is NodeTreeEvaluator evaluator)
+        {
+            evaluator.Dispose();
+            context.State = null;
+        }
     }
 
     public override void PreEvaluate(NodeEvaluationContext context)
@@ -93,9 +98,12 @@ public class GroupNode : Node
     {
         base.Evaluate(context);
 
-        if (context.State is { })
+        if (context.State is NodeTreeEvaluator evaluator)
         {
-            Group.Evaluate(context, context.State);
+            foreach (var chain in evaluator.EvalContexts)
+                foreach (var ctx in chain)
+                    ctx._renderables = context._renderables;
+            evaluator.Evaluate();
         }
     }
 
