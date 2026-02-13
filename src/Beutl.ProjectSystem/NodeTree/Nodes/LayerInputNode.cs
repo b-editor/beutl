@@ -15,8 +15,6 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
     public interface ILayerInputSocket : IOutputSocket, IAutomaticallyGeneratedSocket
     {
         void SetupProperty(string propertyName);
-
-        IPropertyAdapter? GetProperty();
     }
 
     public class LayerInputSocket<T> : OutputSocket<T>, ILayerInputSocket
@@ -30,14 +28,10 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             {
                 if (conn is { Value.Input.Value: InputSocket<T> inputSocket })
                 {
+                    Name = inputSocket.Name;
                     ReflectDisplay(inputSocket.Display);
                 }
             };
-        }
-
-        IPropertyAdapter? ILayerInputSocket.GetProperty()
-        {
-            return _property;
         }
 
         private void ReflectDisplay(DisplayAttribute? display)
@@ -70,11 +64,6 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             RaiseEdited(new RenderInvalidatedEventArgs(this));
         }
 
-        public NodePropertyAdapter<T>? GetProperty()
-        {
-            return _property;
-        }
-
         protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
         {
             base.OnAttachedToHierarchy(in args);
@@ -89,7 +78,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
         public override void PreEvaluate(EvaluationContext context)
         {
-            if (GetProperty() is { } property)
+            if (_property is { } property)
             {
                 if (property is IAnimatablePropertyAdapter<T> { Animation: { } animation })
                 {
@@ -113,7 +102,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         public override void Serialize(ICoreSerializationContext context)
         {
             base.Serialize(context);
-            GetProperty()?.Serialize(context);
+            _property?.Serialize(context);
         }
 
         public override void Deserialize(ICoreSerializationContext context)
@@ -125,7 +114,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             {
                 SetupProperty(name);
 
-                GetProperty()?.Deserialize(context);
+                _property?.Deserialize(context);
             }
         }
     }
@@ -141,7 +130,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             if (Activator.CreateInstance(type) is ILayerInputSocket outputSocket)
             {
                 outputSocket.SetupProperty(inputSocket.Name);
-                outputSocket.GetProperty()?.SetValue(inputSocket.Property?.GetValue());
+                outputSocket.Property?.SetValue(inputSocket.Property?.GetValue());
 
                 connection = nodeTreeModel.Connect(inputSocket, outputSocket);
 

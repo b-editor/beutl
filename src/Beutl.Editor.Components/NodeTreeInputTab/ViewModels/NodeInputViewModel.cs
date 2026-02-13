@@ -164,7 +164,7 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
         IPropertyEditorContext? context = null;
         if (item is LayerInputNode.ILayerInputSocket socket)
         {
-            IPropertyAdapter? aproperty = socket.GetProperty();
+            IPropertyAdapter? aproperty = socket.Property;
             if (aproperty != null)
             {
                 atmp[0] = aproperty;
