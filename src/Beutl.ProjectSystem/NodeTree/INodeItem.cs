@@ -1,5 +1,5 @@
-﻿using Beutl.Extensibility;
-using Beutl.Media;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Extensibility;
 
 namespace Beutl.NodeTree;
 
@@ -10,6 +10,8 @@ internal interface ISupportSetValueNodeItem
 
 public interface INodeItem : ICoreObject, IHierarchical, INotifyEdited
 {
+    DisplayAttribute? Display { get; }
+
     IPropertyAdapter? Property { get; }
 
     Type? AssociatedType { get; }
