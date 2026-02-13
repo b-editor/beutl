@@ -48,6 +48,7 @@ public class SocketViewModel : NodeItemViewModel
     private void SetViewModel(ConnectionViewModel viewModel)
     {
         // 終わってるコード❤
+        // 派生クラスで実装すべき
         if (Model is IInputSocket)
         {
             viewModel.InputSocketVM.Value = this as InputSocketViewModel;
@@ -281,11 +282,26 @@ public class SocketViewModel : NodeItemViewModel
 
     public void Remove()
     {
-        if (Model is IAutomaticallyGeneratedSocket generatedSocket)
+        if (Model is not IAutomaticallyGeneratedSocket generatedSocket) return;
+
+        NodeTreeModel? tree = Node.FindHierarchicalParent<NodeTreeModel>();
+        if (tree == null) return;
+
+        var connections = generatedSocket switch
         {
-            Node.Items.Remove(generatedSocket);
-            _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveSocket);
+            IOutputSocket outputSocket => outputSocket.Connections,
+            IListSocket listSocket => listSocket.Connections,
+            IInputSocket { Connection: var connection } => [connection],
+            _ => []
+        };
+        foreach (var connection in connections.ToArray())
+        {
+            if (connection.Value != null)
+                tree.Disconnect(connection.Value);
         }
+
+        Node.Items.Remove(generatedSocket);
+        _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveSocket);
     }
 
     public void MoveConnectionSlot(int oldIndex, int newIndex)
