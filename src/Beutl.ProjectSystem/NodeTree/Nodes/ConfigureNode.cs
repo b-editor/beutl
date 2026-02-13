@@ -18,9 +18,9 @@ public abstract class ConfigureNode : Node
     {
         base.Evaluate(context);
         var inputs = InputSocket.CollectValues()!;
-        ContainerRenderNode? output = OutputSocket.Value;
 
         EvaluateCore(context);
+        ContainerRenderNode? output = OutputSocket.Value;
         if (output == null) return;
 
         output.HasChanges = inputs.Any(i => i?.HasChanges == true) || output.HasChanges;
