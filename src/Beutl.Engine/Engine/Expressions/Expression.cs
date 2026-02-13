@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Beutl.Engine.Expressions;
@@ -42,6 +43,11 @@ public static class Expression
         }
         else if (node is JsonObject objNode)
         {
+            if (objNode.TryGetDiscriminator(out Type? type))
+            {
+                return JsonSerializer.Deserialize(objNode, type) as IExpression<T>;
+            }
+
             if (objNode.TryGetPropertyValue("ObjectId", out JsonNode? objectIdNode) &&
                 objectIdNode is JsonValue objectIdValueNode &&
                 objectIdValueNode.TryGetValue(out Guid objectId))
@@ -82,7 +88,13 @@ public static class Expression
         }
         else
         {
-            throw new NotSupportedException("Unsupported expression type.");
+            var node = JsonSerializer.SerializeToNode(expression, expression.GetType());
+            if (node is not JsonObject obj)
+            {
+                throw new InvalidOperationException("Serialized expression is not a JsonObject.");
+            }
+            obj.WriteDiscriminator(expression.GetType());
+            return obj;
         }
     }
 }

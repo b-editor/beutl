@@ -8,19 +8,19 @@ public sealed class DefaultInputSocket<T> : InputSocket<T>, IDefaultInputSocket
     public void SetPropertyAdapter(NodePropertyAdapter<T> property)
     {
         Property = property;
-        property.Edited += OnAdapterInvalidated;
+        property.Edited += OnAdapterEdited;
     }
 
     void IDefaultInputSocket.SetPropertyAdapter(object property)
     {
         var obj = (NodePropertyAdapter<T>)property;
         Property = obj;
-        obj.Edited += OnAdapterInvalidated;
+        obj.Edited += OnAdapterEdited;
     }
 
-    private void OnAdapterInvalidated(object? sender, EventArgs e)
+    private void OnAdapterEdited(object? sender, EventArgs e)
     {
-        RaiseInvalidated(new RenderInvalidatedEventArgs(this));
+        RaiseEdited(new RenderInvalidatedEventArgs(this));
     }
 
     public NodePropertyAdapter<T>? GetProperty()

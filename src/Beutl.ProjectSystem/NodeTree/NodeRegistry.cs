@@ -175,7 +175,7 @@ public class NodeRegistry
             string displayName)
             where T : Node, new()
         {
-            _item.Items.Add(new RegistryItem(displayName, Colors.Teal, typeof(T)));
+            _item.Items.Add(new RegistryItem(displayName, _item.AccentColor, typeof(T)));
 
             return this;
         }
@@ -191,7 +191,7 @@ public class NodeRegistry
 
         public RegistrationHelper AddGroup(string displayName, Action<RegistrationHelper> action)
         {
-            var item = new GroupableRegistryItem(displayName, Colors.Teal);
+            var item = new GroupableRegistryItem(displayName, _item.AccentColor);
             var helper = new RegistrationHelper(item, _item.Items.Add);
 
             action(helper);

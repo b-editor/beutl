@@ -9,15 +9,15 @@ public abstract class MatrixNode : Node
 
     public MatrixNode()
     {
-        _outputSocket = AsOutput<Matrix>("Matrix");
-        _inputSocket = AsInput<Matrix>("Matrix");
+        _outputSocket = AddOutput<Matrix>("Output");
+        _inputSocket = AddInput<Matrix>("Input");
     }
 
     public override void Evaluate(NodeEvaluationContext context)
     {
         Matrix matrix = GetMatrix(context);
 
-        if (_inputSocket.Connection != null)
+        if (!_inputSocket.Connection.IsNull)
         {
             Matrix value = _inputSocket.Value;
             _outputSocket.Value = matrix * value;

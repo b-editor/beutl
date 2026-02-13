@@ -2,6 +2,7 @@
 using Beutl.Animation;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.NodeTree;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -84,6 +85,17 @@ public sealed class GraphEditorTabViewModel : IToolContext
                 anm);
             tmp.Add(item);
         }
+        // IAutomaticallyGeneratedSocketがついているNodeItemのプロパティからアニメーションを探す
+        searcher = new ObjectSearcher(Element.Value, v => v is IAutomaticallyGeneratedSocket);
+        foreach (INodeItem socket in searcher.SearchAll().OfType<INodeItem>())
+        {
+            if (socket.Property is not IAnimatablePropertyAdapter { Animation: KeyFrameAnimation anm, DisplayName: { } displayName })
+                continue;
+
+            var item = new GraphEditorItemViewModel(displayName, anm);
+            tmp.Add(item);
+        }
+
 
         if (Items.SequenceEqual(tmp)) return;
 

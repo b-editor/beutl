@@ -67,14 +67,14 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
             {
                 if (_animation != null)
                 {
-                    _animation.Edited -= Animation_Edited;
+                    _animation.Edited -= OnAnimationEdited;
                 }
 
                 _animation = value;
 
                 if (value != null)
                 {
-                    value.Edited += Animation_Edited;
+                    value.Edited += OnAnimationEdited;
                 }
 
                 Edited?.Invoke(this, EventArgs.Empty);
@@ -105,20 +105,24 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
 
     public string Name { get; }
 
-    public string DisplayName => Name;
+    public string DisplayName
+    {
+        get => field ?? Name;
+        set => field = value;
+    }
 
-    public string? Description => null;
+    public string? Description { get; set; }
 
     public bool IsReadOnly => false;
 
     public event EventHandler? Edited;
 
-    private void Animation_Edited(object? sender, EventArgs e)
+    private void OnAnimationEdited(object? sender, EventArgs e)
     {
         Edited?.Invoke(this, EventArgs.Empty);
     }
 
-    private void Value_Edited(object? sender, EventArgs e)
+    private void OnValueEdited(object? sender, EventArgs e)
     {
         Edited?.Invoke(this, EventArgs.Empty);
     }
@@ -139,7 +143,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
         {
             if (_rxProperty.Value is INotifyEdited oldValue)
             {
-                oldValue.Edited -= Value_Edited;
+                oldValue.Edited -= OnValueEdited;
             }
 
             _rxProperty.Value = value;
@@ -147,7 +151,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
             Edited?.Invoke(this, EventArgs.Empty);
             if (value is INotifyEdited newValue)
             {
-                newValue.Edited += Value_Edited;
+                newValue.Edited += OnValueEdited;
             }
         }
     }

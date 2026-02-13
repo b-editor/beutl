@@ -77,8 +77,8 @@ public class JsonSerializationTest
         elm2.NodeTree.Nodes.Add(shapeNode);
         elm2.NodeTree.Nodes.Add(outNode);
 
-        Assert.That(((OutputSocket<Geometry.Resource>)rectNode.Items[0]).TryConnect((InputSocket<Geometry.Resource?>)shapeNode.Items[1]));
-        Assert.That(((OutputSocket<GeometryRenderNode>)shapeNode.Items[0]).TryConnect((InputSocket<RenderNode?>)outNode.Items[0]));
+        elm2.NodeTree.Connect((IInputSocket)shapeNode.Items[1], rectNode.OutputSocket);
+        elm2.NodeTree.Connect((IInputSocket)outNode.Items[0], (IOutputSocket)shapeNode.Items[0]);
     }
 
     // SaveReferencedObjectsのテスト

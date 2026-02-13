@@ -55,7 +55,7 @@ public class GroupNode : Node
 
     private void OnGroupEdited(object? sender, EventArgs e)
     {
-        RaiseInvalidated(e);
+        RaiseEdited(e);
     }
 
     public NodeGroup Group { get; }
@@ -63,14 +63,19 @@ public class GroupNode : Node
     public override void InitializeForContext(NodeEvaluationContext context)
     {
         base.InitializeForContext(context);
-        context.State = Group.InitializeForState(context.Renderer);
+        var evaluator = new NodeTreeEvaluator(Group);
+        evaluator.Build(context.Renderer);
+        context.State = evaluator;
     }
 
     public override void UninitializeForContext(NodeEvaluationContext context)
     {
         base.UninitializeForContext(context);
-        Group.UninitializeForState(context.State);
-        context.State = null;
+        if (context.State is NodeTreeEvaluator evaluator)
+        {
+            evaluator.Dispose();
+            context.State = null;
+        }
     }
 
     public override void PreEvaluate(NodeEvaluationContext context)
@@ -93,9 +98,12 @@ public class GroupNode : Node
     {
         base.Evaluate(context);
 
-        if (context.State is { })
+        if (context.State is NodeTreeEvaluator evaluator)
         {
-            Group.Evaluate(context, context.State);
+            foreach (var chain in evaluator.EvalContexts)
+                foreach (var ctx in chain)
+                    ctx._renderables = context._renderables;
+            evaluator.Evaluate();
         }
     }
 
@@ -244,16 +252,11 @@ public class GroupNode : Node
 
     private void AddInput(int index, IGroupSocket item)
     {
-        IInputSocket? inputSocket;
-        if (item.AssociatedPropertyName != null && item.AssociatedPropertyType != null)
+        var inputSocket = CreateInput(item.Name, item.AssociatedType!, item.Display);
+        // itemの接続先からデフォルトの値を取ってくる
+        if (((IOutputSocket)item).Connections.FirstOrDefault().Value?.Input.Value is IInputSocket connectedInput)
         {
-            inputSocket = CreateInput(item.AssociatedPropertyName, item.AssociatedPropertyType);
-            inputSocket.Property?.SetValue(item.Property?.GetValue());
-            inputSocket.Name = item.Name;
-        }
-        else
-        {
-            inputSocket = CreateInput(item.Name, item.AssociatedType!);
+            inputSocket.Property?.SetValue(connectedInput.Value);
         }
 
         _inputSocketDisposable.Insert(index, ((CoreObject)item).GetObservable(NameProperty)
@@ -335,13 +338,10 @@ public class GroupNode : Node
                 {
                     INodeItem nodeItem = Items[index];
                     CoreSerializer.PopulateFromJsonObject(nodeItem, itemJson);
-                    ((NodeItem)nodeItem).LocalId = index;
                 }
 
                 index++;
             }
-
-            NextLocalId = index;
         }
     }
 }

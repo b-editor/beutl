@@ -95,7 +95,7 @@ public partial class NodeView : UserControl
         {
             if (canBeAdded.PossibleLocation.HasFlag(SocketLocation.Left))
             {
-                _undecidedLeftSocketContext = new InputSocketViewModel(null, null, obj.Node, obj.EditorContext);
+                _undecidedLeftSocketContext = new InputSocketViewModel(null, null, obj);
                 _undecidedLeftSocket = new SocketView
                 {
                     DataContext = _undecidedLeftSocketContext
@@ -105,7 +105,7 @@ public partial class NodeView : UserControl
 
             if (canBeAdded.PossibleLocation.HasFlag(SocketLocation.Right))
             {
-                _undecidedRightSocketContext = new OutputSocketViewModel(null, null, obj.Node, obj.EditorContext);
+                _undecidedRightSocketContext = new OutputSocketViewModel(null, null, obj);
                 _undecidedRightSocket = new SocketView
                 {
                     DataContext = _undecidedRightSocketContext
@@ -135,15 +135,22 @@ public partial class NodeView : UserControl
             else
             {
                 Point vcenter = viewModel.Position.Value + default(Point).WithY(handle.Bounds.Height / 2);
+                Point vcenterRight = vcenter + default(Point).WithX(Bounds.Width);
                 void UpdatePosition(NodeItemViewModel? viewModel)
                 {
                     switch (viewModel)
                     {
                         case InputSocketViewModel input:
-                            input.SocketPosition.Value = vcenter;
+                            foreach (ConnectionViewModel connVM in input.Connections)
+                            {
+                                connVM.InputSocketPosition.Value = vcenter;
+                            }
                             break;
                         case OutputSocketViewModel output:
-                            output.SocketPosition.Value = vcenter + default(Point).WithX(Bounds.Width);
+                            foreach (ConnectionViewModel connVM in output.Connections)
+                            {
+                                connVM.OutputSocketPosition.Value = vcenterRight;
+                            }
                             break;
                     }
                 }

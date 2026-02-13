@@ -1,11 +1,8 @@
 ﻿using System.Text.Json.Nodes;
-
 using Avalonia;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
-
 using Reactive.Bindings;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
@@ -13,36 +10,69 @@ namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
 public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly IEditorContext _editorContext;
 
     public NodeTreeViewModel(NodeTreeModel nodeTree, IEditorContext editorContext)
     {
         NodeTree = nodeTree;
-        _editorContext = editorContext;
+        EditorContext = editorContext;
         nodeTree.Nodes.ForEachItem(
-            (idx, item) =>
-            {
-                var viewModel = new NodeViewModel(item, _editorContext);
-                Nodes.Insert(idx, viewModel);
-            },
-            (idx, _) =>
-            {
-                NodeViewModel viewModel = Nodes[idx];
-                Nodes.RemoveAt(idx);
-                viewModel.Dispose();
-            },
-            () =>
-            {
-                foreach (NodeViewModel item in Nodes.GetMarshal().Value)
+                (idx, item) =>
                 {
-                    item.Dispose();
-                }
-                Nodes.Clear();
-            })
+                    var viewModel = new NodeViewModel(item, this);
+                    Nodes.Insert(idx, viewModel);
+                },
+                (idx, _) =>
+                {
+                    NodeViewModel viewModel = Nodes[idx];
+                    Nodes.RemoveAt(idx);
+                    viewModel.Dispose();
+                },
+                () =>
+                {
+                    foreach (NodeViewModel item in Nodes.GetMarshal().Value)
+                    {
+                        item.Dispose();
+                    }
+
+                    Nodes.Clear();
+                })
+            .DisposeWith(_disposables);
+
+        nodeTree.AllConnections.ForEachItem(
+                item =>
+                {
+                    // SocketViewModel側が既に追加している場合はスキップする
+                    if (AllConnections.Any(i => i.Connection.Id == item.Id)) return;
+
+                    var viewModel = new ConnectionViewModel(this, item);
+                    AllConnections.Add(viewModel);
+                },
+                item =>
+                {
+                    ConnectionViewModel? viewModel = AllConnections.FirstOrDefault(i => i.Connection == item);
+                    if (viewModel != null)
+                    {
+                        AllConnections.Remove(viewModel);
+                        viewModel.Dispose();
+                    }
+                },
+                () =>
+                {
+                    foreach (ConnectionViewModel conn in AllConnections)
+                    {
+                        conn.Dispose();
+                    }
+
+                    AllConnections.Clear();
+                })
             .DisposeWith(_disposables);
     }
 
+    public IEditorContext EditorContext { get; }
+
     public CoreList<NodeViewModel> Nodes { get; } = [];
+
+    public CoreList<ConnectionViewModel> AllConnections { get; } = [];
 
     public ReactiveProperty<Matrix> Matrix { get; } = new(Avalonia.Matrix.Identity);
 
@@ -76,22 +106,30 @@ public sealed class NodeTreeViewModel : IDisposable, IJsonSerializable
                 return;
             }
             else if (node is GroupOutput
-                && nodeGroup.Nodes.Any(x => x is GroupOutput))
+                     && nodeGroup.Nodes.Any(x => x is GroupOutput))
             {
                 return;
             }
         }
 
         NodeTree.Nodes.Add(node);
-        _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.AddNode);
+        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.AddNode);
     }
 
     public void Dispose()
     {
+        foreach (ConnectionViewModel conn in AllConnections)
+        {
+            conn.Dispose();
+        }
+
+        AllConnections.Clear();
+
         foreach (NodeViewModel item in Nodes)
         {
             item.Dispose();
         }
+
         Nodes.Clear();
 
         _disposables.Dispose();

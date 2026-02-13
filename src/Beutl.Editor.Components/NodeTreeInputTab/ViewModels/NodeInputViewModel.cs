@@ -59,6 +59,21 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
 
     public void Remove()
     {
+        Connection[] allConnections = Node.Items
+            .SelectMany(i => i switch
+            {
+                IOutputSocket outputSocket => outputSocket.Connections,
+                IListSocket listSocket => listSocket.Connections,
+                IInputSocket { Connection: var connection } => [connection],
+                _ => []
+            })
+            .Select(conn => _nodeTree.AllConnections.FirstOrDefault(a => a.Id == conn.Id))
+            .Where(a => a != null)
+            .ToArray()!;
+        foreach (Connection connection in allConnections)
+        {
+            _nodeTree.Disconnect(connection);
+        }
         _nodeTree.Nodes.Remove(Node);
         _parent.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveNode);
     }
@@ -76,6 +91,7 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
         {
             item?.Dispose();
         }
+
         Properties.Clear();
         _disposables.Dispose();
 
@@ -136,6 +152,7 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
                 {
                     item?.Dispose();
                 }
+
                 Properties.Clear();
                 break;
         }
@@ -147,7 +164,7 @@ public sealed class NodeInputViewModel : IDisposable, IPropertyEditorContextVisi
         IPropertyEditorContext? context = null;
         if (item is LayerInputNode.ILayerInputSocket socket)
         {
-            IPropertyAdapter? aproperty = socket.GetProperty();
+            IPropertyAdapter? aproperty = socket.Property;
             if (aproperty != null)
             {
                 atmp[0] = aproperty;

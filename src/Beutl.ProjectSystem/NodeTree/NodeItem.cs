@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Animation;
 using Beutl.Extensibility;
 using Beutl.Media;
 
@@ -6,27 +7,29 @@ namespace Beutl.NodeTree;
 
 public abstract class NodeItem : Hierarchical
 {
-    public static readonly CoreProperty<int> LocalIdProperty;
-    private int _localId = -1;
+    public static readonly CoreProperty<DisplayAttribute?> DisplayProperty;
+    private DisplayAttribute? _display;
 
     static NodeItem()
     {
-        LocalIdProperty = ConfigureProperty<int, NodeItem>(o => o.LocalId)
-            .DefaultValue(-1)
+        DisplayProperty = ConfigureProperty<DisplayAttribute?, NodeItem>(nameof(Display))
+            .Accessor(o => o.Display, (o, v) => o.Display = v)
             .Register();
     }
 
-    public int LocalId
+    [NotAutoSerialized]
+    [NotTracked]
+    public DisplayAttribute? Display
     {
-        get => _localId;
-        set => SetAndRaise(LocalIdProperty, ref _localId, value);
+        get => _display;
+        set => SetAndRaise(DisplayProperty, ref _display, value);
     }
 
-    public event EventHandler? NodeTreeInvalidated;
+    public event EventHandler? TopologyChanged;
 
-    protected void InvalidateNodeTree()
+    protected void RaiseTopologyChanged()
     {
-        NodeTreeInvalidated?.Invoke(this, EventArgs.Empty);
+        TopologyChanged?.Invoke(this, EventArgs.Empty);
     }
 }
 
@@ -38,8 +41,6 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
     public T? Value { get; set; }
 
     public virtual Type? AssociatedType => typeof(T);
-
-    public NodeTreeModel? NodeTree { get; private set; }
 
     public event EventHandler? Edited;
 
@@ -66,35 +67,9 @@ public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
     {
     }
 
-    protected void RaiseInvalidated(RenderInvalidatedEventArgs args)
+    protected void RaiseEdited(EventArgs args)
     {
         Edited?.Invoke(this, args);
-    }
-
-    protected virtual void OnAttachedToNodeTree(NodeTreeModel nodeTree)
-    {
-    }
-
-    protected virtual void OnDetachedFromNodeTree(NodeTreeModel nodeTree)
-    {
-    }
-
-    void INodeItem.NotifyAttachedToNodeTree(NodeTreeModel nodeTree)
-    {
-        if (NodeTree != null)
-            throw new InvalidOperationException("Already attached to the node tree.");
-
-        NodeTree = nodeTree;
-        OnAttachedToNodeTree(nodeTree);
-    }
-
-    void INodeItem.NotifyDetachedFromNodeTree(NodeTreeModel nodeTree)
-    {
-        if (NodeTree == null)
-            throw new InvalidOperationException("Already detached from the node tree.");
-
-        NodeTree = null;
-        OnDetachedFromNodeTree(nodeTree);
     }
 
     IPropertyAdapter? INodeItem.Property => Property;

@@ -9,10 +9,10 @@ public class SwitchNode : Node
 
     public SwitchNode()
     {
-        _outputSocket = AsOutput<object?>("Output", "Output");
-        _switchSocket = AsInput<bool>("Switch");
-        _trueSocket = AsInput<object?>("True");
-        _falseSocket = AsInput<object?>("False");
+        _outputSocket = AddOutput<object?>("Output");
+        _switchSocket = AddInput<bool>("Switch");
+        _trueSocket = AddInput<object?>("True");
+        _falseSocket = AddInput<object?>("False");
     }
 
     public override void Evaluate(NodeEvaluationContext context)

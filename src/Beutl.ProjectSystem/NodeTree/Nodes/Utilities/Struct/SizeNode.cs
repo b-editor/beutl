@@ -10,9 +10,9 @@ public class SizeNode : Node
 
     public SizeNode()
     {
-        _valueSocket = AsOutput<Size>("Size");
-        _widthSocket = AsInput<float>("Width").AcceptNumber();
-        _heightSocket = AsInput<float>("Height").AcceptNumber();
+        _valueSocket = AddOutput<Size>("Size");
+        _widthSocket = AddInput<float>("Width");
+        _heightSocket = AddInput<float>("Height");
     }
 
     public override void Evaluate(NodeEvaluationContext context)

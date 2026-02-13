@@ -1,7 +1,10 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Nodes;
 
 using Beutl.Collections;
+using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.Serialization;
 using Beutl.Utilities;
 
@@ -14,7 +17,6 @@ public abstract class Node : Hierarchical
     public static readonly CoreProperty<ICoreList<INodeItem>> ItemsProperty;
     private readonly HierarchicalList<INodeItem> _items;
     private (double X, double Y) _position;
-    private NodeTreeModel? _nodeTree;
 
     static Node()
     {
@@ -42,27 +44,24 @@ public abstract class Node : Hierarchical
 
     private void OnItemDetached(INodeItem obj)
     {
-        obj.NodeTreeInvalidated -= OnItemNodeTreeInvalidated;
-        obj.Edited -= OnItemInvalidated;
-        if (_nodeTree != null)
-        {
-            obj.NotifyDetachedFromNodeTree(_nodeTree);
-        }
+        obj.TopologyChanged -= OnItemTopologyChanged;
+        obj.Edited -= OnItemEdited;
     }
 
     private void OnItemAttached(INodeItem obj)
     {
-        obj.NodeTreeInvalidated += OnItemNodeTreeInvalidated;
-        obj.Edited += OnItemInvalidated;
-        if (_nodeTree != null)
-        {
-            obj.NotifyAttachedToNodeTree(_nodeTree);
-        }
+        obj.TopologyChanged += OnItemTopologyChanged;
+        obj.Edited += OnItemEdited;
     }
 
-    private void OnItemInvalidated(object? sender, EventArgs e)
+    private void OnItemEdited(object? sender, EventArgs e)
     {
-        RaiseInvalidated(e);
+        RaiseEdited(e);
+    }
+
+    private void OnItemTopologyChanged(object? sender, EventArgs e)
+    {
+        RaiseTopologyChanged();
     }
 
     [NotAutoSerialized]
@@ -92,18 +91,16 @@ public abstract class Node : Hierarchical
         }
     }
 
-    protected int NextLocalId { get; set; } = 0;
-
-    public event EventHandler? NodeTreeInvalidated;
+    public event EventHandler? TopologyChanged;
 
     public event EventHandler? Edited;
 
-    protected void InvalidateNodeTree()
+    protected void RaiseTopologyChanged()
     {
-        NodeTreeInvalidated?.Invoke(this, EventArgs.Empty);
+        TopologyChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    protected void RaiseInvalidated(EventArgs args)
+    protected void RaiseEdited(EventArgs args)
     {
         Edited?.Invoke(this, args);
     }
@@ -146,141 +143,181 @@ public abstract class Node : Hierarchical
     }
 
     // TODO: AddInput, AddOutput, AddPropertyに変更する
-    protected InputSocket<T> AsInput<T>(string name, int localId = -1)
+    protected InputSocket<T> AddInput<T>(EngineObject obj, IProperty<T> property)
     {
-        InputSocket<T> socket = CreateInput<T>(name, localId);
+        var socket = new EnginePropertyBackedInputSocket<T>(obj, property);
         Items.Add(socket);
         return socket;
     }
 
-    protected IInputSocket AsInput(string name, Type type, int localId = -1)
+    protected IInputSocket AddInput(EngineObject obj, IProperty property)
     {
-        IInputSocket socket = CreateInput(name, type, localId);
+        var type = typeof(EnginePropertyBackedInputSocket<>).MakeGenericType(property.ValueType);
+        var socket = (IInputSocket)Activator.CreateInstance(type, obj, property)!;
         Items.Add(socket);
         return socket;
     }
 
-    protected OutputSocket<T> AsOutput<T>(string name, T value, int localId = -1)
+    protected InputSocket<T> AddInput<T>(string name, DisplayAttribute? display = null)
     {
-        OutputSocket<T> socket = CreateOutput<T>(name, value, localId);
+        InputSocket<T> socket = CreateInput<T>(name, display);
         Items.Add(socket);
         return socket;
     }
 
-    protected OutputSocket<T> AsOutput<T>(string name, int localId = -1)
+    protected IInputSocket AddInput(string name, Type type, DisplayAttribute? display = null)
     {
-        OutputSocket<T> socket = CreateOutput<T>(name, localId);
+        IInputSocket socket = CreateInput(name, type, display);
         Items.Add(socket);
         return socket;
     }
 
-    protected NodeItem<T> AsProperty<T>(string name, int localId = -1)
+    protected ListInputSocket<T> AddListInput<T>(string name, DisplayAttribute? display = null)
     {
-        NodeItem<T> socket = CreateProperty<T>(name, localId);
+        var socket = new ListInputSocket<T>() { Name = name, Display = display };
         Items.Add(socket);
         return socket;
     }
 
-    protected InputSocket<T> CreateInput<T>(string name, int localId = -1)
+    protected ListOutputSocket<T> AddListOutput<T>(string name, DisplayAttribute? display = null)
     {
-        localId = GetLocalId(localId);
+        var socket = new ListOutputSocket<T>() { Name = name, Display = display };
+        Items.Add(socket);
+        return socket;
+    }
 
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
+    protected IListInputSocket AddListInput(string name, Type type, DisplayAttribute? display = null)
+    {
+        var socketType = typeof(ListInputSocket<>).MakeGenericType(type);
+        var socket = (IListInputSocket)Activator.CreateInstance(socketType)!;
+        socket.Name = name;
+        if (socket is NodeItem nodeItem)
+        {
+            nodeItem.Display = display;
+        }
+        Items.Add(socket);
+        return socket;
+    }
 
+    protected IListOutputSocket AddListOutput(string name, Type type, DisplayAttribute? display = null)
+    {
+        var socketType = typeof(ListOutputSocket<>).MakeGenericType(type);
+        var socket = (IListOutputSocket)Activator.CreateInstance(socketType)!;
+        socket.Name = name;
+        if (socket is NodeItem nodeItem)
+        {
+            nodeItem.Display = display;
+        }
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected OutputSocket<T> AddOutput<T>(string name, T value, DisplayAttribute? display = null)
+    {
+        OutputSocket<T> socket = CreateOutput<T>(name, value, display);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected OutputSocket<T> AddOutput<T>(string name, DisplayAttribute? display = null)
+    {
+        OutputSocket<T> socket = CreateOutput<T>(name, display);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected NodeItem<T> AddProperty<T>(string name, DisplayAttribute? display = null)
+    {
+        NodeItem<T> socket = CreateProperty<T>(name, display);
+        Items.Add(socket);
+        return socket;
+    }
+
+    protected NodeMonitor<T> AddMonitor<T>(string name,
+        NodeMonitorContentKind contentKind = NodeMonitorContentKind.Text,
+        DisplayAttribute? display = null)
+    {
+        var monitor = new NodeMonitor<T>()
+        {
+            Name = name,
+            Display = display,
+            ContentKind = contentKind
+        };
+        Items.Add(monitor);
+        return monitor;
+    }
+
+    protected NodeMonitor<string?> AddTextMonitor(string name, DisplayAttribute? display = null)
+    {
+        return AddMonitor<string?>(name, NodeMonitorContentKind.Text, display);
+    }
+
+    protected NodeMonitor<Ref<IBitmap>?> AddImageMonitor(string name, DisplayAttribute? display = null)
+    {
+        return AddMonitor<Ref<IBitmap>?>(name, NodeMonitorContentKind.Image, display);
+    }
+
+    protected InputSocket<T> CreateInput<T>(string name, DisplayAttribute? display = null)
+    {
         var adapter = new NodePropertyAdapter<T>(name);
         var socket = new DefaultInputSocket<T>();
         socket.SetPropertyAdapter(adapter);
         socket.Name = name;
-        socket.LocalId = localId;
+        socket.Display = display;
         return socket;
     }
 
-    protected IInputSocket CreateInput(string name, Type type, int localId = -1)
+    protected IInputSocket CreateInput(string name, Type type, DisplayAttribute? display = null)
     {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
         var adapter = Activator.CreateInstance(typeof(NodePropertyAdapter<>).MakeGenericType(type), name)!;
         var socket = (IDefaultInputSocket)Activator.CreateInstance(typeof(DefaultInputSocket<>).MakeGenericType(type))!;
         socket.SetPropertyAdapter(adapter);
         socket.Name = name;
-        socket.LocalId = localId;
-        return socket;
-    }
-
-    protected OutputSocket<T> CreateOutput<T>(string name, T value, int localId = -1)
-    {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
-        return new OutputSocket<T>()
+        if (socket is NodeItem nodeItemSocket)
         {
-            Name = name,
-            LocalId = localId,
-            Value = value
-        };
-    }
-
-    protected OutputSocket<T> CreateOutput<T>(string name, int localId = -1)
-    {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
-        return new OutputSocket<T>()
-        {
-            Name = name,
-            LocalId = localId
-        };
-    }
-
-    protected IOutputSocket CreateOutput(string name, Type type, int localId = -1)
-    {
-        localId = GetLocalId(localId);
-
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
-
-        var socket = (IOutputSocket)Activator.CreateInstance(typeof(OutputSocket<>).MakeGenericType(type))!;
-        if (socket is NodeItem nodeItem)
-        {
-            nodeItem.Name = name;
-            nodeItem.LocalId = localId;
+            nodeItemSocket.Display = display;
         }
         return socket;
     }
 
-    protected NodeItem<T> CreateProperty<T>(string name, int localId = -1)
+    protected OutputSocket<T> CreateOutput<T>(string name, T value, DisplayAttribute? display = null)
     {
-        localId = GetLocalId(localId);
+        return new OutputSocket<T>()
+        {
+            Name = name,
+            Display = display,
+            Value = value
+        };
+    }
 
-        if (ValidateLocalId(localId))
-            throw new InvalidOperationException("An item with the same local-id already exists.");
+    protected OutputSocket<T> CreateOutput<T>(string name, DisplayAttribute? display = null)
+    {
+        return new OutputSocket<T>()
+        {
+            Name = name,
+            Display = display
+        };
+    }
 
+    protected IOutputSocket CreateOutput(string name, Type type, DisplayAttribute? display = null)
+    {
+        var socket = (IOutputSocket)Activator.CreateInstance(typeof(OutputSocket<>).MakeGenericType(type))!;
+        if (socket is NodeItem nodeItem)
+        {
+            nodeItem.Name = name;
+            nodeItem.Display = display;
+        }
+        return socket;
+    }
+
+    protected NodeItem<T> CreateProperty<T>(string name, DisplayAttribute? display = null)
+    {
         var adapter = new NodePropertyAdapter<T>(name);
         var socket = new DefaultNodeItem<T>();
         socket.SetProperty(adapter);
         socket.Name = name;
-        socket.LocalId = localId;
+        socket.Display = display;
         return socket;
-    }
-
-    private bool ValidateLocalId(int localId)
-    {
-        return Items.Any(x => x.LocalId == localId);
-    }
-
-    private int GetLocalId(int requestedLocalId)
-    {
-        requestedLocalId = Math.Max(requestedLocalId, NextLocalId);
-        NextLocalId++;
-        return requestedLocalId;
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -298,32 +335,19 @@ public abstract class Node : Hierarchical
 
         if (context.GetValue<JsonArray>(nameof(Items)) is { } itemsArray)
         {
-            int index = 0;
             foreach (JsonNode? item in itemsArray)
             {
-                if (item is JsonObject itemObj)
+                if (item is JsonObject itemObj
+                    && itemObj.TryGetPropertyValue("Name", out var nameNode)
+                    && nameNode is JsonValue nameValue
+                    && nameValue.TryGetValue(out string? itemName))
                 {
-                    int localId;
-                    if (itemObj.TryGetPropertyValue("LocalId", out var localIdNode)
-                        && localIdNode is JsonValue localIdValue
-                        && localIdValue.TryGetValue(out int actualLId))
-                    {
-                        localId = actualLId;
-                    }
-                    else
-                    {
-                        localId = index;
-                    }
-
-                    INodeItem? nodeItem = Items.FirstOrDefault(x => x.LocalId == localId);
-
+                    INodeItem? nodeItem = Items.FirstOrDefault(x => x.Name == itemName);
                     if (nodeItem is ICoreSerializable serializable)
                     {
                         CoreSerializer.PopulateFromJsonObject(serializable, itemObj);
                     }
                 }
-
-                index++;
             }
         }
     }
@@ -334,36 +358,5 @@ public abstract class Node : Hierarchical
         context.SetValue(nameof(Position), $"{Position.X},{Position.Y}");
 
         context.SetValue(nameof(Items), Items);
-    }
-
-    protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnAttachedToHierarchy(args);
-        if (args.Parent is NodeTreeModel nodeTree)
-        {
-            _nodeTree = nodeTree;
-            foreach (INodeItem item in _items.GetMarshal().Value)
-            {
-                item.NotifyAttachedToNodeTree(nodeTree);
-            }
-        }
-    }
-
-    protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-        base.OnDetachedFromHierarchy(args);
-        if (args.Parent is NodeTreeModel nodeTree)
-        {
-            _nodeTree = null;
-            foreach (INodeItem item in _items.GetMarshal().Value)
-            {
-                item.NotifyDetachedFromNodeTree(nodeTree);
-            }
-        }
-    }
-
-    private void OnItemNodeTreeInvalidated(object? sender, EventArgs e)
-    {
-        InvalidateNodeTree();
     }
 }

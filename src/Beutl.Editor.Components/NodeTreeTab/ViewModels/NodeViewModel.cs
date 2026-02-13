@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.Text.Json.Nodes;
-
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
@@ -9,11 +8,8 @@ using Beutl.Controls;
 using Beutl.Editor.Services;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
-
 using FluentAvalonia.UI.Media;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
@@ -23,10 +19,11 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
     private readonly CompositeDisposable _disposables = [];
     private readonly string _defaultName;
 
-    public NodeViewModel(Node node, IEditorContext editorContext)
+    public NodeViewModel(Node node, NodeTreeViewModel nodeTreeViewModel)
     {
         Node = node;
-        EditorContext = editorContext;
+        EditorContext = nodeTreeViewModel.EditorContext;
+        NodeTreeViewModel = nodeTreeViewModel;
         Type nodeType = node.GetType();
         if (NodeRegistry.FindItem(nodeType) is { } regItem)
         {
@@ -35,8 +32,8 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
             var color = new Color2(regItem.AccentColor.ToAvaColor());
             Color = new ImmutableLinearGradientBrush(
                 [
-                    new ImmutableGradientStop(0, color.WithAlphaf(0.1f)),
-                    new ImmutableGradientStop(1, color.WithAlphaf(0.01f))
+                    new ImmutableGradientStop(0, color.WithAlphaf(0.9f)),
+                    new ImmutableGradientStop(1, color.WithAlphaf(0.8f))
                 ],
                 startPoint: RelativePoint.TopLeft,
                 endPoint: RelativePoint.BottomRight);
@@ -69,6 +66,21 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
             NodeTreeModel? tree = Node.FindHierarchicalParent<NodeTreeModel>();
             if (tree != null)
             {
+                Connection[] allConnections = Node.Items
+                    .SelectMany(i => i switch
+                    {
+                        IOutputSocket outputSocket => outputSocket.Connections,
+                        IListSocket listSocket => listSocket.Connections,
+                        IInputSocket { Connection: var connection } => [connection],
+                        _ => []
+                    })
+                    .Select(conn => tree.AllConnections.FirstOrDefault(a => a.Id == conn.Id))
+                    .Where(a => a != null)
+                    .ToArray()!;
+                foreach (Connection connection in allConnections)
+                {
+                    tree.Disconnect(connection);
+                }
                 tree.Nodes.Remove(Node);
                 EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveNode);
             }
@@ -80,6 +92,8 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
     public Node Node { get; }
 
     public IEditorContext EditorContext { get; }
+
+    public NodeTreeViewModel NodeTreeViewModel { get; }
 
     public ReadOnlyReactiveProperty<string> NodeName { get; }
 
@@ -104,6 +118,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
         {
             item.Dispose();
         }
+
         Items.Clear();
         Position.Dispose();
         _disposables.Dispose();
@@ -162,6 +177,7 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
                 {
                     item.Dispose();
                 }
+
                 Items.Clear();
                 break;
         }
@@ -177,18 +193,21 @@ public sealed class NodeViewModel : IDisposable, IJsonSerializable, IPropertyEdi
             (_, PropertyEditorExtension? ext) = factory.MatchProperty(atmp);
             ext?.TryCreateContextForNode(atmp, out context);
         }
+
         context?.Accept(this);
         return CreateNodeItemViewModelCore(item, context);
     }
 
-    private NodeItemViewModel CreateNodeItemViewModelCore(INodeItem nodeItem, IPropertyEditorContext? propertyEditorContext)
+    private NodeItemViewModel CreateNodeItemViewModelCore(INodeItem nodeItem,
+        IPropertyEditorContext? propertyEditorContext)
     {
         return nodeItem switch
         {
-            IOutputSocket osocket => new OutputSocketViewModel(osocket, propertyEditorContext, Node, EditorContext),
-            IInputSocket isocket => new InputSocketViewModel(isocket, propertyEditorContext, Node, EditorContext),
-            ISocket socket => new SocketViewModel(socket, propertyEditorContext, Node, EditorContext),
-            _ => new NodeItemViewModel(nodeItem, propertyEditorContext, Node),
+            INodeMonitor monitor => new NodeMonitorViewModel(monitor, propertyEditorContext, this),
+            IOutputSocket osocket => new OutputSocketViewModel(osocket, propertyEditorContext, this),
+            IInputSocket isocket => new InputSocketViewModel(isocket, propertyEditorContext, this),
+            ISocket socket => new SocketViewModel(socket, propertyEditorContext, this),
+            _ => new NodeItemViewModel(nodeItem, propertyEditorContext, this),
         };
     }
 

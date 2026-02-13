@@ -1,5 +1,5 @@
-﻿using Beutl.Extensibility;
-using Beutl.Media;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Extensibility;
 
 namespace Beutl.NodeTree;
 
@@ -10,7 +10,7 @@ internal interface ISupportSetValueNodeItem
 
 public interface INodeItem : ICoreObject, IHierarchical, INotifyEdited
 {
-    int LocalId { get; }
+    DisplayAttribute? Display { get; }
 
     IPropertyAdapter? Property { get; }
 
@@ -18,15 +18,11 @@ public interface INodeItem : ICoreObject, IHierarchical, INotifyEdited
 
     object? Value { get; }
 
-    public event EventHandler? NodeTreeInvalidated;
+    public event EventHandler? TopologyChanged;
 
     void PreEvaluate(EvaluationContext context);
 
     void Evaluate(EvaluationContext context);
 
     void PostEvaluate(EvaluationContext context);
-
-    void NotifyAttachedToNodeTree(NodeTreeModel nodeTree);
-
-    void NotifyDetachedFromNodeTree(NodeTreeModel nodeTree);
 }

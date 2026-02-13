@@ -2,11 +2,12 @@
 
 public interface IInputSocket : ISocket
 {
-    Connection? Connection { get; }
+    Reference<Connection> Connection { get; }
 
     void Receive(object? value);
 
-    void NotifyConnected(Connection connection);
-
-    void NotifyDisconnected(Connection connection);
+    internal IObservable<Reference<Connection>> GetConnectionObservable()
+    {
+        throw new InvalidOperationException();
+    }
 }

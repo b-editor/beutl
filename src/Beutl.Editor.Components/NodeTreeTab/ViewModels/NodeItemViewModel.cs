@@ -8,24 +8,26 @@ public class NodeItemViewModel : IDisposable
 {
     private bool _disposedValue;
 
-    public NodeItemViewModel(INodeItem? nodeItem, IPropertyEditorContext? propertyEditorContext, Node node)
+    public NodeItemViewModel(INodeItem? nodeItem, IPropertyEditorContext? propertyEditorContext, NodeViewModel nodeViewModel)
     {
-        if (nodeItem is CoreObject coreObject)
+        if (nodeItem is NodeItem nodeItemObj)
         {
-            Name = coreObject.GetPropertyChangedObservable(CoreObject.NameProperty)
-                .Select(e => (INodeItem)e.Sender)
-                .Publish(nodeItem).RefCount()
-                .Select(obj => obj.Name)
-                .ToReadOnlyReactiveProperty()!;
+            Name = nodeItemObj.GetPropertyChangedObservable(NodeItem.DisplayProperty)
+                .Select(e => ((NodeItem)e.Sender).Display?.GetName()
+                    ?? ((NodeItem)e.Sender).Name
+                    ?? string.Empty)
+                .ToReadOnlyReactiveProperty(
+                    nodeItemObj.Display?.GetName() ?? nodeItemObj.Name ?? string.Empty)!;
         }
         else
         {
-            Name = Observable.ReturnThenNever(string.Empty).ToReadOnlyReactiveProperty()!;
+            Name = Observable.ReturnThenNever(nodeItem?.Name ?? string.Empty).ToReadOnlyReactiveProperty()!;
         }
 
         Model = nodeItem;
         PropertyEditorContext = propertyEditorContext;
-        Node = node;
+        Node = nodeViewModel.Node;
+        NodeViewModel = nodeViewModel;
     }
 
     ~NodeItemViewModel()
@@ -44,6 +46,8 @@ public class NodeItemViewModel : IDisposable
     public IPropertyEditorContext? PropertyEditorContext { get; }
 
     public Node Node { get; }
+
+    public NodeViewModel NodeViewModel { get; }
 
     public void Dispose()
     {

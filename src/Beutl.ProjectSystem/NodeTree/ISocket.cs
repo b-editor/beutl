@@ -4,29 +4,33 @@ namespace Beutl.NodeTree;
 
 public interface ISocket : INodeItem
 {
-    event EventHandler<SocketConnectionChangedEventArgs>? Connected;
-    event EventHandler<SocketConnectionChangedEventArgs>? Disconnected;
-
     Color Color { get; }
+
+    void NotifyConnected(Connection connection);
+
+    void NotifyDisconnected(Connection connection);
 }
 
 public class Socket<T> : NodeItem<T>, ISocket
 {
     public Color Color { get; set; } = Colors.Teal;
 
-    public event EventHandler<SocketConnectionChangedEventArgs>? Connected;
-
-    public event EventHandler<SocketConnectionChangedEventArgs>? Disconnected;
-
-    protected void RaiseConnected(Connection connection)
+    protected void VerifyConnection(Connection connection)
     {
-        Connected?.Invoke(this, new SocketConnectionChangedEventArgs(connection, true));
-        InvalidateNodeTree();
+        // InputもOutputも自分じゃない場合は例外を発生させる
+        if (connection.Input.Id != Id && connection.Output.Id != Id)
+        {
+            throw new InvalidOperationException("The connection does not belong to this socket.");
+        }
     }
 
-    protected void RaiseDisconnected(Connection connection)
+    public virtual void NotifyConnected(Connection connection)
     {
-        Disconnected?.Invoke(this, new SocketConnectionChangedEventArgs(connection, false));
-        InvalidateNodeTree();
+        VerifyConnection(connection);
+    }
+
+    public virtual void NotifyDisconnected(Connection connection)
+    {
+        VerifyConnection(connection);
     }
 }

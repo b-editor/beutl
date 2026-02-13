@@ -1,337 +1,493 @@
 ﻿using System.Numerics;
+using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
+using Beutl.NodeTree.Nodes;
+using Vector = Beutl.Graphics.Vector;
 
 namespace Beutl.NodeTree;
 
 public static class InputSocketHelper
 {
+    public static void RegisterDefaultReceiver<T>(InputSocket<T> inputSocket)
+    {
+        switch (inputSocket)
+        {
+            case InputSocket<Drawable?> ds:
+                ds.AcceptNode();
+                break;
+            case InputSocket<Transform?> ts:
+                ts.AcceptMatrix();
+                break;
+            case InputSocket<Thickness> thicknessSocket:
+                thicknessSocket.AcceptNumber();
+                break;
+            case InputSocket<Vector> vectorSocket:
+                vectorSocket.AcceptNumber();
+                break;
+            case InputSocket<Point> pointSocket:
+                pointSocket.AcceptNumber();
+                break;
+            case InputSocket<Size> sizeSocket:
+                sizeSocket.AcceptNumber();
+                break;
+            case InputSocket<Rect> rectSocket:
+                rectSocket.AcceptNumber();
+                break;
+            case InputSocket<PixelPoint> pixelPointSocket:
+                pixelPointSocket.AcceptNumber();
+                break;
+            case InputSocket<PixelSize> pixelSizeSocket:
+                pixelSizeSocket.AcceptNumber();
+                break;
+            case InputSocket<PixelRect> pixelRectSocket:
+                pixelRectSocket.AcceptNumber();
+                break;
+            case InputSocket<float> floatSocket:
+                floatSocket.AcceptNumber();
+                break;
+            case InputSocket<double> doubleSocket:
+                doubleSocket.AcceptNumber();
+                break;
+            case InputSocket<int> intSocket:
+                intSocket.AcceptNumber();
+                break;
+            case InputSocket<long> longSocket:
+                longSocket.AcceptNumber();
+                break;
+            case InputSocket<short> shortSocket:
+                shortSocket.AcceptNumber();
+                break;
+            case InputSocket<byte> byteSocket:
+                byteSocket.AcceptNumber();
+                break;
+            case InputSocket<sbyte> sbyteSocket:
+                sbyteSocket.AcceptNumber();
+                break;
+            case InputSocket<uint> uintSocket:
+                uintSocket.AcceptNumber();
+                break;
+            case InputSocket<ulong> ulongSocket:
+                ulongSocket.AcceptNumber();
+                break;
+            case InputSocket<ushort> ushortSocket:
+                ushortSocket.AcceptNumber();
+                break;
+            case InputSocket<nint> nintSocket:
+                nintSocket.AcceptNumber();
+                break;
+            case InputSocket<nuint> nuintSocket:
+                nuintSocket.AcceptNumber();
+                break;
+            case InputSocket<Half> halfSocket:
+                halfSocket.AcceptNumber();
+                break;
+            case InputSocket<decimal> decimalSocket:
+                decimalSocket.AcceptNumber();
+                break;
+            case InputSocket<Int128> int128Socket:
+                int128Socket.AcceptNumber();
+                break;
+            case InputSocket<UInt128> uint128Socket:
+                uint128Socket.AcceptNumber();
+                break;
+        }
+    }
+
+    public static InputSocket<Drawable?> AcceptNode(this InputSocket<Drawable?> inputSocket)
+    {
+        // RenderNodeを受け取った時RenderNodeDrawableに変換する
+        inputSocket.RegisterReceiver((obj, out value) =>
+        {
+            value = null;
+            if (obj == null)
+            {
+                return true;
+            }
+
+            if (obj is Drawable drawable)
+            {
+                if (inputSocket.Value is RenderNodeDrawable renderNodeDrawable)
+                {
+                    ((IModifiableHierarchical)inputSocket).RemoveChild(renderNodeDrawable);
+                }
+
+                value = drawable;
+                return true;
+            }
+
+            if (obj is RenderNode node)
+            {
+                if (inputSocket.Value is not RenderNodeDrawable renderNodeDrawable)
+                {
+                    inputSocket.Value = renderNodeDrawable = new RenderNodeDrawable();
+                    ((IModifiableHierarchical)inputSocket).AddChild(renderNodeDrawable);
+                }
+
+                renderNodeDrawable.Node = node;
+
+                return true;
+            }
+
+            return false;
+        });
+
+        return inputSocket;
+    }
+
+    public static InputSocket<Transform?> AcceptMatrix(this InputSocket<Transform?> inputSocket)
+    {
+        // Matrixを受け取った時MatrixTransformに変換する
+        inputSocket.RegisterReceiver((obj, out value) =>
+        {
+            value = null;
+            if (obj == null)
+            {
+                return true;
+            }
+
+            if (obj is Transform transform)
+            {
+                if (inputSocket.Value is MatrixTransform matrixTransform &&
+                    !ReferenceEquals(transform, matrixTransform))
+                {
+                    ((IModifiableHierarchical)inputSocket).RemoveChild(matrixTransform);
+                }
+
+                value = transform;
+                return true;
+            }
+
+            if (obj is Matrix matrix)
+            {
+                if (inputSocket.Value is not MatrixTransform matrixTransform)
+                {
+                    inputSocket.Value = matrixTransform = new MatrixTransform();
+                    ((IModifiableHierarchical)inputSocket).AddChild(matrixTransform);
+                }
+
+                matrixTransform.Matrix.CurrentValue = matrix;
+
+                return true;
+            }
+
+            return false;
+        });
+
+        return inputSocket;
+    }
+
     public static InputSocket<T> AcceptNumber<T>(this InputSocket<T> inputSocket)
         where T : INumber<T>
     {
-        inputSocket.RegisterReceiver((object? obj, out T? value) =>
+        inputSocket.RegisterReceiver((obj, out value) =>
         {
             value = default;
             if (obj == null)
             {
                 return false;
             }
-            else
+
+            if (ToNumber<T>(obj, out T? numValue))
             {
-                if (ToNumber<T>(obj, out T? numValue))
-                {
-                    value = numValue;
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                value = numValue;
+                return true;
             }
+
+            return false;
         });
 
         return inputSocket;
     }
 
-    public static InputSocket<Graphics.Thickness> AcceptNumber(this InputSocket<Graphics.Thickness> inputSocket)
+    public static InputSocket<Thickness> AcceptNumber(this InputSocket<Thickness> inputSocket)
     {
-        inputSocket.RegisterReceiver((object? obj, out Graphics.Thickness value) =>
+        inputSocket.RegisterReceiver((obj, out value) =>
         {
             value = default;
             if (obj == null)
             {
                 return false;
             }
-            else
+
+            if (ToNumber(obj, out float numValue))
             {
-                if (ToNumber(obj, out float numValue))
-                {
-                    value = new Graphics.Thickness(numValue, numValue);
-                    return true;
-                }
-                else if (obj is string str
-                    && Graphics.Thickness.TryParse(str, out Graphics.Thickness parsed))
-                {
-                    value = parsed;
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                value = new Thickness(numValue, numValue);
+                return true;
             }
+
+            if (obj is string str
+                && Thickness.TryParse(str, out Thickness parsed))
+            {
+                value = parsed;
+                return true;
+            }
+
+            return false;
         });
 
         return inputSocket;
     }
 
-    public static InputSocket<Graphics.Vector> AcceptNumber(this InputSocket<Graphics.Vector> inputSocket)
+    public static InputSocket<Vector> AcceptNumber(this InputSocket<Vector> inputSocket)
     {
-        inputSocket.RegisterReceiver((object? obj, out Graphics.Vector value) =>
+        inputSocket.RegisterReceiver((obj, out value) =>
         {
             value = default;
             if (obj == null)
             {
                 return false;
             }
-            else
+
+            if (ToNumber(obj, out float numValue))
             {
-                if (ToNumber(obj, out float numValue))
-                {
-                    value = new Graphics.Vector(numValue, numValue);
-                    return true;
-                }
-                else if (obj is Graphics.Size size)
-                {
-                    value = new Graphics.Vector(size.Width, size.Height);
-                    return true;
-                }
-                else if (obj is Graphics.Point point)
-                {
-                    value = new Graphics.Vector(point.X, point.Y);
-                    return true;
-                }
-                else if (obj is string str
-                    && Graphics.Vector.TryParse(str, out Graphics.Vector parsed))
-                {
-                    value = parsed;
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                value = new Vector(numValue, numValue);
+                return true;
             }
+
+            if (obj is Size size)
+            {
+                value = new Vector(size.Width, size.Height);
+                return true;
+            }
+
+            if (obj is Point point)
+            {
+                value = new Vector(point.X, point.Y);
+                return true;
+            }
+
+            if (obj is string str
+                && Vector.TryParse(str, out Vector parsed))
+            {
+                value = parsed;
+                return true;
+            }
+
+            return false;
         });
 
         return inputSocket;
     }
 
-    public static InputSocket<Graphics.Point> AcceptNumber(this InputSocket<Graphics.Point> inputSocket)
+    public static InputSocket<Point> AcceptNumber(this InputSocket<Point> inputSocket)
     {
-        inputSocket.RegisterReceiver((object? obj, out Graphics.Point value) =>
+        inputSocket.RegisterReceiver((obj, out value) =>
         {
             value = default;
             if (obj == null)
             {
                 return false;
             }
-            else
+
+            if (ToNumber(obj, out float numValue))
             {
-                if (ToNumber(obj, out float numValue))
-                {
-                    value = new Graphics.Point(numValue, numValue);
-                    return true;
-                }
-                else if (obj is Graphics.Size size)
-                {
-                    value = new Graphics.Point(size.Width, size.Height);
-                    return true;
-                }
-                else if (obj is Graphics.Vector vec)
-                {
-                    value = new Graphics.Point(vec.X, vec.Y);
-                    return true;
-                }
-                else if (obj is string str
-                    && Graphics.Point.TryParse(str, out Graphics.Point parsed))
-                {
-                    value = parsed;
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                value = new Point(numValue, numValue);
+                return true;
             }
+
+            if (obj is Size size)
+            {
+                value = new Point(size.Width, size.Height);
+                return true;
+            }
+
+            if (obj is Vector vec)
+            {
+                value = new Point(vec.X, vec.Y);
+                return true;
+            }
+
+            if (obj is string str
+                && Point.TryParse(str, out Point parsed))
+            {
+                value = parsed;
+                return true;
+            }
+
+            return false;
         });
 
         return inputSocket;
     }
 
-    public static InputSocket<Graphics.Size> AcceptNumber(this InputSocket<Graphics.Size> inputSocket)
+    public static InputSocket<Size> AcceptNumber(this InputSocket<Size> inputSocket)
     {
-        inputSocket.RegisterReceiver((object? obj, out Graphics.Size value) =>
+        inputSocket.RegisterReceiver((obj, out value) =>
         {
             value = default;
             if (obj == null)
             {
                 return false;
             }
-            else
+
+            if (ToNumber(obj, out float numValue))
             {
-                if (ToNumber(obj, out float numValue))
-                {
-                    value = new Graphics.Size(numValue, numValue);
-                    return true;
-                }
-                else if (obj is Graphics.Point point)
-                {
-                    value = new Graphics.Size(point.X, point.Y);
-                    return true;
-                }
-                else if (obj is Graphics.Vector vec)
-                {
-                    value = new Graphics.Size(vec.X, vec.Y);
-                    return true;
-                }
-                else if (obj is string str
-                    && Graphics.Size.TryParse(str, out Graphics.Size parsed))
-                {
-                    value = parsed;
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                value = new Size(numValue, numValue);
+                return true;
             }
+
+            if (obj is Point point)
+            {
+                value = new Size(point.X, point.Y);
+                return true;
+            }
+
+            if (obj is Vector vec)
+            {
+                value = new Size(vec.X, vec.Y);
+                return true;
+            }
+
+            if (obj is string str
+                && Size.TryParse(str, out Size parsed))
+            {
+                value = parsed;
+                return true;
+            }
+
+            return false;
         });
 
         return inputSocket;
     }
 
-    public static InputSocket<Graphics.Rect> AcceptNumber(this InputSocket<Graphics.Rect> inputSocket)
+    public static InputSocket<Rect> AcceptNumber(this InputSocket<Rect> inputSocket)
     {
-        inputSocket.RegisterReceiver((object? obj, out Graphics.Rect value) =>
+        inputSocket.RegisterReceiver((obj, out value) =>
         {
             value = default;
             if (obj == null)
             {
                 return false;
             }
-            else
+
+            if (ToNumber(obj, out float numValue))
             {
-                if (ToNumber(obj, out float numValue))
-                {
-                    value = new Graphics.Rect(numValue, numValue, numValue, numValue);
-                    return true;
-                }
-                else if (obj is Graphics.Size size)
-                {
-                    value = new Graphics.Rect(size);
-                    return true;
-                }
-                else if (obj is string str
-                    && Graphics.Rect.TryParse(str, out Graphics.Rect parsed))
-                {
-                    value = parsed;
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                value = new Rect(numValue, numValue, numValue, numValue);
+                return true;
             }
+
+            if (obj is Size size)
+            {
+                value = new Rect(size);
+                return true;
+            }
+
+            if (obj is string str
+                && Rect.TryParse(str, out Rect parsed))
+            {
+                value = parsed;
+                return true;
+            }
+
+            return false;
         });
 
         return inputSocket;
     }
 
-    public static InputSocket<Media.PixelPoint> AcceptNumber(this InputSocket<Media.PixelPoint> inputSocket)
+    public static InputSocket<PixelPoint> AcceptNumber(this InputSocket<PixelPoint> inputSocket)
     {
-        inputSocket.RegisterReceiver((object? obj, out Media.PixelPoint value) =>
+        inputSocket.RegisterReceiver((obj, out value) =>
         {
             value = default;
             if (obj == null)
             {
                 return false;
             }
-            else
+
+            if (ToNumber(obj, out int numValue))
             {
-                if (ToNumber(obj, out int numValue))
-                {
-                    value = new Media.PixelPoint(numValue, numValue);
-                    return true;
-                }
-                else if (obj is Media.PixelSize size)
-                {
-                    value = new Media.PixelPoint(size.Width, size.Height);
-                    return true;
-                }
-                else if (obj is string str
-                    && Media.PixelPoint.TryParse(str, out Media.PixelPoint parsed))
-                {
-                    value = parsed;
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                value = new PixelPoint(numValue, numValue);
+                return true;
             }
+
+            if (obj is PixelSize size)
+            {
+                value = new PixelPoint(size.Width, size.Height);
+                return true;
+            }
+
+            if (obj is string str
+                && PixelPoint.TryParse(str, out PixelPoint parsed))
+            {
+                value = parsed;
+                return true;
+            }
+
+            return false;
         });
 
         return inputSocket;
     }
 
-    public static InputSocket<Media.PixelSize> AcceptNumber(this InputSocket<Media.PixelSize> inputSocket)
+    public static InputSocket<PixelSize> AcceptNumber(this InputSocket<PixelSize> inputSocket)
     {
-        inputSocket.RegisterReceiver((object? obj, out Media.PixelSize value) =>
+        inputSocket.RegisterReceiver((obj, out value) =>
         {
             value = default;
             if (obj == null)
             {
                 return false;
             }
-            else
+
+            if (ToNumber(obj, out int numValue))
             {
-                if (ToNumber(obj, out int numValue))
-                {
-                    value = new Media.PixelSize(numValue, numValue);
-                    return true;
-                }
-                else if (obj is Media.PixelPoint point)
-                {
-                    value = new Media.PixelSize(point.X, point.Y);
-                    return true;
-                }
-                else if (obj is string str
-                    && Media.PixelSize.TryParse(str, out Media.PixelSize parsed))
-                {
-                    value = parsed;
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                value = new PixelSize(numValue, numValue);
+                return true;
             }
+
+            if (obj is PixelPoint point)
+            {
+                value = new PixelSize(point.X, point.Y);
+                return true;
+            }
+
+            if (obj is string str
+                && PixelSize.TryParse(str, out PixelSize parsed))
+            {
+                value = parsed;
+                return true;
+            }
+
+            return false;
         });
 
         return inputSocket;
     }
 
-    public static InputSocket<Media.PixelRect> AcceptNumber(this InputSocket<Media.PixelRect> inputSocket)
+    public static InputSocket<PixelRect> AcceptNumber(this InputSocket<PixelRect> inputSocket)
     {
-        inputSocket.RegisterReceiver((object? obj, out Media.PixelRect value) =>
+        inputSocket.RegisterReceiver((obj, out value) =>
         {
             value = default;
             if (obj == null)
             {
                 return false;
             }
-            else
+
+            if (ToNumber(obj, out int numValue))
             {
-                if (ToNumber(obj, out int numValue))
-                {
-                    value = new Media.PixelRect(numValue, numValue, numValue, numValue);
-                    return true;
-                }
-                else if (obj is Media.PixelSize size)
-                {
-                    value = new Media.PixelRect(size);
-                    return true;
-                }
-                else if (obj is string str
-                    && Media.PixelRect.TryParse(str, out Media.PixelRect parsed))
-                {
-                    value = parsed;
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
+                value = new PixelRect(numValue, numValue, numValue, numValue);
+                return true;
             }
+
+            if (obj is PixelSize size)
+            {
+                value = new PixelRect(size);
+                return true;
+            }
+
+            if (obj is string str
+                && PixelRect.TryParse(str, out PixelRect parsed))
+            {
+                value = parsed;
+                return true;
+            }
+
+            return false;
         });
 
         return inputSocket;
@@ -362,9 +518,9 @@ public static class InputSocketHelper
             {
                 value = T.CreateTruncating(int128);
             }
-            else if (obj is nint @nint)
+            else if (obj is nint nint)
             {
-                value = T.CreateTruncating(@nint);
+                value = T.CreateTruncating(nint);
             }
             else if (obj is sbyte @sbyte)
             {
@@ -398,9 +554,17 @@ public static class InputSocketHelper
             {
                 value = T.CreateTruncating(uInt128);
             }
-            else if (obj is nuint @nuint)
+            else if (obj is nuint nuint)
             {
-                value = T.CreateTruncating(@nuint);
+                value = T.CreateTruncating(nuint);
+            }
+            else if (obj is byte @byte)
+            {
+                value = T.CreateTruncating(@byte);
+            }
+            else if (obj is int @int)
+            {
+                value = T.CreateTruncating(@int);
             }
             else
             {

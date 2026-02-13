@@ -6,27 +6,30 @@ public abstract class ConfigureNode : Node
 {
     public ConfigureNode()
     {
-        OutputSocket = AsOutput<ContainerRenderNode?>("Drawable");
-        InputSocket = AsInput<RenderNode?>("Drawable");
+        OutputSocket = AddOutput<ContainerRenderNode?>("Output");
+        InputSocket = AddListInput<RenderNode?>("Input");
     }
 
     protected OutputSocket<ContainerRenderNode?> OutputSocket { get; }
 
-    protected InputSocket<RenderNode?> InputSocket { get; }
+    protected ListInputSocket<RenderNode?> InputSocket { get; }
 
     public override void Evaluate(NodeEvaluationContext context)
     {
-        RenderNode? input = InputSocket.Value;
-        ContainerRenderNode? output = OutputSocket.Value;
+        base.Evaluate(context);
+        var inputs = InputSocket.CollectValues()!;
 
-        EvaluateCore();
-        if (input != null && output != null)
+        EvaluateCore(context);
+        ContainerRenderNode? output = OutputSocket.Value;
+        if (output == null) return;
+
+        output.HasChanges = inputs.Any(i => i?.HasChanges == true) || output.HasChanges;
+        output.RemoveRange(0, output.Children.Count);
+        foreach (var input in inputs.OfType<RenderNode>())
         {
-            output.HasChanges = input.HasChanges || output.HasChanges;
-            output.RemoveRange(0, output.Children.Count);
             output.AddChild(input);
         }
     }
 
-    protected abstract void EvaluateCore();
+    protected abstract void EvaluateCore(NodeEvaluationContext context);
 }
