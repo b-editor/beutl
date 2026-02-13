@@ -32,8 +32,8 @@ public class RandomDoubleNode : Node
     public RandomDoubleNode()
     {
         _valueSocket = AddOutput<double>("Value");
-        _maximumSocket = AddInput<double>("Maximum").AcceptNumber();
-        _minimumSocket = AddInput<double>("Minimum").AcceptNumber();
+        _maximumSocket = AddInput<double>("Maximum");
+        _minimumSocket = AddInput<double>("Minimum");
     }
 
     public override void Evaluate(NodeEvaluationContext context)
@@ -55,8 +55,8 @@ public class RandomInt32Node : Node
     public RandomInt32Node()
     {
         _valueSocket = AddOutput<int>("Value");
-        _maximumSocket = AddInput<int>("Maximum").AcceptNumber();
-        _minimumSocket = AddInput<int>("Minimum").AcceptNumber();
+        _maximumSocket = AddInput<int>("Maximum");
+        _minimumSocket = AddInput<int>("Minimum");
     }
 
     public override void Evaluate(NodeEvaluationContext context)
@@ -83,8 +83,8 @@ public class RandomInt64Node : Node
     public RandomInt64Node()
     {
         _valueSocket = AddOutput<long>("Value");
-        _maximumSocket = AddInput<long>("Maximum").AcceptNumber();
-        _minimumSocket = AddInput<long>("Minimum").AcceptNumber();
+        _maximumSocket = AddInput<long>("Maximum");
+        _minimumSocket = AddInput<long>("Minimum");
     }
 
     public override void Evaluate(NodeEvaluationContext context)

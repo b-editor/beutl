@@ -11,8 +11,8 @@ public class PixelSizeNode : Node
     public PixelSizeNode()
     {
         _valueSocket = AddOutput<PixelSize>("PixelSize");
-        _widthSocket = AddInput<int>("Width").AcceptNumber();
-        _heightSocket = AddInput<int>("Height").AcceptNumber();
+        _widthSocket = AddInput<int>("Width");
+        _heightSocket = AddInput<int>("Height");
     }
 
     public override void Evaluate(NodeEvaluationContext context)

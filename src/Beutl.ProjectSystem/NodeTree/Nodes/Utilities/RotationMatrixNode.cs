@@ -10,7 +10,7 @@ public class RotationMatrixNode : MatrixNode
 
     public RotationMatrixNode()
     {
-        _rotationSocket = AddInput<float>("Rotation").AcceptNumber();
+        _rotationSocket = AddInput<float>("Rotation");
     }
 
     public override Matrix GetMatrix(NodeEvaluationContext context)

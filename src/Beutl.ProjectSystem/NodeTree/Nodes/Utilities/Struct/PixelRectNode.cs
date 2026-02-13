@@ -11,8 +11,8 @@ public class PixelRectNode : Node
     public PixelRectNode()
     {
         _valueSocket = AddOutput<PixelRect>("PixelRect");
-        _positionSocket = AddInput<PixelPoint>("Position").AcceptNumber();
-        _sizeSocket = AddInput<PixelSize>("Size").AcceptNumber();
+        _positionSocket = AddInput<PixelPoint>("Position");
+        _sizeSocket = AddInput<PixelSize>("Size");
     }
 
     public override void Evaluate(NodeEvaluationContext context)

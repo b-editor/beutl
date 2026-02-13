@@ -23,6 +23,7 @@ public class InputSocket<T> : Socket<T>, IInputSocket
 
     public InputSocket()
     {
+        InputSocketHelper.RegisterDefaultReceiver(this);
         _dstTypeConverter = TypeDescriptor.GetConverter(typeof(T));
     }
 
@@ -154,15 +155,12 @@ public class InputSocket<T> : Socket<T>, IInputSocket
         }
         else
         {
-            //if (_onReceive != null)
-            //{
-            //    IsValid = _onReceive(value, out T? received);
-            //    if (IsValid.Value)
-            //    {
-            //        Value = received;
-            //    }
-            //}
-            //else
+            if (_onReceive?.Invoke(value, out T? received) == true)
+            {
+                Value = received;
+                Connection.Value?.SetValue(Beutl.NodeTree.Connection.StatusProperty, ConnectionStatus.Convert);
+            }
+            else
             {
                 if (value != null)
                 {

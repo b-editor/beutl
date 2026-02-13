@@ -11,8 +11,8 @@ public class PixelPointNode : Node
     public PixelPointNode()
     {
         _valueSocket = AddOutput<PixelPoint>("PixelPoint");
-        _xSocket = AddInput<int>("X").AcceptNumber();
-        _ySocket = AddInput<int>("Y").AcceptNumber();
+        _xSocket = AddInput<int>("X");
+        _ySocket = AddInput<int>("Y");
     }
 
     public override void Evaluate(NodeEvaluationContext context)
