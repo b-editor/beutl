@@ -252,16 +252,11 @@ public class GroupNode : Node
 
     private void AddInput(int index, IGroupSocket item)
     {
-        IInputSocket? inputSocket;
-        if (item.AssociatedPropertyName != null && item.AssociatedPropertyType != null)
+        var inputSocket = CreateInput(item.Name, item.AssociatedType!, item.Display);
+        // itemの接続先からデフォルトの値を取ってくる
+        if (((IOutputSocket)item).Connections.FirstOrDefault().Value?.Input.Value is IInputSocket connectedInput)
         {
-            inputSocket = CreateInput(item.AssociatedPropertyName, item.AssociatedPropertyType);
-            inputSocket.Property?.SetValue(item.Property?.GetValue());
-            inputSocket.Name = item.Name;
-        }
-        else
-        {
-            inputSocket = CreateInput(item.Name, item.AssociatedType!);
+            inputSocket.Property?.SetValue(connectedInput.Value);
         }
 
         _inputSocketDisposable.Insert(index, ((CoreObject)item).GetObservable(NameProperty)

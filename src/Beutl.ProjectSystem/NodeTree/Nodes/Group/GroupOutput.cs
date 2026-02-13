@@ -1,6 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
-
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree.Nodes.Group;
@@ -11,28 +11,24 @@ public class GroupOutput : Node, ISocketsCanBeAdded
 
     public class GroupOutputSocket<T> : InputSocket<T>, IAutomaticallyGeneratedSocket, IGroupSocket
     {
-        public string? AssociatedPropertyName { get; set; }
-
-        public Type? AssociatedPropertyType { get; set; }
-
-        public override void Serialize(ICoreSerializationContext context)
+        protected override void OnPropertyChanged(PropertyChangedEventArgs args)
         {
-            base.Serialize(context);
-            context.SetValue(nameof(AssociatedPropertyName), AssociatedPropertyName);
-            if (AssociatedPropertyType is { } type)
+            base.OnPropertyChanged(args);
+            if (args is not CorePropertyChangedEventArgs coreArgs) return;
+
+            if (coreArgs.Property.Id == ConnectionProperty.Id)
             {
-                context.SetValue(nameof(AssociatedPropertyType), TypeFormat.ToString(type));
+                if (Connection.Value?.Output.Value is OutputSocket<T> outputSocket)
+                {
+                    ReflectDisplay(outputSocket);
+                }
             }
         }
 
-        public override void Deserialize(ICoreSerializationContext context)
+        private void ReflectDisplay(OutputSocket<T> outputSocket)
         {
-            base.Deserialize(context);
-            AssociatedPropertyName = context.GetValue<string?>(nameof(AssociatedPropertyName));
-            if (context.GetValue<string?>(nameof(AssociatedPropertyType)) is { } typeString)
-            {
-                AssociatedPropertyType = TypeFormat.ToType(typeString);
-            }
+            Name = outputSocket.Name;
+            Display = outputSocket.Display;
         }
     }
 
@@ -46,11 +42,8 @@ public class GroupOutput : Node, ISocketsCanBeAdded
 
             if (Activator.CreateInstance(type) is IInputSocket inputSocket)
             {
-                ((IGroupSocket)inputSocket).AssociatedPropertyName = outputSocket.Name;
-                ((IGroupSocket)inputSocket).AssociatedPropertyType = valueType;
-
-                Items.Add(inputSocket);
                 connection = nodeTreeModel.Connect(inputSocket, outputSocket);
+                Items.Add(inputSocket);
                 return true;
             }
         }

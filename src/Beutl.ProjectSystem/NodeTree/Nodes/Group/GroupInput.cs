@@ -10,31 +10,22 @@ public class GroupInput : Node, ISocketsCanBeAdded
 
     public class GroupInputSocket<T> : OutputSocket<T>, IGroupSocket, IAutomaticallyGeneratedSocket
     {
-        public string? AssociatedPropertyName { get; set; }
-
-        public Type? AssociatedPropertyType { get; set; }
-
-        public override void Serialize(ICoreSerializationContext context)
+        public GroupInputSocket()
         {
-            base.Serialize(context);
-            context.SetValue(nameof(AssociatedPropertyName), AssociatedPropertyName);
-            if (AssociatedPropertyType is { } type)
+            Connections.Attached += conn =>
             {
-                context.SetValue(nameof(AssociatedPropertyType), TypeFormat.ToString(type));
-            }
+                if (conn is { Value.Input.Value: InputSocket<T> inputSocket })
+                {
+                    ReflectDisplay(inputSocket);
+                }
+            };
         }
 
-        public override void Deserialize(ICoreSerializationContext context)
+        private void ReflectDisplay(InputSocket<T> inputSocket)
         {
-            base.Deserialize(context);
-            AssociatedPropertyName = context.GetValue<string?>(nameof(AssociatedPropertyName));
-            if (context.GetValue<string?>(nameof(AssociatedPropertyType)) is { } typeString)
-            {
-                AssociatedPropertyType = TypeFormat.ToType(typeString);
-            }
+            Name = inputSocket.Name;
+            Display = inputSocket.Display;
         }
-
-        private record CorePropertyRecord(string Name, string Owner);
     }
 
     public bool AddSocket(ISocket socket, [NotNullWhen(true)] out Connection? connection)
@@ -47,11 +38,8 @@ public class GroupInput : Node, ISocketsCanBeAdded
 
             if (Activator.CreateInstance(type) is IOutputSocket outputSocket)
             {
-                ((IGroupSocket)outputSocket).AssociatedPropertyName = inputSocket.Name;
-                ((IGroupSocket)outputSocket).AssociatedPropertyType = valueType;
-
-                Items.Add(outputSocket);
                 connection = nodeTreeModel.Connect(inputSocket, outputSocket);
+                Items.Add(outputSocket);
                 return true;
             }
         }
