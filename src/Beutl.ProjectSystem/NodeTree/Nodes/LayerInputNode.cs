@@ -1,8 +1,9 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Beutl.Extensibility;
 using Beutl.Media;
-using Beutl.NodeTree.Nodes.Group;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree.Nodes;
@@ -13,38 +14,25 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
     public interface ILayerInputSocket : IOutputSocket, IAutomaticallyGeneratedSocket
     {
-        void SetProperty(IPropertyAdapter property);
-
         void SetupProperty(string propertyName);
 
         IPropertyAdapter? GetProperty();
     }
 
-    public class LayerInputSocket<T> : OutputSocket<T>, ILayerInputSocket, IGroupSocket
+    public class LayerInputSocket<T> : OutputSocket<T>, ILayerInputSocket
     {
-        // TODO: 接続先のSocketのPropertyを直接扱うようにする
+        private Element? _parent;
         private NodePropertyAdapter<T>? _property;
 
-        static LayerInputSocket()
+        public LayerInputSocket()
         {
-        }
-
-        public string? AssociatedPropertyName { get; set; }
-
-        public Type? AssociatedPropertyType { get; set; }
-
-        public void SetProperty(NodePropertyAdapter<T> property)
-        {
-            _property = property;
-            AssociatedPropertyName = property.Name;
-            AssociatedPropertyType = typeof(T);
-
-            property.Edited += OnSetterInvalidated;
-        }
-
-        void ILayerInputSocket.SetProperty(IPropertyAdapter property)
-        {
-            SetProperty((NodePropertyAdapter<T>)property);
+            Connections.Attached += conn =>
+            {
+                if (conn is { Value.Input.Value: InputSocket<T> inputSocket })
+                {
+                    ReflectDisplay(inputSocket.Display);
+                }
+            };
         }
 
         IPropertyAdapter? ILayerInputSocket.GetProperty()
@@ -52,12 +40,32 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             return _property;
         }
 
-        public void SetupProperty(string propertyName)
+        private void ReflectDisplay(DisplayAttribute? display)
         {
-            SetProperty(new NodePropertyAdapter<T>(propertyName));
+            Display = display;
+
+            if (display?.GetName() is { } name)
+            {
+                _property?.DisplayName = name;
+            }
+
+            if (display?.GetDescription() is { } description)
+            {
+                _property?.Description = description;
+            }
         }
 
-        private void OnSetterInvalidated(object? sender, EventArgs e)
+        public void SetupProperty(string propertyName)
+        {
+            _property = new NodePropertyAdapter<T>(propertyName);
+            Property = _property;
+
+            ReflectDisplay(Display);
+
+            _property.Edited += OnPropertyEdited;
+        }
+
+        private void OnPropertyEdited(object? sender, EventArgs e)
         {
             RaiseEdited(new RenderInvalidatedEventArgs(this));
         }
@@ -67,13 +75,33 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
             return _property;
         }
 
+        protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
+        {
+            base.OnAttachedToHierarchy(in args);
+            _parent = this.FindHierarchicalParent<Element>();
+        }
+
+        protected override void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
+        {
+            base.OnDetachedFromHierarchy(in args);
+            _parent = null;
+        }
+
         public override void PreEvaluate(EvaluationContext context)
         {
             if (GetProperty() is { } property)
             {
                 if (property is IAnimatablePropertyAdapter<T> { Animation: { } animation })
                 {
-                    Value = animation.GetAnimatedValue(context.Renderer.Time);
+                    var time = context.Renderer.Time;
+                    if (_parent != null && !animation.UseGlobalClock)
+                    {
+                        Value = animation.Interpolate(time - _parent.Start);
+                    }
+                    else
+                    {
+                        Value = animation.Interpolate(time);
+                    }
                 }
                 else
                 {
@@ -91,7 +119,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         public override void Deserialize(ICoreSerializationContext context)
         {
             base.Deserialize(context);
-            string name = context.GetValue<string>("Property")!;
+            string? name = context.GetValue<string>("Property");
 
             if (name != null)
             {
@@ -115,9 +143,9 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
                 outputSocket.SetupProperty(inputSocket.Name);
                 outputSocket.GetProperty()?.SetValue(inputSocket.Property?.GetValue());
 
-                Items.Add(outputSocket);
-
                 connection = nodeTreeModel.Connect(inputSocket, outputSocket);
+
+                Items.Add(outputSocket);
                 return true;
             }
         }
