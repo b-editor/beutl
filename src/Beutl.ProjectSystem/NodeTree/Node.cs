@@ -1,16 +1,17 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Nodes;
-
 using Beutl.Collections;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Media.Source;
+using Beutl.Graphics.Rendering;
+using Beutl.NodeTree.Rendering;
 using Beutl.Serialization;
 using Beutl.Utilities;
 
 namespace Beutl.NodeTree;
 
-public abstract class Node : Hierarchical
+public abstract partial class Node : EngineObject
 {
     public static readonly CoreProperty<bool> IsExpandedProperty;
     public static readonly CoreProperty<(double X, double Y)> PositionProperty;
@@ -56,7 +57,7 @@ public abstract class Node : Hierarchical
 
     private void OnItemEdited(object? sender, EventArgs e)
     {
-        RaiseEdited(e);
+        RaiseEdited();
     }
 
     private void OnItemTopologyChanged(object? sender, EventArgs e)
@@ -64,8 +65,7 @@ public abstract class Node : Hierarchical
         RaiseTopologyChanged();
     }
 
-    [NotAutoSerialized]
-    public ICoreList<INodeItem> Items => _items;
+    [NotAutoSerialized] public ICoreList<INodeItem> Items => _items;
 
     public bool IsExpanded
     {
@@ -93,53 +93,9 @@ public abstract class Node : Hierarchical
 
     public event EventHandler? TopologyChanged;
 
-    public event EventHandler? Edited;
-
     protected void RaiseTopologyChanged()
     {
         TopologyChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    protected void RaiseEdited(EventArgs args)
-    {
-        Edited?.Invoke(this, args);
-    }
-
-    public virtual void InitializeForContext(NodeEvaluationContext context)
-    {
-    }
-
-    public virtual void UninitializeForContext(NodeEvaluationContext context)
-    {
-    }
-
-    // 1. ItemsのIInputSocket.Connection.Nodeを評価する。
-    // 2. IOutputSocket.ConnectionsからIInputSocketにデータを送る (Receive)
-    public virtual void Evaluate(NodeEvaluationContext context)
-    {
-        for (int i = 0; i < Items.Count; i++)
-        {
-            INodeItem item = Items[i];
-            item.Evaluate(context);
-        }
-    }
-
-    public virtual void PreEvaluate(NodeEvaluationContext context)
-    {
-        for (int i = 0; i < Items.Count; i++)
-        {
-            INodeItem item = Items[i];
-            item.PreEvaluate(context);
-        }
-    }
-
-    public virtual void PostEvaluate(NodeEvaluationContext context)
-    {
-        for (int i = 0; i < Items.Count; i++)
-        {
-            INodeItem item = Items[i];
-            item.PostEvaluate(context);
-        }
     }
 
     // TODO: AddInput, AddOutput, AddPropertyに変更する
@@ -195,6 +151,7 @@ public abstract class Node : Hierarchical
         {
             nodeItem.Display = display;
         }
+
         Items.Add(socket);
         return socket;
     }
@@ -208,13 +165,7 @@ public abstract class Node : Hierarchical
         {
             nodeItem.Display = display;
         }
-        Items.Add(socket);
-        return socket;
-    }
 
-    protected OutputSocket<T> AddOutput<T>(string name, T value, DisplayAttribute? display = null)
-    {
-        OutputSocket<T> socket = CreateOutput<T>(name, value, display);
         Items.Add(socket);
         return socket;
     }
@@ -237,12 +188,7 @@ public abstract class Node : Hierarchical
         NodeMonitorContentKind contentKind = NodeMonitorContentKind.Text,
         DisplayAttribute? display = null)
     {
-        var monitor = new NodeMonitor<T>()
-        {
-            Name = name,
-            Display = display,
-            ContentKind = contentKind
-        };
+        var monitor = new NodeMonitor<T>() { Name = name, Display = display, ContentKind = contentKind };
         Items.Add(monitor);
         return monitor;
     }
@@ -277,26 +223,13 @@ public abstract class Node : Hierarchical
         {
             nodeItemSocket.Display = display;
         }
-        return socket;
-    }
 
-    protected OutputSocket<T> CreateOutput<T>(string name, T value, DisplayAttribute? display = null)
-    {
-        return new OutputSocket<T>()
-        {
-            Name = name,
-            Display = display,
-            Value = value
-        };
+        return socket;
     }
 
     protected OutputSocket<T> CreateOutput<T>(string name, DisplayAttribute? display = null)
     {
-        return new OutputSocket<T>()
-        {
-            Name = name,
-            Display = display
-        };
+        return new OutputSocket<T>() { Name = name, Display = display };
     }
 
     protected IOutputSocket CreateOutput(string name, Type type, DisplayAttribute? display = null)
@@ -307,6 +240,7 @@ public abstract class Node : Hierarchical
             nodeItem.Name = name;
             nodeItem.Display = display;
         }
+
         return socket;
     }
 
@@ -358,5 +292,29 @@ public abstract class Node : Hierarchical
         context.SetValue(nameof(Position), $"{Position.X},{Position.Y}");
 
         context.SetValue(nameof(Items), Items);
+    }
+
+    public partial class Resource
+    {
+        public int SlotIndex { get; internal set; }
+        public IItemValue[] ItemValues { get; internal set; } = [];
+        public IRenderer? Renderer { get; internal set; }
+        public Dictionary<INodeItem, int> ItemIndexMap { get; set; } = new();
+
+        public virtual void Initialize(NodeRenderContext context)
+        {
+        }
+
+        public virtual void Uninitialize()
+        {
+        }
+
+        public virtual void BindSocketValues()
+        {
+        }
+
+        public virtual void Update(NodeRenderContext context)
+        {
+        }
     }
 }

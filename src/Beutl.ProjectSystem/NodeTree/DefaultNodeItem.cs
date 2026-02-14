@@ -13,7 +13,7 @@ public sealed class DefaultNodeItem<T> : NodeItem<T>
 
     private void OnAdapterEdited(object? sender, EventArgs e)
     {
-        RaiseEdited(new RenderInvalidatedEventArgs(this));
+        RaiseEdited();
     }
 
     public NodePropertyAdapter<T>? GetProperty()
