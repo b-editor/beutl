@@ -1,101 +1,101 @@
-﻿namespace Beutl.NodeTree.Nodes.Utilities;
+﻿using Beutl.NodeTree.Rendering;
 
-public class RandomSingleNode : Node
+namespace Beutl.NodeTree.Nodes.Utilities;
+
+public partial class RandomSingleNode : Node
 {
-    private readonly OutputSocket<float> _valueSocket;
-    private readonly InputSocket<float> _maximumSocket;
-    private readonly InputSocket<float> _minimumSocket;
-
     public RandomSingleNode()
     {
-        _valueSocket = AddOutput<float>("Value");
-        _maximumSocket = AddInput<float>("Maximum").AcceptNumber();
-        _minimumSocket = AddInput<float>("Minimum").AcceptNumber();
+        Value = AddOutput<float>("Value");
+        Maximum = AddInput<float>("Maximum");
+        Minimum = AddInput<float>("Minimum");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
-    {
-        float value = Random.Shared.NextSingle();
-        float max = _maximumSocket.Value;
-        float min = _minimumSocket.Value;
+    public OutputSocket<float> Value { get; }
 
-        _valueSocket.Value = value * min + (1 - value) * max;
+    public InputSocket<float> Maximum { get; }
+
+    public InputSocket<float> Minimum { get; }
+
+    public partial class Resource
+    {
+        public override void Update(NodeRenderContext context)
+        {
+            float value = Random.Shared.NextSingle();
+            Value = value * Minimum + (1 - value) * Maximum;
+        }
     }
 }
 
-public class RandomDoubleNode : Node
+public partial class RandomDoubleNode : Node
 {
-    private readonly OutputSocket<double> _valueSocket;
-    private readonly InputSocket<double> _maximumSocket;
-    private readonly InputSocket<double> _minimumSocket;
-
     public RandomDoubleNode()
     {
-        _valueSocket = AddOutput<double>("Value");
-        _maximumSocket = AddInput<double>("Maximum");
-        _minimumSocket = AddInput<double>("Minimum");
+        Value = AddOutput<double>("Value");
+        Maximum = AddInput<double>("Maximum");
+        Minimum = AddInput<double>("Minimum");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
-    {
-        double value = Random.Shared.NextDouble();
-        double max = _maximumSocket.Value;
-        double min = _minimumSocket.Value;
+    public OutputSocket<double> Value { get; }
 
-        _valueSocket.Value = value * min + (1 - value) * max;
+    public InputSocket<double> Maximum { get; }
+
+    public InputSocket<double> Minimum { get; }
+
+    public partial class Resource
+    {
+        public override void Update(NodeRenderContext context)
+        {
+            double value = Random.Shared.NextDouble();
+            Value = value * Minimum + (1 - value) * Maximum;
+        }
     }
 }
 
-public class RandomInt32Node : Node
+public partial class RandomInt32Node : Node
 {
-    private readonly OutputSocket<int> _valueSocket;
-    private readonly InputSocket<int> _maximumSocket;
-    private readonly InputSocket<int> _minimumSocket;
-
     public RandomInt32Node()
     {
-        _valueSocket = AddOutput<int>("Value");
-        _maximumSocket = AddInput<int>("Maximum");
-        _minimumSocket = AddInput<int>("Minimum");
+        Value = AddOutput<int>("Value");
+        Maximum = AddInput<int>("Maximum");
+        Minimum = AddInput<int>("Minimum");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<int> Value { get; }
+
+    public InputSocket<int> Maximum { get; }
+
+    public InputSocket<int> Minimum { get; }
+
+    public partial class Resource
     {
-        int max = _maximumSocket.Value;
-        int min = _minimumSocket.Value;
-        if (max <= min)
+        public override void Update(NodeRenderContext context)
         {
-            _valueSocket.Value = Random.Shared.Next(max, min);
-        }
-        else
-        {
-            _valueSocket.Value = Random.Shared.Next(min, max);
+            Value = Maximum <= Minimum ? Random.Shared.Next(Maximum, Minimum) : Random.Shared.Next(Minimum, Maximum);
         }
     }
 }
 
-public class RandomInt64Node : Node
+public partial class RandomInt64Node : Node
 {
-    private readonly OutputSocket<long> _valueSocket;
-    private readonly InputSocket<long> _maximumSocket;
-    private readonly InputSocket<long> _minimumSocket;
-
     public RandomInt64Node()
     {
-        _valueSocket = AddOutput<long>("Value");
-        _maximumSocket = AddInput<long>("Maximum");
-        _minimumSocket = AddInput<long>("Minimum");
+        Value = AddOutput<long>("Value");
+        Maximum = AddInput<long>("Maximum");
+        Minimum = AddInput<long>("Minimum");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<long> Value { get; }
+
+    public InputSocket<long> Maximum { get; }
+
+    public InputSocket<long> Minimum { get; }
+
+    public partial class Resource
     {
-        long max = _maximumSocket.Value;
-        long min = _minimumSocket.Value;
-        if (max <= min)
+        public override void Update(NodeRenderContext context)
         {
-            _valueSocket.Value = Random.Shared.NextInt64(max, min);
-            return;
+            Value = Maximum <= Minimum ? Random.Shared.NextInt64(Maximum, Minimum) : Random.Shared.NextInt64(Minimum, Maximum);
         }
-        _valueSocket.Value = Random.Shared.NextInt64(min, max);
     }
 }

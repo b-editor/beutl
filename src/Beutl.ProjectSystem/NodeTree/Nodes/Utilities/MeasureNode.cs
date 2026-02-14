@@ -1,44 +1,51 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Utilities;
 
-public class MeasureNode : Node
+public partial class MeasureNode : Node
 {
-    private readonly OutputSocket<float> _xSocket;
-    private readonly OutputSocket<float> _ySocket;
-    private readonly OutputSocket<float> _widthSocket;
-    private readonly OutputSocket<float> _heightSocket;
-    private readonly InputSocket<RenderNode> _inputSocket;
-
     public MeasureNode()
     {
-        _xSocket = AddOutput<float>("X");
-        _ySocket = AddOutput<float>("Y");
-        _widthSocket = AddOutput<float>("Width");
-        _heightSocket = AddOutput<float>("Height");
-        _inputSocket = AddInput<RenderNode>("Output");
+        X = AddOutput<float>("X");
+        Y = AddOutput<float>("Y");
+        Width = AddOutput<float>("Width");
+        Height = AddOutput<float>("Height");
+        Input = AddInput<RenderNode>("Output");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<float> X { get; }
+
+    public OutputSocket<float> Y { get; }
+
+    public OutputSocket<float> Width { get; }
+
+    public OutputSocket<float> Height { get; }
+
+    public InputSocket<RenderNode> Input { get; }
+
+    public partial class Resource
     {
-        base.Evaluate(context);
-        if (_inputSocket.Value is RenderNode renderNode)
+        public override void Update(NodeRenderContext context)
         {
-            var processor = new RenderNodeProcessor(renderNode, true);
-            RenderNodeOperation[] list = processor.PullToRoot();
-            Rect rect = Rect.Empty;
-
-            foreach (RenderNodeOperation item in list)
+            if (Input is RenderNode renderNode)
             {
-                rect = rect.Union(item.Bounds);
-                item.Dispose();
-            }
+                var processor = new RenderNodeProcessor(renderNode, true);
+                RenderNodeOperation[] list = processor.PullToRoot();
+                Rect rect = Rect.Empty;
 
-            _xSocket.Value = rect.X;
-            _ySocket.Value = rect.Y;
-            _widthSocket.Value = rect.Width;
-            _heightSocket.Value = rect.Height;
+                foreach (RenderNodeOperation item in list)
+                {
+                    rect = rect.Union(item.Bounds);
+                    item.Dispose();
+                }
+
+                X = rect.X;
+                Y = rect.Y;
+                Width = rect.Width;
+                Height = rect.Height;
+            }
         }
     }
 }

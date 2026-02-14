@@ -1,32 +1,38 @@
 ﻿using Beutl.Graphics;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Utilities;
 
-public abstract class MatrixNode : Node
+public abstract partial class MatrixNode : Node
 {
-    private readonly OutputSocket<Matrix> _outputSocket;
-    private readonly InputSocket<Matrix> _inputSocket;
-
     public MatrixNode()
     {
-        _outputSocket = AddOutput<Matrix>("Output");
-        _inputSocket = AddInput<Matrix>("Input");
+        Output = AddOutput<Matrix>("Output");
+        Input = AddInput<Matrix>("Input");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<Matrix> Output { get; }
+
+    public InputSocket<Matrix> Input { get; }
+
+    public partial class Resource
     {
-        Matrix matrix = GetMatrix(context);
+        public override void Update(NodeRenderContext context)
+        {
+            var node = GetOriginal();
+            Matrix matrix = GetMatrix(context, node);
 
-        if (!_inputSocket.Connection.IsNull)
-        {
-            Matrix value = _inputSocket.Value;
-            _outputSocket.Value = matrix * value;
+            if (context.HasConnection(node.Input))
+            {
+                Output = matrix * Input;
+            }
+            else
+            {
+                Output = matrix;
+            }
         }
-        else
-        {
-            _outputSocket.Value = matrix;
-        }
+
+        protected virtual Matrix GetMatrix(NodeRenderContext context, MatrixNode node)
+            => Matrix.Identity;
     }
-
-    public abstract Matrix GetMatrix(NodeEvaluationContext context);
 }
