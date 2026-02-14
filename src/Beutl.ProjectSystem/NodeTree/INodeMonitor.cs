@@ -1,4 +1,4 @@
-namespace Beutl.NodeTree;
+﻿namespace Beutl.NodeTree;
 
 public interface INodeMonitor : INodeItem
 {

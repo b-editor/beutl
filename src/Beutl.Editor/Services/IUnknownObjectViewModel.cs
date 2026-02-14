@@ -1,4 +1,4 @@
-using Reactive.Bindings;
+﻿using Reactive.Bindings;
 
 namespace Beutl.Editor.Services;
 

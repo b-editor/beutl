@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Backend;
+﻿namespace Beutl.Graphics.Backend;
 
 /// <summary>
 /// Specifies the operation to perform on an attachment at the beginning of a render pass.

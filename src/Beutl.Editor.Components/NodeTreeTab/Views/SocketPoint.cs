@@ -5,12 +5,9 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
-
-using Beutl.NodeTree;
 using Beutl.Editor.Components.NodeTreeTab.ViewModels;
-
+using Beutl.NodeTree;
 using FluentAvalonia.UI.Media;
-
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.NodeTreeTab.Views;

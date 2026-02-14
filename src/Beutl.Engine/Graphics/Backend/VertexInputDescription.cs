@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Backend;
+﻿namespace Beutl.Graphics.Backend;
 
 /// <summary>
 /// Describes vertex input for a graphics pipeline.

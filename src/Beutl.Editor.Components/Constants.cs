@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Components;
+﻿namespace Beutl.Editor.Components;
 
 public static class Constants
 {

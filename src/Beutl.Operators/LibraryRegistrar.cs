@@ -130,23 +130,23 @@ public static class LibraryRegistrar
             .RegisterGroup(Strings.Transform, g => g
                 .AddMultiple(Strings.Translate, m => m
                         .BindTransform<TranslateTransform>()
-                    // .BindNode<TranslateTransformNode>()
+                // .BindNode<TranslateTransformNode>()
                 )
                 .AddMultiple(Strings.Skew, m => m
                         .BindTransform<SkewTransform>()
-                    // .BindNode<SkewTransformNode>()
+                // .BindNode<SkewTransformNode>()
                 )
                 .AddMultiple(Strings.Scale, m => m
                         .BindTransform<ScaleTransform>()
-                    // .BindNode<ScaleTransformNode>()
+                // .BindNode<ScaleTransformNode>()
                 )
                 .AddMultiple(Strings.Rotation, m => m
                         .BindTransform<RotationTransform>()
-                    // .BindNode<RotationTransformNode>()
+                // .BindNode<RotationTransformNode>()
                 )
                 .AddMultiple(Strings.Rotation3D, m => m
                         .BindTransform<Rotation3DTransform>()
-                    // .BindNode<Rotation3DTransformNode>()
+                // .BindNode<Rotation3DTransformNode>()
                 )
             );
 

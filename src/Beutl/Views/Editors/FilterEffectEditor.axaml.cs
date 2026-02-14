@@ -4,12 +4,12 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.Views;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Models;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
-using Beutl.Editor.Components.Views;
 using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;

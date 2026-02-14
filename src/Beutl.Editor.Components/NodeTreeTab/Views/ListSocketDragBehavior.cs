@@ -3,10 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Transformation;
-using Avalonia.VisualTree;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
-
 using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 namespace Beutl.Editor.Components.NodeTreeTab.Views;

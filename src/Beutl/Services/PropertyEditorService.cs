@@ -2,19 +2,17 @@
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
-
 using Avalonia.Controls;
 using Avalonia.Styling;
-
 using Beutl.Api.Services;
 using Beutl.Audio.Effects;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
-using Beutl.Media;
 using Beutl.Graphics3D.Models;
 using Beutl.Graphics3D.Textures;
+using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Editors;

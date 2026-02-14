@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 
 namespace Beutl.Engine.Expressions;
 
@@ -27,7 +27,7 @@ public sealed class ReferenceExpression<T> : IExpression<T>
     public string ExpressionString =>
         HasPropertyPath ? $"{ObjectId}.{PropertyPath}" : ObjectId.ToString();
 
-    public  T Evaluate(ExpressionContext context)
+    public T Evaluate(ExpressionContext context)
     {
         // キャッシュの有効性チェック
         // HierarchicalRootがnullになった場合（オブジェクトがシーンから削除された場合など）は再検索

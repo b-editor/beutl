@@ -5,8 +5,8 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Services;
-using DynamicData;
 using Beutl.ViewModels.Editors;
+using DynamicData;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 

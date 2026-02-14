@@ -1,4 +1,4 @@
-namespace Beutl.Editor;
+﻿namespace Beutl.Editor;
 
 /// <summary>
 /// A virtual IHierarchicalRoot implementation for export processing.

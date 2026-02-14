@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Effects;
 using Microsoft.Extensions.DependencyInjection;

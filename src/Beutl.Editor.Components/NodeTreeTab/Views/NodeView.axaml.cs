@@ -6,12 +6,11 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
-using Beutl.Editor.Components.NodeTreeTab.ViewModels;
 
 namespace Beutl.Editor.Components.NodeTreeTab.Views;
 

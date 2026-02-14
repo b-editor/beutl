@@ -1,13 +1,13 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
-using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
-using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Reactive.Bindings;
-using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.ViewModels;
 

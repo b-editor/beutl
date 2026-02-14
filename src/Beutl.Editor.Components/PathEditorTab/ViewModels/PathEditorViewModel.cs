@@ -1,4 +1,4 @@
-using Beutl.Controls;
+﻿using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.Services;
 using Beutl.Editor.Components.PropertyEditors.Services;

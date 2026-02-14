@@ -1,4 +1,4 @@
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.IO;
 using Beutl.Media;

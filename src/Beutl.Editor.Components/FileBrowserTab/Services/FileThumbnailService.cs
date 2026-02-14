@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Avalonia.Media.Imaging;
 using Beutl.Graphics;
 using Beutl.Logging;

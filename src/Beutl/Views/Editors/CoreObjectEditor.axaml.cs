@@ -6,12 +6,12 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Engine;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
-using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;

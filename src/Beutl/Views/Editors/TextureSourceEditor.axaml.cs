@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -10,10 +10,10 @@ using Beutl.Graphics3D.Textures;
 using Beutl.Media.Source;
 using Beutl.Services;
 using Beutl.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
 
