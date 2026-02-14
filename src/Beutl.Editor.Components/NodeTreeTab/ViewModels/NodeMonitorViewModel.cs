@@ -54,18 +54,18 @@ public class NodeMonitorViewModel : NodeItemViewModel
     {
         switch (Model?.ContentKind)
         {
-            case NodeMonitorContentKind.Text:
-                DisplayText.Value = Model.Value?.ToString();
+            case NodeMonitorContentKind.Text when Model is NodeMonitor<string?> textMonitor:
+                DisplayText.Value = textMonitor.Value;
                 break;
-            case NodeMonitorContentKind.Image:
-                UpdateImage();
+            case NodeMonitorContentKind.Image when Model is NodeMonitor<Ref<IBitmap>?> imageMonitor:
+                UpdateImage(imageMonitor.Value);
                 break;
         }
     }
 
-    private unsafe void UpdateImage()
+    private unsafe void UpdateImage(Ref<IBitmap>? source)
     {
-        if (Model?.Value is not Ref<IBitmap> source)
+        if (source == null)
         {
             DisplayBitmap = null;
             ImageInvalidated?.Invoke(this, EventArgs.Empty);
