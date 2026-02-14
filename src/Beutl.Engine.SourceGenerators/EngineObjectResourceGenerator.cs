@@ -67,6 +67,12 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
             return null;
         }
 
+        // Socket type symbols for Node subclasses
+        INamedTypeSymbol? inputSocketSymbol = compilation.GetTypeByMetadataName("Beutl.NodeTree.InputSocket`1");
+        INamedTypeSymbol? outputSocketSymbol = compilation.GetTypeByMetadataName("Beutl.NodeTree.OutputSocket`1");
+        INamedTypeSymbol? nodeItemGenericSymbol = compilation.GetTypeByMetadataName("Beutl.NodeTree.NodeItem`1");
+        INamedTypeSymbol? nodeSymbol = compilation.GetTypeByMetadataName("Beutl.NodeTree.Node");
+
         if (SymbolEqualityComparer.Default.Equals(symbol, engineObjectSymbol))
         {
             return null;
@@ -136,6 +142,49 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
             }
         }
 
+        // Socket property detection for Node subclasses
+        var socketProperties = ImmutableArray.CreateBuilder<SocketPropertyInfo>();
+        bool isNodeSubclass = nodeSymbol != null && InheritsFrom(symbol, nodeSymbol);
+
+        if (isNodeSubclass && inputSocketSymbol != null && outputSocketSymbol != null && nodeItemGenericSymbol != null)
+        {
+            foreach (ISymbol member in symbol.GetMembers())
+            {
+                if (member is not IPropertySymbol propertySymbol)
+                    continue;
+                if (!SymbolEqualityComparer.Default.Equals(propertySymbol.ContainingType, symbol))
+                    continue;
+                if (propertySymbol.IsStatic)
+                    continue;
+                if (propertySymbol.Type is not INamedTypeSymbol namedType || !namedType.IsGenericType)
+                    continue;
+                if (propertySymbol.GetAttributes().Any(attr => SymbolEqualityComparer.Default.Equals(attr.AttributeClass, suppressAttribute)))
+                    continue;
+
+                // Skip if name conflicts with IProperty-based properties
+                if (valueProperties.Any(v => v.Name == propertySymbol.Name)
+                    || objectProperties.Any(o => o.Name == propertySymbol.Name)
+                    || listProperties.Any(l => l.Name == propertySymbol.Name))
+                    continue;
+
+                INamedTypeSymbol constructedFrom = namedType.ConstructedFrom;
+                SocketKind? kind = null;
+
+                if (SymbolEqualityComparer.Default.Equals(constructedFrom, inputSocketSymbol))
+                    kind = SocketKind.Input;
+                else if (SymbolEqualityComparer.Default.Equals(constructedFrom, outputSocketSymbol))
+                    kind = SocketKind.Output;
+                else if (SymbolEqualityComparer.Default.Equals(constructedFrom, nodeItemGenericSymbol))
+                    kind = SocketKind.Item;
+
+                if (kind.HasValue)
+                {
+                    ITypeSymbol valueType = namedType.TypeArguments[0];
+                    socketProperties.Add(new SocketPropertyInfo(propertySymbol.Name, valueType, kind.Value));
+                }
+            }
+        }
+
         INamedTypeSymbol? baseResourceOwner = null;
         if (symbol.BaseType is INamedTypeSymbol baseType
             && InheritsFrom(baseType, engineObjectSymbol))
@@ -149,7 +198,9 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
             baseResourceOwner,
             valueProperties.ToImmutable(),
             objectProperties.ToImmutable(),
-            listProperties.ToImmutable());
+            listProperties.ToImmutable(),
+            socketProperties.ToImmutable(),
+            isNodeSubclass);
     }
 
     private static bool InheritsFrom(INamedTypeSymbol symbol, INamedTypeSymbol baseSymbol)
@@ -411,6 +462,14 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
             sb.AppendLine();
         }
 
+        foreach (SocketPropertyInfo socket in info.SocketProperties)
+        {
+            string fieldName = ToFieldName(socket.Name) + "_ItemValue";
+            string valueTypeDisplay = socket.ValueType.ToDisplayString(s_typeDisplayFormat);
+            sb.Append(innerIndent).AppendLine($"private global::Beutl.NodeTree.Rendering.ItemValue<{valueTypeDisplay}>? {fieldName};");
+            sb.AppendLine();
+        }
+
         foreach (ValuePropertyInfo property in info.ValueProperties)
         {
             string fieldName = ToFieldName(property.Name);
@@ -447,10 +506,43 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
             sb.AppendLine();
         }
 
+        foreach (SocketPropertyInfo socket in info.SocketProperties)
+        {
+            string fieldName = ToFieldName(socket.Name) + "_ItemValue";
+            string valueTypeDisplay = socket.ValueType.ToDisplayString(s_typeDisplayFormat);
+            sb.Append(innerIndent).AppendLine($"public {valueTypeDisplay} {socket.Name}");
+            sb.Append(innerIndent).AppendLine("{");
+            sb.Append(innerIndent).AppendLine($"    get => {fieldName}?.Value ?? default!;");
+            sb.Append(innerIndent).AppendLine($"    set {{ if ({fieldName} != null) {fieldName}.Value = value; }}");
+            sb.Append(innerIndent).AppendLine("}");
+            sb.AppendLine();
+        }
+
         sb.Append(innerIndent).AppendLine($"public new {currentTypeDisplay} GetOriginal()");
         sb.Append(innerIndent).AppendLine("{");
         sb.Append(innerIndent).AppendLine($"    return ({currentTypeDisplay})base.GetOriginal();");
         sb.Append(innerIndent).AppendLine("}");
+
+        if (info.SocketProperties.Length > 0)
+        {
+            sb.AppendLine();
+            sb.Append(innerIndent).AppendLine("public override void BindSocketValues()");
+            sb.Append(innerIndent).AppendLine("{");
+            sb.Append(innerIndent).AppendLine("    base.BindSocketValues();");
+            sb.Append(innerIndent).AppendLine("    var node = GetOriginal();");
+
+            for (int i = 0; i < info.SocketProperties.Length; i++)
+            {
+                SocketPropertyInfo socket = info.SocketProperties[i];
+                string fieldName = ToFieldName(socket.Name) + "_ItemValue";
+                string valueTypeDisplay = socket.ValueType.ToDisplayString(s_typeDisplayFormat);
+                string idxVar = $"__idx{i}";
+                sb.Append(innerIndent).AppendLine($"    if (ItemIndexMap.TryGetValue(node.{socket.Name}, out int {idxVar}))");
+                sb.Append(innerIndent).AppendLine($"        {fieldName} = (global::Beutl.NodeTree.Rendering.ItemValue<{valueTypeDisplay}>)ItemValues[{idxVar}];");
+            }
+
+            sb.Append(innerIndent).AppendLine("}");
+        }
 
         bool hasAdditionalMembers = info.ValueProperties.Length > 0
             || info.ObjectProperties.Length > 0
@@ -725,11 +817,17 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
         INamedTypeSymbol? BaseResourceOwner,
         ImmutableArray<ValuePropertyInfo> ValueProperties,
         ImmutableArray<ObjectPropertyInfo> ObjectProperties,
-        ImmutableArray<ListPropertyInfo> ListProperties);
+        ImmutableArray<ListPropertyInfo> ListProperties,
+        ImmutableArray<SocketPropertyInfo> SocketProperties,
+        bool IsNodeSubclass);
 
     private readonly record struct ValuePropertyInfo(string Name, ITypeSymbol ValueType);
 
     private readonly record struct ObjectPropertyInfo(string Name, INamedTypeSymbol ValueType);
 
     private readonly record struct ListPropertyInfo(string Name, INamedTypeSymbol ElementType);
+
+    private enum SocketKind { Input, Output, Item }
+
+    private readonly record struct SocketPropertyInfo(string Name, ITypeSymbol ValueType, SocketKind Kind);
 }
