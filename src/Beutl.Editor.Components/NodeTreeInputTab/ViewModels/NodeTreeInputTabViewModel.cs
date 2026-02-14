@@ -1,10 +1,7 @@
 ﻿using System.Text.Json.Nodes;
-
-using Beutl.ProjectSystem;
 using Beutl.Editor.Services;
-
+using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.NodeTreeInputTab.ViewModels;

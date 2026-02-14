@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls.Primitives;
 using Beutl.Engine;
 using Beutl.Media;

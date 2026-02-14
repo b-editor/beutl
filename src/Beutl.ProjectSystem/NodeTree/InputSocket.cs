@@ -41,7 +41,7 @@ public class InputSocket<T> : Socket<T>, IInputSocket
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if(args is CorePropertyChangedEventArgs coreArgs && coreArgs.Property.Id == ConnectionProperty.Id)
+        if (args is CorePropertyChangedEventArgs coreArgs && coreArgs.Property.Id == ConnectionProperty.Id)
         {
             RaiseTopologyChanged();
             RaiseEdited(EventArgs.Empty);
@@ -135,7 +135,7 @@ public class InputSocket<T> : Socket<T>, IInputSocket
             value1 = Property.GetValue();
             if (value1 == null
                 && Property?.GetCoreProperty()?.GetMetadata<CorePropertyMetadata<T>>(Property.ImplementedType) is
-                    { } metadata
+                { } metadata
                 && metadata.HasDefaultValue)
             {
                 value1 = metadata.DefaultValue;

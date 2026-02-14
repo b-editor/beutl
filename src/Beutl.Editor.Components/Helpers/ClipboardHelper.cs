@@ -1,4 +1,4 @@
-using Avalonia.Input.Platform;
+﻿using Avalonia.Input.Platform;
 
 namespace Beutl.Editor.Components.Helpers;
 

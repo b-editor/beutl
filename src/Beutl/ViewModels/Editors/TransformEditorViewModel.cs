@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;

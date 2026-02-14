@@ -1,10 +1,8 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
-
 using Beutl.Editor.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Beutl.ProjectSystem;
-
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.ObjectPropertyTab.ViewModels;

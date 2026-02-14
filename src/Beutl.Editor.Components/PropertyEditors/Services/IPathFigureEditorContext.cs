@@ -1,4 +1,4 @@
-using Beutl.Media;
+﻿using Beutl.Media;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PropertyEditors.Services;

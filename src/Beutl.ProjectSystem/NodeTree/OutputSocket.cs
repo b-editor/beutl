@@ -105,7 +105,7 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
             {
                 sameTypeSocket.Receive(Value);
             }
-            else if(item.Value.Input.Value is IInputSocket inputSocket)
+            else if (item.Value.Input.Value is IInputSocket inputSocket)
             {
                 if (!boxUpdated)
                 {

@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.IO;

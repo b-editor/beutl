@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;

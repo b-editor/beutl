@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Backend;

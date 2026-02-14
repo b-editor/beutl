@@ -72,7 +72,7 @@ public class TextNode : Node
         {
             Object.Render(gc2d, resource);
         }
-        
+
         _outputSocket.Value = drawableNode;
     }
 

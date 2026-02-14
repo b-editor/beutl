@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Graphics3D.Models;

@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Backend;
+﻿namespace Beutl.Graphics.Backend;
 
 /// <summary>
 /// Describes a descriptor binding for a pipeline.

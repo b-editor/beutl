@@ -159,8 +159,8 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
     {
         SubmitInfo submitInfo = new()
         {
-            SType = StructureType.SubmitInfo, 
-            CommandBufferCount = 1, 
+            SType = StructureType.SubmitInfo,
+            CommandBufferCount = 1,
             PCommandBuffers = &commandBuffer
         };
 

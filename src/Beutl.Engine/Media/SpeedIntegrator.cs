@@ -1,4 +1,4 @@
-using Beutl.Animation;
+﻿using Beutl.Animation;
 
 namespace Beutl.Media;
 
