@@ -8,7 +8,7 @@ public class RenderContext(TimeSpan time)
 
     public TimeSpan Time { get; set; } = time;
 
-    public T Get<T>(IProperty<T> property)
+    public virtual T Get<T>(IProperty<T> property)
     {
         if (property == null)
             throw new ArgumentNullException(nameof(property));
