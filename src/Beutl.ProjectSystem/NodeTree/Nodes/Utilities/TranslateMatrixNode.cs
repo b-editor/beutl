@@ -1,18 +1,26 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Utilities;
 
-public class TranslateMatrixNode : MatrixNode
+public partial class TranslateMatrixNode : MatrixNode
 {
-    private readonly InputSocket<float> _xSocket;
-    private readonly InputSocket<float> _ySocket;
-
     public TranslateMatrixNode()
     {
-        _xSocket = AddInput<float>("X");
-        _ySocket = AddInput<float>("Y");
+        X = AddInput<float>("X");
+        Y = AddInput<float>("Y");
     }
 
-    public override Matrix GetMatrix(NodeEvaluationContext context) => Matrix.CreateTranslation(_xSocket.Value, _ySocket.Value);
+    public InputSocket<float> X { get; }
+
+    public InputSocket<float> Y { get; }
+
+    public partial class Resource
+    {
+        protected override Matrix GetMatrix(NodeRenderContext context, MatrixNode node)
+        {
+            return Matrix.CreateTranslation(X, Y);
+        }
+    }
 }

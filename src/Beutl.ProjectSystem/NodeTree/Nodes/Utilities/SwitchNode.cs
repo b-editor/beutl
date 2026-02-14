@@ -1,30 +1,30 @@
-﻿namespace Beutl.NodeTree.Nodes.Utilities;
+﻿using Beutl.NodeTree.Rendering;
 
-public class SwitchNode : Node
+namespace Beutl.NodeTree.Nodes.Utilities;
+
+public partial class SwitchNode : Node
 {
-    private readonly OutputSocket<object?> _outputSocket;
-    private readonly InputSocket<bool> _switchSocket;
-    private readonly InputSocket<object?> _trueSocket;
-    private readonly InputSocket<object?> _falseSocket;
-
     public SwitchNode()
     {
-        _outputSocket = AddOutput<object?>("Output");
-        _switchSocket = AddInput<bool>("Switch");
-        _trueSocket = AddInput<object?>("True");
-        _falseSocket = AddInput<object?>("False");
+        Output = AddOutput<object?>("Output");
+        Switch = AddInput<bool>("Switch");
+        True = AddInput<object?>("True");
+        False = AddInput<object?>("False");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<object?> Output { get; }
+
+    public InputSocket<bool> Switch { get; }
+
+    public InputSocket<object?> True { get; }
+
+    public InputSocket<object?> False { get; }
+
+    public partial class Resource
     {
-        base.Evaluate(context);
-        if (_switchSocket.Value)
+        public override void Update(NodeRenderContext context)
         {
-            _outputSocket.Value = _trueSocket.Value;
-        }
-        else
-        {
-            _outputSocket.Value = _falseSocket.Value;
+            Output = Switch ? True : False;
         }
     }
 }

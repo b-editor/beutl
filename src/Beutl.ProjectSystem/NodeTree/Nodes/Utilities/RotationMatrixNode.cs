@@ -1,20 +1,24 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
+using Beutl.NodeTree.Rendering;
 using Beutl.Utilities;
 
 namespace Beutl.NodeTree.Nodes.Utilities;
 
-public class RotationMatrixNode : MatrixNode
+public partial class RotationMatrixNode : MatrixNode
 {
-    private readonly InputSocket<float> _rotationSocket;
-
     public RotationMatrixNode()
     {
-        _rotationSocket = AddInput<float>("Rotation");
+        Rotation = AddInput<float>("Rotation");
     }
 
-    public override Matrix GetMatrix(NodeEvaluationContext context)
+    public InputSocket<float> Rotation { get; }
+
+    public partial class Resource
     {
-        return Matrix.CreateRotation(MathUtilities.Deg2Rad(_rotationSocket.Value));
+        protected override Matrix GetMatrix(NodeRenderContext context, MatrixNode node)
+        {
+            return Matrix.CreateRotation(MathUtilities.Deg2Rad(Rotation));
+        }
     }
 }
