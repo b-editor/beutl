@@ -1,9 +1,10 @@
 ﻿using Beutl.Engine;
+using Beutl.NodeTree.Rendering;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree.Nodes;
 
-public class FactoryNode<T> : Node
+public partial class FactoryNode<T> : Node
     where T : EngineObject, new()
 {
     public static readonly CoreProperty<T> ObjectProperty;
@@ -36,12 +37,6 @@ public class FactoryNode<T> : Node
 
     protected OutputSocket<T> OutputSocket { get; }
 
-    public override void Evaluate(NodeEvaluationContext context)
-    {
-        base.Evaluate(context);
-        OutputSocket.Value = Object;
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
@@ -52,5 +47,14 @@ public class FactoryNode<T> : Node
     {
         base.Deserialize(context);
         context.Populate("Object", Object);
+    }
+
+    public partial class Resource
+    {
+        public override void Update(NodeRenderContext context)
+        {
+            var node = GetOriginal();
+            OutputSocket = node.Object;
+        }
     }
 }
