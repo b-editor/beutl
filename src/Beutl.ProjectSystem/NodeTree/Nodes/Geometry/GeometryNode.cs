@@ -1,5 +1,6 @@
-﻿using Beutl.Engine;
+using Beutl.Engine;
 using Beutl.Media;
+using Beutl.NodeTree.Rendering;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree.Nodes.Geometry;
@@ -10,7 +11,7 @@ public sealed class RectGeometryNode : GeometryNode<RectGeometry>;
 
 public sealed class RoundedRectGeometryNode : GeometryNode<RoundedRectGeometry>;
 
-public class GeometryNode<T> : Node
+public partial class GeometryNode<T> : Node
     where T : Media.Geometry, new()
 {
     public static readonly CoreProperty<T> ObjectProperty;
@@ -43,12 +44,6 @@ public class GeometryNode<T> : Node
 
     public OutputSocket<T> OutputSocket { get; }
 
-    public override void Evaluate(NodeEvaluationContext context)
-    {
-        base.Evaluate(context);
-        OutputSocket.Value = Object;
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
@@ -59,5 +54,14 @@ public class GeometryNode<T> : Node
     {
         base.Deserialize(context);
         context.Populate("Object", Object);
+    }
+
+    public partial class Resource
+    {
+        public override void Update(NodeRenderContext context)
+        {
+            var node = GetOriginal();
+            OutputSocket = node.Object;
+        }
     }
 }

@@ -1,11 +1,12 @@
-﻿using Beutl.Engine;
+using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.NodeTree.Rendering;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree.Nodes.Effects;
 
-public class FilterEffectNode<T> : ConfigureNode
+public partial class FilterEffectNode<T> : ConfigureNode
     where T : FilterEffect, new()
 {
     public static readonly CoreProperty<T> ObjectProperty;
@@ -35,24 +36,6 @@ public class FilterEffectNode<T> : ConfigureNode
         set => SetAndRaise(ObjectProperty, ref field, value);
     }
 
-    protected override void EvaluateCore(NodeEvaluationContext context)
-    {
-        FilterEffect.Resource? resource;
-
-        if (OutputSocket.Value == null)
-        {
-            resource = Object.ToResource(new(context.Renderer.Time));
-            OutputSocket.Value = new FilterEffectRenderNode(resource);
-        }
-        else if (OutputSocket.Value is FilterEffectRenderNode { FilterEffect.Resource: { } filterEffect } node)
-        {
-            resource = filterEffect;
-            bool updateOnly = false;
-            resource.Update(Object, new(context.Renderer.Time), ref updateOnly);
-            node.Update(resource);
-        }
-    }
-
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
@@ -63,5 +46,28 @@ public class FilterEffectNode<T> : ConfigureNode
     {
         base.Deserialize(context);
         context.Populate("Object", Object);
+    }
+
+    public partial class Resource
+    {
+        protected override void EvaluateCore(NodeRenderContext context)
+        {
+            var node = GetOriginal();
+            FilterEffect.Resource? resource;
+            var output = OutputSocket;
+
+            if (output == null)
+            {
+                resource = node.Object.ToResource(context);
+                OutputSocket = new FilterEffectRenderNode(resource);
+            }
+            else if (output is FilterEffectRenderNode { FilterEffect.Resource: { } filterEffect } fen)
+            {
+                resource = filterEffect;
+                bool updateOnly = false;
+                resource.Update(node.Object, context, ref updateOnly);
+                fen.Update(resource);
+            }
+        }
     }
 }
