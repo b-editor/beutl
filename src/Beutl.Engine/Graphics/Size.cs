@@ -191,7 +191,7 @@ public readonly struct Size(float width, float height)
     /// <param name="s">The string.</param>
     /// <param name="size">The <see cref="Size"/>.</param>
     /// <returns>The status of the operation.</returns>
-    public static bool TryParse(string s, out Size size)
+    public static bool TryParse(string? s, out Size size)
     {
         return TryParse(s.AsSpan(), out size);
     }

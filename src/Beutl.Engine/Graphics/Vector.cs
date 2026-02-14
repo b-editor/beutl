@@ -123,7 +123,7 @@ public readonly struct Vector(float x, float y)
     /// <param name="s">The string.</param>
     /// <param name="vector">The <see cref="Vector"/>.</param>
     /// <returns>The status of the operation.</returns>
-    public static bool TryParse(string s, out Vector vector)
+    public static bool TryParse(string? s, out Vector vector)
     {
         return TryParse(s.AsSpan(), out vector);
     }

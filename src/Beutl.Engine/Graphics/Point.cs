@@ -195,7 +195,7 @@ public readonly struct Point(float x, float y)
     /// <param name="s">The string.</param>
     /// <param name="point">The <see cref="Point"/>.</param>
     /// <returns>The status of the operation.</returns>
-    public static bool TryParse(string s, out Point point)
+    public static bool TryParse(string? s, out Point point)
     {
         return TryParse(s.AsSpan(), null, out point);
     }

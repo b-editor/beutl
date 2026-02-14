@@ -173,7 +173,7 @@ public readonly struct Thickness
     /// <param name="s">The string.</param>
     /// <param name="thickness">The <see cref="Thickness"/>.</param>
     /// <returns>The status of the operation.</returns>
-    public static bool TryParse(string s, out Thickness thickness)
+    public static bool TryParse(string? s, out Thickness thickness)
     {
         return TryParse(s.AsSpan(), out thickness);
     }

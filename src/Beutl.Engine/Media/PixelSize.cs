@@ -78,7 +78,7 @@ public readonly struct PixelSize(int width, int height)
     /// <param name="s">The string.</param>
     /// <param name="size">The <see cref="PixelSize"/>.</param>
     /// <returns>The status of the operation.</returns>
-    public static bool TryParse(string s, out PixelSize size)
+    public static bool TryParse(string? s, out PixelSize size)
     {
         return TryParse(s.AsSpan(), out size);
     }
