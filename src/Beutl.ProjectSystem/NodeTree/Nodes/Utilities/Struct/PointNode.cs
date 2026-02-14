@@ -1,23 +1,28 @@
 ﻿using Beutl.Graphics;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Utilities.Struct;
 
-public class PointNode : Node
+public partial class PointNode : Node
 {
-    private readonly OutputSocket<Point> _valueSocket;
-    private readonly InputSocket<float> _xSocket;
-    private readonly InputSocket<float> _ySocket;
-
     public PointNode()
     {
-        _valueSocket = AddOutput<Point>("Point");
-        _xSocket = AddInput<float>("X");
-        _ySocket = AddInput<float>("Y");
+        Value = AddOutput<Point>("Point");
+        X = AddInput<float>("X");
+        Y = AddInput<float>("Y");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<Point> Value { get; }
+
+    public InputSocket<float> X { get; }
+
+    public InputSocket<float> Y { get; }
+
+    public partial class Resource
     {
-        base.Evaluate(context);
-        _valueSocket.Value = new Point(_xSocket.Value, _ySocket.Value);
+        public override void Update(NodeRenderContext context)
+        {
+            Value = new Point(X, Y);
+        }
     }
 }

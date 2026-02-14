@@ -1,23 +1,28 @@
 ﻿using Beutl.Media;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Utilities.Struct;
 
-public class PixelPointNode : Node
+public partial class PixelPointNode : Node
 {
-    private readonly OutputSocket<PixelPoint> _valueSocket;
-    private readonly InputSocket<int> _xSocket;
-    private readonly InputSocket<int> _ySocket;
-
     public PixelPointNode()
     {
-        _valueSocket = AddOutput<PixelPoint>("PixelPoint");
-        _xSocket = AddInput<int>("X");
-        _ySocket = AddInput<int>("Y");
+        Value = AddOutput<PixelPoint>("PixelPoint");
+        X = AddInput<int>("X");
+        Y = AddInput<int>("Y");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<PixelPoint> Value { get; }
+
+    public InputSocket<int> X { get; }
+
+    public InputSocket<int> Y { get; }
+
+    public partial class Resource
     {
-        base.Evaluate(context);
-        _valueSocket.Value = new PixelPoint(_xSocket.Value, _ySocket.Value);
+        public override void Update(NodeRenderContext context)
+        {
+            Value = new PixelPoint(X, Y);
+        }
     }
 }

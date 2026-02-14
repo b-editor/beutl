@@ -1,23 +1,28 @@
 ﻿using Beutl.Graphics;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Utilities.Struct;
 
-public class SizeNode : Node
+public partial class SizeNode : Node
 {
-    private readonly OutputSocket<Size> _valueSocket;
-    private readonly InputSocket<float> _widthSocket;
-    private readonly InputSocket<float> _heightSocket;
-
     public SizeNode()
     {
-        _valueSocket = AddOutput<Size>("Size");
-        _widthSocket = AddInput<float>("Width");
-        _heightSocket = AddInput<float>("Height");
+        Value = AddOutput<Size>("Size");
+        Width = AddInput<float>("Width");
+        Height = AddInput<float>("Height");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<Size> Value { get; }
+
+    public InputSocket<float> Width { get; }
+
+    public InputSocket<float> Height { get; }
+
+    public partial class Resource
     {
-        base.Evaluate(context);
-        _valueSocket.Value = new Size(_widthSocket.Value, _heightSocket.Value);
+        public override void Update(NodeRenderContext context)
+        {
+            Value = new Size(Width, Height);
+        }
     }
 }
