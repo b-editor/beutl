@@ -1,9 +1,10 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes;
 
-public class TransformNode : ConfigureNode
+public partial class TransformNode : ConfigureNode
 {
     public TransformNode()
     {
@@ -12,16 +13,24 @@ public class TransformNode : ConfigureNode
 
     public InputSocket<Matrix> Matrix { get; }
 
-    protected override void EvaluateCore(NodeEvaluationContext context)
+    public partial class Resource
     {
-        var matrix = !Matrix.Connection.IsNull ? Matrix.Value : Graphics.Matrix.Identity;
-        if (OutputSocket.Value == null)
+        protected override void EvaluateCore(NodeRenderContext context)
         {
-            OutputSocket.Value = new TransformRenderNode(matrix, TransformOperator.Prepend);
-        }
-        else if (OutputSocket.Value is TransformRenderNode node)
-        {
-            node.Update(matrix, TransformOperator.Prepend);
+            var node = GetOriginal();
+            var matrix = context.HasConnection(node.Matrix)
+                ? Matrix
+                : Graphics.Matrix.Identity;
+
+            var output = OutputSocket;
+            if (output == null)
+            {
+                OutputSocket = new TransformRenderNode(matrix, TransformOperator.Prepend);
+            }
+            else if (output is TransformRenderNode trn)
+            {
+                trn.Update(matrix, TransformOperator.Prepend);
+            }
         }
     }
 }

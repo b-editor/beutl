@@ -1,14 +1,16 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Engine;
+using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.NodeTree.Rendering;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree.Nodes;
 
-public class TextNode : Node
+public partial class TextNode : Node
 {
     public static readonly CoreProperty<TextBlock> ObjectProperty;
-    private readonly OutputSocket<DrawableRenderNode> _outputSocket;
 
     static TextNode()
     {
@@ -21,7 +23,7 @@ public class TextNode : Node
 
     public TextNode()
     {
-        _outputSocket = AddOutput<DrawableRenderNode>("Output");
+        Output = AddOutput<DrawableRenderNode>("Output");
         Object = new TextBlock();
         Object.AlignmentX.CurrentValue = AlignmentX.Left;
         Object.AlignmentY.CurrentValue = AlignmentY.Top;
@@ -36,44 +38,13 @@ public class TextNode : Node
         AddInput(Object, Object.SplitByCharacters);
     }
 
+    public OutputSocket<DrawableRenderNode> Output { get; }
+
     [NotAutoSerialized]
     public TextBlock Object
     {
         get;
         set => SetAndRaise(ObjectProperty, ref field, value);
-    }
-
-    public override void Evaluate(NodeEvaluationContext context)
-    {
-        base.Evaluate(context);
-        var renderContext = new RenderContext(context.Renderer.Time);
-        DrawableRenderNode? drawableNode = _outputSocket.Value;
-        TextBlock.Resource? resource = drawableNode?.Drawable?.Resource as TextBlock.Resource;
-        if (resource == null)
-        {
-            resource = Object.ToResource(renderContext);
-        }
-        else
-        {
-            bool updateOnly = false;
-            resource.Update(Object, renderContext, ref updateOnly);
-        }
-
-        if (drawableNode == null)
-        {
-            drawableNode = new DrawableRenderNode(resource);
-        }
-        else
-        {
-            drawableNode.Update(resource);
-        }
-
-        using (var gc2d = new GraphicsContext2D(drawableNode, context.Renderer.FrameSize))
-        {
-            Object.Render(gc2d, resource);
-        }
-        
-        _outputSocket.Value = drawableNode;
     }
 
     public override void Serialize(ICoreSerializationContext context)
@@ -86,5 +57,40 @@ public class TextNode : Node
     {
         base.Deserialize(context);
         context.Populate("Object", Object);
+    }
+
+    public partial class Resource
+    {
+        public override void Update(NodeRenderContext context)
+        {
+            var node = GetOriginal();
+            var output = Output;
+            TextBlock.Resource? resource = output?.Drawable?.Resource as TextBlock.Resource;
+            if (resource == null)
+            {
+                resource = node.Object.ToResource(context);
+            }
+            else
+            {
+                bool updateOnly = false;
+                resource.Update(node.Object, context, ref updateOnly);
+            }
+
+            if (output == null)
+            {
+                output = new DrawableRenderNode(resource);
+            }
+            else
+            {
+                output.Update(resource);
+            }
+
+            using (var gc2d = new GraphicsContext2D(output, Renderer!.FrameSize))
+            {
+                node.Object.Render(gc2d, resource);
+            }
+
+            Output = output;
+        }
     }
 }

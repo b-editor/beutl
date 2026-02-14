@@ -1,83 +1,115 @@
-﻿using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes;
 
-public sealed class GeometryShapeNode : Node
+public sealed partial class GeometryShapeNode : Node
 {
-    private readonly OutputSocket<GeometryRenderNode> _outputSocket;
-    private readonly InputSocket<Media.Geometry?> _geometrySocket;
-    private readonly InputSocket<Brush?> _fillSocket;
-    private readonly InputSocket<Pen?> _penSocket;
-
     public GeometryShapeNode()
     {
-        _outputSocket = AddOutput<GeometryRenderNode>("Output");
-        _geometrySocket = AddInput<Media.Geometry?>("Geometry");
-        _fillSocket = AddInput<Brush?>("Fill");
-        _penSocket = AddInput<Pen?>("Pen");
+        Output = AddOutput<GeometryRenderNode>("Output");
+        Geometry = AddInput<Media.Geometry?>("Geometry");
+        Fill = AddInput<Brush?>("Fill");
+        Pen = AddInput<Pen?>("Pen");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<GeometryRenderNode> Output { get; }
+
+    public InputSocket<Media.Geometry?> Geometry { get; }
+
+    public InputSocket<Brush?> Fill { get; }
+
+    public InputSocket<Pen?> Pen { get; }
+
+    public partial class Resource
     {
-        if (_geometrySocket.Value == null)
+        private GeometryRenderNode? _cachedOutput;
+
+        public override void Update(NodeRenderContext context)
         {
-            _outputSocket.Value?.Fill?.Resource.Dispose();
-            _outputSocket.Value?.Pen?.Resource.Dispose();
-            _outputSocket.Value?.Geometry?.Resource.Dispose();
-            _outputSocket.Value?.Dispose();
-            _outputSocket.Value = null;
-            return;
+            var geometry = Geometry;
+
+            if (geometry == null)
+            {
+                if (_cachedOutput != null)
+                {
+                    _cachedOutput.Fill?.Resource.Dispose();
+                    _cachedOutput.Pen?.Resource.Dispose();
+                    _cachedOutput.Geometry?.Resource.Dispose();
+                    _cachedOutput.Dispose();
+                    _cachedOutput = null;
+                }
+
+                Output = null!;
+                return;
+            }
+
+            var fill = Fill;
+            var pen = Pen;
+
+            if (_cachedOutput == null)
+            {
+                var geometryResource = geometry.ToResource(context);
+                var fillResource = fill?.ToResource(context);
+                var penResource = pen?.ToResource(context);
+                _cachedOutput = new GeometryRenderNode(geometryResource, fillResource, penResource);
+            }
+            else
+            {
+                var geometryResource = _cachedOutput.Geometry?.Resource;
+                var fillResource = _cachedOutput.Fill?.Resource;
+                var penResource = _cachedOutput.Pen?.Resource;
+
+                if (geometryResource?.GetOriginal() != geometry)
+                {
+                    geometryResource?.Dispose();
+                    geometryResource = geometry.ToResource(context);
+                }
+                else
+                {
+                    bool updateOnly = false;
+                    geometryResource.Update(geometry, context, ref updateOnly);
+                }
+
+                if (fillResource?.GetOriginal() != fill || fill == null)
+                {
+                    fillResource?.Dispose();
+                    fillResource = fill?.ToResource(context);
+                }
+                else
+                {
+                    bool updateOnly = false;
+                    fillResource.Update(fill, context, ref updateOnly);
+                }
+
+                if (penResource?.GetOriginal() != pen || pen == null)
+                {
+                    penResource?.Dispose();
+                    penResource = pen?.ToResource(context);
+                }
+                else
+                {
+                    bool updateOnly = false;
+                    penResource.Update(pen, context, ref updateOnly);
+                }
+
+                _cachedOutput.Update(geometryResource, fillResource, penResource);
+            }
+
+            Output = _cachedOutput;
         }
 
-        var renderContext = new RenderContext(context.Renderer.Time);
-        if (_outputSocket.Value == null)
+        partial void PostDispose(bool disposing)
         {
-            var geometryResource = _geometrySocket.Value.ToResource(renderContext);
-            var fillResource = _fillSocket.Value?.ToResource(renderContext);
-            var penResource = _penSocket.Value?.ToResource(renderContext);
-            _outputSocket.Value = new GeometryRenderNode(geometryResource, fillResource, penResource);
-        }
-        else
-        {
-            var geometryResource = _outputSocket.Value.Geometry?.Resource;
-            var fillResource = _outputSocket.Value.Fill?.Resource;
-            var penResource = _outputSocket.Value.Pen?.Resource;
-
-            if (geometryResource?.GetOriginal() != _geometrySocket.Value)
+            if (disposing && _cachedOutput != null)
             {
-                geometryResource?.Dispose();
-                geometryResource = _geometrySocket.Value.ToResource(renderContext);
+                _cachedOutput.Fill?.Resource.Dispose();
+                _cachedOutput.Pen?.Resource.Dispose();
+                _cachedOutput.Geometry?.Resource.Dispose();
+                _cachedOutput.Dispose();
+                _cachedOutput = null;
             }
-            else
-            {
-                bool updateOnly = false;
-                geometryResource.Update(_geometrySocket.Value, renderContext, ref updateOnly);
-            }
-
-            if (fillResource?.GetOriginal() != _fillSocket.Value || _fillSocket.Value == null)
-            {
-                fillResource?.Dispose();
-                fillResource = _fillSocket.Value?.ToResource(renderContext);
-            }
-            else
-            {
-                bool updateOnly = false;
-                fillResource?.Update(_fillSocket.Value, renderContext, ref updateOnly);
-            }
-
-            if (penResource?.GetOriginal() != _penSocket.Value || _penSocket.Value == null)
-            {
-                penResource?.Dispose();
-                penResource = _penSocket.Value?.ToResource(renderContext);
-            }
-            else
-            {
-                bool updateOnly = false;
-                penResource?.Update(_penSocket.Value, renderContext, ref updateOnly);
-            }
-
-            _outputSocket.Value.Update(geometryResource, fillResource, penResource);
         }
     }
 }
