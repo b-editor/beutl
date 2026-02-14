@@ -1,10 +1,11 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
+using Beutl.NodeTree.Rendering;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree.Nodes.Group;
 
-public class GroupInput : Node, ISocketsCanBeAdded
+public partial class GroupInput : Node, ISocketsCanBeAdded
 {
     public SocketLocation PossibleLocation => SocketLocation.Right;
 
@@ -58,6 +59,23 @@ public class GroupInput : Node, ISocketsCanBeAdded
                 {
                     Items.Add(socket);
                 }
+            }
+        }
+    }
+
+    public partial class Resource
+    {
+        public IItemValue[]? OuterInputValues { get; set; }
+
+        public override void Update(NodeRenderContext context)
+        {
+            if (OuterInputValues == null) return;
+
+            var node = GetOriginal();
+            // 外部 GroupNode の入力値を GroupInput の出力値にコピー
+            for (int i = 0; i < node.Items.Count && i < OuterInputValues.Length; i++)
+            {
+                ItemValues[i].PropagateFrom(OuterInputValues[i]);
             }
         }
     }
