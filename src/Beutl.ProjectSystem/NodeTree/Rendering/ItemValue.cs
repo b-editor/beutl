@@ -75,5 +75,6 @@ public sealed class ItemValue<T> : IReadOnlyItemValue<T>
     {
         _disposer?.Invoke();
         _disposer = null;
+        _receiver = null;
     }
 }
