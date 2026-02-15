@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
@@ -281,7 +282,8 @@ public sealed partial class ElementView : UserControl
             ElementViewModel ViewModel,
             Element? Before,
             Element? After,
-            TimeSpan RecordedEndTime);
+            TimeSpan RecordedEndTime,
+            TimeSpan? OriginalLength);
 
         private bool _pressed;
         private AlignmentX _resizeType;
@@ -344,6 +346,13 @@ public sealed partial class ElementView : UserControl
                             {
                                 // 右
                                 double x = ctx.After == null ? point.X : Math.Min(ctx.After.Start.TimeToPixel(scale), point.X);
+
+                                if (ctx.OriginalLength.HasValue)
+                                {
+                                    double maxWidth = ctx.OriginalLength.Value.TimeToPixel(scale);
+                                    x = Math.Min(x, left + maxWidth);
+                                }
+
                                 ctx.ViewModel.Width.Value = Math.Max(x - left, minWidth);
                             }
                             else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
@@ -402,12 +411,26 @@ public sealed partial class ElementView : UserControl
                         filteredElements = [viewModel];
                     }
 
-                    _resizeContexts = filteredElements.Select(elem => new ElementResizeContext(
-                        ViewModel: elem,
-                        Before: elem.Model.GetBefore(elem.Model.ZIndex, elem.Model.Start),
-                        After: elem.Model.GetAfter(elem.Model.ZIndex, elem.Model.Range.End),
-                        RecordedEndTime: elem.Model.Range.End
-                    )).ToArray();
+                    bool clampToOriginal = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+
+                    _resizeContexts = filteredElements.Select(elem =>
+                    {
+                        TimeSpan? originalLength = null;
+                        if (clampToOriginal
+                            && !elem.Model.UseNode
+                            && elem.Model.Operation.Children.FirstOrDefault(v => v.HasOriginalLength()) is { } op
+                            && op.TryGetOriginalLength(out TimeSpan ts))
+                        {
+                            originalLength = ts;
+                        }
+
+                        return new ElementResizeContext(
+                            ViewModel: elem,
+                            Before: elem.Model.GetBefore(elem.Model.ZIndex, elem.Model.Start),
+                            After: elem.Model.GetAfter(elem.Model.ZIndex, elem.Model.Range.End),
+                            RecordedEndTime: elem.Model.Range.End,
+                            OriginalLength: originalLength);
+                    }).ToArray();
 
                     _pressed = true;
                     e.Handled = true;

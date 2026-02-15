@@ -358,6 +358,14 @@
     <value>タイムラインのスクロール方向を入れ替える</value>
     <comment/>
   </data>
+  <data name="ClampResizeToOriginalLength" xml:space="preserve">
+    <value>リサイズをメディアの元の長さに制限する</value>
+    <comment/>
+  </data>
+  <data name="ClampResizeToOriginalLength_Description" xml:space="preserve">
+    <value>タイムラインの要素をメディアの元の長さを超えてリサイズできないようにします</value>
+    <comment/>
+  </data>
   <data name="Graphics" xml:space="preserve">
     <value>Graphics</value>
     <comment/>
