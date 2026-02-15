@@ -22,7 +22,7 @@ public partial class RandomSingleNode : Node
         public override void Update(NodeRenderContext context)
         {
             float value = Random.Shared.NextSingle();
-            Value = value * Minimum + (1 - value) * Maximum;
+            Value = value * Maximum + (1 - value) * Minimum;
         }
     }
 }
@@ -47,7 +47,7 @@ public partial class RandomDoubleNode : Node
         public override void Update(NodeRenderContext context)
         {
             double value = Random.Shared.NextDouble();
-            Value = value * Minimum + (1 - value) * Maximum;
+            Value = value * Maximum + (1 - value) * Minimum;
         }
     }
 }
