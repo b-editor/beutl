@@ -38,7 +38,7 @@ public partial class TextNode : Node
         AddInput(Object, Object.SplitByCharacters);
     }
 
-    public OutputSocket<DrawableRenderNode> Output { get; }
+    public OutputSocket<DrawableRenderNode?> Output { get; }
 
     [NotAutoSerialized]
     public TextBlock Object
@@ -63,10 +63,10 @@ public partial class TextNode : Node
     {
         public override void Update(NodeRenderContext context)
         {
+            if (Renderer == null) return;
             var node = GetOriginal();
             var output = Output;
-            TextBlock.Resource? resource = output?.Drawable?.Resource as TextBlock.Resource;
-            if (resource == null)
+            if (output?.Drawable?.Resource is not TextBlock.Resource resource)
             {
                 resource = node.Object.ToResource(context);
             }
@@ -85,7 +85,7 @@ public partial class TextNode : Node
                 output.Update(resource);
             }
 
-            using (var gc2d = new GraphicsContext2D(output, Renderer!.FrameSize))
+            using (var gc2d = new GraphicsContext2D(output, Renderer.FrameSize))
             {
                 node.Object.Render(gc2d, resource);
             }
