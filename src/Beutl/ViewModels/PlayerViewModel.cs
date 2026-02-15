@@ -415,7 +415,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             if (OperatingSystem.IsWindows())
             {
-                using var audioContext = new XAudioContext();
+                int sampleRate = EditViewModel.Composer.Value.SampleRate;
+                using var audioContext = new XAudioContext(sampleRate);
                 await PlayWithXA2(audioContext, scene).ConfigureAwait(false);
             }
             else
