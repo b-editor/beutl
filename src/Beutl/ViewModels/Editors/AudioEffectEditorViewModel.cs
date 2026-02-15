@@ -129,6 +129,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
     {
         if (Activator.CreateInstance(type) is AudioEffect instance)
         {
+            IsExpanded.Value = true;
             SetValue(Value.Value, instance);
         }
     }
@@ -138,8 +139,18 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
         if (Value.Value is AudioEffectGroup group
             && Activator.CreateInstance(type) is AudioEffect instance)
         {
+            IsExpanded.Value = true;
             group.Children.Add(instance);
             Commit();
+
+            if (Group.Value is { } listEditor)
+            {
+                var addedItem = listEditor.Items.LastOrDefault();
+                if (addedItem?.Context is AudioEffectEditorViewModel vm)
+                {
+                    vm.IsExpanded.Value = true;
+                }
+            }
         }
     }
 

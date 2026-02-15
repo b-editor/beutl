@@ -59,7 +59,6 @@ public partial class AudioEffectEditor : UserControl
                 viewModel.ChangeFilterType(type);
             }
 
-            viewModel.IsExpanded.Value = true;
             e.Handled = true;
         }
     }

@@ -208,6 +208,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
         Transform? obj = CreateTransform(type);
         if (obj != null)
         {
+            IsExpanded.Value = true;
             SetValue(Value.Value, obj);
         }
     }
@@ -217,8 +218,18 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
         if (Value.Value is TransformGroup group
             && CreateTransform(type) is { } obj)
         {
+            IsExpanded.Value = true;
             group.Children.Add(obj);
             Commit();
+
+            if (Group.Value is { } listEditor)
+            {
+                var addedItem = listEditor.Items.LastOrDefault();
+                if (addedItem?.Context is TransformEditorViewModel vm)
+                {
+                    vm.IsExpanded.Value = true;
+                }
+            }
         }
     }
 

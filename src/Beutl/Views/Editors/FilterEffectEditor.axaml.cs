@@ -74,7 +74,6 @@ public partial class FilterEffectEditor : UserControl
                 viewModel.ChangeFilterType(type);
             }
 
-            viewModel.IsExpanded.Value = true;
             e.Handled = true;
         }
     }
