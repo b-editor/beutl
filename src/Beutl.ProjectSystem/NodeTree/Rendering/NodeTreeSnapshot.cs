@@ -32,11 +32,6 @@ public sealed class NodeTreeSnapshot : IDisposable
         int nodeCount = model.Nodes.Count;
         if (nodeCount == 0)
         {
-            _resources = [];
-            _contexts = [];
-            _connections = [];
-            _outputConnectionMap.Clear();
-            _connectedInputs.Clear();
             _isDirty = false;
             return;
         }
@@ -185,9 +180,6 @@ public sealed class NodeTreeSnapshot : IDisposable
         IEnumerable<Connection> allConnections,
         Dictionary<Node, int> nodeToResourceIndex)
     {
-        _outputConnectionMap.Clear();
-        _connectedInputs.Clear();
-
         var connectionList = new List<ConnectionSnapshot>();
 
         foreach (Connection connection in allConnections)
@@ -241,8 +233,6 @@ public sealed class NodeTreeSnapshot : IDisposable
 
     private void BuildInputConnectionMap(List<ConnectionSnapshot> connectionList)
     {
-        _inputConnectionMap.Clear();
-
         // Connection -> connectionIndex のマッピングを作成
         var connectionToIndex = new Dictionary<Connection, int>();
         for (int i = 0; i < connectionList.Count; i++)
@@ -437,6 +427,10 @@ public sealed class NodeTreeSnapshot : IDisposable
         _resources = [];
         _contexts = [];
         _connections = [];
+
+        _outputConnectionMap.Clear();
+        _connectedInputs.Clear();
+        _inputConnectionMap.Clear();
     }
 
     public void Dispose()
