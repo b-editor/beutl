@@ -42,6 +42,12 @@ public sealed class ItemValue<T> : IReadOnlyItemValue<T>
             return PropagateResult.Converted;
         }
 
+        if (source.GetBoxed() is T unboxed)
+        {
+            Value = unboxed;
+            return PropagateResult.Converted;
+        }
+
         return PropagateResult.Failed;
     }
 
