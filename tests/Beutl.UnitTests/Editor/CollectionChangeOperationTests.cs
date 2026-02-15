@@ -1436,7 +1436,7 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void CollectionChangeOperation_Apply_WhenNodeItemPropertyPathNotProperty_ShouldNotUseNodeItemPath()
+    public void CollectionChangeOperation_Apply_WhenNodeItemPropertyPathNotProperty_ShouldInvalidOperationException()
     {
         // Arrange - NodeItem with PropertyPath != "Property" should fall through to CoreObject path
         var list = new CoreList<string>(["A", "B", "C"]);
@@ -1453,11 +1453,8 @@ public class CollectionChangeOperationTests
             SequenceNumber = 1
         };
 
-        // Act - Should not throw, just try CoreObject path (which won't find property)
-        Assert.DoesNotThrow(() => operation.Apply(_context));
-
-        // Assert - List should be unchanged because "OtherProperty" doesn't exist
-        Assert.That(list, Is.EqualTo(new[] { "A", "B", "C" }));
+        // Act & Assert
+        Assert.Throws<InvalidOperationException>(() => operation.Apply(_context));
     }
 
     #endregion
