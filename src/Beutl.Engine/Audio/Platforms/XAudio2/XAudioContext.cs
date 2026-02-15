@@ -24,10 +24,10 @@ public sealed partial class XAudioContext : IDisposable
         }
     }
 
-    public XAudioContext()
+    public XAudioContext(int sampleRate = 44100)
     {
         Device = Vortice.XAudio2.XAudio2.XAudio2Create();
-        MasteringVoice = Device.CreateMasteringVoice(2, 44100, AudioStreamCategory.Other);
+        MasteringVoice = Device.CreateMasteringVoice(2, (uint)sampleRate, AudioStreamCategory.Other);
     }
 
     ~XAudioContext()
