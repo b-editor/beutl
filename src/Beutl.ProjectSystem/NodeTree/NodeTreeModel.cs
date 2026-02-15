@@ -1,19 +1,18 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Beutl.Collections;
+using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree;
 
-public abstract class NodeTreeModel : Hierarchical, INotifyEdited
+public abstract class NodeTreeModel : EngineObject
 {
     public static readonly CoreProperty<HierarchicalList<Node>> NodesProperty;
     public static readonly CoreProperty<HierarchicalList<Connection>> AllConnectionsProperty;
     private readonly HierarchicalList<Node> _nodes;
     private readonly HierarchicalList<Connection> _allConnections;
-
-    public event EventHandler? Edited;
 
     public event EventHandler? TopologyChanged;
 
@@ -41,13 +40,13 @@ public abstract class NodeTreeModel : Hierarchical, INotifyEdited
     private void OnConnectionDetached(Connection obj)
     {
         RaiseTopologyChanged();
-        RaiseEdited(EventArgs.Empty);
+        RaiseEdited();
     }
 
     private void OnConnectionAttached(Connection obj)
     {
         RaiseTopologyChanged();
-        RaiseEdited(EventArgs.Empty);
+        RaiseEdited();
     }
 
     private void OnTopologyChanged(object? sender, EventArgs e)
@@ -57,21 +56,21 @@ public abstract class NodeTreeModel : Hierarchical, INotifyEdited
 
     private void OnNodeEdited(object? sender, EventArgs e)
     {
-        RaiseEdited(e);
+        RaiseEdited();
     }
 
     private void OnNodeDetached(Node obj)
     {
         obj.TopologyChanged -= OnTopologyChanged;
         obj.Edited -= OnNodeEdited;
-        RaiseEdited(EventArgs.Empty);
+        RaiseEdited();
     }
 
     private void OnNodeAttached(Node obj)
     {
         obj.TopologyChanged += OnTopologyChanged;
         obj.Edited += OnNodeEdited;
-        RaiseEdited(EventArgs.Empty);
+        RaiseEdited();
     }
 
     public HierarchicalList<Node> Nodes
@@ -103,11 +102,6 @@ public abstract class NodeTreeModel : Hierarchical, INotifyEdited
     protected void RaiseTopologyChanged()
     {
         TopologyChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    protected void RaiseEdited(EventArgs args)
-    {
-        Edited?.Invoke(this, args);
     }
 
     public ISocket? FindSocket(Guid id)

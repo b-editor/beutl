@@ -7,11 +7,17 @@ using System.Text.Json.Serialization;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
+using Beutl.NodeTree.Rendering;
 using Beutl.Operation;
 
 namespace Beutl.NodeTree;
 
-public class EnginePropertyBackedInputSocket<T> : InputSocket<T>
+public interface IEnginePropertyBackedInputSocket
+{
+    void CopyFrom(IItemValue itemValue);
+}
+
+public class EnginePropertyBackedInputSocket<T> : InputSocket<T>, IEnginePropertyBackedInputSocket
 {
     private readonly IProperty<T> _property;
 
@@ -20,7 +26,7 @@ public class EnginePropertyBackedInputSocket<T> : InputSocket<T>
         Name = property.Name;
         Display = property.GetPropertyInfo()?.GetCustomAttribute<DisplayAttribute>();
         _property = property;
-        property.Edited += (_, e) => RaiseEdited(EventArgs.Empty);
+        property.Edited += (_, e) => RaiseEdited();
         IPropertyAdapter<T> adapter;
         if (property is AnimatableProperty<T> animatableProperty)
         {
@@ -38,6 +44,15 @@ public class EnginePropertyBackedInputSocket<T> : InputSocket<T>
         Property = adapter;
     }
 
+    public void CopyFrom(IItemValue itemValue)
+    {
+        if (itemValue is not ItemValue<T> typed) return;
+        if (!Connection.IsNull && _property.Expression is SocketExpression<T> exp)
+        {
+            exp.Value = typed.Value;
+        }
+    }
+
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
@@ -45,19 +60,6 @@ public class EnginePropertyBackedInputSocket<T> : InputSocket<T>
             coreArgs.Property.Id == ConnectionProperty.Id)
         {
             _property.Expression = Connection.IsNull ? null : new SocketExpression<T>();
-        }
-    }
-
-    // デフォルトではPropertyAdapterのアニメーションが実行されてしまうので防ぐ
-    public override void PreEvaluate(EvaluationContext context)
-    {
-    }
-
-    public override void Evaluate(EvaluationContext context)
-    {
-        if (!Connection.IsNull && _property.Expression is SocketExpression<T> exp)
-        {
-            exp.Value = Value;
         }
     }
 }

@@ -1,23 +1,29 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Utilities;
 
-public class ScaleMatrixNode : MatrixNode
+public partial class ScaleMatrixNode : MatrixNode
 {
-    private readonly InputSocket<float> _scaleSocket;
-    private readonly InputSocket<float> _scaleXSocket;
-    private readonly InputSocket<float> _scaleYSocket;
-
     public ScaleMatrixNode()
     {
-        _scaleSocket = AddInput<float>("Scale");
-        _scaleXSocket = AddInput<float>("ScaleX");
-        _scaleYSocket = AddInput<float>("ScaleY");
+        Scale = AddInput<float>("Scale");
+        ScaleX = AddInput<float>("ScaleX");
+        ScaleY = AddInput<float>("ScaleY");
     }
 
-    public override Matrix GetMatrix(NodeEvaluationContext context)
+    public InputSocket<float> Scale { get; }
+
+    public InputSocket<float> ScaleX { get; }
+
+    public InputSocket<float> ScaleY { get; }
+
+    public partial class Resource
     {
-        return Matrix.CreateScale(_scaleSocket.Value * _scaleXSocket.Value, _scaleSocket.Value * _scaleYSocket.Value);
+        protected override Matrix GetMatrix(NodeRenderContext context, MatrixNode node)
+        {
+            return Matrix.CreateScale(Scale * ScaleX, Scale * ScaleY);
+        }
     }
 }

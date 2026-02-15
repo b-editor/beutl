@@ -1,11 +1,12 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
+using Beutl.NodeTree.Rendering;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree.Nodes.Group;
 
-public class GroupOutput : Node, ISocketsCanBeAdded
+public partial class GroupOutput : Node, ISocketsCanBeAdded
 {
     public SocketLocation PossibleLocation => SocketLocation.Left;
 

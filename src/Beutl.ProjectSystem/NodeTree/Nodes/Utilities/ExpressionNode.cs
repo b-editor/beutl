@@ -1,65 +1,72 @@
+using Beutl.NodeTree.Rendering;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 
 namespace Beutl.NodeTree.Nodes.Utilities;
 
-public class ExpressionNode : Node
+public partial class ExpressionNode : Node
 {
     private static readonly ScriptOptions s_scriptOptions = CreateScriptOptions();
-
-    private readonly ListInputSocket<object?> _inputSocket;
-    private readonly NodeItem<string> _expressionProperty;
-    private readonly OutputSocket<object?> _outputSocket;
-    private readonly NodeMonitor<string?> _errorMonitor;
+    private readonly ExpressionNodeState _state = new();
 
     public ExpressionNode()
     {
-        _inputSocket = AddListInput<object?>("Inputs");
-        _expressionProperty = AddProperty<string>("Expression");
-        _outputSocket = AddOutput<object?>("Output");
-        _errorMonitor = AddTextMonitor("Error");
+        InputSocket = AddListInput<object?>("Inputs");
+        Expression = AddProperty<string>("Expression");
+        Output = AddOutput<object?>("Output");
+        ErrorMonitor = AddTextMonitor("Error");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public ListInputSocket<object?> InputSocket { get; }
+
+    public NodeItem<string> Expression { get; }
+
+    public OutputSocket<object?> Output { get; }
+
+    public NodeMonitor<string?> ErrorMonitor { get; }
+
+    public partial class Resource
     {
-        base.Evaluate(context);
-
-        var state = context.GetOrSetStateWithFactory(() => new ExpressionNodeState());
-        string? expression = _expressionProperty.Value;
-
-        if (string.IsNullOrWhiteSpace(expression))
+        public override void Update(NodeRenderContext context)
         {
-            _outputSocket.Value = null;
-            _errorMonitor.Value = null;
-            return;
-        }
+            var node = GetOriginal();
+            var state = node._state;
+            string? expression = Expression;
 
-        if (state.Expression != expression)
-        {
-            state.Compile(expression!, s_scriptOptions);
-        }
+            if (string.IsNullOrWhiteSpace(expression))
+            {
+                Output = null;
+                node.ErrorMonitor.Value = null;
+                return;
+            }
 
-        if (state.CompileError != null)
-        {
-            _outputSocket.Value = null;
-            _errorMonitor.Value = state.CompileError;
-            return;
-        }
+            if (state.Expression != expression)
+            {
+                state.Compile(expression!, s_scriptOptions);
+            }
 
-        try
-        {
-            List<object?> inputs = _inputSocket.CollectValues();
-            double time = context.Renderer.Time.TotalSeconds;
-            var globals = new ExpressionNodeGlobals(inputs, time);
-            object? result = state.Runner!(globals).GetAwaiter().GetResult();
-            _outputSocket.Value = result;
-            _errorMonitor.Value = null;
-        }
-        catch (Exception ex)
-        {
-            _outputSocket.Value = null;
-            _errorMonitor.Value = $"Runtime error: {ex.Message}";
+            if (state.CompileError != null)
+            {
+                Output = null;
+                node.ErrorMonitor.Value = state.CompileError;
+                return;
+            }
+
+            try
+            {
+                List<object?> inputs = context.CollectListInputValues<object?>(node.InputSocket);
+                double time = context.Time.TotalSeconds;
+                var globals = new ExpressionNodeGlobals(inputs, time);
+                object? result = state.Runner!(globals).GetAwaiter().GetResult();
+                Output = result;
+                node.ErrorMonitor.Value = null;
+            }
+            catch (Exception ex)
+            {
+                Output = null;
+                node.ErrorMonitor.Value = $"Runtime error: {ex.Message}";
+            }
         }
     }
 

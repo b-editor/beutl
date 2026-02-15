@@ -1,23 +1,28 @@
 ﻿using Beutl.Graphics;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Utilities.Struct;
 
-public class RectNode : Node
+public partial class RectNode : Node
 {
-    private readonly OutputSocket<Rect> _valueSocket;
-    private readonly InputSocket<Point> _positionSocket;
-    private readonly InputSocket<Size> _sizeSocket;
-
     public RectNode()
     {
-        _valueSocket = AddOutput<Rect>("Rect");
-        _positionSocket = AddInput<Point>("TopLeft");
-        _sizeSocket = AddInput<Size>("Size");
+        Value = AddOutput<Rect>("Rect");
+        Position = AddInput<Point>("TopLeft");
+        Size = AddInput<Size>("Size");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<Rect> Value { get; }
+
+    public new InputSocket<Point> Position { get; }
+
+    public InputSocket<Size> Size { get; }
+
+    public partial class Resource
     {
-        base.Evaluate(context);
-        _valueSocket.Value = new Rect(_positionSocket.Value, _sizeSocket.Value);
+        public override void Update(NodeRenderContext context)
+        {
+            Value = new Rect(Position, Size);
+        }
     }
 }

@@ -97,7 +97,7 @@ public readonly struct PixelPoint(int x, int y)
     /// <param name="s">The string.</param>
     /// <param name="rect">The <see cref="PixelPoint"/>.</param>
     /// <returns>The status of the operation.</returns>
-    public static bool TryParse(string s, out PixelPoint rect)
+    public static bool TryParse(string? s, out PixelPoint rect)
     {
         return TryParse(s.AsSpan(), out rect);
     }

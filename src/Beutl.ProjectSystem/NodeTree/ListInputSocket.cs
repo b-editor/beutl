@@ -22,7 +22,7 @@ public class ListInputSocket<T> : Socket<T>, IListInputSocket
         Connections.CollectionChanged += (_, _) =>
         {
             RaiseTopologyChanged();
-            RaiseEdited(EventArgs.Empty);
+            RaiseEdited();
         };
     }
 
@@ -59,43 +59,6 @@ public class ListInputSocket<T> : Socket<T>, IListInputSocket
     public void MoveConnection(int oldIndex, int newIndex)
     {
         Connections.Move(oldIndex, newIndex);
-    }
-
-    // Receiveはno-op（値はCollectValuesで直接読み取り）
-    public void Receive(object? value)
-    {
-    }
-
-    // 評価時に全接続の値を収集
-    public List<T?> CollectValues()
-    {
-        var result = new List<T?>(Connections.Count);
-        foreach (Reference<Connection> conn in Connections)
-        {
-            if (conn is { Value.Output.Value: IOutputSocket output })
-            {
-                if (output.Value is T typed)
-                {
-                    result.Add(typed);
-                    conn.Value.SetValue(Beutl.NodeTree.Connection.StatusProperty, ConnectionStatus.Success);
-                }
-                else
-                {
-                    result.Add(default);
-                    conn.Value.SetValue(Beutl.NodeTree.Connection.StatusProperty, ConnectionStatus.Error);
-                }
-            }
-        }
-
-        return result;
-    }
-
-    public override void PreEvaluate(EvaluationContext context)
-    {
-        if (Connections.Count == 0)
-        {
-            base.PreEvaluate(context);
-        }
     }
 
     public override void Serialize(ICoreSerializationContext context)

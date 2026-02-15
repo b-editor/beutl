@@ -3,12 +3,13 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using Beutl.Extensibility;
 using Beutl.Media;
+using Beutl.NodeTree.Rendering;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree.Nodes;
 
-public class LayerInputNode : Node, ISocketsCanBeAdded
+public partial class LayerInputNode : Node, ISocketsCanBeAdded
 {
     public SocketLocation PossibleLocation => SocketLocation.Right;
 
@@ -61,7 +62,7 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
 
         private void OnPropertyEdited(object? sender, EventArgs e)
         {
-            RaiseEdited(new RenderInvalidatedEventArgs(this));
+            RaiseEdited();
         }
 
         protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
@@ -74,29 +75,6 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
         {
             base.OnDetachedFromHierarchy(in args);
             _parent = null;
-        }
-
-        public override void PreEvaluate(EvaluationContext context)
-        {
-            if (_property is { } property)
-            {
-                if (property is IAnimatablePropertyAdapter<T> { Animation: { } animation })
-                {
-                    var time = context.Renderer.Time;
-                    if (_parent != null && !animation.UseGlobalClock)
-                    {
-                        Value = animation.Interpolate(time - _parent.Start);
-                    }
-                    else
-                    {
-                        Value = animation.Interpolate(time);
-                    }
-                }
-                else
-                {
-                    Value = property.GetValue();
-                }
-            }
         }
 
         public override void Serialize(ICoreSerializationContext context)
@@ -153,6 +131,27 @@ public class LayerInputNode : Node, ISocketsCanBeAdded
                     socket)
                 {
                     Items.Add(socket);
+                }
+            }
+        }
+    }
+
+    public partial class Resource
+    {
+        public override void Update(NodeRenderContext context)
+        {
+            var node = GetOriginal();
+
+            // UseGlobalClock=false のアニメーションに対して、
+            // Element.Start 分のオフセットを適用して再評価
+            for (int i = 0; i < node.Items.Count; i++)
+            {
+                INodeItem item = node.Items[i];
+                if (item.Property is IAnimatablePropertyAdapter animAdapter
+                    && animAdapter.Animation is { UseGlobalClock: false } animation)
+                {
+                    var time = context.Time - node.Start;
+                    ItemValues[i].TryLoadFromAnimation(animation, time);
                 }
             }
         }

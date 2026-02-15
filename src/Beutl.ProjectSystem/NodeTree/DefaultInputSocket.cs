@@ -20,7 +20,7 @@ public sealed class DefaultInputSocket<T> : InputSocket<T>, IDefaultInputSocket
 
     private void OnAdapterEdited(object? sender, EventArgs e)
     {
-        RaiseEdited(new RenderInvalidatedEventArgs(this));
+        RaiseEdited();
     }
 
     public NodePropertyAdapter<T>? GetProperty()

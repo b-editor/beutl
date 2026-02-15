@@ -1,23 +1,28 @@
 ﻿using Beutl.Media;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Utilities.Struct;
 
-public class PixelSizeNode : Node
+public partial class PixelSizeNode : Node
 {
-    private readonly OutputSocket<PixelSize> _valueSocket;
-    private readonly InputSocket<int> _widthSocket;
-    private readonly InputSocket<int> _heightSocket;
-
     public PixelSizeNode()
     {
-        _valueSocket = AddOutput<PixelSize>("PixelSize");
-        _widthSocket = AddInput<int>("Width");
-        _heightSocket = AddInput<int>("Height");
+        Value = AddOutput<PixelSize>("PixelSize");
+        Width = AddInput<int>("Width");
+        Height = AddInput<int>("Height");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<PixelSize> Value { get; }
+
+    public InputSocket<int> Width { get; }
+
+    public InputSocket<int> Height { get; }
+
+    public partial class Resource
     {
-        base.Evaluate(context);
-        _valueSocket.Value = new PixelSize(_widthSocket.Value, _heightSocket.Value);
+        public override void Update(NodeRenderContext context)
+        {
+            Value = new PixelSize(Width, Height);
+        }
     }
 }

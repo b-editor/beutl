@@ -1,11 +1,10 @@
 ﻿using Beutl.Graphics.Rendering;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes;
 
-public class OutputNode : Node
+public partial class OutputNode : Node
 {
-    private readonly RenderNodeDrawable _drawable = new();
-
     public OutputNode()
     {
         InputSocket = AddInput<RenderNode>("Output");
@@ -13,10 +12,15 @@ public class OutputNode : Node
 
     protected InputSocket<RenderNode> InputSocket { get; }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public partial class Resource
     {
-        RenderNode? input = InputSocket.Value;
-        _drawable.Node = input;
-        context.AddRenderable(_drawable);
+        private readonly RenderNodeDrawable _drawable = new();
+
+        public override void Update(NodeRenderContext context)
+        {
+            RenderNode? input = InputSocket;
+            _drawable.Node = input;
+            context.AddRenderable(_drawable);
+        }
     }
 }

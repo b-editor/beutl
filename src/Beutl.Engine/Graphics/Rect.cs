@@ -261,7 +261,7 @@ public readonly struct Rect
     /// rectangle's bottom/right edge.
     /// </summary>
     /// <param name="p">The point.</param>
-    /// <returns>true if the point is in the bounds of the rectangle; otherwise false.</returns>    
+    /// <returns>true if the point is in the bounds of the rectangle; otherwise false.</returns>
     public bool ContainsExclusive(Point p)
     {
         return p.X >= X && p.X < X + Width &&
@@ -444,7 +444,7 @@ public readonly struct Rect
     }
 
     /// <summary>
-    /// Normalizes the rectangle so both the <see cref="Width"/> and <see 
+    /// Normalizes the rectangle so both the <see cref="Width"/> and <see
     /// cref="Height"/> are positive, without changing the location of the rectangle
     /// </summary>
     /// <returns>Normalized Rect</returns>
@@ -576,7 +576,7 @@ public readonly struct Rect
     /// <param name="s">The string.</param>
     /// <param name="rect">The <see cref="Rect"/>.</param>
     /// <returns>The status of the operation.</returns>
-    public static bool TryParse(string s, out Rect rect)
+    public static bool TryParse(string? s, out Rect rect)
     {
         return TryParse(s.AsSpan(), out rect);
     }
@@ -589,7 +589,7 @@ public readonly struct Rect
     /// <returns>The status of the operation.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, out Rect rect)
     {
-        return TryParse(s, out rect);
+        return TryParse(s, null, out rect);
     }
 
     /// <summary>

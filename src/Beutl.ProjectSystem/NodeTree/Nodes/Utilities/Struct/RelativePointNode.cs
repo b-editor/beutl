@@ -1,25 +1,31 @@
 ﻿using Beutl.Graphics;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Utilities.Struct;
 
-public class RelativePointNode : Node
+public partial class RelativePointNode : Node
 {
-    private readonly OutputSocket<RelativePoint> _valueSocket;
-    private readonly NodeItem<RelativeUnit> _unitSocket;
-    private readonly InputSocket<float> _xSocket;
-    private readonly InputSocket<float> _ySocket;
-
     public RelativePointNode()
     {
-        _valueSocket = AddOutput("RelativePoint", RelativePoint.TopLeft);
-        _unitSocket = AddProperty<RelativeUnit>("Unit");
-        _xSocket = AddInput<float>("X");
-        _ySocket = AddInput<float>("Y");
+        Value = AddOutput<RelativePoint>("RelativePoint");
+        Unit = AddProperty<RelativeUnit>("Unit");
+        X = AddInput<float>("X");
+        Y = AddInput<float>("Y");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<RelativePoint> Value { get; }
+
+    public NodeItem<RelativeUnit> Unit { get; }
+
+    public InputSocket<float> X { get; }
+
+    public InputSocket<float> Y { get; }
+
+    public partial class Resource
     {
-        base.Evaluate(context);
-        _valueSocket.Value = new RelativePoint(_xSocket.Value, _ySocket.Value, _unitSocket.Value);
+        public override void Update(NodeRenderContext context)
+        {
+            Value = new RelativePoint(X, Y, Unit);
+        }
     }
 }

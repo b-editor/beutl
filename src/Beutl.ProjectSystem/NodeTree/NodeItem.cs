@@ -1,11 +1,13 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Media;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree;
 
-public abstract class NodeItem : Hierarchical
+public abstract partial class NodeItem : EngineObject
 {
     public static readonly CoreProperty<DisplayAttribute?> DisplayProperty;
     private DisplayAttribute? _display;
@@ -33,54 +35,18 @@ public abstract class NodeItem : Hierarchical
     }
 }
 
-public class NodeItem<T> : NodeItem, INodeItem, ISupportSetValueNodeItem
+public partial class NodeItem<T> : NodeItem, INodeItem
 {
     public IPropertyAdapter<T>? Property { get; protected set; }
 
-    // レンダリング時に変更されるので、変更通知は必要ない
-    public T? Value { get; set; }
-
     public virtual Type? AssociatedType => typeof(T);
-
-    public event EventHandler? Edited;
-
-    public virtual void PreEvaluate(EvaluationContext context)
-    {
-        if (Property is { } property)
-        {
-            if (property is IAnimatablePropertyAdapter<T> { Animation: IAnimation<T> animation })
-            {
-                Value = animation.GetAnimatedValue(context.Renderer.Time);
-            }
-            else
-            {
-                Value = property.GetValue();
-            }
-        }
-    }
-
-    public virtual void Evaluate(EvaluationContext context)
-    {
-    }
-
-    public virtual void PostEvaluate(EvaluationContext context)
-    {
-    }
-
-    protected void RaiseEdited(EventArgs args)
-    {
-        Edited?.Invoke(this, args);
-    }
 
     IPropertyAdapter? INodeItem.Property => Property;
 
-    object? INodeItem.Value => Value;
-
-    void ISupportSetValueNodeItem.SetThrough(INodeItem nodeItem)
+    public IItemValue CreateItemValue()
     {
-        if (nodeItem is NodeItem<T> t)
-        {
-            Value = t.Value;
-        }
+        var value = new ItemValue<T>();
+        ItemValueHelper.RegisterDefaultReceiver(value, this);
+        return value;
     }
 }

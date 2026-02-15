@@ -1,8 +1,9 @@
-﻿using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes;
 
-public abstract class ConfigureNode : Node
+public abstract partial class ConfigureNode : Node
 {
     public ConfigureNode()
     {
@@ -14,22 +15,27 @@ public abstract class ConfigureNode : Node
 
     protected ListInputSocket<RenderNode?> InputSocket { get; }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public partial class Resource
     {
-        base.Evaluate(context);
-        var inputs = InputSocket.CollectValues()!;
-
-        EvaluateCore(context);
-        ContainerRenderNode? output = OutputSocket.Value;
-        if (output == null) return;
-
-        output.HasChanges = inputs.Any(i => i?.HasChanges == true) || output.HasChanges;
-        output.RemoveRange(0, output.Children.Count);
-        foreach (var input in inputs.OfType<RenderNode>())
+        public override void Update(NodeRenderContext context)
         {
-            output.AddChild(input);
+            var node = GetOriginal();
+            var inputs = context.CollectListInputValues(node.InputSocket);
+
+            EvaluateCore(context);
+            var output = OutputSocket;
+            if (output == null) return;
+
+            output.HasChanges = inputs.Any(i => i?.HasChanges == true) || output.HasChanges;
+            output.RemoveRange(0, output.Children.Count);
+            foreach (var input in inputs.OfType<RenderNode>())
+            {
+                output.AddChild(input);
+            }
+        }
+
+        protected virtual void EvaluateCore(NodeRenderContext context)
+        {
         }
     }
-
-    protected abstract void EvaluateCore(NodeEvaluationContext context);
 }

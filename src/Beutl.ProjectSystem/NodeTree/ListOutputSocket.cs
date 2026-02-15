@@ -7,8 +7,6 @@ public class ListOutputSocket<T> : Socket<T>, IListOutputSocket
 {
     public static readonly CoreProperty<CoreList<Reference<Connection>>> ConnectionsProperty;
     private readonly CoreList<Reference<Connection>> _connections = [];
-    private readonly List<T?> _values = [];
-    private UnsafeBox<T> _box;
 
     static ListOutputSocket()
     {
@@ -23,13 +21,8 @@ public class ListOutputSocket<T> : Socket<T>, IListOutputSocket
         Connections.CollectionChanged += (_, _) =>
         {
             RaiseTopologyChanged();
-            RaiseEdited(EventArgs.Empty);
+            RaiseEdited();
         };
-    }
-
-    ~ListOutputSocket()
-    {
-        _box.Dispose();
     }
 
     [NotAutoSerialized]
@@ -60,34 +53,6 @@ public class ListOutputSocket<T> : Socket<T>, IListOutputSocket
     public void MoveConnection(int oldIndex, int newIndex)
     {
         Connections.Move(oldIndex, newIndex);
-    }
-
-    // ノードのEvaluateで呼ばれる - 出力する値のリストを設定
-    public void SetValues(IReadOnlyList<T?> values)
-    {
-        _values.Clear();
-        _values.AddRange(values);
-    }
-
-    // PostEvaluate: 各接続にインデックス対応の値を送信
-    public override void PostEvaluate(EvaluationContext context)
-    {
-        base.PostEvaluate(context);
-        for (int i = 0; i < Connections.Count; i++)
-        {
-            T? value = i < _values.Count ? _values[i] : default;
-            Connection? conn = Connections[i];
-            if (conn == null) continue;
-            if (conn.Input.Value is InputSocket<T> sameType)
-            {
-                sameType.Receive(value);
-            }
-            else if (conn.Input.Value is IInputSocket inputSocket)
-            {
-                _box.Update(value);
-                inputSocket.Receive(_box.Object);
-            }
-        }
     }
 
     public override void Serialize(ICoreSerializationContext context)

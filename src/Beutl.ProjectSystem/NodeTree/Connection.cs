@@ -44,7 +44,7 @@ public sealed class Connection : Hierarchical
     public ConnectionStatus Status
     {
         get => _status;
-        private set => SetAndRaise(StatusProperty, ref _status, value);
+        set => SetAndRaise(StatusProperty, ref _status, value);
     }
 
     public Reference<NodeItem> Input

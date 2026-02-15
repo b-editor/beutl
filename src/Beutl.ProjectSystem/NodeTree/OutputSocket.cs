@@ -1,51 +1,13 @@
-﻿using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Beutl.Collections;
+﻿using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree;
 
-internal struct UnsafeBox<T> : IDisposable
-{
-    public object? Object;
-    private GCHandle _handle;
-    private nint _ptr;
-
-    public unsafe void Update(T? value)
-    {
-        bool managedType = RuntimeHelpers.IsReferenceOrContainsReferences<T>();
-        if (!managedType)
-        {
-            if (Object != null && _handle.IsAllocated)
-            {
-                Unsafe.Write((void*)_ptr, value);
-            }
-            else
-            {
-                Object = value;
-                _handle = GCHandle.Alloc(Object, GCHandleType.Pinned);
-                _ptr = _handle.AddrOfPinnedObject();
-            }
-        }
-        else
-        {
-            Object = value;
-        }
-    }
-
-    public void Dispose()
-    {
-        if (_handle.IsAllocated)
-            _handle.Free();
-    }
-}
-
 public class OutputSocket<T> : Socket<T>, IOutputSocket
 {
     public static readonly CoreProperty<CoreList<Reference<Connection>>> ConnectionsProperty;
     private readonly CoreList<Reference<Connection>> _connections = [];
-    private UnsafeBox<T> _box;
 
     static OutputSocket()
     {
@@ -59,13 +21,8 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
         Connections.CollectionChanged += (_, _) =>
         {
             RaiseTopologyChanged();
-            RaiseEdited(EventArgs.Empty);
+            RaiseEdited();
         };
-    }
-
-    ~OutputSocket()
-    {
-        _box.Dispose();
     }
 
     [NotAutoSerialized]
@@ -90,31 +47,6 @@ public class OutputSocket<T> : Socket<T>, IOutputSocket
         if (Connections.Any(r => r.Id == connection.Id))
         {
             Connections.Remove(connection);
-        }
-    }
-
-    public override void PostEvaluate(EvaluationContext context)
-    {
-        base.PostEvaluate(context);
-        bool boxUpdated = false;
-        foreach (Reference<Connection> item in _connections)
-        {
-            if (item.Value == null) continue;
-
-            if (item.Value.Input.Value is InputSocket<T> sameTypeSocket)
-            {
-                sameTypeSocket.Receive(Value);
-            }
-            else if(item.Value.Input.Value is IInputSocket inputSocket)
-            {
-                if (!boxUpdated)
-                {
-                    _box.Update(Value);
-                    boxUpdated = true;
-                }
-
-                inputSocket.Receive(_box.Object);
-            }
         }
     }
 

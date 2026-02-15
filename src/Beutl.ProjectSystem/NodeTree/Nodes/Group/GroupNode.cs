@@ -3,13 +3,15 @@ using System.Collections.Specialized;
 using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 using Beutl.Editor;
+using Beutl.Engine;
+using Beutl.NodeTree.Rendering;
 using Beutl.Reactive;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree.Nodes.Group;
 
 // Todo: ファイルからノードグループを読み込めるようにする。
-public class GroupNode : Node
+public partial class GroupNode : Node
 {
     public static readonly CoreProperty<NodeGroup> GroupProperty;
     private readonly CompositeDisposable _disposables = [];
@@ -55,73 +57,10 @@ public class GroupNode : Node
 
     private void OnGroupEdited(object? sender, EventArgs e)
     {
-        RaiseEdited(e);
+        RaiseEdited();
     }
 
     public NodeGroup Group { get; }
-
-    public override void InitializeForContext(NodeEvaluationContext context)
-    {
-        base.InitializeForContext(context);
-        var evaluator = new NodeTreeEvaluator(Group);
-        evaluator.Build(context.Renderer);
-        context.State = evaluator;
-    }
-
-    public override void UninitializeForContext(NodeEvaluationContext context)
-    {
-        base.UninitializeForContext(context);
-        if (context.State is NodeTreeEvaluator evaluator)
-        {
-            evaluator.Dispose();
-            context.State = null;
-        }
-    }
-
-    public override void PreEvaluate(NodeEvaluationContext context)
-    {
-        base.PreEvaluate(context);
-        var outputSocketCount = Group.Output?.Items.Count ?? 0;
-        for (int i = outputSocketCount; i < Items.Count; i++)
-        {
-            INodeItem input = Items[i];
-            INodeItem? output = Group.Input?.Items[i - outputSocketCount];
-            if (input is IInputSocket inputSocket
-                && output is ISupportSetValueNodeItem outputSocket)
-            {
-                outputSocket.SetThrough(inputSocket);
-            }
-        }
-    }
-
-    public override void Evaluate(NodeEvaluationContext context)
-    {
-        base.Evaluate(context);
-
-        if (context.State is NodeTreeEvaluator evaluator)
-        {
-            foreach (var chain in evaluator.EvalContexts)
-                foreach (var ctx in chain)
-                    ctx._renderables = context._renderables;
-            evaluator.Evaluate();
-        }
-    }
-
-    public override void PostEvaluate(NodeEvaluationContext context)
-    {
-        var outputSocketCount = Group.Output?.Items.Count ?? 0;
-        for (int i = 0; i < outputSocketCount; i++)
-        {
-            INodeItem output = Items[i];
-            INodeItem? input = Group.Output?.Items[i];
-            if (input is IInputSocket inputSocket
-                && output is ISupportSetValueNodeItem outputSocket)
-            {
-                outputSocket.SetThrough(inputSocket);
-            }
-        }
-        base.PostEvaluate(context);
-    }
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
@@ -168,10 +107,6 @@ public class GroupNode : Node
     private void AddOutput(int index, IInputSocket item)
     {
         IOutputSocket? outputSocket = CreateOutput(item.Name, item.AssociatedType!);
-        if (outputSocket is ISupportSetValueNodeItem supportSetValue)
-        {
-            supportSetValue.SetThrough(item);
-        }
 
         _outputSocketDisposable.Insert(index, ((CoreObject)item).GetObservable(NameProperty)
             .Subscribe(v => outputSocket.Name = v));
@@ -181,6 +116,7 @@ public class GroupNode : Node
     private void OutputItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (RecordingSuppression.IsSuppressed) return;
+
         void Add(int index, IList items)
         {
             foreach (IInputSocket item in items)
@@ -254,9 +190,11 @@ public class GroupNode : Node
     {
         var inputSocket = CreateInput(item.Name, item.AssociatedType!, item.Display);
         // itemの接続先からデフォルトの値を取ってくる
-        if (((IOutputSocket)item).Connections.FirstOrDefault().Value?.Input.Value is IInputSocket connectedInput)
+        var originalInputSocket = ((IOutputSocket)item).Connections.FirstOrDefault().Value?.Input.Value;
+        if (originalInputSocket is IInputSocket { Property: { } inputProperty })
         {
-            inputSocket.Property?.SetValue(connectedInput.Value);
+            object? value = inputProperty.GetValue();
+            inputSocket.Property?.SetValue(value);
         }
 
         _inputSocketDisposable.Insert(index, ((CoreObject)item).GetObservable(NameProperty)
@@ -268,6 +206,7 @@ public class GroupNode : Node
     private void InputItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (RecordingSuppression.IsSuppressed) return;
+
         void Add(int index, IList items)
         {
             foreach (IGroupSocket item in items)
@@ -341,6 +280,89 @@ public class GroupNode : Node
                 }
 
                 index++;
+            }
+        }
+    }
+
+    public partial class Resource
+    {
+        private NodeTreeSnapshot? _innerSnapshot;
+        private int _groupInputSlotIndex = -1;
+        private int _groupOutputSlotIndex = -1;
+
+        public override void Initialize(NodeRenderContext context)
+        {
+            var node = GetOriginal();
+            node.Group.TopologyChanged += OnGroupTopologyChanged;
+            _innerSnapshot = new NodeTreeSnapshot();
+            _innerSnapshot.Build(node.Group, Renderer!);
+            _groupInputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Input);
+            _groupOutputSlotIndex = _innerSnapshot.FindSlotIndex(node.Group.Output);
+        }
+
+        private void OnGroupTopologyChanged(object? sender, EventArgs e)
+        {
+            _innerSnapshot?.MarkDirty();
+        }
+
+        public override void Uninitialize()
+        {
+            var node = GetOriginal();
+            node.Group.TopologyChanged -= OnGroupTopologyChanged;
+            _innerSnapshot?.Dispose();
+            _innerSnapshot = null;
+            _groupInputSlotIndex = -1;
+            _groupOutputSlotIndex = -1;
+        }
+
+        public override void Update(NodeRenderContext context)
+        {
+            var node = GetOriginal();
+            if (_innerSnapshot == null || context._renderables == null || Renderer == null) return;
+
+            // GroupNodeの入力値からGroupInputの出力値に転送
+            if (node.Group.Input != null && _groupInputSlotIndex >= 0)
+            {
+                if (_innerSnapshot.GetResource(_groupInputSlotIndex) is GroupInput.Resource groupInputResource)
+                {
+                    var outputSocketCount = node.Group.Output?.Items.Count ?? 0;
+                    var inputCount = node.Items.Count - outputSocketCount;
+                    if (inputCount > 0)
+                    {
+                        var outerValues = new IItemValue[inputCount];
+                        for (int i = 0; i < inputCount; i++)
+                        {
+                            outerValues[i] = ItemValues[outputSocketCount + i];
+                        }
+
+                        groupInputResource.OuterInputValues = outerValues;
+                    }
+                }
+            }
+
+            // 内部スナップショットを評価
+            _innerSnapshot.Evaluate(context.Target, context._renderables, Renderer);
+
+            // GroupOutputの入力値からGroupNodeの出力値に転送
+            var outCount = node.Group.Output?.Items.Count ?? 0;
+            if (_groupOutputSlotIndex >= 0)
+            {
+                for (int i = 0; i < outCount; i++)
+                {
+                    IItemValue? innerValue = _innerSnapshot.GetItemValue(_groupOutputSlotIndex, i);
+                    if (innerValue != null)
+                    {
+                        ItemValues[i].PropagateFrom(innerValue);
+                    }
+                }
+            }
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Uninitialize();
             }
         }
     }

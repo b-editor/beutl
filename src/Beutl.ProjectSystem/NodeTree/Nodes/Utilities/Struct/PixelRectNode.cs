@@ -1,23 +1,28 @@
 ﻿using Beutl.Media;
+using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Utilities.Struct;
 
-public class PixelRectNode : Node
+public partial class PixelRectNode : Node
 {
-    private readonly OutputSocket<PixelRect> _valueSocket;
-    private readonly InputSocket<PixelPoint> _positionSocket;
-    private readonly InputSocket<PixelSize> _sizeSocket;
-
     public PixelRectNode()
     {
-        _valueSocket = AddOutput<PixelRect>("PixelRect");
-        _positionSocket = AddInput<PixelPoint>("Position");
-        _sizeSocket = AddInput<PixelSize>("Size");
+        Value = AddOutput<PixelRect>("PixelRect");
+        Position = AddInput<PixelPoint>("Position");
+        Size = AddInput<PixelSize>("Size");
     }
 
-    public override void Evaluate(NodeEvaluationContext context)
+    public OutputSocket<PixelRect> Value { get; }
+
+    public new InputSocket<PixelPoint> Position { get; }
+
+    public InputSocket<PixelSize> Size { get; }
+
+    public partial class Resource
     {
-        base.Evaluate(context);
-        _valueSocket.Value = new PixelRect(_positionSocket.Value, _sizeSocket.Value);
+        public override void Update(NodeRenderContext context)
+        {
+            Value = new PixelRect(Position, Size);
+        }
     }
 }
