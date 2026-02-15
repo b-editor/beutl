@@ -16,15 +16,12 @@ public sealed class NodeTreeSnapshot : IDisposable
     private readonly Dictionary<(int, int), List<int>> _inputConnectionMap = new();
     private readonly HashSet<(int, int)> _connectedInputs = [];
     private bool _isDirty = true;
-    private IRenderer? _renderer;
 
     public void MarkDirty() => _isDirty = true;
 
     public void Build(NodeTreeModel model, IRenderer renderer)
     {
         if (!_isDirty) return;
-
-        _renderer = renderer;
 
         // 既存リソースをクリーンアップ
         Uninitialize();
@@ -283,15 +280,13 @@ public sealed class NodeTreeSnapshot : IDisposable
         }
     }
 
-    public void Evaluate(EvaluationTarget target, IList<EngineObject> renderables)
+    public void Evaluate(EvaluationTarget target, IList<EngineObject> renderables, IRenderer renderer)
     {
-        if (_renderer == null) return;
-
         foreach (var ctx in _contexts)
         {
             ctx.Target = target;
             ctx._renderables = renderables;
-            ctx.Time = _renderer.Time;
+            ctx.Time = renderer.Time;
 
             // アニメーション/プロパティ値をロード
             LoadAnimatedValues(ctx.Resource, ctx.Time);

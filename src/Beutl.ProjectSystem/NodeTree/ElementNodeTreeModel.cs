@@ -25,7 +25,7 @@ public class ElementNodeTreeModel : NodeTreeModel
         var list = new PooledList<EngineObject>();
         try
         {
-            _snapshot.Evaluate(target, list);
+            _snapshot.Evaluate(target, list, renderer);
 
             // Todo: LayerOutputNodeに移動
             foreach (EngineObject item in list.Span)
