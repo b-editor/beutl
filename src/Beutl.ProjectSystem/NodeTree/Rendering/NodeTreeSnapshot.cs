@@ -338,10 +338,16 @@ public sealed class NodeTreeSnapshot : IDisposable
                 if (outputValue is IReadOnlyItemValue<T> typed)
                 {
                     result.Add(typed.GetValue());
+                    conn.OriginalConnection?.Status = ConnectionStatus.Success;
+                }
+                else if (outputValue.GetBoxed() is T unboxed)
+                {
+                    result.Add(unboxed);
+                    conn.OriginalConnection?.Status = ConnectionStatus.Convert;
                 }
                 else
                 {
-                    result.Add((T?)outputValue.GetBoxed());
+                    conn.OriginalConnection?.Status = ConnectionStatus.Error;
                 }
             }
         }
