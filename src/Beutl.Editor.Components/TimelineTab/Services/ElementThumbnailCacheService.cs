@@ -12,6 +12,7 @@ public sealed class ElementThumbnailCacheService : IElementThumbnailCacheService
 
     private readonly ILogger _logger = Log.CreateLogger<ElementThumbnailCacheService>();
     private readonly ConcurrentDictionary<string, CacheIndex> _indices = new();
+    private readonly ConcurrentDictionary<string, WaveformCacheIndex> _waveformIndices = new();
     private const int MaxTotalEntries = 512;
 
     public static ElementThumbnailCacheService Instance => s_instance.Value;
@@ -76,6 +77,41 @@ public sealed class ElementThumbnailCacheService : IElementThumbnailCacheService
         }
     }
 
+    public bool TryGetWaveform(string cacheKey, TimeSpan time, TimeSpan threshold, out float minValue, out float maxValue)
+    {
+        minValue = 0;
+        maxValue = 0;
+
+        var index = GetOrCreateWaveformIndex(cacheKey);
+        long targetTicks = time.Ticks;
+
+        lock (index.Lock)
+        {
+            var result = FindNearestWaveform(index.Entries, targetTicks, threshold.Ticks);
+            if (result == null)
+                return false;
+
+            minValue = result.Value.Min;
+            maxValue = result.Value.Max;
+        }
+
+        index.LastAccessTime = DateTime.UtcNow;
+        return true;
+    }
+
+    public void SaveWaveform(string cacheKey, TimeSpan time, float minValue, float maxValue)
+    {
+        var index = GetOrCreateWaveformIndex(cacheKey);
+        lock (index.Lock)
+        {
+            index.Entries[time.Ticks] = (minValue, maxValue);
+        }
+
+        index.LastAccessTime = DateTime.UtcNow;
+
+        TryEvictCache();
+    }
+
     public void Invalidate(string cacheKey)
     {
         if (_indices.TryRemove(cacheKey, out var index))
@@ -90,11 +126,57 @@ public sealed class ElementThumbnailCacheService : IElementThumbnailCacheService
                 index.Entries.Clear();
             }
         }
+
+        if (_waveformIndices.TryRemove(cacheKey, out var waveformIndex))
+        {
+            lock (waveformIndex.Lock)
+            {
+                waveformIndex.Entries.Clear();
+            }
+        }
     }
 
     private CacheIndex GetOrCreateIndex(string cacheKey)
     {
         return _indices.GetOrAdd(cacheKey, _ => new CacheIndex());
+    }
+
+    private WaveformCacheIndex GetOrCreateWaveformIndex(string cacheKey)
+    {
+        return _waveformIndices.GetOrAdd(cacheKey, _ => new WaveformCacheIndex());
+    }
+
+    private static (float Min, float Max)? FindNearestWaveform(SortedList<long, (float Min, float Max)> entries, long targetTicks, long thresholdTicks)
+    {
+        if (entries.Count == 0)
+            return null;
+
+        var keys = entries.Keys;
+
+        int lo = 0, hi = keys.Count - 1;
+        while (lo <= hi)
+        {
+            int mid = lo + (hi - lo) / 2;
+            if (keys[mid] < targetTicks)
+                lo = mid + 1;
+            else
+                hi = mid - 1;
+        }
+
+        long bestDiff = long.MaxValue;
+        (float Min, float Max)? best = null;
+
+        for (int i = Math.Max(0, lo - 1); i <= Math.Min(keys.Count - 1, lo); i++)
+        {
+            long diff = Math.Abs(keys[i] - targetTicks);
+            if (diff < bestDiff)
+            {
+                bestDiff = diff;
+                best = entries[keys[i]];
+            }
+        }
+
+        return bestDiff <= thresholdTicks ? best : null;
     }
 
     private static IBitmap? FindNearest(SortedList<long, IBitmap> entries, long targetTicks, long thresholdTicks)
@@ -144,33 +226,61 @@ public sealed class ElementThumbnailCacheService : IElementThumbnailCacheService
             }
         }
 
+        foreach (var kvp in _waveformIndices)
+        {
+            lock (kvp.Value.Lock)
+            {
+                totalEntries += kvp.Value.Entries.Count;
+            }
+        }
+
         if (totalEntries <= MaxTotalEntries)
             return;
 
-        // LRU: アクセス時間が古い順にソートして削除
-        var sorted = _indices.OrderBy(kvp => kvp.Value.LastAccessTime).ToList();
+        // LRU: bitmap と waveform 両方のアクセス時間で古い順にソートして削除
+        var sortedBitmaps = _indices.Select(kvp => (Key: kvp.Key, Time: kvp.Value.LastAccessTime, IsBitmap: true)).ToList();
+        var sortedWaveforms = _waveformIndices.Select(kvp => (Key: kvp.Key, Time: kvp.Value.LastAccessTime, IsBitmap: false)).ToList();
+        var sorted = sortedBitmaps.Concat(sortedWaveforms).OrderBy(x => x.Time).ToList();
 
-        foreach (var kvp in sorted)
+        foreach (var item in sorted)
         {
             if (totalEntries <= MaxTotalEntries)
                 break;
 
-            if (_indices.TryRemove(kvp.Key, out var index))
+            if (item.IsBitmap)
             {
-                int removed;
-                lock (index.Lock)
+                if (_indices.TryRemove(item.Key, out var index))
                 {
-                    removed = index.Entries.Count;
-                    foreach (var entry in index.Entries.Values)
+                    int removed;
+                    lock (index.Lock)
                     {
-                        entry.Dispose();
+                        removed = index.Entries.Count;
+                        foreach (var entry in index.Entries.Values)
+                        {
+                            entry.Dispose();
+                        }
+
+                        index.Entries.Clear();
                     }
 
-                    index.Entries.Clear();
+                    totalEntries -= removed;
+                    _logger.LogDebug("Evicted thumbnail cache: {Key}", item.Key);
                 }
+            }
+            else
+            {
+                if (_waveformIndices.TryRemove(item.Key, out var waveformIndex))
+                {
+                    int removed;
+                    lock (waveformIndex.Lock)
+                    {
+                        removed = waveformIndex.Entries.Count;
+                        waveformIndex.Entries.Clear();
+                    }
 
-                totalEntries -= removed;
-                _logger.LogDebug("Evicted thumbnail cache: {Key}", kvp.Key);
+                    totalEntries -= removed;
+                    _logger.LogDebug("Evicted waveform cache: {Key}", item.Key);
+                }
             }
         }
     }
@@ -178,6 +288,13 @@ public sealed class ElementThumbnailCacheService : IElementThumbnailCacheService
     private sealed class CacheIndex
     {
         public readonly SortedList<long, IBitmap> Entries = new();
+        public readonly object Lock = new();
+        public DateTime LastAccessTime = DateTime.UtcNow;
+    }
+
+    private sealed class WaveformCacheIndex
+    {
+        public readonly SortedList<long, (float Min, float Max)> Entries = new();
         public readonly object Lock = new();
         public DateTime LastAccessTime = DateTime.UtcNow;
     }

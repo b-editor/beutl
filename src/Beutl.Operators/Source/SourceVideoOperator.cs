@@ -228,6 +228,7 @@ public sealed class SourceVideoOperator : PublishOperator<SourceVideo>, IElement
     public async IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
         int chunkCount,
         int samplesPerChunk,
+        IElementThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await Task.CompletedTask;

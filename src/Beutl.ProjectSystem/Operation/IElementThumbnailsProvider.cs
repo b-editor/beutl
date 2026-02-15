@@ -23,6 +23,7 @@ public interface IElementThumbnailsProvider
     IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
         int chunkCount,
         int samplesPerChunk,
+        IElementThumbnailCacheService? cacheService,
         CancellationToken cancellationToken = default);
 }
 

@@ -927,7 +927,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         });
 
-        await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxSamplesPerChunk, ct))
+        await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxSamplesPerChunk, _thumbnailCacheService, ct))
         {
             if (ct.IsCancellationRequested)
                 break;
