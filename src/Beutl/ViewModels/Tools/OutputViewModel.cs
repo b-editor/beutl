@@ -97,6 +97,29 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .Bind(out _encoders)
             .Subscribe()
             .DisposeWith(_disposable);
+
+        SelectedEncoder
+            .CombineLatest(DestinationFile)
+            .Subscribe(tuple =>
+            {
+                var (encoder, file) = tuple;
+                if (encoder == null || string.IsNullOrEmpty(file)) return;
+
+                string currentExt = Path.GetExtension(file);
+                if (string.IsNullOrEmpty(currentExt))
+                {
+                    string? ext = encoder.SupportExtensions().FirstOrDefault();
+                    if (ext != null)
+                        DestinationFile.Value = file + ext;
+                }
+                else if (!encoder.IsSupported(file))
+                {
+                    string? ext = encoder.SupportExtensions().FirstOrDefault();
+                    if (ext != null)
+                        DestinationFile.Value = Path.ChangeExtension(file, ext);
+                }
+            })
+            .DisposeWith(_disposable);
     }
 
     public OutputExtension Extension => SceneOutputExtension.Instance;
