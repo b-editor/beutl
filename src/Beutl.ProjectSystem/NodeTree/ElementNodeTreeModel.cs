@@ -61,7 +61,7 @@ public class ElementNodeTreeModel : NodeTreeModel
         IsTimeAnchor = true;
         ZIndex = _element.ZIndex;
         TimeRange = new TimeRange(_element.Start, _element.Length);
-        IsEnabled = _element.IsEnabled && IsEnabled;
+        IsEnabled = _element.IsEnabled;
     }
 
     private void OnParentElementPropertyChanged(object? sender, PropertyChangedEventArgs e)
