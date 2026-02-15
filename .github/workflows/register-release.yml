@@ -1,0 +1,132 @@
+name: Register Release Assets
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  API_URL: https://release.api.beutl.beditor.net
+
+jobs:
+  register-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get OIDC Token
+        id: oidc
+        run: |
+          TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://github.com/b-editor/beutl" \
+            | jq -r '.value')
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Download metadata from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # assets_metadata.jsonをリリースアセットからダウンロード
+          gh release download "${{ github.event.release.tag_name }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "assets_metadata.json" \
+            --output assets_metadata.json
+
+          echo "Downloaded metadata:"
+          cat assets_metadata.json | jq .
+
+      - name: Get release assets URLs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # リリースアセットのURL情報を取得
+          gh api "repos/${{ github.repository }}/releases/${{ github.event.release.id }}/assets" > release_assets.json
+
+          echo "Release assets:"
+          cat release_assets.json | jq -r '.[].name'
+
+      - name: Build request payload
+        run: |
+          # assets_metadata.jsonの各エントリにURLを追加
+          # ファイル名のパターンマッチングでURLを特定
+
+          jq -c '.[]' assets_metadata.json | while read -r metadata; do
+            ID=$(echo "$metadata" | jq -r '.id')
+            OS=$(echo "$metadata" | jq -r '.os')
+            ARCH=$(echo "$metadata" | jq -r '.arch')
+            TYPE=$(echo "$metadata" | jq -r '.type')
+            VERSION=$(echo "$metadata" | jq -r '.version')
+            STANDALONE=$(echo "$metadata" | jq -r '.standalone')
+
+            # ファイル名パターンを生成してURLを検索
+            URL=""
+            case "$TYPE" in
+              zip)
+                if [ "$STANDALONE" = "true" ]; then
+                  PATTERN="Beutl-${OS}-${ARCH}-standalone-${VERSION}.zip"
+                else
+                  PATTERN="Beutl-${OS}-${ARCH}-${VERSION}.zip"
+                fi
+                URL=$(jq -r --arg pattern "$PATTERN" '.[] | select(.name == $pattern) | .browser_download_url' release_assets.json)
+                ;;
+              installer)
+                if [ "$STANDALONE" = "true" ]; then
+                  PATTERN="beutl-standalone-setup.exe"
+                else
+                  PATTERN="beutl-setup.exe"
+                fi
+                URL=$(jq -r --arg pattern "$PATTERN" '.[] | select(.name == $pattern) | .browser_download_url' release_assets.json)
+                ;;
+              app)
+                PATTERN="Beutl.${OS}_${ARCH}.app.zip"
+                URL=$(jq -r --arg pattern "$PATTERN" '.[] | select(.name == $pattern) | .browser_download_url' release_assets.json)
+                ;;
+              debian)
+                # debパッケージはバージョン形式が異なる
+                URL=$(jq -r '.[] | select(.name | endswith(".deb")) | .browser_download_url' release_assets.json)
+                ;;
+            esac
+
+            if [ -n "$URL" ] && [ "$URL" != "null" ]; then
+              echo "$metadata" | jq --arg url "$URL" '. + {url: $url}'
+            else
+              echo "Warning: Could not find URL for $TYPE ($OS-$ARCH, standalone=$STANDALONE)" >&2
+            fi
+          done | jq -s '.' > assets_with_urls.json
+
+          echo ""
+          echo "Assets with URLs:"
+          cat assets_with_urls.json | jq .
+
+          # リクエストペイロードを作成
+          jq '{assets: .}' assets_with_urls.json > request_payload.json
+
+          echo ""
+          echo "Request payload:"
+          cat request_payload.json | jq .
+
+      - name: Register release assets
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          # APIを呼び出し
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @request_payload.json \
+            "$API_URL/releases/bulk")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo ""
+          echo "Response code: $HTTP_CODE"
+          echo "Response body: $BODY"
+
+          if [ "$HTTP_CODE" -ne 201 ]; then
+            echo "::error::API call failed with status $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "::notice::Successfully registered release assets"
