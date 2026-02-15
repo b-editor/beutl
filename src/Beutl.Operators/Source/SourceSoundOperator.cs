@@ -1,5 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json.Nodes;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Effects;
@@ -8,6 +11,7 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Operation;
+using Beutl.Serialization;
 using Beutl.Threading;
 
 namespace Beutl.Operators.Source;
@@ -85,9 +89,47 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
         }
     }
 
+    public string? GetThumbnailsCacheKey()
+    {
+        if (Value is not { } value) return null;
+
+        var fullJson = CoreSerializer.SerializeToJsonObject(value);
+        var cacheJson = new JsonObject();
+        string[] targetProps = ["Source", "OffsetPosition", "Gain", "Speed", "Effect"];
+
+        foreach (var prop in targetProps)
+        {
+            if (fullJson.TryGetPropertyValue(prop, out var node))
+                cacheJson[prop] = node?.DeepClone();
+        }
+
+        if (fullJson.TryGetPropertyValue("Animations", out var anims) && anims is JsonObject animObj)
+        {
+            var filtered = new JsonObject();
+            foreach (var prop in targetProps)
+                if (animObj.TryGetPropertyValue(prop, out var n))
+                    filtered[prop] = n?.DeepClone();
+            if (filtered.Count > 0) cacheJson["Animations"] = filtered;
+        }
+
+        if (fullJson.TryGetPropertyValue("Expressions", out var exprs) && exprs is JsonObject exprObj)
+        {
+            var filtered = new JsonObject();
+            foreach (var prop in targetProps)
+                if (exprObj.TryGetPropertyValue(prop, out var n))
+                    filtered[prop] = n?.DeepClone();
+            if (filtered.Count > 0) cacheJson["Expressions"] = filtered;
+        }
+
+        var jsonStr = cacheJson.ToJsonString();
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(jsonStr));
+        return Convert.ToHexString(hash);
+    }
+
     public async IAsyncEnumerable<(int Index, int Count, IBitmap Thumbnail)> GetThumbnailStripAsync(
         int maxWidth,
         int maxHeight,
+        IElementThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await Task.CompletedTask;
@@ -97,6 +139,7 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
     public async IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
         int chunkCount,
         int samplesPerChunk,
+        IElementThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         using var resource = Value.Source.CurrentValue?.ToResource(RenderContext.Default);
@@ -113,6 +156,10 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
         int sampleRate = resource.SampleRate;
         int totalSamples = (int)(duration.TotalSeconds * sampleRate);
 
+        string? cacheKey = cacheService != null ? GetThumbnailsCacheKey() : null;
+        double chunkDurationSecs = duration.TotalSeconds / chunkCount;
+        var cacheThreshold = TimeSpan.FromSeconds(chunkDurationSecs * 0.5);
+
         using var composer = new Composer { SampleRate = sampleRate };
         composer.AddSound(Value);
 
@@ -124,11 +171,20 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
             int startSample = (int)((long)chunkIndex * totalSamples / chunkCount);
             int endSample = (int)((long)(chunkIndex + 1) * totalSamples / chunkCount);
             int sampleCount = Math.Min(endSample - startSample, samplesPerChunk);
-            TimeSpan startTime = Value.TimeRange.Start + TimeSpan.FromSeconds((double)startSample / sampleRate);
+            var chunkTime = TimeSpan.FromSeconds((double)startSample / sampleRate);
+            TimeSpan startTime = Value.TimeRange.Start + chunkTime;
             TimeSpan durationTime = TimeSpan.FromSeconds((double)sampleCount / sampleRate);
 
             if (sampleCount <= 0)
                 continue;
+
+            // キャッシュチェック
+            if (cacheKey != null
+                && cacheService!.TryGetWaveform(cacheKey, chunkTime, cacheThreshold, out var cachedMin, out var cachedMax))
+            {
+                yield return new WaveformChunk(chunkIndex, cachedMin, cachedMax);
+                continue;
+            }
 
             var chunk = await ComposeThread.Dispatcher.InvokeAsync(() =>
             {
@@ -160,6 +216,10 @@ public sealed class SourceSoundOperator : PublishOperator<SourceSound>, IElement
 
             if (chunk.HasValue)
             {
+                // キャッシュに保存
+                if (cacheKey != null)
+                    cacheService!.SaveWaveform(cacheKey, chunkTime, chunk.Value.MinValue, chunk.Value.MaxValue);
+
                 yield return chunk.Value;
             }
         }

@@ -9,6 +9,7 @@ using Avalonia.Media.Imaging;
 using Beutl.Animation;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.TimelineTab.Services;
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Media;
@@ -32,7 +33,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private readonly Subject<Unit> _thumbnailsInvalidatedSubject = new();
     private CancellationTokenSource? _thumbnailsCts;
     private IElementThumbnailsProvider? _currentThumbnailsProvider;
+    private readonly IElementThumbnailCacheService _thumbnailCacheService = ElementThumbnailCacheService.Instance;
     private EventHandler? _thumbnailsInvalidatedHandler;
+    private string? _lastThumbnailsCacheKey;
 
     public ElementViewModel(Element element, TimelineTabViewModel timeline)
     {
@@ -802,10 +805,22 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
 
             _currentThumbnailsProvider = provider;
+            _lastThumbnailsCacheKey = provider?.GetThumbnailsCacheKey();
 
             if (provider != null)
             {
-                _thumbnailsInvalidatedHandler = (_, _) => _thumbnailsInvalidatedSubject.OnNext(Unit.Default);
+                _thumbnailsInvalidatedHandler = (_, _) =>
+                {
+                    // 旧キーでキャッシュを無効化
+                    var oldKey = _lastThumbnailsCacheKey;
+                    if (oldKey != null)
+                        _thumbnailCacheService.Invalidate(oldKey);
+
+                    // 新しいキーをキャプチャ
+                    _lastThumbnailsCacheKey = _currentThumbnailsProvider?.GetThumbnailsCacheKey();
+
+                    _thumbnailsInvalidatedSubject.OnNext(Unit.Default);
+                };
                 provider.ThumbnailsInvalidated += _thumbnailsInvalidatedHandler;
             }
         }
@@ -872,7 +887,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         });
 
-        await foreach (var (index, count, thumbnail) in provider.GetThumbnailStripAsync((int)width, MaxThumbnailHeight, ct))
+        await foreach (var (index, count, thumbnail) in provider.GetThumbnailStripAsync((int)width, MaxThumbnailHeight, _thumbnailCacheService, ct))
         {
             if (ct.IsCancellationRequested)
             {
@@ -912,7 +927,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         });
 
-        await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxSamplesPerChunk, ct))
+        await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxSamplesPerChunk, _thumbnailCacheService, ct))
         {
             if (ct.IsCancellationRequested)
                 break;
