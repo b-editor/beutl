@@ -45,6 +45,7 @@ public sealed partial class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<int> NodeCacheMaxPixelsProperty;
     public static readonly CoreProperty<int> NodeCacheMinPixelsProperty;
     public static readonly CoreProperty<bool> SwapTimelineScrollDirectionProperty;
+    public static readonly CoreProperty<bool> ClampResizeToOriginalLengthProperty;
 
     static EditorConfig()
     {
@@ -97,6 +98,10 @@ public sealed partial class EditorConfig : ConfigurationBase
 
         SwapTimelineScrollDirectionProperty = ConfigureProperty<bool, EditorConfig>(nameof(SwapTimelineScrollDirection))
             .DefaultValue(false)
+            .Register();
+
+        ClampResizeToOriginalLengthProperty = ConfigureProperty<bool, EditorConfig>(nameof(ClampResizeToOriginalLength))
+            .DefaultValue(true)
             .Register();
 
     }
@@ -170,6 +175,12 @@ public sealed partial class EditorConfig : ConfigurationBase
     {
         get => GetValue(SwapTimelineScrollDirectionProperty);
         set => SetValue(SwapTimelineScrollDirectionProperty, value);
+    }
+
+    public bool ClampResizeToOriginalLength
+    {
+        get => GetValue(ClampResizeToOriginalLengthProperty);
+        set => SetValue(ClampResizeToOriginalLengthProperty, value);
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()

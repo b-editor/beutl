@@ -399,6 +399,18 @@ namespace Beutl.Language {
             }
         }
         
+        public static string ClampResizeToOriginalLength {
+            get {
+                return ResourceManager.GetString("ClampResizeToOriginalLength", resourceCulture);
+            }
+        }
+        
+        public static string ClampResizeToOriginalLength_Description {
+            get {
+                return ResourceManager.GetString("ClampResizeToOriginalLength_Description", resourceCulture);
+            }
+        }
+        
         public static string Graphics {
             get {
                 return ResourceManager.GetString("Graphics", resourceCulture);

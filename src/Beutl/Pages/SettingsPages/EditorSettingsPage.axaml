@@ -77,6 +77,14 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.ClampResizeToOriginalLength_Description}" Header="{x:Static lang:SettingsPage.ClampResizeToOriginalLength}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding ClampResizeToOriginalLength.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
                 <TextBlock Margin="0,16,0,0"
                            Text="{x:Static lang:Strings.FrameCache}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />

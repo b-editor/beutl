@@ -91,6 +91,12 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         SwapTimelineScrollDirection.Subscribe(b => _editorConfig.SwapTimelineScrollDirection = b)
             .DisposeWith(_disposables);
 
+        ClampResizeToOriginalLength = _editorConfig.GetObservable(EditorConfig.ClampResizeToOriginalLengthProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        ClampResizeToOriginalLength.Subscribe(b => _editorConfig.ClampResizeToOriginalLength = b)
+            .DisposeWith(_disposables);
+
         // GPU selection
         InitializeGpuSelection();
     }
@@ -149,6 +155,8 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     public ReactiveProperty<int> NodeCacheMinPixels { get; }
 
     public ReactiveProperty<bool> SwapTimelineScrollDirection { get; }
+
+    public ReactiveProperty<bool> ClampResizeToOriginalLength { get; }
 
     public IReadOnlyList<GpuItem> AvailableGpus { get; private set; } = [];
 
