@@ -73,7 +73,7 @@ public partial class GroupInput : Node, ISocketsCanBeAdded
 
             var node = GetOriginal();
             // 外部 GroupNode の入力値を GroupInput の出力値にコピー
-            for (int i = 0; i < node.Items.Count && i < OuterInputValues.Length; i++)
+            for (int i = 0; i < ItemValues.Length && i < OuterInputValues.Length; i++)
             {
                 ItemValues[i].PropagateFrom(OuterInputValues[i]);
             }
