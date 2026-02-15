@@ -164,6 +164,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     {
         if (Activator.CreateInstance(type) is FilterEffect instance)
         {
+            IsExpanded.Value = true;
             SetValue(Value.Value, instance);
         }
     }
@@ -173,8 +174,19 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         if (Value.Value is FilterEffectGroup group
             && Activator.CreateInstance(type) is FilterEffect instance)
         {
+            IsExpanded.Value = true;
             group.Children.Add(instance);
             Commit();
+
+            // 追加されたアイテムのViewModelを探して展開する
+            if (Group.Value is { } listEditor)
+            {
+                var addedItem = listEditor.Items.LastOrDefault();
+                if (addedItem?.Context is FilterEffectEditorViewModel vm)
+                {
+                    vm.IsExpanded.Value = true;
+                }
+            }
         }
     }
 
@@ -183,6 +195,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         if (Value.Value is FilterEffectGroup group
             && Activator.CreateInstance(presenterType) is IPresenter<FilterEffect> presenter)
         {
+            IsExpanded.Value = true;
             presenter.Target.Expression = Expression.CreateReference<FilterEffect>(target.Id);
             group.Children.Add((FilterEffect)presenter);
             Commit();
