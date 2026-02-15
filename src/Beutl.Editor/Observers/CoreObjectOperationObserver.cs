@@ -146,7 +146,8 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
     private void InitializeNodeItemPublisher()
     {
-        if (_object is INodeItem nodeItem)
+        // IEnginePropertyBackedInputSocketの場合はEnginePropertyOperationObserverで監視するため、NodeItemOperationObserverは作成しない
+        if (_object is INodeItem nodeItem and not IEnginePropertyBackedInputSocket)
         {
             _nodeItemPublisher = new NodeItemOperationObserver(
                 _operations,
