@@ -45,4 +45,4 @@ jobs:
 
       - name: Nerdbank.GitVersioning
         id: nbgv
-        uses: dotnet/nbgv@v0.4.2
+        uses: dotnet/nbgv@v0.5.1
