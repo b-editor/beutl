@@ -12,6 +12,7 @@
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
 
     <!-- CS8032 -->
+  <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
   </ItemGroup>
 </Project>
