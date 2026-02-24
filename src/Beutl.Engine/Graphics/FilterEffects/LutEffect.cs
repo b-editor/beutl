@@ -14,7 +14,7 @@ public sealed partial class LutEffect : FilterEffect
     private static readonly ILogger<LutEffect> s_logger =
         BeutlApplication.Current.LoggerFactory.CreateLogger<LutEffect>();
 
-    private static readonly SKRuntimeEffect? s_runtimeEffect;
+    private static readonly SKSLShader? s_shader;
 
     static LutEffect()
     {
@@ -114,8 +114,7 @@ public sealed partial class LutEffect : FilterEffect
             }
             """;
 
-        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
-        if (errorText is not null)
+        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
         {
             s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
         }
@@ -161,15 +160,17 @@ public sealed partial class LutEffect : FilterEffect
 
     private void OnApply3DLUT_GPU((CubeFile cube, float strength) data, CustomFilterEffectContext c)
     {
+        if (s_shader is null) return;
+
         for (int i = 0; i < c.Targets.Count; i++)
         {
-            EffectTarget effectTarget = c.Targets[i];
+            using var effectTarget = c.Targets[i];
             var renderTarget = effectTarget.RenderTarget!;
 
             using var image = renderTarget.Value.Snapshot();
             using var baseShader = SKShader.CreateImage(image);
 
-            var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
+            var builder = s_shader.CreateBuilder();
 
             using var lutImage = SKImage.Create(new SKImageInfo(data.cube.Data.Length, 1, SKColorType.RgbaF32));
             using (var pixmap = lutImage.PeekPixels())
@@ -188,19 +189,8 @@ public sealed partial class LutEffect : FilterEffect
             builder.Uniforms["lutSize"] = data.cube.Size;
             builder.Uniforms["strength"] = data.strength;
 
-            var newTarget = c.CreateTarget(effectTarget.Bounds);
-            using (SKShader finalShader = builder.Build())
-            using (var paint = new SKPaint())
-            using (var canvas = c.Open(newTarget))
-            {
-                paint.Shader = finalShader;
-                canvas.Clear();
-                canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
-
-                c.Targets[i] = newTarget;
-            }
-
-            effectTarget.Dispose();
+            // 新しいターゲットに適用
+            c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
         }
     }
 }

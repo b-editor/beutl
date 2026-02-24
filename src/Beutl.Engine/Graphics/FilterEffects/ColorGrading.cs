@@ -13,7 +13,7 @@ namespace Beutl.Graphics.Effects;
 public sealed partial class ColorGrading : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ColorGrading>();
-    private static readonly SKRuntimeEffect? s_runtimeEffect;
+    private static readonly SKSLShader? s_shader;
 
     static ColorGrading()
     {
@@ -145,8 +145,7 @@ public sealed partial class ColorGrading : FilterEffect
 
             """;
 
-        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
-        if (errorText is not null)
+        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
         {
             s_logger.LogError("Failed to compile color grading shader: {ErrorText}", errorText);
         }
@@ -220,7 +219,7 @@ public sealed partial class ColorGrading : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        if (s_runtimeEffect is null)
+        if (s_shader is null)
         {
             throw new InvalidOperationException("Failed to compile SKSL.");
         }
@@ -235,20 +234,16 @@ public sealed partial class ColorGrading : FilterEffect
 
     private static void OnApply(Resource data, CustomFilterEffectContext context)
     {
-        if (s_runtimeEffect is null)
-        {
-            return;
-        }
+        if (s_shader is null) return;
 
         for (int i = 0; i < context.Targets.Count; i++)
         {
-            var target = context.Targets[i];
-            if (target.RenderTarget is not { } renderTarget)
-                continue;
+            using var target = context.Targets[i];
+            var renderTarget = target.RenderTarget!;
 
             using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = SKShader.CreateImage(image, SKShaderTileMode.Decal, SKShaderTileMode.Decal);
-            var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
+            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
+            var builder = s_shader.CreateBuilder();
 
             builder.Children["src"] = baseShader;
             builder.Uniforms["exposure"] = data.Exposure;
@@ -277,18 +272,8 @@ public sealed partial class ColorGrading : FilterEffect
             builder.Uniforms["gain"] = ToColorVector(data.Gain, 0.0f);
             builder.Uniforms["offset"] = ToColorVector(data.Offset);
 
-            EffectTarget newTarget = context.CreateTarget(target.Bounds);
-
-            using (SKShader finalShader = builder.Build())
-            using (var paint = new SKPaint { Shader = finalShader })
-            using (var canvas = context.Open(newTarget))
-            {
-                canvas.Clear();
-                canvas.Canvas.DrawRect(new SKRect(0, 0, newTarget.Bounds.Width, newTarget.Bounds.Height), paint);
-                context.Targets[i] = newTarget;
-            }
-
-            target.Dispose();
+            // 新しいターゲットに適用
+            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, target.Bounds);
         }
     }
 

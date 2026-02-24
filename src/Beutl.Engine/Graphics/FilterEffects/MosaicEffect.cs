@@ -3,7 +3,6 @@ using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -11,7 +10,7 @@ namespace Beutl.Graphics.Effects;
 public partial class MosaicEffect : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<MosaicEffect>();
-    private static readonly SKRuntimeEffect? s_runtimeEffect;
+    private static readonly SKSLShader? s_shader;
 
     static MosaicEffect()
     {
@@ -32,9 +31,7 @@ public partial class MosaicEffect : FilterEffect
             }
             """;
 
-        // SKRuntimeEffectを使ってSKSLコードをコンパイル
-        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
-        if (errorText is not null)
+        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
         {
             s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
         }
@@ -63,36 +60,26 @@ public partial class MosaicEffect : FilterEffect
 
     private static void OnApplyTo((Size tileSize, RelativePoint origin) data, CustomFilterEffectContext c)
     {
+        if (s_shader is null) return;
+
         for (int i = 0; i < c.Targets.Count; i++)
         {
-            EffectTarget effectTarget = c.Targets[i];
+            using var effectTarget = c.Targets[i];
             var renderTarget = effectTarget.RenderTarget!;
 
             using var image = renderTarget.Value.Snapshot();
-            using var baseShader = SKShader.CreateImage(image);
+            using var baseShader = image.ToShader();
 
             // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-            var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
+            var builder = s_shader.CreateBuilder();
 
             // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
             builder.Uniforms["tileSize"] = data.tileSize.ToSKSize();
             builder.Uniforms["origin"] = data.origin.ToPixels(new(image.Width, image.Height)).ToSKPoint();
 
-            // 最終的なシェーダーを生成
-            var newTarget = c.CreateTarget(effectTarget.Bounds);
-            using (SKShader finalShader = builder.Build())
-            using (var paint = new SKPaint())
-            using (var canvas = c.Open(newTarget))
-            {
-                paint.Shader = finalShader;
-                canvas.Clear();
-                canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
-
-                c.Targets[i] = newTarget;
-            }
-
-            effectTarget.Dispose();
+            // 新しいターゲットに適用
+            c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
         }
     }
 }

@@ -1,12 +1,12 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Logging;
-using Beutl.Validation;
 using Microsoft.Extensions.Logging;
+
 using SkiaSharp;
-using ValidationContext = Beutl.Validation.ValidationContext;
 
 namespace Beutl.Graphics.Effects;
 
@@ -63,69 +63,56 @@ public sealed partial class SKSLScriptEffect : FilterEffect
     {
         var r = (Resource)resource;
 
-        if (r._runtimeEffect == null)
+        if (r._shader == null)
             return;
 
         context.CustomEffect(
-            (Resource: r.Progress, duration: r.Duration, time: r.Time, effect: r._runtimeEffect,
+            (Resource: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader,
                 compileError: r._compileError),
             OnApplyTo,
             static (_, r) => r);
     }
 
     private static void OnApplyTo(
-        (float progress, float duration, float time, SKRuntimeEffect effect, string? compileError) data,
+        (float progress, float duration, float time, SKSLShader shader, string? compileError) data,
         CustomFilterEffectContext c)
     {
         for (int i = 0; i < c.Targets.Count; i++)
         {
-            EffectTarget effectTarget = c.Targets[i];
+            using var effectTarget = c.Targets[i];
             var renderTarget = effectTarget.RenderTarget!;
 
             using var image = renderTarget.Value.Snapshot();
             using var baseShader = SKShader.CreateImage(image);
 
-            var builder = new SKRuntimeShaderBuilder(data.effect);
+            var builder = data.shader.CreateBuilder();
+            var effect = data.shader.Effect;
 
-            if (data.effect.Children.Contains("src"))
+            if (effect.Children.Contains("src"))
                 builder.Children["src"] = baseShader;
-            if (data.effect.Uniforms.Contains("progress"))
+            if (effect.Uniforms.Contains("progress"))
                 builder.Uniforms["progress"] = data.progress;
-            if (data.effect.Uniforms.Contains("duration"))
+            if (effect.Uniforms.Contains("duration"))
                 builder.Uniforms["duration"] = data.duration;
-            if (data.effect.Uniforms.Contains("time"))
+            if (effect.Uniforms.Contains("time"))
                 builder.Uniforms["time"] = data.time;
-            if (data.effect.Uniforms.Contains("width"))
+            if (effect.Uniforms.Contains("width"))
                 builder.Uniforms["width"] = effectTarget.Bounds.Width;
-            if (data.effect.Uniforms.Contains("height"))
+            if (effect.Uniforms.Contains("height"))
                 builder.Uniforms["height"] = effectTarget.Bounds.Height;
-            if (data.effect.Uniforms.Contains("iResolution"))
+            if (effect.Uniforms.Contains("iResolution"))
                 builder.Uniforms["iResolution"] = new SKPoint(effectTarget.Bounds.Width, effectTarget.Bounds.Height);
-            if (data.effect.Uniforms.Contains("iTime"))
+            if (effect.Uniforms.Contains("iTime"))
                 builder.Uniforms["iTime"] = data.time;
 
-            var newTarget = c.CreateTarget(effectTarget.Bounds);
-
-            using (SKShader finalShader = builder.Build())
-            using (var paint = new SKPaint())
-            using (var canvas = c.Open(newTarget))
-            {
-                paint.Shader = finalShader;
-                canvas.Clear();
-                canvas.Canvas.DrawRect(
-                    new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height),
-                    paint);
-
-                c.Targets[i] = newTarget;
-            }
-
-            effectTarget.Dispose();
+            // 新しいターゲットに適用
+            c.Targets[i] = data.shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
         }
     }
 
     public new partial class Resource
     {
-        internal SKRuntimeEffect? _runtimeEffect;
+        internal SKSLShader? _shader;
         internal string? _compiledScript;
         internal string? _compileError;
 
@@ -159,8 +146,8 @@ public sealed partial class SKSLScriptEffect : FilterEffect
             if (_compiledScript == script)
                 return;
 
-            _runtimeEffect?.Dispose();
-            _runtimeEffect = null;
+            _shader?.Dispose();
+            _shader = null;
             var prevError = _compileError;
             _compileError = null;
             _compiledScript = script;
@@ -168,8 +155,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect
             if (string.IsNullOrWhiteSpace(script))
                 return;
 
-            _runtimeEffect = SKRuntimeEffect.CreateShader(script, out string? errorText);
-            if (errorText is not null)
+            if (!SKSLShader.TryCreate(script, out _shader, out string? errorText))
             {
                 _compileError = errorText;
                 if (prevError != _compileError)
@@ -181,8 +167,8 @@ public sealed partial class SKSLScriptEffect : FilterEffect
 
         partial void PostDispose(bool disposing)
         {
-            _runtimeEffect?.Dispose();
-            _runtimeEffect = null;
+            _shader?.Dispose();
+            _shader = null;
             _compileError = null;
         }
     }

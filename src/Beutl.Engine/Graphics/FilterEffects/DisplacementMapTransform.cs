@@ -19,7 +19,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
 public partial class DisplacementMapTranslateTransform : DisplacementMapTransform
 {
     private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapTranslateTransform>();
-    private static readonly SKRuntimeEffect? s_runtimeEffect;
+    private static readonly SKSLShader? s_shader;
 
     static DisplacementMapTranslateTransform()
     {
@@ -41,9 +41,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
             }
             """;
 
-        // SKRuntimeEffectを使ってSKSLコードをコンパイル
-        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
-        if (errorText is not null)
+        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
         {
             s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
         }
@@ -64,7 +62,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
         Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
         GradientSpreadMethod spreadMethod, FilterEffectContext context)
     {
-        if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
+        if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
         var r = (Resource)resource;
 
         context.CustomEffect((displacementMap, r, spreadMethod, X, Y),
@@ -73,18 +71,17 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                 var (map, r, sm, x, y) = d;
                 for (int i = 0; i < c.Targets.Count; i++)
                 {
-                    EffectTarget effectTarget = c.Targets[i];
+                    using EffectTarget effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
                     using var displacementMapShader =
                         new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver)
                             .CreateShader();
 
                     using var image = renderTarget.Value.Snapshot();
-                    using var baseShader = SKShader.CreateImage(
-                        image, sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
+                    using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
 
                     // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-                    var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
+                    var builder = s_shader.CreateBuilder();
 
                     // child shaderとしてテクスチャ用のシェーダーを設定
                     builder.Children["uBaseTexture"] = baseShader;
@@ -92,20 +89,8 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
 
                     builder.Uniforms["uTranslation"] = new SKPoint(r.X, r.Y);
 
-                    // 最終的なシェーダーを生成
-                    var newTarget = c.CreateTarget(effectTarget.Bounds);
-                    using (SKShader finalShader = builder.Build())
-                    using (var paint = new SKPaint())
-                    using (var canvas = c.Open(newTarget))
-                    {
-                        paint.Shader = finalShader;
-                        canvas.Clear();
-                        canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
-
-                        c.Targets[i] = newTarget;
-                    }
-
-                    effectTarget.Dispose();
+                    // 新しいターゲットに適用
+                    c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
                 }
             });
     }
@@ -115,7 +100,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
 public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 {
     private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapScaleTransform>();
-    private static readonly SKRuntimeEffect? s_runtimeEffect;
+    private static readonly SKSLShader? s_shader;
 
     static DisplacementMapScaleTransform()
     {
@@ -136,9 +121,8 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                 return uBaseTexture.eval(uv);
             }
             """;
-        // SKRuntimeEffectを使ってSKSLコードをコンパイル
-        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out var errorText);
-        if (errorText is not null)
+
+        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
         {
             s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
         }
@@ -168,7 +152,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
         Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
         GradientSpreadMethod spreadMethod, FilterEffectContext context)
     {
-        if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
+        if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
         var r = (Resource)resource;
 
         context.CustomEffect(
@@ -179,18 +163,17 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                 var (map, sm, scaleX, scaleY, center) = d;
                 for (int i = 0; i < c.Targets.Count; i++)
                 {
-                    EffectTarget effectTarget = c.Targets[i];
+                    using var effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
                     using var displacementMapShader =
                         new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver)
                             .CreateShader();
 
                     using var image = renderTarget.Value.Snapshot();
-                    using var baseShader = SKShader.CreateImage(
-                        image, sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
+                    using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
 
                     // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-                    var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
+                    var builder = s_shader.CreateBuilder();
 
                     // child shaderとしてテクスチャ用のシェーダーを設定
                     builder.Children["uBaseTexture"] = baseShader;
@@ -201,20 +184,8 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                         effectTarget.Bounds.Width / 2 + center.X,
                         effectTarget.Bounds.Height / 2 + center.Y);
 
-                    // 最終的なシェーダーを生成
-                    var newTarget = c.CreateTarget(effectTarget.Bounds);
-                    using (SKShader finalShader = builder.Build())
-                    using (var paint = new SKPaint())
-                    using (var canvas = c.Open(newTarget))
-                    {
-                        paint.Shader = finalShader;
-                        canvas.Clear();
-                        canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
-
-                        c.Targets[i] = newTarget;
-                    }
-
-                    effectTarget.Dispose();
+                    // 新しいターゲットに適用
+                    c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
                 }
             });
     }
@@ -224,7 +195,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 public partial class DisplacementMapRotationTransform : DisplacementMapTransform
 {
     private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapRotationTransform>();
-    private static readonly SKRuntimeEffect s_runtimeEffect;
+    private static readonly SKSLShader? s_shader;
 
     static DisplacementMapRotationTransform()
     {
@@ -246,9 +217,8 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                 return uBaseTexture.eval(uv);
             }
             """;
-        // SKRuntimeEffectを使ってSKSLコードをコンパイル
-        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out var errorText);
-        if (errorText is not null)
+
+        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
         {
             s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
         }
@@ -272,7 +242,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
         Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
         GradientSpreadMethod spreadMethod, FilterEffectContext context)
     {
-        if (s_runtimeEffect is null) throw new InvalidOperationException("Failed to compile SKSL.");
+        if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
         var r = (Resource)resource;
 
         context.CustomEffect(
@@ -282,18 +252,17 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                 var (map, sm, rotation, center) = d;
                 for (int i = 0; i < c.Targets.Count; i++)
                 {
-                    EffectTarget effectTarget = c.Targets[i];
+                    using var effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
                     using var displacementMapShader =
                         new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver)
                             .CreateShader();
 
                     using var image = renderTarget.Value.Snapshot();
-                    using var baseShader = SKShader.CreateImage(
-                        image, sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
+                    using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
 
                     // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-                    var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
+                    var builder = s_shader.CreateBuilder();
 
                     // child shaderとしてテクスチャ用のシェーダーを設定
                     builder.Children["uBaseTexture"] = baseShader;
@@ -304,20 +273,8 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                         effectTarget.Bounds.Width / 2 + center.X,
                         effectTarget.Bounds.Height / 2 + center.Y);
 
-                    // 最終的なシェーダーを生成
-                    var newTarget = c.CreateTarget(effectTarget.Bounds);
-                    using (SKShader finalShader = builder.Build())
-                    using (var paint = new SKPaint())
-                    using (var canvas = c.Open(newTarget))
-                    {
-                        paint.Shader = finalShader;
-                        canvas.Clear();
-                        canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
-
-                        c.Targets[i] = newTarget;
-                    }
-
-                    effectTarget.Dispose();
+                    // 新しいターゲットに適用
+                    c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
                 }
             });
     }

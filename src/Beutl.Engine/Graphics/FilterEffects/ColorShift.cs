@@ -12,7 +12,7 @@ namespace Beutl.Graphics.Effects;
 public partial class ColorShift : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ColorShift>();
-    private static readonly SKRuntimeEffect? s_runtimeEffect;
+    private static readonly SKSLShader? s_shader;
 
     static ColorShift()
     {
@@ -43,9 +43,7 @@ public partial class ColorShift : FilterEffect
             }
             """;
 
-        // SKRuntimeEffectを使ってSKSLコードをコンパイル
-        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
-        if (errorText is not null)
+        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
         {
             s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
         }
@@ -71,7 +69,7 @@ public partial class ColorShift : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        if (s_runtimeEffect is null)
+        if (s_shader is null)
         {
             throw new InvalidOperationException("Failed to compile SKSL.");
         }
@@ -96,23 +94,22 @@ public partial class ColorShift : FilterEffect
         (PixelPoint RedOffset, PixelPoint GreenOffset, PixelPoint BlueOffset, PixelPoint AlphaOffset) data,
         CustomFilterEffectContext context)
     {
+        if (s_shader is null) return;
         for (int i = 0; i < context.Targets.Count; i++)
         {
-            EffectTarget effectTarget = context.Targets[i];
+            using var effectTarget = context.Targets[i];
             var renderTarget = effectTarget.RenderTarget!;
             var bounds = TransformBoundsCore(data, effectTarget.Bounds);
-            var pixelRect = PixelRect.FromRect(bounds);
             int minOffsetX = Math.Min(data.RedOffset.X,
                 Math.Min(data.GreenOffset.X, Math.Min(data.BlueOffset.X, data.AlphaOffset.X)));
             int minOffsetY = Math.Min(data.RedOffset.Y,
                 Math.Min(data.GreenOffset.Y, Math.Min(data.BlueOffset.Y, data.AlphaOffset.Y)));
 
             using var image = renderTarget.Value.Snapshot();
-            using var baseShader = SKShader.CreateImage(
-                image, SKShaderTileMode.Decal, SKShaderTileMode.Decal);
+            using var baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
 
             // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-            var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
+            var builder = s_shader.CreateBuilder();
 
             // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
@@ -122,20 +119,8 @@ public partial class ColorShift : FilterEffect
             builder.Uniforms["alphaOffset"] = new SKPoint(data.AlphaOffset.X, data.AlphaOffset.Y);
             builder.Uniforms["minOffset"] = new SKPoint(minOffsetX, minOffsetY);
 
-            // 最終的なシェーダーを生成
-            var newTarget = context.CreateTarget(bounds);
-            using (SKShader finalShader = builder.Build())
-            using (var paint = new SKPaint())
-            using (var canvas = context.Open(newTarget))
-            {
-                paint.Shader = finalShader;
-                canvas.Clear();
-                canvas.Canvas.DrawRect(new SKRect(0, 0, bounds.Width, bounds.Height), paint);
-
-                context.Targets[i] = newTarget;
-            }
-
-            effectTarget.Dispose();
+            // 新しいターゲットに適用
+            context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, bounds);
         }
     }
 }

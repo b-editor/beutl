@@ -75,74 +75,28 @@ public sealed partial class GLSLScriptEffect : FilterEffect
     {
         var r = (Resource)resource;
 
-        if (r._pipeline == null)
+        if (r._shader == null)
             return;
 
         context.CustomEffect(
-            (progress: r.Progress, duration: r.Duration, time: r.Time, pipeline: r._pipeline,
+            (progress: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader,
                 compileError: r._compileError),
             OnApplyTo,
             static (_, r) => r);
     }
 
     private static void OnApplyTo(
-        (float progress, float duration, float time, GLSLFilterPipeline pipeline, string? compileError) data,
+        (float progress, float duration, float time, GLSLShader shader, string? compileError) data,
         CustomFilterEffectContext c)
     {
-        IGraphicsContext? context = GraphicsContextFactory.SharedContext;
-        if (context == null || !context.Supports3DRendering)
-            return;
-
-        for (int i = 0; i < c.Targets.Count; i++)
+        data.shader.Apply(c, target => new PushConstants
         {
-            EffectTarget effectTarget = c.Targets[i];
-            RenderTarget? renderTarget = effectTarget.RenderTarget;
-
-            if (renderTarget == null)
-                continue;
-
-            ITexture2D? sourceTexture = renderTarget.Texture;
-            if (sourceTexture == null)
-                continue;
-
-            // Prepare source for sampling
-            renderTarget.PrepareForSampling();
-
-            // Create new render target for output
-            EffectTarget newTarget = c.CreateTarget(effectTarget.Bounds);
-            RenderTarget? newRenderTarget = newTarget.RenderTarget;
-
-            if (newRenderTarget?.Texture == null)
-            {
-                newTarget.Dispose();
-                continue;
-            }
-
-            ITexture2D destinationTexture = newRenderTarget.Texture;
-
-            // Create depth texture (required by CreateFramebuffer3D)
-            using ITexture2D depthTexture = context.CreateTexture2D(
-                destinationTexture.Width,
-                destinationTexture.Height,
-                TextureFormat.Depth32Float);
-
-            // Prepare push constants
-            var pushConstants = new PushConstants
-            {
-                Progress = data.progress,
-                Duration = data.duration,
-                Time = data.time,
-                Width = effectTarget.Bounds.Width,
-                Height = effectTarget.Bounds.Height
-            };
-
-            // Execute filter
-            data.pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
-
-            // Replace target
-            effectTarget.Dispose();
-            c.Targets[i] = newTarget;
-        }
+            Progress = data.progress,
+            Duration = data.duration,
+            Time = data.time,
+            Width = target.Bounds.Width,
+            Height = target.Bounds.Height
+        });
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -157,7 +111,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect
 
     public new partial class Resource
     {
-        internal GLSLFilterPipeline? _pipeline;
+        internal GLSLShader? _shader;
         internal string? _compiledShader;
         internal string? _compileError;
 
@@ -191,8 +145,8 @@ public sealed partial class GLSLScriptEffect : FilterEffect
             if (_compiledShader == shader)
                 return;
 
-            _pipeline?.Dispose();
-            _pipeline = null;
+            _shader?.Dispose();
+            _shader = null;
             var prevError = _compileError;
             _compileError = null;
             _compiledShader = shader;
@@ -200,32 +154,20 @@ public sealed partial class GLSLScriptEffect : FilterEffect
             if (string.IsNullOrWhiteSpace(shader))
                 return;
 
-            IGraphicsContext? context = GraphicsContextFactory.SharedContext;
-            if (context == null || !context.Supports3DRendering)
+            if (!GLSLShader.TryCreate(shader, out _shader, out string? errorText))
             {
-                _compileError = "Vulkan 3D rendering is not supported on this platform.";
+                _compileError = errorText;
                 if (prevError != _compileError)
                 {
-                    s_logger.LogWarning(_compileError);
-                }
-                return;
-            }
-
-            _pipeline = GLSLFilterPipeline.Create(context, shader);
-            if (_pipeline == null)
-            {
-                _compileError = "Failed to compile GLSL shader.";
-                if (prevError != _compileError)
-                {
-                    s_logger.LogError("Failed to compile GLSL shader");
+                    s_logger.LogError("Failed to compile GLSL shader: {Error}", errorText);
                 }
             }
         }
 
         partial void PostDispose(bool disposing)
         {
-            _pipeline?.Dispose();
-            _pipeline = null;
+            _shader?.Dispose();
+            _shader = null;
             _compileError = null;
         }
     }

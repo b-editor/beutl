@@ -12,7 +12,7 @@ namespace Beutl.Graphics.Effects;
 public partial class ColorKey : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ColorKey>();
-    private static readonly SKRuntimeEffect? s_runtimeEffect;
+    private static readonly SKSLShader? s_shader;
 
     static ColorKey()
     {
@@ -44,9 +44,7 @@ public partial class ColorKey : FilterEffect
             }
             """;
 
-        // SKRuntimeEffectを使ってSKSLコードをコンパイル
-        s_runtimeEffect = SKRuntimeEffect.CreateShader(sksl, out string? errorText);
-        if (errorText is not null)
+        if (!SKSLShader.TryCreate(sksl, out s_shader, out string? errorText))
         {
             s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
         }
@@ -77,16 +75,18 @@ public partial class ColorKey : FilterEffect
 
     private static void OnApplyTo((Color color, float range, float boundary) data, CustomFilterEffectContext c)
     {
+        if (s_shader is null) return;
+
         for (int i = 0; i < c.Targets.Count; i++)
         {
-            EffectTarget effectTarget = c.Targets[i];
+            using EffectTarget effectTarget = c.Targets[i];
             var renderTarget = effectTarget.RenderTarget!;
 
             using var image = renderTarget.Value.Snapshot();
-            using var baseShader = SKShader.CreateImage(image);
+            using var baseShader = image.ToShader();
 
             // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
-            var builder = new SKRuntimeShaderBuilder(s_runtimeEffect);
+            var builder = s_shader.CreateBuilder();
 
             // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
@@ -94,20 +94,8 @@ public partial class ColorKey : FilterEffect
             builder.Uniforms["range"] = data.range / 100f;
             builder.Uniforms["boundary"] = data.boundary / 100f;
 
-            var newTarget = c.CreateTarget(effectTarget.Bounds);
-            // 最終的なシェーダーを生成
-            using (SKShader finalShader = builder.Build())
-            using (var paint = new SKPaint())
-            using (var canvas = c.Open(newTarget))
-            {
-                paint.Shader = finalShader;
-                canvas.Clear();
-                canvas.Canvas.DrawRect(new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height), paint);
-
-                c.Targets[i] = newTarget;
-            }
-
-            effectTarget.Dispose();
+            // 新しいターゲットに適用
+            c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
         }
     }
 }
