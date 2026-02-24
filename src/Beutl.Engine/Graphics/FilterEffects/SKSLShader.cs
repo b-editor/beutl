@@ -71,16 +71,24 @@ public sealed class SKSLShader : IDisposable
     public EffectTarget ApplyToNewTarget(CustomFilterEffectContext context, SKRuntimeShaderBuilder builder, Rect bounds)
     {
         var newTarget = context.CreateTarget(bounds);
-        using (SKShader finalShader = builder.Build())
-        using (var paint = new SKPaint())
-        using (var canvas = context.Open(newTarget))
+        try
         {
-            paint.Shader = finalShader;
-            canvas.Clear();
-            canvas.Canvas.DrawRect(new SKRect(0, 0, bounds.Width, bounds.Height), paint);
-        }
+            using (SKShader finalShader = builder.Build())
+            using (var paint = new SKPaint())
+            using (var canvas = context.Open(newTarget))
+            {
+                paint.Shader = finalShader;
+                canvas.Clear();
+                canvas.Canvas.DrawRect(new SKRect(0, 0, bounds.Width, bounds.Height), paint);
+            }
 
-        return newTarget;
+            return newTarget;
+        }
+        catch
+        {
+            newTarget.Dispose();
+            throw;
+        }
     }
 
     public void Dispose()

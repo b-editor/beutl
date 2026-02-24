@@ -108,16 +108,23 @@ public sealed class GLSLShader : IDisposable
             }
 
             ITexture2D destinationTexture = newRenderTarget.Texture;
+            try
+            {
+                using ITexture2D depthTexture = graphicsContext.CreateTexture2D(
+                    destinationTexture.Width,
+                    destinationTexture.Height,
+                    TextureFormat.Depth32Float);
 
-            using ITexture2D depthTexture = graphicsContext.CreateTexture2D(
-                destinationTexture.Width,
-                destinationTexture.Height,
-                TextureFormat.Depth32Float);
+                _pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
 
-            _pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
-
-            target.Dispose();
-            context.Targets[i] = newTarget;
+                target.Dispose();
+                context.Targets[i] = newTarget;
+            }
+            catch
+            {
+                newTarget.Dispose();
+                throw;
+            }
         }
     }
 
@@ -156,16 +163,24 @@ public sealed class GLSLShader : IDisposable
 
             ITexture2D destinationTexture = newRenderTarget.Texture;
 
-            using ITexture2D depthTexture = graphicsContext.CreateTexture2D(
-                destinationTexture.Width,
-                destinationTexture.Height,
-                TextureFormat.Depth32Float);
+            try
+            {
+                using ITexture2D depthTexture = graphicsContext.CreateTexture2D(
+                    destinationTexture.Width,
+                    destinationTexture.Height,
+                    TextureFormat.Depth32Float);
 
-            T pushConstants = createPushConstants(target);
-            _pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
+                T pushConstants = createPushConstants(target);
+                _pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
 
-            target.Dispose();
-            context.Targets[i] = newTarget;
+                target.Dispose();
+                context.Targets[i] = newTarget;
+            }
+            catch
+            {
+                newTarget.Dispose();
+                throw;
+            }
         }
     }
 
