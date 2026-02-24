@@ -168,7 +168,7 @@ public sealed partial class LutEffect : FilterEffect
             var renderTarget = effectTarget.RenderTarget!;
 
             using var image = renderTarget.Value.Snapshot();
-            using var baseShader = SKShader.CreateImage(image);
+            using var baseShader = image.ToShader();
 
             var builder = s_shader.CreateBuilder();
 
@@ -182,7 +182,7 @@ public sealed partial class LutEffect : FilterEffect
                     span[j] = new Vector4(color, 1);
                 }
             }
-            using var lutShader = SKShader.CreateImage(lutImage);
+            using var lutShader = lutImage.ToShader();
 
             builder.Children["src"] = baseShader;
             builder.Children["lut"] = lutShader;

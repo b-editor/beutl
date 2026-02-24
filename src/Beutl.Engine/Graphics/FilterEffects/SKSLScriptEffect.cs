@@ -83,7 +83,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect
             var renderTarget = effectTarget.RenderTarget!;
 
             using var image = renderTarget.Value.Snapshot();
-            using var baseShader = SKShader.CreateImage(image);
+            using var baseShader = image.ToShader();
 
             var builder = data.shader.CreateBuilder();
             var effect = data.shader.Effect;
