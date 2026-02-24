@@ -20,7 +20,7 @@
     <PackageVersion Include="Silk.NET.Shaderc.Native" Version="2.22.0" />
     <PackageVersion Include="Silk.NET.Assimp" Version="2.22.0" />
     <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="11.3.6.2" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.9" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.12" />
     <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="11.3.9" />
     <PackageVersion Include="Xaml.Behaviors.Interactivity" Version="11.3.9" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.2" />
