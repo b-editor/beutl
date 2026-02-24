@@ -33,7 +33,7 @@
     <PackageVersion Include="FFmpeg4Sharp" Version="7.0.1" />
     <PackageVersion Include="FluentAvaloniaUI" Version="2.4.1" />
     <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.224" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.3.0" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.3.0" />
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.183" />
     <PackageVersion Include="MonoMac.NetStandard" Version="0.0.4" />
     <PackageVersion Include="Moq" Version="4.20.72" />
