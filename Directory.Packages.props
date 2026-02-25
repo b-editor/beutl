@@ -70,7 +70,7 @@
     <PackageVersion Include="ReactiveProperty" Version="9.8.0" />
     <PackageVersion Include="ReDocking.Avalonia" Version="1.0.4" />
     <PackageVersion Include="Refit" Version="10.0.1" />
-    <PackageVersion Include="Roslynator.Analyzers" Version="4.13.1" />
+    <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="8.0.0" />
     <PackageVersion Include="Serilog.Sinks.Async" Version="2.1.0" />
     <PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
