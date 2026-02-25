@@ -67,7 +67,7 @@
     <PackageVersion Include="OpenTelemetry.Exporter.Zipkin" Version="1.11.2" />
     <PackageVersion Include="OpenTK.OpenAL" Version="5.0.0-pre.8" />
     <PackageVersion Include="PanelExtension" Version="1.0.0" />
-    <PackageVersion Include="ReactiveProperty" Version="9.6.0" />
+    <PackageVersion Include="ReactiveProperty" Version="9.8.0" />
     <PackageVersion Include="ReDocking.Avalonia" Version="1.0.4" />
     <PackageVersion Include="Refit" Version="8.0.0" />
     <PackageVersion Include="Roslynator.Analyzers" Version="4.13.1" />
