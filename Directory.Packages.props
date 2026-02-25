@@ -6,7 +6,7 @@
     <PackageVersion Include="AsyncImageLoader.Avalonia" Version="3.6.0" />
     <PackageVersion Include="Avalonia" Version="11.3.12" />
     <PackageVersion Include="Avalonia.Controls.ItemsRepeater" Version="11.1.5" />
-    <PackageVersion Include="PanAndZoom" Version="11.3.6" />
+    <PackageVersion Include="PanAndZoom" Version="11.3.9.1" />
     <PackageVersion Include="Avalonia.Desktop" Version="11.3.12" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.12" />
     <PackageVersion Include="ReactiveUI.Avalonia" Version="11.3.8" />
