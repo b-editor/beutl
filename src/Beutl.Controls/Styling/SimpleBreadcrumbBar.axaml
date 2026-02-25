@@ -23,7 +23,7 @@
     <ControlTheme x:Key="SimpleLargeBreadcrumbBarButton"
                   BasedOn="{StaticResource ResourceKey={x:Type Button}}"
                   TargetType="Button">
-        <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
         <Setter Property="FontSize" Value="24" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="TextBlock.TextTrimming" Value="CharacterEllipsis" />
@@ -58,7 +58,7 @@
     </ControlTheme>
 
     <ControlTheme x:Key="SimpleLargeBreadcrumbBarTextBlock" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{DynamicResource XamlAutoFontFamily}" />
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
         <Setter Property="FontSize" Value="24" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="TextBlock.TextTrimming" Value="CharacterEllipsis" />

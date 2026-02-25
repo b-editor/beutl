@@ -8,7 +8,7 @@
     </Design.PreviewWith>
 
     <ControlTheme x:Key="LabelTextBlockStyle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
