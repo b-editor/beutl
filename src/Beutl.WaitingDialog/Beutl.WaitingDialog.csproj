@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="DynamicData" />
+    <PackageReference Include="SkiaSharp" />
     <PackageReference Include="System.CommandLine" />
 
     <PackageReference Include="Avalonia" />

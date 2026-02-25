@@ -14,6 +14,8 @@
 
     <!-- CS8032 -->
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+  <PackageReference Include="SkiaSharp" VersionOverride="3.119.2" />
+  <PackageReference Include="SkiaSharp.HarfBuzz" VersionOverride="3.119.2" />
   </ItemGroup>
 
 </Project>

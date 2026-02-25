@@ -14,5 +14,6 @@
     <!-- CS8032 -->
   <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+  <PackageReference Include="SkiaSharp" />
   </ItemGroup>
 </Project>

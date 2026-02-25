@@ -25,6 +25,7 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
     <EmbeddedResource Update="Properties\Resources.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>

@@ -76,8 +76,8 @@
     <PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="Serilog.Sinks.OpenTelemetry" Version="1.2.0" />
-    <PackageVersion Include="SkiaSharp" Version="3.119.1" />
-    <PackageVersion Include="SkiaSharp.HarfBuzz" Version="3.119.1" />
+    <PackageVersion Include="SkiaSharp" Version="3.119.2" />
+    <PackageVersion Include="SkiaSharp.HarfBuzz" Version="3.119.2" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.2" />
     <PackageVersion Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     <PackageVersion Include="System.Interactive" Version="6.0.1" />
