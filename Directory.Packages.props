@@ -15,7 +15,7 @@
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.22.0" />
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.22.0" />
     <PackageVersion Include="Silk.NET.Vulkan.Loader.Native" Version="2024.10.25" />
-    <PackageVersion Include="Silk.NET.Vulkan.SwiftShader.Native" Version="2024.5.8" />
+    <PackageVersion Include="Silk.NET.Vulkan.SwiftShader.Native" Version="2025.9.8" />
     <PackageVersion Include="Silk.NET.Shaderc" Version="2.22.0" />
     <PackageVersion Include="Silk.NET.Shaderc.Native" Version="2.22.0" />
     <PackageVersion Include="Silk.NET.Assimp" Version="2.22.0" />
