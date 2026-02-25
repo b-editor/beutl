@@ -10,7 +10,7 @@
     <PackageVersion Include="Avalonia.Desktop" Version="11.3.12" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.12" />
     <PackageVersion Include="ReactiveUI.Avalonia" Version="11.3.8" />
-    <PackageVersion Include="Silk.NET.MoltenVK.Native" Version="2.22.0" />
+    <PackageVersion Include="Silk.NET.MoltenVK.Native" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Vulkan" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.22.0" />
