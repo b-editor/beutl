@@ -1,10 +1,9 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using Beutl.Collections.Pooled;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Beutl.Operation;
 using Beutl.ProjectSystem;
 
 namespace Beutl;
@@ -26,12 +25,12 @@ public sealed class SceneRenderer(Scene scene) : Renderer(scene.FrameSize.Width,
 
         foreach (Element item in exited)
         {
-            ExitSourceOperators(item);
+            ExitObjects(item);
         }
 
         foreach (Element item in entered)
         {
-            EnterSourceOperators(item);
+            EnterObjects(item);
         }
 
         for (int i = 0; i < CurrentElements.Count; i++)
@@ -53,19 +52,25 @@ public sealed class SceneRenderer(Scene scene) : Renderer(scene.FrameSize.Width,
         _lastTime = timeSpan;
     }
 
-    private static void EnterSourceOperators(Element element)
+    private static void EnterObjects(Element element)
     {
-        foreach (SourceOperator item in element.Operation.Children.GetMarshal().Value)
+        foreach (EngineObject item in element.Objects.GetMarshal().Value)
         {
-            item.Enter();
+            if (item is IFlowOperator flowOperator)
+            {
+                flowOperator.EnterFlow();
+            }
         }
     }
 
-    private static void ExitSourceOperators(Element element)
+    private static void ExitObjects(Element element)
     {
-        foreach (SourceOperator item in element.Operation.Children.GetMarshal().Value)
+        foreach (EngineObject item in element.Objects.GetMarshal().Value)
         {
-            item.Exit();
+            if (item is IFlowOperator flowOperator)
+            {
+                flowOperator.ExitFlow();
+            }
         }
     }
 
