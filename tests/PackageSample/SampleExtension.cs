@@ -12,7 +12,7 @@ public sealed class SampleExtension : LayerExtension
 
     public override void Load()
     {
-        LibraryService.Current.Register<SampleOp>(KnownLibraryItemFormats.SourceOperator, "Sample Operator");
+        LibraryService.Current.Register<SampleOp>(KnownLibraryItemFormats.EngineObject, "Sample Operator");
         LibraryService.Current.Register<ChoicesProviderTest>(KnownLibraryItemFormats.FilterEffect, "ChoicesProviderTest");
     }
 }
