@@ -1,7 +1,7 @@
-﻿using Beutl.Operation;
+using Beutl.Engine;
 
 namespace PackageSample;
 
-public sealed class SampleOp : SourceOperator
+public sealed class SampleOp : EngineObject
 {
 }
