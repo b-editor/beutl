@@ -18,6 +18,8 @@ public abstract partial class Drawable : EngineObject
         ScanProperties<Drawable>();
     }
 
+    public override EvaluationTarget GetEvaluationTarget() => EvaluationTarget.Graphics;
+
     [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings),
         GroupName = nameof(Strings.ImageFilter))]
     public IProperty<FilterEffect?> FilterEffect { get; } = Property.Create<FilterEffect?>();

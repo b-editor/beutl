@@ -16,6 +16,8 @@ public abstract class Sound : EngineObject
         ScanProperties<Sound>();
     }
 
+    public override EvaluationTarget GetEvaluationTarget() => EvaluationTarget.Audio;
+
     [Display(Name = nameof(Strings.OffsetPosition), ResourceType = typeof(Strings))]
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
