@@ -458,7 +458,7 @@ public sealed partial class TimelineTabView : UserControl
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
         viewModel.ClickedPosition = pt;
 
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is { } typeName
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } type)
         {
             viewModel.AddElement.Execute(new ElementDescription(
@@ -475,7 +475,7 @@ public sealed partial class TimelineTabView : UserControl
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.SourceOperator)
+        if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
             || e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.Copy;
@@ -498,14 +498,14 @@ public sealed partial class TimelineTabView : UserControl
     {
         switch (item)
         {
-            case SingleTypeLibraryItem single when single.Format == KnownLibraryItemFormats.SourceOperator:
+            case SingleTypeLibraryItem single when single.Format == KnownLibraryItemFormats.EngineObject:
                 {
                     var menuItem = new MenuFlyoutItem { Text = single.DisplayName, Tag = single.ImplementationType };
                     menuItem.Click += AddElementWithTypeClick;
                     return menuItem;
                 }
 
-            case MultipleTypeLibraryItem multiple when multiple.Types.TryGetValue(KnownLibraryItemFormats.SourceOperator, out Type? type):
+            case MultipleTypeLibraryItem multiple when multiple.Types.TryGetValue(KnownLibraryItemFormats.EngineObject, out Type? type):
                 {
                     var menuItem = new MenuFlyoutItem { Text = multiple.DisplayName, Tag = type };
                     menuItem.Click += AddElementWithTypeClick;

@@ -1,28 +1,21 @@
-﻿using Beutl.Animation.Easings;
+using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Effects;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
-// using Beutl.NodeTree;
-using Beutl.Operation;
 
 namespace Beutl.Services;
 
 public static class LibraryServiceExtensions
 {
-    public static MultipleTypeLibraryItem BindSourceOperator<T>(this MultipleTypeLibraryItem self)
-        where T : SourceOperator
+    public static MultipleTypeLibraryItem BindEngineObject<T>(this MultipleTypeLibraryItem self)
+        where T : EngineObject
     {
-        return self.Bind<T>(KnownLibraryItemFormats.SourceOperator);
+        return self.Bind<T>(KnownLibraryItemFormats.EngineObject);
     }
-    //
-    // public static MultipleTypeLibraryItem BindNode<T>(this MultipleTypeLibraryItem self)
-    //     where T : Node
-    // {
-    //     return self.Bind<T>(KnownLibraryItemFormats.Node);
-    // }
 
     public static MultipleTypeLibraryItem BindEasing<T>(this MultipleTypeLibraryItem self)
         where T : Easing
@@ -45,13 +38,15 @@ public static class LibraryServiceExtensions
     public static MultipleTypeLibraryItem BindDrawable<T>(this MultipleTypeLibraryItem self)
         where T : Drawable
     {
-        return self.Bind<T>(KnownLibraryItemFormats.Drawable);
+        return self.Bind<T>(KnownLibraryItemFormats.Drawable)
+            .BindEngineObject<T>();
     }
 
     public static MultipleTypeLibraryItem BindSound<T>(this MultipleTypeLibraryItem self)
         where T : Sound
     {
-        return self.Bind<T>(KnownLibraryItemFormats.Sound);
+        return self.Bind<T>(KnownLibraryItemFormats.Sound)
+            .BindEngineObject<T>();
     }
 
     public static MultipleTypeLibraryItem BindAudioEffect<T>(this MultipleTypeLibraryItem self)
@@ -72,17 +67,11 @@ public static class LibraryServiceExtensions
         return self.Bind<T>(KnownLibraryItemFormats.Geometry);
     }
 
-    public static GroupLibraryItem AddSourceOperator<T>(this GroupLibraryItem self, string displayName, string? description = null)
-        where T : SourceOperator
+    public static GroupLibraryItem AddEngineObject<T>(this GroupLibraryItem self, string displayName, string? description = null)
+        where T : EngineObject
     {
-        return self.Add<T>(KnownLibraryItemFormats.SourceOperator, displayName, description);
+        return self.Add<T>(KnownLibraryItemFormats.EngineObject, displayName, description);
     }
-    //
-    // public static GroupLibraryItem AddNode<T>(this GroupLibraryItem self, string displayName, string? description = null)
-    //     where T : Node
-    // {
-    //     return self.Add<T>(KnownLibraryItemFormats.Node, displayName, description);
-    // }
 
     public static GroupLibraryItem AddEasing<T>(this GroupLibraryItem self, string displayName, string? description = null)
         where T : Easing

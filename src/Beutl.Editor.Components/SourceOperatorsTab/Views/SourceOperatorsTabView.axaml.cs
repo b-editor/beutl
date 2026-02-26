@@ -1,8 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
-using Beutl.Editor;
 using Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
-using Beutl.Operation;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -54,13 +53,13 @@ public sealed partial class SourceOperatorsTabView : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is { } typeName
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } item
             && DataContext is SourceOperatorsTabViewModel vm
             && vm.Element.Value is Element element)
         {
             HistoryManager history = vm.GetRequiredService<HistoryManager>();
-            element.Operation.AddChild((SourceOperator)Activator.CreateInstance(item)!);
+            element.Objects.Add((EngineObject)Activator.CreateInstance(item)!);
             history.Commit(CommandNames.AddSourceOperator);
 
             e.Handled = true;
@@ -69,7 +68,7 @@ public sealed partial class SourceOperatorsTabView : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.SourceOperator))
+        if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }

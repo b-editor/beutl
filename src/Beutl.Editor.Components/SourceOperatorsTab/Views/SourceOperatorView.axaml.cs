@@ -10,6 +10,7 @@ using Beutl.Controls.Behaviors;
 using Beutl.Editor;
 using Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
 using Beutl.Editor.Components.Views;
+using Beutl.Engine;
 using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -36,34 +37,34 @@ public sealed partial class SourceOperatorView : UserControl
         if (DataContext is SourceOperatorViewModel viewModel2)
         {
             HistoryManager history = viewModel2.GetRequiredService<HistoryManager>();
-            SourceOperator operation = viewModel2.Model;
-            Element element = operation.FindRequiredHierarchicalParent<Element>();
-            element.Operation.RemoveChild(operation);
+            EngineObject obj = viewModel2.Model;
+            Element element = obj.FindRequiredHierarchicalParent<Element>();
+            element.Objects.Remove(obj);
             history.Commit(CommandNames.RemoveSourceOperator);
         }
     }
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is { } typeName
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } item2
             && DataContext is SourceOperatorViewModel viewModel2)
         {
             HistoryManager history = viewModel2.GetRequiredService<HistoryManager>();
-            SourceOperator operation = viewModel2.Model;
-            Element element = operation.FindRequiredHierarchicalParent<Element>();
+            EngineObject obj = viewModel2.Model;
+            Element element = obj.FindRequiredHierarchicalParent<Element>();
             Rect bounds = Bounds;
             Point position = e.GetPosition(this);
             double half = bounds.Height / 2;
-            int index = element.Operation.Children.IndexOf(operation);
+            int index = element.Objects.IndexOf(obj);
 
             if (half < position.Y)
             {
-                element.Operation.InsertChild(index + 1, (SourceOperator)Activator.CreateInstance(item2)!);
+                element.Objects.Insert(index + 1, (EngineObject)Activator.CreateInstance(item2)!);
             }
             else
             {
-                element.Operation.InsertChild(index, (SourceOperator)Activator.CreateInstance(item2)!);
+                element.Objects.Insert(index, (EngineObject)Activator.CreateInstance(item2)!);
             }
 
             history.Commit(CommandNames.AddSourceOperator);
@@ -74,7 +75,7 @@ public sealed partial class SourceOperatorView : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.SourceOperator))
+        if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }
@@ -87,8 +88,8 @@ public sealed partial class SourceOperatorView : UserControl
         {
             if (!viewModel.IsDummy.Value)
             {
-                SourceOperator operation = viewModel.Model;
-                Type type = operation.GetType();
+                EngineObject obj = viewModel.Model;
+                Type type = obj.GetType();
                 headerText.Text = TypeDisplayHelpers.GetLocalizedName(type);
 
                 if (panel.Children.Count == 2)
@@ -114,14 +115,11 @@ public sealed partial class SourceOperatorView : UserControl
         {
             if (itemsControl?.DataContext is SourceOperatorsTabViewModel
                 {
-                    Element.Value:
-                    {
-                        Operation.Children: { } list
-                    } element
+                    Element.Value: { } element
                 } viewModel)
             {
                 HistoryManager history = viewModel.GetRequiredService<HistoryManager>();
-                list.Move(oldIndex, newIndex);
+                element.Objects.Move(oldIndex, newIndex);
                 history.Commit(CommandNames.MoveSourceOperator);
             }
         }

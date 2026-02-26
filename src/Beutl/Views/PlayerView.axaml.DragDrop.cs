@@ -79,7 +79,7 @@ public partial class PlayerView
                 return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex) + 1;
             }
 
-            if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is { } typeName
+            if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
                 && TypeFormat.ToType(typeName) is { } type)
             {
                 e.Handled = true;
@@ -103,7 +103,7 @@ public partial class PlayerView
 
     private void OnFrameDragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.SourceOperator)
+        if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
             || e.DataTransfer.Contains(BeutlDataFormats.FilterEffect)
             || e.DataTransfer.Contains(BeutlDataFormats.Transform)
             || e.DataTransfer.Contains(DataFormat.File))
