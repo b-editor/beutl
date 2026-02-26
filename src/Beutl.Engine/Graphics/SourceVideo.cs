@@ -29,6 +29,35 @@ public partial class SourceVideo : Drawable
     [Display(Name = nameof(Strings.IsLoop), ResourceType = typeof(Strings))]
     public IProperty<bool> IsLoop { get; } = Property.CreateAnimatable<bool>();
 
+    public override bool HasOriginalLength()
+    {
+        return Source.CurrentValue != null;
+    }
+
+    public override bool TryGetOriginalLength(out TimeSpan timeSpan)
+    {
+        using var resource = ToResource(RenderContext.Default);
+        var ts = CalculateOriginalTime((Resource)resource);
+        if (ts.HasValue)
+        {
+            timeSpan = ts.Value - OffsetPosition.CurrentValue;
+            return true;
+        }
+        else
+        {
+            timeSpan = TimeSpan.Zero;
+            return false;
+        }
+    }
+
+    public override void OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
+    {
+        if (backward)
+        {
+            OffsetPosition.CurrentValue += startDelta;
+        }
+    }
+
     private TimeSpan CalculateVideoTime(TimeSpan timeSpan, Resource resource)
     {
         var anm = Speed.Animation;
