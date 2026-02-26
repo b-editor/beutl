@@ -14,7 +14,7 @@ using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Editor.Components.NodeTreeTab.ViewModels;
-using Beutl.Operation;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -403,8 +403,8 @@ public sealed partial class ElementView : UserControl
                     {
                         TimeSpan? originalLength = null;
                         if (clampToOriginal
-                            && elem.Model.Operation.Children.FirstOrDefault(v => v.HasOriginalLength()) is { } op
-                            && op.TryGetOriginalLength(out TimeSpan ts))
+                            && elem.Model.HasOriginalLength()
+                            && elem.Model.TryGetOriginalLength(out TimeSpan ts))
                         {
                             originalLength = ts;
                         }

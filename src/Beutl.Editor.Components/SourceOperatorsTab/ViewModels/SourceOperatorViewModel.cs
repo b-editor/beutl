@@ -1,12 +1,10 @@
-using System.Collections.Specialized;
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Nodes;
-using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Operation;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
-using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -16,11 +14,11 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 {
     private SourceOperatorsTabViewModel _parent;
 
-    public SourceOperatorViewModel(SourceOperator model, SourceOperatorsTabViewModel parent)
+    public SourceOperatorViewModel(EngineObject model, SourceOperatorsTabViewModel parent)
     {
         Model = model;
         _parent = parent;
-        IsEnabled = model.GetObservable(SourceOperator.IsEnabledProperty)
+        IsEnabled = model.GetObservable(EngineObject.IsEnabledProperty)
             .ToReactiveProperty();
         IsEnabled.Skip(1).Subscribe(v =>
         {
@@ -34,8 +32,6 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
         Init();
 
-        model.Properties.CollectionChanged += Properties_CollectionChanged;
-
         IsDummy = Observable.ReturnThenNever(model is IDummy)
             .ToReadOnlyReactivePropertySlim();
 
@@ -43,19 +39,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             .ToReadOnlyReactivePropertySlim()!;
     }
 
-    private void Properties_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
-        {
-            item?.Dispose();
-        }
-
-        Properties.Clear();
-
-        Init();
-    }
-
-    public SourceOperator Model { get; private set; }
+    public EngineObject Model { get; private set; }
 
     public ReactiveProperty<bool> IsExpanded { get; } = new(true);
 
@@ -115,7 +99,6 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     public void Dispose()
     {
-        Model.Properties.CollectionChanged -= Properties_CollectionChanged;
         foreach (IPropertyEditorContext? item in Properties.GetMarshal().Value)
         {
             item?.Dispose();
@@ -131,7 +114,8 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
     private void Init()
     {
         var factory = this.GetRequiredService<IPropertyEditorFactory>();
-        var contexts = factory.CreatePropertyEditorContexts(Model.Properties, this);
+        var adapters = PropertyAdapterFactory.CreateAdapters(Model);
+        var contexts = factory.CreatePropertyEditorContexts(adapters, this);
         Properties.AddRange(contexts);
     }
 
@@ -141,7 +125,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     public object? GetService(Type serviceType)
     {
-        if (serviceType == typeof(SourceOperator))
+        if (serviceType == typeof(EngineObject))
             return Model;
 
         return _parent.GetService(serviceType);
@@ -149,7 +133,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     public IObservable<string?> GetJsonString()
     {
-        if (Model is DummySourceOperator { Json: JsonObject json })
+        if (Model is DummyEngineObject { Json: JsonObject json })
         {
             return Observable.ReturnThenNever(json.ToJsonString(JsonHelper.SerializerOptions));
         }
@@ -159,9 +143,9 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
 
     public void SetJsonString(string? str)
     {
-        if (Model.HierarchicalParent is not SourceOperation sourceOperation) return;
+        if (Model.HierarchicalParent is not Element element) return;
 
-        int index = sourceOperation.Children.IndexOf(Model);
+        int index = element.Objects.IndexOf(Model);
         if (index < 0) return;
 
         string message = Strings.InvalidJson;
@@ -169,19 +153,19 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
 
         Type? type = json.GetDiscriminator();
-        SourceOperator? @operator = null;
-        if (type?.IsAssignableTo(typeof(SourceOperator)) ?? false)
+        EngineObject? obj = null;
+        if (type?.IsAssignableTo(typeof(EngineObject)) ?? false)
         {
-            @operator = Activator.CreateInstance(type) as SourceOperator;
+            obj = Activator.CreateInstance(type) as EngineObject;
         }
 
-        if (@operator == null) throw new Exception(message);
+        if (obj == null) throw new Exception(message);
 
-        CoreSerializer.PopulateFromJsonObject(@operator, type!, json);
+        CoreSerializer.PopulateFromJsonObject(obj, type!, json);
 
         HistoryManager history = this.GetRequiredService<HistoryManager>();
 
-        sourceOperation.Children[index] = @operator;
+        element.Objects[index] = obj;
         history.Commit(CommandNames.PasteSourceOperator);
     }
 }

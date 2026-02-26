@@ -7,6 +7,6 @@ public record struct ElementDescription(
     TimeSpan Length,
     int Layer,
     string Name = "",
-    Type? InitialOperator = null,
+    Type? InitialObject = null,
     string? FileName = null,
     Point Position = default);

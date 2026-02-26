@@ -16,8 +16,8 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Services;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -463,7 +463,7 @@ public sealed partial class TimelineTabView : UserControl
         {
             viewModel.AddElement.Execute(new ElementDescription(
                 viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
-                InitialOperator: type));
+                InitialObject: type));
         }
         else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
         {
@@ -549,7 +549,7 @@ public sealed partial class TimelineTabView : UserControl
             ViewModel.ClickedFrame,
             TimeSpan.FromSeconds(5),
             ViewModel.CalculateClickedLayer(),
-            InitialOperator: operatorType));
+            InitialObject: operatorType));
     }
 
     private void ShowSceneSettings(object? sender, RoutedEventArgs e)

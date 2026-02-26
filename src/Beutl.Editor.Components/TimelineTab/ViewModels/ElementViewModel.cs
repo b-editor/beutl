@@ -13,7 +13,7 @@ using Beutl.Editor.Components.TimelineTab.Services;
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Operation;
+using Beutl.Engine;
 using Microsoft.Extensions.DependencyInjection;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -696,8 +696,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 backward,
                 RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
             target.Scene.AddChild(backward);
-            backward.Operation.OnSplit(true, forwardLength, -forwardLength);
-            target.Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);
+            backward.OnSplit(true, forwardLength, -forwardLength);
+            target.Model.OnSplit(false, TimeSpan.Zero, -backwardLength);
 
             if (target._elementGroup is { } set)
             {
@@ -730,8 +730,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private async void OnChangeToOriginalLength()
     {
-        if (Model.Operation.Children.FirstOrDefault(v => v.HasOriginalLength()) is { } op
-            && op.TryGetOriginalLength(out TimeSpan timeSpan))
+        if (Model.HasOriginalLength()
+            && Model.TryGetOriginalLength(out TimeSpan timeSpan))
         {
             PrepareAnimationContext context = PrepareAnimation();
 
@@ -757,7 +757,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public bool HasOriginalLength()
     {
-        return Model.Operation.Children.Any(v => v.HasOriginalLength());
+        return Model.HasOriginalLength();
     }
 
     public void Execute(ContextCommandExecution execution)
@@ -881,7 +881,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private IElementThumbnailsProvider? FindThumbnailsProvider()
     {
-        foreach (var child in Model.Operation.Children)
+        foreach (var child in Model.Objects)
         {
             if (child is IElementThumbnailsProvider provider)
                 return provider;

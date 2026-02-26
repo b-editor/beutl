@@ -4,7 +4,6 @@ using Beutl.Editor.Components.PathEditorTab.Services;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Services;
 using Beutl.Media;
-using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -46,9 +45,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
         Element = Context.Select(v => v?.GetService<Element>())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        SourceOperator = Context.Select(v => v?.GetService<SourceOperator>() as IPublishOperator)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
 
         GeometryResource = PathGeometry
             .Select(d =>
@@ -86,8 +82,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
     public IReadOnlyReactiveProperty<PathFigure?> PathFigure { get; }
 
     public IReadOnlyReactiveProperty<Element?> Element { get; }
-
-    public ReadOnlyReactivePropertySlim<IPublishOperator?> SourceOperator { get; }
 
     public IReactiveProperty<PathSegment?> SelectedOperation { get; } = new ReactiveProperty<PathSegment?>();
 
