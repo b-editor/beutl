@@ -4,7 +4,6 @@ using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
-using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 
@@ -187,34 +186,34 @@ public static class TutorialHelpers
         editVm.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
     }
 
-    public static Element? FindElementWithOperator<TOperator>(Scene? scene)
-        where TOperator : SourceOperator
+    public static Element? FindElementWithObject<TEngineObject>(Scene? scene)
+        where TEngineObject : EngineObject
     {
         return scene?.Children.FirstOrDefault(e =>
-            e.Operation.Children.OfType<TOperator>().Any());
+            e.Objects.OfType<TEngineObject>().Any());
     }
 
-    public static TOperator? GetOperator<TOperator>(Element? element)
-        where TOperator : SourceOperator
+    public static TEngineObject? GetObject<TEngineObject>(Element? element)
+        where TEngineObject : EngineObject
     {
-        return element?.Operation.Children.OfType<TOperator>().FirstOrDefault();
+        return element?.Objects.OfType<TEngineObject>().FirstOrDefault();
     }
 
-    public static bool HasElementWithOperator<TOperator>(Scene? scene)
-        where TOperator : SourceOperator
+    public static bool HasElementWithObject<TEngineObject>(Scene? scene)
+        where TEngineObject : EngineObject
     {
-        return scene?.Children.Any(e => e.Operation.Children.OfType<TOperator>().Any()) ?? false;
+        return scene?.Children.Any(e => e.Objects.OfType<TEngineObject>().Any()) ?? false;
     }
 
-    public static IDisposable? SubscribeToElementAdded<TOperator>(
+    public static IDisposable? SubscribeToElementAdded<TEngineObject>(
         Scene? scene,
         Action onElementAdded)
-        where TOperator : SourceOperator
+        where TEngineObject : EngineObject
     {
         if (scene == null) return null;
 
         // Already has element?
-        if (HasElementWithOperator<TOperator>(scene))
+        if (HasElementWithObject<TEngineObject>(scene))
         {
             Dispatcher.UIThread.Post(onElementAdded);
             return null;
@@ -223,7 +222,7 @@ public static class TutorialHelpers
         Action<Element>? handler = null;
         handler = element =>
         {
-            if (element.Operation.Children.OfType<TOperator>().Any())
+            if (element.Objects.OfType<TEngineObject>().Any())
             {
                 Dispatcher.UIThread.Post(onElementAdded);
             }
@@ -249,15 +248,8 @@ public static class TutorialHelpers
 
         Element? element = editVm.SelectedObject.Value as Element;
         element ??= editVm.Scene.Children.FirstOrDefault(e =>
-            e.Operation.Children
-                .OfType<IPublishOperator>()
-                .Any(op => op.Value is Drawable));
+            e.Objects.OfType<Drawable>().Any());
 
-        if (element?.Operation.Children.OfType<IPublishOperator>().FirstOrDefault() is { Value: Drawable value })
-        {
-            return value;
-        }
-
-        return null;
+        return element?.Objects.OfType<Drawable>().FirstOrDefault();
     }
 }
