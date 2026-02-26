@@ -1,13 +1,15 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
+using Beutl.Editor;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(Strings.TimeController), ResourceType = typeof(Strings))]
-public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawable>
+public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawable>, IFlowOperator
 {
     public DrawableTimeController()
     {
@@ -42,6 +44,54 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
     [Display(Name = nameof(Strings.HoldLastFrame), ResourceType = typeof(Strings))]
     public IProperty<bool> HoldLastFrame { get; } = Property.Create<bool>();
+
+    void IFlowOperator.ProcessFlow(IList<EngineObject> flow, EvaluationTarget target, object? renderer)
+    {
+        using var _ = PublishingSuppression.Enter();
+        if (!IsEnabled)
+        {
+            Target.Expression = null;
+            return;
+        }
+
+        Drawable? item = null;
+        for (int i = 0; i < flow.Count; i++)
+        {
+            if (flow[i] is Drawable d)
+            {
+                item = d;
+                flow.RemoveAt(i);
+                break;
+            }
+        }
+
+        if (item != null)
+        {
+            if ((Target.Expression is ReferenceExpression<Drawable> refExp && refExp.ObjectId != item.Id)
+                || Target.Expression is null)
+            {
+                Target.Expression = new ReferenceExpression<Drawable>(item.Id);
+            }
+        }
+        else
+        {
+            Target.Expression = null;
+        }
+
+        flow.Add(this);
+    }
+
+    void IFlowOperator.EnterFlow()
+    {
+    }
+
+    void IFlowOperator.ExitFlow()
+    {
+    }
+
+    void IFlowOperator.OnSerializing()
+    {
+    }
 
     private TimeSpan CalculateTimeWithSpeed(TimeSpan timeSpan, Resource resource)
     {

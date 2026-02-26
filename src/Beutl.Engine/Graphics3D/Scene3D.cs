@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -15,7 +16,7 @@ namespace Beutl.Graphics3D;
 /// A Drawable that renders a 3D scene.
 /// </summary>
 [Display(Name = nameof(Strings.Scene3D), ResourceType = typeof(Strings))]
-public partial class Scene3D : Drawable
+public partial class Scene3D : Drawable, IFlowOperator
 {
     public Scene3D()
     {
@@ -82,6 +83,59 @@ public partial class Scene3D : Drawable
     /// Gets the gizmo visualization mode.
     /// </summary>
     public IProperty<GizmoMode> GizmoMode { get; } = Property.Create(Gizmo.GizmoMode.None);
+
+    void IFlowOperator.ProcessFlow(IList<EngineObject> flow, EvaluationTarget target, object? renderer)
+    {
+        using var _ = PublishingSuppression.Enter();
+        if (!IsEnabled)
+        {
+            Lights.Clear();
+            Objects.Clear();
+            return;
+        }
+
+        var lights = new List<Light3D>();
+        var objects = new List<Object3D>();
+        for (int i = flow.Count - 1; i >= 0; i--)
+        {
+            switch (flow[i])
+            {
+                case Light3D light:
+                    flow.RemoveAt(i);
+                    lights.Insert(0, light);
+                    break;
+                case Object3D obj:
+                    flow.RemoveAt(i);
+                    objects.Insert(0, obj);
+                    break;
+            }
+        }
+
+        Lights.Replace(lights);
+        Objects.Replace(objects);
+        flow.Add(this);
+    }
+
+    void IFlowOperator.EnterFlow()
+    {
+        using var _ = PublishingSuppression.Enter();
+        Lights.Clear();
+        Objects.Clear();
+    }
+
+    void IFlowOperator.ExitFlow()
+    {
+        using var _ = PublishingSuppression.Enter();
+        Lights.Clear();
+        Objects.Clear();
+    }
+
+    void IFlowOperator.OnSerializing()
+    {
+        using var _ = PublishingSuppression.Enter();
+        Lights.Clear();
+        Objects.Clear();
+    }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
