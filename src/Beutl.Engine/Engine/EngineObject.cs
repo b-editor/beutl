@@ -15,6 +15,7 @@ using LinqExpression = System.Linq.Expressions.Expression;
 
 namespace Beutl.Engine;
 
+[DummyType(typeof(DummyEngineObject))]
 public class EngineObject : Hierarchical, INotifyEdited
 {
     // これらのプロパティは描画時ではなく編集時に更新されるべき
@@ -284,6 +285,27 @@ public class EngineObject : Hierarchical, INotifyEdited
     protected void RaiseEdited()
     {
         Edited?.Invoke(this, EventArgs.Empty);
+    }
+
+    public virtual EvaluationTarget GetEvaluationTarget()
+    {
+        return EvaluationTarget.Unknown;
+    }
+
+    // TODO: 以下の3つのメソッドは別のインターフェースにする
+    public virtual bool HasOriginalLength()
+    {
+        return false;
+    }
+
+    public virtual bool TryGetOriginalLength(out TimeSpan timeSpan)
+    {
+        timeSpan = default;
+        return false;
+    }
+
+    public virtual void OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
+    {
     }
 
     public virtual Resource ToResource(RenderContext context)
