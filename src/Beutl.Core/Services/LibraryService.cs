@@ -171,7 +171,7 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
 
 public static class KnownLibraryItemFormats
 {
-    public const string SourceOperator = "Beutl.Operation.SourceOperator";
+    public const string EngineObject = "Beutl.Engine.EngineObject";
     public const string Node = "Beutl.NodeTree.Node";
     public const string Drawable = "Beutl.Graphics.Drawable";
     public const string Sound = "Beutl.Audio.Sound";
