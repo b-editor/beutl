@@ -2,11 +2,16 @@
 using System.Numerics;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Editor.Components.GraphEditorTab.ViewModels;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
-using Beutl.Editor.Components.Helpers;
+using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Transformation;
@@ -17,14 +22,11 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.Operation;
-using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Threading;
-using Beutl.Editor.Components.GraphEditorTab.ViewModels;
-using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -688,26 +690,18 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             element.AccentColor = ColorGenerator.GenerateColor(str);
         }
 
-        void SetTransform(SourceOperation operation, SourceOperator op)
+        void SetTransform(Drawable drawable)
         {
             if (!desc.Position.IsDefault)
             {
                 _logger.LogDebug(
-                    "Setting transform for operation: {Operation}, operator: {Operator}, position: {Position}",
-                    operation, op, desc.Position);
-                if (op.Properties.FirstOrDefault(v => v.PropertyType == typeof(Transform)) is
-                    IPropertyAdapter<Transform?> transformp)
-                {
-                    Transform? transform = transformp.GetValue();
-                    AddOrSetHelper.AddOrSet(
-                        ref transform,
-                        new TranslateTransform(desc.Position));
-                    transformp.SetValue(transform);
-                }
-                else
-                {
-                    _logger.LogWarning("The operator does not have a transform property.");
-                }
+                    "Setting transform for drawable: {Drawable}, position: {Position}",
+                    drawable, desc.Position);
+                Transform? transform = drawable.Transform.CurrentValue;
+                AddOrSetHelper.AddOrSet(
+                    ref transform,
+                    new TranslateTransform(desc.Position));
+                drawable.Transform.CurrentValue = transform;
             }
         }
 
@@ -733,15 +727,19 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             _logger.LogInformation("Adding element from file: {FileName}", desc.FileName);
             (TimeRange Range, int ZIndex)? scrollPos = null;
 
-            Element CreateElementFor<T>(out T t)
-                where T : SourceOperator, new()
+            Element CreateElementFor<TValue>(out TValue value)
+                where TValue : EngineObject, new()
             {
                 Element element = CreateElement();
                 element.Name = Path.GetFileName(desc.FileName);
-                SetAccentColor(element, typeof(T).FullName!);
+                SetAccentColor(element, typeof(TValue).FullName!);
 
-                element.Operation.AddChild(t = new T());
-                SetTransform(element.Operation, t);
+                value = new TValue();
+                element.Objects.Add(value);
+                if (value is Drawable drawable)
+                {
+                    SetTransform(drawable);
+                }
 
                 return element;
             }
@@ -749,8 +747,8 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             if (MatchFileImage(desc.FileName))
             {
                 _logger.LogDebug("File is an image.");
-                Element element = CreateElementFor(out SourceImageOperator t);
-                t.Value.Source.CurrentValue = ImageSource.Open(desc.FileName);
+                Element element = CreateElementFor<SourceImage>(out var t);
+                t.Source.CurrentValue = ImageSource.Open(desc.FileName);
 
                 CoreSerializer.StoreToUri(element, element.Uri!);
                 Scene.AddChild(element);
@@ -759,18 +757,18 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             else if (MatchFileVideoOnly(desc.FileName))
             {
                 _logger.LogDebug("File is a video.");
-                Element element1 = CreateElementFor(out SourceVideoOperator t1);
-                Element element2 = CreateElementFor(out SourceSoundOperator t2);
+                Element element1 = CreateElementFor<SourceVideo>(out var t1);
+                Element element2 = CreateElementFor<SourceSound>(out var t2);
                 element2.ZIndex++;
                 var video = VideoSource.Open(desc.FileName);
-                t1.Value.Source.CurrentValue = video;
+                t1.Source.CurrentValue = video;
                 var videoResource = TrySetDuration(
                     element1,
                     () => video.ToResource(RenderContext.Default),
                     v => v.Duration);
 
                 var sound = SoundSource.Open(desc.FileName);
-                t2.Value.Source.CurrentValue = sound;
+                t2.Source.CurrentValue = sound;
                 var soundResource = TrySetDuration(
                     element2,
                     () => sound.ToResource(RenderContext.Default),
@@ -797,9 +795,9 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             else if (MatchFileAudioOnly(desc.FileName))
             {
                 _logger.LogDebug("File is an audio.");
-                Element element = CreateElementFor(out SourceSoundOperator t);
+                Element element = CreateElementFor<SourceSound>(out var t);
                 var sound = SoundSource.Open(desc.FileName);
-                t.Value.Source.CurrentValue = sound;
+                t.Source.CurrentValue = sound;
                 var soundResource = TrySetDuration(
                     element,
                     () => sound.ToResource(RenderContext.Default),
@@ -824,17 +822,20 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         {
             _logger.LogInformation("Adding new element without file.");
             Element element = CreateElement();
-            if (desc.InitialOperator != null)
+            if (desc.InitialObject != null)
             {
-                element.Name = TypeDisplayHelpers.GetLocalizedName(desc.InitialOperator);
+                element.Name = TypeDisplayHelpers.GetLocalizedName(desc.InitialObject);
 
                 //Todo: レイヤーのアクセントカラー
                 //sLayer.AccentColor = item.InitialOperator.AccentColor;
                 element.AccentColor =
-                    ColorGenerator.GenerateColor(desc.InitialOperator.FullName ?? desc.InitialOperator.Name);
-                var operatour = (SourceOperator)Activator.CreateInstance(desc.InitialOperator)!;
-                element.Operation.AddChild(operatour);
-                SetTransform(element.Operation, operatour);
+                    ColorGenerator.GenerateColor(desc.InitialObject.FullName ?? desc.InitialObject.Name);
+                var engineObject = (EngineObject)Activator.CreateInstance(desc.InitialObject)!;
+                element.Objects.Add(engineObject);
+                if (engineObject is Drawable drawable)
+                {
+                    SetTransform(drawable);
+                }
             }
 
             CoreSerializer.StoreToUri(element, element.Uri!);

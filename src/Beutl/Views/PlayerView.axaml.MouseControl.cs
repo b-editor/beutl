@@ -23,7 +23,6 @@ using System.Numerics;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
-using Beutl.Operators.Source;
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
 using AvaRect = Avalonia.Rect;
@@ -1162,10 +1161,10 @@ public partial class PlayerView
             // 選択されているオブジェクトから探す
             if (EditViewModel.SelectedObject.Value is Element element)
             {
-                var op = element.Operation.Children.OfType<Scene3DOperator>().FirstOrDefault();
-                if (op != null)
+                var scene3DObj = element.Objects.OfType<Scene3D>().FirstOrDefault();
+                if (scene3DObj != null)
                 {
-                    _scene3D = op.Value;
+                    _scene3D = scene3DObj;
                     _camera = _scene3D.Camera.CurrentValue;
                     return;
                 }

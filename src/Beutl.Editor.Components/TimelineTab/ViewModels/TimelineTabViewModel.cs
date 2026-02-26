@@ -18,7 +18,6 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Operation;
-using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -594,17 +593,17 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
         imageData.Save(imageFile);
 
-        var sp = new SourceImageOperator();
-        sp.Value.Source.CurrentValue = ImageSource.Open(imageFile);
+        var sourceImage = new Graphics.SourceImage();
+        sourceImage.Source.CurrentValue = ImageSource.Open(imageFile);
         var newElement = new Element
         {
             Start = ClickedFrame,
             Length = TimeSpan.FromSeconds(5),
             ZIndex = CalculateClickedLayer(),
-            Operation = { Children = { sp } },
-            AccentColor = ColorGenerator.GenerateColor(typeof(SourceImageOperator).FullName!),
+            AccentColor = ColorGenerator.GenerateColor(typeof(Graphics.SourceImage).FullName!),
             Name = Path.GetFileName(imageFile)
         };
+        newElement.Objects.Add(sourceImage);
 
         CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
             dir, Constants.ElementFileExtension));

@@ -87,7 +87,7 @@ public partial class PlayerView
                 int zindex = CalculateZIndex(scene);
 
                 editViewModel.AddElement(new ElementDescription(
-                    frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centeredPosition));
+                    frame, TimeSpan.FromSeconds(5), zindex, InitialObject: type, Position: centeredPosition));
             }
             else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
             {

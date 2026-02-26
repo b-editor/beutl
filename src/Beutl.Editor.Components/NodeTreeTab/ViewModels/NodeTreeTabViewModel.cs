@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Collections.Pooled;
 using Beutl.NodeTree;
-using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -315,9 +314,9 @@ public sealed class NodeTreeTabViewModel : IToolContext
 
     internal static NodeTreeModel? FindNodeTreeModel(Element element)
     {
-        foreach (var op in element.Operation.Children)
+        foreach (var obj in element.Objects)
         {
-            if (op is IPublishOperator { Value: NodeTreeDrawable drawable })
+            if (obj is NodeTreeDrawable drawable)
                 return drawable.Model.CurrentValue;
         }
 

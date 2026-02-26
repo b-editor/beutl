@@ -2,7 +2,7 @@ using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
 using Beutl.Editor.Services;
-using Beutl.Operation;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -39,8 +39,8 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
             {
                 _disposable1?.Dispose();
 
-                Items.AddRange(element.Operation.Children.Select(x => new SourceOperatorViewModel(x, this)));
-                _disposable1 = element.Operation.Children.CollectionChangedAsObservable()
+                Items.AddRange(element.Objects.Select(x => new SourceOperatorViewModel(x, this)));
+                _disposable1 = element.Objects.CollectionChangedAsObservable()
                     .Subscribe(e =>
                     {
                         void RemoveItems(CoreList<SourceOperatorViewModel> items, int index, int count)
@@ -58,7 +58,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
                         {
                             case NotifyCollectionChangedAction.Add:
                                 Items.InsertRange(e.NewStartingIndex, e.NewItems!
-                                    .Cast<SourceOperator>()
+                                    .Cast<EngineObject>()
                                     .Select(x => new SourceOperatorViewModel(x, this)));
                                 break;
 
@@ -81,7 +81,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
                                 }
 
                                 Items.InsertRange(newIndex, e.NewItems!
-                                    .Cast<SourceOperator>()
+                                    .Cast<EngineObject>()
                                     .Select(x => new SourceOperatorViewModel(x, this)));
                                 break;
 
@@ -102,7 +102,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
     public string Header => Strings.SourceOperators;
 
-    public Action<SourceOperator>? RequestScroll { get; set; }
+    public Action<EngineObject>? RequestScroll { get; set; }
 
     public ReactiveProperty<Element?> Element { get; }
 
@@ -123,7 +123,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
     public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
         new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
 
-    public void ScrollTo(SourceOperator obj)
+    public void ScrollTo(EngineObject obj)
     {
         RequestScroll?.Invoke(obj);
     }

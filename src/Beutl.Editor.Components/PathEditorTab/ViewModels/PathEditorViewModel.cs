@@ -7,9 +7,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
-using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -52,10 +50,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         Element = Context.Select(v => v?.GetService<Element>())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        SourceOperator = Context.Select(v => v?.GetService<SourceOperator>() as IPublishOperator)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        Drawable = SourceOperator.Select(v => v?.Value as Drawable)
+        Drawable = Geometry.Select(v => v?.FindHierarchicalParent<Drawable>())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -149,8 +144,6 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
     public IReadOnlyReactiveProperty<PathFigure?> PathFigure { get; }
 
     public IReadOnlyReactiveProperty<Element?> Element { get; }
-
-    public ReadOnlyReactivePropertySlim<IPublishOperator?> SourceOperator { get; }
 
     public ReadOnlyReactivePropertySlim<Drawable?> Drawable { get; }
 

@@ -18,7 +18,6 @@ using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Models;
-using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -164,12 +163,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         foreach (var element in Scene?.Children ?? [])
         {
-            foreach (var op in element.Operation.Children)
+            foreach (var obj in element.Objects)
             {
-                if (op is Operators.Source.Scene3DOperator scene3DOp && scene3DOp.Value != null)
+                if (obj is Graphics3D.Scene3D scene3D)
                 {
-                    scene3DOp.Value.GizmoTarget.CurrentValue = null;
-                    scene3DOp.Value.GizmoMode.CurrentValue = GizmoMode.None;
+                    scene3D.GizmoTarget.CurrentValue = null;
+                    scene3D.GizmoMode.CurrentValue = GizmoMode.None;
                 }
             }
         }
@@ -179,13 +178,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         if (Scene == null) return;
 
-        foreach (var op in Scene.Children
-                     .SelectMany(e => e.Operation.Children)
-                     .OfType<Scene3DOperator>()
-                     .Where(op => op.Value.GizmoTarget.CurrentValue.HasValue))
+        foreach (var scene3D in Scene.Children
+                     .SelectMany(e => e.Objects)
+                     .OfType<Graphics3D.Scene3D>()
+                     .Where(s => s.GizmoTarget.CurrentValue.HasValue))
         {
             // GizmoTargetが設定されている場合のみモードを更新
-            op.Value.GizmoMode.CurrentValue = mode;
+            scene3D.GizmoMode.CurrentValue = mode;
         }
     }
 
