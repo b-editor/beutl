@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -7,7 +8,7 @@ namespace Beutl.Graphics;
 
 // Drawable継承しているが、Drawableのメソッドは使っていない
 [Display(Name = nameof(Strings.Decorator), ResourceType = typeof(Strings))]
-public sealed partial class DrawableDecorator : Drawable
+public sealed partial class DrawableDecorator : Drawable, IFlowOperator
 {
     public DrawableDecorator()
     {
@@ -15,6 +16,47 @@ public sealed partial class DrawableDecorator : Drawable
     }
 
     public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
+
+    void IFlowOperator.ProcessFlow(IList<EngineObject> flow, EvaluationTarget target, object? renderer)
+    {
+        using var _ = PublishingSuppression.Enter();
+        if (!IsEnabled)
+        {
+            Children.Clear();
+            return;
+        }
+
+        var items = new List<Drawable>();
+        for (int i = flow.Count - 1; i >= 0; i--)
+        {
+            if (flow[i] is Drawable drawable)
+            {
+                items.Insert(0, drawable);
+                flow.RemoveAt(i);
+            }
+        }
+
+        Children.Replace(items);
+        flow.Add(this);
+    }
+
+    void IFlowOperator.EnterFlow()
+    {
+        using var _ = PublishingSuppression.Enter();
+        Children.Clear();
+    }
+
+    void IFlowOperator.ExitFlow()
+    {
+        using var _ = PublishingSuppression.Enter();
+        Children.Clear();
+    }
+
+    void IFlowOperator.OnSerializing()
+    {
+        using var _ = PublishingSuppression.Enter();
+        Children.Clear();
+    }
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
