@@ -26,6 +26,7 @@ public sealed class ElementScopeViewModel : IDisposable
             if (item is TakeAfterPortal takeAfter)
                 takeAfter.Count.ValueChanged += OnTakeAfterCountChanged;
         }
+        Update();
 
         Margin = parent.Margin.CombineLatest(parent.BorderMargin)
             .Select(t => t.First + t.Second)
