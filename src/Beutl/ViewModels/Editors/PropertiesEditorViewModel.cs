@@ -95,7 +95,7 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
         Type simpleAdapterType = typeof(SimplePropertyAdapter<>);
         Type animatableAdapterType = typeof(AnimatablePropertyAdapter<>);
 
-        List<IProperty> cprops = [.. obj.Properties];
+        List<IProperty> cprops = [.. obj.GetDisplayProperties()];
         cprops.RemoveAll(x => !(predicate?.Invoke(x) ?? true));
         List<IPropertyAdapter> props = cprops.ConvertAll(x =>
         {

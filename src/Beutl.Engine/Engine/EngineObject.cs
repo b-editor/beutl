@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Disposables;
 using System.Reflection;
 using System.Text.Json.Nodes;
@@ -29,6 +30,7 @@ public class EngineObject : Hierarchical, INotifyEdited
     private TimeRange _timeRange;
     private IDisposable? _timeAnchorSubscription;
     private readonly List<IProperty> _properties = new();
+    private List<IProperty>? _displayProperties;
 
     public event EventHandler? Edited;
 
@@ -236,8 +238,9 @@ public class EngineObject : Hierarchical, INotifyEdited
         var propertyInfos = type.GetProperties(
             BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 
-        foreach (var propertyInfo in propertyInfos)
+        for (int index = 0; index < propertyInfos.Length; index++)
         {
+            PropertyInfo propertyInfo = propertyInfos[index];
             if (!typeof(IProperty).IsAssignableFrom(propertyInfo.PropertyType)) continue;
 
             if (!ReflectionCache<T>.Properties.TryGetValue(propertyInfo, out var func))
@@ -260,7 +263,7 @@ public class EngineObject : Hierarchical, INotifyEdited
                     ReflectionCache<T>.Validators[propertyInfo.Name] = validator;
                 }
 
-                RegisterProperty(property);
+                RegisterProperty(property, index);
                 property.SetPropertyInfo(propertyInfo);
                 property.SetOwnerObject(this);
                 property.SetValidator(validator);
@@ -275,6 +278,74 @@ public class EngineObject : Hierarchical, INotifyEdited
             _properties.Add(property);
             property.Edited += OnPropertyEdited;
         }
+
+        if (_displayProperties?.Contains(property) == false)
+        {
+            _displayProperties.Add(property);
+        }
+    }
+
+    protected void RegisterProperty(IProperty property, int index)
+    {
+        if (!_properties.Contains(property))
+        {
+            _properties.Insert(Math.Min(index, _properties.Count), property);
+            property.Edited += OnPropertyEdited;
+        }
+
+        if (_displayProperties?.Contains(property) == false)
+        {
+            _displayProperties.Insert(Math.Min(index, _displayProperties.Count), property);
+        }
+    }
+
+    public IReadOnlyList<IProperty> GetDisplayProperties() => _displayProperties ?? _properties;
+
+    protected void HideProperty(IProperty property)
+    {
+        EnsureDisplayProperties();
+        _displayProperties.Remove(property);
+    }
+
+    protected void MoveProperty(IProperty property, int index)
+    {
+        EnsureDisplayProperties();
+        _displayProperties.Remove(property);
+        _displayProperties.Insert(Math.Min(index, _displayProperties.Count), property);
+    }
+
+    protected void MovePropertyBefore(IProperty property, IProperty target)
+    {
+        EnsureDisplayProperties();
+        _displayProperties.Remove(property);
+        int targetIndex = _displayProperties.IndexOf(target);
+        if (targetIndex >= 0)
+            _displayProperties.Insert(targetIndex, property);
+        else
+            _displayProperties.Add(property);
+    }
+
+    protected void MovePropertyAfter(IProperty property, IProperty target)
+    {
+        EnsureDisplayProperties();
+        _displayProperties.Remove(property);
+        int targetIndex = _displayProperties.IndexOf(target);
+        if (targetIndex >= 0)
+            _displayProperties.Insert(targetIndex + 1, property);
+        else
+            _displayProperties.Add(property);
+    }
+
+    protected void ReorderProperties(params IProperty[] ordered)
+    {
+        EnsureDisplayProperties();
+        _displayProperties = [..ordered, .._displayProperties.Except(ordered)];
+    }
+
+    [MemberNotNull(nameof(_displayProperties))]
+    private void EnsureDisplayProperties()
+    {
+        _displayProperties ??= [.._properties];
     }
 
     private void OnPropertyEdited(object? sender, EventArgs e)

@@ -1,3 +1,6 @@
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Extensibility;
@@ -9,7 +12,7 @@ public static class PropertyAdapterFactory
     public static List<IPropertyAdapter> CreateAdapters(EngineObject obj)
     {
         var adapters = new List<IPropertyAdapter>();
-        foreach (var property in obj.Properties)
+        foreach (var property in obj.GetDisplayProperties())
         {
             Type adapterType;
             var propertyType = property.GetType();
