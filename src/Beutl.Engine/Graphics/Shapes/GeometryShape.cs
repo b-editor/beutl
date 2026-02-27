@@ -11,6 +11,7 @@ public sealed partial class GeometryShape : Shape
     public GeometryShape()
     {
         ScanProperties<GeometryShape>();
+        Data.CurrentValue = new PathGeometry();
     }
 
     [Display(Name = nameof(Strings.Data), ResourceType = typeof(Strings))]
