@@ -16,6 +16,7 @@ public sealed class NodeTreeDrawable : Drawable
     public NodeTreeDrawable()
     {
         ScanProperties<NodeTreeDrawable>();
+        HideProperties(Transform, AlignmentX, AlignmentY, TransformOrigin, FilterEffect, BlendMode, Opacity);
         Model.CurrentValue = new NodeTreeModel();
     }
 

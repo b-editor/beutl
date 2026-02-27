@@ -307,6 +307,12 @@ public class EngineObject : Hierarchical, INotifyEdited
         _displayProperties.Remove(property);
     }
 
+    protected void HideProperties(params IProperty[] properties)
+    {
+        EnsureDisplayProperties();
+        _displayProperties.RemoveAll(p => properties.Contains(p));
+    }
+
     protected void MoveProperty(IProperty property, int index)
     {
         EnsureDisplayProperties();
