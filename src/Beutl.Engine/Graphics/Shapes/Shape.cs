@@ -12,6 +12,7 @@ public abstract partial class Shape : Drawable
     public Shape()
     {
         ScanProperties<Shape>();
+        Fill.CurrentValue = new SolidColorBrush(Colors.White);
     }
 
     [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
@@ -26,6 +27,9 @@ public abstract partial class Shape : Drawable
 
     [Display(Name = nameof(Strings.Stroke), GroupName = nameof(Strings.Stroke), ResourceType = typeof(Strings))]
     public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
+
+    [Display(Name = nameof(Strings.Fill), ResourceType = typeof(Strings), GroupName = nameof(Strings.Fill))]
+    public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
     internal static Vector CalculateScale(Size requestedSize, Rect shapeBounds, Stretch stretch)
     {

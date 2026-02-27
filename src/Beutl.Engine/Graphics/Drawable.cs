@@ -16,6 +16,8 @@ public abstract partial class Drawable : EngineObject
     public Drawable()
     {
         ScanProperties<Drawable>();
+        FilterEffect.CurrentValue = new FilterEffectGroup();
+        Transform.CurrentValue = new TransformGroup();
     }
 
     public override EvaluationTarget GetEvaluationTarget() => EvaluationTarget.Graphics;
@@ -36,9 +38,6 @@ public abstract partial class Drawable : EngineObject
     [Display(Name = nameof(Strings.TransformOrigin), ResourceType = typeof(Strings),
         GroupName = nameof(Strings.Transform))]
     public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
-
-    [Display(Name = nameof(Strings.Fill), ResourceType = typeof(Strings), GroupName = nameof(Strings.Fill))]
-    public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(Strings.BlendMode), ResourceType = typeof(Strings))]
     public IProperty<BlendMode> BlendMode { get; } = Property.CreateAnimatable(Graphics.BlendMode.SrcOver);

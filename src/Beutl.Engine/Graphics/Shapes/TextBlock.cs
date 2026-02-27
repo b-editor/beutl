@@ -17,6 +17,7 @@ public partial class TextBlock : Drawable
     public TextBlock()
     {
         ScanProperties<TextBlock>();
+        Fill.CurrentValue = new SolidColorBrush(Colors.White);
     }
 
     [SuppressResourceClassGeneration]
@@ -48,6 +49,9 @@ public partial class TextBlock : Drawable
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(Strings.Stroke), GroupName = nameof(Strings.Stroke), ResourceType = typeof(Strings))]
     public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
+
+    [Display(Name = nameof(Strings.Fill), ResourceType = typeof(Strings), GroupName = nameof(Strings.Fill))]
+    public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(Strings.SplitByCharacters), ResourceType = typeof(Strings))]
     public IProperty<bool> SplitByCharacters { get; } = Property.Create<bool>(false);
