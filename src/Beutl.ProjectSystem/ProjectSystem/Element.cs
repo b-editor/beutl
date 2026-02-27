@@ -155,6 +155,14 @@ public class Element : Hierarchical, INotifyEdited
         {
             Objects.Replace(objects);
         }
+        else if (context is IJsonSerializationContext jsonContext)
+        {
+            EngineObject[] migrated = ElementMigration.MigrateFromOperation(jsonContext);
+            if (migrated.Length > 0)
+            {
+                Objects.Replace(migrated);
+            }
+        }
     }
 
     public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer)
