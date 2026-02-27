@@ -21,25 +21,28 @@ public partial class TextBlock : Drawable
     }
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(Strings.FontWeight), ResourceType = typeof(Strings))]
-    public IProperty<FontWeight> FontWeight { get; } = Property.Create(Media.FontWeight.Regular);
-
-    [SuppressResourceClassGeneration]
-    [Display(Name = nameof(Strings.FontStyle), ResourceType = typeof(Strings))]
-    public IProperty<FontStyle> FontStyle { get; } = Property.Create(Media.FontStyle.Normal);
+    [Display(Name = nameof(Strings.Size), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
+    public IProperty<float> Size { get; } = Property.Create<float>(12);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(Strings.FontFamily), ResourceType = typeof(Strings))]
     public IProperty<FontFamily?> FontFamily { get; } = Property.Create<FontFamily?>(Media.FontFamily.Default);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(Strings.Size), ResourceType = typeof(Strings))]
-    [Range(0, float.MaxValue)]
-    public IProperty<float> Size { get; } = Property.Create<float>(12);
+    [Display(Name = nameof(Strings.FontStyle), ResourceType = typeof(Strings))]
+    public IProperty<FontStyle> FontStyle { get; } = Property.Create(Media.FontStyle.Normal);
+
+    [SuppressResourceClassGeneration]
+    [Display(Name = nameof(Strings.FontWeight), ResourceType = typeof(Strings))]
+    public IProperty<FontWeight> FontWeight { get; } = Property.Create(Media.FontWeight.Regular);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(Strings.CharactorSpacing), ResourceType = typeof(Strings))]
     public IProperty<float> Spacing { get; } = Property.Create<float>(0);
+
+    [Display(Name = nameof(Strings.SplitByCharacters), ResourceType = typeof(Strings))]
+    public IProperty<bool> SplitByCharacters { get; } = Property.Create<bool>(false);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
@@ -52,9 +55,6 @@ public partial class TextBlock : Drawable
 
     [Display(Name = nameof(Strings.Fill), ResourceType = typeof(Strings), GroupName = nameof(Strings.Fill))]
     public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
-
-    [Display(Name = nameof(Strings.SplitByCharacters), ResourceType = typeof(Strings))]
-    public IProperty<bool> SplitByCharacters { get; } = Property.Create<bool>(false);
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

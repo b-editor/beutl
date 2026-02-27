@@ -107,11 +107,9 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         // Shape.cs
         if (drawable is GeometryShape.Resource { Data: PathGeometry.Resource geometry } shape)
         {
-            var requestedSize = new Size(shape.Width, shape.Height);
             Rect shapeBounds = geometry.Bounds;
-            Vector scale = Shape.CalculateScale(requestedSize, shapeBounds, shape.Stretch);
             //matrix = Graphics.Matrix.CreateTranslation(-shapeBounds.Position);
-            Size size = shapeBounds.Size * scale;
+            Size size = shapeBounds.Size;
 
             if (shape.Pen != null)
             {
@@ -120,8 +118,6 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
                 matrix *= Graphics.Matrix.CreateTranslation(thickness, thickness);
             }
-
-            matrix *= Graphics.Matrix.CreateScale(scale);
 
             Matrix mat = drawable.GetOriginal().GetTransformMatrix(frameSize, size, drawable);
             matrix *= mat;

@@ -236,6 +236,6 @@ public static class TimelineBasicsTutorial
                 c.DataContext is BaseEditorViewModel vm &&
                 vm.PropertyAdapter.GetEngineProperty() is IProperty prop &&
                 prop.GetOwnerObject() is EllipseShape &&
-                prop.Name == nameof(Shape.Width));
+                prop.Name == nameof(EllipseShape.Width));
     }
 }

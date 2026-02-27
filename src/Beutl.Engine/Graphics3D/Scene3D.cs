@@ -21,6 +21,8 @@ public partial class Scene3D : Drawable, IFlowOperator
     public Scene3D()
     {
         ScanProperties<Scene3D>();
+        HideProperty(GizmoMode);
+        HideProperty(GizmoTarget);
     }
 
     /// <summary>
